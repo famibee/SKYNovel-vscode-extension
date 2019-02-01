@@ -1,8 +1,6 @@
-# Change Log
-All notable changes to the "skynovel" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
+## v0.0.2
+- アイコン追加
+- シンタックスハイライト修正：&記法
 ## v0.0.1
 - Initial release
 - シンタックスハイライト

@@ -2,9 +2,9 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"author": "miyazawa famibee",
-	"publisher": "miyazawa famibee",
+	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.30.0"
 	},
@@ -12,6 +12,7 @@
 		"Programming Languages",
 		"Other"
 	],
+	"icon": "images/icon.png",
 	"activationEvents": [
 		"onLanguage:skynovel",
 		"onCommand:extension.SKYNovel"
@@ -138,7 +139,8 @@
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"postinstall": "node ./node_modules/vscode/bin/install",
-		"test": "npm run compile && node ./node_modules/vscode/bin/test"
+		"test": "npm run compile && node ./node_modules/vscode/bin/test",
+		"package": "vsce package"
 	},
 	"devDependencies": {
 		"typescript": "^3.1.4",
@@ -155,7 +157,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+ssh://git@github.com/famibee/SKYNovel-vscode-extension.git"
+		"url": "https://github.com/famibee/SKYNovel-vscode-extension.git"
 	},
 	"bugs": {
 		"url": "https://github.com/famibee/SKYNovel-vscode-extension/issues",

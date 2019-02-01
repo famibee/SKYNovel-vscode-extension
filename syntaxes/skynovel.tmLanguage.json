@@ -4,11 +4,10 @@
 	"patterns": [
 		{"include": "#comment"},
 		{"include": "#label"},
-		{"include": "#ampersand_puts"},
-		{"include": "#ampersand_let"},
-		{"include": "#name"},
 		{"include": "#let_ml"},
-		{"include": "#tag"}
+		{"include": "#tag"},
+		{"include": "#ampersand_puts"},
+		{"include": "#ampersand_let"}
 	],
 	"repository": {
 		"comment": {"patterns": [
@@ -38,27 +37,6 @@
 				"patterns": [
 					{"include": "source.frag"}
 				]
-			}
-		]},
-		"ampersand_puts": {"patterns": [
-			{
-				"begin": "&",
-				"end": "&\\n",
-				"name": "constant.numeric.skynovel"
-			}
-		]},
-		"ampersand_let": {"patterns": [
-			{
-				"begin": "&",
-				"end": "&\\n",
-				"name": "constant.numeric.skynovel"
-			}
-		]},
-		"name": {"patterns": [
-			{
-				"begin": "^\\t*【",
-				"end": "】",
-				"name": "keyword.other.skynovel"
 			}
 		]},
 		"tag": {"patterns": [
@@ -127,7 +105,19 @@
 					}
 				]}
 			}
-		}
+		},
+		"ampersand_puts": {"patterns": [
+			{
+				"match": "&.+&\\n",
+				"name": "constant.numeric.skynovel"
+			}
+		]},
+		"ampersand_let": {"patterns": [
+			{
+				"match": "&.+\\n",
+				"name": "constant.numeric.skynovel"
+			}
+		]}
 	},
 	"scopeName": "source.skynovel"
 }
