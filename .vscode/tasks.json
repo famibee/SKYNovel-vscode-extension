@@ -20,6 +20,11 @@
 			"type": "npm",
 			"script": "package",
 			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "version:patch",
+			"problemMatcher": []
 		}
 	]
 }
