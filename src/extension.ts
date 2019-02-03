@@ -1,18 +1,11 @@
 import * as vscode from 'vscode';
 const fs = require('fs');
+const path = require('path');
+const img_size = require('image-size');
+
 
 const aDispose: vscode.Disposable[] = [];
-
-
-interface DecChars {
-	aRange		: vscode.Range[];
-	decorator	: vscode.TextEditorDecorationType;
-}
-let decChars: DecChars = {
-	aRange: [],
-	decorator: vscode.window.createTextEditorDecorationType({})
-};
-let timeout: NodeJS.Timer | null = null;
+let edActive: vscode.TextEditor | undefined;
 
 // ロード時に一度だけ呼ばれる
 export function activate(context: vscode.ExtensionContext) {
@@ -33,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 	// fn属性やlabel属性の値に下線を引くように
-	let edActive = vscode.window.activeTextEditor;
+	edActive = vscode.window.activeTextEditor;
 	if (edActive) trgUpdDeco();
 
 	vscode.window.onDidChangeActiveTextEditor(ed=> {
@@ -44,12 +37,29 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.workspace.onDidChangeTextDocument(event=> {
 		if (edActive && event.document === edActive.document) trgUpdDeco();
 	}, null, context.subscriptions);
+}
+
+// 拡張機能が非アクティブ化されたときに、実行
+export function deactivate() {
+	aDispose.forEach(v=> v.dispose());
+}
 
 
+	// fn属性やlabel属性の値に下線を引くように
+	let timeout: NodeJS.Timer | null = null;
 	function trgUpdDeco() {
 		if (timeout) clearTimeout(timeout);
 		timeout = setTimeout(updDeco, 500);
 	}
+
+	interface DecChars {
+		aRange		: vscode.Range[];
+		decorator	: vscode.TextEditorDecorationType;
+	}
+	let decChars: DecChars = {
+		aRange: [],
+		decorator: vscode.window.createTextEditorDecorationType({})
+	};
 	function updDeco() {
 		if (! edActive) return;
 		const src = edActive.document.getText();
@@ -79,39 +89,22 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 		edActive.setDecorations(decChars.decorator, decChars.aRange);
 	}
-}
-
-// 拡張機能が非アクティブ化されたときに、実行
-export function deactivate() {
-	aDispose.forEach(v=> v.dispose());
-}
 
 
 // path.json 作成
-function updPathJson($cur: string) {
-	const jsonPrj = fs.readFileSync($cur +'prj.json');
-	const hPath = get_hPathFn2Exts($cur, JSON.parse(jsonPrj));
-	fs.writeFileSync($cur +'path.json', JSON.stringify(hPath));
+function updPathJson(cur: string) {
+	const jsonPrj = fs.readFileSync(cur +'prj.json');
+	const hPath = get_hPathFn2Exts(cur, JSON.parse(jsonPrj));
+	fs.writeFileSync(cur +'path.json', JSON.stringify(hPath));
 }
 
 interface IExts { [ext: string]: string; };
-interface IPathFn2Exts { [fn: string]: IExts; };
+interface IFn2Path { [fn: string]: IExts; };
 
-import m_fs = require('fs');
-import path = require('path');
-function uint(o: any): number {
-	const v = parseInt(String(o), 10);
-	return v < 0 ? -v : v;
-}
-const hExtNG	= {	// Steam対策
-	'db'		:0,
-	'ini'		:0,
-	'DS_Store'	:0
-};
-
-const regNo_proc = /^(\..+|Thumbs.db|Desktop.ini|_notes|Icon\r)$/;
-function get_hPathFn2Exts($cur: string, oCfg: any): IPathFn2Exts {
-	const hPathFn2Exts: IPathFn2Exts = {};
+const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
+const regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
+function get_hPathFn2Exts($cur: string, oCfg: any): IFn2Path {
+	const hFn2Path: IFn2Path = {};
 
 //	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
 	// ｛ファイル名：｛拡張子：パス｝｝形式で格納。
@@ -122,47 +115,82 @@ function get_hPathFn2Exts($cur: string, oCfg: any): IPathFn2Exts {
 	//		あとで実際にロード関数に渡すので。
 	if (oCfg.search) for (const dir of oCfg.search) {
 		const wd = path.resolve($cur, dir);
-		if (! m_fs.existsSync(wd)) continue;
+		if (! fs.existsSync(wd)) continue;
 
-		for (const nm_base of m_fs.readdirSync(wd)) {
+		for (const nm_base of fs.readdirSync(wd)) {
 			const nm = nm_base.normalize('NFC');
-			if (regNo_proc.test(nm)) continue;
+			if (regNoUseSysFile.test(nm)) continue;
 			const url = path.resolve(wd, nm);
-			if (m_fs.lstatSync(url).isDirectory()) continue;
-			const p = path.parse(nm);
-			const ext = p.ext.slice(1);
-			if (ext in hExtNG) continue;
+			if (fs.lstatSync(url).isDirectory()) continue;
 
-			const fn = p.name;
-			let hExts = hPathFn2Exts[fn];
-			if (! hExts) {
-				hExts = hPathFn2Exts[fn] = {':cnt': '1'};
-			}
-			else if (ext in hExts) {
-				vscode.window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
-			}
-			else {
-				hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
-			}
-			hExts[ext] = path.resolve(dir, nm).slice(1);
-/*
-			const oRate = REG_FN_RATE_SPRIT.exec(url);
-			if (! oRate) continue;
-			if (oRate[2]) continue;
+			// スプライトシート用json自動生成機能
+			// breakline.5x20.png などから breakline.json を（無ければ）生成
+			const m = nm.match(regSprSheetImg);
+			if (! m) {addPath(hFn2Path, dir, nm); continue;}
+			const fnJs = path.resolve(wd, m[1] +'.json');
+			if (! fs.existsSync(fnJs)) {
+				const size = img_size(url);
+				const xLen = uint(m[2]);
+				const yLen = uint(m[3]);
+				const w = size.width /xLen;
+				const h = size.height /yLen;
+				const basename = m[1];
+				const ext = m[4];
 
-			// fo_fnが「@無し」のh_extsに「@あり」を代入
-			const fn_xga = oRate[1] + retinaFnTail + oRate[3];
-			if (m_fs.existsSync(fn_xga)) {
-				hPathFn2Retina[fo_fn] = true;
-				h_exts[fo_ext] = fn_xga;
-				continue;
+				const oJs :any = {
+					frames: {},
+					meta: {
+						app: 'skynovel',
+						version: '1.0',
+						image: m[0],
+						format: 'RGBA8888',
+						size: {w: size.width, h :size.height},
+						scale: 1,
+						animationSpeed: 1,	// 0.01~1.00
+					},
+				};
+				let cnt = 0;
+				for (let ix=0; ix<xLen; ++ix) {
+					for (let iy=0; iy<yLen; ++iy) {
+						++cnt;
+						oJs.frames[basename + String(cnt).padStart(4, '0') +'.'+ ext] = {
+							frame: {x: ix *w, y: iy*h, w: w, h :h},
+							rotated: false,
+							trimmed: false,
+							spriteSourceSize: {x: 0, y: 0, w: size.width, h :size.height},
+							sourceSize: {w: w, h :h},
+							pivot: {x: 0.5, y: 0.5},
+						};
+					}
+				}
+				fs.writeFileSync(fnJs, JSON.stringify(oJs));
+				vscode.window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
+
+				addPath(hFn2Path, dir, `${m[1]}.json`);
 			}
-			h_exts[fo_ext] = url;
-*/
 		}
 	}
 
-	return hPathFn2Exts;
+	return hFn2Path;
 }
-//	let	retinaFnTail	= '';
-//	let	hPathFn2Retina	: {[name: string]: boolean}	= {};
+
+function addPath(hFn2Path: IFn2Path, dir: string, nm: string) {
+		const p = path.parse(nm);
+		const ext = p.ext.slice(1);
+		const fn = p.name;
+		let hExts = hFn2Path[fn];
+		if (! hExts) {
+			hExts = hFn2Path[fn] = {':cnt': '1'};
+		}
+		else if (ext in hExts) {
+			vscode.window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
+		}
+		else {
+			hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
+		}
+		hExts[ext] = path.resolve(dir, nm).slice(1);
+	}
+	function uint(o: any): number {
+		const v = parseInt(String(o), 10);
+		return v < 0 ? -v : v;
+	}
