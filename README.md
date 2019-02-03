@@ -1,4 +1,15 @@
-# skynovel README
+# SKYNovel Extension for VSCode
+[![MIT License](https://img.shields.io/github/license/famibee/SKYNovel-vscode-extension.svg)](LICENSE)
+![](https://img.shields.io/badge/platform-windows%20%7C%20macos-lightgrey.svg)
+
+[![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension)
+[![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/dev-status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension?type=dev)
+
+![logo.svg](https://github.com/famibee/SKYNovel/blob/master/test/icon.svg)
+
+[CHANGELOG.md](CHANGELOG.md)
+
+---
 
 ## What's new
 - Syntax Highlight
