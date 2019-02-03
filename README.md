@@ -2,10 +2,11 @@
 
 ## What's new
 
- - Syntax Highlight
- - Automatically update path.json
- - Automatically Create SpriteSheet's json from images
-    + ex) breakline.5x20.png -> breakline.json
+- Syntax Highlight
+- Automatically Update prj/path.json
+- Automatically Create SpriteSheet's json from images
+	+ ex) breakline.5x20.png -> breakline.json
+- Automatically Update core/plugin/plugin.js
 
 ---
 ## License ... [MIT](LICENSE)
