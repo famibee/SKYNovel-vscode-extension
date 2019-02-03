@@ -25,6 +25,11 @@
 			"type": "npm",
 			"script": "version:patch",
 			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "npm_check_updates_do",
+			"problemMatcher": []
 		}
 	]
 }
