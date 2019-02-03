@@ -2,7 +2,8 @@
 
 ## What's new
 
- - syntax Highlight
+ - Syntax Highlight
+ - Automatically update path.json
 
 ---
 ## License ... [MIT](LICENSE)
