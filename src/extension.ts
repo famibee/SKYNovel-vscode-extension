@@ -21,7 +21,8 @@ export function activate(context: vscode.ExtensionContext) {
 		// フォルダーを開いている（len>1 ならワークスペース）
 	// ファイル増減を監視し、path.json を自動更新する
 	if (aFld) aFld.forEach(fld => {
-		const pathPrj = fld.uri.fsPath +'/';
+		const pathPrj = fld.uri.fsPath +'/prj/';
+		if (! fs.existsSync(pathPrj)) return;
 		if (! fs.existsSync(pathPrj +'prj.json')) return;
 
 		const fw = vscode.workspace.createFileSystemWatcher(pathPrj +'?*/*');
