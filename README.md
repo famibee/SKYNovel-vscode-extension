@@ -4,6 +4,8 @@
 
  - Syntax Highlight
  - Automatically update path.json
+ - Automatically Create SpriteSheet's json from images
+    + ex) breakline.5x20.png -> breakline.json
 
 ---
 ## License ... [MIT](LICENSE)
