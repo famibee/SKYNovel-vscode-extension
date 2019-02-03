@@ -98,7 +98,7 @@ interface IExts { [ext: string]: string; };
 interface IPathFn2Exts { [fn: string]: IExts; };
 
 import m_fs = require('fs');
-import m_path = require('path');
+import path = require('path');
 function uint(o: any): number {
 	const v = parseInt(String(o), 10);
 	return v < 0 ? -v : v;
@@ -109,6 +109,7 @@ const hExtNG	= {	// Steam対策
 	'DS_Store'	:0
 };
 
+const regNo_proc = /^(\..+|Thumbs.db|Desktop.ini|_notes|Icon\r)$/;
 function get_hPathFn2Exts($cur: string, oCfg: any): IPathFn2Exts {
 	const hPathFn2Exts: IPathFn2Exts = {};
 
@@ -119,37 +120,33 @@ function get_hPathFn2Exts($cur: string, oCfg: any): IPathFn2Exts {
 	//		URLエンコードされていない物を想定。
 	//		パスのみURLエンコード済みの、File.urlと同様の物を。
 	//		あとで実際にロード関数に渡すので。
-	const lenCur = $cur.length;
 	if (oCfg.search) for (const dir of oCfg.search) {
-		const wd = m_path.resolve($cur, dir);
+		const wd = path.resolve($cur, dir);
 		if (! m_fs.existsSync(wd)) continue;
 
 		for (const nm_base of m_fs.readdirSync(wd)) {
 			const nm = nm_base.normalize('NFC');
-			if (nm.charAt(0) == '.' || nm == 'Thumbs.db'
-				|| nm == 'Desktop.ini' || nm == '_notes'
-				|| nm == 'Icon\r') continue;
-			const fo_url = m_path.resolve(wd, nm);
-			if (m_fs.lstatSync(fo_url).isDirectory()) continue;
-			const p = m_path.parse(nm);
-			const fo_ext = p.ext.slice(1);
-			if (fo_ext in hExtNG) continue;
+			if (regNo_proc.test(nm)) continue;
+			const url = path.resolve(wd, nm);
+			if (m_fs.lstatSync(url).isDirectory()) continue;
+			const p = path.parse(nm);
+			const ext = p.ext.slice(1);
+			if (ext in hExtNG) continue;
 
-			const fo_fn = p.name;
-			let h_exts = hPathFn2Exts[fo_fn];
-			if (! h_exts) {
-				h_exts = hPathFn2Exts[fo_fn] = {':cnt': '1'};
+			const fn = p.name;
+			let hExts = hPathFn2Exts[fn];
+			if (! hExts) {
+				hExts = hPathFn2Exts[fn] = {':cnt': '1'};
 			}
-			else if (fo_ext in h_exts) {
-				throw Error(`[xmlCfg.search.path] サーチパスにおいてファイル名＋拡張子【${fo_fn}】が重複しています。フォルダを縦断検索するため許されません`);
+			else if (ext in hExts) {
+				vscode.window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
 			}
 			else {
-				h_exts[':cnt'] = String(uint(h_exts[':cnt']) +1);
+				hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
 			}
-		//	h_exts[fo_ext] = fo_url;
-			h_exts[fo_ext] = fo_url.slice(lenCur);
+			hExts[ext] = path.resolve(dir, nm).slice(1);
 /*
-			const oRate = REG_FN_RATE_SPRIT.exec(fo_url);
+			const oRate = REG_FN_RATE_SPRIT.exec(url);
 			if (! oRate) continue;
 			if (oRate[2]) continue;
 
@@ -160,7 +157,7 @@ function get_hPathFn2Exts($cur: string, oCfg: any): IPathFn2Exts {
 				h_exts[fo_ext] = fn_xga;
 				continue;
 			}
-			h_exts[fo_ext] = fo_url;
+			h_exts[fo_ext] = url;
 */
 		}
 	}
