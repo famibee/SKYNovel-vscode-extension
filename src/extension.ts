@@ -15,13 +15,22 @@ export function activate(context: vscode.ExtensionContext) {
 	// ファイル増減を監視し、path.json を自動更新する
 	if (aFld) aFld.forEach(fld => {
 		const pathPrj = fld.uri.fsPath +'/prj/';
-		if (! fs.existsSync(pathPrj)) return;
-		if (! fs.existsSync(pathPrj +'prj.json')) return;
+		if (fs.existsSync(pathPrj) && fs.existsSync(pathPrj +'prj.json')) {
+			const fw = vscode.workspace.createFileSystemWatcher(pathPrj+'?*/*');
+			aDispose.push(fw.onDidCreate(()=> updPathJson(pathPrj)));
+			aDispose.push(fw.onDidDelete(()=> updPathJson(pathPrj)));
+			updPathJson(pathPrj);
+		}
 
-		const fw = vscode.workspace.createFileSystemWatcher(pathPrj +'?*/*');
-		aDispose.push(fw.onDidCreate(()=> updPathJson(pathPrj)));
-		aDispose.push(fw.onDidDelete(()=> updPathJson(pathPrj)));
-		updPathJson(pathPrj);
+		// プラグインフォルダ増減でビルドフレームワークに反映する機能
+		// というか core/plugin/plugin.js を更新する機能
+		const pathPlg = fld.uri.fsPath +'/core/plugin';
+		if (fs.existsSync(pathPlg) && fs.existsSync(pathPlg +'.js')) {
+			const fw = vscode.workspace.createFileSystemWatcher(pathPlg+'/?*/');
+			aDispose.push(fw.onDidCreate(()=> updPlugin(pathPlg)));
+			aDispose.push(fw.onDidDelete(()=> updPlugin(pathPlg)));
+			updPlugin(pathPlg);
+		}
 	});
 
 
@@ -89,6 +98,19 @@ export function deactivate() {
 		}
 		edActive.setDecorations(decChars.decorator, decChars.aRange);
 	}
+
+
+// plugin.js 作成
+function updPlugin(cur: string) {
+	const h: any = {};
+	for (const nm of fs.readdirSync(cur)) {
+		if (regNoUseSysFile.test(nm)) continue;
+		const url = path.resolve(cur, nm);
+		if (! fs.lstatSync(url).isDirectory()) continue;
+		h[nm] = 0;
+	}
+	fs.writeFileSync(cur +'.js', `export default ${JSON.stringify(h)};`);
+}
 
 
 // path.json 作成

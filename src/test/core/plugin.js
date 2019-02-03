@@ -1,0 +1,1 @@
+export default {"dummy":0,"sample":0};
