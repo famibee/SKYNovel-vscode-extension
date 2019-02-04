@@ -34,6 +34,10 @@
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204automatically.gif)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
 
+　スプライトシートは、生成された json 名を指定することで画像/動画と同じように使用できます。
+![auto_json.png](images/auto_json.png)
+
+
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
 	+ 意味不明でOK、内部的な処理なので
 
