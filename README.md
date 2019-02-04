@@ -24,12 +24,16 @@
 ## 機能（*.snファイルを表示したときにロードします）
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
 - リファレンス検索パレットでAPIリファレンス
+
 [![Reference search](https://img.youtube.com/vi/uIkWnAGBkGM/0.jpg)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
+
 - スプライトシート用json自動生成機能
 	+ ex) breakline.5x20.png というファイル名の画像から breakline.json を作成
 - ファイル増減を監視しして prj/path.json に自動更新
 	+ 意味不明でOK、内部的な処理なので
+
 [![Reference search](https://img.youtube.com/vi/tfrkImoufU4/0.jpg)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
+
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
 	+ 意味不明でOK、内部的な処理なので
 
