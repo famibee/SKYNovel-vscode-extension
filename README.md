@@ -14,9 +14,9 @@
 ## Features (Load when *.sn is displayed)
 - Syntax Highlight
 - The Reference search pallet to open API references
+- Automatically Update prj/path.json
 - Automatically Create SpriteSheet's json from images
 	+ ex) breakline.5x20.png -> breakline.json
-- Automatically Update prj/path.json
 	+ It is meaningless and OK. Because it is internal processing.
 - Automatically Update core/plugin/plugin.js
 	+ It is meaningless and OK. Because it is internal processing.
@@ -25,14 +25,14 @@
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
 - リファレンス検索パレットでAPIリファレンス
 
-[![Reference search](https://img.youtube.com/vi/uIkWnAGBkGM/0.jpg)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
+[![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204ref_search.gif)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
 
+- ファイル増減を監視しして prj/path.json に自動更新
 - スプライトシート用json自動生成機能
 	+ ex) breakline.5x20.png というファイル名の画像から breakline.json を作成
-- ファイル増減を監視しして prj/path.json に自動更新
 	+ 意味不明でOK、内部的な処理なので
 
-[![Reference search](https://img.youtube.com/vi/tfrkImoufU4/0.jpg)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
+[![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204automatically.gif)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
 
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
 	+ 意味不明でOK、内部的な処理なので
