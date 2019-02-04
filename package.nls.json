@@ -1,0 +1,15 @@
+{
+  "skynovel.description": "Adding SKYNovel language support for Visual Studio Code",
+  "skynovel.updateCtags.title": "Update Ctags Index File",
+  "skynovel.openReferencePallet.title": "Open reference search pallet",
+  "skynovel.configuration.title": "SKYNovel Configuration",
+  "skynovel.ctagsProcess.description": "Ctags Configuration",
+  "skynovel.items.tagFilePath.description": "Path to the Ctags' index file",
+  "skynovel.items.searchPath.description": "Path to the directory where ctags search sn files",
+  "skynovel.items.searchRecursive.description": "Whether search sn files recursively",
+  "skynovel.items.runOnSave.description": "Whether recreate the index file automatically when sn file is saved",
+  "skynovel.items.fileExtensions.description": "File extensions to be searched as sn file",
+  "skynovel.items.extraOption.description": "Command-line options which will be passed to ctags",
+  "skynovel.referencePalletEnable.description": "Whether to show in the reference pallet",
+  "skynovel.referencePalletEnable.skynovel.description": "SKYNovel Documents"
+}

@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"engines": {
@@ -14,7 +14,8 @@
 	],
 	"icon": "images/icon.png",
 	"activationEvents": [
-		"onLanguage:skynovel"
+		"onLanguage:skynovel",
+		"onCommand:skynovel.openReferencePallet"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -36,6 +37,13 @@
 				"language": "skynovel",
 				"scopeName": "source.skynovel",
 				"path": "./syntaxes/skynovel.tmLanguage.json"
+			}
+		],
+		"commands": [
+			{
+				"command": "skynovel.openReferencePallet",
+				"title": "%skynovel.openReferencePallet.title%",
+				"category": "SKYNovel"
 			}
 		]
 	},

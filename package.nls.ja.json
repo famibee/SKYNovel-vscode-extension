@@ -1,0 +1,15 @@
+{
+  "skynovel.description": "Visual Studio CodeにSKYNovelファイルの機能を追加します",
+  "skynovel.updateCtags.title": "Ctagsのインデックスファイルを更新",
+  "skynovel.openReferencePallet.title": "リファレンス検索プロンプトを開く",
+  "skynovel.configuration.title": "SKYNovelの設定",
+  "skynovel.ctagsProcess.description": "Ctagsの設定",
+  "skynovel.items.tagFilePath.description": "Ctagsのインデックスファイルへのパス",
+  "skynovel.items.searchPath.description": "Ctagsがsnファイルを検索するディレクトリへのパス",
+  "skynovel.items.searchRecursive.description": "snファイルを再帰的に検索するか",
+  "skynovel.items.runOnSave.description": "snファイルが保存されたときに自動的にインデックスファイルを再生成するか",
+  "skynovel.items.fileExtensions.description": "snファイルとして検索されるファイル拡張子",
+  "skynovel.items.extraOption.description": "Ctagsに渡す追加のコマンドラインオプション",
+  "skynovel.referencePalletEnable.description": "リファレンスプロンプトに表示するか",
+  "skynovel.referencePalletEnable.skynovel.description": "SKYNovelドキュメント"
+}

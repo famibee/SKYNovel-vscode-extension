@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 const fs = require('fs');
 const path = require('path');
 const img_size = require('image-size');
+import { ReferenceProvider } from './ReferenceProvider';
 
 
 const aDispose: vscode.Disposable[] = [];
@@ -13,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// undefinedだった場合はファイルを開いている
 		// フォルダーを開いている（len>1 ならワークスペース）
 	// ファイル増減を監視し、path.json を自動更新する
-	if (aFld) aFld.forEach(fld => {
+	if (aFld) aFld.map(fld=> {
 		const pathPrj = fld.uri.fsPath +'/prj/';
 		if (fs.existsSync(pathPrj) && fs.existsSync(pathPrj +'prj.json')) {
 			const fw = vscode.workspace.createFileSystemWatcher(pathPrj+'?*/*');
@@ -33,6 +34,8 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// リファレンス
+	new ReferenceProvider(context);
 
 	// fn属性やlabel属性の値に下線を引くように
 	edActive = vscode.window.activeTextEditor;
@@ -50,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 // 拡張機能が非アクティブ化されたときに、実行
 export function deactivate() {
-	aDispose.forEach(v=> v.dispose());
+	aDispose.map(v=> v.dispose());
 }
 
 
