@@ -49,11 +49,16 @@ You can open API references with your browser by following the steps
 # リファレンス検索パレット
 　次の手順でAPIリファレンスを開けます。
 1. Ctrl+Shift+Pを押してコマンドパレットを開きます。
-	![](images/ref_search0.jpg)
+
+![](images/ref_search0.jpg)
+
 2. SKYNovel: Open reference search palette」というコマンドを実行します。
-	![](images/ref_search1.jpg)
+
+![](images/ref_search1.jpg)
+
 3. リファレンスを開きたいタグ名を入力し、Enterで開きます。
-	![](images/ref_search2.jpg)
+
+![](images/ref_search2.jpg)
 
 ---
 ## License ... [MIT](LICENSE)
