@@ -5,7 +5,7 @@
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension)
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/dev-status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension?type=dev)
 
-![logo.svg](https://github.com/famibee/SKYNovel/blob/master/test/icon.svg)
+![logo.svg](images/icon.png)
 
 [CHANGELOG.md](CHANGELOG.md)
 
