@@ -6,9 +6,6 @@ interface Reference extends vscode.QuickPickItem {
 
 export class ReferenceProvider {
 	private readonly pickItems: Reference[] = [
-		// プラグイン
-		{label: 'notice', description: 'humane.js 通知パネル', url: ''},
-
 		// 変数操作
 		{label: 'clearsysvar', description: 'システム変数の全消去', url: ''},
 		{label: 'clearvar', description: 'ゲーム変数の全消去', url: ''},
