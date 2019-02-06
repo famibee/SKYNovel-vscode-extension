@@ -34,7 +34,7 @@
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204automatically.gif)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
 
-　スプライトシートは、生成された json 名を指定することで画像/動画と同じように使用できます。
+　スプライトシートは、生成された json を指定することで画像/動画と同じように使用できます。
 ![auto_json.png](images/auto_json.png)
 
 
@@ -60,7 +60,7 @@ You can open API references with your browser by following the steps
 
 ![](images/ref_search1.jpg)
 
-3. リファレンスを開きたいタグ名を入力し、Enterで開きます。
+3. リファレンスを開きたいタグ名を入力し、EnterでWebのマニュアルを開きます。
 
 ![](images/ref_search2.jpg)
 

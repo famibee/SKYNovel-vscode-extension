@@ -6,7 +6,12 @@ interface Reference extends vscode.QuickPickItem {
 
 export class ReferenceProvider {
 	private readonly pickItems: Reference[] = [
-		//	変数操作
+		// プラグイン
+		{label: 'notice', description: 'humane.js 通知パネル', url: ''},
+
+		// 変数操作
+		{label: 'clearsysvar', description: 'システム変数の全消去', url: ''},
+		{label: 'clearvar', description: 'ゲーム変数の全消去', url: ''},
 		{label: 'let', description: '変数代入・演算', url: ''},
 		{label: 'let_abs', description: '絶対値', url: ''},
 		{label: 'let_char_at', description: '文字列から一字取りだし', url: ''},
@@ -17,9 +22,6 @@ export class ReferenceProvider {
 		{label: 'let_round', description: '四捨五入', url: ''},
 		{label: 'let_search', description: '正規表現で検索', url: ''},
 		{label: 'let_substr', description: '文字列から抜きだし', url: ''},
-
-		// プラグイン
-		{label: 'notice', description: 'humane.js 通知パネル', url: ''},
 
 		// レイヤ共通
 		{label: 'add_lay', description: 'レイヤを追加する', url: ''},
@@ -36,7 +38,7 @@ export class ReferenceProvider {
 		{label: 'tsy', description: 'トゥイーン開始', url: ''},
 		{label: 'wait_tsy', description: 'トゥイーン終了待ち', url: ''},
 
-		//	文字・文字レイヤ
+		// 文字・文字レイヤ
 		{label: 'autowc', description: '文字ごとのウェイト', url: ''},
 		{label: 'ch', description: '文字を追加する', url: ''},
 		{label: 'clear_text', description: '文字消去', url: ''},
@@ -54,7 +56,7 @@ export class ReferenceProvider {
 		{label: 'span', description: 'インラインスタイル設定', url: ''},
 		{label: 'tcy', description: '縦中横を表示する', url: ''},
 
-		//	画像・画像レイヤ
+		// 画像・画像レイヤ
 		{label: 'add_face', description: '差分画像の追加', url: ''},
 
 		// HTMLフレーム
@@ -64,7 +66,7 @@ export class ReferenceProvider {
 		{label: 'frame', description: 'フレーム', url: ''},
 		{label: 'tsy_frame', description: 'フレーム', url: ''},
 
-		//	イベント
+		// イベント
 		{label: 'clear_event', description: 'イベントを全消去', url: ''},
 		{label: 'enable_event', description: 'イベント有無の切替', url: ''},
 		{label: 'event', description: 'イベントを予約', url: ''},
@@ -135,9 +137,7 @@ export class ReferenceProvider {
 		{label: 'toggle_full_screen', description: '全画面状態切替', url: ''},
 		{label: 'window', description: 'アプリウインドウ設定', url: ''},
 
-		//	デバッグ・その他
-		{label: 'clearsysvar', description: 'システム変数の全消去', url: ''},
-		{label: 'clearvar', description: 'ゲーム変数の全消去', url: ''},
+		// デバッグ・その他
 		{label: 'dump_val', description: '変数のダンプ', url: ''},
 		{label: 'dump_script', description: 'スクリプトのダンプ', url: ''},
 		{label: 'dump_stack', description: 'スタックのダンプ', url: ''},
@@ -154,7 +154,7 @@ export class ReferenceProvider {
 		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 	}
 	private loadCfg = ()=> this.pickItems.sort(this.compare).map(v=> {
-		v.url = 'https://famibee.web.fc2.com/tag_dev/tags.htm#'+ v.label;
+		v.url = 'https://famibee.github.io/SKYNovel/tag.htm#'+ v.label;
 		v.description += '(SKYNovel)';
 	});
 	private compare(a: vscode.QuickPickItem, b: vscode.QuickPickItem): number {
