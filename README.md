@@ -13,6 +13,7 @@
 
 ## Features (Load when *.sn is displayed)
 - Syntax Highlight
+- Library update check
 - The Reference search pallet to open API references
 - Automatically Update prj/path.json
 - Automatically Create SpriteSheet's json from images
@@ -23,6 +24,15 @@
 
 ## 機能（*.snファイルを表示したときにロードします）
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
+- ライブラリ更新チェック
+
+	![](images/updchk0.jpg)
+
+	（注意）2019/2/7 23:00 前にこのプロジェクトをダウンロードした人は、プロジェクトのpackage.jsonに【npm: upd】タスクを追加して下さい。（scriptsの中ならどこでも）
+
+		"upd": "npx ncu -a && npm update",
+
+	![](images/updchk1.png)
 - リファレンス検索パレットでAPIリファレンス
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204ref_search.gif)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")

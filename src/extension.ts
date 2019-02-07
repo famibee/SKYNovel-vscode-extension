@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const img_size = require('image-size');
 import { ReferenceProvider } from './ReferenceProvider';
+const https = require('https');
 
 
 const aDispose: vscode.Disposable[] = [];
@@ -36,6 +37,26 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// リファレンス
 	new ReferenceProvider(context);
+
+	// ライブラリ更新チェック
+	if (aFld) https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
+		let body = '';
+		res.setEncoding('utf8');
+		res.on('data', (chunk: string)=> {body += chunk;});
+		res.on('end', ()=> {
+			const newVer = JSON.parse(body).version;
+//console.log(`GitHub skynovel ver:${newVer}`);
+			aFld.map(fld=> {
+				const fnLocal = fld.uri.fsPath +'/package.json';
+				if (! fs.existsSync(fnLocal)) return;
+
+				const localVer = JSON.parse(fs.readFileSync(fnLocal)).dependencies.skynovel.slice(1);
+				if (newVer == localVer) return;
+//console.log(`local skynovel ver:${localVer}`);
+				vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【タスクの実行...】から【npm: upd】を実行してください`);
+			});
+		});
+	}).on('error', (e: Error)=> console.error(e.message));
 
 	// fn属性やlabel属性の値に下線を引くように
 	edActive = vscode.window.activeTextEditor;

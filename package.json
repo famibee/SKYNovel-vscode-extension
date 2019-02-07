@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "0.3.2",
+	"version": "0.4.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"engines": {
@@ -67,7 +67,7 @@
 		"@types/mocha": "^5.2.5",
 		"@types/node": "^10.12.21",
 		"typescript": "^3.3.1",
-		"vscode": "^1.1.28"
+		"vscode": "^1.1.29"
 	},
 	"keywords": [
 		"skynovel",
