@@ -5,6 +5,7 @@
 	"version": "0.4.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
+	"license": "MIT",
 	"engines": {
 		"vscode": "^1.30.0"
 	},
@@ -63,9 +64,8 @@
 		"image-size": "^0.7.2"
 	},
 	"devDependencies": {
-		"@types/chokidar": "^1.7.5",
 		"@types/mocha": "^5.2.6",
-		"@types/node": "^11.10.4",
+		"@types/node": "^11.10.5",
 		"typescript": "^3.3.3333",
 		"vscode": "^1.1.30"
 	},
