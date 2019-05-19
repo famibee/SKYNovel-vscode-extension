@@ -1,16 +1,27 @@
+/* ***** BEGIN LICENSE BLOCK *****
+	Copyright (c) 2019-2019 Famibee (famibee.blog38.fc2.com)
+
+	This software is released under the MIT License.
+	http://opensource.org/licenses/mit-license.php
+** ***** END LICENSE BLOCK ***** */
+
+import {ReferenceProvider} from './ReferenceProvider';
+import {ActivityBar} from './ActivityBar';
+
 import * as vscode from 'vscode';
 const fs = require('fs');
 const path = require('path');
 const img_size = require('image-size');
-import { ReferenceProvider } from './ReferenceProvider';
 const https = require('https');
-
 
 const aDispose: vscode.Disposable[] = [];
 let edActive: vscode.TextEditor | undefined;
 
 // ロード時に一度だけ呼ばれる
 export function activate(context: vscode.ExtensionContext) {
+	// アクティビティバー
+	ActivityBar.start(context);	// このタイミングで環境チェック
+
 	const aFld = vscode.workspace.workspaceFolders;
 		// undefinedだった場合はファイルを開いている
 		// フォルダーを開いている（len>1 ならワークスペース）
@@ -74,6 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 // 拡張機能が非アクティブ化されたときに、実行
 export function deactivate() {
+	ActivityBar.stopActBar();
 	aDispose.map(v=> v.dispose());
 }
 

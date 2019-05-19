@@ -5,13 +5,17 @@
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension)
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/dev-status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension?type=dev)
 
-![logo.svg](images/icon.png)
+![logo.svg](res/icon.png)
 
 [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## Features (Load when *.sn is displayed)
+## Features
+- Startup timing:
+	- When prj / prj.json exists in "Open folder".
+	- When you open the .sn file.
+- Add Activity Bar to provide various information and useful functions.
 - Syntax Highlight
 - Library update check
 - The Reference search pallet to open API references
@@ -23,16 +27,24 @@
 	+ It is meaningless and OK. Because it is internal processing.
 
 ## 機能（*.snファイルを表示したときにロードします）
+- 起動タイミング：
+	- 「フォルダを開く」で prj/prj.json が存在するとき
+	- *.snファイルを開いたとき
+- Activity Barを追加し、各種情報や便利機能を提供します。
+	![](res/activity_bar.jpg)
+
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
 - ライブラリ更新チェック
+	- 右下にポップアップ告知
+	- Activity Barにも表示（ワークスペースに複数フォルダを追加していても、フォルダごとに表示）
 
-	![](images/updchk0.jpg)
+	![](res/updchk0.jpg)
 
 	（注意）2019/2/7 23:00 前にこのプロジェクトをダウンロードした人は、プロジェクトのpackage.jsonに【npm: upd】タスクを追加して下さい。（scriptsの中ならどこでも）
 
 		"upd": "npx ncu -a && npm update",
 
-	![](images/updchk1.png)
+	![](res/updchk1.png)
 - リファレンス検索パレットでAPIリファレンス
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204ref_search.gif)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
@@ -45,14 +57,14 @@
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204automatically.gif)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
 
 　スプライトシートは、生成された json を指定することで画像/動画と同じように使用できます。
-![auto_json.png](images/auto_json.png)
+![auto_json.png](res/auto_json.png)
 
 
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
 	+ 意味不明でOK、内部的な処理なので
 
 # Syntax Highlight / シンタックスハイライト
-![](images/syntax_highlight.jpg)
+![](res/syntax_highlight.jpg)
 
 # Reference search palette
 You can open API references with your browser by following the steps
@@ -64,15 +76,15 @@ You can open API references with your browser by following the steps
 　次の手順でAPIリファレンスを開けます。
 1. Ctrl+Shift+Pを押してコマンドパレットを開きます。
 
-![](images/ref_search0.jpg)
+![](res/ref_search0.jpg)
 
 2. SKYNovel: Open reference search palette」というコマンドを実行します。
 
-![](images/ref_search1.jpg)
+![](res/ref_search1.jpg)
 
 3. リファレンスを開きたいタグ名を入力し、EnterでWebのマニュアルを開きます。
 
-![](images/ref_search2.jpg)
+![](res/ref_search2.jpg)
 
 ---
 ## License ... [MIT](LICENSE)

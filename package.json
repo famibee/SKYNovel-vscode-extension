@@ -2,21 +2,22 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "0.4.2",
+	"version": "1.0.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.30.0"
+		"vscode": "^1.34.0"
 	},
 	"categories": [
 		"Programming Languages",
 		"Other"
 	],
-	"icon": "images/icon.png",
+	"icon": "res/icon.png",
 	"activationEvents": [
 		"onLanguage:skynovel",
-		"onCommand:skynovel.openReferencePallet"
+		"onCommand:skynovel.openReferencePallet",
+		"workspaceContains:prj/prj.json"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -42,11 +43,298 @@
 		],
 		"commands": [
 			{
-				"command": "skynovel.openReferencePallet",
+				"command": "sn.openReferencePallet",
 				"title": "%skynovel.openReferencePallet.title%",
 				"category": "SKYNovel"
+			},
+			{
+				"command": "sn.refreshSetting",
+				"title": "Refresh",
+				"icon": {
+					"light": "res/light/refresh.svg",
+					"dark": "res/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "sn.dlNode",
+				"title": "Download Node.js",
+				"icon": {
+					"light": "res/light/download.svg",
+					"dark": "res/dark/download.svg"
+				}
+			},
+			{
+				"command": "sn.opNodeSite",
+				"title": "Open Node.js Download WebPage",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.dlTmpYoko",
+				"title": "Download Template",
+				"icon": {
+					"light": "res/light/download.svg",
+					"dark": "res/dark/download.svg"
+				}
+			},
+			{
+				"command": "sn.dlTmpTate",
+				"title": "Download Template",
+				"icon": {
+					"light": "res/light/download.svg",
+					"dark": "res/dark/download.svg"
+				}
+			},
+			{
+				"command": "sn.opFamibeeBlog",
+				"title": "Open famibee WebPage",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.mail2famibee",
+				"title": "Open Mail to famibee",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.tw2famibee",
+				"title": "Open Twitter to famibee",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opDev",
+				"title": "Open Information for developers WebPage",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opTag",
+				"title": "Open Tag Reference",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opMacroPlg",
+				"title": "Open Macro And Plugin Reference",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opGallery",
+				"title": "Open Sample Gallery",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExJa",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExIcon",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExBookmarks",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExLiveHTMLPrev",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExHTMLHint",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExCordovaTools",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExDbg4Chrome",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opVSCodeExglTFTools",
+				"title": "Open WebSite",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
 			}
-		]
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "skynovel",
+					"title": "SKYNovel",
+					"icon": "res/icon-activity-bar.svg"
+				}
+			]
+		},
+		"views": {
+			"skynovel": [
+				{
+					"id": "sn-setting",
+					"name": "開発環境"
+				},
+				{
+					"id": "sn-doc",
+					"name": "ドキュメント・連絡先"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "sn.refreshSetting",
+					"when": "view == sn-setting",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "sn.dlNode",
+					"when": "view == sn-setting && viewItem == 'Node.js'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opNodeSite",
+					"when": "view == sn-setting && viewItem == 'Node.js サイト'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opDev",
+					"when": "view == sn-doc && viewItem == '開発者向け情報'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opTag",
+					"when": "view == sn-doc && viewItem == 'タグリファレンス'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opMacroPlg",
+					"when": "view == sn-doc && viewItem == 'マクロ・プラグインリファレンス'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opGallery",
+					"when": "view == sn-doc && viewItem == '機能ギャラリー'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.dlTmpYoko",
+					"when": "view == sn-doc && viewItem == '横書き「初音館にて」'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.dlTmpTate",
+					"when": "view == sn-doc && viewItem == '縦書き「桜の樹の下には」'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opFamibeeBlog",
+					"when": "view == sn-doc && viewItem == 'famibee blog'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.mail2famibee",
+					"when": "view == sn-doc && viewItem == 'famibee Mail'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.tw2famibee",
+					"when": "view == sn-doc && viewItem == 'famibee Twitter'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExJa",
+					"when": "view == sn-doc && viewItem == '日本語化'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExIcon",
+					"when": "view == sn-doc && viewItem == 'Material Icon Theme'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExBookmarks",
+					"when": "view == sn-doc && viewItem == 'Bookmarks'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExLiveHTMLPrev",
+					"when": "view == sn-doc && viewItem == 'HTML Preview'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExHTMLHint",
+					"when": "view == sn-doc && viewItem == 'HTMLHint'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExCordovaTools",
+					"when": "view == sn-doc && viewItem == 'Cordova Tools'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExDbg4Chrome",
+					"when": "view == sn-doc && viewItem == 'Debugger for Chrome'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.opVSCodeExglTFTools",
+					"when": "view == sn-doc && viewItem == 'glTF Tools'",
+					"group": "inline"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -65,7 +353,7 @@
 	},
 	"devDependencies": {
 		"@types/mocha": "^5.2.6",
-		"@types/node": "^11.13.9",
+		"@types/node": "^12.0.2",
 		"typescript": "^3.4.5",
 		"vscode": "^1.1.33"
 	},

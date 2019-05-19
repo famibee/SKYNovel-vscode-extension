@@ -1,0 +1,91 @@
+<!doctype html><html><head><meta charset="utf-8"/>
+<title>SKYNovel開発環境　準備の手引き</title>
+<link rel="canonical" href="index.htm">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<style>
+	.err {
+		color: red;
+	}
+</style>
+</head>
+<body>
+	<h1>SKYNovel開発環境　準備の手引き</h1>
+
+<h2 class="err">SKYNovel 開発環境にエラーが ${エラー数}個あります。</h2>
+　環境設定の手順を解説します。
+<ul>
+	<li>1.SKYNovel拡張機能の情報をチェック</li>
+	<li>2.問題の解決・だいたいクリックする</li>
+	<li>3.環境設定を再チェックする</li>
+	<li>4.「windows-build-tools」の対応</li>
+</ul>
+<hr/>
+
+<h3>1.SKYNovel拡張機能の情報をチェック</h3>
+
+　VSCodeの Activity Bar に、SKYNovelの「丸に紙飛行機」マークが表示されているので、クリックして下さい。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/ab0.jpg"/><br/><br/>
+
+　赤丸バツ印がエラーです。例では「<a href="https://nodejs.org/ja/" target="_blank">Node.js</a>（とnpm）」が見つからない、という状態を示します。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/ab1.jpg"/><br/><br/>
+
+<h3>2.問題の解決・だいたいクリックする</h3>
+
+　マウスカーソルをエラーメッセージの上に移動すると、何かしらのボタンが表示されます。<br/>
+　クリックして下さい。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/ab2.jpg"/><br/><br/>
+
+　ブラウザーが起動し、Node.js のインストーラーがダウンロードされます。開いて下さい。<br/>
+（Windows）<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win1.png"/><br/>
+（macOS）<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_mac1.png"/><br/><br/>
+
+　あとはウイザードに従ってインストールしていきます。（Windows / Mac 似たような画面なので、Windows のスナップショットで示します）<br/>
+　基本は赤丸してあるボタンを押していったり、使用許諾・インストール先などを確認・指定していきます。<br/>
+　特に変更せずそのままで進めても大丈夫です。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win2.jpg"/><br/><br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win3.jpg"/><br/><br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win4.jpg"/><br/><br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win5.jpg"/><br/><br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win6.jpg"/><br/><br/>
+　この画面でインストールを待ちます。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win7.jpg"/><br/><br/>
+
+　この画面が出た場合は「はい」を押して下さい。<br/>
+　しばらくして、インストールが終了します。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/node_win8.jpg"/><br/><br/>
+
+<h3>3.環境設定を再チェックする</h3>
+
+　「開発環境」のすぐ右にある「更新」ボタンをクリックして下さい。<br/>
+　環境設定を再チェックします。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/ab3.jpg"/><br/><br/>
+
+　エラーが消えました！<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/ab4.jpg"/><br/><br/>
+
+
+<h3>4.「windows-build-tools」の対応</h3>
+　windowsのみ、もうひと手順あります。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/wbt0.jpg"/><br/><br/>
+　<a href="http://web.archive.org/web/20190519064253/https://www.okamoto-net.com/c1031/" target="_blank">管理者権限で PowerShell を起動</a>し、<br/>
+　npm i -g windows-build-tools をペーストして実行（Enterボタン）します。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/wbt1.jpg"/><br/><br/>
+
+　文字がずらずら流れますが、それらが止まる（処理が終了する）まで待って下さい。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/wbt2.jpg"/><br/><br/>
+
+　その後再チェックボタンです。エラーが消えているはずです。<br/>
+<img src="https://raw.githubusercontent.com/famibee/SKYNovel-vscode-extension/master/doc/img/wbt3.jpg"/><br/><br/>
+
+
+	<br/>
+<br/>
+
+
+
+
+</body>
+</html>
