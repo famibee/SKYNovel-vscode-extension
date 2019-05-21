@@ -145,7 +145,6 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		tc[0].description = `-- ${localVer}`;
 	}
 
-	// path.json 更新
 	private updPathJson(cur: string) {
 		if (! fs.existsSync(cur +'prj.json')) {
 			vscode.window.showErrorMessage(`prj/prj.json がありません path=${cur +'prj.json'}`);
@@ -156,7 +155,6 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		const hPath = get_hPathFn2Exts(cur, JSON.parse(jsonPrj));
 		fs.writeFileSync(cur +'path.json', JSON.stringify(hPath));
 	}
-	// plugin.js 更新
 	private updPlugin(cur: string) {
 		const h: any = {};
 		for (const nm of fs.readdirSync(cur)) {
@@ -169,10 +167,21 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 	}
 
 	private fncDev(ti: vscode.TreeItem) {
+		const aFld = vscode.workspace.workspaceFolders;
+		if (! aFld) {	// undefinedだった場合はファイルを開いている
+			vscode.window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
+			return;	// 一応どうやってもここには来れないようではある
+		}
+
+		// カレントディレクトリ設定（必要なら）
+		let cmd = (aFld.length > 1)
+			? `cd "${ti.tooltip}" ${this.statBreak()} `
+			: '';
+		// 自動で「npm i」
 		const dir = ti.tooltip || '';
-		let cmd = fs.existsSync(dir +'/node_modules')
-			? ''
-			: `npm i ${this.statBreak()} `;
+		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${this.statBreak()} `;
+
+		// メイン処理
 		const i = this.TreeChild.findIndex(v=> v.label === ti.label);
 		switch (i) {
 			case 0:	cmd += 'npm i skynovel';	break;
@@ -189,23 +198,21 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 			new vscode.ShellExecution(cmd),
 		);
 
-		this.fnc_onDidEndTaskProcess = ()=> {};
-		if (i == 0) {
-			this.fnc_onDidEndTaskProcess = e=> {
+		this.fnc_onDidEndTaskProcess = (i == 0)
+			? e=> {
 				if (e.execution.task.definition.type != t.definition.type) return;
 				if (e.execution.task.source != t.source) return;
 
 				this.updLocalSNVer(dir);
 				this._onDidChangeTreeData.fire();
-			};
-		}
-
+			}
+			: ()=> {};
 		vscode.tasks.executeTask(t);
 	}
 	private statBreak(): string {
 		const isPS = String(vscode.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
 			// -14 = 'powershell.exe'
-		return is_mac ?'' :(isPS === 'powershell.exe') ?';' :'&';
+		return is_mac ?'&&' :(isPS === 'powershell.exe') ?';' :'&';
 	}
 
 	getTreeItem = (elm: vscode.TreeItem)=> elm;
