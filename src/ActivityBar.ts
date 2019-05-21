@@ -16,7 +16,7 @@ enum eTree {
 	NODE = 0,
 	NPM,
 	WINDOWS_BUILD_TOOLS,
-	SKYNOVEL_VER
+	SKYNOVEL_VER,
 };
 
 export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
@@ -38,7 +38,7 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	private readonly aTree: vscode.TreeItem[] = [
 		new vscode.TreeItem('Node.js'),
 		new vscode.TreeItem('npm'),
-		new vscode.TreeItem(is_mac ?'' :'windows-build-tools'),
+		new vscode.TreeItem(is_win ?'windows-build-tools' :''),
 		new vscode.TreeItem('SKYNovel（最新）'),
 	];
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
@@ -50,8 +50,8 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 		vscode.commands.registerCommand('sn.refreshSetting', ()=> this.refresh());	// refreshボタン
 		vscode.commands.registerCommand('sn.dlNode', ()=> vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/dist/v10.15.3/node-v10.15.3'
 			+ (is_mac
-			 ? '.pkg'
-			 : ((os.arch().slice(-2)=='64' ?'-x64' :'-x32') +'.msi'))
+				? '.pkg'
+				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x32') +'.msi'))
 		)));
 		vscode.commands.registerCommand('sn.opNodeSite', ()=> vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/ja/')));
 
@@ -91,13 +91,7 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 		if (! elm) return Promise.resolve(this.aTree);
 
 		const ret: vscode.TreeItem[] = [];
-		switch (elm.label) {
-		case 'Node.js':
-			this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE])
-				? ''
-				: oIcon('error');
-			break;
-		}
+		if (elm.label == 'Node.js') this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
 		return Promise.resolve(ret);
 	}
 
@@ -150,8 +144,6 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 				npm.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire();
 				this.activityBarBadge(++error);
-
-				if (is_win) wbt.description = `-- 見つかりません`;
 				return;
 			}
 			this.aReady[eTree.NPM] = true;

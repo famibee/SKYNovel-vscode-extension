@@ -209,11 +209,13 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 			: ()=> {};
 		vscode.tasks.executeTask(t);
 	}
-	private statBreak(): string {
-		const isPS = String(vscode.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
-			// -14 = 'powershell.exe'
-		return is_mac ?'&&' :(isPS === 'powershell.exe') ?';' :'&';
-	}
+	private	readonly statBreak: {(): string} =
+		is_mac ?()=> '&&'
+		: (! is_win) ?()=> ';'
+		: ()=> {
+			const isPS = String(vscode.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
+			return (isPS === 'powershell.exe') ?';' :'&';
+		};
 
 	getTreeItem = (elm: vscode.TreeItem)=> elm;
 	getChildren(elm?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
