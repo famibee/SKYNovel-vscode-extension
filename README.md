@@ -10,6 +10,15 @@
 [CHANGELOG.md](CHANGELOG.md)
 
 ---
+## After installing this extension ... / この拡張機能をインストールしたら……。
+ Next, let's download and unzip the sample project, and open the folder with VSCode!
+
+　次はサンプルプロジェクトをダウンロード・解凍し、VSCodeで【フォルダを開く】してみましょう！
+- [Novelgame(Yoko-gaki) sample project「初音館にて」](https://github.com/famibee/SKYNovel_hatsune)
+- [Novelgame(Tate-gaki) sample project「桜の樹の下には」](https://github.com/famibee/SKYNovel_uc)
+- [simple sample project](https://github.com/famibee/SKYNovel_sample)
+
+---
 
 ## Features
 - Startup timing:
