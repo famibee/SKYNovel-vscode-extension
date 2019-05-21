@@ -26,27 +26,23 @@
 - Automatically Update core/plugin/plugin.js
 	+ It is meaningless and OK. Because it is internal processing.
 
-## 機能（*.snファイルを表示したときにロードします）
-- 起動タイミング：
-	- 「フォルダを開く」で prj/prj.json が存在するとき
-	- *.snファイルを開いたとき
+## 機能
+# 起動タイミング
+- 「フォルダを開く」で prj/prj.json が存在するとき
+- *.snファイルを開いたとき
+
+
+# Activity Bar / アクティビティバー
 - Activity Barを追加し、各種情報や便利機能を提供します。
 
 	![](res/activity_bar.jpg)
 
-- シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
 - ライブラリ更新チェック
 	- 右下にポップアップ告知
-	- Activity Barにも表示（ワークスペースに複数フォルダを追加していても、フォルダごとに表示）
+	- Activity Barにも表示、ボタン一つで更新
+	- 「ブラウザ版を起動」など、各種機能もボタン一つで
 
 	![](res/updchk0.jpg)
-
-	（注意）2019/2/7 23:00 前にこのプロジェクトをダウンロードした人は、プロジェクトのpackage.jsonに【npm: upd】タスクを追加して下さい。（scriptsの中ならどこでも）
-
-		"upd": "npx ncu -a && npm update",
-
-	![](res/updchk1.png)
-- リファレンス検索パレットでAPIリファレンス
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204ref_search.gif)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
 
@@ -65,6 +61,7 @@
 	+ 意味不明でOK、内部的な処理なので
 
 # Syntax Highlight / シンタックスハイライト
+- シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
 ![](res/syntax_highlight.jpg)
 
 # Reference search palette

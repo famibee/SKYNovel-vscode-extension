@@ -7,35 +7,31 @@
 
 import * as vscode from 'vscode';
 const {exec} = require('child_process');
-const https = require('https');
 const fs = require('fs');
 const os = require('os');
+const https = require('https');
+import {TreeDPDev, oIcon, is_win, is_mac} from './TreeDPDev';
 
-enum eReady {
-	node = 0,
-	npm,
-	windows_build_tools,
-	skynovel
+enum eTree {
+	NODE = 0,
+	NPM,
+	WINDOWS_BUILD_TOOLS,
+	SKYNOVEL_VER
 };
-
-function oIcon(name: string) {return {
-	light: `${__filename}/../../res/light/${name}.svg`,
-	dark: `${__filename}/../../res/dark/${name}.svg`
-}};
-
-const is_win = process.platform === 'win32';
-const is_mac = process.platform === 'darwin';
-//const is_linux = process.platform === 'linux';
 
 export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	static start(context: vscode.ExtensionContext) {
 		ActivityBar.trDPEnv = new ActivityBar(context);
 		vscode.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
+		ActivityBar.trDPDev = new TreeDPDev;
+		vscode.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
 		vscode.window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
 	}
 	static trDPEnv: ActivityBar;
+	static trDPDev: TreeDPDev;
 	static stopActBar() {
 		ActivityBar.trDPEnv.dispose();
+		ActivityBar.trDPDev.dispose();
 	}
 
 
@@ -43,9 +39,9 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 		new vscode.TreeItem('Node.js'),
 		new vscode.TreeItem('npm'),
 		new vscode.TreeItem(is_mac ?'' :'windows-build-tools'),
-		new vscode.TreeItem('SKYNovel', vscode.TreeItemCollapsibleState.Expanded),
+		new vscode.TreeItem('SKYNovel（最新）'),
 	];
-	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined];
+	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 	private constructor(private context: vscode.ExtensionContext) {
 		this.aTree.map(v=> v.contextValue = v.label);
@@ -58,6 +54,25 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 			 : ((os.arch().slice(-2)=='64' ?'-x64' :'-x32') +'.msi'))
 		)));
 		vscode.commands.registerCommand('sn.opNodeSite', ()=> vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/ja/')));
+
+		const aFld = vscode.workspace.workspaceFolders;
+		// ライブラリ更新チェック
+		if (aFld) https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
+			let body = '';
+			res.setEncoding('utf8');
+			res.on('data', (chunk: string)=> {body += chunk;});
+			res.on('end', ()=> {
+				const newVer = JSON.parse(body).version;
+				this.aTree[eTree.SKYNOVEL_VER].description = '-- '+ newVer;
+				if (aFld.find(fld =>{
+					const fnLocal = fld.uri.fsPath +'/package.json';
+					if (! fs.existsSync(fnLocal)) return false;
+
+					const localVer = JSON.parse(fs.readFileSync(fnLocal)).dependencies.skynovel.slice(1);
+					return (newVer != localVer);
+				})) vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+			});
+		}).on('error', (e: Error)=> console.error(e.message));
 	}
 	private dispose() {if (this.pnlWV) this.pnlWV.dispose();}
 
@@ -66,24 +81,22 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 		this.refreshWork();
 		this._onDidChangeTreeData.fire();
 	}
-	private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
+	private readonly _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
 	readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
 
 	readonly getTreeItem = (elm: vscode.TreeItem)=> elm;
 
 	// 起動時？　と refreshボタンで呼ばれる
-	getChildren(element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
-		if (element == undefined) return Promise.resolve(this.aTree);
+	getChildren(elm?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+		if (! elm) return Promise.resolve(this.aTree);
 
 		const ret: vscode.TreeItem[] = [];
-		switch (element.label) {
+		switch (elm.label) {
 		case 'Node.js':
-			this.aTree[eReady.node].iconPath = (this.aReady[eReady.node])
+			this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE])
 				? ''
 				: oIcon('error');
 			break;
-
-		case 'SKYNovel':	return Promise.resolve(this.aTreeSnWs);
 		}
 		return Promise.resolve(ret);
 	}
@@ -91,47 +104,48 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	// 環境チェック
 	private refreshWork(): void {
 		let error = 0;
-		if (! this.aReady[eReady.node]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const node = this.aTree[eReady.node];
+		if (! this.aReady[eTree.NODE]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
+			const node = this.aTree[eTree.NODE];
 			if (err) {
-				this.aReady[eReady.node] = false;
+				this.aReady[eTree.NODE] = false;
 				node.description = `-- 見つかりません`;
 				node.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire();
 				this.activityBarBadge(++error);
 				return;
 			}
-			this.aReady[eReady.node] = true;
+			this.aReady[eTree.NODE] = true;
 			node.description = `-- ${stdout}`;
 			node.iconPath = '';
+			node.contextValue = '';
 			this._onDidChangeTreeData.fire();
 		});
 
-		const wbt = this.aTree[eReady.windows_build_tools];
+		const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
 		const chkWbt = ()=> {
 			// （windowsのみ）管理者権限で PowerShell を起動し、【npm i -g windows-build-tools】を実行。「All done!」まで待つ。
 			if (! is_win) return;
 			exec('npm ls -g windows-build-tools', (err: Error, stdout: string|Buffer)=> {
 				const a = String(stdout).split(/@|\n/);
 				if (err || a.length < 3) {
-					this.aReady[eReady.windows_build_tools] = false;
+					this.aReady[eTree.WINDOWS_BUILD_TOOLS] = false;
 					wbt.description = `-- 見つかりません`;
 					wbt.iconPath = oIcon('error');
 					this._onDidChangeTreeData.fire();
 					this.activityBarBadge(++error);
 					return;
 				}
-				this.aReady[eReady.windows_build_tools] = true;
+				this.aReady[eTree.WINDOWS_BUILD_TOOLS] = true;
 				wbt.description = `-- ${a[2]}`;
 				wbt.iconPath = '';
 				this._onDidChangeTreeData.fire();
 			});
 		};
-		if (this.aReady[eReady.npm]) chkWbt();
+		if (this.aReady[eTree.NPM]) chkWbt();
 		else exec('npm -v', (err: Error, stdout: string|Buffer)=> {
-			const npm = this.aTree[eReady.npm];
+			const npm = this.aTree[eTree.NPM];
 			if (err) {
-				this.aReady[eReady.npm] = false;
+				this.aReady[eTree.NPM] = false;
 				npm.description = `-- 見つかりません`;
 				npm.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire();
@@ -140,59 +154,14 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 				if (is_win) wbt.description = `-- 見つかりません`;
 				return;
 			}
-			this.aReady[eReady.npm] = true;
+			this.aReady[eTree.NPM] = true;
 			npm.description = `-- ${stdout}`;
 			npm.iconPath = '';
 			this._onDidChangeTreeData.fire();
 
 			chkWbt();
 		});
-
-		// workspace.onDidChangeWorkspaceFolders	WorkspaceFolderが追加されたり削除されたりした場合、イベントが実行される
-		const aFld = vscode.workspace.workspaceFolders;
-		// undefinedだった場合はファイルを開いている
-		// フォルダーを開いている（len>1 ならワークスペース）
-		// ファイル増減を監視し、path.json を自動更新する
-		this.aTreeSnWs = [];
-		if (aFld) https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
-			let body = '';
-			res.setEncoding('utf8');
-			res.on('data', (chunk: string)=> {body += chunk;});
-			res.on('end', ()=> {
-				const newVer = JSON.parse(body).version;
-				this.aTree[eReady.skynovel].description = `-- ${newVer}`;
-				aFld.map(fld=> {
-					const w = new vscode.TreeItem(fld.name);
-					w.tooltip = fld.uri.path;
-					w.iconPath = oIcon('warn');
-					this.aTreeSnWs.push(w);
-
-					const fnLocal = fld.uri.fsPath + '/package.json';
-						// 必ず fsPath で。「\c:\Users\〜」とかになる。
-					if (! fs.existsSync(fnLocal)) {
-						w.tooltip = w.description = `-- package.json がありません`;
-						return;
-					}
-
-					const localVer = JSON.parse(fs.readFileSync(fnLocal)).dependencies.skynovel.slice(1);
-					if (newVer != localVer) {
-						w.tooltip = w.description = `-- ver ${localVer} は古いです。なるべく更新して下さい`;
-						// TODO: ワンタッチ更新
-	//					vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【タスクの実行...】から【npm: upd】を実行してください`);
-
-						return;
-					}
-
-					w.tooltip = w.description = `-- 最新です`;
-					w.iconPath = '';
-				});
-				this._onDidChangeTreeData.fire();
-			});
-		}).on('error', (e: Error)=> console.error(e.message));
 	}
-	private aTreeSnWs: vscode.TreeItem[] = [
-	];
-
 
 	private pnlWV: vscode.WebviewPanel | null = null;
 	private async activityBarBadge(num = 0) {
@@ -202,13 +171,17 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 		const path_doc = this.context.extensionPath +'/doc';
 		this.pnlWV = vscode.window.createWebviewPanel('SKYNovel-envinfo', 'SKYNovel情報', column || vscode.ViewColumn.One, {
 			enableScripts: false,
-//			localResourceRoots: [vscode.Uri.file(path_doc)]
+			localResourceRoots: [vscode.Uri.file(path_doc)],
 		});
 		this.pnlWV.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
 
-		fs.readFile(path_doc +`/index.htm`, 'utf-8', (err: Error, content: string)=> {
-			if (err) {console.error(err); throw err;}
-			this.pnlWV!.webview.html = content.replace('${エラー数}', String(num));
+		fs.readFile(path_doc +`/index.htm`, 'utf-8', (err: Error, data: string)=> {
+			if (err) throw err;
+
+			this.pnlWV!.webview.html = data
+				.replace('${エラー数}', String(num))
+				.replace(/<img src="img\//g, `<img src="vscode-resource:${path_doc}/img/`)
+				.replace('type="text/css" href="', `type="text/css" href="vscode-resource:${path_doc}/`);
 		});
 	}
 
@@ -247,10 +220,10 @@ class TreeDPDoc implements vscode.TreeDataProvider<vscode.TreeItem> {
 
 	constructor() {
 		this.aTree.map(v=> {
-			v.iconPath = oIcon((v.collapsibleState == vscode.TreeItemCollapsibleState.None)
-				? 'document'
-				: 'folder'
-			);
+			v.iconPath =
+				(v.collapsibleState == vscode.TreeItemCollapsibleState.None)
+				? oIcon('document')
+				: vscode.ThemeIcon.Folder;
 			v.contextValue = v.label;
 		});
 
@@ -294,9 +267,8 @@ class TreeDPDoc implements vscode.TreeDataProvider<vscode.TreeItem> {
 	}
 
 	getTreeItem = (elm: vscode.TreeItem)=> elm;
-
 	getChildren(elm?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
-		if (elm == undefined) return Promise.resolve(this.aTree);
+		if (! elm) return Promise.resolve(this.aTree);
 
 		switch (elm.label) {
 		case 'テンプレート プロジェクト':	return Promise.resolve(this.aTreeTemp);

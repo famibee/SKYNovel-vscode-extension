@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -72,6 +72,78 @@
 				}
 			},
 			{
+				"command": "sn.devSnUpd",
+				"title": "Update SKYNovel",
+				"icon": {
+					"light": "res/light/download.svg",
+					"dark": "res/dark/download.svg"
+				}
+			},
+			{
+				"command": "sn.devTaskWeb",
+				"title": "npm web (on Browser)",
+				"icon": {
+					"light": "res/light/play.svg",
+					"dark": "res/dark/play.svg"
+				}
+			},
+			{
+				"command": "sn.devTaskStart",
+				"title": "npm start (on Electron)",
+				"icon": {
+					"light": "res/light/play.svg",
+					"dark": "res/dark/play.svg"
+				}
+			},
+			{
+				"command": "sn.devTaskPackWin",
+				"title": "npm pack:win (for Windows Package)",
+				"icon": {
+					"light": "res/light/baggage.svg",
+					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "sn.devTaskPackMac",
+				"title": "npm pack:mac (for macOS Package)",
+				"icon": {
+					"light": "res/light/baggage.svg",
+					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "sn.opDev",
+				"title": "Open Information for developers WebPage",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opTag",
+				"title": "Open Tag Reference",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opMacroPlg",
+				"title": "Open Macro And Plugin Reference",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
+				"command": "sn.opGallery",
+				"title": "Open Sample Gallery",
+				"icon": {
+					"light": "res/light/openpage.svg",
+					"dark": "res/dark/openpage.svg"
+				}
+			},
+			{
 				"command": "sn.dlTmpYoko",
 				"title": "Download Template",
 				"icon": {
@@ -106,38 +178,6 @@
 			{
 				"command": "sn.tw2famibee",
 				"title": "Open Twitter to famibee",
-				"icon": {
-					"light": "res/light/openpage.svg",
-					"dark": "res/dark/openpage.svg"
-				}
-			},
-			{
-				"command": "sn.opDev",
-				"title": "Open Information for developers WebPage",
-				"icon": {
-					"light": "res/light/openpage.svg",
-					"dark": "res/dark/openpage.svg"
-				}
-			},
-			{
-				"command": "sn.opTag",
-				"title": "Open Tag Reference",
-				"icon": {
-					"light": "res/light/openpage.svg",
-					"dark": "res/dark/openpage.svg"
-				}
-			},
-			{
-				"command": "sn.opMacroPlg",
-				"title": "Open Macro And Plugin Reference",
-				"icon": {
-					"light": "res/light/openpage.svg",
-					"dark": "res/dark/openpage.svg"
-				}
-			},
-			{
-				"command": "sn.opGallery",
-				"title": "Open Sample Gallery",
 				"icon": {
 					"light": "res/light/openpage.svg",
 					"dark": "res/dark/openpage.svg"
@@ -224,6 +264,10 @@
 					"name": "開発環境"
 				},
 				{
+					"id": "sn-dev",
+					"name": "開発ツール"
+				},
+				{
 					"id": "sn-doc",
 					"name": "ドキュメント・連絡先"
 				}
@@ -246,6 +290,31 @@
 				{
 					"command": "sn.opNodeSite",
 					"when": "view == sn-setting && viewItem == 'Node.js サイト'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.devSnUpd",
+					"when": "view == sn-dev && viewItem == 'SKYNovel更新'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.devTaskWeb",
+					"when": "view == sn-dev && viewItem == 'ブラウザ版を起動'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.devTaskStart",
+					"when": "view == sn-dev && viewItem == 'アプリ版を起動'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.devTaskPackWin",
+					"when": "view == sn-dev && viewItem == 'exe生成'",
+					"group": "inline"
+				},
+				{
+					"command": "sn.devTaskPackMac",
+					"when": "view == sn-dev && viewItem == 'app生成（macOS上のみ）'",
 					"group": "inline"
 				},
 				{
