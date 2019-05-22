@@ -327,7 +327,7 @@ function addPath(hFn2Path: IFn2Path, dir: string, nm: string) {
 	else {
 		hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
 	}
-	hExts[ext] = path.resolve(dir, nm).slice(1);
+	hExts[ext] = dir +'/'+ nm;
 }
 function uint(o: any): number {
 	const v = parseInt(String(o), 10);

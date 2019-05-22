@@ -1,3 +1,5 @@
+## v1.1.3
+- bug：Windowsでprj\path.json の内容が絶対パスになる件
 ## v1.1.2
 - bug：Linuxでテスト
 ## v1.1.1
