@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import * as vscode from 'vscode';
+import {TreeDataProvider, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, Disposable, window, Task, ShellExecution} from 'vscode';
 const fs = require('fs');
 
 export function oIcon(name: string) {return {
@@ -17,9 +17,9 @@ export const is_win = process.platform === 'win32';
 export const is_mac = process.platform === 'darwin';
 //const is_linux = process.platform === 'linux';
 
-export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
-	private readonly	aTree: vscode.TreeItem[] = [];
-	private 			oTreePrj: {[name: string]: vscode.TreeItem[]} = {};
+export class TreeDPDev implements TreeDataProvider<TreeItem> {
+	private readonly	aTree: TreeItem[] = [];
+	private 			oTreePrj: {[name: string]: TreeItem[]} = {};
 
 	constructor() {
 		[
@@ -28,21 +28,21 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 			'sn.devTaskStart',
 			'sn.devTaskPackWin',
 			'sn.devTaskPackMac',
-		].map(v=> vscode.commands.registerCommand(v, ti=> this.fncDev(ti)));
+		].map(v=> commands.registerCommand(v, ti=> this.fncDev(ti)));
 
-		vscode.tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
+		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
 
 		// コンストラクタは「フォルダを開く」で発動、
 		// その後「ワークスペースにフォルダーを追加」で再度発動する。
 		// staticに物を置かないのが吉。
 		this.refresh();
-		if (this.aTree.length > 0) this.aTree[0].collapsibleState = vscode.TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
-		vscode.workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
+		if (this.aTree.length > 0) this.aTree[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
+		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 	}
-	private	fnc_onDidEndTaskProcess = (_e: vscode.TaskProcessEndEvent)=> {};
+	private	fnc_onDidEndTaskProcess = (_e: TaskProcessEndEvent)=> {};
 
-	private refresh(e?: vscode.WorkspaceFoldersChangeEvent): void {
-		const aFld = vscode.workspace.workspaceFolders;
+	private refresh(e?: WorkspaceFoldersChangeEvent): void {
+		const aFld = workspace.workspaceFolders;
 		if (! aFld) return;	// undefinedだった場合はファイルを開いている
 
 		// フォルダーを開いている（len>1 ならワークスペース）
@@ -70,8 +70,8 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		}
 		this._onDidChangeTreeData.fire();
 	}
-	private readonly _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
-	readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
+	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
 	private	readonly TreeChild = [
 		{icon: 'skynovel',	label: 'SKYNovel更新'},
@@ -80,10 +80,10 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		{icon: 'windows',	label: 'exe生成'},
 		{icon: 'macosx',	label: 'app生成（macOS上のみ）'},
 	];
-	private wsf2tree(fld: vscode.WorkspaceFolder) {
-		const t = new vscode.TreeItem(fld.name, vscode.TreeItemCollapsibleState.Collapsed);
+	private wsf2tree(fld: WorkspaceFolder) {
+		const t = new TreeItem(fld.name, TreeItemCollapsibleState.Collapsed);
 		const dir = fld.uri.fsPath;
-		t.iconPath = vscode.ThemeIcon.Folder;
+		t.iconPath = ThemeIcon.Folder;
 		t.tooltip = dir;
 		t.description = '';
 		this.aTree.push(t);
@@ -95,7 +95,7 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		}
 
 		this.oTreePrj[t.tooltip] = this.TreeChild.map(v=> {
-			const ti = new vscode.TreeItem(v.label);
+			const ti = new TreeItem(v.label);
 			ti.iconPath = oIcon(v.icon);
 			ti.contextValue = ti.label;
 			ti.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
@@ -113,7 +113,7 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		}
 		const oPpj = JSON.parse(fs.readFileSync(cur +'prj.json'));
 		if (oPpj.book) t.description = oPpj.book.title || '';
-		const fwPrj = vscode.workspace.createFileSystemWatcher(cur +'?*/*');
+		const fwPrj = workspace.createFileSystemWatcher(cur +'?*/*');
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
@@ -122,7 +122,7 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 			fs.mkdirSync(dir +'/core');
 			if (! fs.existsSync(curPlg)) fs.mkdirSync(curPlg);
 		}
-		const fwPlg = vscode.workspace.createFileSystemWatcher(curPlg+'/?*/');
+		const fwPlg = workspace.createFileSystemWatcher(curPlg+'/?*/');
 
 		this.oDisposeFSW[dir] = {
 			crePrj: fwPrj.onDidCreate(()=> this.updPathJson(cur)),
@@ -134,10 +134,10 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		this.updPlugin(curPlg);
 	}
 	private oDisposeFSW: {[name: string]: {
-		crePrj: vscode.Disposable,
-		delPrj: vscode.Disposable,
-		crePlg: vscode.Disposable,
-		delPlg: vscode.Disposable,
+		crePrj: Disposable,
+		delPrj: Disposable,
+		crePlg: Disposable,
+		delPlg: Disposable,
 	}} = {};
 	private updLocalSNVer(dir: string) {
 		const tc = this.oTreePrj[dir];
@@ -147,7 +147,7 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 
 	private updPathJson(cur: string) {
 		if (! fs.existsSync(cur +'prj.json')) {
-			vscode.window.showErrorMessage(`prj/prj.json がありません path=${cur +'prj.json'}`);
+			window.showErrorMessage(`prj/prj.json がありません path=${cur +'prj.json'}`);
 			return;
 		}
 
@@ -166,10 +166,10 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		fs.writeFileSync(cur +'.js', `export default ${JSON.stringify(h)};`);
 	}
 
-	private fncDev(ti: vscode.TreeItem) {
-		const aFld = vscode.workspace.workspaceFolders;
+	private fncDev(ti: TreeItem) {
+		const aFld = workspace.workspaceFolders;
 		if (! aFld) {	// undefinedだった場合はファイルを開いている
-			vscode.window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
+			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
 			return;	// 一応どうやってもここには来れないようではある
 		}
 
@@ -184,18 +184,20 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 		// メイン処理
 		const i = this.TreeChild.findIndex(v=> v.label === ti.label);
 		switch (i) {
-			case 0:	cmd += 'npm i skynovel';	break;
+			case 0:	cmd += `npm i skynovel@latest ${
+				this.statBreak()} npm run webpack:dev`;	break;
+				// NOTE: 全ライブラリ更新は npm update。ただし @latest 動作がない
 			case 1:	cmd += 'npm run web';		break;
 			case 2:	cmd += 'npm run start';		break;
 			case 3:	cmd += 'npm run pack:win';	break;
 			case 4:	cmd += 'npm run pack:mac';	break;
 			default:	return;
 		}
-		const t = new vscode.Task(
-			{type: 'SKYNovelEx Task'},	// definition
+		const t = new Task(
+			{type: 'SKYNovelEx Task ' +i},	// definition（タスクの一意性）
 			this.TreeChild[i].label,	// name、UIに表示
 			'SKYNovel',					// source
-			new vscode.ShellExecution(cmd),
+			new ShellExecution(cmd),
 		);
 
 		this.fnc_onDidEndTaskProcess = (i == 0)
@@ -207,18 +209,18 @@ export class TreeDPDev implements vscode.TreeDataProvider<vscode.TreeItem> {
 				this._onDidChangeTreeData.fire();
 			}
 			: ()=> {};
-		vscode.tasks.executeTask(t);
+		tasks.executeTask(t);
 	}
 	private	readonly statBreak: {(): string} =
 		is_mac ?()=> '&&'
 		: (! is_win) ?()=> ';'
 		: ()=> {
-			const isPS = String(vscode.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
+			const isPS = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
 			return (isPS === 'powershell.exe') ?';' :'&';
 		};
 
-	getTreeItem = (elm: vscode.TreeItem)=> elm;
-	getChildren(elm?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+	getTreeItem = (elm: TreeItem)=> elm;
+	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
 		return Promise.resolve((elm)?this.oTreePrj[elm.tooltip!] :this.aTree);
 	}
 
@@ -303,7 +305,7 @@ function get_hPathFn2Exts($cur: string, oCfg: any): IFn2Path {
 					}
 				}
 				fs.writeFileSync(fnJs, JSON.stringify(oJs));
-				vscode.window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
+				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
 
 				addPath(hFn2Path, dir, `${m[1]}.json`);
 			}
@@ -322,7 +324,7 @@ function addPath(hFn2Path: IFn2Path, dir: string, nm: string) {
 		hExts = hFn2Path[fn] = {':cnt': '1'};
 	}
 	else if (ext in hExts) {
-		vscode.window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
+		window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
 	}
 	else {
 		hExts[':cnt'] = String(uint(hExts[':cnt']) +1);

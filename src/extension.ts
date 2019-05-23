@@ -8,27 +8,27 @@
 import {ReferenceProvider} from './ReferenceProvider';
 import {ActivityBar} from './ActivityBar';
 
-import * as vscode from 'vscode';
+import {TextEditor, ExtensionContext, window, workspace, Range, TextEditorDecorationType} from 'vscode';
 
-let edActive: vscode.TextEditor | undefined;
+let edActive: TextEditor | undefined;
 
 // ロード時に一度だけ呼ばれる
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: ExtensionContext) {
 	// アクティビティバー
 	ActivityBar.start(context);	// このタイミングで環境チェック
 	// リファレンス
 	new ReferenceProvider(context);
 
 	// fn属性やlabel属性の値に下線を引くように
-	edActive = vscode.window.activeTextEditor;
+	edActive = window.activeTextEditor;
 	if (edActive) trgUpdDeco();
 
-	vscode.window.onDidChangeActiveTextEditor(ed=> {
+	window.onDidChangeActiveTextEditor(ed=> {
 		edActive = ed;
 		if (ed) trgUpdDeco();
 	}, null, context.subscriptions);
 
-	vscode.workspace.onDidChangeTextDocument(event=> {
+	workspace.onDidChangeTextDocument(event=> {
 		if (edActive && event.document === edActive.document) trgUpdDeco();
 	}, null, context.subscriptions);
 }
@@ -45,22 +45,22 @@ export function deactivate() {ActivityBar.stopActBar();}
 	}
 
 	interface DecChars {
-		aRange		: vscode.Range[];
-		decorator	: vscode.TextEditorDecorationType;
+		aRange		: Range[];
+		decorator	: TextEditorDecorationType;
 	}
 	let decChars: DecChars = {
 		aRange: [],
-		decorator: vscode.window.createTextEditorDecorationType({})
+		decorator: window.createTextEditorDecorationType({})
 	};
 	function updDeco() {
 		if (! edActive) return;
 		const src = edActive.document.getText();
 
-		vscode.window.setStatusBarMessage('');
+		window.setStatusBarMessage('');
 		decChars.decorator.dispose();
 		decChars = {
 			aRange: [],
-			decorator: vscode.window.createTextEditorDecorationType({
+			decorator: window.createTextEditorDecorationType({
 				'light': {
 					'textDecoration': 'underline',
 				},
@@ -74,7 +74,7 @@ export function deactivate() {ActivityBar.stopActBar();}
 		let m;
 		while (m = regex.exec(src)) {
 			const lenVar = m[1].length;
-			decChars.aRange.push(new vscode.Range(
+			decChars.aRange.push(new Range(
 				edActive.document.positionAt(m.index +lenVar+2),
 				edActive.document.positionAt(m.index +lenVar+2 + m[2].length)
 			));

@@ -5,9 +5,9 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import * as vscode from 'vscode';
+import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri} from 'vscode';
 
-interface Reference extends vscode.QuickPickItem {
+interface Reference extends QuickPickItem {
 	url: string;
 }
 
@@ -151,30 +151,30 @@ export class ReferenceProvider {
 		{label: 'trace', description: 'デバッグ表示へ出力', url: ''},
 	];
 
-	constructor(context: vscode.ExtensionContext) {
+	constructor(context: ExtensionContext) {
 		this.loadCfg();
 
-		context.subscriptions.push(vscode.commands.registerCommand("skynovel.openReferencePallet", ()=> this.openPallet()));
-		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(()=> this.loadCfg()));
+		context.subscriptions.push(commands.registerCommand("skynovel.openReferencePallet", ()=> this.openPallet()));
+		context.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 	}
 	private loadCfg = ()=> this.pickItems.sort(this.compare).map(v=> {
 		v.url = 'https://famibee.github.io/SKYNovel/tag.htm#'+ v.label;
 		v.description += '(SKYNovel)';
 	});
-	private compare(a: vscode.QuickPickItem, b: vscode.QuickPickItem): number {
+	private compare(a: QuickPickItem, b: QuickPickItem): number {
 		const aStr = a.label + a.description;
 		const bStr = b.label + b.description;
 		return aStr > bStr ? 1 : aStr === bStr ? 0 : -1;
 	}
 
 	private openPallet() {
-		const options: vscode.QuickPickOptions = {
+		const options: QuickPickOptions = {
 			'placeHolder': 'Which reference will you open?',
 			'matchOnDescription': true
 		};
 
-		vscode.window.showQuickPick<Reference>(this.pickItems, options).then(item=> {
-			if (item) vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(item.url));
+		window.showQuickPick<Reference>(this.pickItems, options).then(item=> {
+			if (item) commands.executeCommand('vscode.open', Uri.parse(item.url));
 		});
 	}
 }
