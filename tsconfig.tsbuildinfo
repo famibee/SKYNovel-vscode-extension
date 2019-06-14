@@ -359,7 +359,6 @@
       "suppressExcessPropertyErrors": false,
       "suppressImplicitAnyIndexErrors": false,
       "incremental": true,
-      "watch": true,
       "project": "./",
       "configFilePath": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/tsconfig.json"
     },
@@ -1235,6 +1234,7 @@
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/updfilework.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/xregexp/index.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/analyzetagarg.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/extension.ts",
@@ -1285,8 +1285,7 @@
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/base.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/globals.d.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/index.d.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts"
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/index.d.ts"
     ]
   },
   "version": "3.5.2"
