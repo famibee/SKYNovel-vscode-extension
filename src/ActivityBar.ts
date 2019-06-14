@@ -23,12 +23,12 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	static start(context: vscode.ExtensionContext) {
 		ActivityBar.trDPEnv = new ActivityBar(context);
 		vscode.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
-		ActivityBar.trDPDev = new TreeDPDev;
+		ActivityBar.trDPDev = new TreeDPDev(context);
 		vscode.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
 		vscode.window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
 	}
-	static trDPEnv: ActivityBar;
-	static trDPDev: TreeDPDev;
+	private static trDPEnv: ActivityBar;
+	private static trDPDev: TreeDPDev;
 	static stopActBar() {
 		ActivityBar.trDPEnv.dispose();
 		ActivityBar.trDPDev.dispose();
@@ -44,7 +44,7 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 	private constructor(private context: vscode.ExtensionContext) {
-		this.aTree.map(v=> v.contextValue = v.label);
+		this.aTree.forEach(v=> v.contextValue = v.label);
 		this.refreshWork();
 
 		vscode.commands.registerCommand('sn.refreshSetting', ()=> this.refresh());	// refreshボタン
@@ -211,7 +211,7 @@ class TreeDPDoc implements vscode.TreeDataProvider<vscode.TreeItem> {
 	];
 
 	constructor() {
-		this.aTree.map(v=> {
+		this.aTree.forEach(v=> {
 			v.iconPath =
 				(v.collapsibleState == vscode.TreeItemCollapsibleState.None)
 				? oIcon('document')
@@ -219,19 +219,19 @@ class TreeDPDoc implements vscode.TreeDataProvider<vscode.TreeItem> {
 			v.contextValue = v.label;
 		});
 
-		this.aTreeTemp.map(v=> {
+		this.aTreeTemp.forEach(v=> {
 			v.iconPath = oIcon('baggage');
 			v.contextValue = v.label;
 		});
 
-		this.aTreeFamibee.map(v=> {
+		this.aTreeFamibee.forEach(v=> {
 			v.iconPath = oIcon('document');
 			v.contextValue = v.label;
 		});
 		this.aTreeFamibee[1].iconPath = oIcon('mail');
 		this.aTreeFamibee[2].iconPath = oIcon('twitter');
 
-		this.aTreeVSCodeEx.map(v=> {
+		this.aTreeVSCodeEx.forEach(v=> {
 			v.iconPath = oIcon('gear');
 			v.contextValue = v.label;
 		});

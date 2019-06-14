@@ -5,7 +5,6 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {ReferenceProvider} from './ReferenceProvider';
 import {ActivityBar} from './ActivityBar';
 
 import {TextEditor, ExtensionContext, window, workspace, Range, TextEditorDecorationType} from 'vscode';
@@ -16,8 +15,6 @@ let edActive: TextEditor | undefined;
 export function activate(context: ExtensionContext) {
 	// アクティビティバー
 	ActivityBar.start(context);	// このタイミングで環境チェック
-	// リファレンス
-	new ReferenceProvider(context);
 
 	// fn属性やlabel属性の値に下線を引くように
 	edActive = window.activeTextEditor;

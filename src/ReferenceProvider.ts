@@ -5,14 +5,28 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri} from 'vscode';
+import {trim} from './CmnLib';
+import {AnalyzeTagArg} from './AnalyzeTagArg';
+import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, TextDocument, languages, Location, Position, Range, Hover} from 'vscode';
+import m_xregexp = require('xregexp');
+const fs = require('fs');
+const path = require('path');
 
 interface Reference extends QuickPickItem {
 	url: string;
 }
 
+interface Script {
+	aToken	: string[];		// トークン群
+	len		: number;		// トークン数
+	aLNum	: number[];		// トークンの行番号
+};
+interface HScript {
+	[name: string]: Script;
+};
+
 export class ReferenceProvider {
-	private readonly pickItems: Reference[] = [
+	private	static readonly	pickItems: Reference[] = [
 		// 変数操作
 		{label: 'clearsysvar', description: 'システム変数の全消去', url: ''},
 		{label: 'clearvar', description: 'ゲーム変数の全消去', url: ''},
@@ -151,13 +165,159 @@ export class ReferenceProvider {
 		{label: 'trace', description: 'デバッグ表示へ出力', url: ''},
 	];
 
-	constructor(context: ExtensionContext) {
+	constructor(private context: ExtensionContext) {
 		this.loadCfg();
 
-		context.subscriptions.push(commands.registerCommand("skynovel.openReferencePallet", ()=> this.openPallet()));
+		// コマンドパレット・イベント
+		const doc_sel = {scheme: 'file', language: 'skynovel'};
+		context.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> this.openPallet()));
 		context.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
+
+		// hover provider（識別子の上にマウスカーソルを載せたとき）イベント
+		languages.registerHoverProvider(doc_sel, {provideHover(doc, pos) {
+			const rng_tag = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+			if (rng_tag) {
+				const w = doc.lineAt(pos.line).text.slice(rng_tag.start.character +1, rng_tag.end.character);
+				const loc = ReferenceProvider.hMacro[w];
+				if (loc) return new Hover(`[${w}] マクロです 定義ファイル：${loc.uri.fsPath}`);
+
+				const len = ReferenceProvider.pickItems.length;
+				for (let i=0; i<len; ++i) {
+					const r = ReferenceProvider.pickItems[i];
+					if (r.label != w) continue;
+					return new Hover(`[${w}] タグです 機能：${r.description}`);
+				}
+			}
+			return Promise.reject('No word here.');
+		}});
+
+		// definition provider「定義へ移動」「定義をここに表示」イベント
+		this.context.subscriptions.push(languages.registerDefinitionProvider(
+			doc_sel, {provideDefinition(doc, pos) {
+				const rng_tag = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+				if (! rng_tag) return Promise.reject('No word here.');
+
+				const w = doc.lineAt(pos.line).text.slice(rng_tag.start.character +1, rng_tag.end.character);
+				const loc = ReferenceProvider.hMacro[w];
+				if (loc) return Promise.resolve(loc);	// マクロ
+
+				// タグ
+				const len = ReferenceProvider.pickItems.length;
+				for (let i=0; i<len; ++i) {
+					const r = ReferenceProvider.pickItems[i];
+					if (r.label != w) continue;
+
+					commands.executeCommand('vscode.open', Uri.parse(r.url));
+					break;
+				}
+
+				return Promise.reject('No definition found');
+			}
+		}));
+
+		// TODO: ラベルジャンプ
+		// TODO: registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable
+
+
+		const opTxt = (doc: TextDocument): void=> {
+			if (doc.fileName in this.hScript) return;
+//console.log(`fn:ReferenceProvider.ts line:161 fileName:${doc.fileName}`);
+			// fileName = FULL PATH
+
+//			this.hScript[doc.fileName] = this.resolveScript(doc.getText());
+
+			// TODO: ファイル→ラベル辞書
+		}
+		workspace.textDocuments.forEach(doc=> opTxt(doc));	// 既に開かれていた分
+		workspace.onDidOpenTextDocument(doc=> opTxt(doc));	// 後に開かれた分
+			// TODO: こうじゃなくて、随時勝手に探索が必要では
 	}
-	private loadCfg = ()=> this.pickItems.sort(this.compare).map(v=> {
+
+
+	// 全スクリプト走査（「定義へ移動」「定義をここに表示」など）
+	private	static hMacro: {[name: string]: Location} = {};
+	private	readonly	alzTagArg	= new AnalyzeTagArg;
+	// プロジェクトフォルダ以下全走査
+	updPrjRef(wd: string) {
+	//	ReferenceProvider.hMacro = {};
+		for (const nm of fs.readdirSync(wd)) {
+			const url = path.resolve(wd, nm.normalize('NFC'));
+			if (fs.lstatSync(url).isDirectory()) {this.updPrjRef(url); continue;}
+			if (url.slice(-3) != '.sn') continue;
+
+			this.updPrjRef_file(url);
+		}
+	}
+	// ファイル内定義検知
+	private updPrjRef_file(url: string) {
+		const txt = fs.readFileSync(url, {encoding: 'utf8'});
+		const script = this.hScript[url] = this.resolveScript(txt);
+
+		const len = script.len;
+		let line = 0;
+		let col = 0;
+		for (let i=0; i<len; ++i) {
+			const token = script.aToken[i];
+			const uc = token.charCodeAt(0);	// TokenTopUnicode
+			// \n 改行
+			if (uc == 10) {line += token.length; col = 0; continue;}
+			col += token.length;
+			if (uc != 91) continue;
+
+			// [ タグ開始
+			const a_tag: any = m_xregexp.exec(token, this.REG_TAG);
+//				if (a_tag == null) throw 'タグ記述['+ token +']異常です(タグ解析)';
+			if (a_tag == null) continue;
+
+			const tag_name = a_tag['name'];
+			if (tag_name != 'macro') continue;
+
+			// [macro name=lr][l][r][endmacro]
+//			const tag_fnc = this.hTag[tag_name];
+//			if (tag_fnc == null) throw '未定義のタグ['+ tag_name +']です';
+
+			if (! this.alzTagArg.go(a_tag['args'])) throw '属性「'+ this.alzTagArg.literal +'」は異常です';
+
+		//	for (const k in this.alzTagArg.hPrm) {
+		//		let val = this.alzTagArg.hPrm[k].val;
+		//	}
+
+			const macro_name = this.alzTagArg.hPrm['name'].val;
+			if (! macro_name) continue;
+
+			const idx = token.indexOf(macro_name, 12);
+			const my_col = col -token.length +idx;
+			// TODO: 重複チェック
+			ReferenceProvider.hMacro[macro_name] = new Location(
+				Uri.file(url),
+				new Range(new Position(line, my_col),
+						new Position(line, my_col +macro_name.length)),
+			);
+		}
+	}
+	// ファイル単位増減対応
+	chgPrjRef(e: Uri) {
+		const path = e.path;
+		if (path.slice(-3) != '.sn') return;
+		if (fs.existsSync(path)) {this.updPrjRef_file(path); return;}
+
+		// （ファイル削除により）定義削除
+		this.delPrjRef(path);
+	}
+	// ファイル変更対応・強制削除＆再定義
+	repPrjRef(e: Uri) {
+		this.delPrjRef(e.path);
+		this.updPrjRef_file(e.path);
+	}
+	private delPrjRef(path: string) {
+		for (const macnm in ReferenceProvider.hMacro) {
+			if (ReferenceProvider.hMacro[macnm].uri.path != path) continue;
+			delete ReferenceProvider.hMacro[macnm];
+		}
+	}
+
+
+	private loadCfg = ()=> ReferenceProvider.pickItems.sort(this.compare).forEach(v=> {
 		v.url = 'https://famibee.github.io/SKYNovel/tag.htm#'+ v.label;
 		v.description += '(SKYNovel)';
 	});
@@ -167,14 +327,118 @@ export class ReferenceProvider {
 		return aStr > bStr ? 1 : aStr === bStr ? 0 : -1;
 	}
 
+
+	private hScript	: HScript	= Object.create(null);	//{} シナリオキャッシュ
+	private	readonly REG_TAG_LET_ML		= m_xregexp(`^\\[let_ml\\s`, 'g');
+	private resolveScript(txt: string): Script {
+		txt = txt.replace(/(\r\n|\r)/g, '\n');
+		const v = this.cnvMultilineTag(txt).match(this.REG_TOKEN);
+		if (! v) throw 'this.cnvMultilineTag fail';
+		for (let i=v.length -1; i>=0; --i) {
+			const e = v[i];
+			this.REG_TAG_LET_ML.lastIndex = 0;
+			if (this.REG_TAG_LET_ML.test(e)) {
+				const idx = e.indexOf(']') +1;
+				if (idx == 0) throw '[let_ml]で閉じる【]】がありません';
+				const a = e.slice(0, idx);
+				const b = e.slice(idx);
+				v.splice(i, 1, a, b);
+			}
+		}
+		const scr = {aToken :v, len :v.length, aLNum :[]};
+		this.replaceScript_let_ml(scr);
+
+		return scr;
+	}
+
+	private replaceScript_let_ml(scr: Script, start_idx = 0) {
+		for (let i=scr.len- 1; i >= start_idx; --i) {
+			const token = scr.aToken[i];
+			this.REG_TAG_LET_ML.lastIndex = 0;
+			if (this.REG_TAG_LET_ML.test(token)) {
+				const idxSpl = token.indexOf(']') +1;
+				const ml = token.slice(idxSpl);
+				const cnt = (ml.match(/\n/g) || []).length;
+				scr.aToken.splice(i, 1, token.slice(0, idxSpl), ml);
+				scr.aLNum.splice(i, 0, scr.aLNum[i]);
+				const len = scr.aToken.length;
+				for (let j=i +2; j<len; ++j) scr.aLNum[j] += cnt;
+			}
+		}
+		scr.len = scr.aToken.length;
+	}
+
+
 	private openPallet() {
 		const options: QuickPickOptions = {
 			'placeHolder': 'Which reference will you open?',
-			'matchOnDescription': true
+			'matchOnDescription': true,
 		};
 
-		window.showQuickPick<Reference>(this.pickItems, options).then(item=> {
+		window.showQuickPick<Reference>(ReferenceProvider.pickItems, options).then(item=> {
 			if (item) commands.executeCommand('vscode.open', Uri.parse(item.url));
 		});
 	}
+
+
+
+	// =============== ScriptIterator
+	readonly	REG_TOKEN		= m_xregexp(	// テスト用にpublic
+		`(?: \\[let_ml \\s+ [^\\[\\]]+ \\])`+
+			`(?: . | \\s)+?`+	// [let_ml]〜[endlet_ml]間のテキスト
+		`(?=\\[endlet_ml \\s* \\])`+
+		//		`| (?<= \\[let_ml \\s+ [^\\[\\]]+ \\])`+
+			// iOS、過ぎ去った前を見る肯定後読み「(?<=」使えない。エラーになるので
+			// Electronも？
+		`| \\[ (?: ([\\"\\'\\#]) .*? \\1 | . ) *? \\]`+	// タグ
+		'| \\n+'+			// 改行
+		'| \\t+'+			// タブ
+		'| &[^&\\n]+&'+		// ＆表示＆
+		'| &&?[^;\\n\\t&]+'+// ＆代入
+		'| ;[^\\n]+'+		// コメント
+		'| ^\\*\\w+'+		// ラベル
+		'| [^\\n\\t\\[;]+'	// 本文
+		, 'gx');
+
+
+	private	readonly	REG_MULTILINE_TAG	= m_xregexp(
+	`\\[
+		([^\\n\\]]+ \\n
+			(?:
+				(["'#]) .*? \\2
+			|	[^\\[\\]]
+			)*
+		)
+	\\]
+|	;[^\\n]+`
+		, 'gx');
+	private	static	readonly	REG_MULTILINE_TAG_SPLIT	= m_xregexp(
+		`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');
+	private	cnvMultilineTag(txt: string): string {	// テスト用にpublic
+		return txt.replace(
+			this.REG_MULTILINE_TAG,
+			function (): string {
+				if (arguments[0].charAt(0) == ';') return arguments[0];
+
+				let fore = '';
+				let back = '';
+				for (const v of arguments[1].match(ReferenceProvider.REG_MULTILINE_TAG_SPLIT)) {
+					switch (v.substr(-1)) {
+						case '\n':	back += v;	break;
+						case `"`:
+						case `'`:
+						case `#`:	fore += v;	break;
+						default:	fore += ' '+ trim(v);	break;
+					}
+				}
+
+				return '['+ trim(fore.slice(1)) +']'+ back;
+			}
+		);
+	}
+
+
+	private	readonly	REG_TAG	= m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
+
+
 }
