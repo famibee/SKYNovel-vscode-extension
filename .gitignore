@@ -3,4 +3,3 @@ node_modules
 .vscode/
 .vscode-test/
 *.vsix
-tsconfig.tsbuildinfo

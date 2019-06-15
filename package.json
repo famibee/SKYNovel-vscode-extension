@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -19,7 +19,7 @@
 		"onCommand:skynovel.openReferencePallet",
 		"workspaceContains:prj/prj.json"
 	],
-	"main": "./out/extension.js",
+	"main": "core/lib/extension.js",
 	"contributes": {
 		"languages": [
 			{
@@ -31,14 +31,14 @@
 					".sn",
 					".an"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "res/language-configuration.json"
 			}
 		],
 		"grammars": [
 			{
 				"language": "skynovel",
 				"scopeName": "source.skynovel",
-				"path": "./syntaxes/skynovel.tmLanguage.json"
+				"path": "res/skynovel.tmLanguage.json"
 			}
 		],
 		"commands": [
@@ -407,15 +407,15 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
+		"compile": "tsc -p core/",
+		"watch": "tsc -p core/ -w",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"npm_check_updates_do": "ncu -a && npm update && npm i -D",
-		"test": "npm run compile && node ./node_modules/vscode/bin/test",
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
-		"package": "vsce package"
+		"package": "vsce package",
+		"test": "npm run compile && node ./node_modules/vscode/bin/test"
 	},
 	"dependencies": {
 		"image-size": "^0.7.4",

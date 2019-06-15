@@ -5,12 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {trim} from './CmnLib';
+import {trim, treeProc} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, TextDocument, languages, Location, Position, Range, Hover} from 'vscode';
 import m_xregexp = require('xregexp');
 const fs = require('fs');
-const path = require('path');
 
 interface Reference extends QuickPickItem {
 	url: string;
@@ -238,18 +237,10 @@ export class ReferenceProvider {
 	private	static hMacro: {[name: string]: Location} = {};
 	private	readonly	alzTagArg	= new AnalyzeTagArg;
 	// プロジェクトフォルダ以下全走査
-	updPrjRef(wd: string) {
-	//	ReferenceProvider.hMacro = {};
-		for (const nm of fs.readdirSync(wd)) {
-			const url = path.resolve(wd, nm.normalize('NFC'));
-			if (fs.lstatSync(url).isDirectory()) {this.updPrjRef(url); continue;}
-			if (url.slice(-3) != '.sn') continue;
-
-			this.updPrjRef_file(url);
-		}
-	}
+	updPrj(wd: string) {treeProc(wd, url=> this.updPrj_file(url))}
 	// ファイル内定義検知
-	private updPrjRef_file(url: string) {
+	private updPrj_file(url: string) {
+		if (url.slice(-3) != '.sn') return;
 		const txt = fs.readFileSync(url, {encoding: 'utf8'});
 		const script = this.hScript[url] = this.resolveScript(txt);
 
@@ -296,20 +287,19 @@ export class ReferenceProvider {
 		}
 	}
 	// ファイル単位増減対応
-	chgPrjRef(e: Uri) {
+	chgPrj(e: Uri) {
 		const path = e.path;
-		if (path.slice(-3) != '.sn') return;
-		if (fs.existsSync(path)) {this.updPrjRef_file(path); return;}
+		if (fs.existsSync(path)) {this.updPrj_file(path); return;}
 
 		// （ファイル削除により）定義削除
-		this.delPrjRef(path);
+		this.delPrj(path);
 	}
 	// ファイル変更対応・強制削除＆再定義
-	repPrjRef(e: Uri) {
-		this.delPrjRef(e.path);
-		this.updPrjRef_file(e.path);
+	repPrj(e: Uri) {
+		this.delPrj(e.path);
+		this.updPrj_file(e.path);
 	}
-	private delPrjRef(path: string) {
+	private delPrj(path: string) {
 		for (const macnm in ReferenceProvider.hMacro) {
 			if (ReferenceProvider.hMacro[macnm].uri.path != path) continue;
 			delete ReferenceProvider.hMacro[macnm];

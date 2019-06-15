@@ -44,14 +44,14 @@
 # Activity Bar / アクティビティバー
 - Activity Barを追加し、各種情報や便利機能を提供します。
 
-	![](res/activity_bar.jpg)
+	![](res/rm_activity_bar.jpg)
 
 - ライブラリ更新チェック
 	- 右下にポップアップ告知
 	- Activity Barにも表示、ボタン一つで更新
 	- 「ブラウザ版を起動」など、各種機能もボタン一つで
 
-	![](res/updchk0.jpg)
+	![](res/rm_updchk0.jpg)
 
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204ref_search.gif)](https://www.youtube.com/watch?v=uIkWnAGBkGM "Reference search")
 
@@ -63,7 +63,7 @@
 [![Reference search](https://blog-imgs-123.fc2.com/f/a/m/famibee/190204automatically.gif)](https://www.youtube.com/watch?v=tfrkImoufU4 "Reference search")
 
 　スプライトシートは、生成された json を指定することで画像/動画と同じように使用できます。
-![auto_json.png](res/auto_json.png)
+![auto_json.png](res/rm_auto_json.png)
 
 
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
@@ -71,7 +71,7 @@
 
 # Syntax Highlight / シンタックスハイライト
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
-![](res/syntax_highlight.jpg)
+![](res/rm_syntax_highlight.jpg)
 
 # Reference search palette
 You can open API references with your browser by following the steps
@@ -83,15 +83,15 @@ You can open API references with your browser by following the steps
 　次の手順でAPIリファレンスを開けます。
 1. Ctrl+Shift+Pを押してコマンドパレットを開きます。
 
-![](res/ref_search0.jpg)
+![](res/rm_ref_search0.jpg)
 
 2. SKYNovel: Open reference search palette」というコマンドを実行します。
 
-![](res/ref_search1.jpg)
+![](res/rm_ref_search1.jpg)
 
 3. リファレンスを開きたいタグ名を入力し、EnterでWebのマニュアルを開きます。
 
-![](res/ref_search2.jpg)
+![](res/rm_ref_search2.jpg)
 
 ---
 ## License ... [MIT](LICENSE)

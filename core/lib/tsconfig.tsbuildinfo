@@ -109,49 +109,37 @@
         "version": "bec0743101ffc213c68a3b7cff3c9d53d1b13bcebc991aaa81bed601c2cb3965",
         "signature": "bec0743101ffc213c68a3b7cff3c9d53d1b13bcebc991aaa81bed601c2cb3965"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/cmnlib.ts": {
-        "version": "135073ee14e1dce17f2b4fbe6774cdd7ef12598267a0f1ad0d1154d6fbd177e8",
-        "signature": "cdef31445b9e22b5cbf2b3154d80d72b473982400212a83fe8381502dce8987b"
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/cmnlib.ts": {
+        "version": "21c93f0fcf276763b182335eb76e98e58e57f300047b77687b7f05cf6d55652f",
+        "signature": "086021cec307b2c6f50e45d1c0a1a3e68224744ec460c66f57946ce3789b3cf6"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/updfilework.ts": {
-        "version": "ac8476b85b416b6cf608f8c4c1f157becadc76f100083604755b907ccdec64b3",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/updfilework.ts": {
+        "version": "3a3447c9b9070015432d42101a00385d057138afe344f4ac0e26291f401c14c3",
         "signature": "335981bcd72f091cb258c56e62d0a7806c29bd5c34459410e4579c7996cc645b"
       },
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/xregexp/index.d.ts": {
         "version": "60aff2e4476ac9f3d1b4dbdae4049fc4b8be169da0f5aa04fba40b7871ef1370",
         "signature": "60aff2e4476ac9f3d1b4dbdae4049fc4b8be169da0f5aa04fba40b7871ef1370"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/analyzetagarg.ts": {
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/analyzetagarg.ts": {
         "version": "1b089019da2b9296705c3f746f0cc27bdeb9ac0131cb8416232d854992dfbe9d",
         "signature": "b8b52f2048c22a6a6cf78064ee5fc885d2c351cdbb7111700596ebbf9351d959"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts": {
-        "version": "3a04481687875d6ed3cc674aa4d075cc7b36ffdb4d6f20454e6c489a2d99eb9d",
-        "signature": "6ee4110a6b859225b972bc415cda58d4d857804c895aa58474689047738f5320"
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/referenceprovider.ts": {
+        "version": "e9287c338822d2af3c704933da5a9c3676c85af4839a88b5a273fad2d16484ec",
+        "signature": "f00a31d10e6015f50b3bf5a1fc872eefa3fa66a6ee8463b705f5126823453a6b"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts": {
-        "version": "a4679a53aef67ab56d6f386fc93edeadedf3cfaa33dc477401b96ebb7ea48c8c",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts": {
+        "version": "8bce3ebc42ad4289cec8d0089e05454309ee4114017121ac81bbe0baa4a00b06",
         "signature": "7c8012014df2662e07916ae4f3a435cb2d15aa5f76a268186fb4415639b0be0d"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts": {
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/activitybar.ts": {
         "version": "b983e1ff42cf303e01b46899e4d1e10629a29660b3f1207d0b64abf4d9385719",
         "signature": "3356bd658c582bf1028e02c55d085aaa79d20a8f4d6a17e9fee47386240559ae"
       },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/extension.ts": {
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/extension.ts": {
         "version": "9dbe2b414d4c851bd8f995a32b706dfa814d62daf9b0c7ee57f075945f29ee72",
         "signature": "dabf023ec7c8f057737c35ce9c0ac378d585fc622f37b34ec6fc8a861dacc0cb"
-      },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/extension.test.ts": {
-        "version": "ffe875745ebd0c507bdf366f9898b29bb12d3be28b2d2ac2e5e1b37e12550a85",
-        "signature": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
-      },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/lib/testrunner.d.ts": {
-        "version": "b175aa767126db4a758084c184a567da0f1b1dabd34625ca52fa44d8b534faf1",
-        "signature": "b175aa767126db4a758084c184a567da0f1b1dabd34625ca52fa44d8b534faf1"
-      },
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/index.ts": {
-        "version": "d4266a6d2a83da34d1986c50e7b150f4ec85e3fe2bce080343afdfa3ed0cfdfe",
-        "signature": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
       },
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/mocha/index.d.ts": {
         "version": "c4c03cf65951d980ba618ae9601d10438730803fc9c8a1f7b34af8739981e205",
@@ -335,17 +323,13 @@
       }
     },
     "options": {
-      "module": 1,
       "target": 4,
-      "outDir": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/out",
-      "lib": [
-        "lib.es2017.d.ts"
-      ],
+      "module": 1,
       "sourceMap": true,
+      "outDir": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/core/lib/",
+      "declaration": true,
       "newLine": 1,
       "removeComments": true,
-      "rootDir": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/src",
-      "strict": true,
       "noImplicitThis": true,
       "noImplicitReturns": true,
       "noFallthroughCasesInSwitch": true,
@@ -359,8 +343,11 @@
       "suppressExcessPropertyErrors": false,
       "suppressImplicitAnyIndexErrors": false,
       "incremental": true,
-      "project": "./",
-      "configFilePath": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/tsconfig.json"
+      "lib": [
+        "lib.es2017.d.ts"
+      ],
+      "project": "core/",
+      "configFilePath": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/core/tsconfig.json"
     },
     "referencedMap": {
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/typescript/lib/lib.es5.d.ts": [
@@ -471,12 +458,12 @@
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/cmnlib.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/cmnlib.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/updfilework.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/cmnlib.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/updfilework.ts": [
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/cmnlib.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
@@ -485,49 +472,35 @@
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/analyzetagarg.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/analyzetagarg.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/xregexp/index.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/cmnlib.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/analyzetagarg.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/referenceprovider.ts": [
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/cmnlib.ts",
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/analyzetagarg.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/xregexp/index.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/updfilework.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts",
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/updfilework.ts",
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/referenceprovider.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/activitybar.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts",
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/extension.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/extension.ts": [
+        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/activitybar.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
-      ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/extension.test.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/assert.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
-      ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/lib/testrunner.d.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
-      ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/index.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/lib/testrunner.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
@@ -915,21 +888,17 @@
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/referenceprovider.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/activitybar.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts"
       ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/extension.ts": [
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/extension.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts"
-      ],
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/lib/testrunner.d.ts": [
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
-        "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/ts3.2/util.d.ts"
       ],
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/mocha/index.d.ts": [
         "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/util.d.ts",
@@ -1230,17 +1199,14 @@
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/typescript/lib/lib.esnext.intl.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/typescript/lib/lib.esnext.bigint.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/vscode.d.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/cmnlib.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/updfilework.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/cmnlib.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/updfilework.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/xregexp/index.d.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/analyzetagarg.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/referenceprovider.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/treedpdev.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/activitybar.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/extension.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/extension.test.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/vscode/lib/testrunner.d.ts",
-      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/src/test/index.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/analyzetagarg.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/referenceprovider.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/activitybar.ts",
+      "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/extension.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/mocha/index.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/globals.d.ts",
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/node_modules/@types/node/assert.d.ts",

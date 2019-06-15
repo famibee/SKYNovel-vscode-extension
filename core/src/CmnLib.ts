@@ -24,3 +24,29 @@ if (! ('toUint' in String.prototype)) {
 if (! String.prototype.trim) {
 	String.prototype.trim = function () { return this.replace(/^\s+|\s+$/g,''); };
 }
+
+
+// 階層フォルダ逐次処理
+const fs = require('fs');
+const path = require('path');
+const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
+
+export function treeProc(wd: string, fnc: (url: string)=> void) {
+	for (const nm of fs.readdirSync(wd)) {
+		if (regNoUseSysFile.test(nm)) continue;
+		const url = path.resolve(wd, nm.normalize('NFC'));
+		if (fs.lstatSync(url).isDirectory()) {treeProc(url, fnc); continue;}
+
+		fnc(url);
+	}
+}
+
+export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
+	for (const nm of fs.readdirSync(wd)) {
+		if (regNoUseSysFile.test(nm)) continue;
+		const url = path.resolve(wd, nm.normalize('NFC'));
+		if (fs.lstatSync(url).isDirectory()) {fncFld(nm); continue;}
+
+		fnc(url, nm);
+	}
+}

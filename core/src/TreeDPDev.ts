@@ -11,8 +11,8 @@ import {ReferenceProvider} from './ReferenceProvider';
 const fs = require('fs');
 
 export function oIcon(name: string) {return {
-	light: `${__filename}/../../res/light/${name}.svg`,
-	dark: `${__filename}/../../res/dark/${name}.svg`
+	light: `${__filename}/../../../res/light/${name}.svg`,
+	dark: `${__filename}/../../../res/dark/${name}.svg`
 }};
 
 export const is_win = process.platform === 'win32';
@@ -124,28 +124,20 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
-		const curPlg = dir +'/core/plugin';
-		if (! fs.existsSync(dir +'/core')) {	// エラーではなく自動生成する方向で
-			fs.mkdirSync(dir +'/core');
-			if (! fs.existsSync(curPlg)) fs.mkdirSync(curPlg);
-		}
+		const curPlg = dir +'/core/plugin';	// エラーではなく自動生成する方向で
+		if (! fs.existsSync(dir +'/core')) fs.mkdirSync(dir +'/core');
+		if (! fs.existsSync(curPlg)) fs.mkdirSync(curPlg);
 		const fwPlg = workspace.createFileSystemWatcher(curPlg +'/?*/');
 
 		this.oDisposeFSW[dir] = {
-			crePrj: fwPrj.onDidCreate(e=> {
-				updPathJson(cur);
-				this.rp.chgPrjRef(e);
-			}),
-			chgPrj: fwPrj.onDidChange(e=> this.rp.repPrjRef(e)),
-			delPrj: fwPrj.onDidDelete(e=> {
-				updPathJson(cur);
-				this.rp.chgPrjRef(e);
-			}),
+			crePrj: fwPrj.onDidCreate(e=> {this.rp.chgPrj(e); updPathJson(cur);}),
+			chgPrj: fwPrj.onDidChange(e=> {this.rp.repPrj(e)}),
+			delPrj: fwPrj.onDidDelete(e=> {this.rp.chgPrj(e); updPathJson(cur);}),
 			crePlg: fwPlg.onDidCreate(()=> updPlugin(curPlg)),
 			delPlg: fwPlg.onDidDelete(()=> updPlugin(curPlg)),
 		};	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 		updPathJson(cur);
-		this.rp.updPrjRef(cur);
+		this.rp.updPrj(cur);
 		updPlugin(curPlg);
 	}
 	private oDisposeFSW: {[name: string]: {

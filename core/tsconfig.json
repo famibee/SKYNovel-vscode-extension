@@ -1,18 +1,13 @@
 {
+	"compileOnSave": true,
 	"compilerOptions": {
-		"module": "commonjs",
 		"target": "es2017",
-		"outDir": "out",
-		"lib": [
-			"es2017"
-		],
+		"module": "commonjs",
 		"sourceMap": true,
+		"outDir": "lib/",
+		"declaration": true,
 		"newLine": "LF",
 		"removeComments": true,
-		"rootDir": "src",
-		/* Strict Type-Checking Option */
-		"strict": true,   /* enable all strict type-checking options */
-		/* Additional Checks */
 		"noImplicitThis": true,		// this に型を明示しないとエラーに
 		"noImplicitReturns": true,	// 暗黙的に undefined を返している関数をエラーに
 		"noFallthroughCasesInSwitch": true,	// switch 文のフォールスルーに対してエラーに
@@ -29,9 +24,11 @@
 		// インデックスシグネチャが欠損したオブジェクトの noImplicitAny エラーを抑制しない
 		"suppressImplicitAnyIndexErrors": false,
 		"incremental": true,		// 差分ビルド
+		"lib": [
+			"es2017"
+		],
 	},
-	"exclude": [
-		"node_modules",
-		".vscode-test"
+	"include": [
+		"src/**/*"
 	]
 }
