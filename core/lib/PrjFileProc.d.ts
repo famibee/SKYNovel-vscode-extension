@@ -1,0 +1,31 @@
+import { ExtensionContext, TreeItem } from 'vscode';
+export declare class PrjFileProc {
+    private readonly context;
+    private readonly dir;
+    private readonly ti;
+    private readonly rp;
+    private readonly curPlg;
+    private readonly curPrj;
+    private readonly fnPrjJs;
+    private readonly curCrypt;
+    private readonly fld_crypt_prj;
+    private readonly aFSW;
+    private need_upd_title;
+    constructor(context: ExtensionContext, dir: string, ti: TreeItem);
+    private lenCurPrj;
+    private hPass;
+    dispose(): void;
+    readonly isCryptMode: boolean;
+    private readonly aRepl;
+    tglCryptMode(): void;
+    private initCrypt;
+    private pbkdf2;
+    private iv;
+    encrypter(url: string): Promise<void>;
+    private updPlugin;
+    private rebuildTask;
+    private updPathJson;
+    private readonly regSprSheetImg;
+    private get_hPathFn2Exts;
+    private addPath;
+}

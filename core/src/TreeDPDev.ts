@@ -5,36 +5,35 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, Disposable, window, Task, ShellExecution} from 'vscode';
-import {updPathJson, updPlugin} from './UpdFileWork';
-import {ReferenceProvider} from './ReferenceProvider';
-const fs = require('fs');
+import {oIcon, statBreak} from './CmnLib';
+import {PrjFileProc} from './PrjFileProc';
 
-export function oIcon(name: string) {return {
-	light: `${__filename}/../../../res/light/${name}.svg`,
-	dark: `${__filename}/../../../res/dark/${name}.svg`
-}};
+import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution} from 'vscode';
 
-export const is_win = process.platform === 'win32';
-export const is_mac = process.platform === 'darwin';
-//const is_linux = process.platform === 'linux';
+const fs = require('fs-extra');
 
 export class TreeDPDev implements TreeDataProvider<TreeItem> {
-	private readonly	aTree: TreeItem[] = [];
+	private readonly	aTree	: TreeItem[] = [];
 	private 			oTreePrj: {[name: string]: TreeItem[]} = {};
 
-	private	readonly	rp	: ReferenceProvider;	// リファレンス
+	private	readonly TreeChild	: {
+		icon	: string,
+		label	: string,
+		cmd		: string,
+	}[] = [
+		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'sn.devSnUpd'},
+		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'sn.devTaskWeb'},
+		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'sn.devTaskStart'},
+		{icon: 'windows',	label: 'exe生成', cmd: 'sn.devTaskPackWin'},
+		{icon: 'macosx',	label: 'app生成（macOS上のみ）',
+											cmd: 'sn.devTaskPackMac'},
+		{icon: 'gear',		label: '暗号化', cmd: 'sn.devCrypt'},
+	];
 
-	constructor(context: ExtensionContext) {
-		this.rp = new ReferenceProvider(context);
+	private oPfp	: {[dir: string]: PrjFileProc}	= {};
 
-		[
-			'sn.devSnUpd',
-			'sn.devTaskWeb',
-			'sn.devTaskStart',
-			'sn.devTaskPackWin',
-			'sn.devTaskPackMac',
-		].forEach(v=> commands.registerCommand(v, ti=> this.fncDev(ti)));
+	constructor(private readonly context: ExtensionContext) {
+		this.TreeChild.forEach(v=> commands.registerCommand(v.cmd, ti=> this.fncDev(ti)));
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
 
@@ -57,18 +56,13 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 				// 最後の一つと思われる
 			else {
 				const nm = e.removed[0].name;	// 一つだけ対応
-				let del = this.aTree.findIndex(v=> v.label === nm);
+				const del = this.aTree.findIndex(v=> v.label === nm);
 				this.aTree.splice(del, 1);
 
 				const dir = e.removed[0].uri.fsPath;
 				delete this.oTreePrj[dir];
 
-				const d = this.oDisposeFSW[dir];
-				d.crePrj.dispose();
-				d.chgPrj.dispose();
-				d.delPrj.dispose();
-				d.crePlg.dispose();
-				d.delPlg.dispose();
+				this.oPfp[dir].dispose();
 			}
 		}
 		else {
@@ -80,24 +74,17 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
-	private	readonly TreeChild = [
-		{icon: 'skynovel',	label: 'SKYNovel更新'},
-		{icon: 'browser',	label: 'ブラウザ版を起動'},
-		{icon: 'electron',	label: 'アプリ版を起動'},
-		{icon: 'windows',	label: 'exe生成'},
-		{icon: 'macosx',	label: 'app生成（macOS上のみ）'},
-	];
 	private wsf2tree(fld: WorkspaceFolder) {
-		const t = new TreeItem(fld.name, TreeItemCollapsibleState.Collapsed);
+		const t = new TreeItem('', TreeItemCollapsibleState.Collapsed);
 		const dir = fld.uri.fsPath;
 		t.iconPath = ThemeIcon.Folder;
-		t.tooltip = dir;
-		t.description = '';
+		t.tooltip = dir;	// 他のキーになっているので変更不可
+		t.description = fld.name;
 		this.aTree.push(t);
 
 		const pathPkg = dir +'/package.json';
 		if (! fs.existsSync(pathPkg)) {
-			t.tooltip = t.description = 'package.json がありません';
+			t.label = 'package.json がありません';
 			return;
 		}
 
@@ -109,48 +96,21 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 
-		// ローカル SKYNovel バージョン調査
 		this.updLocalSNVer(dir);
 
-		// ファイル増減を監視し、path.json を自動更新
-		const cur = dir +'/prj/';
-		if (! fs.existsSync(cur +'prj.json')) {
-			t.tooltip = t.description = 'prj/prj.json がありません';
-			return;
-		}
-		const oPpj = JSON.parse(fs.readFileSync(cur +'prj.json'));
-		if (oPpj.book) t.description = oPpj.book.title || '';
-		const fwPrj = workspace.createFileSystemWatcher(cur +'?*/*');
-
-		// プラグインフォルダ増減でビルドフレームワークに反映する機能
-		// というか core/plugin/plugin.js自動更新機能
-		const curPlg = dir +'/core/plugin';	// エラーではなく自動生成する方向で
-		if (! fs.existsSync(dir +'/core')) fs.mkdirSync(dir +'/core');
-		if (! fs.existsSync(curPlg)) fs.mkdirSync(curPlg);
-		const fwPlg = workspace.createFileSystemWatcher(curPlg +'/?*/');
-
-		this.oDisposeFSW[dir] = {
-			crePrj: fwPrj.onDidCreate(e=> {this.rp.chgPrj(e); updPathJson(cur);}),
-			chgPrj: fwPrj.onDidChange(e=> {this.rp.repPrj(e)}),
-			delPrj: fwPrj.onDidDelete(e=> {this.rp.chgPrj(e); updPathJson(cur);}),
-			crePlg: fwPlg.onDidCreate(()=> updPlugin(curPlg)),
-			delPlg: fwPlg.onDidDelete(()=> updPlugin(curPlg)),
-		};	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
-		updPathJson(cur);
-		this.rp.updPrj(cur);
-		updPlugin(curPlg);
+		this.oPfp[dir] = new PrjFileProc(this.context, dir, t);
+		this.dspCryptMode(dir);
 	}
-	private oDisposeFSW: {[name: string]: {
-		crePrj: Disposable,
-		chgPrj: Disposable,
-		delPrj: Disposable,
-		crePlg: Disposable,
-		delPlg: Disposable,
-	}} = {};
+	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
 		const tc = this.oTreePrj[dir];
-		const localVer = JSON.parse(fs.readFileSync(dir +'/package.json')).dependencies.skynovel.slice(1);
+		const localVer = fs.readJsonSync(dir +'/package.json').dependencies.skynovel.slice(1);
 		tc[0].description = `-- ${localVer}`;
+	}
+	private dspCryptMode(dir: string) {
+		const tc = this.oTreePrj[dir];
+		const fpf = this.oPfp[dir];
+		tc[5].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
 	}
 
 	private fncDev(ti: TreeItem) {
@@ -161,32 +121,43 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		}
 
 		// カレントディレクトリ設定（必要なら）
-		let cmd = (aFld.length > 1)
-			? `cd "${ti.tooltip}" ${this.statBreak()} `
-			: '';
-		// 自動で「npm i」
+		let cmd = (aFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
 		const dir = ti.tooltip || '';
-		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${this.statBreak()} `;
+		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
 		const i = this.TreeChild.findIndex(v=> v.label === ti.label);
-		switch (i) {
-			case 0:	cmd += `npm i skynovel@latest ${
-				this.statBreak()} npm run webpack:dev`;	break;
+		if (i == -1) return;
+
+		const tc = this.TreeChild[i];
+		switch (tc.cmd) {
+			case 'sn.devSnUpd':	cmd += `npm i skynovel@latest ${
+				statBreak()} npm run webpack:dev`;	break;
 				// NOTE: 全ライブラリ更新は npm update。ただし @latest 動作がない
-			case 1:	cmd += 'npm run web';		break;
-			case 2:	cmd += 'npm run start';		break;
-			case 3:	cmd += 'npm run pack:win';	break;
-			case 4:	cmd += 'npm run pack:mac';	break;
+
+			case 'sn.devCrypt':
+				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
+				.then(a=> {
+					if (a != 'はい') return;
+
+					this.oPfp[dir].tglCryptMode();
+					this.dspCryptMode(dir);
+					this._onDidChangeTreeData.fire();
+				});
+				return;
+
+			case 'sn.devTaskWeb':		cmd += 'npm run web';		break;
+			case 'sn.devTaskStart':		cmd += 'npm run start';		break;
+			case 'sn.devTaskPackWin':	cmd += 'npm run pack:win';	break;
+			case 'sn.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
 			default:	return;
 		}
 		const t = new Task(
-			{type: 'SKYNovelEx Task ' +i},	// definition（タスクの一意性）
-			this.TreeChild[i].label,	// name、UIに表示
+			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
+			tc.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-
 		this.fnc_onDidEndTaskProcess = (i == 0)
 			? e=> {
 				if (e.execution.task.definition.type != t.definition.type) return;
@@ -198,13 +169,6 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			: ()=> {};
 		tasks.executeTask(t);
 	}
-	private	readonly statBreak: {(): string} =
-		is_mac ? ()=> '&&'
-		: is_win ? ()=> {
-			const isPS = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
-			return (isPS === 'powershell.exe') ?';' :'&';
-		}
-		: ()=> ';';
 
 	getTreeItem = (elm: TreeItem)=> elm;
 	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
@@ -212,15 +176,8 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 	}
 
 	dispose() {
-		for (const dir in this.oDisposeFSW) {
-			const d = this.oDisposeFSW[dir];
-			d.crePrj.dispose();
-			d.chgPrj.dispose();
-			d.delPrj.dispose();
-			d.crePlg.dispose();
-			d.delPlg.dispose();
-		}
-		this.oDisposeFSW = {};
+		for (const dir in this.oPfp) this.oPfp[dir].dispose();
+		this.oPfp = {};
 	}
 
 }

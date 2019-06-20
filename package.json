@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.2.1",
+	"version": "1.2.2",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -16,7 +16,7 @@
 	"icon": "res/icon.png",
 	"activationEvents": [
 		"onLanguage:skynovel",
-		"onCommand:skynovel.openReferencePallet",
+		"onCommand:sn.openReferencePallet",
 		"workspaceContains:prj/prj.json"
 	],
 	"main": "core/lib/extension.js",
@@ -38,13 +38,13 @@
 			{
 				"language": "skynovel",
 				"scopeName": "source.skynovel",
-				"path": "res/skynovel.tmLanguage.json"
+				"path": "res/sn.tmLanguage.json"
 			}
 		],
 		"commands": [
 			{
 				"command": "sn.openReferencePallet",
-				"title": "%skynovel.openReferencePallet.title%",
+				"title": "%sn.openReferencePallet.title%",
 				"category": "SKYNovel"
 			},
 			{
@@ -77,6 +77,14 @@
 				"icon": {
 					"light": "res/light/download.svg",
 					"dark": "res/dark/download.svg"
+				}
+			},
+			{
+				"command": "sn.devCrypt",
+				"title": "Encryption switching",
+				"icon": {
+					"light": "res/light/play.svg",
+					"dark": "res/dark/play.svg"
 				}
 			},
 			{
@@ -298,6 +306,11 @@
 					"group": "inline"
 				},
 				{
+					"command": "sn.devCrypt",
+					"when": "view == sn-dev && viewItem == '暗号化'",
+					"group": "inline"
+				},
+				{
 					"command": "sn.devTaskWeb",
 					"when": "view == sn-dev && viewItem == 'ブラウザ版を起動'",
 					"group": "inline"
@@ -418,12 +431,18 @@
 		"test": "npm run compile && node ./node_modules/vscode/bin/test"
 	},
 	"dependencies": {
+		"crypto-js": "^3.1.9-1",
+		"fs-extra": "^8.0.1",
 		"image-size": "^0.7.4",
+		"uuid": "^3.3.2",
 		"xregexp": "^4.2.4"
 	},
 	"devDependencies": {
+		"@types/crypto-js": "^3.1.43",
+		"@types/fs-extra": "^7.0.0",
 		"@types/mocha": "^5.2.7",
 		"@types/node": "^12.0.8",
+		"@types/uuid": "^3.4.4",
 		"@types/xregexp": "^3.0.30",
 		"typescript": "^3.5.2",
 		"vscode": "^1.1.34"

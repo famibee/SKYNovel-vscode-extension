@@ -1,49 +1,29 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const CmnLib_1 = require("./CmnLib");
+const PrjFileProc_1 = require("./PrjFileProc");
 const vscode_1 = require("vscode");
-const UpdFileWork_1 = require("./UpdFileWork");
-const ReferenceProvider_1 = require("./ReferenceProvider");
-const fs = require('fs');
-function oIcon(name) {
-    return {
-        light: `${__filename}/../../../res/light/${name}.svg`,
-        dark: `${__filename}/../../../res/dark/${name}.svg`
-    };
-}
-exports.oIcon = oIcon;
-;
-exports.is_win = process.platform === 'win32';
-exports.is_mac = process.platform === 'darwin';
+const fs = require('fs-extra');
 class TreeDPDev {
     constructor(context) {
+        this.context = context;
         this.aTree = [];
         this.oTreePrj = {};
+        this.TreeChild = [
+            { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'sn.devSnUpd' },
+            { icon: 'browser', label: 'ブラウザ版を起動', cmd: 'sn.devTaskWeb' },
+            { icon: 'electron', label: 'アプリ版を起動', cmd: 'sn.devTaskStart' },
+            { icon: 'windows', label: 'exe生成', cmd: 'sn.devTaskPackWin' },
+            { icon: 'macosx', label: 'app生成（macOS上のみ）',
+                cmd: 'sn.devTaskPackMac' },
+            { icon: 'gear', label: '暗号化', cmd: 'sn.devCrypt' },
+        ];
+        this.oPfp = {};
         this.fnc_onDidEndTaskProcess = (_e) => { };
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-        this.TreeChild = [
-            { icon: 'skynovel', label: 'SKYNovel更新' },
-            { icon: 'browser', label: 'ブラウザ版を起動' },
-            { icon: 'electron', label: 'アプリ版を起動' },
-            { icon: 'windows', label: 'exe生成' },
-            { icon: 'macosx', label: 'app生成（macOS上のみ）' },
-        ];
-        this.oDisposeFSW = {};
-        this.statBreak = exports.is_mac ? () => '&&'
-            : exports.is_win ? () => {
-                const isPS = String(vscode_1.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
-                return (isPS === 'powershell.exe') ? ';' : '&';
-            }
-                : () => ';';
         this.getTreeItem = (elm) => elm;
-        this.rp = new ReferenceProvider_1.ReferenceProvider(context);
-        [
-            'sn.devSnUpd',
-            'sn.devTaskWeb',
-            'sn.devTaskStart',
-            'sn.devTaskPackWin',
-            'sn.devTaskPackMac',
-        ].forEach(v => vscode_1.commands.registerCommand(v, ti => this.fncDev(ti)));
+        this.TreeChild.forEach(v => vscode_1.commands.registerCommand(v.cmd, ti => this.fncDev(ti)));
         vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
         this.refresh();
         if (this.aTree.length > 0)
@@ -59,16 +39,11 @@ class TreeDPDev {
                 this.wsf2tree(aFld.slice(-1)[0]);
             else {
                 const nm = e.removed[0].name;
-                let del = this.aTree.findIndex(v => v.label === nm);
+                const del = this.aTree.findIndex(v => v.label === nm);
                 this.aTree.splice(del, 1);
                 const dir = e.removed[0].uri.fsPath;
                 delete this.oTreePrj[dir];
-                const d = this.oDisposeFSW[dir];
-                d.crePrj.dispose();
-                d.chgPrj.dispose();
-                d.delPrj.dispose();
-                d.crePlg.dispose();
-                d.delPlg.dispose();
+                this.oPfp[dir].dispose();
             }
         }
         else {
@@ -78,55 +53,37 @@ class TreeDPDev {
         this._onDidChangeTreeData.fire();
     }
     wsf2tree(fld) {
-        const t = new vscode_1.TreeItem(fld.name, vscode_1.TreeItemCollapsibleState.Collapsed);
+        const t = new vscode_1.TreeItem('', vscode_1.TreeItemCollapsibleState.Collapsed);
         const dir = fld.uri.fsPath;
         t.iconPath = vscode_1.ThemeIcon.Folder;
         t.tooltip = dir;
-        t.description = '';
+        t.description = fld.name;
         this.aTree.push(t);
         const pathPkg = dir + '/package.json';
         if (!fs.existsSync(pathPkg)) {
-            t.tooltip = t.description = 'package.json がありません';
+            t.label = 'package.json がありません';
             return;
         }
         this.oTreePrj[t.tooltip] = this.TreeChild.map(v => {
             const ti = new vscode_1.TreeItem(v.label);
-            ti.iconPath = oIcon(v.icon);
+            ti.iconPath = CmnLib_1.oIcon(v.icon);
             ti.contextValue = ti.label;
             ti.tooltip = dir;
             return ti;
         });
         this.updLocalSNVer(dir);
-        const cur = dir + '/prj/';
-        if (!fs.existsSync(cur + 'prj.json')) {
-            t.tooltip = t.description = 'prj/prj.json がありません';
-            return;
-        }
-        const oPpj = JSON.parse(fs.readFileSync(cur + 'prj.json'));
-        if (oPpj.book)
-            t.description = oPpj.book.title || '';
-        const fwPrj = vscode_1.workspace.createFileSystemWatcher(cur + '?*/*');
-        const curPlg = dir + '/core/plugin';
-        if (!fs.existsSync(dir + '/core'))
-            fs.mkdirSync(dir + '/core');
-        if (!fs.existsSync(curPlg))
-            fs.mkdirSync(curPlg);
-        const fwPlg = vscode_1.workspace.createFileSystemWatcher(curPlg + '/?*/');
-        this.oDisposeFSW[dir] = {
-            crePrj: fwPrj.onDidCreate(e => { this.rp.chgPrj(e); UpdFileWork_1.updPathJson(cur); }),
-            chgPrj: fwPrj.onDidChange(e => { this.rp.repPrj(e); }),
-            delPrj: fwPrj.onDidDelete(e => { this.rp.chgPrj(e); UpdFileWork_1.updPathJson(cur); }),
-            crePlg: fwPlg.onDidCreate(() => UpdFileWork_1.updPlugin(curPlg)),
-            delPlg: fwPlg.onDidDelete(() => UpdFileWork_1.updPlugin(curPlg)),
-        };
-        UpdFileWork_1.updPathJson(cur);
-        this.rp.updPrj(cur);
-        UpdFileWork_1.updPlugin(curPlg);
+        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.context, dir, t);
+        this.dspCryptMode(dir);
     }
     updLocalSNVer(dir) {
         const tc = this.oTreePrj[dir];
-        const localVer = JSON.parse(fs.readFileSync(dir + '/package.json')).dependencies.skynovel.slice(1);
+        const localVer = fs.readJsonSync(dir + '/package.json').dependencies.skynovel.slice(1);
         tc[0].description = `-- ${localVer}`;
+    }
+    dspCryptMode(dir) {
+        const tc = this.oTreePrj[dir];
+        const fpf = this.oPfp[dir];
+        tc[5].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
     }
     fncDev(ti) {
         const aFld = vscode_1.workspace.workspaceFolders;
@@ -134,32 +91,43 @@ class TreeDPDev {
             vscode_1.window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
             return;
         }
-        let cmd = (aFld.length > 1)
-            ? `cd "${ti.tooltip}" ${this.statBreak()} `
-            : '';
+        let cmd = (aFld.length > 1) ? `cd "${ti.tooltip}" ${CmnLib_1.statBreak()} ` : '';
         const dir = ti.tooltip || '';
         if (!fs.existsSync(dir + '/node_modules'))
-            cmd += `npm i ${this.statBreak()} `;
+            cmd += `npm i ${CmnLib_1.statBreak()} `;
         const i = this.TreeChild.findIndex(v => v.label === ti.label);
-        switch (i) {
-            case 0:
-                cmd += `npm i skynovel@latest ${this.statBreak()} npm run webpack:dev`;
+        if (i == -1)
+            return;
+        const tc = this.TreeChild[i];
+        switch (tc.cmd) {
+            case 'sn.devSnUpd':
+                cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
-            case 1:
+            case 'sn.devCrypt':
+                vscode_1.window.showInformationMessage('暗号化（する / しない）を切り替えますか？', { modal: true }, 'はい')
+                    .then(a => {
+                    if (a != 'はい')
+                        return;
+                    this.oPfp[dir].tglCryptMode();
+                    this.dspCryptMode(dir);
+                    this._onDidChangeTreeData.fire();
+                });
+                return;
+            case 'sn.devTaskWeb':
                 cmd += 'npm run web';
                 break;
-            case 2:
+            case 'sn.devTaskStart':
                 cmd += 'npm run start';
                 break;
-            case 3:
+            case 'sn.devTaskPackWin':
                 cmd += 'npm run pack:win';
                 break;
-            case 4:
+            case 'sn.devTaskPackMac':
                 cmd += 'npm run pack:mac';
                 break;
             default: return;
         }
-        const t = new vscode_1.Task({ type: 'SKYNovelEx Task ' + i }, this.TreeChild[i].label, 'SKYNovel', new vscode_1.ShellExecution(cmd));
+        const t = new vscode_1.Task({ type: 'SKYNovel ' + i }, tc.label, 'SKYNovel', new vscode_1.ShellExecution(cmd));
         this.fnc_onDidEndTaskProcess = (i == 0)
             ? e => {
                 if (e.execution.task.definition.type != t.definition.type)
@@ -176,15 +144,9 @@ class TreeDPDev {
         return Promise.resolve((elm) ? this.oTreePrj[elm.tooltip] : this.aTree);
     }
     dispose() {
-        for (const dir in this.oDisposeFSW) {
-            const d = this.oDisposeFSW[dir];
-            d.crePrj.dispose();
-            d.chgPrj.dispose();
-            d.delPrj.dispose();
-            d.crePlg.dispose();
-            d.delPlg.dispose();
-        }
-        this.oDisposeFSW = {};
+        for (const dir in this.oPfp)
+            this.oPfp[dir].dispose();
+        this.oPfp = {};
     }
 }
 exports.TreeDPDev = TreeDPDev;

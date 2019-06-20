@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 export declare class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
-    private context;
+    private readonly context;
     static start(context: vscode.ExtensionContext): void;
     private static trDPEnv;
     private static trDPDev;

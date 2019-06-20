@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const CmnLib_1 = require("./CmnLib");
+const TreeDPDev_1 = require("./TreeDPDev");
 const vscode = require("vscode");
 const { exec } = require('child_process');
-const fs = require('fs');
+const fs = require('fs-extra');
 const os = require('os');
 const https = require('https');
-const TreeDPDev_1 = require("./TreeDPDev");
 var eTree;
 (function (eTree) {
     eTree[eTree["NODE"] = 0] = "NODE";
@@ -20,7 +21,7 @@ class ActivityBar {
         this.aTree = [
             new vscode.TreeItem('Node.js'),
             new vscode.TreeItem('npm'),
-            new vscode.TreeItem(TreeDPDev_1.is_win ? 'windows-build-tools' : ''),
+            new vscode.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
             new vscode.TreeItem('SKYNovel（最新）'),
         ];
         this.aReady = [undefined, undefined, undefined, undefined];
@@ -32,7 +33,7 @@ class ActivityBar {
         this.refreshWork();
         vscode.commands.registerCommand('sn.refreshSetting', () => this.refresh());
         vscode.commands.registerCommand('sn.dlNode', () => vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/dist/v10.15.3/node-v10.15.3'
-            + (TreeDPDev_1.is_mac
+            + (CmnLib_1.is_mac
                 ? '.pkg'
                 : ((os.arch().slice(-2) == '64' ? '-x64' : '-x32') + '.msi')))));
         vscode.commands.registerCommand('sn.opNodeSite', () => vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/ja/')));
@@ -49,7 +50,7 @@ class ActivityBar {
                         const fnLocal = fld.uri.fsPath + '/package.json';
                         if (!fs.existsSync(fnLocal))
                             return false;
-                        const localVer = JSON.parse(fs.readFileSync(fnLocal)).dependencies.skynovel.slice(1);
+                        const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
                         return (newVer != localVer);
                     }))
                         vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
@@ -78,7 +79,7 @@ class ActivityBar {
             return Promise.resolve(this.aTree);
         const ret = [];
         if (elm.label == 'Node.js')
-            this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : TreeDPDev_1.oIcon('error');
+            this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : CmnLib_1.oIcon('error');
         return Promise.resolve(ret);
     }
     refreshWork() {
@@ -89,7 +90,7 @@ class ActivityBar {
                 if (err) {
                     this.aReady[eTree.NODE] = false;
                     node.description = `-- 見つかりません`;
-                    node.iconPath = TreeDPDev_1.oIcon('error');
+                    node.iconPath = CmnLib_1.oIcon('error');
                     this._onDidChangeTreeData.fire();
                     this.activityBarBadge(++error);
                     return;
@@ -102,14 +103,14 @@ class ActivityBar {
             });
         const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
         const chkWbt = () => {
-            if (!TreeDPDev_1.is_win)
+            if (!CmnLib_1.is_win)
                 return;
             exec('npm ls -g windows-build-tools', (err, stdout) => {
                 const a = String(stdout).split(/@|\n/);
                 if (err || a.length < 3) {
                     this.aReady[eTree.WINDOWS_BUILD_TOOLS] = false;
                     wbt.description = `-- 見つかりません`;
-                    wbt.iconPath = TreeDPDev_1.oIcon('error');
+                    wbt.iconPath = CmnLib_1.oIcon('error');
                     this._onDidChangeTreeData.fire();
                     this.activityBarBadge(++error);
                     return;
@@ -128,7 +129,7 @@ class ActivityBar {
                 if (err) {
                     this.aReady[eTree.NPM] = false;
                     npm.description = `-- 見つかりません`;
-                    npm.iconPath = TreeDPDev_1.oIcon('error');
+                    npm.iconPath = CmnLib_1.oIcon('error');
                     this._onDidChangeTreeData.fire();
                     this.activityBarBadge(++error);
                     return;
@@ -197,22 +198,22 @@ class TreeDPDoc {
         this.aTree.forEach(v => {
             v.iconPath =
                 (v.collapsibleState == vscode.TreeItemCollapsibleState.None)
-                    ? TreeDPDev_1.oIcon('document')
+                    ? CmnLib_1.oIcon('document')
                     : vscode.ThemeIcon.Folder;
             v.contextValue = v.label;
         });
         this.aTreeTemp.forEach(v => {
-            v.iconPath = TreeDPDev_1.oIcon('baggage');
+            v.iconPath = CmnLib_1.oIcon('baggage');
             v.contextValue = v.label;
         });
         this.aTreeFamibee.forEach(v => {
-            v.iconPath = TreeDPDev_1.oIcon('document');
+            v.iconPath = CmnLib_1.oIcon('document');
             v.contextValue = v.label;
         });
-        this.aTreeFamibee[1].iconPath = TreeDPDev_1.oIcon('mail');
-        this.aTreeFamibee[2].iconPath = TreeDPDev_1.oIcon('twitter');
+        this.aTreeFamibee[1].iconPath = CmnLib_1.oIcon('mail');
+        this.aTreeFamibee[2].iconPath = CmnLib_1.oIcon('twitter');
         this.aTreeVSCodeEx.forEach(v => {
-            v.iconPath = TreeDPDev_1.oIcon('gear');
+            v.iconPath = CmnLib_1.oIcon('gear');
             v.contextValue = v.label;
         });
         vscode.commands.registerCommand('sn.opDev', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.github.io/SKYNovel/dev.htm')));

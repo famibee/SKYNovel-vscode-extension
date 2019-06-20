@@ -5,6 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import {workspace} from 'vscode';
+
 // =============== Global
 export function int(o: any): number {return parseInt(String(o), 10)}
 export function uint(o: any): number {
@@ -26,8 +28,26 @@ if (! String.prototype.trim) {
 }
 
 
+export function oIcon(name: string) {return {
+	light: `${__filename}/../../../res/light/${name}.svg`,
+	dark: `${__filename}/../../../res/dark/${name}.svg`
+}};
+
+
+export const is_win = process.platform === 'win32';
+export const is_mac = process.platform === 'darwin';
+//const is_linux = process.platform === 'linux';
+export const statBreak: {(): string} =
+	is_mac ? ()=> '&&'
+	: is_win ? ()=> {
+		const isPS = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
+		return (isPS === 'powershell.exe') ?';' :'&';
+	}
+	: ()=> ';';
+
+
 // 階層フォルダ逐次処理
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
 const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 
@@ -48,5 +68,17 @@ export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncF
 		if (fs.lstatSync(url).isDirectory()) {fncFld(nm); continue;}
 
 		fnc(url, nm);
+	}
+}
+
+export async function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
+	try {
+		if (! fs.existsSync(src)) return;
+
+		const txt = await fs.readFile(src, {encoding: 'utf8'});
+		const ret = String(txt.replace(r, rep));
+		if (txt != ret) await fs.outputFile(dest, ret);
+	} catch (err) {
+		console.error(`replaceFile src:${src} ${err}`);
 	}
 }

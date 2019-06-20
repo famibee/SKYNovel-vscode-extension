@@ -5,12 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import {oIcon, is_win, is_mac} from './CmnLib';
+import {TreeDPDev} from './TreeDPDev';
+
 import * as vscode from 'vscode';
 const {exec} = require('child_process');
-const fs = require('fs');
+const fs = require('fs-extra');
 const os = require('os');
 const https = require('https');
-import {TreeDPDev, oIcon, is_win, is_mac} from './TreeDPDev';
 
 enum eTree {
 	NODE = 0,
@@ -43,7 +45,7 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 	];
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
-	private constructor(private context: vscode.ExtensionContext) {
+	private constructor(private readonly context: vscode.ExtensionContext) {
 		this.aTree.forEach(v=> v.contextValue = v.label);
 		this.refreshWork();
 
@@ -68,7 +70,7 @@ export class ActivityBar implements vscode.TreeDataProvider<vscode.TreeItem> {
 					const fnLocal = fld.uri.fsPath +'/package.json';
 					if (! fs.existsSync(fnLocal)) return false;
 
-					const localVer = JSON.parse(fs.readFileSync(fnLocal)).dependencies.skynovel.slice(1);
+					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
 					return (newVer != localVer);
 				})) vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
 			});
