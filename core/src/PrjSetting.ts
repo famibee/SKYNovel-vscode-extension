@@ -30,7 +30,10 @@ export class PrjSetting {
 			this.buf_doc = data
 			.replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
 
-			this.oCfg = fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'});
+			this.oCfg = Object.assign(
+				this.oCfg,
+				fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})
+			);
 			if (this.oCfg.save_ns != 'hatsune' &&
 				this.oCfg.save_ns != 'uc') return;
 			this.open();

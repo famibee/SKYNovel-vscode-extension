@@ -1,3 +1,5 @@
+## v1.3.1
+- add：prj/prj.json に存在しない設定はデフォルト値を採用するように
 ## v1.3.0
 - add：prj/prj.json と package.json の GUI編集機能追加
 - add：テンプレのままの設定を警告し変更を促す画面を表示する機能
