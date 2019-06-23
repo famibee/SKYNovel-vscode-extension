@@ -81,7 +81,7 @@ class PrjFileProc {
     async encrypter(url) {
         const short_path = url.slice(this.lenCurPrj);
         if (short_path == 'path.json') {
-            CmnLib_1.replaceFile(url, /\.sn"}/g, `.sn_"}`, this.curCrypt + short_path);
+            CmnLib_1.replaceFile(url, /(\.|")sn"/g, `$1sn_"`, this.curCrypt + short_path);
             return;
         }
         if (url.slice(-3) != '.sn') {

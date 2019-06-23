@@ -130,7 +130,7 @@
         "signature": "142e77dcc396e8464008767398153c06c1f3f1d7b2710fb836f56714812d0b20"
       },
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/prjfileproc.ts": {
-        "version": "34c1e49dfbec5c15cfeebc54cae6711c185b92026238d5d3b24c6c2fc0ce7f25",
+        "version": "c15eff272238b1040833e620dc9c0dc3d6374f2bf3e9d454fd7fd55fa8523374",
         "signature": "06e007e5fc8ed526f50d95c45986d0e736225ad3551e54e88af5b7a4f5b52243"
       },
       "/users/ugai/documents/machd2/_famibee/skynovel/sn_extension/core/src/treedpdev.ts": {
@@ -367,6 +367,7 @@
         "lib.es2017.d.ts"
       ],
       "project": "core/",
+      "watch": true,
       "configFilePath": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/core/tsconfig.json"
     },
     "referencedMap": {
