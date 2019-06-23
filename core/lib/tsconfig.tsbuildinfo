@@ -367,7 +367,6 @@
         "lib.es2017.d.ts"
       ],
       "project": "core/",
-      "watch": true,
       "configFilePath": "/Users/ugai/Documents/MacHD2/_Famibee/SKYNovel/sn_extension/core/tsconfig.json"
     },
     "referencedMap": {
