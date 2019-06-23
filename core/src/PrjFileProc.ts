@@ -7,6 +7,7 @@
 
 import {statBreak, uint, treeProc, foldProc, replaceFile} from './CmnLib';
 import {ReferenceProvider} from './ReferenceProvider';
+import {PrjSetting} from './PrjSetting';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, TreeItem} from 'vscode';
 const fs = require('fs-extra');
@@ -73,9 +74,11 @@ export class PrjFileProc {
 		this.pbkdf2 = crypt.PBKDF2(
 			crypt.enc.Utf8.parse(this.hPass.pass),
 			crypt.enc.Hex.parse(this.hPass.salt),
-			{keySize: this.hPass.keySize, iterations: this.hPass.ite}
+			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
 		);
 		if (this.isCryptMode) this.initCrypt();
+
+		new PrjSetting(context, dir);
 	}
 	private	lenCurPrj: number;
 	private	hPass: {
@@ -97,10 +100,6 @@ export class PrjFileProc {
 	];
 	tglCryptMode() {
 		const pathPre = this.curPlg +'/snsys_pre';
-//		const plg_name = crypt.SHA3(this.hPass.pass);
-//	console.log(`fn:PrjFileProc.ts line:107 hash:${plg_name}`);
-//		const pathPre = this.curPlg +'/'+ plg_name;
-
 		if (this.isCryptMode) {
 			fs.removeSync(this.curCrypt);
 
@@ -219,7 +218,7 @@ export class PrjFileProc {
 				return;
 			}
 
-			const hPath = this.get_hPathFn2Exts(this.curPrj, oPpj);
+			const hPath = this.get_hPathFn2Exts(this.curPrj);
 			fs.outputJson(this.curPrj +'path.json', hPath);
 		}
 		catch (err) {
@@ -227,9 +226,8 @@ export class PrjFileProc {
 		}
 	}
 	private	readonly regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
-	private get_hPathFn2Exts($cur: string, oCfg: any): IFn2Path {
+	private get_hPathFn2Exts($cur: string): IFn2Path {
 		const hFn2Path: IFn2Path = {};
-		if (! oCfg.search) return hFn2Path;
 
 	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
 		// ｛ファイル名：｛拡張子：パス｝｝形式で格納。
@@ -238,7 +236,7 @@ export class PrjFileProc {
 		//		URLエンコードされていない物を想定。
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
-		for (const dir of oCfg.search) {
+		foldProc($cur, ()=> {}, (dir: string)=> {
 			const wd = path.resolve($cur, dir);
 			foldProc(wd, (url, nm)=> {
 				// スプライトシート用json自動生成機能
@@ -288,7 +286,7 @@ export class PrjFileProc {
 
 				this.addPath(hFn2Path, dir, `${m[1]}.json`);
 			}, ()=> {});
-		}
+		});
 
 		return hFn2Path;
 	}

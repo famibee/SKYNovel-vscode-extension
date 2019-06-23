@@ -1,0 +1,118 @@
+<!doctype html><html>
+<head><meta charset="utf-8"/>
+<title>プロジェクト設定</title>
+<link rel="canonical" href="index.htm">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src vscode-resource:; style-src vscode-resource:;"/>
+<link href="./materialize.min.css" rel="stylesheet" type="text/css"/>
+<script defer src="./materialize.min.js"></script>
+<script defer src="./my.js"></script>
+</head>
+<body class="white black-text">
+
+<table><tr>
+	<th>タイトル</th>
+	<td colspan="3"><div class="input-field">
+		<input type="text" id="book.title" value="%book.title%" class="validate">
+		<label for="book.title">作品タイトル名</label>
+	</div></td>
+</tr><tr>
+	<th>プロジェクト名（英数字）</th>
+	<td colspan="3"><div class="input-field">
+		<input type="text" id="save_ns" value="%save_ns%" class="validate">
+		<label for="save_ns">他のゲームとセーブデータを区別するための名称</label>
+	</div></td>
+</tr><tr>
+	<th>著作者</th>
+	<td><div class="input-field">
+		<input type="text" id="book.creator" value="%book.creator%" class="validate">
+		<label for="book.creator">ペンネーム、ハンドル名など</label>
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="book.cre_url" value="%book.cre_url%" class="validate">
+		<label for="book.cre_url">連絡先ＵＲＬ</label>
+	</div></td>
+	<td><div>
+		<a class="waves-effect waves-light btn" id="open.cre_url">Open URL</a>
+	</div></td>
+</tr><tr>
+	<th>出版者</th>
+	<td><div class="input-field">
+		<input type="text" id="book.publisher" value="%book.publisher%" class="validate">
+		<label for="book.publisher">サークル名、団体名など</label>
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="book.pub_url" value="%book.pub_url%" class="validate">
+		<label for="book.pub_url">出版者ＵＲＬ</label>
+	</div></td>
+	<td><div>
+		<a class="waves-effect waves-light btn" id="open.pub_url">Open URL</a>
+	</div></td>
+</tr><tr>
+	<th>内容</th>
+	<td colspan="3"><div class="input-field">
+		<textarea id="book.detail" class="validate">%book.detail%</textarea>
+		<label for="book.detail">プロジェクトの説明</label>
+	</div></td>
+</tr><tr>
+	<th>ウインドウサイズ</th>
+	<td><div class="input-field">
+		<input type="text" id="window.width" value="%window.width%" class="validate">
+		<label for="window.width">横幅ドット数</label>
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="window.height" value="%window.height%" class="validate">
+		<label for="window.height">縦幅ドット数</label>
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="book.version" value="%book.version%" class="validate">
+		<label for="book.version">バージョン番号</label>
+	</div></td>
+</tr><tr>
+	<th>初期値</th>
+	<td><div class="input-field">
+		背景色
+		<input type="color" id="init.bg_color" value="%init.bg_color%" class="validate">
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="init.tagch_msecwait" value="%init.tagch_msecwait%" class="validate">
+		<label for="init.tagch_msecwait">文字表示待ちミリ秒</label>
+	</div></td>
+	<td><div class="input-field">
+		<input type="text" id="init.auto_msecpagewait" value="%init.auto_msecpagewait%" class="validate">
+		<label for="init.auto_msecpagewait">自動読み時の文字表示待ちミリ秒</label>
+	</div></td>
+</tr><tr>
+	<th rowspan="3">デバッグスイッチ</th>
+	<td>
+		<label><input id="debug.devtool" type="checkbox" class="filled-in" c="%debug.devtool%"/><span>devtool</span></label>
+	</td>
+	<td>
+		<label><input id="debug.token" type="checkbox" class="filled-in" c="%debug.token%"/><span>token</span></label>
+	</td>
+	<td>
+		<label><input id="debug.tag" type="checkbox" class="filled-in" c="%debug.tag%"/><span>tag</span></label>
+	</td>
+</tr><tr>
+	<td>
+		<label><input id="debug.putCh" type="checkbox" class="filled-in" c="%debug.putCh%"/><span>putCh</span></label>
+	</td>
+	<td>
+		<label><input id="debug.slideBaseSpan" type="checkbox" class="filled-in" c="%debug.slideBaseSpan%"/><span>slideBaseSpan</span></label>
+	</td>
+	<td>
+		<label><input id="debug.baseTx" type="checkbox" class="filled-in" c="%debug.baseTx%"/><span>baseTx</span></label>
+	</td>
+</tr><tr>
+	<td>
+		<label><input id="debug.masume" type="checkbox" class="filled-in" c="%debug.masume%"/><span>masume</span></label>
+	</td>
+	<td>
+		<label><input id="debug.variable" type="checkbox" class="filled-in" c="%debug.variable%"/><span>variable</span></label>
+	</td>
+	<td>
+	</td>
+</tr></table>
+
+</body>
+</html>

@@ -42,7 +42,7 @@ class ReferenceProvider {
         this.REG_TAG = m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
         this.loadCfg();
         const doc_sel = { scheme: 'file', language: 'skynovel' };
-        context.subscriptions.push(vscode_1.commands.registerCommand('sn.openReferencePallet', () => {
+        context.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
             const options = {
                 'placeHolder': 'Which reference will you open?',
                 'matchOnDescription': true,

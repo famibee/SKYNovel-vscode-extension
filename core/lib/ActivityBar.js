@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const TreeDPDev_1 = require("./TreeDPDev");
-const vscode = require("vscode");
+const vscode_1 = require("vscode");
 const { exec } = require('child_process');
 const fs = require('fs-extra');
 const os = require('os');
@@ -19,25 +19,25 @@ class ActivityBar {
     constructor(context) {
         this.context = context;
         this.aTree = [
-            new vscode.TreeItem('Node.js'),
-            new vscode.TreeItem('npm'),
-            new vscode.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
-            new vscode.TreeItem('SKYNovel（最新）'),
+            new vscode_1.TreeItem('Node.js'),
+            new vscode_1.TreeItem('npm'),
+            new vscode_1.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
+            new vscode_1.TreeItem('SKYNovel（最新）'),
         ];
         this.aReady = [undefined, undefined, undefined, undefined];
-        this._onDidChangeTreeData = new vscode.EventEmitter();
+        this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.getTreeItem = (elm) => elm;
         this.pnlWV = null;
         this.aTree.forEach(v => v.contextValue = v.label);
         this.refreshWork();
-        vscode.commands.registerCommand('sn.refreshSetting', () => this.refresh());
-        vscode.commands.registerCommand('sn.dlNode', () => vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/dist/v10.15.3/node-v10.15.3'
+        vscode_1.commands.registerCommand('skynovel.refreshSetting', () => this.refresh());
+        vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v10.15.3/node-v10.15.3'
             + (CmnLib_1.is_mac
                 ? '.pkg'
                 : ((os.arch().slice(-2) == '64' ? '-x64' : '-x32') + '.msi')))));
-        vscode.commands.registerCommand('sn.opNodeSite', () => vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/ja/')));
-        const aFld = vscode.workspace.workspaceFolders;
+        vscode_1.commands.registerCommand('skynovel.opNodeSite', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/ja/')));
+        const aFld = vscode_1.workspace.workspaceFolders;
         if (aFld)
             https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res) => {
                 let body = '';
@@ -53,16 +53,16 @@ class ActivityBar {
                         const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
                         return (newVer != localVer);
                     }))
-                        vscode.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+                        vscode_1.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
                 });
             }).on('error', (e) => console.error(e.message));
     }
     static start(context) {
         ActivityBar.trDPEnv = new ActivityBar(context);
-        vscode.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
+        vscode_1.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
         ActivityBar.trDPDev = new TreeDPDev_1.TreeDPDev(context);
-        vscode.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
-        vscode.window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
+        vscode_1.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
+        vscode_1.window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
     }
     static stopActBar() {
         ActivityBar.trDPEnv.dispose();
@@ -142,15 +142,15 @@ class ActivityBar {
             });
     }
     async activityBarBadge(num = 0) {
-        const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+        const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
             return;
         }
         const path_doc = this.context.extensionPath + '/doc';
-        this.pnlWV = vscode.window.createWebviewPanel('SKYNovel-envinfo', 'SKYNovel情報', column || vscode.ViewColumn.One, {
+        this.pnlWV = vscode_1.window.createWebviewPanel('SKYNovel-envinfo', 'SKYNovel情報', column || vscode_1.ViewColumn.One, {
             enableScripts: false,
-            localResourceRoots: [vscode.Uri.file(path_doc)],
+            localResourceRoots: [vscode_1.Uri.file(path_doc)],
         });
         this.pnlWV.onDidDispose(() => this.pnlWV = null);
         fs.readFile(path_doc + `/index.htm`, 'utf-8', (err, data) => {
@@ -167,39 +167,39 @@ exports.ActivityBar = ActivityBar;
 class TreeDPDoc {
     constructor() {
         this.aTree = [
-            new vscode.TreeItem('開発者向け情報'),
-            new vscode.TreeItem('タグリファレンス'),
-            new vscode.TreeItem('マクロ・プラグインリファレンス'),
-            new vscode.TreeItem('機能ギャラリー'),
-            new vscode.TreeItem('テンプレート プロジェクト', vscode.TreeItemCollapsibleState.Collapsed),
-            new vscode.TreeItem('famibee 連絡先', vscode.TreeItemCollapsibleState.Collapsed),
-            new vscode.TreeItem('オススメVSCode拡張機能', vscode.TreeItemCollapsibleState.Collapsed),
+            new vscode_1.TreeItem('開発者向け情報'),
+            new vscode_1.TreeItem('タグリファレンス'),
+            new vscode_1.TreeItem('マクロ・プラグインリファレンス'),
+            new vscode_1.TreeItem('機能ギャラリー'),
+            new vscode_1.TreeItem('テンプレート プロジェクト', vscode_1.TreeItemCollapsibleState.Collapsed),
+            new vscode_1.TreeItem('famibee 連絡先', vscode_1.TreeItemCollapsibleState.Collapsed),
+            new vscode_1.TreeItem('オススメVSCode拡張機能', vscode_1.TreeItemCollapsibleState.Collapsed),
         ];
         this.aTreeTemp = [
-            new vscode.TreeItem('横書き「初音館にて」'),
-            new vscode.TreeItem('縦書き「桜の樹の下には」'),
+            new vscode_1.TreeItem('横書き「初音館にて」'),
+            new vscode_1.TreeItem('縦書き「桜の樹の下には」'),
         ];
         this.aTreeFamibee = [
-            new vscode.TreeItem('famibee blog'),
-            new vscode.TreeItem('famibee Mail'),
-            new vscode.TreeItem('famibee Twitter'),
+            new vscode_1.TreeItem('famibee blog'),
+            new vscode_1.TreeItem('famibee Mail'),
+            new vscode_1.TreeItem('famibee Twitter'),
         ];
         this.aTreeVSCodeEx = [
-            new vscode.TreeItem('日本語化'),
-            new vscode.TreeItem('Material Icon Theme'),
-            new vscode.TreeItem('Bookmarks'),
-            new vscode.TreeItem('HTML Preview'),
-            new vscode.TreeItem('HTMLHint'),
-            new vscode.TreeItem('Cordova Tools'),
-            new vscode.TreeItem('Debugger for Chrome'),
-            new vscode.TreeItem('glTF Tools'),
+            new vscode_1.TreeItem('日本語化'),
+            new vscode_1.TreeItem('Material Icon Theme'),
+            new vscode_1.TreeItem('Bookmarks'),
+            new vscode_1.TreeItem('HTML Preview'),
+            new vscode_1.TreeItem('HTMLHint'),
+            new vscode_1.TreeItem('Cordova Tools'),
+            new vscode_1.TreeItem('Debugger for Chrome'),
+            new vscode_1.TreeItem('glTF Tools'),
         ];
         this.getTreeItem = (elm) => elm;
         this.aTree.forEach(v => {
             v.iconPath =
-                (v.collapsibleState == vscode.TreeItemCollapsibleState.None)
+                (v.collapsibleState == vscode_1.TreeItemCollapsibleState.None)
                     ? CmnLib_1.oIcon('document')
-                    : vscode.ThemeIcon.Folder;
+                    : vscode_1.ThemeIcon.Folder;
             v.contextValue = v.label;
         });
         this.aTreeTemp.forEach(v => {
@@ -216,23 +216,23 @@ class TreeDPDoc {
             v.iconPath = CmnLib_1.oIcon('gear');
             v.contextValue = v.label;
         });
-        vscode.commands.registerCommand('sn.opDev', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.github.io/SKYNovel/dev.htm')));
-        vscode.commands.registerCommand('sn.opTag', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.github.io/SKYNovel/tag.htm')));
-        vscode.commands.registerCommand('sn.opMacroPlg', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.github.io/SKYNovel/macro_plg.htm')));
-        vscode.commands.registerCommand('sn.opGallery', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.github.io/SKYNovel_gallery/')));
-        vscode.commands.registerCommand('sn.dlTmpYoko', () => vscode.env.openExternal(vscode.Uri.parse('https://github.com/famibee/SKYNovel_hatsune/archive/master.zip')));
-        vscode.commands.registerCommand('sn.dlTmpTate', () => vscode.env.openExternal(vscode.Uri.parse('https://github.com/famibee/SKYNovel_uc/archive/master.zip')));
-        vscode.commands.registerCommand('sn.opFamibeeBlog', () => vscode.env.openExternal(vscode.Uri.parse('https://famibee.blog.fc2.com/')));
-        vscode.commands.registerCommand('sn.mail2famibee', () => vscode.env.openExternal(vscode.Uri.parse('mailto:famibee@gmail.com')));
-        vscode.commands.registerCommand('sn.tw2famibee', () => vscode.env.openExternal(vscode.Uri.parse('https://twitter.com/famibee')));
-        vscode.commands.registerCommand('sn.opVSCodeExJa', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja')));
-        vscode.commands.registerCommand('sn.opVSCodeExIcon', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme')));
-        vscode.commands.registerCommand('sn.opVSCodeExBookmarks', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks')));
-        vscode.commands.registerCommand('sn.opVSCodeExLiveHTMLPrev', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode')));
-        vscode.commands.registerCommand('sn.opVSCodeExHTMLHint', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint')));
-        vscode.commands.registerCommand('sn.opVSCodeExCordovaTools', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.cordova-tools')));
-        vscode.commands.registerCommand('sn.opVSCodeExDbg4Chrome', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome')));
-        vscode.commands.registerCommand('sn.opVSCodeExglTFTools', () => vscode.env.openExternal(vscode.Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode')));
+        vscode_1.commands.registerCommand('skynovel.opDev', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/dev.htm')));
+        vscode_1.commands.registerCommand('skynovel.opTag', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/tag.htm')));
+        vscode_1.commands.registerCommand('skynovel.opMacroPlg', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/macro_plg.htm')));
+        vscode_1.commands.registerCommand('skynovel.opGallery', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel_gallery/')));
+        vscode_1.commands.registerCommand('skynovel.dlTmpYoko', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://github.com/famibee/SKYNovel_hatsune/archive/master.zip')));
+        vscode_1.commands.registerCommand('skynovel.dlTmpTate', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://github.com/famibee/SKYNovel_uc/archive/master.zip')));
+        vscode_1.commands.registerCommand('skynovel.opFamibeeBlog', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.blog.fc2.com/')));
+        vscode_1.commands.registerCommand('skynovel.mail2famibee', () => vscode_1.env.openExternal(vscode_1.Uri.parse('mailto:famibee@gmail.com')));
+        vscode_1.commands.registerCommand('skynovel.tw2famibee', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://twitter.com/famibee')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExJa', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExIcon', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExBookmarks', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExLiveHTMLPrev', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExHTMLHint', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExCordovaTools', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.cordova-tools')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExDbg4Chrome', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome')));
+        vscode_1.commands.registerCommand('skynovel.opVSCodeExglTFTools', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode')));
     }
     getChildren(elm) {
         if (!elm)

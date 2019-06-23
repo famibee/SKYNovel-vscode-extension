@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const ReferenceProvider_1 = require("./ReferenceProvider");
+const PrjSetting_1 = require("./PrjSetting");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 const path = require('path');
@@ -57,6 +58,7 @@ class PrjFileProc {
         this.pbkdf2 = crypt.PBKDF2(crypt.enc.Utf8.parse(this.hPass.pass), crypt.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
         if (this.isCryptMode)
             this.initCrypt();
+        new PrjSetting_1.PrjSetting(context, dir);
     }
     dispose() { this.aFSW.forEach(f => f.dispose()); }
     get isCryptMode() { return fs.existsSync(this.curCrypt); }
@@ -130,18 +132,16 @@ class PrjFileProc {
                     this.ti.label = oPpj.book.title || '';
                 return;
             }
-            const hPath = this.get_hPathFn2Exts(this.curPrj, oPpj);
+            const hPath = this.get_hPathFn2Exts(this.curPrj);
             fs.outputJson(this.curPrj + 'path.json', hPath);
         }
         catch (err) {
             console.error(`PrjFileProc updPathJson ${err}`);
         }
     }
-    get_hPathFn2Exts($cur, oCfg) {
+    get_hPathFn2Exts($cur) {
         const hFn2Path = {};
-        if (!oCfg.search)
-            return hFn2Path;
-        for (const dir of oCfg.search) {
+        CmnLib_1.foldProc($cur, () => { }, (dir) => {
             const wd = path.resolve($cur, dir);
             CmnLib_1.foldProc(wd, (url, nm) => {
                 const m = nm.match(this.regSprSheetImg);
@@ -188,7 +188,7 @@ class PrjFileProc {
                 vscode_1.window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
                 this.addPath(hFn2Path, dir, `${m[1]}.json`);
             }, () => { });
-        }
+        });
         return hFn2Path;
     }
     addPath(hFn2Path, dir, nm) {

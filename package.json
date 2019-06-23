@@ -2,12 +2,12 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.2.2",
+	"version": "1.3.0",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.34.0"
+		"vscode": "^1.35.1"
 	},
 	"categories": [
 		"Programming Languages",
@@ -16,7 +16,7 @@
 	"icon": "res/icon.png",
 	"activationEvents": [
 		"onLanguage:skynovel",
-		"onCommand:sn.openReferencePallet",
+		"onCommand:skynovel.openReferencePallet",
 		"workspaceContains:prj/prj.json"
 	],
 	"main": "core/lib/extension.js",
@@ -43,12 +43,12 @@
 		],
 		"commands": [
 			{
-				"command": "sn.openReferencePallet",
-				"title": "%sn.openReferencePallet.title%",
+				"command": "skynovel.openReferencePallet",
+				"title": "%skynovel.openReferencePallet.title%",
 				"category": "SKYNovel"
 			},
 			{
-				"command": "sn.refreshSetting",
+				"command": "skynovel.refreshSetting",
 				"title": "Refresh",
 				"icon": {
 					"light": "res/light/refresh.svg",
@@ -56,7 +56,7 @@
 				}
 			},
 			{
-				"command": "sn.dlNode",
+				"command": "skynovel.dlNode",
 				"title": "Download Node.js",
 				"icon": {
 					"light": "res/light/download.svg",
@@ -64,7 +64,7 @@
 				}
 			},
 			{
-				"command": "sn.opNodeSite",
+				"command": "skynovel.opNodeSite",
 				"title": "Open Node.js Download WebPage",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -72,7 +72,7 @@
 				}
 			},
 			{
-				"command": "sn.devSnUpd",
+				"command": "skynovel.devSnUpd",
 				"title": "Update SKYNovel",
 				"icon": {
 					"light": "res/light/download.svg",
@@ -80,7 +80,7 @@
 				}
 			},
 			{
-				"command": "sn.devCrypt",
+				"command": "skynovel.devCrypt",
 				"title": "Encryption switching",
 				"icon": {
 					"light": "res/light/play.svg",
@@ -88,7 +88,7 @@
 				}
 			},
 			{
-				"command": "sn.devTaskWeb",
+				"command": "skynovel.devTaskWeb",
 				"title": "npm web (on Browser)",
 				"icon": {
 					"light": "res/light/play.svg",
@@ -96,7 +96,7 @@
 				}
 			},
 			{
-				"command": "sn.devTaskStart",
+				"command": "skynovel.devTaskStart",
 				"title": "npm start (on Electron)",
 				"icon": {
 					"light": "res/light/play.svg",
@@ -104,7 +104,7 @@
 				}
 			},
 			{
-				"command": "sn.devTaskPackWin",
+				"command": "skynovel.devTaskPackWin",
 				"title": "npm pack:win (for Windows Package)",
 				"icon": {
 					"light": "res/light/baggage.svg",
@@ -112,7 +112,7 @@
 				}
 			},
 			{
-				"command": "sn.devTaskPackMac",
+				"command": "skynovel.devTaskPackMac",
 				"title": "npm pack:mac (for macOS Package)",
 				"icon": {
 					"light": "res/light/baggage.svg",
@@ -120,7 +120,7 @@
 				}
 			},
 			{
-				"command": "sn.opDev",
+				"command": "skynovel.opDev",
 				"title": "Open Information for developers WebPage",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -128,7 +128,7 @@
 				}
 			},
 			{
-				"command": "sn.opTag",
+				"command": "skynovel.opTag",
 				"title": "Open Tag Reference",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -136,7 +136,7 @@
 				}
 			},
 			{
-				"command": "sn.opMacroPlg",
+				"command": "skynovel.opMacroPlg",
 				"title": "Open Macro And Plugin Reference",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -144,7 +144,7 @@
 				}
 			},
 			{
-				"command": "sn.opGallery",
+				"command": "skynovel.opGallery",
 				"title": "Open Sample Gallery",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -152,7 +152,7 @@
 				}
 			},
 			{
-				"command": "sn.dlTmpYoko",
+				"command": "skynovel.dlTmpYoko",
 				"title": "Download Template",
 				"icon": {
 					"light": "res/light/download.svg",
@@ -160,7 +160,7 @@
 				}
 			},
 			{
-				"command": "sn.dlTmpTate",
+				"command": "skynovel.dlTmpTate",
 				"title": "Download Template",
 				"icon": {
 					"light": "res/light/download.svg",
@@ -168,7 +168,7 @@
 				}
 			},
 			{
-				"command": "sn.opFamibeeBlog",
+				"command": "skynovel.opFamibeeBlog",
 				"title": "Open famibee WebPage",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -176,7 +176,7 @@
 				}
 			},
 			{
-				"command": "sn.mail2famibee",
+				"command": "skynovel.mail2famibee",
 				"title": "Open Mail to famibee",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -184,7 +184,7 @@
 				}
 			},
 			{
-				"command": "sn.tw2famibee",
+				"command": "skynovel.tw2famibee",
 				"title": "Open Twitter to famibee",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -192,7 +192,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExJa",
+				"command": "skynovel.opVSCodeExJa",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -200,7 +200,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExIcon",
+				"command": "skynovel.opVSCodeExIcon",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -208,7 +208,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExBookmarks",
+				"command": "skynovel.opVSCodeExBookmarks",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -216,7 +216,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExLiveHTMLPrev",
+				"command": "skynovel.opVSCodeExLiveHTMLPrev",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -224,7 +224,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExHTMLHint",
+				"command": "skynovel.opVSCodeExHTMLHint",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -232,7 +232,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExCordovaTools",
+				"command": "skynovel.opVSCodeExCordovaTools",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -240,7 +240,7 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExDbg4Chrome",
+				"command": "skynovel.opVSCodeExDbg4Chrome",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
@@ -248,12 +248,16 @@
 				}
 			},
 			{
-				"command": "sn.opVSCodeExglTFTools",
+				"command": "skynovel.opVSCodeExglTFTools",
 				"title": "Open WebSite",
 				"icon": {
 					"light": "res/light/openpage.svg",
 					"dark": "res/dark/openpage.svg"
 				}
+			},
+			{
+				"command": "skynovel.edPrjJson",
+				"title": "SKYNovel GUIで編集する"
 			}
 		],
 		"viewsContainers": {
@@ -284,136 +288,143 @@
 		"menus": {
 			"view/title": [
 				{
-					"command": "sn.refreshSetting",
+					"command": "skynovel.refreshSetting",
 					"when": "view == sn-setting",
 					"group": "navigation"
 				}
 			],
 			"view/item/context": [
 				{
-					"command": "sn.dlNode",
+					"command": "skynovel.dlNode",
 					"when": "view == sn-setting && viewItem == 'Node.js'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opNodeSite",
+					"command": "skynovel.opNodeSite",
 					"when": "view == sn-setting && viewItem == 'Node.js サイト'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devSnUpd",
+					"command": "skynovel.devSnUpd",
 					"when": "view == sn-dev && viewItem == 'SKYNovel更新'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devCrypt",
+					"command": "skynovel.devCrypt",
 					"when": "view == sn-dev && viewItem == '暗号化'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devTaskWeb",
+					"command": "skynovel.devTaskWeb",
 					"when": "view == sn-dev && viewItem == 'ブラウザ版を起動'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devTaskStart",
+					"command": "skynovel.devTaskStart",
 					"when": "view == sn-dev && viewItem == 'アプリ版を起動'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devTaskPackWin",
+					"command": "skynovel.devTaskPackWin",
 					"when": "view == sn-dev && viewItem == 'exe生成'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.devTaskPackMac",
+					"command": "skynovel.devTaskPackMac",
 					"when": "view == sn-dev && viewItem == 'app生成（macOS上のみ）'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opDev",
+					"command": "skynovel.opDev",
 					"when": "view == sn-doc && viewItem == '開発者向け情報'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opTag",
+					"command": "skynovel.opTag",
 					"when": "view == sn-doc && viewItem == 'タグリファレンス'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opMacroPlg",
+					"command": "skynovel.opMacroPlg",
 					"when": "view == sn-doc && viewItem == 'マクロ・プラグインリファレンス'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opGallery",
+					"command": "skynovel.opGallery",
 					"when": "view == sn-doc && viewItem == '機能ギャラリー'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.dlTmpYoko",
+					"command": "skynovel.dlTmpYoko",
 					"when": "view == sn-doc && viewItem == '横書き「初音館にて」'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.dlTmpTate",
+					"command": "skynovel.dlTmpTate",
 					"when": "view == sn-doc && viewItem == '縦書き「桜の樹の下には」'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opFamibeeBlog",
+					"command": "skynovel.opFamibeeBlog",
 					"when": "view == sn-doc && viewItem == 'famibee blog'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.mail2famibee",
+					"command": "skynovel.mail2famibee",
 					"when": "view == sn-doc && viewItem == 'famibee Mail'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.tw2famibee",
+					"command": "skynovel.tw2famibee",
 					"when": "view == sn-doc && viewItem == 'famibee Twitter'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExJa",
+					"command": "skynovel.opVSCodeExJa",
 					"when": "view == sn-doc && viewItem == '日本語化'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExIcon",
+					"command": "skynovel.opVSCodeExIcon",
 					"when": "view == sn-doc && viewItem == 'Material Icon Theme'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExBookmarks",
+					"command": "skynovel.opVSCodeExBookmarks",
 					"when": "view == sn-doc && viewItem == 'Bookmarks'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExLiveHTMLPrev",
+					"command": "skynovel.opVSCodeExLiveHTMLPrev",
 					"when": "view == sn-doc && viewItem == 'HTML Preview'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExHTMLHint",
+					"command": "skynovel.opVSCodeExHTMLHint",
 					"when": "view == sn-doc && viewItem == 'HTMLHint'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExCordovaTools",
+					"command": "skynovel.opVSCodeExCordovaTools",
 					"when": "view == sn-doc && viewItem == 'Cordova Tools'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExDbg4Chrome",
+					"command": "skynovel.opVSCodeExDbg4Chrome",
 					"when": "view == sn-doc && viewItem == 'Debugger for Chrome'",
 					"group": "inline"
 				},
 				{
-					"command": "sn.opVSCodeExglTFTools",
+					"command": "skynovel.opVSCodeExglTFTools",
 					"when": "view == sn-doc && viewItem == 'glTF Tools'",
 					"group": "inline"
+				}
+			],
+			"explorer/context": [
+				{
+					"when": "resourceLangId == json",
+					"command": "skynovel.edPrjJson",
+					"group": "7_modification"
 				}
 			]
 		}
@@ -441,7 +452,7 @@
 		"@types/crypto-js": "^3.1.43",
 		"@types/fs-extra": "^7.0.0",
 		"@types/mocha": "^5.2.7",
-		"@types/node": "^12.0.8",
+		"@types/node": "^12.0.10",
 		"@types/uuid": "^3.4.4",
 		"@types/xregexp": "^3.0.30",
 		"typescript": "^3.5.2",

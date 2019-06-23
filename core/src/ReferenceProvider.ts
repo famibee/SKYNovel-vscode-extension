@@ -169,7 +169,7 @@ export class ReferenceProvider {
 
 		// コマンドパレット・イベント
 		const doc_sel = {scheme: 'file', language: 'skynovel'};
-		context.subscriptions.push(commands.registerCommand('sn.openReferencePallet', ()=> {
+		context.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
 			const options: QuickPickOptions = {
 				'placeHolder': 'Which reference will you open?',
 				'matchOnDescription': true,
@@ -262,7 +262,7 @@ export class ReferenceProvider {
 
 			// [ タグ開始
 			const a_tag: any = m_xregexp.exec(token, this.REG_TAG);
-//				if (a_tag == null) throw 'タグ記述['+ token +']異常です(タグ解析)';
+//			if (a_tag == null) throw 'タグ記述['+ token +']異常です(タグ解析)';
 			if (a_tag == null) continue;
 
 			const tag_name = a_tag['name'];

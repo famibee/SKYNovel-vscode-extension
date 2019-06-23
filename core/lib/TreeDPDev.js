@@ -10,13 +10,13 @@ class TreeDPDev {
         this.aTree = [];
         this.oTreePrj = {};
         this.TreeChild = [
-            { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'sn.devSnUpd' },
-            { icon: 'browser', label: 'ブラウザ版を起動', cmd: 'sn.devTaskWeb' },
-            { icon: 'electron', label: 'アプリ版を起動', cmd: 'sn.devTaskStart' },
-            { icon: 'windows', label: 'exe生成', cmd: 'sn.devTaskPackWin' },
+            { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd' },
+            { icon: 'browser', label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb' },
+            { icon: 'electron', label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart' },
+            { icon: 'windows', label: 'exe生成', cmd: 'skynovel.devTaskPackWin' },
             { icon: 'macosx', label: 'app生成（macOS上のみ）',
-                cmd: 'sn.devTaskPackMac' },
-            { icon: 'gear', label: '暗号化', cmd: 'sn.devCrypt' },
+                cmd: 'skynovel.devTaskPackMac' },
+            { icon: 'gear', label: '暗号化', cmd: 'skynovel.devCrypt' },
         ];
         this.oPfp = {};
         this.fnc_onDidEndTaskProcess = (_e) => { };
@@ -100,10 +100,10 @@ class TreeDPDev {
             return;
         const tc = this.TreeChild[i];
         switch (tc.cmd) {
-            case 'sn.devSnUpd':
+            case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
-            case 'sn.devCrypt':
+            case 'skynovel.devCrypt':
                 vscode_1.window.showInformationMessage('暗号化（する / しない）を切り替えますか？', { modal: true }, 'はい')
                     .then(a => {
                     if (a != 'はい')
@@ -113,16 +113,16 @@ class TreeDPDev {
                     this._onDidChangeTreeData.fire();
                 });
                 return;
-            case 'sn.devTaskWeb':
+            case 'skynovel.devTaskWeb':
                 cmd += 'npm run web';
                 break;
-            case 'sn.devTaskStart':
+            case 'skynovel.devTaskStart':
                 cmd += 'npm run start';
                 break;
-            case 'sn.devTaskPackWin':
+            case 'skynovel.devTaskPackWin':
                 cmd += 'npm run pack:win';
                 break;
-            case 'sn.devTaskPackMac':
+            case 'skynovel.devTaskPackMac':
                 cmd += 'npm run pack:mac';
                 break;
             default: return;

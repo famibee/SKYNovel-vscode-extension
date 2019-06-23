@@ -21,13 +21,13 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		label	: string,
 		cmd		: string,
 	}[] = [
-		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'sn.devSnUpd'},
-		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'sn.devTaskWeb'},
-		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'sn.devTaskStart'},
-		{icon: 'windows',	label: 'exe生成', cmd: 'sn.devTaskPackWin'},
+		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd'},
+		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb'},
+		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart'},
+		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
 		{icon: 'macosx',	label: 'app生成（macOS上のみ）',
-											cmd: 'sn.devTaskPackMac'},
-		{icon: 'gear',		label: '暗号化', cmd: 'sn.devCrypt'},
+											cmd: 'skynovel.devTaskPackMac'},
+		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypt'},
 	];
 
 	private oPfp	: {[dir: string]: PrjFileProc}	= {};
@@ -131,11 +131,11 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		const tc = this.TreeChild[i];
 		switch (tc.cmd) {
-			case 'sn.devSnUpd':	cmd += `npm i skynovel@latest ${
+			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;	break;
 				// NOTE: 全ライブラリ更新は npm update。ただし @latest 動作がない
 
-			case 'sn.devCrypt':
+			case 'skynovel.devCrypt':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a != 'はい') return;
@@ -146,10 +146,10 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 				});
 				return;
 
-			case 'sn.devTaskWeb':		cmd += 'npm run web';		break;
-			case 'sn.devTaskStart':		cmd += 'npm run start';		break;
-			case 'sn.devTaskPackWin':	cmd += 'npm run pack:win';	break;
-			case 'sn.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
+			case 'skynovel.devTaskWeb':		cmd += 'npm run web';		break;
+			case 'skynovel.devTaskStart':	cmd += 'npm run start';		break;
+			case 'skynovel.devTaskPackWin':	cmd += 'npm run pack:win';	break;
+			case 'skynovel.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
 			default:	return;
 		}
 		const t = new Task(

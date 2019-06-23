@@ -1,15 +1,15 @@
 {
-  "sn.description": "Adding SKYNovel language support for Visual Studio Code",
-  "sn.updateCtags.title": "Update Ctags Index File",
-  "sn.openReferencePallet.title": "Open reference search pallet",
-  "sn.configuration.title": "SKYNovel Configuration",
-  "sn.ctagsProcess.description": "Ctags Configuration",
-  "sn.items.tagFilePath.description": "Path to the Ctags' index file",
-  "sn.items.searchPath.description": "Path to the directory where ctags search sn files",
-  "sn.items.searchRecursive.description": "Whether search sn files recursively",
-  "sn.items.runOnSave.description": "Whether recreate the index file automatically when sn file is saved",
-  "sn.items.fileExtensions.description": "File extensions to be searched as sn file",
-  "sn.items.extraOption.description": "Command-line options which will be passed to ctags",
-  "sn.referencePalletEnable.description": "Whether to show in the reference pallet",
-  "sn.referencePalletEnable.skynovel.description": "SKYNovel Documents"
+  "skynovel.description": "Adding SKYNovel language support for Visual Studio Code",
+  "skynovel.updateCtags.title": "Update Ctags Index File",
+  "skynovel.openReferencePallet.title": "Open reference search pallet",
+  "skynovel.configuration.title": "SKYNovel Configuration",
+  "skynovel.ctagsProcess.description": "Ctags Configuration",
+  "skynovel.items.tagFilePath.description": "Path to the Ctags' index file",
+  "skynovel.items.searchPath.description": "Path to the directory where ctags search sn files",
+  "skynovel.items.searchRecursive.description": "Whether search sn files recursively",
+  "skynovel.items.runOnSave.description": "Whether recreate the index file automatically when sn file is saved",
+  "skynovel.items.fileExtensions.description": "File extensions to be searched as sn file",
+  "skynovel.items.extraOption.description": "Command-line options which will be passed to ctags",
+  "skynovel.referencePalletEnable.description": "Whether to show in the reference pallet",
+  "skynovel.referencePalletEnable.skynovel.description": "SKYNovel Documents"
 }
