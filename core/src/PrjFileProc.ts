@@ -5,11 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath} from './CmnLib';
 import {ReferenceProvider} from './ReferenceProvider';
 import {PrjSetting} from './PrjSetting';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, TreeItem} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri} from 'vscode';
 const fs = require('fs-extra');
 const path = require('path');
 const img_size = require('image-size');
@@ -24,21 +24,32 @@ export class PrjFileProc {
 
 	private	readonly	curPlg	: string;
 	private	readonly	curPrj	: string;
-	private	readonly	fnPrjJs	: string;
+	private	readonly	lenCurPrj: number;
 	private	readonly	curCrypt: string;
 	private readonly	fld_crypt_prj	= 'crypt_prj';
 //	private readonly	fld_crypt_prj	= '.prj';
+	private		$isCryptMode	= true;
+	get isCryptMode() {return this.$isCryptMode;}
+	private	regNeedCrypt	= /\.(sn)$/;
+	private	regRepJson		= /(\.|")(sn)"/g;
+
+	private	readonly	hPass: {
+		pass	: string,
+		salt	: string,
+		iv		: string,
+		keySize	: string,
+		ite		: string,
+	};
 
 	private	readonly	aFSW	: Disposable[];
-	private		need_upd_title	= true;
 
-	constructor(private readonly context: ExtensionContext, private readonly dir: string, private readonly ti: TreeItem) {
+	constructor(private readonly context: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		this.updPlugin();
 
 		this.curPrj = dir +'/prj/';
-		this.fnPrjJs = this.curPrj +'prj.json';
+		this.lenCurPrj = this.curPrj.length;
 		this.updPathJson();
 		this.rp = new ReferenceProvider(context, this.curPrj);
 
@@ -51,13 +62,28 @@ export class PrjFileProc {
 			fwPlg.onDidCreate(()=> this.updPlugin()),
 			fwPlg.onDidDelete(()=> this.updPlugin()),
 
-			fwPrj.onDidCreate(e=> {this.rp.crePrj(e); this.updPathJson();}),
-			fwPrj.onDidChange(e=> {this.rp.chgPrj(e)}),
-			fwPrj.onDidDelete(e=> {this.rp.delPrj(e); this.updPathJson();}),
+			fwPrj.onDidCreate(e=> {
+				regNoUseSysPath.lastIndex = 0;
+				if (regNoUseSysPath.test(e.path)) return;
+				this.crePrj(e);
+				this.rp.crePrj(e);
+			}),
+			fwPrj.onDidChange(e=> {
+				regNoUseSysPath.lastIndex = 0;
+				if (regNoUseSysPath.test(e.path)) return;
+				this.chgPrj(e);
+				this.rp.chgPrj(e);
+			}),
+			fwPrj.onDidDelete(e=> {
+				regNoUseSysPath.lastIndex = 0;
+				if (regNoUseSysPath.test(e.path)) return;
+				this.delPrj(e);
+				this.rp.delPrj(e);
+			}),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypt = dir +`/${this.fld_crypt_prj}/`;
-		this.lenCurPrj = this.curPrj.length;
+		this.$isCryptMode = fs.existsSync(this.curCrypt);
 		const fnPass = this.curPlg +'/pass.json';
 		const exists_pass = fs.existsSync(fnPass);
 		this.hPass = exists_pass
@@ -76,23 +102,26 @@ export class PrjFileProc {
 			crypt.enc.Hex.parse(this.hPass.salt),
 			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
 		);
-		if (this.isCryptMode) this.initCrypt();
+		if (this.$isCryptMode) this.initCrypt();
 
-		new PrjSetting(context, dir);
+		new PrjSetting(context, dir, chgTitle);
 	}
-	private	lenCurPrj: number;
-	private	hPass: {
-		pass	: string,
-		salt	: string,
-		iv		: string,
-		keySize	: string,
-		ite		: string,
-	};
 
 	dispose() {this.aFSW.forEach(f=> f.dispose());}
 
 
-	get isCryptMode(): boolean {return fs.existsSync(this.curCrypt);}
+	private	crePrj(e: Uri) {this.encrypter(e.path); this.updPathJson();}
+	private	chgPrj(e: Uri) {this.encrypter(e.path);}
+	private	delPrj(e: Uri) {this.delPrj_sub(e); this.updPathJson();}
+	private	delPrj_sub(e: Uri) {
+		const short_path = e.path.slice(this.lenCurPrj);
+		this.regNeedCrypt.lastIndex = 0;
+		const fn = this.curCrypt + short_path
+			+ (this.regNeedCrypt.test(short_path) ? '_' :'');
+		fs.removeSync(fn);
+	}
+
+
 	private	readonly	aRepl = [
 		'core/app4webpack.js',
 		'core/mob4webpack.js',
@@ -100,8 +129,9 @@ export class PrjFileProc {
 	];
 	tglCryptMode() {
 		const pathPre = this.curPlg +'/snsys_pre';
-		if (this.isCryptMode) {
+		if (this.$isCryptMode) {
 			fs.removeSync(this.curCrypt);
+			this.$isCryptMode = false;
 
 			fs.removeSync(pathPre);
 
@@ -121,6 +151,7 @@ export class PrjFileProc {
 			return;
 		}
 		fs.ensureDir(this.curCrypt);
+		this.$isCryptMode = true;
 
 		// SKYNovelが見に行くプロジェクトフォルダ名変更
 		this.aRepl.forEach(url=> replaceFile(
@@ -151,13 +182,16 @@ export class PrjFileProc {
 
 	private	pbkdf2	: any;
 	private	iv		: any;
-	async encrypter(url: string) {
+	private	async encrypter(url: string) {
+		// TODO: いずれ chg時のための【, forced = false】引数が必要
 		const short_path = url.slice(this.lenCurPrj);
 		if (short_path == 'path.json') {
-			replaceFile(url, /(\.|")sn"/g, `$1sn_"`, this.curCrypt + short_path);
+			this.regRepJson.lastIndex = 0;
+			replaceFile(url, this.regRepJson, `$1$2_"`, this.curCrypt + short_path);
 			return;
 		}
-		if (url.slice(-3) != '.sn') {
+		this.regNeedCrypt.lastIndex = 0;
+		if (! this.regNeedCrypt.test(url)) {
 	//		fs.ensureLink(url, this.curCrypt + short_path)
 			fs.ensureSymlink(url, this.curCrypt + short_path)
 			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
@@ -204,26 +238,12 @@ export class PrjFileProc {
 
 
 	private	async updPathJson() {
-		if (! fs.existsSync(this.fnPrjJs)) {
-			this.ti.label = 'prj/prj.json がありません';
-			this.need_upd_title = true;
-			return;
-		}
-
 		try {
-			const oPpj = await fs.readJson(this.fnPrjJs);
-			if (this.need_upd_title) {
-				this.need_upd_title = false;
-				if (oPpj.book) this.ti.label = oPpj.book.title || '';
-				return;
-			}
-
 			const hPath = this.get_hPathFn2Exts(this.curPrj);
-			fs.outputJson(this.curPrj +'path.json', hPath);
+			await fs.outputJson(this.curPrj +'path.json', hPath);
+			if (this.$isCryptMode) this.encrypter(this.curPrj +'path.json');
 		}
-		catch (err) {
-			console.error(`PrjFileProc updPathJson ${err}`);
-		}
+		catch (err) {console.error(`PrjFileProc updPathJson ${err}`);}
 	}
 	private	readonly regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
 	private get_hPathFn2Exts($cur: string): IFn2Path {

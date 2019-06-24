@@ -91,7 +91,7 @@ class ActivityBar {
                     this.aReady[eTree.NODE] = false;
                     node.description = `-- 見つかりません`;
                     node.iconPath = CmnLib_1.oIcon('error');
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(node);
                     this.activityBarBadge(++error);
                     return;
                 }
@@ -99,7 +99,7 @@ class ActivityBar {
                 node.description = `-- ${stdout}`;
                 node.iconPath = '';
                 node.contextValue = '';
-                this._onDidChangeTreeData.fire();
+                this._onDidChangeTreeData.fire(node);
             });
         const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
         const chkWbt = () => {
@@ -111,14 +111,14 @@ class ActivityBar {
                     this.aReady[eTree.WINDOWS_BUILD_TOOLS] = false;
                     wbt.description = `-- 見つかりません`;
                     wbt.iconPath = CmnLib_1.oIcon('error');
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(wbt);
                     this.activityBarBadge(++error);
                     return;
                 }
                 this.aReady[eTree.WINDOWS_BUILD_TOOLS] = true;
                 wbt.description = `-- ${a[2]}`;
                 wbt.iconPath = '';
-                this._onDidChangeTreeData.fire();
+                this._onDidChangeTreeData.fire(wbt);
             });
         };
         if (this.aReady[eTree.NPM])
@@ -130,14 +130,14 @@ class ActivityBar {
                     this.aReady[eTree.NPM] = false;
                     npm.description = `-- 見つかりません`;
                     npm.iconPath = CmnLib_1.oIcon('error');
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(npm);
                     this.activityBarBadge(++error);
                     return;
                 }
                 this.aReady[eTree.NPM] = true;
                 npm.description = `-- ${stdout}`;
                 npm.iconPath = '';
-                this._onDidChangeTreeData.fire();
+                this._onDidChangeTreeData.fire(npm);
                 chkWbt();
             });
     }

@@ -41,8 +41,10 @@ exports.statBreak = exports.is_mac ? () => '&&'
 const fs = require('fs-extra');
 const path = require('path');
 const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
+exports.regNoUseSysPath = /\/(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 function treeProc(wd, fnc) {
     for (const nm of fs.readdirSync(wd)) {
+        regNoUseSysFile.lastIndex = 0;
         if (regNoUseSysFile.test(nm))
             continue;
         const url = path.resolve(wd, nm.normalize('NFC'));
@@ -56,6 +58,7 @@ function treeProc(wd, fnc) {
 exports.treeProc = treeProc;
 function foldProc(wd, fnc, fncFld) {
     for (const nm of fs.readdirSync(wd)) {
+        regNoUseSysFile.lastIndex = 0;
         if (regNoUseSysFile.test(nm))
             continue;
         const url = path.resolve(wd, nm.normalize('NFC'));

@@ -10,6 +10,7 @@ export declare const is_mac: boolean;
 export declare const statBreak: {
     (): string;
 };
+export declare const regNoUseSysPath: RegExp;
 export declare function treeProc(wd: string, fnc: (url: string) => void): void;
 export declare function foldProc(wd: string, fnc: (url: string, nm: string) => void, fncFld: (nm: string) => void): void;
 export declare function replaceFile(src: string, r: RegExp, rep: string, dest?: string): Promise<void>;

@@ -72,7 +72,10 @@ class TreeDPDev {
             return ti;
         });
         this.updLocalSNVer(dir);
-        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.context, dir, t);
+        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.context, dir, title => {
+            t.label = title;
+            this._onDidChangeTreeData.fire(t);
+        });
         this.dspCryptMode(dir);
     }
     updLocalSNVer(dir) {
@@ -110,7 +113,7 @@ class TreeDPDev {
                         return;
                     this.oPfp[dir].tglCryptMode();
                     this.dspCryptMode(dir);
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(ti);
                 });
                 return;
             case 'skynovel.devTaskWeb':
@@ -135,7 +138,7 @@ class TreeDPDev {
                 if (e.execution.task.source != t.source)
                     return;
                 this.updLocalSNVer(dir);
-                this._onDidChangeTreeData.fire();
+                this._onDidChangeTreeData.fire(ti);
             }
             : () => { };
         vscode_1.tasks.executeTask(t);

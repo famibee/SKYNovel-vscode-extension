@@ -98,7 +98,10 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		this.updLocalSNVer(dir);
 
-		this.oPfp[dir] = new PrjFileProc(this.context, dir, t);
+		this.oPfp[dir] = new PrjFileProc(this.context, dir, title=> {
+			t.label = title;
+			this._onDidChangeTreeData.fire(t);
+		});
 		this.dspCryptMode(dir);
 	}
 	// ローカル SKYNovel バージョン調査
@@ -142,7 +145,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 					this.oPfp[dir].tglCryptMode();
 					this.dspCryptMode(dir);
-					this._onDidChangeTreeData.fire();
+					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
 
@@ -164,7 +167,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 				if (e.execution.task.source != t.source) return;
 
 				this.updLocalSNVer(dir);
-				this._onDidChangeTreeData.fire();
+				this._onDidChangeTreeData.fire(ti);
 			}
 			: ()=> {};
 		tasks.executeTask(t);

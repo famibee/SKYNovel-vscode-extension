@@ -16,7 +16,7 @@ export class PrjSetting {
 	private	readonly	fnPkgJs	: string;
 	private	readonly	localResourceRoots: Uri;
 
-	constructor(readonly context: ExtensionContext, readonly dir: string) {
+	constructor(readonly context: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
 		const path_doc = context.extensionPath +`/res/setting/`;
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
@@ -34,6 +34,7 @@ export class PrjSetting {
 				this.oCfg,
 				fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})
 			);
+			chgTitle(this.oCfg.book.title);
 			if (this.oCfg.save_ns != 'hatsune' &&
 				this.oCfg.save_ns != 'uc') return;
 			this.open();
@@ -136,8 +137,10 @@ export class PrjSetting {
 		},
 		'book.version'	: val=> replaceFile(this.fnPkgJs,
 			/("version"\s*:\s*")(.+)(")/, `$1${val}$3`),
-		'book.title'	: val=> replaceFile(this.fnPkgJs,
-			/("productName"\s*:\s*")(.+)(")/, `$1${val}$3`),
+		'book.title'	: val=> {
+			this.chgTitle(val);
+			replaceFile(this.fnPkgJs, /("productName"\s*:\s*")(.+)(")/, `$1${val}$3`);
+		},
 		"book.creator"	: async val=> {
 			await replaceFile(this.fnPkgJs, /("author"\s*:\s*")(.+)(")/, `$1${val}$3`);
 			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*")(.+)(")/, `$1(c)${val}$3`);

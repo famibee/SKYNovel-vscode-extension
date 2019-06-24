@@ -4,9 +4,10 @@ const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 class PrjSetting {
-    constructor(context, dir) {
+    constructor(context, dir, chgTitle) {
         this.context = context;
         this.dir = dir;
+        this.chgTitle = chgTitle;
         this.oCfg = {
             book: {
                 title: '',
@@ -46,7 +47,10 @@ class PrjSetting {
                 await CmnLib_1.replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*")(.+)(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$3`);
             },
             'book.version': val => CmnLib_1.replaceFile(this.fnPkgJs, /("version"\s*:\s*")(.+)(")/, `$1${val}$3`),
-            'book.title': val => CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*")(.+)(")/, `$1${val}$3`),
+            'book.title': val => {
+                this.chgTitle(val);
+                CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*")(.+)(")/, `$1${val}$3`);
+            },
             "book.creator": async (val) => {
                 await CmnLib_1.replaceFile(this.fnPkgJs, /("author"\s*:\s*")(.+)(")/, `$1${val}$3`);
                 await CmnLib_1.replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*")(.+)(")/, `$1(c)${val}$3`);
@@ -64,6 +68,7 @@ class PrjSetting {
             this.buf_doc = data
                 .replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
             this.oCfg = Object.assign(this.oCfg, fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
+            chgTitle(this.oCfg.book.title);
             if (this.oCfg.save_ns != 'hatsune' &&
                 this.oCfg.save_ns != 'uc')
                 return;

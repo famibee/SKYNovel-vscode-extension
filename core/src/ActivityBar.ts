@@ -107,7 +107,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.aReady[eTree.NODE] = false;
 				node.description = `-- 見つかりません`;
 				node.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire();
+				this._onDidChangeTreeData.fire(node);
 				this.activityBarBadge(++error);
 				return;
 			}
@@ -115,7 +115,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			node.description = `-- ${stdout}`;
 			node.iconPath = '';
 			node.contextValue = '';
-			this._onDidChangeTreeData.fire();
+			this._onDidChangeTreeData.fire(node);
 		});
 
 		const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
@@ -128,14 +128,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					this.aReady[eTree.WINDOWS_BUILD_TOOLS] = false;
 					wbt.description = `-- 見つかりません`;
 					wbt.iconPath = oIcon('error');
-					this._onDidChangeTreeData.fire();
+					this._onDidChangeTreeData.fire(wbt);
 					this.activityBarBadge(++error);
 					return;
 				}
 				this.aReady[eTree.WINDOWS_BUILD_TOOLS] = true;
 				wbt.description = `-- ${a[2]}`;
 				wbt.iconPath = '';
-				this._onDidChangeTreeData.fire();
+				this._onDidChangeTreeData.fire(wbt);
 			});
 		};
 		if (this.aReady[eTree.NPM]) chkWbt();
@@ -145,14 +145,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.aReady[eTree.NPM] = false;
 				npm.description = `-- 見つかりません`;
 				npm.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire();
+				this._onDidChangeTreeData.fire(npm);
 				this.activityBarBadge(++error);
 				return;
 			}
 			this.aReady[eTree.NPM] = true;
 			npm.description = `-- ${stdout}`;
 			npm.iconPath = '';
-			this._onDidChangeTreeData.fire();
+			this._onDidChangeTreeData.fire(npm);
 
 			chkWbt();
 		});
