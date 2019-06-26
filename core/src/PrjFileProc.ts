@@ -30,8 +30,8 @@ export class PrjFileProc {
 //	private readonly	fld_crypt_prj	= '.prj';
 	private		$isCryptMode	= true;
 	get isCryptMode() {return this.$isCryptMode;}
-	private	regNeedCrypt	= /\.(sn)$/;
-	private	regRepJson		= /(\.|")(sn)"/g;
+	private	regNeedCrypt	= /\.(sn|json)$/;
+	private	regRepJson		= /(\.|")(sn|json)"/g;
 
 	private	readonly	hPass: {
 		pass	: string,
@@ -58,6 +58,7 @@ export class PrjFileProc {
 		const fwPlg = workspace.createFileSystemWatcher(this.curPlg +'/?*/');
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.curPrj +'*/*');
+		const fwPrjJs = workspace.createFileSystemWatcher(this.curPrj +'prj.json');
 		this.aFSW = [
 			fwPlg.onDidCreate(()=> this.updPlugin()),
 			fwPlg.onDidDelete(()=> this.updPlugin()),
@@ -80,6 +81,7 @@ export class PrjFileProc {
 				this.delPrj(e);
 				this.rp.delPrj(e);
 			}),
+			fwPrjJs.onDidChange(e=> this.encrypter(e.path)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypt = dir +`/${this.fld_crypt_prj}/`;
@@ -138,7 +140,7 @@ export class PrjFileProc {
 			// SKYNovelが見に行くプロジェクトフォルダ名変更
 			this.aRepl.forEach(url=> replaceFile(
 				this.dir +'/'+ url,
-				new RegExp(`\\(hPlg, {cur: '${this.fld_crypt_prj}\\/'}\\);`),
+				new RegExp(`\\(hPlg, {.+?}\\);`),
 				`(hPlg);`,
 			));
 
@@ -157,7 +159,7 @@ export class PrjFileProc {
 		this.aRepl.forEach(url=> replaceFile(
 			this.dir +'/'+ url,
 			/\(hPlg\);/,
-			`(hPlg, {cur: '${this.fld_crypt_prj}/'});`,
+			`(hPlg, {cur: '${this.fld_crypt_prj}/', crypt: true});`,
 		));
 
 		// ビルド情報：パッケージするフォルダ名変更
@@ -185,11 +187,6 @@ export class PrjFileProc {
 	private	async encrypter(url: string) {
 		// TODO: いずれ chg時のための【, forced = false】引数が必要
 		const short_path = url.slice(this.lenCurPrj);
-		if (short_path == 'path.json') {
-			this.regRepJson.lastIndex = 0;
-			replaceFile(url, this.regRepJson, `$1$2_"`, this.curCrypt + short_path);
-			return;
-		}
 		this.regNeedCrypt.lastIndex = 0;
 		if (! this.regNeedCrypt.test(url)) {
 	//		fs.ensureLink(url, this.curCrypt + short_path)
@@ -200,7 +197,11 @@ export class PrjFileProc {
 
 		// TODO: ハッシュ辞書作って更新チェック、同じなら更新しない
 		try {
-			const src = await fs.readFile(url, {encoding: 'utf8'});
+			let src = await fs.readFile(url, {encoding: 'utf8'});
+			if (short_path == 'path.json') {	// 内容も変更
+				this.regRepJson.lastIndex = 0;
+				src = src.replace(this.regRepJson, `$1$2_"`);
+			}
 			const encrypted = crypt.AES.encrypt(
 				src,
 				this.pbkdf2,
@@ -209,7 +210,8 @@ export class PrjFileProc {
 
 			const fn = this.curCrypt + short_path +'_';
 			await fs.outputFile(fn, String(encrypted));
-		} catch (err) {console.error(`PrjFileProc encrypter ${err}`);}
+		}
+		catch (err) {console.error(`PrjFileProc encrypter ${err}`);}
 	}
 
 

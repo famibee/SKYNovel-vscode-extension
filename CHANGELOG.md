@@ -1,3 +1,6 @@
+## v1.3.4
+- add：暗号化 prj・path・アニメjson_ 対応
+- add：prj.json_も変更追従
 ## v1.3.3
 - add：GUIでタイトル変更時に、アクティビティバーのタイトルも変更
 - add：path.json変更に暗号化版を追従
