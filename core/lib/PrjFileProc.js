@@ -147,8 +147,6 @@ class PrjFileProc {
         let cmd = `cd "${this.dir}" ${CmnLib_1.statBreak()} `;
         if (!fs.existsSync(this.dir + '/node_modules'))
             cmd += `npm i ${CmnLib_1.statBreak()} `;
-        if (!fs.existsSync(this.dir + '/node_modules/crypto-js'))
-            cmd += `npm i -S crypto-js ${CmnLib_1.statBreak()} npm i -D @types/crypt-js ${CmnLib_1.statBreak()} `;
         cmd += 'npm run webpack:dev';
         const t = new vscode_1.Task({ type: 'SKYNovel auto' }, 'webpack:dev', 'SKYNovel', new vscode_1.ShellExecution(cmd));
         vscode_1.tasks.executeTask(t);

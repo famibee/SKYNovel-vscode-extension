@@ -34,8 +34,8 @@ exports.is_win = process.platform === 'win32';
 exports.is_mac = process.platform === 'darwin';
 exports.statBreak = exports.is_mac ? () => '&&'
     : exports.is_win ? () => {
-        const isPS = String(vscode_1.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
-        return (isPS === 'powershell.exe') ? ';' : '&';
+        const isPS = String(vscode_1.workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(7);
+        return (isPS === 'cmd.exe') ? '&' : ';';
     }
         : () => ';';
 const fs = require('fs-extra');

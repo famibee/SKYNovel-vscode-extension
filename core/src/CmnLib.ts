@@ -40,8 +40,8 @@ export const is_mac = process.platform === 'darwin';
 export const statBreak: {(): string} =
 	is_mac ? ()=> '&&'
 	: is_win ? ()=> {
-		const isPS = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-14);
-		return (isPS === 'powershell.exe') ?';' :'&';
+		const isPS = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(7);
+		return (isPS === 'cmd.exe') ?'&' :';';
 	}
 	: ()=> ';';
 

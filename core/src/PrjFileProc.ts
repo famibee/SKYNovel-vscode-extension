@@ -227,7 +227,6 @@ export class PrjFileProc {
 	private rebuildTask() {
 		let cmd = `cd "${this.dir}" ${statBreak()} `;
 		if (! fs.existsSync(this.dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
-		if (! fs.existsSync(this.dir +'/node_modules/crypto-js')) cmd += `npm i -S crypto-js ${statBreak()} npm i -D @types/crypt-js ${statBreak()} `;		// 自動で……処理、2020/6/17頃前には消してもいい
 		cmd += 'npm run webpack:dev';
 		const t = new Task(
 			{type: 'SKYNovel auto'},	// definition（タスクの一意性）

@@ -1,3 +1,5 @@
+## v1.3.5
+- bug：powershell 区切り判定修正など
 ## v1.3.4
 - add：暗号化 prj・path・アニメjson_ 対応
 - add：prj.json_も変更追従
