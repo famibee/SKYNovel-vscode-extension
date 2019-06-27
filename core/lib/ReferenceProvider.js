@@ -119,8 +119,33 @@ class ReferenceProvider {
             if (!macro_name)
                 continue;
             const idx = token.indexOf(macro_name, 12);
-            const my_col = col - token.length + idx;
-            ReferenceProvider.hMacro[macro_name] = new vscode_1.Location(vscode_1.Uri.file(url), new vscode_1.Range(new vscode_1.Position(line, my_col), new vscode_1.Position(line, my_col + macro_name.length)));
+            const mn_col = col - token.length + idx;
+            const rng = new vscode_1.Range(new vscode_1.Position(line, mn_col), new vscode_1.Position(line, mn_col + macro_name.length));
+            const l = ReferenceProvider.hMacro[macro_name];
+            if (!l) {
+                ReferenceProvider.hMacro[macro_name] = new vscode_1.Location(vscode_1.Uri.file(url), rng);
+                continue;
+            }
+            vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, { modal: true })
+                .then(() => {
+                vscode_1.window.showQuickPick([
+                    {
+                        label: `1) ${l.uri.fsPath}`,
+                        description: `行番号 ${l.range.start.line + 1}、${l.range.start.character + 1} 文字目`,
+                    },
+                    {
+                        label: `2) ${url}`,
+                        description: `行番号 ${rng.start.line + 1}、${rng.start.character + 1} 文字目`,
+                    },
+                ]).then(selected => {
+                    if (!selected)
+                        return;
+                    const id = Number(selected.label.slice(0, 1));
+                    vscode_1.workspace.openTextDocument(id == 1 ? l.uri.fsPath : url)
+                        .then(doc => vscode_1.window.showTextDocument(doc, { selection: id == 1 ? l.range : rng }));
+                });
+            });
+            return;
         }
     }
     crePrj(e) { this.updPrj_file(e.path); }

@@ -282,13 +282,44 @@ export class ReferenceProvider {
 			if (! macro_name) continue;
 
 			const idx = token.indexOf(macro_name, 12);
-			const my_col = col -token.length +idx;
-			// TODO: 重複チェック
-			ReferenceProvider.hMacro[macro_name] = new Location(
-				Uri.file(url),
-				new Range(new Position(line, my_col),
-						new Position(line, my_col +macro_name.length)),
+			const mn_col = col -token.length +idx;
+			const rng = new Range(
+				new Position(line, mn_col),
+				new Position(line, mn_col +macro_name.length),
 			);
+			const l = ReferenceProvider.hMacro[macro_name];
+			if (! l) {
+				ReferenceProvider.hMacro[macro_name] = new Location(
+					Uri.file(url),
+					rng,
+				);
+				continue;
+			}
+
+			window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, {modal: true})
+			.then(()=> {
+				window.showQuickPick([
+					{
+						label: `1) ${l.uri.fsPath}`,
+						description: `行番号 ${l.range.start.line +1
+						}、${l.range.start.character +1} 文字目`,
+					},
+					{
+						label: `2) ${url}`,
+						description: `行番号 ${rng.start.line +1
+						}、${rng.start.character +1} 文字目`,
+					},
+				]).then(selected=> {
+					if (! selected) return;
+
+					const id = Number(selected.label.slice(0, 1));
+					workspace.openTextDocument(id == 1 ?l.uri.fsPath :url)
+					.then(doc=> window.showTextDocument(
+						doc, {selection: id == 1 ?l.range :rng}
+					));
+				});
+			});
+			return;
 		}
 	}
 	crePrj(e: Uri) {this.updPrj_file(e.path)}	// ファイル単位増減対応

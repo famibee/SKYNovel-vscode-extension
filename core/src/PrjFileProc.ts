@@ -320,7 +320,12 @@ export class PrjFileProc {
 			hExts = hFn2Path[fn] = {':cnt': '1'};
 		}
 		else if (ext in hExts) {
-			window.showErrorMessage(`[SKYNovel] サーチパスにおいてファイル名＋拡張子【${fn}】が重複しています。フォルダを縦断検索するため許されません`);
+			window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, {modal: true})
+			.then(()=> window.showQuickPick([
+				{label: `1) ${hExts[ext]}`},
+				{label: `2) ${dir +'/'+ nm}`},
+			]));
+			return;
 		}
 		else {
 			hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
