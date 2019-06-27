@@ -11,7 +11,6 @@ import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, commands, env} 
 const fs = require('fs-extra');
 
 export class PrjSetting {
-	private				buf_doc	: string;
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	localResourceRoots: Uri;
@@ -21,13 +20,14 @@ export class PrjSetting {
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
 
+		let doc: string;
 		this.localResourceRoots = Uri.file(path_doc);
 		fs.readFile(path_doc +`index.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
 			// 例外処理
 			if (err) console.error(`PrjSetting constructor ${err}`);
 
 			// リソースパス置換
-			this.buf_doc = data
+			doc = data
 			.replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
 
 			this.oCfg = Object.assign(
@@ -37,10 +37,10 @@ export class PrjSetting {
 			chgTitle(this.oCfg.book.title);
 			if (this.oCfg.save_ns != 'hatsune' &&
 				this.oCfg.save_ns != 'uc') return;
-			this.open();
+			this.open(doc);
 		});
 
-		commands.registerCommand('skynovel.edPrjJson', ()=> this.open());
+		commands.registerCommand('skynovel.edPrjJson', ()=> this.open(doc));
 	}
 
 	private oCfg	: any = {
@@ -76,22 +76,7 @@ export class PrjSetting {
 		},
 	};
 	private	pnlWV	: WebviewPanel | null = null;
-	private open() {
-		let src = this.buf_doc	// 値コピー
-		.replace(`%save_ns%`, this.oCfg.save_ns);
-		for (const k in this.oCfg.book) {	// prj.json の値を設定
-			src = src.replace(`%book.${k}%`, this.oCfg.book[k]);
-		}
-		for (const k in this.oCfg.window) {
-			src = src.replace(`%window.${k}%`, this.oCfg.window[k]);
-		}
-		for (const k in this.oCfg.init) {
-			src = src.replace(`%init.${k}%`, this.oCfg.init[k]);
-		}
-		for (const k in this.oCfg.debug) src = src.replace(
-			`c="%debug.${k}%"`, Boolean(this.oCfg.debug[k]) ?'checked' :''
-		);
-
+	private open(src: string) {
 		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
 		if (this.pnlWV) {
 			this.pnlWV.reveal(column);
@@ -99,21 +84,23 @@ export class PrjSetting {
 			return;
 		}
 
-		this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
+		const wv = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [this.localResourceRoots],
 		});
-		this.pnlWV.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
+		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
 
-		this.pnlWV.webview.onDidReceiveMessage(m=> {
+		wv.webview.onDidReceiveMessage(m=> {
 			switch (m.cmd) {
+			case 'get':		wv.webview.postMessage({cmd: 'res', o: this.oCfg});	break;
 			case 'info':	window.showInformationMessage(m.text); break;
 			case 'warn':	window.showWarningMessage(m.text); break;
 			case 'openURL':	env.openExternal(Uri.parse(m.url)); break;
 			case 'input':	this.inputProc(m.id, m.val);	break;
 			}
 		}, false);
-		this.pnlWV.webview.html = src;
+		wv.webview.html = src;
+		this.pnlWV = wv;
 	}
 	private inputProc(id: string, val: string) {
 		const v: any = (/^[-]?([1-9]\d*|0)$/).test(val) ?Number(val) :val;

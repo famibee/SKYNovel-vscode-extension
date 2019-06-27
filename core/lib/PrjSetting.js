@@ -61,48 +61,39 @@ class PrjSetting {
         const path_doc = context.extensionPath + `/res/setting/`;
         this.fnPrjJs = dir + '/prj/prj.json';
         this.fnPkgJs = dir + '/package.json';
+        let doc;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {
             if (err)
                 console.error(`PrjSetting constructor ${err}`);
-            this.buf_doc = data
+            doc = data
                 .replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
             this.oCfg = Object.assign(this.oCfg, fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
             chgTitle(this.oCfg.book.title);
             if (this.oCfg.save_ns != 'hatsune' &&
                 this.oCfg.save_ns != 'uc')
                 return;
-            this.open();
+            this.open(doc);
         });
-        vscode_1.commands.registerCommand('skynovel.edPrjJson', () => this.open());
+        vscode_1.commands.registerCommand('skynovel.edPrjJson', () => this.open(doc));
     }
-    open() {
-        let src = this.buf_doc
-            .replace(`%save_ns%`, this.oCfg.save_ns);
-        for (const k in this.oCfg.book) {
-            src = src.replace(`%book.${k}%`, this.oCfg.book[k]);
-        }
-        for (const k in this.oCfg.window) {
-            src = src.replace(`%window.${k}%`, this.oCfg.window[k]);
-        }
-        for (const k in this.oCfg.init) {
-            src = src.replace(`%init.${k}%`, this.oCfg.init[k]);
-        }
-        for (const k in this.oCfg.debug)
-            src = src.replace(`c="%debug.${k}%"`, Boolean(this.oCfg.debug[k]) ? 'checked' : '');
+    open(src) {
         const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
             this.pnlWV.webview.html = src;
             return;
         }
-        this.pnlWV = vscode_1.window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || vscode_1.ViewColumn.One, {
+        const wv = vscode_1.window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || vscode_1.ViewColumn.One, {
             enableScripts: true,
             localResourceRoots: [this.localResourceRoots],
         });
-        this.pnlWV.onDidDispose(() => this.pnlWV = null);
-        this.pnlWV.webview.onDidReceiveMessage(m => {
+        wv.onDidDispose(() => this.pnlWV = null);
+        wv.webview.onDidReceiveMessage(m => {
             switch (m.cmd) {
+                case 'get':
+                    wv.webview.postMessage({ cmd: 'res', o: this.oCfg });
+                    break;
                 case 'info':
                     vscode_1.window.showInformationMessage(m.text);
                     break;
@@ -117,7 +108,8 @@ class PrjSetting {
                     break;
             }
         }, false);
-        this.pnlWV.webview.html = src;
+        wv.webview.html = src;
+        this.pnlWV = wv;
     }
     inputProc(id, val) {
         const v = (/^[-]?([1-9]\d*|0)$/).test(val) ? Number(val) : val;

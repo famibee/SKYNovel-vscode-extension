@@ -3,7 +3,6 @@ export declare class PrjSetting {
     readonly context: ExtensionContext;
     readonly dir: string;
     private readonly chgTitle;
-    private buf_doc;
     private readonly fnPrjJs;
     private readonly fnPkgJs;
     private readonly localResourceRoots;
