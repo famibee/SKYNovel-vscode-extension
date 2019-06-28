@@ -309,7 +309,8 @@ export class ReferenceProvider {
 						description: `行番号 ${rng.start.line +1
 						}、${rng.start.character +1} 文字目`,
 					},
-				]).then(selected=> {
+				])
+				.then(selected=> {
 					if (! selected) return;
 
 					const id = Number(selected.label.slice(0, 1));

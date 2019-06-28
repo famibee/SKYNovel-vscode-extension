@@ -322,9 +322,17 @@ export class PrjFileProc {
 		else if (ext in hExts) {
 			window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, {modal: true})
 			.then(()=> window.showQuickPick([
-				{label: `1) ${hExts[ext]}`},
-				{label: `2) ${dir +'/'+ nm}`},
-			]));
+				{label: `1) ${hExts[ext]}`, description:`クリックで削除対象`},
+				{label: `2) ${dir +'/'+ nm}`, description:`クリックで削除対象`},
+			]))
+			.then(selected=> {
+				if (! selected) return;
+
+				const id = Number(selected.label.slice(0, 1));
+				const fn = this.curPrj + (id == 1 ?hExts[ext] :dir +'/'+ nm);
+				window.showInformationMessage(`${fn} を削除しますか？`, {modal: true}, 'はい')
+				.then(a=> {if (a == 'はい') fs.removeSync(fn);});
+			});
 			return;
 		}
 		else {
