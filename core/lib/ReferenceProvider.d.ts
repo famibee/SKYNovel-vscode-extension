@@ -1,7 +1,8 @@
 import { ExtensionContext, Uri } from 'vscode';
 export declare class ReferenceProvider {
     private static readonly pickItems;
-    constructor(context: ExtensionContext, curPrj: string);
+    private readonly clDiag;
+    constructor(ctx: ExtensionContext, curPrj: string);
     private static hMacro;
     private readonly alzTagArg;
     private updPrj_file;

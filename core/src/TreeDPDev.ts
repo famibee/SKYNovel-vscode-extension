@@ -32,7 +32,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 	private oPfp	: {[dir: string]: PrjFileProc}	= {};
 
-	constructor(private readonly context: ExtensionContext) {
+	constructor(private readonly ctx: ExtensionContext) {
 		this.TreeChild.forEach(v=> commands.registerCommand(v.cmd, ti=> this.fncDev(ti)));
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
@@ -98,7 +98,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		this.updLocalSNVer(dir);
 
-		this.oPfp[dir] = new PrjFileProc(this.context, dir, title=> {
+		this.oPfp[dir] = new PrjFileProc(this.ctx, dir, title=> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
 		});

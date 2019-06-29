@@ -22,10 +22,10 @@ enum eTree {
 };
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
-	static start(context: ExtensionContext) {
-		ActivityBar.trDPEnv = new ActivityBar(context);
+	static start(ctx: ExtensionContext) {
+		ActivityBar.trDPEnv = new ActivityBar(ctx);
 		window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
-		ActivityBar.trDPDev = new TreeDPDev(context);
+		ActivityBar.trDPDev = new TreeDPDev(ctx);
 		window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
 		window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
 	}

@@ -12,8 +12,8 @@ const uuidv4 = require('uuid/v4');
 ;
 ;
 class PrjFileProc {
-    constructor(context, dir, chgTitle) {
-        this.context = context;
+    constructor(ctx, dir, chgTitle) {
+        this.ctx = ctx;
         this.dir = dir;
         this.chgTitle = chgTitle;
         this.fld_crypt_prj = 'crypt_prj';
@@ -32,7 +32,7 @@ class PrjFileProc {
         this.curPrj = dir + '/prj/';
         this.lenCurPrj = this.curPrj.length;
         this.updPathJson();
-        this.rp = new ReferenceProvider_1.ReferenceProvider(context, this.curPrj);
+        this.rp = new ReferenceProvider_1.ReferenceProvider(ctx, this.curPrj);
         const fwPlg = vscode_1.workspace.createFileSystemWatcher(this.curPlg + '/?*/');
         const fwPrj = vscode_1.workspace.createFileSystemWatcher(this.curPrj + '*/*');
         const fwPrjJs = vscode_1.workspace.createFileSystemWatcher(this.curPrj + 'prj.json');
@@ -80,7 +80,7 @@ class PrjFileProc {
         this.pbkdf2 = crypt.PBKDF2(crypt.enc.Utf8.parse(this.hPass.pass), crypt.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
         if (this.$isCryptMode)
             this.initCrypt();
-        new PrjSetting_1.PrjSetting(context, dir, chgTitle);
+        new PrjSetting_1.PrjSetting(ctx, dir, chgTitle);
     }
     get isCryptMode() { return this.$isCryptMode; }
     dispose() { this.aFSW.forEach(f => f.dispose()); }
@@ -108,7 +108,7 @@ class PrjFileProc {
         this.$isCryptMode = true;
         this.aRepl.forEach(url => CmnLib_1.replaceFile(this.dir + '/' + url, /\(hPlg\);/, `(hPlg, {cur: '${this.fld_crypt_prj}/', crypt: true});`));
         CmnLib_1.replaceFile(this.dir + '/package.json', /"prj\/",/, `"${this.fld_crypt_prj}/",`);
-        CmnLib_1.replaceFile(this.context.extensionPath + `/res/snsys_pre/index.js`, /{p:0}/, JSON.stringify(this.hPass), pathPre + '/index.js');
+        CmnLib_1.replaceFile(this.ctx.extensionPath + `/res/snsys_pre/index.js`, /{p:0}/, JSON.stringify(this.hPass), pathPre + '/index.js');
         this.initCrypt();
     }
     initCrypt() { CmnLib_1.treeProc(this.curPrj, url => this.encrypter(url)); }

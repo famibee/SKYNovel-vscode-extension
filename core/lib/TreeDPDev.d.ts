@@ -1,11 +1,11 @@
 import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
 export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
-    private readonly context;
+    private readonly ctx;
     private readonly aTree;
     private oTreePrj;
     private readonly TreeChild;
     private oPfp;
-    constructor(context: ExtensionContext);
+    constructor(ctx: ExtensionContext);
     private fnc_onDidEndTaskProcess;
     private refresh;
     private readonly _onDidChangeTreeData;

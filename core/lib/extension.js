@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ActivityBar_1 = require("./ActivityBar");
 const vscode_1 = require("vscode");
 let edActive;
-function activate(context) {
-    ActivityBar_1.ActivityBar.start(context);
+function activate(ctx) {
+    ActivityBar_1.ActivityBar.start(ctx);
     edActive = vscode_1.window.activeTextEditor;
     if (edActive)
         trgUpdDeco();
@@ -12,11 +12,11 @@ function activate(context) {
         edActive = ed;
         if (ed)
             trgUpdDeco();
-    }, null, context.subscriptions);
+    }, null, ctx.subscriptions);
     vscode_1.workspace.onDidChangeTextDocument(event => {
         if (edActive && event.document === edActive.document)
             trgUpdDeco();
-    }, null, context.subscriptions);
+    }, null, ctx.subscriptions);
 }
 exports.activate = activate;
 function deactivate() { ActivityBar_1.ActivityBar.stopActBar(); }

@@ -57,10 +57,10 @@ class ActivityBar {
                 });
             }).on('error', (e) => console.error(e.message));
     }
-    static start(context) {
-        ActivityBar.trDPEnv = new ActivityBar(context);
+    static start(ctx) {
+        ActivityBar.trDPEnv = new ActivityBar(ctx);
         vscode_1.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
-        ActivityBar.trDPDev = new TreeDPDev_1.TreeDPDev(context);
+        ActivityBar.trDPDev = new TreeDPDev_1.TreeDPDev(ctx);
         vscode_1.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
         vscode_1.window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
     }

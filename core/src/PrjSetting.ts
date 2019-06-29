@@ -15,8 +15,8 @@ export class PrjSetting {
 	private	readonly	fnPkgJs	: string;
 	private	readonly	localResourceRoots: Uri;
 
-	constructor(readonly context: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
-		const path_doc = context.extensionPath +`/res/setting/`;
+	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
+		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
 

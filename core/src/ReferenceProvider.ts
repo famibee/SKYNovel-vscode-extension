@@ -7,7 +7,7 @@
 
 import {trim, treeProc} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
-import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, languages, Location, Position, Range, Hover} from 'vscode';
+import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, languages, Location, Position, Range, Hover, DiagnosticCollection, Diagnostic, DiagnosticSeverity} from 'vscode';
 import m_xregexp = require('xregexp');
 const fs = require('fs-extra');
 
@@ -164,12 +164,14 @@ export class ReferenceProvider {
 		{label: 'trace', description: 'デバッグ表示へ出力'},
 	];
 
-	constructor(context: ExtensionContext, curPrj: string) {
+	private	readonly	clDiag	: DiagnosticCollection;
+
+	constructor(ctx: ExtensionContext, curPrj: string) {
 		this.loadCfg();
 
 		// コマンドパレット・イベント
 		const doc_sel = {scheme: 'file', language: 'skynovel'};
-		context.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
+		ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
 			const options: QuickPickOptions = {
 				'placeHolder': 'Which reference will you open?',
 				'matchOnDescription': true,
@@ -177,7 +179,7 @@ export class ReferenceProvider {
 
 			window.showQuickPick<QuickPickItem>(ReferenceProvider.pickItems, options).then(q=> {if (q) openTagRef(q)});
 		}));
-		context.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
+		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
 		// hover provider（識別子の上にマウスカーソルを載せたとき）イベント
 		languages.registerHoverProvider(doc_sel, {provideHover(doc, pos) {
@@ -197,7 +199,7 @@ export class ReferenceProvider {
 		}});
 
 		// definition provider「定義へ移動」「定義をここに表示」イベント
-		context.subscriptions.push(languages.registerDefinitionProvider(
+		ctx.subscriptions.push(languages.registerDefinitionProvider(
 			doc_sel, {provideDefinition(doc, pos) {
 				const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
 				if (! rng) return Promise.reject('No word here.');
@@ -215,9 +217,11 @@ export class ReferenceProvider {
 			}
 		}));
 
+		// 診断機能
+		this.clDiag = languages.createDiagnosticCollection('skynovel');
+
 		// プロジェクトフォルダ以下全走査
 		treeProc(curPrj, url=> this.updPrj_file(url));
-
 
 		// TODO: ラベルジャンプ
 		// TODO: registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable
@@ -248,6 +252,11 @@ export class ReferenceProvider {
 
 		const txt = fs.readFileSync(url, {encoding: 'utf8'});
 		const script = this.hScript[url] = this.resolveScript(txt);
+
+		// 診断機能クリア（ドキュメントごと）
+		this.clDiag.delete(Uri.file(url));
+		const diags: Diagnostic[] = [];
+		let show_mes = false;
 
 		const len = script.len;
 		let line = 0;
@@ -296,32 +305,25 @@ export class ReferenceProvider {
 				continue;
 			}
 
-			window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, {modal: true})
-			.then(()=> {
-				window.showQuickPick([
-					{
-						label: `1) ${l.uri.fsPath}`,
-						description: `行番号 ${l.range.start.line +1
-						}、${l.range.start.character +1} 文字目`,
-					},
-					{
-						label: `2) ${url}`,
-						description: `行番号 ${rng.start.line +1
-						}、${rng.start.character +1} 文字目`,
-					},
-				])
-				.then(selected=> {
-					if (! selected) return;
+			const dd = this.clDiag.get(l.uri);
+			if (
+				((! dd) || (! dd.find(d=> d.range == l.range)))
+				&& (! diags.find(d=> d.range == l.range))
+			) diags.push(new Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error));
 
-					const id = Number(selected.label.slice(0, 1));
-					workspace.openTextDocument(id == 1 ?l.uri.fsPath :url)
-					.then(doc=> window.showTextDocument(
-						doc, {selection: id == 1 ?l.range :rng}
-					));
-				});
-			});
-			return;
+			const rng1 = new Range(
+				rng.start,
+				new Position(
+					rng.start.line, rng.start.character +macro_name.length),
+			);
+			diags.push(new Diagnostic(rng1, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error));
+
+			if (show_mes) continue;
+			show_mes = true;
+			window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, {modal: true});
 		}
+
+		this.clDiag.set(Uri.file(url), diags);
 	}
 	crePrj(e: Uri) {this.updPrj_file(e.path)}	// ファイル単位増減対応
 	chgPrj(e: Uri) {	// ファイル変更対応・強制削除＆再定義
@@ -336,9 +338,7 @@ export class ReferenceProvider {
 	}
 
 
-	private loadCfg = ()=> ReferenceProvider.pickItems.sort(this.compare).forEach(q=> {
-		q.description += '（SKYNovel）';
-	});
+	private loadCfg = ()=> ReferenceProvider.pickItems.sort(this.compare).forEach(q=> q.description += '（SKYNovel）');
 	private compare(a: QuickPickItem, b: QuickPickItem): number {
 		const aStr = a.label + a.description;
 		const bStr = b.label + b.description;

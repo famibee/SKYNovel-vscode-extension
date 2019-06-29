@@ -12,11 +12,9 @@ function openTagRef(v) {
 }
 ;
 class ReferenceProvider {
-    constructor(context, curPrj) {
+    constructor(ctx, curPrj) {
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
-        this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => {
-            q.description += '（SKYNovel）';
-        });
+        this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.hScript = Object.create(null);
         this.REG_TAG_LET_ML = m_xregexp(`^\\[let_ml\\s`, 'g');
         this.REG_TOKEN = m_xregexp(`(?: \\[let_ml \\s+ [^\\[\\]]+ \\])` +
@@ -42,7 +40,7 @@ class ReferenceProvider {
         this.REG_TAG = m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
         this.loadCfg();
         const doc_sel = { scheme: 'file', language: 'skynovel' };
-        context.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
+        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
             const options = {
                 'placeHolder': 'Which reference will you open?',
                 'matchOnDescription': true,
@@ -50,7 +48,7 @@ class ReferenceProvider {
             vscode_1.window.showQuickPick(ReferenceProvider.pickItems, options).then(q => { if (q)
                 openTagRef(q); });
         }));
-        context.subscriptions.push(vscode_1.workspace.onDidChangeConfiguration(() => this.loadCfg()));
+        ctx.subscriptions.push(vscode_1.workspace.onDidChangeConfiguration(() => this.loadCfg()));
         vscode_1.languages.registerHoverProvider(doc_sel, { provideHover(doc, pos) {
                 const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
                 if (rng) {
@@ -67,7 +65,7 @@ class ReferenceProvider {
                 }
                 return Promise.reject('No word here.');
             } });
-        context.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, { provideDefinition(doc, pos) {
+        ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, { provideDefinition(doc, pos) {
                 const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
                 if (!rng)
                     return Promise.reject('No word here.');
@@ -86,6 +84,7 @@ class ReferenceProvider {
                 return Promise.reject('No definition found');
             }
         }));
+        this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
         CmnLib_1.treeProc(curPrj, url => this.updPrj_file(url));
     }
     updPrj_file(url) {
@@ -93,6 +92,9 @@ class ReferenceProvider {
             return;
         const txt = fs.readFileSync(url, { encoding: 'utf8' });
         const script = this.hScript[url] = this.resolveScript(txt);
+        this.clDiag.delete(vscode_1.Uri.file(url));
+        const diags = [];
+        let show_mes = false;
         const len = script.len;
         let line = 0;
         let col = 0;
@@ -126,28 +128,18 @@ class ReferenceProvider {
                 ReferenceProvider.hMacro[macro_name] = new vscode_1.Location(vscode_1.Uri.file(url), rng);
                 continue;
             }
-            vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, { modal: true })
-                .then(() => {
-                vscode_1.window.showQuickPick([
-                    {
-                        label: `1) ${l.uri.fsPath}`,
-                        description: `行番号 ${l.range.start.line + 1}、${l.range.start.character + 1} 文字目`,
-                    },
-                    {
-                        label: `2) ${url}`,
-                        description: `行番号 ${rng.start.line + 1}、${rng.start.character + 1} 文字目`,
-                    },
-                ])
-                    .then(selected => {
-                    if (!selected)
-                        return;
-                    const id = Number(selected.label.slice(0, 1));
-                    vscode_1.workspace.openTextDocument(id == 1 ? l.uri.fsPath : url)
-                        .then(doc => vscode_1.window.showTextDocument(doc, { selection: id == 1 ? l.range : rng }));
-                });
-            });
-            return;
+            const dd = this.clDiag.get(l.uri);
+            if (((!dd) || (!dd.find(d => d.range == l.range)))
+                && (!diags.find(d => d.range == l.range)))
+                diags.push(new vscode_1.Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, vscode_1.DiagnosticSeverity.Error));
+            const rng1 = new vscode_1.Range(rng.start, new vscode_1.Position(rng.start.line, rng.start.character + macro_name.length));
+            diags.push(new vscode_1.Diagnostic(rng1, `マクロ定義（[${macro_name}]）が重複`, vscode_1.DiagnosticSeverity.Error));
+            if (show_mes)
+                continue;
+            show_mes = true;
+            vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, { modal: true });
         }
+        this.clDiag.set(vscode_1.Uri.file(url), diags);
     }
     crePrj(e) { this.updPrj_file(e.path); }
     chgPrj(e) {

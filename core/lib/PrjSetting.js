@@ -4,8 +4,8 @@ const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 class PrjSetting {
-    constructor(context, dir, chgTitle) {
-        this.context = context;
+    constructor(ctx, dir, chgTitle) {
+        this.ctx = ctx;
         this.dir = dir;
         this.chgTitle = chgTitle;
         this.oCfg = {
@@ -58,7 +58,7 @@ class PrjSetting {
             'book.pub_url': val => CmnLib_1.replaceFile(this.fnPkgJs, /("homepage"\s*:\s*")(.+)(")/, `$1${val}$3`),
             'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*")(.+)(")/, `$1${val}$3`),
         };
-        const path_doc = context.extensionPath + `/res/setting/`;
+        const path_doc = ctx.extensionPath + `/res/setting/`;
         this.fnPrjJs = dir + '/prj/prj.json';
         this.fnPkgJs = dir + '/package.json';
         let doc;

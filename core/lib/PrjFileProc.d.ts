@@ -1,6 +1,6 @@
 import { ExtensionContext } from 'vscode';
 export declare class PrjFileProc {
-    private readonly context;
+    private readonly ctx;
     private readonly dir;
     readonly chgTitle: (title: string) => void;
     private readonly rp;
@@ -15,7 +15,7 @@ export declare class PrjFileProc {
     private regRepJson;
     private readonly hPass;
     private readonly aFSW;
-    constructor(context: ExtensionContext, dir: string, chgTitle: (title: string) => void);
+    constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);
     dispose(): void;
     private crePrj;
     private chgPrj;

@@ -43,7 +43,7 @@ export class PrjFileProc {
 
 	private	readonly	aFSW	: Disposable[];
 
-	constructor(private readonly context: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
+	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		this.updPlugin();
@@ -51,7 +51,7 @@ export class PrjFileProc {
 		this.curPrj = dir +'/prj/';
 		this.lenCurPrj = this.curPrj.length;
 		this.updPathJson();
-		this.rp = new ReferenceProvider(context, this.curPrj);
+		this.rp = new ReferenceProvider(ctx, this.curPrj);
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
@@ -106,7 +106,7 @@ export class PrjFileProc {
 		);
 		if (this.$isCryptMode) this.initCrypt();
 
-		new PrjSetting(context, dir, chgTitle);
+		new PrjSetting(ctx, dir, chgTitle);
 	}
 
 	dispose() {this.aFSW.forEach(f=> f.dispose());}
@@ -171,7 +171,7 @@ export class PrjFileProc {
 
 		// プラグインソースに埋め込む
 		replaceFile(
-			this.context.extensionPath +`/res/snsys_pre/index.js`,
+			this.ctx.extensionPath +`/res/snsys_pre/index.js`,
 			/{p:0}/,
 			JSON.stringify(this.hPass),
 			pathPre +'/index.js',

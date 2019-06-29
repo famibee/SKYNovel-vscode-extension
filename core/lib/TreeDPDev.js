@@ -5,8 +5,8 @@ const PrjFileProc_1 = require("./PrjFileProc");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 class TreeDPDev {
-    constructor(context) {
-        this.context = context;
+    constructor(ctx) {
+        this.ctx = ctx;
         this.aTree = [];
         this.oTreePrj = {};
         this.TreeChild = [
@@ -72,7 +72,7 @@ class TreeDPDev {
             return ti;
         });
         this.updLocalSNVer(dir);
-        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.context, dir, title => {
+        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.ctx, dir, title => {
             t.label = title;
             this._onDidChangeTreeData.fire(t);
         });

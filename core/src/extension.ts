@@ -12,9 +12,9 @@ import {TextEditor, ExtensionContext, window, workspace, Range, TextEditorDecora
 let edActive: TextEditor | undefined;
 
 // ロード時に一度だけ呼ばれる
-export function activate(context: ExtensionContext) {
+export function activate(ctx: ExtensionContext) {
 	// アクティビティバー
-	ActivityBar.start(context);	// このタイミングで環境チェック
+	ActivityBar.start(ctx);	// このタイミングで環境チェック
 
 	// fn属性やlabel属性の値に下線を引くように
 	edActive = window.activeTextEditor;
@@ -23,11 +23,11 @@ export function activate(context: ExtensionContext) {
 	window.onDidChangeActiveTextEditor(ed=> {
 		edActive = ed;
 		if (ed) trgUpdDeco();
-	}, null, context.subscriptions);
+	}, null, ctx.subscriptions);
 
 	workspace.onDidChangeTextDocument(event=> {
 		if (edActive && event.document === edActive.document) trgUpdDeco();
-	}, null, context.subscriptions);
+	}, null, ctx.subscriptions);
 }
 
 // 拡張機能が非アクティブ化されたときに、実行
