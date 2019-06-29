@@ -166,7 +166,7 @@ export class ReferenceProvider {
 
 	private	readonly	clDiag	: DiagnosticCollection;
 
-	constructor(ctx: ExtensionContext, curPrj: string) {
+	constructor(ctx: ExtensionContext, private curPrj: string) {
 		this.loadCfg();
 
 		// コマンドパレット・イベント
@@ -221,7 +221,7 @@ export class ReferenceProvider {
 		this.clDiag = languages.createDiagnosticCollection('skynovel');
 
 		// プロジェクトフォルダ以下全走査
-		treeProc(curPrj, url=> this.updPrj_file(url));
+		this.scanAllScript();
 
 		// TODO: ラベルジャンプ
 		// TODO: registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable
@@ -244,6 +244,17 @@ export class ReferenceProvider {
 
 
 	// 全スクリプト走査（「定義へ移動」「定義をここに表示」など）
+	private scanAllScript(e?: Uri) {
+		if (e && e.fsPath.slice(-3) != '.sn') return;
+
+		ReferenceProvider.hMacro = {};
+		this.clDiag.clear();
+		treeProc(this.curPrj, url=> this.updPrj_file(url));
+	}
+	crePrj(e: Uri) {this.scanAllScript(e)}	// ファイル増減
+	chgPrj(e: Uri) {this.scanAllScript(e)}	// ファイル変更
+	delPrj(e: Uri) {this.scanAllScript(e)}	// ファイル削除
+
 	private	static hMacro: {[name: string]: Location} = {};
 	private	readonly	alzTagArg	= new AnalyzeTagArg;
 	// ファイル内定義検知
@@ -306,10 +317,13 @@ export class ReferenceProvider {
 			}
 
 			const dd = this.clDiag.get(l.uri);
-			if (
-				((! dd) || (! dd.find(d=> d.range == l.range)))
-				&& (! diags.find(d=> d.range == l.range))
-			) diags.push(new Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error));
+			const dia = new Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error);
+			if (l.uri.fsPath == url) {
+				if (! diags.find(d=> d.range == l.range)) diags.push(dia);
+			}
+			else {
+				if ((! dd) || (! dd.find(d=> d.range == l.range))) this.clDiag.set(l.uri, [dia]);
+			}
 
 			const rng1 = new Range(
 				rng.start,
@@ -324,17 +338,6 @@ export class ReferenceProvider {
 		}
 
 		this.clDiag.set(Uri.file(url), diags);
-	}
-	crePrj(e: Uri) {this.updPrj_file(e.path)}	// ファイル単位増減対応
-	chgPrj(e: Uri) {	// ファイル変更対応・強制削除＆再定義
-		this.delPrj(e);
-		this.updPrj_file(e.path);
-	}
-	delPrj(e: Uri) {	// （ファイル削除により）定義削除
-		for (const macnm in ReferenceProvider.hMacro) {
-			if (ReferenceProvider.hMacro[macnm].uri.path != e.path) continue;
-			delete ReferenceProvider.hMacro[macnm];
-		}
 	}
 
 

@@ -13,6 +13,7 @@ function openTagRef(v) {
 ;
 class ReferenceProvider {
     constructor(ctx, curPrj) {
+        this.curPrj = curPrj;
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
         this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.hScript = Object.create(null);
@@ -85,8 +86,18 @@ class ReferenceProvider {
             }
         }));
         this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
-        CmnLib_1.treeProc(curPrj, url => this.updPrj_file(url));
+        this.scanAllScript();
     }
+    scanAllScript(e) {
+        if (e && e.fsPath.slice(-3) != '.sn')
+            return;
+        ReferenceProvider.hMacro = {};
+        this.clDiag.clear();
+        CmnLib_1.treeProc(this.curPrj, url => this.updPrj_file(url));
+    }
+    crePrj(e) { this.scanAllScript(e); }
+    chgPrj(e) { this.scanAllScript(e); }
+    delPrj(e) { this.scanAllScript(e); }
     updPrj_file(url) {
         if (url.slice(-3) != '.sn')
             return;
@@ -129,9 +140,15 @@ class ReferenceProvider {
                 continue;
             }
             const dd = this.clDiag.get(l.uri);
-            if (((!dd) || (!dd.find(d => d.range == l.range)))
-                && (!diags.find(d => d.range == l.range)))
-                diags.push(new vscode_1.Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, vscode_1.DiagnosticSeverity.Error));
+            const dia = new vscode_1.Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, vscode_1.DiagnosticSeverity.Error);
+            if (l.uri.fsPath == url) {
+                if (!diags.find(d => d.range == l.range))
+                    diags.push(dia);
+            }
+            else {
+                if ((!dd) || (!dd.find(d => d.range == l.range)))
+                    this.clDiag.set(l.uri, [dia]);
+            }
             const rng1 = new vscode_1.Range(rng.start, new vscode_1.Position(rng.start.line, rng.start.character + macro_name.length));
             diags.push(new vscode_1.Diagnostic(rng1, `マクロ定義（[${macro_name}]）が重複`, vscode_1.DiagnosticSeverity.Error));
             if (show_mes)
@@ -140,18 +157,6 @@ class ReferenceProvider {
             vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, { modal: true });
         }
         this.clDiag.set(vscode_1.Uri.file(url), diags);
-    }
-    crePrj(e) { this.updPrj_file(e.path); }
-    chgPrj(e) {
-        this.delPrj(e);
-        this.updPrj_file(e.path);
-    }
-    delPrj(e) {
-        for (const macnm in ReferenceProvider.hMacro) {
-            if (ReferenceProvider.hMacro[macnm].uri.path != e.path)
-                continue;
-            delete ReferenceProvider.hMacro[macnm];
-        }
     }
     compare(a, b) {
         const aStr = a.label + a.description;
