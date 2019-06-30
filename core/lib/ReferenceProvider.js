@@ -14,6 +14,7 @@ function openTagRef(v) {
 class ReferenceProvider {
     constructor(ctx, curPrj) {
         this.curPrj = curPrj;
+        this.macro_name4rename = '';
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
         this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.hScript = Object.create(null);
@@ -50,60 +51,98 @@ class ReferenceProvider {
                 openTagRef(q); });
         }));
         ctx.subscriptions.push(vscode_1.workspace.onDidChangeConfiguration(() => this.loadCfg()));
-        vscode_1.languages.registerHoverProvider(doc_sel, { provideHover(doc, pos) {
-                const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
-                if (rng) {
-                    const tag_name = doc.lineAt(pos.line).text.slice(rng.start.character + 1, rng.end.character);
-                    const loc = ReferenceProvider.hMacro[tag_name];
-                    if (loc)
-                        return new vscode_1.Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
-                    const len = ReferenceProvider.pickItems.length;
-                    for (let i = 0; i < len; ++i) {
-                        const q = ReferenceProvider.pickItems[i];
-                        if (q.label == tag_name)
-                            return new vscode_1.Hover(`[${tag_name}] タグです 機能：${q.description}`);
-                    }
-                }
-                return Promise.reject('No word here.');
-            } });
-        ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, { provideDefinition(doc, pos) {
-                const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
-                if (!rng)
-                    return Promise.reject('No word here.');
-                const tag_name = doc.lineAt(pos.line).text.slice(rng.start.character + 1, rng.end.character);
-                const loc = ReferenceProvider.hMacro[tag_name];
-                if (loc)
-                    return Promise.resolve(loc);
-                const len = ReferenceProvider.pickItems.length;
-                for (let i = 0; i < len; ++i) {
-                    const q = ReferenceProvider.pickItems[i];
-                    if (q.label == tag_name) {
-                        openTagRef(q);
-                        break;
-                    }
-                }
-                return Promise.reject('No definition found');
-            }
-        }));
+        vscode_1.languages.registerHoverProvider(doc_sel, this);
+        ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, this));
+        ctx.subscriptions.push(vscode_1.languages.registerRenameProvider(doc_sel, this));
         this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
         this.scanAllScript();
+    }
+    prepareRename(doc, pos, _token) {
+        doc.save();
+        let is_mac_def = false;
+        let rng = new vscode_1.Range(0, 0, 0, 0);
+        for (const nm in ReferenceProvider.hMacro) {
+            const m = ReferenceProvider.hMacro[nm];
+            if (doc.uri.fsPath == m.uri.fsPath && m.range.contains(pos)) {
+                is_mac_def = true;
+                rng = m.range;
+                break;
+            }
+        }
+        if (!is_mac_def) {
+            const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+            if (!r)
+                return Promise.reject('No word here.');
+            rng = new vscode_1.Range(r.start.translate(0, 1), r.end);
+        }
+        this.macro_name4rename = doc.getText(rng);
+        const l = ReferenceProvider.hMacro[this.macro_name4rename];
+        if (!l)
+            return Promise.reject('タグは変名できません');
+        return Promise.resolve(rng);
+    }
+    provideRenameEdits(_doc, _pos, newName, _token) {
+        if (/(\s|　)/.test(newName))
+            return Promise.reject('空白を含む変名はできません');
+        const we = new vscode_1.WorkspaceEdit();
+        const m = ReferenceProvider.hMacro[this.macro_name4rename];
+        we.replace(m.uri, m.range, newName);
+        (ReferenceProvider.hMacroUse[this.macro_name4rename] || [])
+            .forEach(p => we.replace(p.uri, p.range, newName));
+        return Promise.resolve(we);
+    }
+    provideHover(doc, pos, _token) {
+        const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+        if (!r)
+            return Promise.reject('No word here.');
+        const tag_name = doc.lineAt(pos.line).text.slice(r.start.character + 1, r.end.character);
+        const loc = ReferenceProvider.hMacro[tag_name];
+        if (loc)
+            return new vscode_1.Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
+        const len = ReferenceProvider.pickItems.length;
+        for (let i = 0; i < len; ++i) {
+            const q = ReferenceProvider.pickItems[i];
+            if (q.label == tag_name)
+                return new vscode_1.Hover(`[${tag_name}] タグです 機能：${q.description}`);
+        }
+        return Promise.reject('No word here.');
+    }
+    provideDefinition(doc, pos, _token) {
+        const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+        if (!r)
+            return Promise.reject('No word here.');
+        const tag_name = doc.lineAt(pos.line).text.slice(r.start.character + 1, r.end.character);
+        const loc = ReferenceProvider.hMacro[tag_name];
+        if (loc)
+            return Promise.resolve(loc);
+        const len = ReferenceProvider.pickItems.length;
+        for (let i = 0; i < len; ++i) {
+            const q = ReferenceProvider.pickItems[i];
+            if (q.label == tag_name) {
+                openTagRef(q);
+                break;
+            }
+        }
+        return Promise.reject('No definition found');
     }
     scanAllScript(e) {
         if (e && e.fsPath.slice(-3) != '.sn')
             return;
         ReferenceProvider.hMacro = {};
+        ReferenceProvider.hMacroUse = {};
         this.clDiag.clear();
-        CmnLib_1.treeProc(this.curPrj, url => this.updPrj_file(url));
+        CmnLib_1.treeProc(this.curPrj, url => this.scanScript(url));
     }
     crePrj(e) { this.scanAllScript(e); }
     chgPrj(e) { this.scanAllScript(e); }
     delPrj(e) { this.scanAllScript(e); }
-    updPrj_file(url) {
+    scanScript(url) {
         if (url.slice(-3) != '.sn')
             return;
         const txt = fs.readFileSync(url, { encoding: 'utf8' });
         const script = this.hScript[url] = this.resolveScript(txt);
-        this.clDiag.delete(vscode_1.Uri.file(url));
+        const uri = vscode_1.Uri.file(url);
+        this.clDiag.delete(uri);
         const diags = [];
         let show_mes = false;
         const len = script.len;
@@ -124,8 +163,12 @@ class ReferenceProvider {
             if (a_tag == null)
                 continue;
             const tag_name = a_tag['name'];
-            if (tag_name != 'macro')
+            if (tag_name != 'macro') {
+                const a = ReferenceProvider.hMacroUse[tag_name] || [];
+                a.push(new vscode_1.Location(uri, new vscode_1.Range(new vscode_1.Position(line, col - 1 - tag_name.length), new vscode_1.Position(line, col - 1))));
+                ReferenceProvider.hMacroUse[tag_name] = a;
                 continue;
+            }
             if (!this.alzTagArg.go(a_tag['args']))
                 throw '属性「' + this.alzTagArg.literal + '」は異常です';
             const macro_name = this.alzTagArg.hPrm['name'].val;
@@ -336,6 +379,7 @@ ReferenceProvider.pickItems = [
     { label: 'trace', description: 'デバッグ表示へ出力' },
 ];
 ReferenceProvider.hMacro = {};
+ReferenceProvider.hMacroUse = {};
 ReferenceProvider.REG_MULTILINE_TAG_SPLIT = m_xregexp(`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');
 exports.ReferenceProvider = ReferenceProvider;
 //# sourceMappingURL=ReferenceProvider.js.map

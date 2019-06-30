@@ -7,7 +7,7 @@
 
 import {trim, treeProc} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
-import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, languages, Location, Position, Range, Hover, DiagnosticCollection, Diagnostic, DiagnosticSeverity} from 'vscode';
+import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, languages, Location, Position, Range, Hover, DiagnosticCollection, Diagnostic, DiagnosticSeverity, RenameProvider, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, DefinitionProvider, Definition, DefinitionLink, HoverProvider} from 'vscode';
 import m_xregexp = require('xregexp');
 const fs = require('fs-extra');
 
@@ -24,7 +24,7 @@ function openTagRef(v: QuickPickItem) {
 	commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
 };
 
-export class ReferenceProvider {
+export class ReferenceProvider implements HoverProvider, DefinitionProvider, RenameProvider {
 	private	static readonly	pickItems: QuickPickItem[] = [
 		// 変数操作
 		{label: 'clearsysvar', description: 'システム変数の全消去'},
@@ -181,42 +181,12 @@ export class ReferenceProvider {
 		}));
 		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
-		// hover provider（識別子の上にマウスカーソルを載せたとき）イベント
-		languages.registerHoverProvider(doc_sel, {provideHover(doc, pos) {
-			const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
-			if (rng) {
-				const tag_name = doc.lineAt(pos.line).text.slice(rng.start.character +1, rng.end.character);
-				const loc = ReferenceProvider.hMacro[tag_name];
-				if (loc) return new Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
-
-				const len = ReferenceProvider.pickItems.length;
-				for (let i=0; i<len; ++i) {
-					const q = ReferenceProvider.pickItems[i];
-					if (q.label == tag_name) return new Hover(`[${tag_name}] タグです 機能：${q.description}`);
-				}
-			}
-			return Promise.reject('No word here.');
-		}});
-
-		// definition provider「定義へ移動」「定義をここに表示」イベント
-		ctx.subscriptions.push(languages.registerDefinitionProvider(
-			doc_sel, {provideDefinition(doc, pos) {
-				const rng = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
-				if (! rng) return Promise.reject('No word here.');
-
-				const tag_name = doc.lineAt(pos.line).text.slice(rng.start.character +1, rng.end.character);
-				const loc = ReferenceProvider.hMacro[tag_name];
-				if (loc) return Promise.resolve(loc);
-
-				const len = ReferenceProvider.pickItems.length;
-				for (let i=0; i<len; ++i) {
-					const q = ReferenceProvider.pickItems[i];
-					if (q.label == tag_name) {openTagRef(q); break;}
-				}
-				return Promise.reject('No definition found');
-			}
-		}));
-
+		// 識別子の上にマウスカーソルを載せたとき
+		languages.registerHoverProvider(doc_sel, this);
+		// 「定義へ移動」「定義をここに表示」
+		ctx.subscriptions.push(languages.registerDefinitionProvider(doc_sel, this));
+		// 「シンボルの名前変更」
+		ctx.subscriptions.push(languages.registerRenameProvider(doc_sel, this));
 		// 診断機能
 		this.clDiag = languages.createDiagnosticCollection('skynovel');
 
@@ -224,48 +194,113 @@ export class ReferenceProvider {
 		this.scanAllScript();
 
 		// TODO: ラベルジャンプ
-		// TODO: registerRenameProvider(selector: DocumentSelector, provider: RenameProvider): Disposable
-
-/*
-		const opTxt = (doc: TextDocument): void=> {
-			if (doc.fileName in this.hScript) return;
-//console.log(`fn:ReferenceProvider.ts line:161 fileName:${doc.fileName}`);
-			// fileName = FULL PATH
-
-//			this.hScript[doc.fileName] = this.resolveScript(doc.getText());
-
-			// TODO: ファイル→ラベル辞書
-		}
-		workspace.textDocuments.forEach(doc=> opTxt(doc));	// 既に開かれていた分
-		workspace.onDidOpenTextDocument(doc=> opTxt(doc));	// 後に開かれた分
-			// TODO: こうじゃなくて、随時勝手に探索が必要では
-*/
 	}
 
 
-	// 全スクリプト走査（「定義へ移動」「定義をここに表示」など）
+	// 「シンボルの名前変更」
+	prepareRename(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Range | {placeholder: string, range: Range}> {
+		doc.save();	// hMacroUseを更新するため
+
+		let is_mac_def = false;
+		let rng = new Range(0, 0, 0, 0);
+		for (const nm in ReferenceProvider.hMacro) {
+			const m = ReferenceProvider.hMacro[nm];
+			if (doc.uri.fsPath == m.uri.fsPath && m.range.contains(pos)) {
+				is_mac_def = true;
+				rng = m.range;
+				break;
+			}
+		}
+		if (! is_mac_def) {
+			const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+			if (! r) return Promise.reject('No word here.');
+
+			rng = new Range(r.start.translate(0, 1), r.end);
+		}
+		this.macro_name4rename = doc.getText(rng);
+		const l = ReferenceProvider.hMacro[this.macro_name4rename];
+		if (! l) return Promise.reject('タグは変名できません');
+
+		return Promise.resolve(rng);
+	}
+	private macro_name4rename = '';
+	provideRenameEdits(_doc: TextDocument, _pos: Position, newName: string, _token: CancellationToken): ProviderResult<WorkspaceEdit> {
+		// tokenに空白が含まれないこと
+		if (/(\s|　)/.test(newName)) return Promise.reject('空白を含む変名はできません');
+
+		// マクロ定義
+		const we = new WorkspaceEdit();
+		const m = ReferenceProvider.hMacro[this.macro_name4rename];
+		we.replace(m.uri, m.range, newName);
+
+		// マクロ使用箇所
+		(ReferenceProvider.hMacroUse[this.macro_name4rename] || [])
+		.forEach(p=> we.replace(p.uri, p.range, newName));
+
+		return Promise.resolve(we);
+	}
+
+
+	// 識別子の上にマウスカーソルを載せたとき
+	provideHover(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Hover> {
+		const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+		if (! r) return Promise.reject('No word here.');
+
+		const tag_name = doc.lineAt(pos.line).text.slice(r.start.character +1, r.end.character);
+		const loc = ReferenceProvider.hMacro[tag_name];
+		if (loc) return new Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
+
+		const len = ReferenceProvider.pickItems.length;
+		for (let i=0; i<len; ++i) {
+			const q = ReferenceProvider.pickItems[i];
+			if (q.label == tag_name) return new Hover(`[${tag_name}] タグです 機能：${q.description}`);
+		}
+		return Promise.reject('No word here.');
+	}
+
+
+	// 「定義へ移動」「定義をここに表示」
+	provideDefinition(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Definition | DefinitionLink[]> {
+		const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+		if (! r) return Promise.reject('No word here.');
+
+		const tag_name = doc.lineAt(pos.line).text.slice(r.start.character +1, r.end.character);
+		const loc = ReferenceProvider.hMacro[tag_name];
+		if (loc) return Promise.resolve(loc);
+
+		const len = ReferenceProvider.pickItems.length;
+		for (let i=0; i<len; ++i) {
+			const q = ReferenceProvider.pickItems[i];
+			if (q.label == tag_name) {openTagRef(q); break;}
+		}
+		return Promise.reject('No definition found');
+	}
+	// 全スクリプト走査
 	private scanAllScript(e?: Uri) {
 		if (e && e.fsPath.slice(-3) != '.sn') return;
 
 		ReferenceProvider.hMacro = {};
+		ReferenceProvider.hMacroUse = {};
 		this.clDiag.clear();
-		treeProc(this.curPrj, url=> this.updPrj_file(url));
+		treeProc(this.curPrj, url=> this.scanScript(url));
 	}
+	private	static hMacro: {[name: string]: Location} = {};
+	private	static hMacroUse: {[name: string]: Location[]} = {};
 	crePrj(e: Uri) {this.scanAllScript(e)}	// ファイル増減
 	chgPrj(e: Uri) {this.scanAllScript(e)}	// ファイル変更
 	delPrj(e: Uri) {this.scanAllScript(e)}	// ファイル削除
 
-	private	static hMacro: {[name: string]: Location} = {};
 	private	readonly	alzTagArg	= new AnalyzeTagArg;
 	// ファイル内定義検知
-	private	updPrj_file(url: string) {
+	private	scanScript(url: string) {
 		if (url.slice(-3) != '.sn') return;
 
 		const txt = fs.readFileSync(url, {encoding: 'utf8'});
 		const script = this.hScript[url] = this.resolveScript(txt);
 
 		// 診断機能クリア（ドキュメントごと）
-		this.clDiag.delete(Uri.file(url));
+		const uri = Uri.file(url);
+		this.clDiag.delete(uri);
 		const diags: Diagnostic[] = [];
 		let show_mes = false;
 
@@ -286,7 +321,18 @@ export class ReferenceProvider {
 			if (a_tag == null) continue;
 
 			const tag_name = a_tag['name'];
-			if (tag_name != 'macro') continue;
+			if (tag_name != 'macro') {
+				const a = ReferenceProvider.hMacroUse[tag_name] || [];
+				a.push(new Location(
+					uri,
+					new Range(
+						new Position(line, col -1 -tag_name.length),
+						new Position(line, col -1),
+					),
+				));
+				ReferenceProvider.hMacroUse[tag_name] = a;
+				continue;
+			}
 
 			// [macro name=lr][l][r][endmacro]
 //			const tag_fnc = this.hTag[tag_name];
