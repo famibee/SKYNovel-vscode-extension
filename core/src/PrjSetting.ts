@@ -13,12 +13,14 @@ const fs = require('fs-extra');
 export class PrjSetting {
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
+	private	readonly	fnAppJs	: string;
 	private	readonly	localResourceRoots: Uri;
 
 	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
 		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
+		this.fnAppJs = dir +'/app.js';
 
 		let doc: string;
 		this.localResourceRoots = Uri.file(path_doc);
@@ -103,7 +105,8 @@ export class PrjSetting {
 		this.pnlWV = wv;
 	}
 	private inputProc(id: string, val: string) {
-		const v: any = (/^[-]?([1-9]\d*|0)$/).test(val) ?Number(val) :val;
+		const v2 = val.replace(/"/g, '%22');
+		const v: any = (/^[-]?([1-9]\d*|0)$/).test(val) ?Number(val) :v2;
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);
@@ -115,27 +118,37 @@ export class PrjSetting {
 		fs.outputJson(this.fnPrjJs, this.oCfg);
 
 		const r = this.hRep[id];
-		if (r) r(val);
+		if (r) r(v2);
 	}
 	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
 		"save_ns"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("name"\s*:\s*")(.+)(")/, `$1${val}$3`);
-			await replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*")(.+)(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$3`);
+			await replaceFile(this.fnPkgJs, /("name"\s*:\s*").+(")/, `$1${val}$2`);
+			await replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").+(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
 		},
+		'window.width'	: val=> replaceFile(this.fnAppJs,
+			/(width\s*:\s*)\d+/, `$1${val}`),
+		'window.height'	: val=> replaceFile(this.fnAppJs,
+			/(height\s*:\s*)\d+/, `$1${val}`),
 		'book.version'	: val=> replaceFile(this.fnPkgJs,
-			/("version"\s*:\s*")(.+)(")/, `$1${val}$3`),
+			/("version"\s*:\s*").+(")/, `$1${val}$2`),
 		'book.title'	: val=> {
 			this.chgTitle(val);
-			replaceFile(this.fnPkgJs, /("productName"\s*:\s*")(.+)(")/, `$1${val}$3`);
+			replaceFile(this.fnPkgJs, /("productName"\s*:\s*").+"/, `$1${val}"`);
 		},
 		"book.creator"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("author"\s*:\s*")(.+)(")/, `$1${val}$3`);
-			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*")(.+)(")/, `$1(c)${val}$3`);
+			await replaceFile(this.fnPkgJs, /("author"\s*:\s*").+"/, `$1${val}"`);
+			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").+"/, `$1(c)${val}"`);
+			await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).+\2/, `$1"${val}"`);
 		},
-		'book.pub_url'	: val=> replaceFile(this.fnPkgJs,
-			/("homepage"\s*:\s*")(.+)(")/, `$1${val}$3`),
+		'book.pub_url'	: async val=> {
+			await replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").+"/, `$1${val}"`);
+			await replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).+\2/g, `$1"${val}"`);
+
+			// ついでに発表年を
+			await replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`)
+		},
 		'book.detail'	: val=> replaceFile(this.fnPkgJs,
-			/("description"\s*:\s*")(.+)(")/, `$1${val}$3`),
+			/("description"\s*:\s*").+"/, `$1${val}"`),
 	}
 
 }

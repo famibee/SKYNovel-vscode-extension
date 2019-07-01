@@ -116,7 +116,7 @@ class PrjFileProc {
         const short_path = url.slice(this.lenCurPrj);
         this.regNeedCrypt.lastIndex = 0;
         if (!this.regNeedCrypt.test(url)) {
-            fs.ensureSymlink(url, this.curCrypt + short_path)
+            fs.ensureLink(url, this.curCrypt + short_path)
                 .catch((err) => console.error(`PrjFileProc Symlink ${err}`));
             return;
         }

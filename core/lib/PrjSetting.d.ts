@@ -5,6 +5,7 @@ export declare class PrjSetting {
     private readonly chgTitle;
     private readonly fnPrjJs;
     private readonly fnPkgJs;
+    private readonly fnAppJs;
     private readonly localResourceRoots;
     constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);
     private oCfg;

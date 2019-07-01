@@ -43,24 +43,32 @@ class PrjSetting {
         this.pnlWV = null;
         this.hRep = {
             "save_ns": async (val) => {
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("name"\s*:\s*")(.+)(")/, `$1${val}$3`);
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*")(.+)(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$3`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("name"\s*:\s*").+(")/, `$1${val}$2`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").+(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
             },
-            'book.version': val => CmnLib_1.replaceFile(this.fnPkgJs, /("version"\s*:\s*")(.+)(")/, `$1${val}$3`),
+            'window.width': val => CmnLib_1.replaceFile(this.fnAppJs, /(width\s*:\s*)\d+/, `$1${val}`),
+            'window.height': val => CmnLib_1.replaceFile(this.fnAppJs, /(height\s*:\s*)\d+/, `$1${val}`),
+            'book.version': val => CmnLib_1.replaceFile(this.fnPkgJs, /("version"\s*:\s*").+(")/, `$1${val}$2`),
             'book.title': val => {
                 this.chgTitle(val);
-                CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*")(.+)(")/, `$1${val}$3`);
+                CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*").+"/, `$1${val}"`);
             },
             "book.creator": async (val) => {
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("author"\s*:\s*")(.+)(")/, `$1${val}$3`);
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*")(.+)(")/, `$1(c)${val}$3`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("author"\s*:\s*").+"/, `$1${val}"`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").+"/, `$1(c)${val}"`);
+                await CmnLib_1.replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).+\2/, `$1"${val}"`);
             },
-            'book.pub_url': val => CmnLib_1.replaceFile(this.fnPkgJs, /("homepage"\s*:\s*")(.+)(")/, `$1${val}$3`),
-            'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*")(.+)(")/, `$1${val}$3`),
+            'book.pub_url': async (val) => {
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").+"/, `$1${val}"`);
+                await CmnLib_1.replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).+\2/g, `$1"${val}"`);
+                await CmnLib_1.replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`);
+            },
+            'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*").+"/, `$1${val}"`),
         };
         const path_doc = ctx.extensionPath + `/res/setting/`;
         this.fnPrjJs = dir + '/prj/prj.json';
         this.fnPkgJs = dir + '/package.json';
+        this.fnAppJs = dir + '/app.js';
         let doc;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {
@@ -112,7 +120,8 @@ class PrjSetting {
         this.pnlWV = wv;
     }
     inputProc(id, val) {
-        const v = (/^[-]?([1-9]\d*|0)$/).test(val) ? Number(val) : val;
+        const v2 = val.replace(/"/g, '%22');
+        const v = (/^[-]?([1-9]\d*|0)$/).test(val) ? Number(val) : v2;
         const iP = id.indexOf('.');
         if (iP >= 0) {
             const nm = id.slice(iP + 1);
@@ -124,7 +133,7 @@ class PrjSetting {
         fs.outputJson(this.fnPrjJs, this.oCfg);
         const r = this.hRep[id];
         if (r)
-            r(val);
+            r(v2);
     }
 }
 exports.PrjSetting = PrjSetting;
