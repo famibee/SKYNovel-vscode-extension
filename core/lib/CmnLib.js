@@ -43,31 +43,31 @@ const path = require('path');
 const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 exports.regNoUseSysPath = /\/(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 function treeProc(wd, fnc) {
-    for (const nm of fs.readdirSync(wd)) {
+    fs.readdirSync(wd, { withFileTypes: true }).forEach((d) => {
         regNoUseSysFile.lastIndex = 0;
-        if (regNoUseSysFile.test(nm))
-            continue;
-        const url = path.resolve(wd, nm.normalize('NFC'));
-        if (fs.lstatSync(url).isDirectory()) {
+        if (regNoUseSysFile.test(d.name))
+            return;
+        const url = path.resolve(wd, d.name.normalize('NFC'));
+        if (d.isDirectory()) {
             treeProc(url, fnc);
-            continue;
+            return;
         }
         fnc(url);
-    }
+    });
 }
 exports.treeProc = treeProc;
 function foldProc(wd, fnc, fncFld) {
-    for (const nm of fs.readdirSync(wd)) {
+    fs.readdirSync(wd, { withFileTypes: true }).forEach((d) => {
         regNoUseSysFile.lastIndex = 0;
-        if (regNoUseSysFile.test(nm))
-            continue;
-        const url = path.resolve(wd, nm.normalize('NFC'));
-        if (fs.lstatSync(url).isDirectory()) {
-            fncFld(nm);
-            continue;
+        if (regNoUseSysFile.test(d.name))
+            return;
+        if (d.isDirectory()) {
+            fncFld(d.name);
+            return;
         }
-        fnc(url, nm);
-    }
+        const url = path.resolve(wd, d.name.normalize('NFC'));
+        fnc(url, d.name);
+    });
 }
 exports.foldProc = foldProc;
 async function replaceFile(src, r, rep, dest = src) {

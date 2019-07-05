@@ -105,8 +105,9 @@ export class PrjSetting {
 		this.pnlWV = wv;
 	}
 	private inputProc(id: string, val: string) {
-		const v2 = val.replace(/"/g, '%22');
-		const v: any = (/^[-]?([1-9]\d*|0)$/).test(val) ?Number(val) :v2;
+		const v: any = /^[-]?([1-9]\d*|0)$/.test(val)
+		? Number(val)
+		: /^(true|false)$/.test(val) ?val :String(val).replace(/"/g, '%22');
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);
@@ -118,7 +119,7 @@ export class PrjSetting {
 		fs.outputJson(this.fnPrjJs, this.oCfg);
 
 		const r = this.hRep[id];
-		if (r) r(v2);
+		if (r) r(v);
 	}
 	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
 		"save_ns"	: async val=> {
