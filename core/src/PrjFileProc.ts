@@ -81,7 +81,7 @@ export class PrjFileProc {
 				this.delPrj(e);
 				this.rp.delPrj(e);
 			}),
-			fwPrjJs.onDidChange(e=> this.encrypter(e.path)),
+			fwPrjJs.onDidChange(e=> {if (this.$isCryptMode) this.encrypter(e.path)}),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypt = dir +`/${this.fld_crypt_prj}/`;
