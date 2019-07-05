@@ -220,7 +220,7 @@ class PrjFileProc {
         const fn = p.name;
         let hExts = hFn2Path[fn];
         if (!hExts) {
-            hExts = hFn2Path[fn] = { ':cnt': '1' };
+            hExts = hFn2Path[fn] = { ':cnt': 1 };
         }
         else if (ext in hExts) {
             vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, { modal: true })
@@ -240,7 +240,7 @@ class PrjFileProc {
             return;
         }
         else {
-            hExts[':cnt'] = String(CmnLib_1.uint(hExts[':cnt']) + 1);
+            hExts[':cnt'] = CmnLib_1.uint(hExts[':cnt']) + 1;
         }
         hExts[ext] = dir + '/' + nm;
     }
