@@ -60,8 +60,7 @@ class PrjFileProc {
                 this.delPrj(e);
                 this.rp.delPrj(e);
             }),
-            fwPrjJs.onDidChange(e => { if (this.$isCryptMode)
-                this.encrypter(e.path); }),
+            fwPrjJs.onDidChange(e => this.encrypter(e.path)),
         ];
         this.curCrypt = dir + `/${this.fld_crypt_prj}/`;
         this.$isCryptMode = fs.existsSync(this.curCrypt);
@@ -114,6 +113,8 @@ class PrjFileProc {
     }
     initCrypt() { CmnLib_1.treeProc(this.curPrj, url => this.encrypter(url)); }
     async encrypter(url) {
+        if (!this.$isCryptMode)
+            return;
         const short_path = url.slice(this.lenCurPrj);
         this.regNeedCrypt.lastIndex = 0;
         if (!this.regNeedCrypt.test(url)) {
@@ -156,8 +157,7 @@ class PrjFileProc {
         try {
             const hPath = this.get_hPathFn2Exts(this.curPrj);
             await fs.outputJson(this.curPrj + 'path.json', hPath);
-            if (this.$isCryptMode)
-                this.encrypter(this.curPrj + 'path.json');
+            this.encrypter(this.curPrj + 'path.json');
         }
         catch (err) {
             console.error(`PrjFileProc updPathJson ${err}`);

@@ -81,7 +81,7 @@ export class PrjFileProc {
 				this.delPrj(e);
 				this.rp.delPrj(e);
 			}),
-			fwPrjJs.onDidChange(e=> {if (this.$isCryptMode) this.encrypter(e.path)}),
+			fwPrjJs.onDidChange(e=> this.encrypter(e.path)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypt = dir +`/${this.fld_crypt_prj}/`;
@@ -185,6 +185,8 @@ export class PrjFileProc {
 	private	pbkdf2	: any;
 	private	iv		: any;
 	private	async encrypter(url: string) {
+		if (! this.$isCryptMode) return;
+
 		// TODO: いずれ chg時のための【, forced = false】引数が必要
 		const short_path = url.slice(this.lenCurPrj);
 		this.regNeedCrypt.lastIndex = 0;
@@ -241,7 +243,7 @@ export class PrjFileProc {
 		try {
 			const hPath = this.get_hPathFn2Exts(this.curPrj);
 			await fs.outputJson(this.curPrj +'path.json', hPath);
-			if (this.$isCryptMode) this.encrypter(this.curPrj +'path.json');
+			this.encrypter(this.curPrj +'path.json');
 		}
 		catch (err) {console.error(`PrjFileProc updPathJson ${err}`);}
 	}
