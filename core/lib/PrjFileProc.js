@@ -30,8 +30,10 @@ class PrjFileProc {
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
             this.updPlugin();
-        else
-            vscode_1.window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。');
+        else {
+            this.rebuildTask();
+            vscode_1.window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', { modal: true });
+        }
         this.curPrj = dir + '/prj/';
         this.lenCurPrj = this.curPrj.length;
         this.updPathJson();

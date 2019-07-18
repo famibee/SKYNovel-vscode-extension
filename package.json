@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.6.1",
+	"version": "1.6.2",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
