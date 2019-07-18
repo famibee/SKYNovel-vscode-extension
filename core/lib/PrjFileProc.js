@@ -73,9 +73,10 @@ class PrjFileProc {
             ? fs.readJsonSync(fnPass, { throws: false })
             : {
                 pass: uuidv4(),
-                salt: String(crypt.enc.Hex.parse(crypt.lib.WordArray.random(128 / 8))),
+                salt: String(crypt.lib.WordArray.random(128 / 8)),
                 iv: String(crypt.lib.WordArray.random(128 / 8)),
                 ite: 500 + Math.floor(new Date().getTime() % 300),
+                stk: String(crypt.lib.WordArray.random(128 / 8)),
             };
         if (!exists_pass)
             fs.outputJsonSync(fnPass, this.hPass);

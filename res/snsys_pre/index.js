@@ -26,5 +26,6 @@ exports.init = hSN=> {
 			pbkdf2,
 			{iv: iv},
 		));
+		hSN.getStK(()=> p.stk);
 	})();
 }
