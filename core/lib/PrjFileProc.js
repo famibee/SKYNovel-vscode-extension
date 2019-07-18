@@ -28,7 +28,10 @@ class PrjFileProc {
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
-        this.updPlugin();
+        if (fs.existsSync(this.dir + '/node_modules'))
+            this.updPlugin();
+        else
+            vscode_1.window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。');
         this.curPrj = dir + '/prj/';
         this.lenCurPrj = this.curPrj.length;
         this.updPathJson();

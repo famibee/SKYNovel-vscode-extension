@@ -21,5 +21,10 @@ exports.init = hSN=> {
 				{iv: iv},
 			).toString(crypt.enc.Utf8);
 		});
+		hSN.setEnc(data=> crypt.AES.encrypt(
+			data,
+			pbkdf2,
+			{iv: iv},
+		));
 	})();
 }

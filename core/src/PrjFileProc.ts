@@ -46,7 +46,8 @@ export class PrjFileProc {
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
-		this.updPlugin();
+		if (fs.existsSync(this.dir +'/node_modules')) this.updPlugin();
+		else window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。');
 
 		this.curPrj = dir +'/prj/';
 		this.lenCurPrj = this.curPrj.length;
