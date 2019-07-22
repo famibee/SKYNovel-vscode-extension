@@ -123,33 +123,33 @@ export class PrjSetting {
 	}
 	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
 		"save_ns"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("name"\s*:\s*").+(")/, `$1${val}$2`);
-			await replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").+(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+			await replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
+			await replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
 		},
 		'window.width'	: val=> replaceFile(this.fnAppJs,
-			/(width\s*:\s*)\d+/, `$1${val}`),
+			/(width\s*: ).*(,)/, `$1${val}$2`),
 		'window.height'	: val=> replaceFile(this.fnAppJs,
-			/(height\s*:\s*)\d+/, `$1${val}`),
+			/(height\s*: ).*(,)/, `$1${val}$2`),
 		'book.version'	: val=> replaceFile(this.fnPkgJs,
-			/("version"\s*:\s*").+(")/, `$1${val}$2`),
+			/("version"\s*:\s*").*(")/, `$1${val}$2`),
 		'book.title'	: val=> {
 			this.chgTitle(val);
-			replaceFile(this.fnPkgJs, /("productName"\s*:\s*").+"/, `$1${val}"`);
+			replaceFile(this.fnPkgJs, /("productName"\s*:\s*").*(")/, `$1${val}$2`);
 		},
 		"book.creator"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("author"\s*:\s*").+"/, `$1${val}"`);
-			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").+"/, `$1(c)${val}"`);
-			await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).+\2/, `$1"${val}"`);
+			await replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
+			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
+			await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
 		},
 		'book.pub_url'	: async val=> {
-			await replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").+"/, `$1${val}"`);
-			await replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).+\2/g, `$1"${val}"`);
+			await replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
+			await replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).*\2/g, `$1"${val}"`);
 
 			// ついでに発表年を
 			await replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`)
 		},
 		'book.detail'	: val=> replaceFile(this.fnPkgJs,
-			/("description"\s*:\s*").+"/, `$1${val}"`),
+			/("description"\s*:\s*").*(")/, `$1${val}$2`),
 	}
 
 }

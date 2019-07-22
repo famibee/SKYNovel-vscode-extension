@@ -43,27 +43,27 @@ class PrjSetting {
         this.pnlWV = null;
         this.hRep = {
             "save_ns": async (val) => {
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("name"\s*:\s*").+(")/, `$1${val}$2`);
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").+(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
             },
-            'window.width': val => CmnLib_1.replaceFile(this.fnAppJs, /(width\s*:\s*)\d+/, `$1${val}`),
-            'window.height': val => CmnLib_1.replaceFile(this.fnAppJs, /(height\s*:\s*)\d+/, `$1${val}`),
-            'book.version': val => CmnLib_1.replaceFile(this.fnPkgJs, /("version"\s*:\s*").+(")/, `$1${val}$2`),
+            'window.width': val => CmnLib_1.replaceFile(this.fnAppJs, /(width\s*: ).*(,)/, `$1${val}$2`),
+            'window.height': val => CmnLib_1.replaceFile(this.fnAppJs, /(height\s*: ).*(,)/, `$1${val}$2`),
+            'book.version': val => CmnLib_1.replaceFile(this.fnPkgJs, /("version"\s*:\s*").*(")/, `$1${val}$2`),
             'book.title': val => {
                 this.chgTitle(val);
-                CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*").+"/, `$1${val}"`);
+                CmnLib_1.replaceFile(this.fnPkgJs, /("productName"\s*:\s*").*(")/, `$1${val}$2`);
             },
             "book.creator": async (val) => {
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("author"\s*:\s*").+"/, `$1${val}"`);
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").+"/, `$1(c)${val}"`);
-                await CmnLib_1.replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).+\2/, `$1"${val}"`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
+                await CmnLib_1.replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
             },
             'book.pub_url': async (val) => {
-                await CmnLib_1.replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").+"/, `$1${val}"`);
-                await CmnLib_1.replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).+\2/g, `$1"${val}"`);
+                await CmnLib_1.replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
+                await CmnLib_1.replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).*\2/g, `$1"${val}"`);
                 await CmnLib_1.replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`);
             },
-            'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*").+"/, `$1${val}"`),
+            'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*").*(")/, `$1${val}$2`),
         };
         const path_doc = ctx.extensionPath + `/res/setting/`;
         this.fnPrjJs = dir + '/prj/prj.json';
