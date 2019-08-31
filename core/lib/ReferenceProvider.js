@@ -269,6 +269,7 @@ class ReferenceProvider {
         });
     }
 }
+exports.ReferenceProvider = ReferenceProvider;
 ReferenceProvider.pickItems = [
     { label: 'clearsysvar', description: 'システム変数の全消去' },
     { label: 'clearvar', description: 'ゲーム変数の全消去' },
@@ -381,5 +382,4 @@ ReferenceProvider.pickItems = [
 ReferenceProvider.hMacro = {};
 ReferenceProvider.hMacroUse = {};
 ReferenceProvider.REG_MULTILINE_TAG_SPLIT = m_xregexp(`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');
-exports.ReferenceProvider = ReferenceProvider;
 //# sourceMappingURL=ReferenceProvider.js.map
