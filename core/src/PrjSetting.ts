@@ -22,27 +22,21 @@ export class PrjSetting {
 		this.fnPkgJs = dir +'/package.json';
 		this.fnAppJs = dir +'/app.js';
 
-		let doc: string;
 		this.localResourceRoots = Uri.file(path_doc);
 		fs.readFile(path_doc +`index.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
 			// 例外処理
 			if (err) console.error(`PrjSetting constructor ${err}`);
-
-			// リソースパス置換
-			doc = data
-			.replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
 
 			this.oCfg = Object.assign(
 				this.oCfg,
 				fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})
 			);
 			chgTitle(this.oCfg.book.title);
-			if (this.oCfg.save_ns != 'hatsune' &&
-				this.oCfg.save_ns != 'uc') return;
-			this.open(doc);
+			const d = String(data);
+			commands.registerCommand('skynovel.edPrjJson', ()=> this.open(d));
+			if (this.oCfg.save_ns == 'hatsune' ||
+				this.oCfg.save_ns == 'uc') this.open(d);
 		});
-
-		commands.registerCommand('skynovel.edPrjJson', ()=> this.open(doc));
 	}
 
 	private oCfg	: any = {
@@ -82,7 +76,8 @@ export class PrjSetting {
 		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
 		if (this.pnlWV) {
 			this.pnlWV.reveal(column);
-			this.pnlWV.webview.html = src;
+			this.pnlWV.webview.html = src
+			.replace(/(href|src)="\.\//g, `$1="${this.pnlWV.webview.asWebviewUri(this.localResourceRoots)}/`);
 			return;
 		}
 
@@ -90,6 +85,7 @@ export class PrjSetting {
 			enableScripts: true,
 			localResourceRoots: [this.localResourceRoots],
 		});
+
 		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
 
 		wv.webview.onDidReceiveMessage(m=> {
@@ -101,7 +97,8 @@ export class PrjSetting {
 			case 'input':	this.inputProc(m.id, m.val);	break;
 			}
 		}, false);
-		wv.webview.html = src;
+		wv.webview.html = src
+		.replace(/(href|src)="\.\//g, `$1="${wv.webview.asWebviewUri(this.localResourceRoots)}/`);
 		this.pnlWV = wv;
 	}
 	private inputProc(id: string, val: string) {

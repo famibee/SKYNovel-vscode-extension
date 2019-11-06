@@ -89,13 +89,14 @@ class TreeDPDev {
         tc[5].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
     }
     fncDev(ti) {
+        var _a;
         const aFld = vscode_1.workspace.workspaceFolders;
         if (!aFld) {
             vscode_1.window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
             return;
         }
         let cmd = (aFld.length > 1) ? `cd "${ti.tooltip}" ${CmnLib_1.statBreak()} ` : '';
-        const dir = ti.tooltip || '';
+        const dir = (_a = ti.tooltip, (_a !== null && _a !== void 0 ? _a : ''));
         if (!fs.existsSync(dir + '/node_modules'))
             cmd += `npm i ${CmnLib_1.statBreak()} `;
         const i = this.TreeChild.findIndex(v => v.label === ti.label);

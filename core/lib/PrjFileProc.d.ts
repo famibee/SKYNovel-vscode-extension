@@ -10,7 +10,7 @@ export declare class PrjFileProc {
     private readonly curCrypt;
     private readonly fld_crypt_prj;
     private $isCryptMode;
-    readonly isCryptMode: boolean;
+    get isCryptMode(): boolean;
     private regNeedCrypt;
     private regRepJson;
     private readonly hPass;

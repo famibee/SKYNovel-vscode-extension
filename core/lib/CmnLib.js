@@ -45,9 +45,10 @@ exports.regNoUseSysPath = /\/(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 function treeProc(wd, fnc) {
     fs.readdirSync(wd, { withFileTypes: true }).forEach((d) => {
         regNoUseSysFile.lastIndex = 0;
-        if (regNoUseSysFile.test(d.name))
+        const nm = String(d.name).normalize('NFC');
+        if (regNoUseSysFile.test(nm))
             return;
-        const url = path.resolve(wd, d.name.normalize('NFC'));
+        const url = path.resolve(wd, nm);
         if (d.isDirectory()) {
             treeProc(url, fnc);
             return;
@@ -59,14 +60,15 @@ exports.treeProc = treeProc;
 function foldProc(wd, fnc, fncFld) {
     fs.readdirSync(wd, { withFileTypes: true }).forEach((d) => {
         regNoUseSysFile.lastIndex = 0;
-        if (regNoUseSysFile.test(d.name))
+        const nm = String(d.name).normalize('NFC');
+        if (regNoUseSysFile.test(nm))
             return;
         if (d.isDirectory()) {
-            fncFld(d.name);
+            fncFld(nm);
             return;
         }
-        const url = path.resolve(wd, d.name.normalize('NFC'));
-        fnc(url, d.name);
+        const url = path.resolve(wd, nm);
+        fnc(url, nm);
     });
 }
 exports.foldProc = foldProc;

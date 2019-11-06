@@ -69,27 +69,25 @@ class PrjSetting {
         this.fnPrjJs = dir + '/prj/prj.json';
         this.fnPkgJs = dir + '/package.json';
         this.fnAppJs = dir + '/app.js';
-        let doc;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {
             if (err)
                 console.error(`PrjSetting constructor ${err}`);
-            doc = data
-                .replace(/(href|src)="\.\//g, `$1="vscode-resource:${path_doc}/`);
             this.oCfg = Object.assign(this.oCfg, fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
             chgTitle(this.oCfg.book.title);
-            if (this.oCfg.save_ns != 'hatsune' &&
-                this.oCfg.save_ns != 'uc')
-                return;
-            this.open(doc);
+            const d = String(data);
+            vscode_1.commands.registerCommand('skynovel.edPrjJson', () => this.open(d));
+            if (this.oCfg.save_ns == 'hatsune' ||
+                this.oCfg.save_ns == 'uc')
+                this.open(d);
         });
-        vscode_1.commands.registerCommand('skynovel.edPrjJson', () => this.open(doc));
     }
     open(src) {
         const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
-            this.pnlWV.webview.html = src;
+            this.pnlWV.webview.html = src
+                .replace(/(href|src)="\.\//g, `$1="${this.pnlWV.webview.asWebviewUri(this.localResourceRoots)}/`);
             return;
         }
         const wv = vscode_1.window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || vscode_1.ViewColumn.One, {
@@ -116,7 +114,8 @@ class PrjSetting {
                     break;
             }
         }, false);
-        wv.webview.html = src;
+        wv.webview.html = src
+            .replace(/(href|src)="\.\//g, `$1="${wv.webview.asWebviewUri(this.localResourceRoots)}/`);
         this.pnlWV = wv;
     }
     inputProc(id, val) {

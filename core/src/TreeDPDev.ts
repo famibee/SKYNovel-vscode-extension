@@ -125,7 +125,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		// カレントディレクトリ設定（必要なら）
 		let cmd = (aFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
-		const dir = ti.tooltip || '';
+		const dir = ti.tooltip ?? '';
 		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理

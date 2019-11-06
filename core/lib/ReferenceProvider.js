@@ -82,12 +82,13 @@ class ReferenceProvider {
         return Promise.resolve(rng);
     }
     provideRenameEdits(_doc, _pos, newName, _token) {
+        var _a;
         if (/(\s|　)/.test(newName))
             return Promise.reject('空白を含む変名はできません');
         const we = new vscode_1.WorkspaceEdit();
         const m = ReferenceProvider.hMacro[this.macro_name4rename];
         we.replace(m.uri, m.range, newName);
-        (ReferenceProvider.hMacroUse[this.macro_name4rename] || [])
+        (_a = ReferenceProvider.hMacroUse[this.macro_name4rename], (_a !== null && _a !== void 0 ? _a : []))
             .forEach(p => we.replace(p.uri, p.range, newName));
         return Promise.resolve(we);
     }
@@ -228,13 +229,14 @@ class ReferenceProvider {
         return scr;
     }
     replaceScript_let_ml(scr, start_idx = 0) {
+        var _a;
         for (let i = scr.len - 1; i >= start_idx; --i) {
             const token = scr.aToken[i];
             this.REG_TAG_LET_ML.lastIndex = 0;
             if (this.REG_TAG_LET_ML.test(token)) {
                 const idxSpl = token.indexOf(']') + 1;
                 const ml = token.slice(idxSpl);
-                const cnt = (ml.match(/\n/g) || []).length;
+                const cnt = (_a = ml.match(/\n/g), (_a !== null && _a !== void 0 ? _a : [])).length;
                 scr.aToken.splice(i, 1, token.slice(0, idxSpl), ml);
                 scr.aLNum.splice(i, 0, scr.aLNum[i]);
                 const len = scr.aToken.length;

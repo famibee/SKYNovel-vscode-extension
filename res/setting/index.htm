@@ -3,7 +3,7 @@
 <title>プロジェクト設定</title>
 <link rel="canonical" href="index.htm">
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src vscode-resource:; style-src vscode-resource:;"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: ${webview.cspSource}; script-src vscode-resource: ${webview.cspSource}; style-src vscode-resource: ${webview.cspSource};"/>
 <link href="./materialize.min.css" rel="stylesheet" type="text/css"/>
 <script defer src="./materialize.min.js"></script>
 <script defer src="./my.js"></script>

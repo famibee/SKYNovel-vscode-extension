@@ -234,7 +234,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		we.replace(m.uri, m.range, newName);
 
 		// マクロ使用箇所
-		(ReferenceProvider.hMacroUse[this.macro_name4rename] || [])
+		(ReferenceProvider.hMacroUse[this.macro_name4rename] ?? [])
 		.forEach(p=> we.replace(p.uri, p.range, newName));
 
 		return Promise.resolve(we);
@@ -425,7 +425,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 			if (this.REG_TAG_LET_ML.test(token)) {
 				const idxSpl = token.indexOf(']') +1;
 				const ml = token.slice(idxSpl);
-				const cnt = (ml.match(/\n/g) || []).length;
+				const cnt = (ml.match(/\n/g) ?? []).length;
 				scr.aToken.splice(i, 1, token.slice(0, idxSpl), ml);
 				scr.aLNum.splice(i, 0, scr.aLNum[i]);
 				const len = scr.aToken.length;
