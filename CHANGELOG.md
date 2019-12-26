@@ -1,3 +1,8 @@
+## v1.7.0
+- add：「全ライブラリ更新」追加
+- upd：ライブラリ更新
+- upd：Nodeパッケージを最新Active LTSに更新（v10.15.3 → v12.14.0）
+	https://nodejs.org/ja/about/releases/
 ## v1.6.6
 - upd：ライブラリ更新
 - bug：path.json 作成ファイル名がNFC正規化されていない件

@@ -22,6 +22,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		cmd		: string,
 	}[] = [
 		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd'},
+		{icon: 'plugin',	label: '全ライブラリ更新', cmd: 'skynovel.devLibUpd'},
 		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb'},
 		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart'},
 		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
@@ -136,7 +137,10 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		switch (tc.cmd) {
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;	break;
-				// NOTE: 全ライブラリ更新は npm update。ただし @latest 動作がない
+
+			case 'skynovel.devLibUpd':	cmd += `npm update ${
+				statBreak()} npm update --dev ${
+				statBreak()} npm run webpack:dev`;	break;
 
 			case 'skynovel.devCrypt':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')

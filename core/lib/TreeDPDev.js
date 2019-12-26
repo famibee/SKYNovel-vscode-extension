@@ -11,6 +11,7 @@ class TreeDPDev {
         this.oTreePrj = {};
         this.TreeChild = [
             { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd' },
+            { icon: 'plugin', label: '全ライブラリ更新', cmd: 'skynovel.devLibUpd' },
             { icon: 'browser', label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb' },
             { icon: 'electron', label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart' },
             { icon: 'windows', label: 'exe生成', cmd: 'skynovel.devTaskPackWin' },
@@ -106,6 +107,9 @@ class TreeDPDev {
         switch (tc.cmd) {
             case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
+                break;
+            case 'skynovel.devLibUpd':
+                cmd += `npm update ${CmnLib_1.statBreak()} npm update --dev ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
             case 'skynovel.devCrypt':
                 vscode_1.window.showInformationMessage('暗号化（する / しない）を切り替えますか？', { modal: true }, 'はい')

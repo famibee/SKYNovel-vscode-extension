@@ -51,11 +51,11 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		this.refreshWork();
 
 		commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh());	// refreshボタン
-		commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(Uri.parse('https://nodejs.org/dist/v10.15.3/node-v10.15.3'
+		commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(Uri.parse('https://nodejs.org/dist/v12.14.0/node-v12.14.0'
 			+ (is_mac
 				? '.pkg'
-				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x32') +'.msi'))
-		)));
+				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x86') +'.msi'))
+		)));	// NOTE: ここを更新する場合は以降に出てくる「node -v」を変更して確認
 		commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/')));
 
 		const aFld = workspace.workspaceFolders;

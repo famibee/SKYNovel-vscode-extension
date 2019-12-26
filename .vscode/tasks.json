@@ -35,6 +35,11 @@
 			"type": "npm",
 			"script": "compile",
 			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "version:minor",
+			"problemMatcher": []
 		}
 	]
 }
