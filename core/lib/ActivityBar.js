@@ -45,7 +45,9 @@ class ActivityBar {
                 res.on('data', (chunk) => { body += chunk; });
                 res.on('end', () => {
                     const newVer = JSON.parse(body).version;
-                    this.aTree[eTree.SKYNOVEL_VER].description = '-- ' + newVer;
+                    const node = this.aTree[eTree.SKYNOVEL_VER];
+                    node.description = '-- ' + newVer;
+                    this._onDidChangeTreeData.fire(node);
                     if (aFld.find(fld => {
                         const fnLocal = fld.uri.fsPath + '/package.json';
                         if (!fs.existsSync(fnLocal))

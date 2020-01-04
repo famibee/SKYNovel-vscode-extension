@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2019 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2020 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -66,8 +66,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			res.on('data', (chunk: string)=> {body += chunk;});
 			res.on('end', ()=> {
 				const newVer = JSON.parse(body).version;
-				this.aTree[eTree.SKYNOVEL_VER].description = '-- '+ newVer;
-				if (aFld.find(fld =>{
+				const node = this.aTree[eTree.SKYNOVEL_VER];
+				node.description = '-- '+ newVer;
+				this._onDidChangeTreeData.fire(node);
+				if (aFld.find(fld=> {
 					const fnLocal = fld.uri.fsPath +'/package.json';
 					if (! fs.existsSync(fnLocal)) return false;
 
