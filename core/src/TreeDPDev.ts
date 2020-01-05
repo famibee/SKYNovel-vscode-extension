@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, statBreak} from './CmnLib';
+import {oIcon, statBreak, is_mac, is_win} from './CmnLib';
 import {PrjFileProc} from './PrjFileProc';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution} from 'vscode';
@@ -20,21 +20,32 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		icon	: string,
 		label	: string,
 		cmd		: string,
+		desc?	: string,
 	}[] = [
+		{icon: 'gear',	label: 'プロジェクト設定', cmd: 'skynovel.devPrjSet'},
 		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd'},
 		{icon: 'plugin',	label: '全ライブラリ更新', cmd: 'skynovel.devLibUpd'},
 		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb'},
 		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart'},
 		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
-		{icon: 'macosx',	label: 'app生成（macOS上のみ）',
-											cmd: 'skynovel.devTaskPackMac'},
+		{icon: 'macosx',	label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: is_mac ?'' :'OS X 上のみ'},
 		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypt'},
 	];
+	private	readonly idxDevPrjSet		= 1;
+	private	readonly idxDevTaskPackMac	= 6;
+	private	readonly idxDevCrypt		= 7;
 
 	private oPfp	: {[dir: string]: PrjFileProc}	= {};
 
 	constructor(private readonly ctx: ExtensionContext) {
-		this.TreeChild.forEach(v=> commands.registerCommand(v.cmd, ti=> this.fncDev(ti)));
+		if (is_win) {
+			const tc = this.TreeChild[this.idxDevTaskPackMac];
+			tc.label = '';
+			tc.cmd = '';
+			tc.desc = '（Windowsでは使えません）';
+		}
+
+		this.TreeChild.forEach(v=> {if (v.cmd) commands.registerCommand(v.cmd, ti=> this.fncDev(ti))});
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
 
@@ -93,6 +104,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			const ti = new TreeItem(v.label);
 			ti.iconPath = oIcon(v.icon);
 			ti.contextValue = ti.label;
+			ti.description = v.desc ?? '';
 			ti.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
 			return ti;
 		});
@@ -109,12 +121,12 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 	private updLocalSNVer(dir: string) {
 		const tc = this.oTreePrj[dir];
 		const localVer = fs.readJsonSync(dir +'/package.json').dependencies.skynovel.slice(1);
-		tc[0].description = `-- ${localVer}`;
+		tc[this.idxDevPrjSet].description = `-- ${localVer}`;
 	}
 	private dspCryptMode(dir: string) {
 		const tc = this.oTreePrj[dir];
 		const fpf = this.oPfp[dir];
-		tc[5].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
+		tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
 	}
 
 	private fncDev(ti: TreeItem) {
@@ -135,13 +147,16 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		const tc = this.TreeChild[i];
 		switch (tc.cmd) {
+			case 'skynovel.devPrjSet':	commands.executeCommand('skynovel.edPrjJson');	break;
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;	break;
-
 			case 'skynovel.devLibUpd':	cmd += `npm update ${
 				statBreak()} npm update --dev ${
 				statBreak()} npm run webpack:dev`;	break;
-
+			case 'skynovel.devTaskWeb':		cmd += 'npm run web';		break;
+			case 'skynovel.devTaskStart':	cmd += 'npm run start';		break;
+			case 'skynovel.devTaskPackWin':	cmd += 'npm run pack:win';	break;
+			case 'skynovel.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
 			case 'skynovel.devCrypt':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
@@ -152,11 +167,6 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
-
-			case 'skynovel.devTaskWeb':		cmd += 'npm run web';		break;
-			case 'skynovel.devTaskStart':	cmd += 'npm run start';		break;
-			case 'skynovel.devTaskPackWin':	cmd += 'npm run pack:win';	break;
-			case 'skynovel.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
 			default:	return;
 		}
 		const t = new Task(
@@ -179,7 +189,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 	getTreeItem = (elm: TreeItem)=> elm;
 	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
-		return Promise.resolve((elm)?this.oTreePrj[elm.tooltip!] :this.aTree);
+		return Promise.resolve(elm ?this.oTreePrj[elm.tooltip!] :this.aTree);
 	}
 
 	dispose() {

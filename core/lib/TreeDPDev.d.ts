@@ -4,6 +4,9 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private readonly aTree;
     private oTreePrj;
     private readonly TreeChild;
+    private readonly idxDevPrjSet;
+    private readonly idxDevTaskPackMac;
+    private readonly idxDevCrypt;
     private oPfp;
     constructor(ctx: ExtensionContext);
     private fnc_onDidEndTaskProcess;

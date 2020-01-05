@@ -10,21 +10,31 @@ class TreeDPDev {
         this.aTree = [];
         this.oTreePrj = {};
         this.TreeChild = [
+            { icon: 'gear', label: 'プロジェクト設定', cmd: 'skynovel.devPrjSet' },
             { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd' },
             { icon: 'plugin', label: '全ライブラリ更新', cmd: 'skynovel.devLibUpd' },
             { icon: 'browser', label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb' },
             { icon: 'electron', label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart' },
             { icon: 'windows', label: 'exe生成', cmd: 'skynovel.devTaskPackWin' },
-            { icon: 'macosx', label: 'app生成（macOS上のみ）',
-                cmd: 'skynovel.devTaskPackMac' },
+            { icon: 'macosx', label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: CmnLib_1.is_mac ? '' : 'OS X 上のみ' },
             { icon: 'gear', label: '暗号化', cmd: 'skynovel.devCrypt' },
         ];
+        this.idxDevPrjSet = 1;
+        this.idxDevTaskPackMac = 6;
+        this.idxDevCrypt = 7;
         this.oPfp = {};
         this.fnc_onDidEndTaskProcess = (_e) => { };
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.getTreeItem = (elm) => elm;
-        this.TreeChild.forEach(v => vscode_1.commands.registerCommand(v.cmd, ti => this.fncDev(ti)));
+        if (CmnLib_1.is_win) {
+            const tc = this.TreeChild[this.idxDevTaskPackMac];
+            tc.label = '';
+            tc.cmd = '';
+            tc.desc = '（Windowsでは使えません）';
+        }
+        this.TreeChild.forEach(v => { if (v.cmd)
+            vscode_1.commands.registerCommand(v.cmd, ti => this.fncDev(ti)); });
         vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
         this.refresh();
         if (this.aTree.length > 0)
@@ -66,9 +76,11 @@ class TreeDPDev {
             return;
         }
         this.oTreePrj[t.tooltip] = this.TreeChild.map(v => {
+            var _a;
             const ti = new vscode_1.TreeItem(v.label);
             ti.iconPath = CmnLib_1.oIcon(v.icon);
             ti.contextValue = ti.label;
+            ti.description = (_a = v.desc, (_a !== null && _a !== void 0 ? _a : ''));
             ti.tooltip = dir;
             return ti;
         });
@@ -82,12 +94,12 @@ class TreeDPDev {
     updLocalSNVer(dir) {
         const tc = this.oTreePrj[dir];
         const localVer = fs.readJsonSync(dir + '/package.json').dependencies.skynovel.slice(1);
-        tc[0].description = `-- ${localVer}`;
+        tc[this.idxDevPrjSet].description = `-- ${localVer}`;
     }
     dspCryptMode(dir) {
         const tc = this.oTreePrj[dir];
         const fpf = this.oPfp[dir];
-        tc[5].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
+        tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
     }
     fncDev(ti) {
         var _a;
@@ -105,22 +117,15 @@ class TreeDPDev {
             return;
         const tc = this.TreeChild[i];
         switch (tc.cmd) {
+            case 'skynovel.devPrjSet':
+                vscode_1.commands.executeCommand('skynovel.edPrjJson');
+                break;
             case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
             case 'skynovel.devLibUpd':
                 cmd += `npm update ${CmnLib_1.statBreak()} npm update --dev ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
-            case 'skynovel.devCrypt':
-                vscode_1.window.showInformationMessage('暗号化（する / しない）を切り替えますか？', { modal: true }, 'はい')
-                    .then(a => {
-                    if (a != 'はい')
-                        return;
-                    this.oPfp[dir].tglCryptMode();
-                    this.dspCryptMode(dir);
-                    this._onDidChangeTreeData.fire(ti);
-                });
-                return;
             case 'skynovel.devTaskWeb':
                 cmd += 'npm run web';
                 break;
@@ -133,6 +138,16 @@ class TreeDPDev {
             case 'skynovel.devTaskPackMac':
                 cmd += 'npm run pack:mac';
                 break;
+            case 'skynovel.devCrypt':
+                vscode_1.window.showInformationMessage('暗号化（する / しない）を切り替えますか？', { modal: true }, 'はい')
+                    .then(a => {
+                    if (a != 'はい')
+                        return;
+                    this.oPfp[dir].tglCryptMode();
+                    this.dspCryptMode(dir);
+                    this._onDidChangeTreeData.fire(ti);
+                });
+                return;
             default: return;
         }
         const t = new vscode_1.Task({ type: 'SKYNovel ' + i }, tc.label, 'SKYNovel', new vscode_1.ShellExecution(cmd));
@@ -149,7 +164,7 @@ class TreeDPDev {
         vscode_1.tasks.executeTask(t);
     }
     getChildren(elm) {
-        return Promise.resolve((elm) ? this.oTreePrj[elm.tooltip] : this.aTree);
+        return Promise.resolve(elm ? this.oTreePrj[elm.tooltip] : this.aTree);
     }
     dispose() {
         for (const dir in this.oPfp)

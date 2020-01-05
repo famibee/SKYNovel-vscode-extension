@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.7.1",
+	"version": "1.7.2",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -72,6 +72,14 @@
 				}
 			},
 			{
+				"command": "skynovel.devPrjSet",
+				"title": "Project Setting",
+				"icon": {
+					"light": "res/light/gear.svg",
+					"dark": "res/dark/gear.svg"
+				}
+			},
+			{
 				"command": "skynovel.devSnUpd",
 				"title": "Update SKYNovel",
 				"icon": {
@@ -85,14 +93,6 @@
 				"icon": {
 					"light": "res/light/download.svg",
 					"dark": "res/dark/download.svg"
-				}
-			},
-			{
-				"command": "skynovel.devCrypt",
-				"title": "Encryption switching",
-				"icon": {
-					"light": "res/light/play.svg",
-					"dark": "res/dark/play.svg"
 				}
 			},
 			{
@@ -125,6 +125,14 @@
 				"icon": {
 					"light": "res/light/baggage.svg",
 					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "skynovel.devCrypt",
+				"title": "Encryption switching",
+				"icon": {
+					"light": "res/light/gear.svg",
+					"dark": "res/dark/gear.svg"
 				}
 			},
 			{
@@ -313,6 +321,11 @@
 					"group": "inline"
 				},
 				{
+					"command": "skynovel.devPrjSet",
+					"when": "view == sn-dev && viewItem == 'プロジェクト設定'",
+					"group": "inline"
+				},
+				{
 					"command": "skynovel.devSnUpd",
 					"when": "view == sn-dev && viewItem == 'SKYNovel更新'",
 					"group": "inline"
@@ -344,7 +357,7 @@
 				},
 				{
 					"command": "skynovel.devTaskPackMac",
-					"when": "view == sn-dev && viewItem == 'app生成（macOS上のみ）'",
+					"when": "view == sn-dev && viewItem == 'app生成'",
 					"group": "inline"
 				},
 				{
@@ -446,7 +459,6 @@
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p core/",
 		"watch": "tsc -p core/ -w",
-		"postinstall": "node ./node_modules/vscode/bin/install",
 		"npm_check_updates_do": "ncu -a && npm update && npm i -D",
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
