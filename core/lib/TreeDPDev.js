@@ -151,7 +151,7 @@ class TreeDPDev {
             default: return;
         }
         const t = new vscode_1.Task({ type: 'SKYNovel ' + i }, tc.label, 'SKYNovel', new vscode_1.ShellExecution(cmd));
-        this.fnc_onDidEndTaskProcess = (i == 0)
+        this.fnc_onDidEndTaskProcess = (tc.cmd == 'skynovel.devSnUpd')
             ? e => {
                 if (e.execution.task.definition.type != t.definition.type)
                     return;

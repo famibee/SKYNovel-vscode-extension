@@ -175,7 +175,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		this.fnc_onDidEndTaskProcess = (i == 0)
+		this.fnc_onDidEndTaskProcess = (tc.cmd == 'skynovel.devSnUpd')
 			? e=> {
 				if (e.execution.task.definition.type != t.definition.type) return;
 				if (e.execution.task.source != t.source) return;
