@@ -7,6 +7,8 @@
 
 ![logo.svg](res/icon.png)
 
+[SKYNovel - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=famibee.skynovel)
+
 [CHANGELOG.md](CHANGELOG.md)
 
 ---
