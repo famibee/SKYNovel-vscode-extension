@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
-class PrjSetting {
+class PnlPrjSetting {
     constructor(ctx, dir, chgTitle) {
         this.ctx = ctx;
         this.dir = dir;
@@ -65,28 +65,33 @@ class PrjSetting {
             },
             'book.detail': val => CmnLib_1.replaceFile(this.fnPkgJs, /("description"\s*:\s*").*(")/, `$1${val}$2`),
         };
-        const path_doc = ctx.extensionPath + `/res/setting/`;
         this.fnPrjJs = dir + '/prj/prj.json';
         this.fnPkgJs = dir + '/package.json';
         this.fnAppJs = dir + '/app.js';
+        if (PnlPrjSetting.htmSrc) {
+            if (this.oCfg.save_ns == 'hatsune' ||
+                this.oCfg.save_ns == 'uc')
+                this.open();
+            return;
+        }
+        const path_doc = ctx.extensionPath + `/res/setting/`;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {
             if (err)
                 console.error(`PrjSetting constructor ${err}`);
             this.oCfg = Object.assign(this.oCfg, fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
             chgTitle(this.oCfg.book.title);
-            const d = String(data);
-            vscode_1.commands.registerCommand('skynovel.edPrjJson', () => this.open(d));
+            PnlPrjSetting.htmSrc = String(data);
             if (this.oCfg.save_ns == 'hatsune' ||
                 this.oCfg.save_ns == 'uc')
-                this.open(d);
+                this.open();
         });
     }
-    open(src) {
+    open() {
         const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
-            this.pnlWV.webview.html = src
+            this.pnlWV.webview.html = PnlPrjSetting.htmSrc
                 .replace(/(href|src)="\.\//g, `$1="${this.pnlWV.webview.asWebviewUri(this.localResourceRoots)}/`);
             return;
         }
@@ -114,7 +119,7 @@ class PrjSetting {
                     break;
             }
         }, false);
-        wv.webview.html = src
+        wv.webview.html = PnlPrjSetting.htmSrc
             .replace(/(href|src)="\.\//g, `$1="${wv.webview.asWebviewUri(this.localResourceRoots)}/`);
         this.pnlWV = wv;
     }
@@ -136,5 +141,6 @@ class PrjSetting {
             r(v);
     }
 }
-exports.PrjSetting = PrjSetting;
-//# sourceMappingURL=PrjSetting.js.map
+exports.PnlPrjSetting = PnlPrjSetting;
+PnlPrjSetting.htmSrc = '';
+//# sourceMappingURL=PnlPrjSetting.js.map

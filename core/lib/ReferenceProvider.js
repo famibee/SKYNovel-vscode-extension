@@ -42,14 +42,17 @@ class ReferenceProvider {
         this.REG_TAG = m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
         this.loadCfg();
         const doc_sel = { scheme: 'file', language: 'skynovel' };
-        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
-            const options = {
-                'placeHolder': 'Which reference will you open?',
-                'matchOnDescription': true,
-            };
-            vscode_1.window.showQuickPick(ReferenceProvider.pickItems, options).then(q => { if (q)
-                openTagRef(q); });
-        }));
+        if (!ReferenceProvider.inited) {
+            ReferenceProvider.inited = true;
+            ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
+                const options = {
+                    'placeHolder': 'Which reference will you open?',
+                    'matchOnDescription': true,
+                };
+                vscode_1.window.showQuickPick(ReferenceProvider.pickItems, options).then(q => { if (q)
+                    openTagRef(q); });
+            }));
+        }
         ctx.subscriptions.push(vscode_1.workspace.onDidChangeConfiguration(() => this.loadCfg()));
         vscode_1.languages.registerHoverProvider(doc_sel, this);
         ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, this));
@@ -88,7 +91,7 @@ class ReferenceProvider {
         const we = new vscode_1.WorkspaceEdit();
         const m = ReferenceProvider.hMacro[this.macro_name4rename];
         we.replace(m.uri, m.range, newName);
-        (_a = ReferenceProvider.hMacroUse[this.macro_name4rename], (_a !== null && _a !== void 0 ? _a : []))
+        ((_a = ReferenceProvider.hMacroUse[this.macro_name4rename]) !== null && _a !== void 0 ? _a : [])
             .forEach(p => we.replace(p.uri, p.range, newName));
         return Promise.resolve(we);
     }
@@ -236,7 +239,7 @@ class ReferenceProvider {
             if (this.REG_TAG_LET_ML.test(token)) {
                 const idxSpl = token.indexOf(']') + 1;
                 const ml = token.slice(idxSpl);
-                const cnt = (_a = ml.match(/\n/g), (_a !== null && _a !== void 0 ? _a : [])).length;
+                const cnt = ((_a = ml.match(/\n/g)) !== null && _a !== void 0 ? _a : []).length;
                 scr.aToken.splice(i, 1, token.slice(0, idxSpl), ml);
                 scr.aLNum.splice(i, 0, scr.aLNum[i]);
                 const len = scr.aToken.length;
@@ -381,6 +384,7 @@ ReferenceProvider.pickItems = [
     { label: 'stats', description: 'パフォーマンス表示' },
     { label: 'trace', description: 'デバッグ表示へ出力' },
 ];
+ReferenceProvider.inited = false;
 ReferenceProvider.hMacro = {};
 ReferenceProvider.hMacroUse = {};
 ReferenceProvider.REG_MULTILINE_TAG_SPLIT = m_xregexp(`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');

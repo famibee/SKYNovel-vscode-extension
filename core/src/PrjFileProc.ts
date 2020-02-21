@@ -7,7 +7,7 @@
 
 import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath} from './CmnLib';
 import {ReferenceProvider} from './ReferenceProvider';
-import {PrjSetting} from './PrjSetting';
+import {PnlPrjSetting} from './PnlPrjSetting';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri} from 'vscode';
 const fs = require('fs-extra');
@@ -112,8 +112,11 @@ export class PrjFileProc {
 		);
 		if (this.$isCryptMode) this.initCrypt();
 
-		new PrjSetting(ctx, dir, chgTitle);
+		this.ps = new PnlPrjSetting(ctx, dir, chgTitle);
 	}
+
+	private	ps: PnlPrjSetting;
+	openPrjSetting() {this.ps.open();}
 
 	dispose() {this.aFSW.forEach(f=> f.dispose());}
 

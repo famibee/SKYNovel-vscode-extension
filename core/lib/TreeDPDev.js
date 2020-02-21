@@ -33,33 +33,31 @@ class TreeDPDev {
             tc.cmd = '';
             tc.desc = '（Windowsでは使えません）';
         }
-        this.TreeChild.forEach(v => { if (v.cmd)
-            vscode_1.commands.registerCommand(v.cmd, ti => this.fncDev(ti)); });
-        vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
         this.refresh();
-        if (this.aTree.length > 0)
-            this.aTree[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
         vscode_1.workspace.onDidChangeWorkspaceFolders(e => this.refresh(e));
+        this.TreeChild.forEach(v => { if (v.cmd)
+            ctx.subscriptions.push(vscode_1.commands.registerCommand(v.cmd, ti => this.onClickTreeItemBtn(ti))); });
+        vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
     }
     refresh(e) {
         const aFld = vscode_1.workspace.workspaceFolders;
         if (!aFld)
             return;
-        if (e) {
-            if (e.added.length > 0)
-                this.wsf2tree(aFld.slice(-1)[0]);
-            else {
-                const nm = e.removed[0].name;
-                const del = this.aTree.findIndex(v => v.label === nm);
-                this.aTree.splice(del, 1);
-                const dir = e.removed[0].uri.fsPath;
-                delete this.oTreePrj[dir];
-                this.oPfp[dir].dispose();
-            }
-        }
-        else {
-            this.oTreePrj = {};
+        if (!e) {
             aFld.forEach(fld => this.wsf2tree(fld));
+            this.aTree[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
+            this._onDidChangeTreeData.fire();
+            return;
+        }
+        if (e.added.length > 0)
+            this.wsf2tree(aFld.slice(-1)[0]);
+        else {
+            const nm = e.removed[0].name;
+            const del = this.aTree.findIndex(v => v.label === nm);
+            this.aTree.splice(del, 1);
+            const dir = e.removed[0].uri.fsPath;
+            delete this.oTreePrj[dir];
+            this.oPfp[dir].dispose();
         }
         this._onDidChangeTreeData.fire();
     }
@@ -72,7 +70,8 @@ class TreeDPDev {
         this.aTree.push(t);
         const pathPkg = dir + '/package.json';
         if (!fs.existsSync(pathPkg)) {
-            t.label = 'package.json がありません';
+            const ti = new vscode_1.TreeItem('package.json がありません');
+            this.oTreePrj[t.tooltip] = [ti];
             return;
         }
         this.oTreePrj[t.tooltip] = this.TreeChild.map(v => {
@@ -80,7 +79,7 @@ class TreeDPDev {
             const ti = new vscode_1.TreeItem(v.label);
             ti.iconPath = CmnLib_1.oIcon(v.icon);
             ti.contextValue = ti.label;
-            ti.description = (_a = v.desc, (_a !== null && _a !== void 0 ? _a : ''));
+            ti.description = (_a = v.desc) !== null && _a !== void 0 ? _a : '';
             ti.tooltip = dir;
             return ti;
         });
@@ -101,15 +100,17 @@ class TreeDPDev {
         const fpf = this.oPfp[dir];
         tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
     }
-    fncDev(ti) {
+    onClickTreeItemBtn(ti) {
         var _a;
+        if (!ti)
+            console.log(`fn:TreeDPDev.ts line:133 onClickTreeItemBtn undefined...`);
         const aFld = vscode_1.workspace.workspaceFolders;
         if (!aFld) {
             vscode_1.window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
             return;
         }
         let cmd = (aFld.length > 1) ? `cd "${ti.tooltip}" ${CmnLib_1.statBreak()} ` : '';
-        const dir = (_a = ti.tooltip, (_a !== null && _a !== void 0 ? _a : ''));
+        const dir = (_a = ti.tooltip) !== null && _a !== void 0 ? _a : '';
         if (!fs.existsSync(dir + '/node_modules'))
             cmd += `npm i ${CmnLib_1.statBreak()} `;
         const i = this.TreeChild.findIndex(v => v.label === ti.label);
@@ -118,7 +119,7 @@ class TreeDPDev {
         const tc = this.TreeChild[i];
         switch (tc.cmd) {
             case 'skynovel.devPrjSet':
-                vscode_1.commands.executeCommand('skynovel.edPrjJson');
+                this.oPfp[dir].openPrjSetting();
                 break;
             case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
@@ -151,16 +152,18 @@ class TreeDPDev {
             default: return;
         }
         const t = new vscode_1.Task({ type: 'SKYNovel ' + i }, tc.label, 'SKYNovel', new vscode_1.ShellExecution(cmd));
-        this.fnc_onDidEndTaskProcess = (tc.cmd == 'skynovel.devSnUpd')
-            ? e => {
-                if (e.execution.task.definition.type != t.definition.type)
-                    return;
-                if (e.execution.task.source != t.source)
-                    return;
-                this.updLocalSNVer(dir);
-                this._onDidChangeTreeData.fire(ti);
-            }
-            : () => { };
+        this.fnc_onDidEndTaskProcess
+            = (tc.cmd == 'skynovel.devSnUpd'
+                || tc.cmd == 'skynovel.devLibUpd')
+                ? e => {
+                    if (e.execution.task.definition.type != t.definition.type)
+                        return;
+                    if (e.execution.task.source != t.source)
+                        return;
+                    this.updLocalSNVer(dir);
+                    this._onDidChangeTreeData.fire();
+                }
+                : () => { };
         vscode_1.tasks.executeTask(t);
     }
     getChildren(elm) {

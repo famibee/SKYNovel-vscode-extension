@@ -7,21 +7,29 @@
 
 import {replaceFile} from './CmnLib';
 
-import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, commands, env} from 'vscode';
+import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 const fs = require('fs-extra');
 
-export class PrjSetting {
+export class PnlPrjSetting {
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	fnAppJs	: string;
 	private	readonly	localResourceRoots: Uri;
 
+	private	static	htmSrc	= '';
+
+
 	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
-		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
 		this.fnAppJs = dir +'/app.js';
 
+		if (PnlPrjSetting.htmSrc) {
+			if (this.oCfg.save_ns == 'hatsune' ||
+				this.oCfg.save_ns == 'uc') this.open();
+			return;
+		}
+		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.localResourceRoots = Uri.file(path_doc);
 		fs.readFile(path_doc +`index.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
 			// 例外処理
@@ -32,10 +40,10 @@ export class PrjSetting {
 				fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})
 			);
 			chgTitle(this.oCfg.book.title);
-			const d = String(data);
-			commands.registerCommand('skynovel.edPrjJson', ()=> this.open(d));
+			PnlPrjSetting.htmSrc = String(data);
+
 			if (this.oCfg.save_ns == 'hatsune' ||
-				this.oCfg.save_ns == 'uc') this.open(d);
+				this.oCfg.save_ns == 'uc') this.open();
 		});
 	}
 
@@ -72,11 +80,11 @@ export class PrjSetting {
 		},
 	};
 	private	pnlWV	: WebviewPanel | null = null;
-	private open(src: string) {
+	open() {
 		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
 		if (this.pnlWV) {
 			this.pnlWV.reveal(column);
-			this.pnlWV.webview.html = src
+			this.pnlWV.webview.html = PnlPrjSetting.htmSrc
 			.replace(/(href|src)="\.\//g, `$1="${this.pnlWV.webview.asWebviewUri(this.localResourceRoots)}/`);
 			return;
 		}
@@ -97,7 +105,7 @@ export class PrjSetting {
 			case 'input':	this.inputProc(m.id, m.val);	break;
 			}
 		}, false);
-		wv.webview.html = src
+		wv.webview.html = PnlPrjSetting.htmSrc
 		.replace(/(href|src)="\.\//g, `$1="${wv.webview.asWebviewUri(this.localResourceRoots)}/`);
 		this.pnlWV = wv;
 	}

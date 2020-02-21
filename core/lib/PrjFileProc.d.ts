@@ -16,6 +16,8 @@ export declare class PrjFileProc {
     private readonly hPass;
     private readonly aFSW;
     constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);
+    private ps;
+    openPrjSetting(): void;
     dispose(): void;
     private crePrj;
     private chgPrj;

@@ -16,7 +16,7 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private wsf2tree;
     private updLocalSNVer;
     private dspCryptMode;
-    private fncDev;
+    private onClickTreeItemBtn;
     getTreeItem: (elm: TreeItem) => TreeItem;
     getChildren(elm?: TreeItem): Thenable<TreeItem[]>;
     dispose(): void;

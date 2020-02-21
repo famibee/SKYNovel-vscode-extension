@@ -165,20 +165,25 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	];
 
 	private	readonly	clDiag	: DiagnosticCollection;
+	private	static		inited	= false;
 
 	constructor(ctx: ExtensionContext, private curPrj: string) {
 		this.loadCfg();
 
 		// コマンドパレット・イベント
 		const doc_sel = {scheme: 'file', language: 'skynovel'};
-		ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
-			const options: QuickPickOptions = {
-				'placeHolder': 'Which reference will you open?',
-				'matchOnDescription': true,
-			};
+		if (! ReferenceProvider.inited) {
+			ReferenceProvider.inited = true;
 
-			window.showQuickPick<QuickPickItem>(ReferenceProvider.pickItems, options).then(q=> {if (q) openTagRef(q)});
-		}));
+			ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
+				const options: QuickPickOptions = {
+					'placeHolder': 'Which reference will you open?',
+					'matchOnDescription': true,
+				};
+
+				window.showQuickPick<QuickPickItem>(ReferenceProvider.pickItems, options).then(q=> {if (q) openTagRef(q)});
+			}));
+		}
 		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
 		// 識別子の上にマウスカーソルを載せたとき

@@ -45,16 +45,12 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			tc.desc = '（Windowsでは使えません）';
 		}
 
-		this.TreeChild.forEach(v=> {if (v.cmd) commands.registerCommand(v.cmd, ti=> this.fncDev(ti))});
+		this.refresh();
+		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
+
+		this.TreeChild.forEach(v=> {if (v.cmd) ctx.subscriptions.push(commands.registerCommand(v.cmd, ti=> this.onClickTreeItemBtn(ti)))});
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
-
-		// コンストラクタは「フォルダを開く」で発動、
-		// その後「ワークスペースにフォルダーを追加」で再度発動する。
-		// staticに物を置かないのが吉。
-		this.refresh();
-		if (this.aTree.length > 0) this.aTree[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
-		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 	}
 	private	fnc_onDidEndTaskProcess = (_e: TaskProcessEndEvent)=> {};
 
@@ -63,23 +59,26 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		if (! aFld) return;	// undefinedだった場合はファイルを開いている
 
 		// フォルダーを開いている（len>1 ならワークスペース）
-		if (e) {
-			if (e.added.length > 0) this.wsf2tree(aFld.slice(-1)[0]);
-				// 最後の一つと思われる
-			else {
-				const nm = e.removed[0].name;	// 一つだけ対応
-				const del = this.aTree.findIndex(v=> v.label === nm);
-				this.aTree.splice(del, 1);
-
-				const dir = e.removed[0].uri.fsPath;
-				delete this.oTreePrj[dir];
-
-				this.oPfp[dir].dispose();
-			}
+		if (! e)  {
+			// 起動時
+			aFld.forEach(fld=> this.wsf2tree(fld));	// 生成
+			this.aTree[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
+			this._onDidChangeTreeData.fire();
+			return;
 		}
+
+		// フォルダ増減時
+		if (e.added.length > 0) this.wsf2tree(aFld.slice(-1)[0]);
+			// 最後の一つと思われる
 		else {
-			this.oTreePrj = {};
-			aFld.forEach(fld=> this.wsf2tree(fld));	// 再生成
+			const nm = e.removed[0].name;	// 一つだけ対応
+			const del = this.aTree.findIndex(v=> v.label === nm);
+			this.aTree.splice(del, 1);
+
+			const dir = e.removed[0].uri.fsPath;
+			delete this.oTreePrj[dir];
+
+			this.oPfp[dir].dispose();
 		}
 		this._onDidChangeTreeData.fire();
 	}
@@ -96,7 +95,8 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		const pathPkg = dir +'/package.json';
 		if (! fs.existsSync(pathPkg)) {
-			t.label = 'package.json がありません';
+			const ti = new TreeItem('package.json がありません');
+			this.oTreePrj[t.tooltip] = [ti];
 			return;
 		}
 
@@ -129,7 +129,8 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
 	}
 
-	private fncDev(ti: TreeItem) {
+	private onClickTreeItemBtn(ti: TreeItem) {
+		if (! ti) console.log(`fn:TreeDPDev.ts line:133 onClickTreeItemBtn undefined...`);
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) {	// undefinedだった場合はファイルを開いている
 			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
@@ -147,7 +148,8 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 		const tc = this.TreeChild[i];
 		switch (tc.cmd) {
-			case 'skynovel.devPrjSet':	commands.executeCommand('skynovel.edPrjJson');	break;
+			case 'skynovel.devPrjSet':	this.oPfp[dir].openPrjSetting();
+				break;
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;	break;
 			case 'skynovel.devLibUpd':	cmd += `npm update ${
@@ -175,13 +177,15 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		this.fnc_onDidEndTaskProcess = (tc.cmd == 'skynovel.devSnUpd')
+		this.fnc_onDidEndTaskProcess
+		= (tc.cmd == 'skynovel.devSnUpd'
+		|| tc.cmd == 'skynovel.devLibUpd')
 			? e=> {
 				if (e.execution.task.definition.type != t.definition.type) return;
 				if (e.execution.task.source != t.source) return;
 
 				this.updLocalSNVer(dir);
-				this._onDidChangeTreeData.fire(ti);
+				this._onDidChangeTreeData.fire();
 			}
 			: ()=> {};
 		tasks.executeTask(t);

@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const ReferenceProvider_1 = require("./ReferenceProvider");
-const PrjSetting_1 = require("./PrjSetting");
+const PnlPrjSetting_1 = require("./PnlPrjSetting");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 const path = require('path');
@@ -86,9 +86,10 @@ class PrjFileProc {
         this.pbkdf2 = crypt.PBKDF2(crypt.enc.Utf8.parse(this.hPass.pass), crypt.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
         if (this.$isCryptMode)
             this.initCrypt();
-        new PrjSetting_1.PrjSetting(ctx, dir, chgTitle);
+        this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle);
     }
     get isCryptMode() { return this.$isCryptMode; }
+    openPrjSetting() { this.ps.open(); }
     dispose() { this.aFSW.forEach(f => f.dispose()); }
     crePrj(e) { this.encrypter(e.path); this.updPathJson(); }
     chgPrj(e) { this.encrypter(e.path); }

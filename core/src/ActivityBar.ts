@@ -24,10 +24,10 @@ enum eTree {
 export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
 		ActivityBar.trDPEnv = new ActivityBar(ctx);
-		window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv));
 		ActivityBar.trDPDev = new TreeDPDev(ctx);
-		window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev);
-		window.registerTreeDataProvider('sn-doc', new TreeDPDoc);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev));
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
 	private static trDPEnv: ActivityBar;
 	private static trDPDev: TreeDPDev;
@@ -46,17 +46,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 
-	private constructor(private readonly context: ExtensionContext) {
+	private constructor(private readonly ctx: ExtensionContext) {
 		this.aTree.forEach(v=> v.contextValue = v.label);
 		this.refreshWork();
 
-		commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh());	// refreshボタン
-		commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(Uri.parse('https://nodejs.org/dist/v12.14.0/node-v12.14.0'
+		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
+		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(Uri.parse('https://nodejs.org/dist/v12.14.0/node-v12.14.0'
 			+ (is_mac
 				? '.pkg'
 				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x86') +'.msi'))
-		)));	// NOTE: ここを更新する場合は以降に出てくる「node -v」を変更して確認
-		commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/')));
+		))));	// NOTE: ここを更新する場合は以降に出てくる「node -v」を変更して確認
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
 
 		const aFld = workspace.workspaceFolders;
 		// ライブラリ更新チェック
@@ -165,7 +165,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
 		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
 
-		const path_doc = this.context.extensionPath +'/doc';
+		const path_doc = this.ctx.extensionPath +'/doc';
 		this.pnlWV = window.createWebviewPanel('SKYNovel-envinfo', 'SKYNovel情報', column || ViewColumn.One, {
 			enableScripts: false,
 			localResourceRoots: [Uri.file(path_doc)],
@@ -215,7 +215,7 @@ class TreeDPDoc implements TreeDataProvider<TreeItem> {
 		new TreeItem('glTF Tools'),
 	];
 
-	constructor() {
+	constructor(readonly ctx: ExtensionContext) {
 		this.aTree.forEach(v=> {
 			v.iconPath =
 				(v.collapsibleState == TreeItemCollapsibleState.None)
@@ -241,26 +241,26 @@ class TreeDPDoc implements TreeDataProvider<TreeItem> {
 			v.contextValue = v.label;
 		});
 
-		commands.registerCommand('skynovel.opDev', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/dev.htm')));
-		commands.registerCommand('skynovel.opTag', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/tag.htm')));
-		commands.registerCommand('skynovel.opMacroPlg', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/macro_plg.htm')));
-		commands.registerCommand('skynovel.opGallery', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel_gallery/')));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opDev', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/dev.htm'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opTag', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/tag.htm'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opMacroPlg', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/macro_plg.htm'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opGallery', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel_gallery/'))));
 
-		commands.registerCommand('skynovel.dlTmpYoko', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_hatsune/archive/master.zip')));
-		commands.registerCommand('skynovel.dlTmpTate', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_uc/archive/master.zip')));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.dlTmpYoko', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_hatsune/archive/master.zip'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.dlTmpTate', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_uc/archive/master.zip'))));
 
-		commands.registerCommand('skynovel.opFamibeeBlog', ()=> env.openExternal(Uri.parse('https://famibee.blog.fc2.com/')));
-		commands.registerCommand('skynovel.mail2famibee', ()=> env.openExternal(Uri.parse('mailto:famibee@gmail.com')));
-		commands.registerCommand('skynovel.tw2famibee', ()=> env.openExternal(Uri.parse('https://twitter.com/famibee')));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opFamibeeBlog', ()=> env.openExternal(Uri.parse('https://famibee.blog.fc2.com/'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.mail2famibee', ()=> env.openExternal(Uri.parse('mailto:famibee@gmail.com'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.tw2famibee', ()=> env.openExternal(Uri.parse('https://twitter.com/famibee'))));
 
-		commands.registerCommand('skynovel.opVSCodeExJa', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja')));
-		commands.registerCommand('skynovel.opVSCodeExIcon', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme')));
-		commands.registerCommand('skynovel.opVSCodeExBookmarks', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks')));
-		commands.registerCommand('skynovel.opVSCodeExLiveHTMLPrev', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode')));
-		commands.registerCommand('skynovel.opVSCodeExHTMLHint', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint')));
-		commands.registerCommand('skynovel.opVSCodeExCordovaTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.cordova-tools')));
-		commands.registerCommand('skynovel.opVSCodeExDbg4Chrome', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome')));
-		commands.registerCommand('skynovel.opVSCodeExglTFTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode')));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExJa', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExIcon', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExBookmarks', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExLiveHTMLPrev', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExHTMLHint', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExCordovaTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.cordova-tools'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExDbg4Chrome', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome'))));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExglTFTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'))));
 	}
 
 	getTreeItem = (elm: TreeItem)=> elm;

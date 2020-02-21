@@ -3,6 +3,7 @@ export declare class ReferenceProvider implements HoverProvider, DefinitionProvi
     private curPrj;
     private static readonly pickItems;
     private readonly clDiag;
+    private static inited;
     constructor(ctx: ExtensionContext, curPrj: string);
     prepareRename(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Range | {
         placeholder: string;
