@@ -1,31 +1,61 @@
+//@ts-check
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
 exports.init = hSN=> {
-	(async () => {
+	(async ()=> {
 		const p = {p:0};
-		const crypt = await Promise.resolve().then(()=> require('crypto-js'));
-
+		const crypt = await require('crypto-js');
 		const iv = crypt.enc.Hex.parse(p.iv);
 		const pbkdf2 = crypt.PBKDF2(
 			crypt.enc.Utf8.parse(p.pass),
 			crypt.enc.Hex.parse(p.salt),
 			{keySize: p.keySize, iterations: p.ite}
 		);
-		hSN.setPre((ext, data)=> {
-			if (ext.slice(-1) != '_') return data;
-
-			return crypt.AES.decrypt(
-				{ciphertext: crypt.enc.Base64.parse(data)},
-				pbkdf2,
-				{iv: iv},
+		const regNeedCrypt = /(^|\.)(sn|json|bin)$/;
+		const regFullCrypt = /(^|\.)(sn|json)$/;
+		const hN2Ext = {
+			0	: {exp: '', mime: ''},
+			1	: {exp: 'jpeg', mime: 'image/jpeg'},
+			2	: {exp: 'png', mime: 'image/png'},
+			3	: {exp: 'svg', mime: 'image/svg+xml'},
+			4	: {exp: 'webp', mime: ''},
+			10	: {exp: 'mp3', mime: ''},
+			11	: {exp: 'm4a', mime: ''},
+			12	: {exp: 'ogg', mime: ''},
+			13	: {exp: 'aac', mime: ''},
+			20	: {exp: 'mp4', mime: ''},
+			21	: {exp: 'ogv', mime: ''},
+			22	: {exp: 'webm', mime: ''},
+			// woff2、otf、ttf
+		};
+		hSN.setPre(async (ext, data)=> {
+			if (! regNeedCrypt.test(ext)) return data;
+			if (regFullCrypt.test(ext)) return crypt.AES.decrypt(
+				//@ts-ignore
+				{ciphertext: crypt.enc.Base64.parse(data)}, pbkdf2, {iv: iv},
 			).toString(crypt.enc.Utf8);
+
+			const cl = Buffer.from(data.slice(0, 4)).readUInt32LE(0);
+			const e6 = Buffer.from(data.slice(4, cl+4)).toString('hex');
+			const ct = crypt.enc.Hex.parse(e6);
+			//@ts-ignore
+			const e2 = crypt.AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
+			const b = Buffer.from(e2.toString(crypt.enc.Hex), 'hex');
+	//		const v = b.readUInt8(0);
+			const bl = new Blob(
+				[b.slice(2), data.slice(cl+4)],
+				{type: hN2Ext[b.readUInt8(1)].mime}
+			);
+
+			return new Promise((rs, rj)=> {
+				const img = new Image();
+				img.onload = ()=> {URL.revokeObjectURL(img.src); rs(img)};
+				img.onerror = e=> rj(e);
+				img.src = URL.createObjectURL(bl);
+			});
 		});
-		hSN.setEnc(data=> crypt.AES.encrypt(
-			data,
-			pbkdf2,
-			{iv: iv},
-		));
+		hSN.setEnc(data=> crypt.AES.encrypt(data, pbkdf2, {iv: iv}));
 		hSN.getStK(()=> p.stk);
 	})();
 }

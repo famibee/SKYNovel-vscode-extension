@@ -32,7 +32,7 @@ class ActivityBar {
         this.aTree.forEach(v => v.contextValue = v.label);
         this.refreshWork();
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.refreshSetting', () => this.refresh()));
-        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v12.14.0/node-v12.14.0'
+        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v12.16.1/node-v12.16.1'
             + (CmnLib_1.is_mac
                 ? '.pkg'
                 : ((os.arch().slice(-2) == '64' ? '-x64' : '-x86') + '.msi'))))));

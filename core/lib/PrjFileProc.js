@@ -9,6 +9,7 @@ const path = require('path');
 const img_size = require('image-size');
 const crypt = require('crypto-js');
 const uuidv4 = require('uuid/v4');
+const stream_1 = require("stream");
 ;
 ;
 class PrjFileProc {
@@ -19,13 +20,15 @@ class PrjFileProc {
         this.fld_crypt_prj = 'crypt_prj';
         this.$isCryptMode = true;
         this.regNeedCrypt = /\.(sn|json)$/;
-        this.regRepJson = /(\.|")(sn|json)"/g;
+        this.regFullCrypt = /\.(sn|json)$/;
+        this.regRepJson = /\.(bin)"/g;
         this.aRepl = [
             'core/app4webpack.js',
             'core/mob4webpack.js',
             'core/web4webpack.js',
         ];
-        this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
+        this.FRONT_LEN = 1024 * 10;
+        this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
@@ -97,9 +100,7 @@ class PrjFileProc {
     delPrj_sub(e) {
         const short_path = e.path.slice(this.lenCurPrj);
         this.regNeedCrypt.lastIndex = 0;
-        const fn = this.curCrypt + short_path
-            + (this.regNeedCrypt.test(short_path) ? '_' : '');
-        fs.removeSync(fn);
+        fs.removeSync(this.curCrypt + short_path);
     }
     tglCryptMode() {
         const pathPre = this.curPlg + '/snsys_pre';
@@ -120,27 +121,95 @@ class PrjFileProc {
     }
     initCrypt() { CmnLib_1.treeProc(this.curPrj, url => this.encrypter(url)); }
     async encrypter(url) {
+        var _a;
         if (!this.$isCryptMode)
             return;
         const short_path = url.slice(this.lenCurPrj);
-        this.regNeedCrypt.lastIndex = 0;
+        const url_out = this.curCrypt + short_path;
         if (!this.regNeedCrypt.test(url)) {
-            fs.ensureLink(url, this.curCrypt + short_path)
+            fs.ensureLink(url, url_out)
                 .catch((err) => console.error(`PrjFileProc Symlink ${err}`));
             return;
         }
         try {
-            let src = await fs.readFile(url, { encoding: 'utf8' });
-            if (short_path == 'path.json') {
-                this.regRepJson.lastIndex = 0;
-                src = src.replace(this.regRepJson, `$1$2_"`);
+            if (this.regFullCrypt.test(short_path)) {
+                let s = await fs.readFile(url, { encoding: 'utf8' });
+                if (short_path == 'path.json') {
+                    s = s.replace(this.regRepJson, `.bin"`);
+                }
+                const e = crypt.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
+                await fs.outputFile(url_out, e.toString());
+                return;
             }
-            const encrypted = crypt.AES.encrypt(src, this.pbkdf2, { iv: this.iv });
-            const fn = this.curCrypt + short_path + '_';
-            await fs.outputFile(fn, String(encrypted));
+            let nokori = this.FRONT_LEN;
+            let i = 2;
+            const bh = new Uint8Array(i + nokori);
+            bh[0] = 0;
+            const hExt2N = {
+                'jpg': 1,
+                'jpeg': 1,
+                'png': 2,
+                'svg': 3,
+                'webp': 4,
+                'mp3': 10,
+                'm4a': 11,
+                'ogg': 12,
+                'aac': 13,
+                'mp4': 20,
+                'ogv': 21,
+                'webm': 22,
+            };
+            bh[1] = (_a = hExt2N[path.extname(short_path).slice(1)]) !== null && _a !== void 0 ? _a : 0;
+            const rs = fs.createReadStream(url)
+                .on('error', (e) => console.error(`encrypter rs=%o`, e));
+            const islog = (short_path == 'other/_c2p.svg');
+            if (islog)
+                console.log(`fn:${short_path}`);
+            const u2 = url_out.replace(/\..+$/, '\.bin');
+            fs.ensureFileSync(u2);
+            const ws = fs.createWriteStream(u2)
+                .on('error', (e) => console.error(`encrypter ws=%o`, e));
+            const tr = new stream_1.Transform({ transform: (chunk, _enc, cb) => {
+                    if (islog)
+                        console.log(`t:`);
+                    if (nokori == 0) {
+                        cb(null, chunk);
+                        return;
+                    }
+                    const len = chunk.length;
+                    if (nokori > len) {
+                        bh.set(chunk.slice(0, nokori - len), i);
+                        i += len;
+                        nokori -= len;
+                        cb(null);
+                        return;
+                    }
+                    bh.set(chunk.slice(0, nokori), i);
+                    const e6 = crypt.AES.encrypt(crypt.lib.WordArray.create(bh), this.pbkdf2, { iv: this.iv });
+                    const e = Buffer.from(e6.toString(), 'base64');
+                    const bl = Buffer.alloc(4);
+                    bl.writeUInt32LE(e.length, 0);
+                    tr.push(bl);
+                    tr.push(e);
+                    cb(null, (nokori == len) ? null : chunk.slice(nokori));
+                    nokori = 0;
+                } })
+                .on('end', () => {
+                if (islog)
+                    console.log(`end: nokori:${nokori > 0}`);
+                if (nokori == 0)
+                    return;
+                const e6 = crypt.AES.encrypt(crypt.lib.WordArray.create(bh.slice(0, i)), this.pbkdf2, { iv: this.iv });
+                const e = Buffer.from(e6.toString(), 'base64');
+                const bl = Buffer.alloc(4);
+                bl.writeUInt32LE(e.length, 0);
+                ws.write(bl);
+                ws.write(e);
+            });
+            rs.pipe(tr).pipe(ws);
         }
-        catch (err) {
-            console.error(`PrjFileProc encrypter ${err}`);
+        catch (e) {
+            console.error(`PrjFileProc encrypter ${e.message}`);
         }
     }
     updPlugin() {

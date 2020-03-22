@@ -12,6 +12,7 @@ export declare class PrjFileProc {
     private $isCryptMode;
     get isCryptMode(): boolean;
     private regNeedCrypt;
+    private regFullCrypt;
     private regRepJson;
     private readonly hPass;
     private readonly aFSW;
@@ -28,6 +29,7 @@ export declare class PrjFileProc {
     private initCrypt;
     private pbkdf2;
     private iv;
+    private readonly FRONT_LEN;
     private encrypter;
     private updPlugin;
     private rebuildTask;

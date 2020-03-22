@@ -15,6 +15,7 @@ const path = require('path');
 const img_size = require('image-size');
 const crypt = require('crypto-js');
 const uuidv4 = require('uuid/v4');
+import {Transform} from 'stream';
 
 interface IExts { [ext: string]: string | number; };
 interface IFn2Path { [fn: string]: IExts; };
@@ -31,7 +32,10 @@ export class PrjFileProc {
 	private		$isCryptMode	= true;
 	get isCryptMode() {return this.$isCryptMode;}
 	private	regNeedCrypt	= /\.(sn|json)$/;
-	private	regRepJson		= /(\.|")(sn|json)"/g;
+//	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)$/;
+	private	regFullCrypt	= /\.(sn|json)$/;	// dummy
+//	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)"/g;
+	private	regRepJson		= /\.(bin)"/g;	// dummy
 
 	private	readonly	hPass: {
 		pass	: string,
@@ -127,9 +131,7 @@ export class PrjFileProc {
 	private	delPrj_sub(e: Uri) {
 		const short_path = e.path.slice(this.lenCurPrj);
 		this.regNeedCrypt.lastIndex = 0;
-		const fn = this.curCrypt + short_path
-			+ (this.regNeedCrypt.test(short_path) ? '_' :'');
-		fs.removeSync(fn);
+		fs.removeSync(this.curCrypt + short_path);
 	}
 
 
@@ -193,35 +195,116 @@ export class PrjFileProc {
 
 	private	pbkdf2	: any;
 	private	iv		: any;
+//	private	readonly FRONT_LEN	= 5;
+	private	readonly FRONT_LEN	= 1024 *10;
 	private	async encrypter(url: string) {
 		if (! this.$isCryptMode) return;
 
 		// TODO: いずれ chg時のための【, forced = false】引数が必要
 		const short_path = url.slice(this.lenCurPrj);
-		this.regNeedCrypt.lastIndex = 0;
+		const url_out = this.curCrypt + short_path;
 		if (! this.regNeedCrypt.test(url)) {
-			fs.ensureLink(url, this.curCrypt + short_path)
+			fs.ensureLink(url, url_out)
 			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
 			return;
 		}
 
 		// TODO: ハッシュ辞書作って更新チェック、同じなら更新しない
 		try {
-			let src = await fs.readFile(url, {encoding: 'utf8'});
-			if (short_path == 'path.json') {	// 内容も変更
-				this.regRepJson.lastIndex = 0;
-				src = src.replace(this.regRepJson, `$1$2_"`);
+			if (this.regFullCrypt.test(short_path)) {
+				let s = await fs.readFile(url, {encoding: 'utf8'});
+				if (short_path == 'path.json') {	// 内容も変更
+					s = s.replace(this.regRepJson, `.bin"`);
+				}
+				const e = crypt.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
+				await fs.outputFile(url_out, e.toString());
+				return;
 			}
-			const encrypted = crypt.AES.encrypt(
-				src,
-				this.pbkdf2,
-				{iv: this.iv},
-			);
 
-			const fn = this.curCrypt + short_path +'_';
-			await fs.outputFile(fn, String(encrypted));
+			let nokori = this.FRONT_LEN;
+			let i = 2;
+			const bh = new Uint8Array(i + nokori);
+			bh[0] = 0;	// bin ver
+			const hExt2N: {[name: string]: number} = {
+				'jpg'	: 1,
+				'jpeg'	: 1,
+				'png'	: 2,
+				'svg'	: 3,
+				'webp'	: 4,
+				'mp3'	: 10,
+				'm4a'	: 11,
+				'ogg'	: 12,
+				'aac'	: 13,
+				'mp4'	: 20,
+				'ogv'	: 21,
+				'webm'	: 22,
+				// woff2、otf、ttf
+			};
+			bh[1] = hExt2N[path.extname(short_path).slice(1)] ?? 0;
+
+			const rs = fs.createReadStream(url)
+			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
+
+//	const islog = (short_path == 'other/title.jpg');
+	const islog = (short_path == 'other/_c2p.svg');
+	if (islog) console.log(`fn:${short_path}`);
+
+			const u2 = url_out.replace(/\..+$/, '\.bin');
+			fs.ensureFileSync(u2);	// touch
+			const ws = fs.createWriteStream(u2)
+			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
+
+			const tr = new Transform({transform: (chunk, _enc, cb)=> {
+	if (islog) console.log(`t:`);
+				if (nokori == 0) {cb(null, chunk); return;}
+
+				const len = chunk.length;
+				if (nokori > len) {
+					bh.set(chunk.slice(0, nokori -len), i);
+					i += len;
+					nokori -= len;
+					cb(null);
+					return;
+				}
+
+				bh.set(chunk.slice(0, nokori), i);
+				const e6 = crypt.AES.encrypt(
+					crypt.lib.WordArray.create(bh),
+					this.pbkdf2,
+					{iv: this.iv},
+				);
+				const e = Buffer.from(e6.toString(), 'base64'); // atob(e6)
+
+				const bl = Buffer.alloc(4);
+				bl.writeUInt32LE(e.length, 0);	// cripted len
+				tr.push(bl);
+
+				tr.push(e);
+
+				cb(null, (nokori == len) ?null :chunk.slice(nokori));
+				nokori = 0;
+			}})
+			.on('end', ()=> {
+	if (islog) console.log(`end: nokori:${nokori > 0}`);
+				if (nokori == 0) return;
+
+				const e6 = crypt.AES.encrypt(
+					crypt.lib.WordArray.create(bh.slice(0, i)),
+					this.pbkdf2,
+					{iv: this.iv},
+				);
+				const e = Buffer.from(e6.toString(), 'base64'); // atob(e6)
+
+				const bl = Buffer.alloc(4);
+				bl.writeUInt32LE(e.length, 0);	// cripted len
+				ws.write(bl);
+
+				ws.write(e);
+			});
+
+			rs.pipe(tr).pipe(ws);
 		}
-		catch (err) {console.error(`PrjFileProc encrypter ${err}`);}
+		catch (e) {console.error(`PrjFileProc encrypter ${e.message}`);}
 	}
 
 
@@ -256,7 +339,7 @@ export class PrjFileProc {
 		}
 		catch (err) {console.error(`PrjFileProc updPathJson ${err}`);}
 	}
-	private	readonly regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpg|jpeg)$/;
+	private	readonly regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
 	private get_hPathFn2Exts($cur: string): IFn2Path {
 		const hFn2Path: IFn2Path = {};
 
