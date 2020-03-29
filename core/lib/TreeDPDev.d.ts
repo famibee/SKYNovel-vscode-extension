@@ -1,8 +1,8 @@
 import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
 export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private readonly ctx;
-    private readonly aTree;
-    private oTreePrj;
+    private readonly aTiRoot;
+    private readonly oTiPrj;
     private readonly TreeChild;
     private readonly idxDevPrjSet;
     private readonly idxDevTaskPackMac;
@@ -17,7 +17,7 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private updLocalSNVer;
     private dspCryptMode;
     private onClickTreeItemBtn;
-    getTreeItem: (elm: TreeItem) => TreeItem;
-    getChildren(elm?: TreeItem): Thenable<TreeItem[]>;
+    getTreeItem: (t: TreeItem) => TreeItem;
+    getChildren(t?: TreeItem): Thenable<TreeItem[]>;
     dispose(): void;
 }

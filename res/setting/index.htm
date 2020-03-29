@@ -10,109 +10,81 @@
 </head>
 <body class="white black-text">
 
-<table><tr>
-	<th>タイトル</th>
-	<td colspan="3"><div class="input-field">
+<div class="row">
+	<div class="col s12"><h5>プロジェクト基本情報</h5></div>
+	<div class="col s6"><div class="input-field">
 		<input type="text" id="book.title" value="" class="validate">
 		<label for="book.title">作品タイトル名</label>
-	</div></td>
-</tr><tr>
-	<th>プロジェクト名（英数字）</th>
-	<td colspan="3"><div class="input-field">
+	</div></div>
+	<div class="col s6"><div class="input-field">
 		<input type="text" id="save_ns" value="" class="validate">
-		<label for="save_ns">他のゲームとセーブデータを区別するための名称</label>
-	</div></td>
-</tr><tr>
-	<th>著作者</th>
-	<td><div class="input-field">
+		<label for="save_ns">プロジェクト名（英数字）：セーブデータ区別名</label>
+	</div></div>
+
+	<div class="col s5"><div class="input-field">
 		<input type="text" id="book.creator" value="" class="validate">
-		<label for="book.creator">ペンネーム、ハンドル名など</label>
-	</div></td>
-	<td><div class="input-field">
+		<label for="book.creator">著作者：ペンネーム、ハンドル名など</label>
+	</div></div>
+	<div class="col s5"><div class="input-field">
 		<input type="text" id="book.cre_url" value="" class="validate">
 		<label for="book.cre_url">連絡先ＵＲＬ</label>
-	</div></td>
-	<td><div>
-		<a class="waves-effect waves-light btn" id="open.cre_url">Open URL</a>
-	</div></td>
-</tr><tr>
-	<th>出版者</th>
-	<td><div class="input-field">
+	</div></div>
+	<div class="col s2"><h5><a class="waves-effect waves-light btn" id="open.cre_url">Open URL</a></h5></div>
+
+	<div class="col s5"><div class="input-field">
 		<input type="text" id="book.publisher" value="" class="validate">
-		<label for="book.publisher">サークル名、団体名など</label>
-	</div></td>
-	<td><div class="input-field">
+		<label for="book.publisher">出版者：サークル名、団体名など</label>
+	</div></div>
+	<div class="col s5"><div class="input-field">
 		<input type="text" id="book.pub_url" value="" class="validate">
 		<label for="book.pub_url">出版者ＵＲＬ</label>
-	</div></td>
-	<td><div>
-		<a class="waves-effect waves-light btn" id="open.pub_url">Open URL</a>
-	</div></td>
-</tr><tr>
-	<th>内容</th>
-	<td colspan="3"><div class="input-field">
+	</div></div>
+	<div class="col s2"><h5><a class="waves-effect waves-light btn" id="open.pub_url">Open URL</a></h5></div>
+
+	<div class="col s12"><div class="input-field">
 		<textarea id="book.detail" class="validate">%book.detail%</textarea>
-		<label for="book.detail">プロジェクトの説明</label>
-	</div></td>
-</tr><tr>
-	<th>ウインドウサイズ</th>
-	<td><div class="input-field">
+		<label for="book.detail">内容：プロジェクトの説明</label>
+	</div></div>
+
+	<div class="col s4"><div class="input-field">
 		<input type="text" id="window.width" value="" class="validate">
-		<label for="window.width">横幅ドット数</label>
-	</div></td>
-	<td><div class="input-field">
+		<label for="window.width">ウインドウ横幅ドット数</label>
+	</div></div>
+	<div class="col s4"><div class="input-field">
 		<input type="text" id="window.height" value="" class="validate">
-		<label for="window.height">縦幅ドット数</label>
-	</div></td>
-	<td><div class="input-field">
+		<label for="window.height">ウインドウ縦幅ドット数</label>
+	</div></div>
+	<div class="col s4"><div class="input-field">
 		<input type="text" id="book.version" value="" class="validate">
 		<label for="book.version">バージョン番号</label>
-	</div></td>
-</tr><tr>
-	<th>初期値</th>
-	<td><div class="input-field">
-		背景色
+	</div></div>
+
+	<div class="col s4"><div class="input-field">
+		初期値：背景色
 		<input type="color" id="init.bg_color" value="" class="validate">
-	</div></td>
-	<td><div class="input-field">
+	</div></div>
+	<div class="col s4"><div class="input-field">
 		<input type="text" id="init.tagch_msecwait" value="" class="validate">
-		<label for="init.tagch_msecwait">文字表示待ちミリ秒</label>
-	</div></td>
-	<td><div class="input-field">
+		<label for="init.tagch_msecwait">初期値：文字表示待ちミリ秒</label>
+	</div></div>
+	<div class="col s4"><div class="input-field">
 		<input type="text" id="init.auto_msecpagewait" value="" class="validate">
-		<label for="init.auto_msecpagewait">自動読み時の文字表示待ちミリ秒</label>
-	</div></td>
-</tr><tr>
-	<th rowspan="3">デバッグスイッチ</th>
-	<td>
-		<label><input id="debug.devtool" type="checkbox" class="filled-in"/><span>devtool</span></label>
-	</td>
-	<td>
-		<label><input id="debug.token" type="checkbox" class="filled-in"/><span>token</span></label>
-	</td>
-	<td>
-		<label><input id="debug.tag" type="checkbox" class="filled-in"/><span>tag</span></label>
-	</td>
-</tr><tr>
-	<td>
-		<label><input id="debug.putCh" type="checkbox" class="filled-in"/><span>putCh</span></label>
-	</td>
-	<td>
-		<label><input id="debug.slideBaseSpan" type="checkbox" class="filled-in"/><span>slideBaseSpan</span></label>
-	</td>
-	<td>
-		<label><input id="debug.baseTx" type="checkbox" class="filled-in"/><span>baseTx</span></label>
-	</td>
-</tr><tr>
-	<td>
-		<label><input id="debug.masume" type="checkbox" class="filled-in"/><span>masume</span></label>
-	</td>
-	<td>
-		<label><input id="debug.variable" type="checkbox" class="filled-in"/><span>variable</span></label>
-	</td>
-	<td>
-	</td>
-</tr></table>
+		<label for="init.auto_msecpagewait">初期値：自動読み時文字表示待ミリ秒</label>
+	</div></div>
+
+	<div class="col s12"><h5>暗号化しないフォルダ</h5></div>
+	<div class="col l12 m3 s2"><label><input id="code.script" type="checkbox" class="filled-in"/><span>script</span></label></div>
+
+	<div class="col s12"><h5>デバッグスイッチ</h5></div>
+	<div class="col l12 m3 s2"><label><input id="debug.devtool" type="checkbox" class="filled-in"/><span>devtool</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.token" type="checkbox" class="filled-in"/><span>token</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.tag" type="checkbox" class="filled-in"/><span>tag</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.putCh" type="checkbox" class="filled-in"/><span>putCh</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.slideBaseSpan" type="checkbox" class="filled-in"/><span>slideBaseSpan</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.baseTx" type="checkbox" class="filled-in"/><span>baseTx</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.masume" type="checkbox" class="filled-in"/><span>masume</span></label></div>
+	<div class="col l12 m3 s2"><label><input id="debug.variable" type="checkbox" class="filled-in"/><span>variable</span></label></div>
+</div>
 
 </body>
 </html>

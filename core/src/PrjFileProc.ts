@@ -31,11 +31,11 @@ export class PrjFileProc {
 //	private readonly	fld_crypt_prj	= '.prj';
 	private		$isCryptMode	= true;
 	get isCryptMode() {return this.$isCryptMode;}
-	private	regNeedCrypt	= /\.(sn|json)$/;
+	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp)$/;
 //	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)$/;
-	private	regFullCrypt	= /\.(sn|json)$/;	// dummy
+	private	regFullCrypt	= /\.(sn|json)$/;
+	private	regRepJson		= /\.(jpe?g|png|svg|webp)"/g;
 //	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)"/g;
-	private	regRepJson		= /\.(bin)"/g;	// dummy
 
 	private	readonly	hPass: {
 		pass	: string,
@@ -114,9 +114,9 @@ export class PrjFileProc {
 			crypt.enc.Hex.parse(this.hPass.salt),
 			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
 		);
-		if (this.$isCryptMode) this.initCrypt();
 
 		this.ps = new PnlPrjSetting(ctx, dir, chgTitle);
+		if (this.$isCryptMode) this.initCrypt();
 	}
 
 	private	ps: PnlPrjSetting;
@@ -195,8 +195,8 @@ export class PrjFileProc {
 
 	private	pbkdf2	: any;
 	private	iv		: any;
-//	private	readonly FRONT_LEN	= 5;
 	private	readonly FRONT_LEN	= 1024 *10;
+	private	readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {
 		if (! this.$isCryptMode) return;
 
@@ -204,6 +204,13 @@ export class PrjFileProc {
 		const short_path = url.slice(this.lenCurPrj);
 		const url_out = this.curCrypt + short_path;
 		if (! this.regNeedCrypt.test(url)) {
+			fs.ensureLink(url, url_out)
+			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
+			return;
+		}
+
+		const dir = this.regDir.exec(short_path);
+		if (dir && this.ps.cfg.code[dir[1]]) {
 			fs.ensureLink(url, url_out)
 			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
 			return;
@@ -245,22 +252,17 @@ export class PrjFileProc {
 			const rs = fs.createReadStream(url)
 			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
 
-//	const islog = (short_path == 'other/title.jpg');
-	const islog = (short_path == 'other/_c2p.svg');
-	if (islog) console.log(`fn:${short_path}`);
-
 			const u2 = url_out.replace(/\..+$/, '\.bin');
 			fs.ensureFileSync(u2);	// touch
 			const ws = fs.createWriteStream(u2)
 			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
 
 			const tr = new Transform({transform: (chunk, _enc, cb)=> {
-	if (islog) console.log(`t:`);
 				if (nokori == 0) {cb(null, chunk); return;}
 
 				const len = chunk.length;
 				if (nokori > len) {
-					bh.set(chunk.slice(0, nokori -len), i);
+					bh.set(chunk, i);
 					i += len;
 					nokori -= len;
 					cb(null);
@@ -285,7 +287,6 @@ export class PrjFileProc {
 				nokori = 0;
 			}})
 			.on('end', ()=> {
-	if (islog) console.log(`end: nokori:${nokori > 0}`);
 				if (nokori == 0) return;
 
 				const e6 = crypt.AES.encrypt(

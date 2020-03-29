@@ -5,12 +5,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {replaceFile} from './CmnLib';
+import {replaceFile, foldProc} from './CmnLib';
 
 import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 const fs = require('fs-extra');
 
 export class PnlPrjSetting {
+	private	readonly	fnPrj	: string;
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	fnAppJs	: string;
@@ -20,6 +21,7 @@ export class PnlPrjSetting {
 
 
 	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void) {
+		this.fnPrj = dir +'/prj/';
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
 		this.fnAppJs = dir +'/app.js';
@@ -29,17 +31,15 @@ export class PnlPrjSetting {
 				this.oCfg.save_ns == 'uc') this.open();
 			return;
 		}
+
+		this.oCfg = {...this.oCfg, ...fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
+		chgTitle(this.oCfg.book.title);
+
 		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.localResourceRoots = Uri.file(path_doc);
 		fs.readFile(path_doc +`index.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
-			// 例外処理
 			if (err) console.error(`PrjSetting constructor ${err}`);
 
-			this.oCfg = Object.assign(
-				this.oCfg,
-				fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})
-			);
-			chgTitle(this.oCfg.book.title);
 			PnlPrjSetting.htmSrc = String(data);
 
 			if (this.oCfg.save_ns == 'hatsune' ||
@@ -78,18 +78,19 @@ export class PnlPrjSetting {
 			masume		: false,	// テキストレイヤ：ガイドマス目を表示するか
 			variable	: false,
 		},
+		code	: {},
 	};
+	get cfg() {return this.oCfg}
 	private	pnlWV	: WebviewPanel | null = null;
 	open() {
 		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
 		if (this.pnlWV) {
 			this.pnlWV.reveal(column);
-			this.pnlWV.webview.html = PnlPrjSetting.htmSrc
-			.replace(/(href|src)="\.\//g, `$1="${this.pnlWV.webview.asWebviewUri(this.localResourceRoots)}/`);
+			this.openSub();
 			return;
 		}
 
-		const wv = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
+		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [this.localResourceRoots],
 		});
@@ -105,9 +106,15 @@ export class PnlPrjSetting {
 			case 'input':	this.inputProc(m.id, m.val);	break;
 			}
 		}, false);
-		wv.webview.html = PnlPrjSetting.htmSrc
-		.replace(/(href|src)="\.\//g, `$1="${wv.webview.asWebviewUri(this.localResourceRoots)}/`);
-		this.pnlWV = wv;
+		this.openSub();
+	}
+	private openSub() {
+		const a: string[] = [];
+		foldProc(this.fnPrj, ()=> {}, nm=> {a.push(nm); this.oCfg.code[nm]});
+
+		this.pnlWV!.webview.html = PnlPrjSetting.htmSrc
+		.replace(/(href|src)="\.\//g, `$1="${this.pnlWV!.webview.asWebviewUri(this.localResourceRoots)}/`)
+		.replace(/(.+)"code.\w+"(.+)<span>\w+(.+)\n/, a.map(fld=> `$1"code.${fld}"$2<span>${fld}$3\n`).join(''));
 	}
 	private inputProc(id: string, val: string) {
 		const v: any = /^[-]?([1-9]\d*|0)$/.test(val)

@@ -18,7 +18,7 @@ var eTree;
 class ActivityBar {
     constructor(ctx) {
         this.ctx = ctx;
-        this.aTree = [
+        this.aTiRoot = [
             new vscode_1.TreeItem('Node.js'),
             new vscode_1.TreeItem('npm'),
             new vscode_1.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
@@ -27,9 +27,9 @@ class ActivityBar {
         this.aReady = [undefined, undefined, undefined, undefined];
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-        this.getTreeItem = (elm) => elm;
+        this.getTreeItem = (t) => t;
         this.pnlWV = null;
-        this.aTree.forEach(v => v.contextValue = v.label);
+        this.aTiRoot.forEach(v => v.contextValue = v.label);
         this.refreshWork();
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.refreshSetting', () => this.refresh()));
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v12.16.1/node-v12.16.1'
@@ -45,7 +45,7 @@ class ActivityBar {
                 res.on('data', (chunk) => { body += chunk; });
                 res.on('end', () => {
                     const newVer = JSON.parse(body).version;
-                    const node = this.aTree[eTree.SKYNOVEL_VER];
+                    const node = this.aTiRoot[eTree.SKYNOVEL_VER];
                     node.description = '-- ' + newVer;
                     this._onDidChangeTreeData.fire(node);
                     if (aFld.find(fld => {
@@ -53,6 +53,8 @@ class ActivityBar {
                         if (!fs.existsSync(fnLocal))
                             return false;
                         const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
+                        if (localVer.slice(0, 4) == 'ile:')
+                            return false;
                         return (newVer != localVer);
                     }))
                         vscode_1.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
@@ -76,19 +78,19 @@ class ActivityBar {
         this.refreshWork();
         this._onDidChangeTreeData.fire();
     }
-    getChildren(elm) {
-        if (!elm)
-            return Promise.resolve(this.aTree);
+    getChildren(t) {
+        if (!t)
+            return Promise.resolve(this.aTiRoot);
         const ret = [];
-        if (elm.label == 'Node.js')
-            this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : CmnLib_1.oIcon('error');
+        if (t.label == 'Node.js')
+            this.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : CmnLib_1.oIcon('error');
         return Promise.resolve(ret);
     }
     refreshWork() {
         let error = 0;
         if (!this.aReady[eTree.NODE])
             exec('node -v', (err, stdout) => {
-                const node = this.aTree[eTree.NODE];
+                const node = this.aTiRoot[eTree.NODE];
                 if (err) {
                     this.aReady[eTree.NODE] = false;
                     node.description = `-- 見つかりません`;
@@ -103,7 +105,7 @@ class ActivityBar {
                 node.contextValue = '';
                 this._onDidChangeTreeData.fire(node);
             });
-        const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
+        const wbt = this.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
         const chkWbt = () => {
             if (!CmnLib_1.is_win)
                 return;
@@ -127,7 +129,7 @@ class ActivityBar {
             chkWbt();
         else
             exec('npm -v', (err, stdout) => {
-                const npm = this.aTree[eTree.NPM];
+                const npm = this.aTiRoot[eTree.NPM];
                 if (err) {
                     this.aReady[eTree.NPM] = false;
                     npm.description = `-- 見つかりません`;
@@ -169,7 +171,7 @@ exports.ActivityBar = ActivityBar;
 class TreeDPDoc {
     constructor(ctx) {
         this.ctx = ctx;
-        this.aTree = [
+        this.aTiRoot = [
             new vscode_1.TreeItem('開発者向け情報'),
             new vscode_1.TreeItem('タグリファレンス'),
             new vscode_1.TreeItem('マクロ・プラグインリファレンス'),
@@ -178,16 +180,16 @@ class TreeDPDoc {
             new vscode_1.TreeItem('famibee 連絡先', vscode_1.TreeItemCollapsibleState.Collapsed),
             new vscode_1.TreeItem('オススメVSCode拡張機能', vscode_1.TreeItemCollapsibleState.Collapsed),
         ];
-        this.aTreeTemp = [
+        this.aTiTemp = [
             new vscode_1.TreeItem('横書き「初音館にて」'),
             new vscode_1.TreeItem('縦書き「桜の樹の下には」'),
         ];
-        this.aTreeFamibee = [
+        this.aTiFamibee = [
             new vscode_1.TreeItem('famibee blog'),
             new vscode_1.TreeItem('famibee Mail'),
             new vscode_1.TreeItem('famibee Twitter'),
         ];
-        this.aTreeVSCodeEx = [
+        this.aTiVSCodeEx = [
             new vscode_1.TreeItem('日本語化'),
             new vscode_1.TreeItem('Material Icon Theme'),
             new vscode_1.TreeItem('Bookmarks'),
@@ -197,27 +199,27 @@ class TreeDPDoc {
             new vscode_1.TreeItem('Debugger for Chrome'),
             new vscode_1.TreeItem('glTF Tools'),
         ];
-        this.getTreeItem = (elm) => elm;
-        this.aTree.forEach(v => {
-            v.iconPath =
-                (v.collapsibleState == vscode_1.TreeItemCollapsibleState.None)
+        this.getTreeItem = (t) => t;
+        this.aTiRoot.forEach(t => {
+            t.iconPath =
+                (t.collapsibleState == vscode_1.TreeItemCollapsibleState.None)
                     ? CmnLib_1.oIcon('document')
                     : vscode_1.ThemeIcon.Folder;
-            v.contextValue = v.label;
+            t.contextValue = t.label;
         });
-        this.aTreeTemp.forEach(v => {
-            v.iconPath = CmnLib_1.oIcon('baggage');
-            v.contextValue = v.label;
+        this.aTiTemp.forEach(t => {
+            t.iconPath = CmnLib_1.oIcon('baggage');
+            t.contextValue = t.label;
         });
-        this.aTreeFamibee.forEach(v => {
-            v.iconPath = CmnLib_1.oIcon('document');
-            v.contextValue = v.label;
+        this.aTiFamibee.forEach(t => {
+            t.iconPath = CmnLib_1.oIcon('document');
+            t.contextValue = t.label;
         });
-        this.aTreeFamibee[1].iconPath = CmnLib_1.oIcon('mail');
-        this.aTreeFamibee[2].iconPath = CmnLib_1.oIcon('twitter');
-        this.aTreeVSCodeEx.forEach(v => {
-            v.iconPath = CmnLib_1.oIcon('gear');
-            v.contextValue = v.label;
+        this.aTiFamibee[1].iconPath = CmnLib_1.oIcon('mail');
+        this.aTiFamibee[2].iconPath = CmnLib_1.oIcon('twitter');
+        this.aTiVSCodeEx.forEach(t => {
+            t.iconPath = CmnLib_1.oIcon('gear');
+            t.contextValue = t.label;
         });
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opDev', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/dev.htm'))));
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opTag', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/tag.htm'))));
@@ -237,13 +239,13 @@ class TreeDPDoc {
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opVSCodeExDbg4Chrome', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome'))));
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opVSCodeExglTFTools', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'))));
     }
-    getChildren(elm) {
-        if (!elm)
-            return Promise.resolve(this.aTree);
-        switch (elm.label) {
-            case 'テンプレート プロジェクト': return Promise.resolve(this.aTreeTemp);
-            case 'famibee 連絡先': return Promise.resolve(this.aTreeFamibee);
-            case 'オススメVSCode拡張機能': return Promise.resolve(this.aTreeVSCodeEx);
+    getChildren(t) {
+        if (!t)
+            return Promise.resolve(this.aTiRoot);
+        switch (t.label) {
+            case 'テンプレート プロジェクト': return Promise.resolve(this.aTiTemp);
+            case 'famibee 連絡先': return Promise.resolve(this.aTiFamibee);
+            case 'オススメVSCode拡張機能': return Promise.resolve(this.aTiVSCodeEx);
         }
         return Promise.resolve([]);
     }

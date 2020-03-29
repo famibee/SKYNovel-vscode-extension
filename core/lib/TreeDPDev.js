@@ -7,8 +7,8 @@ const fs = require('fs-extra');
 class TreeDPDev {
     constructor(ctx) {
         this.ctx = ctx;
-        this.aTree = [];
-        this.oTreePrj = {};
+        this.aTiRoot = [];
+        this.oTiPrj = {};
         this.TreeChild = [
             { icon: 'gear', label: 'プロジェクト設定', cmd: 'skynovel.devPrjSet' },
             { icon: 'skynovel', label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd' },
@@ -26,7 +26,7 @@ class TreeDPDev {
         this.fnc_onDidEndTaskProcess = (_e) => { };
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-        this.getTreeItem = (elm) => elm;
+        this.getTreeItem = (t) => t;
         if (CmnLib_1.is_win) {
             const tc = this.TreeChild[this.idxDevTaskPackMac];
             tc.label = '';
@@ -45,7 +45,7 @@ class TreeDPDev {
             return;
         if (!e) {
             aFld.forEach(fld => this.wsf2tree(fld));
-            this.aTree[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
+            this.aTiRoot[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
             this._onDidChangeTreeData.fire();
             return;
         }
@@ -53,10 +53,10 @@ class TreeDPDev {
             this.wsf2tree(aFld.slice(-1)[0]);
         else {
             const nm = e.removed[0].name;
-            const del = this.aTree.findIndex(v => v.label === nm);
-            this.aTree.splice(del, 1);
+            const del = this.aTiRoot.findIndex(v => v.label === nm);
+            this.aTiRoot.splice(del, 1);
             const dir = e.removed[0].uri.fsPath;
-            delete this.oTreePrj[dir];
+            delete this.oTiPrj[dir];
             this.oPfp[dir].dispose();
         }
         this._onDidChangeTreeData.fire();
@@ -67,21 +67,20 @@ class TreeDPDev {
         t.iconPath = vscode_1.ThemeIcon.Folder;
         t.tooltip = dir;
         t.description = fld.name;
-        this.aTree.push(t);
+        this.aTiRoot.push(t);
         const pathPkg = dir + '/package.json';
         if (!fs.existsSync(pathPkg)) {
-            const ti = new vscode_1.TreeItem('package.json がありません');
-            this.oTreePrj[t.tooltip] = [ti];
+            this.oTiPrj[t.tooltip] = [new vscode_1.TreeItem('package.json がありません')];
             return;
         }
-        this.oTreePrj[t.tooltip] = this.TreeChild.map(v => {
+        this.oTiPrj[t.tooltip] = this.TreeChild.map(v => {
             var _a;
-            const ti = new vscode_1.TreeItem(v.label);
-            ti.iconPath = CmnLib_1.oIcon(v.icon);
-            ti.contextValue = ti.label;
-            ti.description = (_a = v.desc) !== null && _a !== void 0 ? _a : '';
-            ti.tooltip = dir;
-            return ti;
+            const t2 = new vscode_1.TreeItem(v.label);
+            t2.iconPath = CmnLib_1.oIcon(v.icon);
+            t2.contextValue = t2.label;
+            t2.description = (_a = v.desc) !== null && _a !== void 0 ? _a : '';
+            t2.tooltip = dir;
+            return t2;
         });
         this.updLocalSNVer(dir);
         this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.ctx, dir, title => {
@@ -91,12 +90,12 @@ class TreeDPDev {
         this.dspCryptMode(dir);
     }
     updLocalSNVer(dir) {
-        const tc = this.oTreePrj[dir];
+        const tc = this.oTiPrj[dir];
         const localVer = fs.readJsonSync(dir + '/package.json').dependencies.skynovel.slice(1);
         tc[this.idxDevPrjSet].description = `-- ${localVer}`;
     }
     dspCryptMode(dir) {
-        const tc = this.oTreePrj[dir];
+        const tc = this.oTiPrj[dir];
         const fpf = this.oPfp[dir];
         tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ? 'する' : 'しない'}`;
     }
@@ -166,8 +165,8 @@ class TreeDPDev {
                 : () => { };
         vscode_1.tasks.executeTask(t);
     }
-    getChildren(elm) {
-        return Promise.resolve(elm ? this.oTreePrj[elm.tooltip] : this.aTree);
+    getChildren(t) {
+        return Promise.resolve(t ? this.oTiPrj[t.tooltip] : this.aTiRoot);
     }
     dispose() {
         for (const dir in this.oPfp)

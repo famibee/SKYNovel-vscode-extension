@@ -5,15 +5,15 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private static trDPEnv;
     private static trDPDev;
     static stopActBar(): void;
-    private readonly aTree;
+    private readonly aTiRoot;
     private aReady;
     private constructor();
     private dispose;
     private refresh;
     private readonly _onDidChangeTreeData;
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
-    readonly getTreeItem: (elm: TreeItem) => TreeItem;
-    getChildren(elm?: TreeItem): Thenable<TreeItem[]>;
+    readonly getTreeItem: (t: TreeItem) => TreeItem;
+    getChildren(t?: TreeItem): Thenable<TreeItem[]>;
     private refreshWork;
     private pnlWV;
     private activityBarBadge;

@@ -19,7 +19,7 @@ exports.init = hSN=> {
 			1	: {exp: 'jpeg', mime: 'image/jpeg'},
 			2	: {exp: 'png', mime: 'image/png'},
 			3	: {exp: 'svg', mime: 'image/svg+xml'},
-			4	: {exp: 'webp', mime: ''},
+			4	: {exp: 'webp', mime: 'image/webp'},
 			10	: {exp: 'mp3', mime: ''},
 			11	: {exp: 'm4a', mime: ''},
 			12	: {exp: 'ogg', mime: ''},

@@ -30,6 +30,7 @@ export declare class PrjFileProc {
     private pbkdf2;
     private iv;
     private readonly FRONT_LEN;
+    private readonly regDir;
     private encrypter;
     private updPlugin;
     private rebuildTask;

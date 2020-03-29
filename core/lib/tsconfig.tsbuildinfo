@@ -130,20 +130,20 @@
         "signature": "4cf17fd00568f124437c04356ecc4a161a2f426527296463b5aa8a7f8cb15414"
       },
       "../src/pnlprjsetting.ts": {
-        "version": "9dde914107d335df9b8e55bcd3bf325dde0d0d9dc2ca174e31503582af8dc2c9",
-        "signature": "ef890a6e85434a879f93c062e3ba15fd52874b907dffe514112efb247e9a3eb1"
+        "version": "8dfedd4fdf28612998dc28a1d5010e403281987b4602d5986e885615c42be277",
+        "signature": "bb89ff3ec622ee172edb061e9394b83a3b45498e42592955150b5f771dc1c0d2"
       },
       "../src/prjfileproc.ts": {
-        "version": "945c9624120de8594876fe32a0a8acde30974b91d39ec9e112361bd24c595c2a",
-        "signature": "0ddfc7343bd8e12a76a11e14ebe7d674e9205f51e187c88a3a17b8213f0729d4"
+        "version": "7bda8e9ee7a8fa1eed2afc648a8b1f6f2d9164ec252000c57579153383d2e279",
+        "signature": "2577062a2298a4dc45376b9073cdc4efc1422abe571e590f387445a1291d5548"
       },
       "../src/treedpdev.ts": {
-        "version": "1c16c53e4920c88bb6c476db1659320ca43597bd07caa991df6190825cdf2bd4",
-        "signature": "46f37e2ace316ed542aa9f19ed62d7032c9402f70a887752715287b90acd4d01"
+        "version": "adff4894b822aa9cfafe5b21f74cbd061ae3c1ea8262fd2a22565d54050eb002",
+        "signature": "fbf9fe086e4b857a29a50b17f83a4d806b2f5dab7f4d7b6cccf598420014af53"
       },
       "../src/activitybar.ts": {
-        "version": "0713f83ebea199422ceb55d3f8f7f3d0e677ef1b1198218478c3437277fc6542",
-        "signature": "71e8077115129fb20ec46b5ca6859242282536b578370481f6b1042f92be9563"
+        "version": "f77e7fbe142a0bd23fe9fc2fa1b629bfc6e138581e27c994c681d3dae1b561f3",
+        "signature": "932b48ebbb47b408a9db7c60f516eff504190c4b0ebe10a6b36af87d200d421c"
       },
       "../src/extension.ts": {
         "version": "c6ff879f382158a0f3ed345c985926d2a039278a0c1fd6a6ff533673211e12c4",
@@ -206,8 +206,8 @@
         "signature": "5ffa4219ee64e130980a4231392cbc628544df137ccf650ae8d76e0a1744fd2b"
       },
       "../../node_modules/@types/node/fs.d.ts": {
-        "version": "40da414698c06b261ab809208b2c1d52a11499768392b438dbd3bf292f506042",
-        "signature": "40da414698c06b261ab809208b2c1d52a11499768392b438dbd3bf292f506042"
+        "version": "17cd9bc7eb9d10d02514b704191fa6bbc714f7093994033f1b5cd861eec03d26",
+        "signature": "17cd9bc7eb9d10d02514b704191fa6bbc714f7093994033f1b5cd861eec03d26"
       },
       "../../node_modules/@types/node/http.d.ts": {
         "version": "9fe481fd52f878a1904411455b09f8eeb87bc4237c10d230454144c1f46ea7ad",
@@ -306,8 +306,8 @@
         "signature": "a0baa0860e17f8ed646315d6330b79c5c192f10e94975ea8c76105d626afb08f"
       },
       "../../node_modules/@types/node/worker_threads.d.ts": {
-        "version": "f3b070472a18e807d84b792599e7c1882dcbfe93a56294a2a8638139386ba207",
-        "signature": "f3b070472a18e807d84b792599e7c1882dcbfe93a56294a2a8638139386ba207"
+        "version": "71635dff1e3e4aaf577579c3abf0a434af7c77b48d9e22fdecca474e9d8a3df0",
+        "signature": "71635dff1e3e4aaf577579c3abf0a434af7c77b48d9e22fdecca474e9d8a3df0"
       },
       "../../node_modules/@types/node/zlib.d.ts": {
         "version": "f409183966a1dd93d3a9cd1d54fbeb85c73101e87cd5b19467c5e37b252f3fd8",
@@ -318,8 +318,8 @@
         "signature": "6622f76993bdfeaacb947ba7c4cf26f2e5c5194194d02d792c3cba4174cd8fce"
       },
       "../../node_modules/@types/node/ts3.2/fs.d.ts": {
-        "version": "1ed55651f38540dba21f4a864bd89834ddb552446dce8c8a5f9dc0b44ce0b024",
-        "signature": "1ed55651f38540dba21f4a864bd89834ddb552446dce8c8a5f9dc0b44ce0b024"
+        "version": "12b2608d6074167c331c9c3c6994a57819f6ff934c7fd4527e23aabf56d4c8d1",
+        "signature": "12b2608d6074167c331c9c3c6994a57819f6ff934c7fd4527e23aabf56d4c8d1"
       },
       "../../node_modules/@types/node/ts3.2/util.d.ts": {
         "version": "ffc1cd688606ad1ddb59a40e8f3defbde907af2a3402d1d9ddf69accb2903f07",
@@ -1602,18 +1602,44 @@
       ]
     },
     "semanticDiagnosticsPerFile": [
-      "../../node_modules/@types/node/globals.d.ts",
+      "../../node_modules/typescript/lib/lib.es5.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.d.ts",
+      "../../node_modules/typescript/lib/lib.es2016.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.core.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.collection.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.generator.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.iterable.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.promise.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.proxy.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.reflect.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.symbol.d.ts",
+      "../../node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
+      "../../node_modules/typescript/lib/lib.es2016.array.include.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.object.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.sharedmemory.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.string.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.intl.d.ts",
+      "../../node_modules/typescript/lib/lib.es2017.typedarrays.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.asyncgenerator.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.asynciterable.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.intl.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.promise.d.ts",
+      "../../node_modules/typescript/lib/lib.es2018.regexp.d.ts",
+      "../../node_modules/typescript/lib/lib.es2020.bigint.d.ts",
+      "../../node_modules/typescript/lib/lib.esnext.intl.d.ts",
       "../../node_modules/@types/vscode/index.d.ts",
       "../src/cmnlib.ts",
       "../../node_modules/@types/xregexp/index.d.ts",
       "../src/analyzetagarg.ts",
       "../src/referenceprovider.ts",
       "../src/pnlprjsetting.ts",
-      "../src/prjfileproc.ts",
       "../src/treedpdev.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
       "../../node_modules/@types/crypto-js/index.d.ts",
+      "../../node_modules/@types/node/globals.d.ts",
       "../../node_modules/@types/node/assert.d.ts",
       "../../node_modules/@types/node/async_hooks.d.ts",
       "../../node_modules/@types/node/buffer.d.ts",
@@ -1662,33 +1688,7 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../../node_modules/typescript/lib/lib.es5.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.d.ts",
-      "../../node_modules/typescript/lib/lib.es2016.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.core.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.collection.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.generator.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.iterable.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.promise.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.proxy.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.reflect.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.symbol.d.ts",
-      "../../node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
-      "../../node_modules/typescript/lib/lib.es2016.array.include.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.object.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.sharedmemory.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.string.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.intl.d.ts",
-      "../../node_modules/typescript/lib/lib.es2017.typedarrays.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.asyncgenerator.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.asynciterable.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.intl.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.promise.d.ts",
-      "../../node_modules/typescript/lib/lib.es2018.regexp.d.ts",
-      "../../node_modules/typescript/lib/lib.es2020.bigint.d.ts",
-      "../../node_modules/typescript/lib/lib.esnext.intl.d.ts"
+      "../src/prjfileproc.ts"
     ]
   },
   "version": "3.8.3"

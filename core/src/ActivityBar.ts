@@ -37,7 +37,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 
-	private readonly aTree: TreeItem[] = [
+	private readonly aTiRoot: TreeItem[] = [
 		new TreeItem('Node.js'),
 		new TreeItem('npm'),
 		new TreeItem(is_win ?'windows-build-tools' :''),
@@ -47,7 +47,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		this.aTree.forEach(v=> v.contextValue = v.label);
+		this.aTiRoot.forEach(v=> v.contextValue = v.label);
 		this.refreshWork();
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
@@ -66,7 +66,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			res.on('data', (chunk: string)=> {body += chunk;});
 			res.on('end', ()=> {
 				const newVer = JSON.parse(body).version;
-				const node = this.aTree[eTree.SKYNOVEL_VER];
+				const node = this.aTiRoot[eTree.SKYNOVEL_VER];
 				node.description = '-- '+ newVer;
 				this._onDidChangeTreeData.fire(node);
 				if (aFld.find(fld=> {
@@ -74,6 +74,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					if (! fs.existsSync(fnLocal)) return false;
 
 					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
+					if (localVer.slice(0, 4) == 'ile:') return false;
 					return (newVer != localVer);
 				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
 			});
@@ -89,14 +90,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
-	readonly getTreeItem = (elm: TreeItem)=> elm;
+	readonly getTreeItem = (t: TreeItem)=> t;
 
 	// 起動時？　と refreshボタンで呼ばれる
-	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
-		if (! elm) return Promise.resolve(this.aTree);
+	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
+		if (! t) return Promise.resolve(this.aTiRoot);
 
 		const ret: TreeItem[] = [];
-		if (elm.label == 'Node.js') this.aTree[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
+		if (t.label == 'Node.js') this.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
 		return Promise.resolve(ret);
 	}
 
@@ -104,7 +105,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private refreshWork(): void {
 		let error = 0;
 		if (! this.aReady[eTree.NODE]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const node = this.aTree[eTree.NODE];
+			const node = this.aTiRoot[eTree.NODE];
 			if (err) {
 				this.aReady[eTree.NODE] = false;
 				node.description = `-- 見つかりません`;
@@ -120,7 +121,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			this._onDidChangeTreeData.fire(node);
 		});
 
-		const wbt = this.aTree[eTree.WINDOWS_BUILD_TOOLS];
+		const wbt = this.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
 		const chkWbt = ()=> {
 			// （windowsのみ）管理者権限で PowerShell を起動し、【npm i -g windows-build-tools】を実行。「All done!」まで待つ。
 			if (! is_win) return;
@@ -142,7 +143,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		};
 		if (this.aReady[eTree.NPM]) chkWbt();
 		else exec('npm -v', (err: Error, stdout: string|Buffer)=> {
-			const npm = this.aTree[eTree.NPM];
+			const npm = this.aTiRoot[eTree.NPM];
 			if (err) {
 				this.aReady[eTree.NPM] = false;
 				npm.description = `-- 見つかりません`;
@@ -186,7 +187,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 class TreeDPDoc implements TreeDataProvider<TreeItem> {
-	private readonly	aTree: TreeItem[] = [
+	private readonly	aTiRoot		: TreeItem[] = [
 		new TreeItem('開発者向け情報'),
 		new TreeItem('タグリファレンス'),
 		new TreeItem('マクロ・プラグインリファレンス'),
@@ -195,16 +196,16 @@ class TreeDPDoc implements TreeDataProvider<TreeItem> {
 		new TreeItem('famibee 連絡先', TreeItemCollapsibleState.Collapsed),
 		new TreeItem('オススメVSCode拡張機能', TreeItemCollapsibleState.Collapsed),
 	];
-	private readonly	aTreeTemp: TreeItem[] = [
+	private readonly	aTiTemp		: TreeItem[] = [
 		new TreeItem('横書き「初音館にて」'),
 		new TreeItem('縦書き「桜の樹の下には」'),
 	];
-	private readonly	aTreeFamibee: TreeItem[] = [
+	private readonly	aTiFamibee	: TreeItem[] = [
 		new TreeItem('famibee blog'),
 		new TreeItem('famibee Mail'),
 		new TreeItem('famibee Twitter'),
 	];
-	private readonly	aTreeVSCodeEx: TreeItem[] = [
+	private readonly	aTiVSCodeEx	: TreeItem[] = [
 		new TreeItem('日本語化'),
 		new TreeItem('Material Icon Theme'),
 		new TreeItem('Bookmarks'),
@@ -216,29 +217,29 @@ class TreeDPDoc implements TreeDataProvider<TreeItem> {
 	];
 
 	constructor(readonly ctx: ExtensionContext) {
-		this.aTree.forEach(v=> {
-			v.iconPath =
-				(v.collapsibleState == TreeItemCollapsibleState.None)
+		this.aTiRoot.forEach(t=> {
+			t.iconPath =
+				(t.collapsibleState == TreeItemCollapsibleState.None)
 				? oIcon('document')
 				: ThemeIcon.Folder;
-			v.contextValue = v.label;
+			t.contextValue = t.label;
 		});
 
-		this.aTreeTemp.forEach(v=> {
-			v.iconPath = oIcon('baggage');
-			v.contextValue = v.label;
+		this.aTiTemp.forEach(t=> {
+			t.iconPath = oIcon('baggage');
+			t.contextValue = t.label;
 		});
 
-		this.aTreeFamibee.forEach(v=> {
-			v.iconPath = oIcon('document');
-			v.contextValue = v.label;
+		this.aTiFamibee.forEach(t=> {
+			t.iconPath = oIcon('document');
+			t.contextValue = t.label;
 		});
-		this.aTreeFamibee[1].iconPath = oIcon('mail');
-		this.aTreeFamibee[2].iconPath = oIcon('twitter');
+		this.aTiFamibee[1].iconPath = oIcon('mail');
+		this.aTiFamibee[2].iconPath = oIcon('twitter');
 
-		this.aTreeVSCodeEx.forEach(v=> {
-			v.iconPath = oIcon('gear');
-			v.contextValue = v.label;
+		this.aTiVSCodeEx.forEach(t=> {
+			t.iconPath = oIcon('gear');
+			t.contextValue = t.label;
 		});
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opDev', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/dev.htm'))));
@@ -263,14 +264,14 @@ class TreeDPDoc implements TreeDataProvider<TreeItem> {
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExglTFTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'))));
 	}
 
-	getTreeItem = (elm: TreeItem)=> elm;
-	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
-		if (! elm) return Promise.resolve(this.aTree);
+	getTreeItem = (t: TreeItem)=> t;
+	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
+		if (! t) return Promise.resolve(this.aTiRoot);
 
-		switch (elm.label) {
-		case 'テンプレート プロジェクト':	return Promise.resolve(this.aTreeTemp);
-		case 'famibee 連絡先':	return Promise.resolve(this.aTreeFamibee);
-		case 'オススメVSCode拡張機能':	return Promise.resolve(this.aTreeVSCodeEx);
+		switch (t.label) {
+		case 'テンプレート プロジェクト':	return Promise.resolve(this.aTiTemp);
+		case 'famibee 連絡先':	return Promise.resolve(this.aTiFamibee);
+		case 'オススメVSCode拡張機能':	return Promise.resolve(this.aTiVSCodeEx);
 		}
 		return Promise.resolve([]);
 	}

@@ -29,6 +29,9 @@ window.addEventListener('message', e=> {
 	for (const k in o.debug) {
 		document.getElementById(`debug.${k}`).checked = o.debug[k];
 	}
+	for (const k in o.code) {
+		document.getElementById(`code.${k}`).checked = o.code[k];
+	}
 	const elm = document.getElementById('save_ns');
 	elm.value = o.save_ns;
 	elm.focus();

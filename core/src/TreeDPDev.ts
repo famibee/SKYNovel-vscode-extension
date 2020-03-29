@@ -13,8 +13,8 @@ import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemC
 const fs = require('fs-extra');
 
 export class TreeDPDev implements TreeDataProvider<TreeItem> {
-	private readonly	aTree	: TreeItem[] = [];
-	private 			oTreePrj: {[name: string]: TreeItem[]} = {};
+	private readonly	aTiRoot		: TreeItem[] = [];
+	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
 	private	readonly TreeChild	: {
 		icon	: string,
@@ -62,7 +62,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		if (! e)  {
 			// 起動時
 			aFld.forEach(fld=> this.wsf2tree(fld));	// 生成
-			this.aTree[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
+			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this._onDidChangeTreeData.fire();
 			return;
 		}
@@ -72,11 +72,11 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			// 最後の一つと思われる
 		else {
 			const nm = e.removed[0].name;	// 一つだけ対応
-			const del = this.aTree.findIndex(v=> v.label === nm);
-			this.aTree.splice(del, 1);
+			const del = this.aTiRoot.findIndex(v=> v.label === nm);
+			this.aTiRoot.splice(del, 1);
 
 			const dir = e.removed[0].uri.fsPath;
-			delete this.oTreePrj[dir];
+			delete this.oTiPrj[dir];
 
 			this.oPfp[dir].dispose();
 		}
@@ -85,28 +85,29 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
+	// WorkspaceFolder を TreeItem に反映
 	private wsf2tree(fld: WorkspaceFolder) {
 		const t = new TreeItem('', TreeItemCollapsibleState.Collapsed);
 		const dir = fld.uri.fsPath;
 		t.iconPath = ThemeIcon.Folder;
 		t.tooltip = dir;	// 他のキーになっているので変更不可
 		t.description = fld.name;
-		this.aTree.push(t);
+		this.aTiRoot.push(t);
 
 		const pathPkg = dir +'/package.json';
 		if (! fs.existsSync(pathPkg)) {
-			const ti = new TreeItem('package.json がありません');
-			this.oTreePrj[t.tooltip] = [ti];
+			this.oTiPrj[t.tooltip] = [new TreeItem('package.json がありません')];
 			return;
 		}
 
-		this.oTreePrj[t.tooltip] = this.TreeChild.map(v=> {
-			const ti = new TreeItem(v.label);
-			ti.iconPath = oIcon(v.icon);
-			ti.contextValue = ti.label;
-			ti.description = v.desc ?? '';
-			ti.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
-			return ti;
+		// プロジェクト追加
+		this.oTiPrj[t.tooltip] = this.TreeChild.map(v=> {
+			const t2 = new TreeItem(v.label);
+			t2.iconPath = oIcon(v.icon);
+			t2.contextValue = t2.label;
+			t2.description = v.desc ?? '';
+			t2.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
+			return t2;
 		});
 
 		this.updLocalSNVer(dir);
@@ -119,12 +120,12 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 	}
 	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
-		const tc = this.oTreePrj[dir];
+		const tc = this.oTiPrj[dir];
 		const localVer = fs.readJsonSync(dir +'/package.json').dependencies.skynovel.slice(1);
 		tc[this.idxDevPrjSet].description = `-- ${localVer}`;
 	}
 	private dspCryptMode(dir: string) {
-		const tc = this.oTreePrj[dir];
+		const tc = this.oTiPrj[dir];
 		const fpf = this.oPfp[dir];
 		tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
 	}
@@ -191,9 +192,9 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		tasks.executeTask(t);
 	}
 
-	getTreeItem = (elm: TreeItem)=> elm;
-	getChildren(elm?: TreeItem): Thenable<TreeItem[]> {
-		return Promise.resolve(elm ?this.oTreePrj[elm.tooltip!] :this.aTree);
+	getTreeItem = (t: TreeItem)=> t;
+	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
+		return Promise.resolve(t ?this.oTiPrj[t.tooltip!] :this.aTiRoot);
 	}
 
 	dispose() {
