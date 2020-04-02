@@ -24,6 +24,8 @@ exports.init = hSN=> {
 			11	: {exp: 'm4a', mime: ''},
 			12	: {exp: 'ogg', mime: ''},
 			13	: {exp: 'aac', mime: ''},
+			14	: {exp: 'flac', mime: ''},
+			15	: {exp: 'wav', mime: ''},
 			20	: {exp: 'mp4', mime: ''},
 			21	: {exp: 'ogv', mime: ''},
 			22	: {exp: 'webm', mime: ''},
@@ -43,10 +45,13 @@ exports.init = hSN=> {
 			const e2 = crypt.AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
 			const b = Buffer.from(e2.toString(crypt.enc.Hex), 'hex');
 	//		const v = b.readUInt8(0);
-			const bl = new Blob(
-				[b.slice(2), data.slice(cl+4)],
-				{type: hN2Ext[b.readUInt8(1)].mime}
-			);
+			const mime = hN2Ext[b.readUInt8(1)].mime;
+			if (! mime) {
+				const bl = new Blob([b.slice(2), data.slice(cl+4)]);
+				return bl.arrayBuffer();
+			}
+
+			const bl = new Blob([b.slice(2), data.slice(cl+4)], {type: mime});
 
 			return new Promise((rs, rj)=> {
 				const img = new Image();

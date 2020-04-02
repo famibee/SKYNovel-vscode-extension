@@ -19,9 +19,26 @@ class PrjFileProc {
         this.chgTitle = chgTitle;
         this.fld_crypt_prj = 'crypt_prj';
         this.$isCryptMode = true;
-        this.regNeedCrypt = /\.(sn|json|jpe?g|png|svg|webp)$/;
+        this.regNeedCrypt = /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)$/;
         this.regFullCrypt = /\.(sn|json)$/;
-        this.regRepJson = /\.(jpe?g|png|svg|webp)"/g;
+        this.regRepJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)"/g;
+        this.regForceCrypt = /\.(sn)$/;
+        this.hExt2N = {
+            'jpg': 1,
+            'jpeg': 1,
+            'png': 2,
+            'svg': 3,
+            'webp': 4,
+            'mp3': 10,
+            'm4a': 11,
+            'ogg': 12,
+            'aac': 13,
+            'flac': 14,
+            'wav': 15,
+            'mp4': 20,
+            'ogv': 21,
+            'webm': 22,
+        };
         this.aRepl = [
             'core/app4webpack.js',
             'core/mob4webpack.js',
@@ -125,20 +142,22 @@ class PrjFileProc {
         var _a;
         if (!this.$isCryptMode)
             return;
-        const short_path = url.slice(this.lenCurPrj);
-        const url_out = this.curCrypt + short_path;
-        if (!this.regNeedCrypt.test(url)) {
-            fs.ensureLink(url, url_out)
-                .catch((err) => console.error(`PrjFileProc Symlink ${err}`));
-            return;
-        }
-        const dir = this.regDir.exec(short_path);
-        if (dir && this.ps.cfg.code[dir[1]]) {
-            fs.ensureLink(url, url_out)
-                .catch((err) => console.error(`PrjFileProc Symlink ${err}`));
-            return;
-        }
         try {
+            const short_path = url.slice(this.lenCurPrj);
+            const url_out = this.curCrypt + short_path;
+            if (!this.regNeedCrypt.test(url)) {
+                fs.ensureLink(url, url_out)
+                    .catch((e) => console.error(`encrypter cp1 ${e}`));
+                return;
+            }
+            if (!this.regForceCrypt.test(url)) {
+                const dir = this.regDir.exec(short_path);
+                if (dir && this.ps.cfg.code[dir[1]]) {
+                    fs.ensureLink(url, url_out)
+                        .catch((e) => console.error(`encrypter cp2 ${e}`));
+                    return;
+                }
+            }
             if (this.regFullCrypt.test(short_path)) {
                 let s = await fs.readFile(url, { encoding: 'utf8' });
                 if (short_path == 'path.json') {
@@ -152,21 +171,7 @@ class PrjFileProc {
             let i = 2;
             const bh = new Uint8Array(i + nokori);
             bh[0] = 0;
-            const hExt2N = {
-                'jpg': 1,
-                'jpeg': 1,
-                'png': 2,
-                'svg': 3,
-                'webp': 4,
-                'mp3': 10,
-                'm4a': 11,
-                'ogg': 12,
-                'aac': 13,
-                'mp4': 20,
-                'ogv': 21,
-                'webm': 22,
-            };
-            bh[1] = (_a = hExt2N[path.extname(short_path).slice(1)]) !== null && _a !== void 0 ? _a : 0;
+            bh[1] = (_a = this.hExt2N[path.extname(short_path).slice(1)]) !== null && _a !== void 0 ? _a : 0;
             const rs = fs.createReadStream(url)
                 .on('error', (e) => console.error(`encrypter rs=%o`, e));
             const u2 = url_out.replace(/\..+$/, '\.bin');
@@ -209,7 +214,7 @@ class PrjFileProc {
             rs.pipe(tr).pipe(ws);
         }
         catch (e) {
-            console.error(`PrjFileProc encrypter ${e.message}`);
+            console.error(`encrypter other ${e.message}`);
         }
     }
     updPlugin() {

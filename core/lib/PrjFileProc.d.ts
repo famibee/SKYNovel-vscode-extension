@@ -14,6 +14,8 @@ export declare class PrjFileProc {
     private regNeedCrypt;
     private regFullCrypt;
     private regRepJson;
+    private regForceCrypt;
+    private readonly hExt2N;
     private readonly hPass;
     private readonly aFSW;
     constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);

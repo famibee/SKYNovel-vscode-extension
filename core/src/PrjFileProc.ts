@@ -31,11 +31,29 @@ export class PrjFileProc {
 //	private readonly	fld_crypt_prj	= '.prj';
 	private		$isCryptMode	= true;
 	get isCryptMode() {return this.$isCryptMode;}
-	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp)$/;
-//	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)$/;
+	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)$/;
+//	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|ogv|webm)$/;
 	private	regFullCrypt	= /\.(sn|json)$/;
-	private	regRepJson		= /\.(jpe?g|png|svg|webp)"/g;
-//	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|mp4|ogv|webm)"/g;
+	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)"/g;
+//	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|ogv|webm)"/g;
+	private	regForceCrypt	= /\.(sn)$/;
+	private readonly	hExt2N: {[name: string]: number} = {
+		'jpg'	: 1,
+		'jpeg'	: 1,
+		'png'	: 2,
+		'svg'	: 3,
+		'webp'	: 4,
+		'mp3'	: 10,
+		'm4a'	: 11,
+		'ogg'	: 12,
+		'aac'	: 13,
+		'flac'	: 14,
+		'wav'	: 15,
+		'mp4'	: 20,
+		'ogv'	: 21,
+		'webm'	: 22,
+		// woff2、otf、ttf
+	};
 
 	private	readonly	hPass: {
 		pass	: string,
@@ -200,24 +218,26 @@ export class PrjFileProc {
 	private	async encrypter(url: string) {
 		if (! this.$isCryptMode) return;
 
-		// TODO: いずれ chg時のための【, forced = false】引数が必要
-		const short_path = url.slice(this.lenCurPrj);
-		const url_out = this.curCrypt + short_path;
-		if (! this.regNeedCrypt.test(url)) {
-			fs.ensureLink(url, url_out)
-			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
-			return;
-		}
-
-		const dir = this.regDir.exec(short_path);
-		if (dir && this.ps.cfg.code[dir[1]]) {
-			fs.ensureLink(url, url_out)
-			.catch((err: any)=> console.error(`PrjFileProc Symlink ${err}`));
-			return;
-		}
-
 		// TODO: ハッシュ辞書作って更新チェック、同じなら更新しない
 		try {
+			// TODO: いずれ chg時のための【, forced = false】引数が必要
+			const short_path = url.slice(this.lenCurPrj);
+			const url_out = this.curCrypt + short_path;
+			if (! this.regNeedCrypt.test(url)) {
+				fs.ensureLink(url, url_out)
+				.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
+				return;
+			}
+
+			if (! this.regForceCrypt.test(url)) {
+				const dir = this.regDir.exec(short_path);
+				if (dir && this.ps.cfg.code[dir[1]]) {
+					fs.ensureLink(url, url_out)
+					.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
+					return;
+				}
+			}
+
 			if (this.regFullCrypt.test(short_path)) {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
@@ -232,22 +252,7 @@ export class PrjFileProc {
 			let i = 2;
 			const bh = new Uint8Array(i + nokori);
 			bh[0] = 0;	// bin ver
-			const hExt2N: {[name: string]: number} = {
-				'jpg'	: 1,
-				'jpeg'	: 1,
-				'png'	: 2,
-				'svg'	: 3,
-				'webp'	: 4,
-				'mp3'	: 10,
-				'm4a'	: 11,
-				'ogg'	: 12,
-				'aac'	: 13,
-				'mp4'	: 20,
-				'ogv'	: 21,
-				'webm'	: 22,
-				// woff2、otf、ttf
-			};
-			bh[1] = hExt2N[path.extname(short_path).slice(1)] ?? 0;
+			bh[1] = this.hExt2N[path.extname(short_path).slice(1)] ?? 0;
 
 			const rs = fs.createReadStream(url)
 			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
@@ -305,7 +310,7 @@ export class PrjFileProc {
 
 			rs.pipe(tr).pipe(ws);
 		}
-		catch (e) {console.error(`PrjFileProc encrypter ${e.message}`);}
+		catch (e) {console.error(`encrypter other ${e.message}`);}
 	}
 
 
