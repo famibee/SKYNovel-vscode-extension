@@ -31,11 +31,10 @@ export class PrjFileProc {
 //	private readonly	fld_crypt_prj	= '.prj';
 	private		$isCryptMode	= true;
 	get isCryptMode() {return this.$isCryptMode;}
-	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)$/;
-//	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|ogv|webm)$/;
+	private	regNeedCrypt	= /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)$/;
 	private	regFullCrypt	= /\.(sn|json)$/;
-	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)"/g;
-//	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|ogv|webm)"/g;
+	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
+		// この末端の「"」は必須。変更時は delPrj_sub() 内も
 	private	regForceCrypt	= /\.(sn)$/;
 	private readonly	hExt2N: {[name: string]: number} = {
 		'jpg'	: 1,
@@ -149,7 +148,11 @@ export class PrjFileProc {
 	private	delPrj_sub(e: Uri) {
 		const short_path = e.path.slice(this.lenCurPrj);
 		this.regNeedCrypt.lastIndex = 0;
-		fs.removeSync(this.curCrypt + short_path);
+		fs.removeSync(this.curCrypt
+			+ (short_path +'"')
+			.replace(this.regRepJson, '.bin')
+			.replace(/"/, '')
+		);
 	}
 
 
@@ -241,7 +244,7 @@ export class PrjFileProc {
 			if (this.regFullCrypt.test(short_path)) {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
-					s = s.replace(this.regRepJson, `.bin"`);
+					s = s.replace(this.regRepJson, '.bin"');
 				}
 				const e = crypt.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());

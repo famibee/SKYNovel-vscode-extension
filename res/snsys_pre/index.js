@@ -27,9 +27,8 @@ exports.init = hSN=> {
 			14	: {exp: 'flac', mime: ''},
 			15	: {exp: 'wav', mime: ''},
 			20	: {exp: 'mp4', mime: ''},
-			21	: {exp: 'ogv', mime: ''},
-			22	: {exp: 'webm', mime: ''},
-			// woff2、otf、ttf
+			21	: {exp: 'webm', mime: ''},
+			22	: {exp: 'ogv', mime: ''},
 		};
 		hSN.setPre(async (ext, data)=> {
 			if (! regNeedCrypt.test(ext)) return data;

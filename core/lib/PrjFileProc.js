@@ -19,9 +19,9 @@ class PrjFileProc {
         this.chgTitle = chgTitle;
         this.fld_crypt_prj = 'crypt_prj';
         this.$isCryptMode = true;
-        this.regNeedCrypt = /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)$/;
+        this.regNeedCrypt = /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)$/;
         this.regFullCrypt = /\.(sn|json)$/;
-        this.regRepJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav)"/g;
+        this.regRepJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
         this.regForceCrypt = /\.(sn)$/;
         this.hExt2N = {
             'jpg': 1,
@@ -118,7 +118,10 @@ class PrjFileProc {
     delPrj_sub(e) {
         const short_path = e.path.slice(this.lenCurPrj);
         this.regNeedCrypt.lastIndex = 0;
-        fs.removeSync(this.curCrypt + short_path);
+        fs.removeSync(this.curCrypt
+            + (short_path + '"')
+                .replace(this.regRepJson, '.bin')
+                .replace(/"/, ''));
     }
     tglCryptMode() {
         const pathPre = this.curPlg + '/snsys_pre';
@@ -161,7 +164,7 @@ class PrjFileProc {
             if (this.regFullCrypt.test(short_path)) {
                 let s = await fs.readFile(url, { encoding: 'utf8' });
                 if (short_path == 'path.json') {
-                    s = s.replace(this.regRepJson, `.bin"`);
+                    s = s.replace(this.regRepJson, '.bin"');
                 }
                 const e = crypt.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
                 await fs.outputFile(url_out, e.toString());
