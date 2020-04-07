@@ -134,8 +134,8 @@
         "signature": "bb89ff3ec622ee172edb061e9394b83a3b45498e42592955150b5f771dc1c0d2"
       },
       "../src/prjfileproc.ts": {
-        "version": "d8d6b429d6adb8d83d3504db6c9cfc0bc142b82b99fa561d2d685cc9fd3fd619",
-        "signature": "93a34b6f05725adc73cac93d81695585711ffccb344c3b38de3fded9dc9fc605"
+        "version": "35fa131e3273fc1990f9c28ecebfc972fe8cfb8b1880fc68dd554c740e2a5b2b",
+        "signature": "c692dc36305ec521a1dd4dd91850eaadd75dbd2125a31d159e25959d95cea930"
       },
       "../src/treedpdev.ts": {
         "version": "adff4894b822aa9cfafe5b21f74cbd061ae3c1ea8262fd2a22565d54050eb002",

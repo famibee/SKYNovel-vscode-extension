@@ -15,6 +15,7 @@ const path = require('path');
 const img_size = require('image-size');
 const crypt = require('crypto-js');
 const uuidv4 = require('uuid/v4');
+const crc32 = require('crc-32');
 import {Transform} from 'stream';
 
 interface IExts { [ext: string]: string | number; };
@@ -65,6 +66,9 @@ export class PrjFileProc {
 
 	private	readonly	aFSW	: Disposable[];
 
+	private	readonly	fnDiff	: string;
+	private				hDiff	= Object.create(null);
+
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
@@ -107,7 +111,7 @@ export class PrjFileProc {
 				this.delPrj(e);
 				this.rp.delPrj(e);
 			}),
-			fwPrjJs.onDidChange(e=> this.encrypter(e.path)),
+			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypt = dir +`/${this.fld_crypt_prj}/`;
@@ -132,6 +136,10 @@ export class PrjFileProc {
 			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
 		);
 
+		this.fnDiff = dir +'/core/diff.json';
+		if (fs.existsSync(this.fnDiff)) {
+			this.hDiff = fs.readJsonSync(this.fnDiff);
+		}
 		this.ps = new PnlPrjSetting(ctx, dir, chgTitle);
 		if (this.$isCryptMode) this.initCrypt();
 	}
@@ -142,10 +150,9 @@ export class PrjFileProc {
 	dispose() {this.aFSW.forEach(f=> f.dispose());}
 
 
-	private	crePrj(e: Uri) {this.encrypter(e.path); this.updPathJson();}
-	private	chgPrj(e: Uri) {this.encrypter(e.path);}
-	private	delPrj(e: Uri) {this.delPrj_sub(e); this.updPathJson();}
-	private	delPrj_sub(e: Uri) {
+	private	crePrj(e: Uri) {this.chkAndEnc(e.path); this.updPathJson();}
+	private	chgPrj(e: Uri) {this.chkAndEnc(e.path);}
+	private	delPrj(e: Uri) {
 		const short_path = e.path.slice(this.lenCurPrj);
 		this.regNeedCrypt.lastIndex = 0;
 		fs.removeSync(this.curCrypt
@@ -153,6 +160,10 @@ export class PrjFileProc {
 			.replace(this.regRepJson, '.bin')
 			.replace(/"/, '')
 		);
+		this.updPathJson();
+
+		delete this.hDiff[short_path];
+		this.updDiffJson();
 	}
 
 
@@ -211,19 +222,48 @@ export class PrjFileProc {
 
 		this.initCrypt();
 	}
-	// プロジェクトフォルダ以下全走査
-	private initCrypt() {treeProc(this.curPrj, url=> this.encrypter(url));}
+
+	// プロジェクトフォルダ以下全走査で暗号化
+	private initCrypt() {
+		treeProc(this.curPrj, url=>{if (this.isDiff(url)) this.encrypter(url)});
+		this.updDiffJson();
+	}
+	private	chkAndEnc(url: string) {
+		if (! this.isDiff(url)) return;
+		this.encrypter(url);
+		this.updDiffJson();
+	}
+	private	readonly	LEN_CHKDIFF		= 1024;
+	private	isDiff(url: string): boolean {
+		const short_path = url.slice(this.lenCurPrj);
+		let hash = 0;
+		if (this.regFullCrypt.test(url)) {
+			if (short_path == 'path.json') return false;	// updPathJson()任せ
+			hash = crc32.str(fs.readFileSync(url, {encoding: 'utf8'}));
+		}
+		else {
+			const b = new Uint8Array(this.LEN_CHKDIFF);
+			const fd = fs.openSync(url, 'r');
+			fs.readSync(fd, b, 0, this.LEN_CHKDIFF, 0);
+			fs.closeSync(fd);
+			hash = crc32.buf(b);
+		}
+		const isDiff = (this.hDiff[short_path] != hash)
+		if (! isDiff) return false;
+
+		this.hDiff[short_path] = hash;
+		return true;
+	}
+	private	updDiffJson() {fs.writeJsonSync(this.fnDiff, this.hDiff);}
 
 	private	pbkdf2	: any;
 	private	iv		: any;
-	private	readonly FRONT_LEN	= 1024 *10;
+	private	readonly LEN_ENC	= 1024 *10;
 	private	readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {
 		if (! this.$isCryptMode) return;
 
-		// TODO: ハッシュ辞書作って更新チェック、同じなら更新しない
 		try {
-			// TODO: いずれ chg時のための【, forced = false】引数が必要
 			const short_path = url.slice(this.lenCurPrj);
 			const url_out = this.curCrypt + short_path;
 			if (! this.regNeedCrypt.test(url)) {
@@ -251,7 +291,7 @@ export class PrjFileProc {
 				return;
 			}
 
-			let nokori = this.FRONT_LEN;
+			let nokori = this.LEN_ENC;
 			let i = 2;
 			const bh = new Uint8Array(i + nokori);
 			bh[0] = 0;	// bin ver

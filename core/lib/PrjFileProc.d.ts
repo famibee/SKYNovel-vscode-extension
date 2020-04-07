@@ -18,6 +18,8 @@ export declare class PrjFileProc {
     private readonly hExt2N;
     private readonly hPass;
     private readonly aFSW;
+    private readonly fnDiff;
+    private hDiff;
     constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);
     private ps;
     openPrjSetting(): void;
@@ -25,13 +27,16 @@ export declare class PrjFileProc {
     private crePrj;
     private chgPrj;
     private delPrj;
-    private delPrj_sub;
     private readonly aRepl;
     tglCryptMode(): void;
     private initCrypt;
+    private chkAndEnc;
+    private readonly LEN_CHKDIFF;
+    private isDiff;
+    private updDiffJson;
     private pbkdf2;
     private iv;
-    private readonly FRONT_LEN;
+    private readonly LEN_ENC;
     private readonly regDir;
     private encrypter;
     private updPlugin;

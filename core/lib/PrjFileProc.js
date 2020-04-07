@@ -9,6 +9,7 @@ const path = require('path');
 const img_size = require('image-size');
 const crypt = require('crypto-js');
 const uuidv4 = require('uuid/v4');
+const crc32 = require('crc-32');
 const stream_1 = require("stream");
 ;
 ;
@@ -39,12 +40,14 @@ class PrjFileProc {
             'ogv': 21,
             'webm': 22,
         };
+        this.hDiff = Object.create(null);
         this.aRepl = [
             'core/app4webpack.js',
             'core/mob4webpack.js',
             'core/web4webpack.js',
         ];
-        this.FRONT_LEN = 1024 * 10;
+        this.LEN_CHKDIFF = 1024;
+        this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPlg = dir + '/core/plugin';
@@ -86,7 +89,7 @@ class PrjFileProc {
                 this.delPrj(e);
                 this.rp.delPrj(e);
             }),
-            fwPrjJs.onDidChange(e => this.encrypter(e.path)),
+            fwPrjJs.onDidChange(e => this.chgPrj(e)),
         ];
         this.curCrypt = dir + `/${this.fld_crypt_prj}/`;
         this.$isCryptMode = fs.existsSync(this.curCrypt);
@@ -105,6 +108,10 @@ class PrjFileProc {
             fs.outputJsonSync(fnPass, this.hPass);
         this.iv = crypt.enc.Hex.parse(this.hPass.iv);
         this.pbkdf2 = crypt.PBKDF2(crypt.enc.Utf8.parse(this.hPass.pass), crypt.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
+        this.fnDiff = dir + '/core/diff.json';
+        if (fs.existsSync(this.fnDiff)) {
+            this.hDiff = fs.readJsonSync(this.fnDiff);
+        }
         this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle);
         if (this.$isCryptMode)
             this.initCrypt();
@@ -112,16 +119,18 @@ class PrjFileProc {
     get isCryptMode() { return this.$isCryptMode; }
     openPrjSetting() { this.ps.open(); }
     dispose() { this.aFSW.forEach(f => f.dispose()); }
-    crePrj(e) { this.encrypter(e.path); this.updPathJson(); }
-    chgPrj(e) { this.encrypter(e.path); }
-    delPrj(e) { this.delPrj_sub(e); this.updPathJson(); }
-    delPrj_sub(e) {
+    crePrj(e) { this.chkAndEnc(e.path); this.updPathJson(); }
+    chgPrj(e) { this.chkAndEnc(e.path); }
+    delPrj(e) {
         const short_path = e.path.slice(this.lenCurPrj);
         this.regNeedCrypt.lastIndex = 0;
         fs.removeSync(this.curCrypt
             + (short_path + '"')
                 .replace(this.regRepJson, '.bin')
                 .replace(/"/, ''));
+        this.updPathJson();
+        delete this.hDiff[short_path];
+        this.updDiffJson();
     }
     tglCryptMode() {
         const pathPre = this.curPlg + '/snsys_pre';
@@ -140,7 +149,39 @@ class PrjFileProc {
         CmnLib_1.replaceFile(this.ctx.extensionPath + `/res/snsys_pre/index.js`, /{p:0}/, JSON.stringify(this.hPass), pathPre + '/index.js');
         this.initCrypt();
     }
-    initCrypt() { CmnLib_1.treeProc(this.curPrj, url => this.encrypter(url)); }
+    initCrypt() {
+        CmnLib_1.treeProc(this.curPrj, url => { if (this.isDiff(url))
+            this.encrypter(url); });
+        this.updDiffJson();
+    }
+    chkAndEnc(url) {
+        if (!this.isDiff(url))
+            return;
+        this.encrypter(url);
+        this.updDiffJson();
+    }
+    isDiff(url) {
+        const short_path = url.slice(this.lenCurPrj);
+        let hash = 0;
+        if (this.regFullCrypt.test(url)) {
+            if (short_path == 'path.json')
+                return false;
+            hash = crc32.str(fs.readFileSync(url, { encoding: 'utf8' }));
+        }
+        else {
+            const b = new Uint8Array(this.LEN_CHKDIFF);
+            const fd = fs.openSync(url, 'r');
+            fs.readSync(fd, b, 0, this.LEN_CHKDIFF, 0);
+            fs.closeSync(fd);
+            hash = crc32.buf(b);
+        }
+        const isDiff = (this.hDiff[short_path] != hash);
+        if (!isDiff)
+            return false;
+        this.hDiff[short_path] = hash;
+        return true;
+    }
+    updDiffJson() { fs.writeJsonSync(this.fnDiff, this.hDiff); }
     async encrypter(url) {
         var _a;
         if (!this.$isCryptMode)
@@ -170,7 +211,7 @@ class PrjFileProc {
                 await fs.outputFile(url_out, e.toString());
                 return;
             }
-            let nokori = this.FRONT_LEN;
+            let nokori = this.LEN_ENC;
             let i = 2;
             const bh = new Uint8Array(i + nokori);
             bh[0] = 0;
