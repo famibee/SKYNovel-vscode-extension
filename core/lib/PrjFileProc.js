@@ -7,7 +7,7 @@ const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 const path = require('path');
 const img_size = require('image-size');
-const crypt = require('crypto-js');
+const crypto = require('crypto-js');
 const uuidv4 = require('uuid/v4');
 const crc32 = require('crc-32');
 const stream_1 = require("stream");
@@ -18,12 +18,11 @@ class PrjFileProc {
         this.ctx = ctx;
         this.dir = dir;
         this.chgTitle = chgTitle;
-        this.fld_crypt_prj = 'crypt_prj';
-        this.$isCryptMode = true;
-        this.regNeedCrypt = /\.(sn|json|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)$/;
-        this.regFullCrypt = /\.(sn|json)$/;
+        this.fld_crypto_prj = 'crypto_prj';
+        this.$isCryptoMode = true;
+        this.regNeedCrypto = /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
+        this.regFullCrypto = /\.(sn|json|html?)$/;
         this.regRepJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
-        this.regForceCrypt = /\.(sn)$/;
         this.hExt2N = {
             'jpg': 1,
             'jpeg': 1,
@@ -37,16 +36,16 @@ class PrjFileProc {
             'flac': 14,
             'wav': 15,
             'mp4': 20,
-            'ogv': 21,
-            'webm': 22,
+            'webm': 21,
+            'ogv': 22,
         };
         this.hDiff = Object.create(null);
+        this.LEN_CHKDIFF = 1024;
         this.aRepl = [
             'core/app4webpack.js',
             'core/mob4webpack.js',
             'core/web4webpack.js',
         ];
-        this.LEN_CHKDIFF = 1024;
         this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
@@ -91,81 +90,62 @@ class PrjFileProc {
             }),
             fwPrjJs.onDidChange(e => this.chgPrj(e)),
         ];
-        this.curCrypt = dir + `/${this.fld_crypt_prj}/`;
-        this.$isCryptMode = fs.existsSync(this.curCrypt);
+        this.curCrypto = dir + `/${this.fld_crypto_prj}/`;
+        this.$isCryptoMode = fs.existsSync(this.curCrypto);
         const fnPass = this.curPlg + '/pass.json';
         const exists_pass = fs.existsSync(fnPass);
         this.hPass = exists_pass
             ? fs.readJsonSync(fnPass, { throws: false })
             : {
                 pass: uuidv4(),
-                salt: String(crypt.lib.WordArray.random(128 / 8)),
-                iv: String(crypt.lib.WordArray.random(128 / 8)),
+                salt: String(crypto.lib.WordArray.random(128 / 8)),
+                iv: String(crypto.lib.WordArray.random(128 / 8)),
                 ite: 500 + Math.floor(new Date().getTime() % 300),
-                stk: String(crypt.lib.WordArray.random(128 / 8)),
+                stk: String(crypto.lib.WordArray.random(128 / 8)),
             };
         if (!exists_pass)
             fs.outputJsonSync(fnPass, this.hPass);
-        this.iv = crypt.enc.Hex.parse(this.hPass.iv);
-        this.pbkdf2 = crypt.PBKDF2(crypt.enc.Utf8.parse(this.hPass.pass), crypt.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
+        this.iv = crypto.enc.Hex.parse(this.hPass.iv);
+        this.pbkdf2 = crypto.PBKDF2(crypto.enc.Utf8.parse(this.hPass.pass), crypto.enc.Hex.parse(this.hPass.salt), { keySize: this.hPass.keySize, iterations: this.hPass.ite });
         this.fnDiff = dir + '/core/diff.json';
         if (fs.existsSync(this.fnDiff)) {
             this.hDiff = fs.readJsonSync(this.fnDiff);
         }
         this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle);
-        if (this.$isCryptMode)
-            this.initCrypt();
+        this.initCrypto();
     }
-    get isCryptMode() { return this.$isCryptMode; }
+    get isCryptoMode() { return this.$isCryptoMode; }
     openPrjSetting() { this.ps.open(); }
     dispose() { this.aFSW.forEach(f => f.dispose()); }
-    crePrj(e) { this.chkAndEnc(e.path); this.updPathJson(); }
-    chgPrj(e) { this.chkAndEnc(e.path); }
+    crePrj(e) { this.encIfNeeded(e.path); this.updPathJson(); }
+    chgPrj(e) { this.encIfNeeded(e.path); }
     delPrj(e) {
         const short_path = e.path.slice(this.lenCurPrj);
-        this.regNeedCrypt.lastIndex = 0;
-        fs.removeSync(this.curCrypt
-            + (short_path + '"')
-                .replace(this.regRepJson, '.bin')
-                .replace(/"/, ''));
+        this.regNeedCrypto.lastIndex = 0;
+        fs.removeSync(this.curCrypto + (short_path + '"')
+            .replace(this.regRepJson, '.bin')
+            .replace(/"/, ''));
         this.updPathJson();
         delete this.hDiff[short_path];
         this.updDiffJson();
     }
-    tglCryptMode() {
-        const pathPre = this.curPlg + '/snsys_pre';
-        if (this.$isCryptMode) {
-            fs.removeSync(this.curCrypt);
-            this.$isCryptMode = false;
-            fs.removeSync(pathPre);
-            this.aRepl.forEach(url => CmnLib_1.replaceFile(this.dir + '/' + url, new RegExp(`\\(hPlg, {.+?}\\);`), `(hPlg);`));
-            CmnLib_1.replaceFile(this.dir + '/package.json', new RegExp(`"${this.fld_crypt_prj}\\/",`), `"prj/",`);
-            return;
-        }
-        fs.ensureDir(this.curCrypt);
-        this.$isCryptMode = true;
-        this.aRepl.forEach(url => CmnLib_1.replaceFile(this.dir + '/' + url, /\(hPlg\);/, `(hPlg, {cur: '${this.fld_crypt_prj}/', crypt: true});`));
-        CmnLib_1.replaceFile(this.dir + '/package.json', /"prj\/",/, `"${this.fld_crypt_prj}/",`);
-        CmnLib_1.replaceFile(this.ctx.extensionPath + `/res/snsys_pre/index.js`, /{p:0}/, JSON.stringify(this.hPass), pathPre + '/index.js');
-        this.initCrypt();
-    }
-    initCrypt() {
-        CmnLib_1.treeProc(this.curPrj, url => { if (this.isDiff(url))
-            this.encrypter(url); });
+    initCrypto() {
+        CmnLib_1.treeProc(this.curPrj, this.$isCryptoMode
+            ? url => { if (this.isDiff(url))
+                this.encrypter(url); }
+            : url => this.isDiff(url));
         this.updDiffJson();
     }
-    chkAndEnc(url) {
-        if (!this.isDiff(url))
-            return;
-        this.encrypter(url);
+    encIfNeeded(url) {
+        if (this.isDiff(url) && this.$isCryptoMode)
+            this.encrypter(url);
         this.updDiffJson();
     }
+    updDiffJson() { fs.writeJsonSync(this.fnDiff, this.hDiff); }
     isDiff(url) {
         const short_path = url.slice(this.lenCurPrj);
         let hash = 0;
-        if (this.regFullCrypt.test(url)) {
-            if (short_path == 'path.json')
-                return false;
+        if (this.regFullCrypto.test(url)) {
             hash = crc32.str(fs.readFileSync(url, { encoding: 'utf8' }));
         }
         else {
@@ -175,41 +155,54 @@ class PrjFileProc {
             fs.closeSync(fd);
             hash = crc32.buf(b);
         }
-        const isDiff = (this.hDiff[short_path] != hash);
-        if (!isDiff)
+        if (this.hDiff[short_path] == hash)
             return false;
         this.hDiff[short_path] = hash;
         return true;
     }
-    updDiffJson() { fs.writeJsonSync(this.fnDiff, this.hDiff); }
+    tglCryptoMode() {
+        const pathPre = this.curPlg + '/snsys_pre';
+        this.$isCryptoMode = !this.$isCryptoMode;
+        if (!this.$isCryptoMode) {
+            fs.removeSync(this.curCrypto);
+            fs.removeSync(pathPre);
+            this.aRepl.forEach(url => CmnLib_1.replaceFile(this.dir + '/' + url, new RegExp(`\\(hPlg, {.+?}\\);`), `(hPlg);`));
+            CmnLib_1.replaceFile(this.dir + '/package.json', new RegExp(`"${this.fld_crypto_prj}\\/",`), `"prj/",`);
+            return;
+        }
+        fs.ensureDir(this.curCrypto);
+        this.aRepl.forEach(url => CmnLib_1.replaceFile(this.dir + '/' + url, /\(hPlg\);/, `(hPlg, {cur: '${this.fld_crypto_prj}/', crypto: true});`));
+        CmnLib_1.replaceFile(this.dir + '/package.json', /"prj\/",/, `"${this.fld_crypto_prj}/",`);
+        CmnLib_1.replaceFile(this.ctx.extensionPath + `/res/snsys_pre/index.js`, /{p:0}/, JSON.stringify(this.hPass), pathPre + '/index.js');
+        this.hDiff = Object.create(null);
+        this.initCrypto();
+    }
     async encrypter(url) {
         var _a;
-        if (!this.$isCryptMode)
-            return;
         try {
             const short_path = url.slice(this.lenCurPrj);
-            const url_out = this.curCrypt + short_path;
-            if (!this.regNeedCrypt.test(url)) {
+            const url_out = this.curCrypto + short_path;
+            if (!this.regNeedCrypto.test(url)) {
                 fs.ensureLink(url, url_out)
                     .catch((e) => console.error(`encrypter cp1 ${e}`));
                 return;
             }
-            if (!this.regForceCrypt.test(url)) {
+            if (this.regFullCrypto.test(short_path)) {
+                let s = await fs.readFile(url, { encoding: 'utf8' });
+                if (short_path == 'path.json') {
+                    s = s.replace(this.regRepJson, '.bin"');
+                }
+                const e = crypto.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
+                await fs.outputFile(url_out, e.toString());
+                return;
+            }
+            else {
                 const dir = this.regDir.exec(short_path);
                 if (dir && this.ps.cfg.code[dir[1]]) {
                     fs.ensureLink(url, url_out)
                         .catch((e) => console.error(`encrypter cp2 ${e}`));
                     return;
                 }
-            }
-            if (this.regFullCrypt.test(short_path)) {
-                let s = await fs.readFile(url, { encoding: 'utf8' });
-                if (short_path == 'path.json') {
-                    s = s.replace(this.regRepJson, '.bin"');
-                }
-                const e = crypt.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
-                await fs.outputFile(url_out, e.toString());
-                return;
             }
             let nokori = this.LEN_ENC;
             let i = 2;
@@ -218,7 +211,7 @@ class PrjFileProc {
             bh[1] = (_a = this.hExt2N[path.extname(short_path).slice(1)]) !== null && _a !== void 0 ? _a : 0;
             const rs = fs.createReadStream(url)
                 .on('error', (e) => console.error(`encrypter rs=%o`, e));
-            const u2 = url_out.replace(/\..+$/, '\.bin');
+            const u2 = url_out.replace(/\..+$/, '.bin');
             fs.ensureFileSync(u2);
             const ws = fs.createWriteStream(u2)
                 .on('error', (e) => console.error(`encrypter ws=%o`, e));
@@ -236,7 +229,7 @@ class PrjFileProc {
                         return;
                     }
                     bh.set(chunk.slice(0, nokori), i);
-                    const e6 = crypt.AES.encrypt(crypt.lib.WordArray.create(bh), this.pbkdf2, { iv: this.iv });
+                    const e6 = crypto.AES.encrypt(crypto.lib.WordArray.create(bh), this.pbkdf2, { iv: this.iv });
                     const e = Buffer.from(e6.toString(), 'base64');
                     const bl = Buffer.alloc(4);
                     bl.writeUInt32LE(e.length, 0);
@@ -248,7 +241,7 @@ class PrjFileProc {
                 .on('end', () => {
                 if (nokori == 0)
                     return;
-                const e6 = crypt.AES.encrypt(crypt.lib.WordArray.create(bh.slice(0, i)), this.pbkdf2, { iv: this.iv });
+                const e6 = crypto.AES.encrypt(crypto.lib.WordArray.create(bh.slice(0, i)), this.pbkdf2, { iv: this.iv });
                 const e = Buffer.from(e6.toString(), 'base64');
                 const bl = Buffer.alloc(4);
                 bl.writeUInt32LE(e.length, 0);
@@ -282,7 +275,8 @@ class PrjFileProc {
         try {
             const hPath = this.get_hPathFn2Exts(this.curPrj);
             await fs.outputJson(this.curPrj + 'path.json', hPath);
-            this.encrypter(this.curPrj + 'path.json');
+            if (this.$isCryptoMode)
+                this.encrypter(this.curPrj + 'path.json');
         }
         catch (err) {
             console.error(`PrjFileProc updPathJson ${err}`);

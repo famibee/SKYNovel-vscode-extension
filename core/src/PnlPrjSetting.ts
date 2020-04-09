@@ -33,6 +33,11 @@ export class PnlPrjSetting {
 		}
 
 		this.oCfg = {...this.oCfg, ...fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
+		// v0.15.1【「slideBaseSpan」廃止】
+		if ('slideBaseSpan' in this.oCfg.debug) {
+			delete this.oCfg.debug['slideBaseSpan'];
+			this.oCfg.debug['debugLog'] = false;
+		}
 		chgTitle(this.oCfg.book.title);
 
 		const path_doc = ctx.extensionPath +`/res/setting/`;
@@ -67,13 +72,14 @@ export class PnlPrjSetting {
 			bg_color			: 0x000000,	// 背景色
 			tagch_msecwait		: 10,		// 通常文字表示待ち時間（未読／既読）
 			auto_msecpagewait	: 3500,		// 自動文字表示、行クリック待ち時間（未読／既読）
+			escape				: '',		// エスケープ文字
 		},
 		debug	: {	// デバッグ情報（プレイヤーもONに出来るので注意）
 			devtool		: false,
 			token		: false,
 			tag			: false,
 			putCh		: false,
-			slideBaseSpan	: false,
+			debugLog	: false,
 			baseTx		: false,
 			masume		: false,	// テキストレイヤ：ガイドマス目を表示するか
 			variable	: false,

@@ -28,13 +28,14 @@ class PnlPrjSetting {
                 bg_color: 0x000000,
                 tagch_msecwait: 10,
                 auto_msecpagewait: 3500,
+                escape: '',
             },
             debug: {
                 devtool: false,
                 token: false,
                 tag: false,
                 putCh: false,
-                slideBaseSpan: false,
+                debugLog: false,
                 baseTx: false,
                 masume: false,
                 variable: false,
@@ -77,6 +78,10 @@ class PnlPrjSetting {
             return;
         }
         this.oCfg = Object.assign(Object.assign({}, this.oCfg), fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
+        if ('slideBaseSpan' in this.oCfg.debug) {
+            delete this.oCfg.debug['slideBaseSpan'];
+            this.oCfg.debug['debugLog'] = false;
+        }
         chgTitle(this.oCfg.book.title);
         const path_doc = ctx.extensionPath + `/res/setting/`;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);

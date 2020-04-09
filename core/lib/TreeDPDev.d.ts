@@ -6,7 +6,7 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private readonly TreeChild;
     private readonly idxDevPrjSet;
     private readonly idxDevTaskPackMac;
-    private readonly idxDevCrypt;
+    private readonly idxDevCrypto;
     private oPfp;
     constructor(ctx: ExtensionContext);
     private fnc_onDidEndTaskProcess;
@@ -15,7 +15,7 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
     private wsf2tree;
     private updLocalSNVer;
-    private dspCryptMode;
+    private dspCryptoMode;
     private onClickTreeItemBtn;
     getTreeItem: (t: TreeItem) => TreeItem;
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;

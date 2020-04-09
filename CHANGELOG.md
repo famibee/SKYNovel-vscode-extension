@@ -1,3 +1,12 @@
+## v1.10.0
+- add：HTML暗号化機能
+- add：暗号化HTML内で暗号化画像を使用できる機能
+- upd：プロジェクト設定「init.escape」「log.max_len」設定項目追加
+- chg：変数・関数名修正（crypt→crypto）
+## v1.9.2
+- del：プロジェクト設定「slideBaseSpan」廃止
+- chg：プロジェクト設定「devtool」を開発者ツールの許可（不許可時は終了）、に機能変更
+- chg：内部処理ログ表示・プロジェクト設定「devtool」を「debugLog」に変名
 ## v1.9.1
 - add：暗号化処理で、ハッシュ辞書作って更新チェックし、同じなら更新しないように
 ## v1.9.0
