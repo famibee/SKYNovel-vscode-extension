@@ -27,13 +27,13 @@ export declare class PrjFileProc {
     private crePrj;
     private chgPrj;
     private delPrj;
-    private readonly aRepl;
-    tglCryptMode(): void;
     private initCrypt;
-    private chkAndEnc;
+    private encIfNeeded;
+    private updDiffJson;
     private readonly LEN_CHKDIFF;
     private isDiff;
-    private updDiffJson;
+    private readonly aRepl;
+    tglCryptMode(): void;
     private pbkdf2;
     private iv;
     private readonly LEN_ENC;
