@@ -72,6 +72,7 @@ export class PnlPrjSetting {
 			bg_color			: 0x000000,	// 背景色
 			tagch_msecwait		: 10,		// 通常文字表示待ち時間（未読／既読）
 			auto_msecpagewait	: 3500,		// 自動文字表示、行クリック待ち時間（未読／既読）
+			escape				: '',		// エスケープ文字
 		},
 		debug	: {	// デバッグ情報（プレイヤーもONに出来るので注意）
 			devtool		: false,

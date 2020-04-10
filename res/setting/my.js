@@ -11,26 +11,18 @@ window.addEventListener('message', e=> {
 	if (e.data.cmd != 'res') return;
 
 	const o = e.data.o;
-	for (const k in o.book) {	// prj.json の値を設定
-		const elm = document.getElementById(`book.${k}`);
-		elm.value = o.book[k];
-		elm.focus();
-	}
-	for (const k in o.window) {
-		const elm = document.getElementById(`window.${k}`);
-		elm.value = o.window[k];
-		elm.focus();
-	}
-	for (const k in o.init) {
-		const elm = document.getElementById(`init.${k}`);
-		elm.value = o.init[k];
-		elm.focus();
-	}
-	for (const k in o.debug) {
-		document.getElementById(`debug.${k}`).checked = o.debug[k];
-	}
-	for (const k in o.code) {
-		document.getElementById(`code.${k}`).checked = o.code[k];
+
+	for (const n in o) {
+		if (n == 'save_ns') continue;
+		const en = o[n];
+		if (n == 'debug' || n == 'code') for (const k in en) {
+			document.getElementById(`${n}.${k}`).checked = en[k];
+		}
+		else for (const k in en) {
+			const elm = document.getElementById(`${n}.${k}`);
+			elm.value = en[k];
+			elm.focus();	// input表示の癖に対応
+		}
 	}
 	const elm = document.getElementById('save_ns');
 	elm.value = o.save_ns;
@@ -75,14 +67,14 @@ window.addEventListener('message', e=> {
 		i.addEventListener('input', ()=> {
 			chkEqTemp(i);
 			vscode.postMessage({cmd: 'input', id: i.id, val: i.value});
-		}, false);
+		}, {passive: true});
 	});
 	if (is_warn) vscode.postMessage({cmd: 'warn', text: `テンプレのままの設定があります。他の作品とかぶりますので、変更してください`});
 
 	Array.prototype.slice.call(document.getElementsByClassName('filled-in'))
 	.forEach(c=> c.addEventListener('input', ()=> {
 		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
-	}, false));
+	}, {passive: true}));
 
 	['cre_url', 'pub_url'].forEach(id=> {
 		document.getElementById(`open.${id}`).addEventListener('click', e=> {
@@ -90,7 +82,7 @@ window.addEventListener('message', e=> {
 				cmd: 'openURL',
 				url: document.getElementById(`book.${id}`).value,
 			});
-		}, false);
+		}, {passive: true});
 	});
-});
+}, {passive: true});
 vscode.postMessage({cmd: 'get'});

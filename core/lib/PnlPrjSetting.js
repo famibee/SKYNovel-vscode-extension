@@ -28,6 +28,7 @@ class PnlPrjSetting {
                 bg_color: 0x000000,
                 tagch_msecwait: 10,
                 auto_msecpagewait: 3500,
+                escape: '',
             },
             debug: {
                 devtool: false,

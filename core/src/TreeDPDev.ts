@@ -29,11 +29,11 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart'},
 		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
 		{icon: 'macosx',	label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: is_mac ?'' :'OS X 上のみ'},
-		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypt'},
+		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypto'},
 	];
 	private	readonly idxDevPrjSet		= 1;
 	private	readonly idxDevTaskPackMac	= 6;
-	private	readonly idxDevCrypt		= 7;
+	private	readonly idxDevCrypto		= 7;
 
 	private oPfp	: {[dir: string]: PrjFileProc}	= {};
 
@@ -116,7 +116,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
 		});
-		this.dspCryptMode(dir);
+		this.dspCryptoMode(dir);
 	}
 	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
@@ -124,10 +124,10 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		const localVer = fs.readJsonSync(dir +'/package.json').dependencies.skynovel.slice(1);
 		tc[this.idxDevPrjSet].description = `-- ${localVer}`;
 	}
-	private dspCryptMode(dir: string) {
+	private dspCryptoMode(dir: string) {
 		const tc = this.oTiPrj[dir];
 		const fpf = this.oPfp[dir];
-		tc[this.idxDevCrypt].description = `-- ${fpf.isCryptMode ?'する' :'しない'}`;
+		tc[this.idxDevCrypto].description = `-- ${fpf.isCryptoMode ?'する' :'しない'}`;
 	}
 
 	private onClickTreeItemBtn(ti: TreeItem) {
@@ -160,13 +160,13 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			case 'skynovel.devTaskStart':	cmd += 'npm run start';		break;
 			case 'skynovel.devTaskPackWin':	cmd += 'npm run pack:win';	break;
 			case 'skynovel.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
-			case 'skynovel.devCrypt':
+			case 'skynovel.devCrypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a != 'はい') return;
 
-					this.oPfp[dir].tglCryptMode();
-					this.dspCryptMode(dir);
+					this.oPfp[dir].tglCryptoMode();
+					this.dspCryptoMode(dir);
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
