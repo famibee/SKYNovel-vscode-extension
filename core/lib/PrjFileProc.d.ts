@@ -13,8 +13,9 @@ export declare class PrjFileProc {
     get isCryptoMode(): boolean;
     private regNeedCrypto;
     private regFullCrypto;
-    private regRepJson;
+    private regRepPathJson;
     private readonly hExt2N;
+    private regNeedHash;
     private readonly hPass;
     private readonly aFSW;
     private readonly fnDiff;

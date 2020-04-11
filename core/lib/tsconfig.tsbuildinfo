@@ -134,8 +134,8 @@
         "signature": "bb89ff3ec622ee172edb061e9394b83a3b45498e42592955150b5f771dc1c0d2"
       },
       "../src/prjfileproc.ts": {
-        "version": "b652029fae6c6264e54c3eb895d79bf3b3062f80e5ff34cd6c4ce939143740a6",
-        "signature": "d368e368625baaf8c5f202ee7521682d6769b88e0f0e6f4ae68e7a3f42675186"
+        "version": "fc48e9c24c48a6ffba8cc49c8ac3aad5c1766fcf70dcd5e3befa72296ba49473",
+        "signature": "b55e8c965ddcce232ad30787cc2cd758be020e5d4ceeec800592febe961fbc83"
       },
       "../src/treedpdev.ts": {
         "version": "245ef1e4f5adddbd5a863c3d927aba9529aaba4f4ee20a414519b49ed6242b7d",
@@ -1634,7 +1634,7 @@
       "../../node_modules/@types/xregexp/index.d.ts",
       "../src/analyzetagarg.ts",
       "../src/referenceprovider.ts",
-      "../src/prjfileproc.ts",
+      "../src/pnlprjsetting.ts",
       "../src/treedpdev.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
@@ -1688,7 +1688,7 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../src/pnlprjsetting.ts"
+      "../src/prjfileproc.ts"
     ]
   },
   "version": "3.8.3"

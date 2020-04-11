@@ -37,6 +37,7 @@ exports.init = hSN=> {
 		});
 		hSN.setEnc(data=> crypto.AES.encrypt(data, pbkdf2, {iv: iv}));
 		hSN.getStK(()=> p.stk);
+		hSN.getHash(data=> crypto.RIPEMD160(data).toString(crypto.enc.Hex));
 	})();
 }
 

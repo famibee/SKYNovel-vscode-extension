@@ -22,7 +22,7 @@ class PrjFileProc {
         this.$isCryptoMode = true;
         this.regNeedCrypto = /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
         this.regFullCrypto = /\.(sn|json|html?)$/;
-        this.regRepJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
+        this.regRepPathJson = /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
         this.hExt2N = {
             'jpg': 1,
             'jpeg': 1,
@@ -39,6 +39,7 @@ class PrjFileProc {
             'webm': 21,
             'ogv': 22,
         };
+        this.regNeedHash = /\.(js|css)$/;
         this.hDiff = Object.create(null);
         this.LEN_CHKDIFF = 1024;
         this.aRepl = [
@@ -123,7 +124,7 @@ class PrjFileProc {
         const short_path = e.path.slice(this.lenCurPrj);
         this.regNeedCrypto.lastIndex = 0;
         fs.removeSync(this.curCrypto + (short_path + '"')
-            .replace(this.regRepJson, '.bin')
+            .replace(this.regRepPathJson, '.bin')
             .replace(/"/, ''));
         this.updPathJson();
         delete this.hDiff[short_path];
@@ -190,7 +191,7 @@ class PrjFileProc {
             if (this.regFullCrypto.test(short_path)) {
                 let s = await fs.readFile(url, { encoding: 'utf8' });
                 if (short_path == 'path.json') {
-                    s = s.replace(this.regRepJson, '.bin"');
+                    s = s.replace(this.regRepPathJson, '.bin"');
                 }
                 const e = crypto.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
                 await fs.outputFile(url_out, e.toString());
@@ -290,6 +291,13 @@ class PrjFileProc {
                 const m = nm.match(this.regSprSheetImg);
                 if (!m) {
                     this.addPath(hFn2Path, dir, nm);
+                    const m2 = nm.match(this.regNeedHash);
+                    if (m2) {
+                        const s = fs.readFileSync(url, { encoding: 'utf8' });
+                        const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
+                        const snm = nm.slice(0, -m2[0].length);
+                        hFn2Path[snm][m2[1] + ':RIPEMD160'] = h;
+                    }
                     return;
                 }
                 const fnJs = path.resolve(wd, m[1] + '.json');

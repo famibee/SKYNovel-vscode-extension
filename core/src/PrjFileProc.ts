@@ -34,7 +34,7 @@ export class PrjFileProc {
 	get isCryptoMode() {return this.$isCryptoMode;}
 	private	regNeedCrypto	= /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 	private	regFullCrypto	= /\.(sn|json|html?)$/;
-	private	regRepJson		= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
+	private	regRepPathJson	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
 		// この末端の「"」は必須。変更時は delPrj_sub() 内も
 	private readonly	hExt2N: {[name: string]: number} = {
 		'jpg'	: 1,
@@ -52,6 +52,8 @@ export class PrjFileProc {
 		'webm'	: 21,
 		'ogv'	: 22,
 	};
+	private	regNeedHash	= /\.(js|css)$/;	// 改竄チェック処理対象
+		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 
 	private	readonly	hPass: {
 		pass	: string,
@@ -155,7 +157,7 @@ export class PrjFileProc {
 		this.regNeedCrypto.lastIndex = 0;
 		fs.removeSync(
 			this.curCrypto + (short_path +'"')
-			.replace(this.regRepJson, '.bin')
+			.replace(this.regRepPathJson, '.bin')
 			.replace(/"/, '')
 		);
 		this.updPathJson();
@@ -275,7 +277,7 @@ export class PrjFileProc {
 			if (this.regFullCrypto.test(short_path)) {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
-					s = s.replace(this.regRepJson, '.bin"');
+					s = s.replace(this.regRepPathJson, '.bin"');
 				}
 				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
@@ -404,7 +406,18 @@ export class PrjFileProc {
 				// スプライトシート用json自動生成機能
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				const m = nm.match(this.regSprSheetImg);
-				if (! m) {this.addPath(hFn2Path, dir, nm); return;}
+				if (! m) {
+					this.addPath(hFn2Path, dir, nm);
+
+					const m2 = nm.match(this.regNeedHash);
+					if (m2) {
+						const s = fs.readFileSync(url, {encoding: 'utf8'});
+						const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
+						const snm = nm.slice(0, -m2[0].length);
+						hFn2Path[snm][m2[1] +':RIPEMD160'] = h;
+					}
+					return;
+				}
 
 				const fnJs = path.resolve(wd, m[1] +'.json');
 				if (fs.existsSync(fnJs)) return;
@@ -437,7 +450,7 @@ export class PrjFileProc {
 							rotated	: false,
 							trimmed	: false,
 							spriteSourceSize
-									: {x: 0, y: 0, w: size.width, h :size.height},
+								: {x: 0, y: 0, w: size.width, h :size.height},
 							sourceSize	: {w: w, h :h},
 							pivot		: {x: 0.5, y: 0.5},
 						};
