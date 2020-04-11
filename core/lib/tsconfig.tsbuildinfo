@@ -1634,7 +1634,7 @@
       "../../node_modules/@types/xregexp/index.d.ts",
       "../src/analyzetagarg.ts",
       "../src/referenceprovider.ts",
-      "../src/pnlprjsetting.ts",
+      "../src/prjfileproc.ts",
       "../src/treedpdev.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
@@ -1688,7 +1688,7 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../src/prjfileproc.ts"
+      "../src/pnlprjsetting.ts"
     ]
   },
   "version": "3.8.3"

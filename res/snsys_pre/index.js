@@ -12,22 +12,6 @@ exports.init = hSN=> {
 			crypto.enc.Hex.parse(p.salt),
 			{keySize: p.keySize, iterations: p.ite}
 		);
-		const regFullCrypto = /(^|\.)(sn|json|html?)$/;
-		const hN2Ext = {
-			1	: {exp: 'jpeg', mime: 'image/jpeg'},
-			2	: {exp: 'png', mime: 'image/png'},
-			3	: {exp: 'svg', mime: 'image/svg+xml'},
-			4	: {exp: 'webp', mime: 'image/webp'},
-			10	: {exp: 'mp3', mime: ''},
-			11	: {exp: 'm4a', mime: ''},
-			12	: {exp: 'ogg', mime: ''},
-			13	: {exp: 'aac', mime: ''},
-			14	: {exp: 'flac', mime: ''},
-			15	: {exp: 'wav', mime: ''},
-			20	: {exp: 'mp4', mime: ''},
-			21	: {exp: 'webm', mime: ''},
-			22	: {exp: 'ogv', mime: ''},
-		};
 		hSN.setPre(async (ext, data)=> {
 			if (regFullCrypto.test(ext)) return crypto.AES.decrypt(
 				//@ts-ignore
@@ -42,22 +26,47 @@ exports.init = hSN=> {
 			const e2 = crypto.AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
 			const b = Buffer.from(e2.toString(crypto.enc.Hex), 'hex');
 	//		const v = b.readUInt8(0);
-			const mime = hN2Ext[b.readUInt8(1)].mime;
+			const fm = hN2Ext[b.readUInt8(1)];
+			const mime = fm.mime;
 			if (! mime) {
 				const bl = new Blob([b.slice(2), data.slice(4+cl)]);
 				return bl.arrayBuffer();
 			}
-
 			const bl = new Blob([b.slice(2), data.slice(4+cl)], {type: mime});
-
-			return new Promise((rs, rj)=> {
-				const img = new Image();
-				img.onload = ()=> rs(img);
-				img.onerror = e=> rj(e);
-				img.src = URL.createObjectURL(bl);
-			});
+			return new Promise(fm.fnc(bl));
 		});
 		hSN.setEnc(data=> crypto.AES.encrypt(data, pbkdf2, {iv: iv}));
 		hSN.getStK(()=> p.stk);
 	})();
 }
+
+const regFullCrypto = /(^|\.)(sn|json|html?)$/;
+
+const fncImage = bl=> (rs, rj)=> {
+	const img = new Image();
+	img.onload = ()=> rs(img);
+	img.onerror = e=> rj(e);
+	img.src = URL.createObjectURL(bl);
+};
+const fncVideo = bl=> (rs, rj)=> {
+	const v = document.createElement('video');
+//	v.addEventListener('loadedmetadata', ()=> console.log(`loadedmetadata duration:${v.duration}`));
+	v.addEventListener('error', ()=> rj(v.error.message));
+	v.addEventListener('canplay', ()=> rs(v));
+	v.src = URL.createObjectURL(bl);
+};
+const hN2Ext = {
+	1	: {exp: 'jpeg', fnc: fncImage, mime: 'image/jpeg'},
+	2	: {exp: 'png', fnc: fncImage, mime: 'image/png'},
+	3	: {exp: 'svg', fnc: fncImage, mime: 'image/svg+xml'},
+	4	: {exp: 'webp', fnc: fncImage, mime: 'image/webp'},
+	10	: {exp: 'mp3', fnc: null, mime: ''},
+	11	: {exp: 'm4a', fnc: null, mime: ''},
+	12	: {exp: 'ogg', fnc: null, mime: ''},
+	13	: {exp: 'aac', fnc: null, mime: ''},
+	14	: {exp: 'flac', fnc: null, mime: ''},
+	15	: {exp: 'wav', fnc: null, mime: ''},
+	20	: {exp: 'mp4', fnc: fncVideo, mime: 'video/mp4'},
+	21	: {exp: 'webm', fnc: fncVideo, mime: 'video/webm'},
+	22	: {exp: 'ogv', fnc: fncVideo, mime: 'video/ogv'},
+};
