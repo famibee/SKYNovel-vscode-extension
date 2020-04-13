@@ -49,6 +49,25 @@ class PrjFileProc {
         ];
         this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
+        this.chkCryptoFile = (s) => {
+            this.chkCryptoFile = () => { };
+            const hFn2CryptoPath = JSON.parse(s);
+            for (const fn in hFn2CryptoPath) {
+                const hExt2N = hFn2CryptoPath[fn];
+                for (const ext in hExt2N) {
+                    if (ext == ':cnt')
+                        continue;
+                    if (ext.slice(-10) == ':RIPEMD160')
+                        continue;
+                    const sp = String(hExt2N[ext]);
+                    const exi = fs.existsSync(this.curCrypto + sp);
+                    if (exi)
+                        continue;
+                    const base_sp = sp.slice(0, sp.lastIndexOf('.') + 1) + ext;
+                    this.encrypter(this.curPrj + base_sp);
+                }
+            }
+        };
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
@@ -192,6 +211,7 @@ class PrjFileProc {
                 let s = await fs.readFile(url, { encoding: 'utf8' });
                 if (short_path == 'path.json') {
                     s = s.replace(this.regRepPathJson, '.bin"');
+                    this.chkCryptoFile(s);
                 }
                 const e = crypto.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
                 await fs.outputFile(url_out, e.toString());
@@ -270,7 +290,8 @@ class PrjFileProc {
             cmd += `npm i ${CmnLib_1.statBreak()} `;
         cmd += 'npm run webpack:dev';
         const t = new vscode_1.Task({ type: 'SKYNovel auto' }, 'webpack:dev', 'SKYNovel', new vscode_1.ShellExecution(cmd));
-        vscode_1.tasks.executeTask(t);
+        vscode_1.tasks.executeTask(t)
+            .then(undefined, rj => console.error(`TreeDPDev rebuildTask() rj:${rj.message}`));
     }
     async updPathJson() {
         try {

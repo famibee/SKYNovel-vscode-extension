@@ -39,6 +39,7 @@ export declare class PrjFileProc {
     private readonly LEN_ENC;
     private readonly regDir;
     private encrypter;
+    private chkCryptoFile;
     private updPlugin;
     private rebuildTask;
     private updPathJson;

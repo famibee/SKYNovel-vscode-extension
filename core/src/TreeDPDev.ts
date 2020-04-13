@@ -150,7 +150,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 		const tc = this.TreeChild[i];
 		switch (tc.cmd) {
 			case 'skynovel.devPrjSet':	this.oPfp[dir].openPrjSetting();
-				break;
+				return;
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;	break;
 			case 'skynovel.devLibUpd':	cmd += `npm update ${
@@ -189,7 +189,8 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 				this._onDidChangeTreeData.fire();
 			}
 			: ()=> {};
-		tasks.executeTask(t);
+		tasks.executeTask(t)
+		.then(undefined, rj=> console.error(`fn:TreeDPDev onClickTreeItemBtn() rj:${rj.message}`));
 	}
 
 	getTreeItem = (t: TreeItem)=> t;

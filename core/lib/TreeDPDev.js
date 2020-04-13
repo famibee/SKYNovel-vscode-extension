@@ -119,7 +119,7 @@ class TreeDPDev {
         switch (tc.cmd) {
             case 'skynovel.devPrjSet':
                 this.oPfp[dir].openPrjSetting();
-                break;
+                return;
             case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
                 break;
@@ -163,7 +163,8 @@ class TreeDPDev {
                     this._onDidChangeTreeData.fire();
                 }
                 : () => { };
-        vscode_1.tasks.executeTask(t);
+        vscode_1.tasks.executeTask(t)
+            .then(undefined, rj => console.error(`fn:TreeDPDev onClickTreeItemBtn() rj:${rj.message}`));
     }
     getChildren(t) {
         return Promise.resolve(t ? this.oTiPrj[t.tooltip] : this.aTiRoot);

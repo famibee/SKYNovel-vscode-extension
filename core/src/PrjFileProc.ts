@@ -278,6 +278,7 @@ export class PrjFileProc {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
 					s = s.replace(this.regRepPathJson, '.bin"');
+					this.chkCryptoFile(s);
 				}
 				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
@@ -357,6 +358,25 @@ export class PrjFileProc {
 		catch (e) {console.error(`encrypter other ${e.message}`);}
 	}
 
+	// 対応する暗号化ファイルが無い場合、再生成
+	private	chkCryptoFile = (s: string)=> {
+		this.chkCryptoFile = ()=> {};
+		const hFn2CryptoPath: IFn2Path = JSON.parse(s);
+		for (const fn in hFn2CryptoPath) {
+			const hExt2N = hFn2CryptoPath[fn];
+			for (const ext in hExt2N) {
+				if (ext == ':cnt') continue;
+				if (ext.slice(-10) == ':RIPEMD160') continue;
+				const sp = String(hExt2N[ext]);
+				const exi = fs.existsSync(this.curCrypto + sp);
+				if (exi) continue;
+
+				const base_sp = sp.slice(0, sp.lastIndexOf('.')+ 1) + ext;
+				this.encrypter(this.curPrj + base_sp);
+			}
+		}
+	}
+
 
 	private	updPlugin() {
 		if (! fs.existsSync(this.curPlg)) return;
@@ -377,7 +397,8 @@ export class PrjFileProc {
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		tasks.executeTask(t);
+		tasks.executeTask(t)
+		.then(undefined, rj=> console.error(`TreeDPDev rebuildTask() rj:${rj.message}`));
 	}
 
 

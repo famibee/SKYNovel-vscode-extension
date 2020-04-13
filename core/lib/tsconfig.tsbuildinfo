@@ -134,11 +134,11 @@
         "signature": "bb89ff3ec622ee172edb061e9394b83a3b45498e42592955150b5f771dc1c0d2"
       },
       "../src/prjfileproc.ts": {
-        "version": "fc48e9c24c48a6ffba8cc49c8ac3aad5c1766fcf70dcd5e3befa72296ba49473",
-        "signature": "b55e8c965ddcce232ad30787cc2cd758be020e5d4ceeec800592febe961fbc83"
+        "version": "08b4551dade333b421290de08b9fff08a5e2e9b5b76dd0f0a8ecc359e9a8a64d",
+        "signature": "acfb417f83f9266d044c746d31d2bc8ee9da84a978f54049524cc2687848401c"
       },
       "../src/treedpdev.ts": {
-        "version": "245ef1e4f5adddbd5a863c3d927aba9529aaba4f4ee20a414519b49ed6242b7d",
+        "version": "045f9be2759645d605d944ac4fe9924d1d6b16eb8f6c3785fd39bba95ab732dd",
         "signature": "62ab412df24f0bda07809fb8e9d1a9ae972cce4d39352d4d117755e2bfbbfef7"
       },
       "../src/activitybar.ts": {
