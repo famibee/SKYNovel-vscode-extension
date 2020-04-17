@@ -1,3 +1,8 @@
+## v1.10.4
+- bug：【breakline.5x20.png】系のファイル暗号化不具合
+- upd：Nodeパッケージを最新Active LTSに更新（v12.16.2）
+- add：SKYNovel更新ボタン押下時にもサーバーの最新Verを取得するように
+- info：クラス名変更（TreeDPDev → TreeDPWorkSpaces）
 ## v1.10.3
 - add：開始時、対応する暗号化ファイルが無い場合、再生成するように
 - bug：軽微不具合修正

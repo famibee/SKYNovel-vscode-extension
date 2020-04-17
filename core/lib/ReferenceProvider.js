@@ -19,17 +19,6 @@ class ReferenceProvider {
         this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.hScript = Object.create(null);
         this.REG_TAG_LET_ML = m_xregexp(`^\\[let_ml\\s`, 'g');
-        this.REG_TOKEN = m_xregexp(`(?: \\[let_ml \\s+ [^\\[\\]]+ \\])` +
-            `(?: . | \\s)+?` +
-            `(?=\\[endlet_ml \\s* \\])` +
-            `| \\[ (?: ([\\"\\'\\#]) .*? \\1 | . ) *? \\]` +
-            '| \\n+' +
-            '| \\t+' +
-            '| &[^&\\n]+&' +
-            '| &&?[^;\\n\\t&]+' +
-            '| ;[^\\n]+' +
-            '| ^\\*\\w+' +
-            '| [^\\n\\t\\[;]+', 'gx');
         this.REG_MULTILINE_TAG = m_xregexp(`\\[
 		([^\\n\\]]+ \\n
 			(?:
@@ -40,6 +29,7 @@ class ReferenceProvider {
 	\\]
 |	;[^\\n]+`, 'gx');
         this.REG_TAG = m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
+        this.setEscape('');
         this.loadCfg();
         const doc_sel = { scheme: 'file', language: 'skynovel' };
         if (!ReferenceProvider.inited) {
@@ -248,6 +238,23 @@ class ReferenceProvider {
             }
         }
         scr.len = scr.aToken.length;
+    }
+    mkEscape(ce) {
+        return m_xregexp((ce ? `\\${ce}\\S |` : '') +
+            '	\\n+' +
+            '|	\\t+' +
+            `|	\\[let_ml \\s+ [^\\]]+ \\]` +
+            `.+?` +
+            `(?=\\[endlet_ml [\\]\\s])` +
+            `|	\\[ (?: [^"'#;\\]]+ | (["'#]) .*? \\1 | ;[^\\n]* ) *? ]` +
+            '|	;[^\\n]*' +
+            '|	&[^&\\n]+&' +
+            '|	&&?[^;\\n\\t&]+' +
+            '|	^\\*\\w+' +
+            `| [^\\n\\t\\[;${ce ? `\\${ce}` : ''}]+`, 'gxs');
+    }
+    setEscape(ce) {
+        this.REG_TOKEN = this.mkEscape(ce);
     }
     cnvMultilineTag(txt) {
         return txt.replace(this.REG_MULTILINE_TAG, function () {

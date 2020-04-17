@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {oIcon, is_win, is_mac} from './CmnLib';
-import {TreeDPDev} from './TreeDPDev';
+import {TreeDPWorkSpaces} from './TreeDPWorkSpaces';
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, env, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, TreeItemCollapsibleState, ThemeIcon} from 'vscode';
 const {exec} = require('child_process');
@@ -23,21 +23,21 @@ enum eTree {
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
-		ActivityBar.trDPEnv = new ActivityBar(ctx);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv));
-		ActivityBar.trDPDev = new TreeDPDev(ctx);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev));
+		ActivityBar.actBar = new ActivityBar(ctx);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
+		ActivityBar.trDPWss = new TreeDPWorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.trDPWss));
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
-	private static trDPEnv: ActivityBar;
-	private static trDPDev: TreeDPDev;
+	private static actBar: ActivityBar;
+	private static trDPWss: TreeDPWorkSpaces;
 	static stopActBar() {
-		ActivityBar.trDPEnv.dispose();
-		ActivityBar.trDPDev.dispose();
+		ActivityBar.actBar.dispose();
+		ActivityBar.trDPWss.dispose();
 	}
 
 
-	private readonly aTiRoot: TreeItem[] = [
+	private static readonly aTiRoot: TreeItem[] = [
 		new TreeItem('Node.js'),
 		new TreeItem('npm'),
 		new TreeItem(is_win ?'windows-build-tools' :''),
@@ -47,39 +47,20 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		this.aTiRoot.forEach(v=> v.contextValue = v.label);
+		ActivityBar.aTiRoot.forEach(v=> v.contextValue = v.label);
 		this.refreshWork();
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
-		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(Uri.parse('https://nodejs.org/dist/v12.16.1/node-v12.16.1'
-			+ (is_mac
+		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
+			Uri.parse('https://nodejs.org/dist/v12.16.2/node-v12.16.2'+ (
+				is_mac
 				? '.pkg'
-				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x86') +'.msi'))
-		))));	// NOTE: ここを更新する場合は以降に出てくる「node -v」を変更して確認
+				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x86') +'.msi')
+			))
+		)));	// NOTE: URLを更新したら以降にある「node -v」を壊しDLボタンの動作確認
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
-
-		const aFld = workspace.workspaceFolders;
-		// ライブラリ更新チェック
-		if (aFld) https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
-			let body = '';
-			res.setEncoding('utf8');
-			res.on('data', (chunk: string)=> {body += chunk;});
-			res.on('end', ()=> {
-				const newVer = JSON.parse(body).version;
-				const node = this.aTiRoot[eTree.SKYNOVEL_VER];
-				node.description = '-- '+ newVer;
-				this._onDidChangeTreeData.fire(node);
-				if (aFld.find(fld=> {
-					const fnLocal = fld.uri.fsPath +'/package.json';
-					if (! fs.existsSync(fnLocal)) return false;
-
-					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
-					if (localVer.slice(0, 4) == 'ile:') return false;
-					return (newVer != localVer);
-				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
-			});
-		}).on('error', (e: Error)=> console.error(e.message));
 	}
+
 	private dispose() {if (this.pnlWV) this.pnlWV.dispose();}
 
 	// refreshボタン
@@ -94,10 +75,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	// 起動時？　と refreshボタンで呼ばれる
 	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(this.aTiRoot);
+		if (! t) return Promise.resolve(ActivityBar.aTiRoot);
 
 		const ret: TreeItem[] = [];
-		if (t.label == 'Node.js') this.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
+		if (t.label == 'Node.js') ActivityBar.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
 		return Promise.resolve(ret);
 	}
 
@@ -105,7 +86,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private refreshWork(): void {
 		let error = 0;
 		if (! this.aReady[eTree.NODE]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const node = this.aTiRoot[eTree.NODE];
+			const node = ActivityBar.aTiRoot[eTree.NODE];
 			if (err) {
 				this.aReady[eTree.NODE] = false;
 				node.description = `-- 見つかりません`;
@@ -121,7 +102,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			this._onDidChangeTreeData.fire(node);
 		});
 
-		const wbt = this.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
+		const wbt = ActivityBar.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
 		const chkWbt = ()=> {
 			// （windowsのみ）管理者権限で PowerShell を起動し、【npm i -g windows-build-tools】を実行。「All done!」まで待つ。
 			if (! is_win) return;
@@ -143,7 +124,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		};
 		if (this.aReady[eTree.NPM]) chkWbt();
 		else exec('npm -v', (err: Error, stdout: string|Buffer)=> {
-			const npm = this.aTiRoot[eTree.NPM];
+			const npm = ActivityBar.aTiRoot[eTree.NPM];
 			if (err) {
 				this.aReady[eTree.NPM] = false;
 				npm.description = `-- 見つかりません`;
@@ -159,6 +140,32 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			chkWbt();
 		});
+
+		ActivityBar.chkLastVerSKYNovel();
+	}
+	private	static chkLastVerSKYNovel() {
+		const aFld = workspace.workspaceFolders;
+		if (! aFld) return;
+
+		https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
+			let body = '';
+			res.setEncoding('utf8');
+			res.on('data', (chunk: string)=> {body += chunk;});
+			res.on('end', ()=> {
+				const newVer = JSON.parse(body).version;
+				const node = ActivityBar.aTiRoot[eTree.SKYNOVEL_VER];
+				node.description = '-- ' + newVer;
+				ActivityBar.actBar._onDidChangeTreeData.fire(node);
+				if (aFld.find(fld => {
+					const fnLocal = fld.uri.fsPath + '/package.json';
+					if (! fs.existsSync(fnLocal)) return false;
+
+					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
+					if (localVer.slice(0, 4) == 'ile:') return false;
+					return (newVer != localVer);
+				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+			});
+		}).on('error', (e: Error) => console.error(e.message));
 	}
 
 	private pnlWV: WebviewPanel | null = null;

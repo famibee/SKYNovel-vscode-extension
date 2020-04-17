@@ -12,7 +12,7 @@ import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemC
 
 const fs = require('fs-extra');
 
-export class TreeDPDev implements TreeDataProvider<TreeItem> {
+export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
 	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
@@ -37,7 +37,7 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 
 	private oPfp	: {[dir: string]: PrjFileProc}	= {};
 
-	constructor(private readonly ctx: ExtensionContext) {
+	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
 		if (is_win) {
 			const tc = this.TreeChild[this.idxDevTaskPackMac];
 			tc.label = '';
@@ -152,7 +152,9 @@ export class TreeDPDev implements TreeDataProvider<TreeItem> {
 			case 'skynovel.devPrjSet':	this.oPfp[dir].openPrjSetting();
 				return;
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
-				statBreak()} npm run webpack:dev`;	break;
+				statBreak()} npm run webpack:dev`;
+				this.chkLastVerSKYNovel();
+				break;
 			case 'skynovel.devLibUpd':	cmd += `npm update ${
 				statBreak()} npm update --dev ${
 				statBreak()} npm run webpack:dev`;	break;

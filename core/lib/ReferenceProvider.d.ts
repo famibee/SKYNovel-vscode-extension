@@ -27,7 +27,9 @@ export declare class ReferenceProvider implements HoverProvider, DefinitionProvi
     private readonly REG_TAG_LET_ML;
     private resolveScript;
     private replaceScript_let_ml;
-    readonly REG_TOKEN: RegExp;
+    REG_TOKEN: RegExp;
+    private mkEscape;
+    setEscape(ce: string): void;
     private readonly REG_MULTILINE_TAG;
     private static readonly REG_MULTILINE_TAG_SPLIT;
     private cnvMultilineTag;

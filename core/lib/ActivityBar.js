@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
-const TreeDPDev_1 = require("./TreeDPDev");
+const TreeDPWorkSpaces_1 = require("./TreeDPWorkSpaces");
 const vscode_1 = require("vscode");
 const { exec } = require('child_process');
 const fs = require('fs-extra');
@@ -18,59 +18,29 @@ var eTree;
 class ActivityBar {
     constructor(ctx) {
         this.ctx = ctx;
-        this.aTiRoot = [
-            new vscode_1.TreeItem('Node.js'),
-            new vscode_1.TreeItem('npm'),
-            new vscode_1.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
-            new vscode_1.TreeItem('SKYNovel（最新）'),
-        ];
         this.aReady = [undefined, undefined, undefined, undefined];
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.getTreeItem = (t) => t;
         this.pnlWV = null;
-        this.aTiRoot.forEach(v => v.contextValue = v.label);
+        ActivityBar.aTiRoot.forEach(v => v.contextValue = v.label);
         this.refreshWork();
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.refreshSetting', () => this.refresh()));
-        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v12.16.1/node-v12.16.1'
-            + (CmnLib_1.is_mac
-                ? '.pkg'
-                : ((os.arch().slice(-2) == '64' ? '-x64' : '-x86') + '.msi'))))));
+        ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.dlNode', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/dist/v12.16.2/node-v12.16.2' + (CmnLib_1.is_mac
+            ? '.pkg'
+            : ((os.arch().slice(-2) == '64' ? '-x64' : '-x86') + '.msi'))))));
         ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opNodeSite', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/ja/'))));
-        const aFld = vscode_1.workspace.workspaceFolders;
-        if (aFld)
-            https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res) => {
-                let body = '';
-                res.setEncoding('utf8');
-                res.on('data', (chunk) => { body += chunk; });
-                res.on('end', () => {
-                    const newVer = JSON.parse(body).version;
-                    const node = this.aTiRoot[eTree.SKYNOVEL_VER];
-                    node.description = '-- ' + newVer;
-                    this._onDidChangeTreeData.fire(node);
-                    if (aFld.find(fld => {
-                        const fnLocal = fld.uri.fsPath + '/package.json';
-                        if (!fs.existsSync(fnLocal))
-                            return false;
-                        const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
-                        if (localVer.slice(0, 4) == 'ile:')
-                            return false;
-                        return (newVer != localVer);
-                    }))
-                        vscode_1.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
-                });
-            }).on('error', (e) => console.error(e.message));
     }
     static start(ctx) {
-        ActivityBar.trDPEnv = new ActivityBar(ctx);
-        ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-setting', ActivityBar.trDPEnv));
-        ActivityBar.trDPDev = new TreeDPDev_1.TreeDPDev(ctx);
-        ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPDev));
+        ActivityBar.actBar = new ActivityBar(ctx);
+        ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
+        ActivityBar.trDPWss = new TreeDPWorkSpaces_1.TreeDPWorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
+        ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-dev', ActivityBar.trDPWss));
         ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
     }
     static stopActBar() {
-        ActivityBar.trDPEnv.dispose();
-        ActivityBar.trDPDev.dispose();
+        ActivityBar.actBar.dispose();
+        ActivityBar.trDPWss.dispose();
     }
     dispose() { if (this.pnlWV)
         this.pnlWV.dispose(); }
@@ -80,17 +50,17 @@ class ActivityBar {
     }
     getChildren(t) {
         if (!t)
-            return Promise.resolve(this.aTiRoot);
+            return Promise.resolve(ActivityBar.aTiRoot);
         const ret = [];
         if (t.label == 'Node.js')
-            this.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : CmnLib_1.oIcon('error');
+            ActivityBar.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ? '' : CmnLib_1.oIcon('error');
         return Promise.resolve(ret);
     }
     refreshWork() {
         let error = 0;
         if (!this.aReady[eTree.NODE])
             exec('node -v', (err, stdout) => {
-                const node = this.aTiRoot[eTree.NODE];
+                const node = ActivityBar.aTiRoot[eTree.NODE];
                 if (err) {
                     this.aReady[eTree.NODE] = false;
                     node.description = `-- 見つかりません`;
@@ -105,7 +75,7 @@ class ActivityBar {
                 node.contextValue = '';
                 this._onDidChangeTreeData.fire(node);
             });
-        const wbt = this.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
+        const wbt = ActivityBar.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
         const chkWbt = () => {
             if (!CmnLib_1.is_win)
                 return;
@@ -129,7 +99,7 @@ class ActivityBar {
             chkWbt();
         else
             exec('npm -v', (err, stdout) => {
-                const npm = this.aTiRoot[eTree.NPM];
+                const npm = ActivityBar.aTiRoot[eTree.NPM];
                 if (err) {
                     this.aReady[eTree.NPM] = false;
                     npm.description = `-- 見つかりません`;
@@ -144,6 +114,33 @@ class ActivityBar {
                 this._onDidChangeTreeData.fire(npm);
                 chkWbt();
             });
+        ActivityBar.chkLastVerSKYNovel();
+    }
+    static chkLastVerSKYNovel() {
+        const aFld = vscode_1.workspace.workspaceFolders;
+        if (!aFld)
+            return;
+        https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res) => {
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                const newVer = JSON.parse(body).version;
+                const node = ActivityBar.aTiRoot[eTree.SKYNOVEL_VER];
+                node.description = '-- ' + newVer;
+                ActivityBar.actBar._onDidChangeTreeData.fire(node);
+                if (aFld.find(fld => {
+                    const fnLocal = fld.uri.fsPath + '/package.json';
+                    if (!fs.existsSync(fnLocal))
+                        return false;
+                    const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
+                    if (localVer.slice(0, 4) == 'ile:')
+                        return false;
+                    return (newVer != localVer);
+                }))
+                    vscode_1.window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+            });
+        }).on('error', (e) => console.error(e.message));
     }
     async activityBarBadge(num = 0) {
         const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
@@ -168,6 +165,12 @@ class ActivityBar {
     }
 }
 exports.ActivityBar = ActivityBar;
+ActivityBar.aTiRoot = [
+    new vscode_1.TreeItem('Node.js'),
+    new vscode_1.TreeItem('npm'),
+    new vscode_1.TreeItem(CmnLib_1.is_win ? 'windows-build-tools' : ''),
+    new vscode_1.TreeItem('SKYNovel（最新）'),
+];
 class TreeDPDoc {
     constructor(ctx) {
         this.ctx = ctx;

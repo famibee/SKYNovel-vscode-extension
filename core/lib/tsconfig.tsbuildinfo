@@ -126,24 +126,24 @@
         "signature": "2747a8d20bb3f00caf8f7229bf6e0c387b53860b3d986aba9a9b784253a721e0"
       },
       "../src/referenceprovider.ts": {
-        "version": "20943aaae6dd7a1664525623e881ce25f3172b512cd07bab0d4af6727e99a1d8",
-        "signature": "4cf17fd00568f124437c04356ecc4a161a2f426527296463b5aa8a7f8cb15414"
+        "version": "43ba418c0cc003182b8accce4822337ee29e9e2836daf51cdde4d99d4cba6763",
+        "signature": "168a51be22179ac6b1006a8c83c79acd3bc9c8897162cd73e0cd95b45b061b2b"
       },
       "../src/pnlprjsetting.ts": {
         "version": "68e78f74f106c271b097193bc1fde83132a1f0ef5da40fec5f87d8494f0a6e50",
         "signature": "bb89ff3ec622ee172edb061e9394b83a3b45498e42592955150b5f771dc1c0d2"
       },
       "../src/prjfileproc.ts": {
-        "version": "08b4551dade333b421290de08b9fff08a5e2e9b5b76dd0f0a8ecc359e9a8a64d",
-        "signature": "acfb417f83f9266d044c746d31d2bc8ee9da84a978f54049524cc2687848401c"
+        "version": "0eae8ff4613a6f352d2d5b2070630e29cf90259f2eeca730a810cc52865b1b8c",
+        "signature": "b55e8c965ddcce232ad30787cc2cd758be020e5d4ceeec800592febe961fbc83"
       },
-      "../src/treedpdev.ts": {
-        "version": "045f9be2759645d605d944ac4fe9924d1d6b16eb8f6c3785fd39bba95ab732dd",
-        "signature": "62ab412df24f0bda07809fb8e9d1a9ae972cce4d39352d4d117755e2bfbbfef7"
+      "../src/treedpworkspaces.ts": {
+        "version": "84cae44fc2bb0c1dfa87e9bc5fd44796b55b3693a5fc4f6a9827811838e096ad",
+        "signature": "f9a4b7973110e7da5b65cbff943516f525292d153da782ba52c97718e88889be"
       },
       "../src/activitybar.ts": {
-        "version": "f77e7fbe142a0bd23fe9fc2fa1b629bfc6e138581e27c994c681d3dae1b561f3",
-        "signature": "932b48ebbb47b408a9db7c60f516eff504190c4b0ebe10a6b36af87d200d421c"
+        "version": "3af17b8a6f9916328a0850d04eb317b0696db39fe6c1de889446cabfd08433a5",
+        "signature": "01acf63b377fa280da2acd2403c3019712a7de523a08cb330c668edcdf9159d3"
       },
       "../src/extension.ts": {
         "version": "c6ff879f382158a0f3ed345c985926d2a039278a0c1fd6a6ff533673211e12c4",
@@ -596,7 +596,7 @@
         "../../node_modules/@types/node/util.d.ts",
         "../../node_modules/@types/node/ts3.2/util.d.ts"
       ],
-      "../src/treedpdev.ts": [
+      "../src/treedpworkspaces.ts": [
         "../src/cmnlib.ts",
         "../src/prjfileproc.ts",
         "../../node_modules/@types/vscode/index.d.ts",
@@ -607,7 +607,7 @@
       ],
       "../src/activitybar.ts": [
         "../src/cmnlib.ts",
-        "../src/treedpdev.ts",
+        "../src/treedpworkspaces.ts",
         "../../node_modules/@types/vscode/index.d.ts",
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/fs.d.ts",
@@ -1199,7 +1199,7 @@
       "../src/prjfileproc.ts": [
         "../../node_modules/@types/vscode/index.d.ts"
       ],
-      "../src/treedpdev.ts": [
+      "../src/treedpworkspaces.ts": [
         "../../node_modules/@types/vscode/index.d.ts"
       ],
       "../src/activitybar.ts": [
@@ -1635,7 +1635,6 @@
       "../src/analyzetagarg.ts",
       "../src/referenceprovider.ts",
       "../src/pnlprjsetting.ts",
-      "../src/treedpdev.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
       "../../node_modules/@types/crypto-js/index.d.ts",
@@ -1688,7 +1687,8 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../src/prjfileproc.ts"
+      "../src/prjfileproc.ts",
+      "../src/treedpworkspaces.ts"
     ]
   },
   "version": "3.8.3"

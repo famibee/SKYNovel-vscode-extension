@@ -1,6 +1,7 @@
 import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
-export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
+export declare class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
+    private readonly chkLastVerSKYNovel;
     private readonly aTiRoot;
     private readonly oTiPrj;
     private readonly TreeChild;
@@ -8,7 +9,7 @@ export declare class TreeDPDev implements TreeDataProvider<TreeItem> {
     private readonly idxDevTaskPackMac;
     private readonly idxDevCrypto;
     private oPfp;
-    constructor(ctx: ExtensionContext);
+    constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
     private fnc_onDidEndTaskProcess;
     private refresh;
     private readonly _onDidChangeTreeData;

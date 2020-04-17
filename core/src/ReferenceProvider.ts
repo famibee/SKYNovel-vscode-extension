@@ -168,6 +168,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	private	static		inited	= false;
 
 	constructor(ctx: ExtensionContext, private curPrj: string) {
+		this.setEscape('');
 		this.loadCfg();
 
 		// コマンドパレット・イベント
@@ -441,24 +442,36 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	}
 
 
-	// =============== ScriptIterator
-	readonly	REG_TOKEN		= m_xregexp(	// テスト用にpublic
-		`(?: \\[let_ml \\s+ [^\\[\\]]+ \\])`+
-			`(?: . | \\s)+?`+	// [let_ml]〜[endlet_ml]間のテキスト
-		`(?=\\[endlet_ml \\s* \\])`+
+	// =============== Grammar
+	REG_TOKEN	: RegExp;
+	private	mkEscape(ce: string) {return m_xregexp(
+			// 1059 match 13935 step (8ms) https://regex101.com/r/ygXx16/6
+		(ce	?`\\${ce}\\S |` :'')+	// エスケープシーケンス
+		'	\\n+'+			// 改行
+		'|	\\t+'+			// タブ
+		`|	\\[let_ml \\s+ [^\\]]+ \\]`+
+			`.+?`+	// [let_ml]〜[endlet_ml]間のテキスト
+		`(?=\\[endlet_ml [\\]\\s])`+
 		//		`| (?<= \\[let_ml \\s+ [^\\[\\]]+ \\])`+
 			// iOS、過ぎ去った前を見る肯定後読み「(?<=」使えない。エラーになるので
 			// Electronも？
-		`| \\[ (?: ([\\"\\'\\#]) .*? \\1 | . ) *? \\]`+	// タグ
-		'| \\n+'+			// 改行
-		'| \\t+'+			// タブ
-		'| &[^&\\n]+&'+		// ＆表示＆
-		'| &&?[^;\\n\\t&]+'+// ＆代入
-		'| ;[^\\n]+'+		// コメント
-		'| ^\\*\\w+'+		// ラベル
-		'| [^\\n\\t\\[;]+'	// 本文
-		, 'gx');
+		`|	\\[ (?: [^"'#;\\]]+ | (["'#]) .*? \\1 | ;[^\\n]* ) *? ]`+	// タグ
+		'|	;[^\\n]*'+		// コメント
+		'|	&[^&\\n]+&'+	// ＆表示＆
+		'|	&&?[^;\\n\\t&]+'+// ＆代入
+		'|	^\\*\\w+'+		// ラベル
+		`| [^\\n\\t\\[;${ce ?`\\${ce}` :''}]+`,	// 本文
+		'gxs');
+	}
+	setEscape(ce: string) {
+	//	if (this.hC2M && (ce in this.hC2M)) throw '[エスケープ文字] char【'+ ce +'】が登録済みの括弧マクロまたは一文字マクロです';
 
+		this.REG_TOKEN = this.mkEscape(ce);
+		// TODO: シンタックスハイライトの正規表現：エスケープシーケンス
+	//	RubySpliter.setEscape(ce);
+	//	this.REG_CANTC2M = new RegExp(`[\w\s;[\]*=&｜《》${ce}]`);
+	//	this.REG_TOKEN_NOTXT = new RegExp(`[\n\t;\[*&${ce ?`\\${ce}` :''}]`);
+	}
 
 	private	readonly	REG_MULTILINE_TAG	= m_xregexp(
 	`\\[

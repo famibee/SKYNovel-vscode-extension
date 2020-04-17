@@ -49,25 +49,6 @@ class PrjFileProc {
         ];
         this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
-        this.chkCryptoFile = (s) => {
-            this.chkCryptoFile = () => { };
-            const hFn2CryptoPath = JSON.parse(s);
-            for (const fn in hFn2CryptoPath) {
-                const hExt2N = hFn2CryptoPath[fn];
-                for (const ext in hExt2N) {
-                    if (ext == ':cnt')
-                        continue;
-                    if (ext.slice(-10) == ':RIPEMD160')
-                        continue;
-                    const sp = String(hExt2N[ext]);
-                    const exi = fs.existsSync(this.curCrypto + sp);
-                    if (exi)
-                        continue;
-                    const base_sp = sp.slice(0, sp.lastIndexOf('.') + 1) + ext;
-                    this.encrypter(this.curPrj + base_sp);
-                }
-            }
-        };
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
@@ -211,19 +192,16 @@ class PrjFileProc {
                 let s = await fs.readFile(url, { encoding: 'utf8' });
                 if (short_path == 'path.json') {
                     s = s.replace(this.regRepPathJson, '.bin"');
-                    this.chkCryptoFile(s);
                 }
                 const e = crypto.AES.encrypt(s, this.pbkdf2, { iv: this.iv });
                 await fs.outputFile(url_out, e.toString());
                 return;
             }
-            else {
-                const dir = this.regDir.exec(short_path);
-                if (dir && this.ps.cfg.code[dir[1]]) {
-                    fs.ensureLink(url, url_out)
-                        .catch((e) => console.error(`encrypter cp2 ${e}`));
-                    return;
-                }
+            const dir = this.regDir.exec(short_path);
+            if (dir && this.ps.cfg.code[dir[1]]) {
+                fs.ensureLink(url, url_out)
+                    .catch((e) => console.error(`encrypter cp2 ${e}`));
+                return;
             }
             let nokori = this.LEN_ENC;
             let i = 2;
@@ -232,7 +210,7 @@ class PrjFileProc {
             bh[1] = (_a = this.hExt2N[path.extname(short_path).slice(1)]) !== null && _a !== void 0 ? _a : 0;
             const rs = fs.createReadStream(url)
                 .on('error', (e) => console.error(`encrypter rs=%o`, e));
-            const u2 = url_out.replace(/\..+$/, '.bin');
+            const u2 = url_out.replace(/\.[^.]+$/, '.bin');
             fs.ensureFileSync(u2);
             const ws = fs.createWriteStream(u2)
                 .on('error', (e) => console.error(`encrypter ws=%o`, e));
@@ -309,18 +287,17 @@ class PrjFileProc {
         CmnLib_1.foldProc($cur, () => { }, (dir) => {
             const wd = path.resolve($cur, dir);
             CmnLib_1.foldProc(wd, (url, nm) => {
-                const m = nm.match(this.regSprSheetImg);
-                if (!m) {
-                    this.addPath(hFn2Path, dir, nm);
-                    const m2 = nm.match(this.regNeedHash);
-                    if (m2) {
-                        const s = fs.readFileSync(url, { encoding: 'utf8' });
-                        const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
-                        const snm = nm.slice(0, -m2[0].length);
-                        hFn2Path[snm][m2[1] + ':RIPEMD160'] = h;
-                    }
-                    return;
+                this.addPath(hFn2Path, dir, nm);
+                const m2 = nm.match(this.regNeedHash);
+                if (m2) {
+                    const s = fs.readFileSync(url, { encoding: 'utf8' });
+                    const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
+                    const snm = nm.slice(0, -m2[0].length);
+                    hFn2Path[snm][m2[1] + ':RIPEMD160'] = h;
                 }
+                const m = nm.match(this.regSprSheetImg);
+                if (!m)
+                    return;
                 const fnJs = path.resolve(wd, m[1] + '.json');
                 if (fs.existsSync(fnJs))
                     return;

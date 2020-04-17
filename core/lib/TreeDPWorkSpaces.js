@@ -4,9 +4,10 @@ const CmnLib_1 = require("./CmnLib");
 const PrjFileProc_1 = require("./PrjFileProc");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
-class TreeDPDev {
-    constructor(ctx) {
+class TreeDPWorkSpaces {
+    constructor(ctx, chkLastVerSKYNovel) {
         this.ctx = ctx;
+        this.chkLastVerSKYNovel = chkLastVerSKYNovel;
         this.aTiRoot = [];
         this.oTiPrj = {};
         this.TreeChild = [
@@ -122,6 +123,7 @@ class TreeDPDev {
                 return;
             case 'skynovel.devSnUpd':
                 cmd += `npm i skynovel@latest ${CmnLib_1.statBreak()} npm run webpack:dev`;
+                this.chkLastVerSKYNovel();
                 break;
             case 'skynovel.devLibUpd':
                 cmd += `npm update ${CmnLib_1.statBreak()} npm update --dev ${CmnLib_1.statBreak()} npm run webpack:dev`;
@@ -175,5 +177,5 @@ class TreeDPDev {
         this.oPfp = {};
     }
 }
-exports.TreeDPDev = TreeDPDev;
-//# sourceMappingURL=TreeDPDev.js.map
+exports.TreeDPWorkSpaces = TreeDPWorkSpaces;
+//# sourceMappingURL=TreeDPWorkSpaces.js.map

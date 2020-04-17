@@ -264,6 +264,7 @@ export class PrjFileProc {
 	private	iv		: any;
 	private	readonly LEN_ENC	= 1024 *10;
 	private	readonly regDir = /(^.+)\//;
+//	private	readonly regFFn = /[^\/\s\.]+\.(.+)/g
 	private	async encrypter(url: string) {
 		try {
 			const short_path = url.slice(this.lenCurPrj);
@@ -278,19 +279,34 @@ export class PrjFileProc {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
 					s = s.replace(this.regRepPathJson, '.bin"');
-					this.chkCryptoFile(s);
+/* // TODO: 作成中
+					const hPath: IFn2Path = JSON.parse(s);
+					for (const fn in hPath) {
+						const hExt2N = hPath[fn];
+						for (const ext in hExt2N) {
+							if (ext == ':cnt') continue;
+							if (ext.slice(-10) == ':RIPEMD160') continue;
+							const path = String(hExt2N[ext]);
+							this.mkCryptoIfNeeded(ext, path);
+
+							// 置換するのはファイル名だが、乱数名が同じなので拡張子も
+							hExt2N[ext] = path.replace(this.regFn, (_m, m1)=> crypto.RIPEMD160(m1) +'.'+ m1);
+						}
+					}
+
+	console.log(`fn:PrjFileProc.ts line:299 hPath:%o`, hPath);
+*/
 				}
 				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
 				return;
 			}
-			else {
-				const dir = this.regDir.exec(short_path);
-				if (dir && this.ps.cfg.code[dir[1]]) {
-					fs.ensureLink(url, url_out)
-					.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
-					return;
-				}
+
+			const dir = this.regDir.exec(short_path);
+			if (dir && this.ps.cfg.code[dir[1]]) {
+				fs.ensureLink(url, url_out)
+				.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
+				return;
 			}
 
 			let nokori = this.LEN_ENC;
@@ -302,7 +318,7 @@ export class PrjFileProc {
 			const rs = fs.createReadStream(url)
 			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
 
-			const u2 = url_out.replace(/\..+$/, '.bin');
+			const u2 = url_out.replace(/\.[^.]+$/, '.bin');
 			fs.ensureFileSync(u2);	// touch
 			const ws = fs.createWriteStream(u2)
 			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
@@ -357,25 +373,14 @@ export class PrjFileProc {
 		}
 		catch (e) {console.error(`encrypter other ${e.message}`);}
 	}
-
 	// 対応する暗号化ファイルが無い場合、再生成
-	private	chkCryptoFile = (s: string)=> {
-		this.chkCryptoFile = ()=> {};
-		const hFn2CryptoPath: IFn2Path = JSON.parse(s);
-		for (const fn in hFn2CryptoPath) {
-			const hExt2N = hFn2CryptoPath[fn];
-			for (const ext in hExt2N) {
-				if (ext == ':cnt') continue;
-				if (ext.slice(-10) == ':RIPEMD160') continue;
-				const sp = String(hExt2N[ext]);
-				const exi = fs.existsSync(this.curCrypto + sp);
-				if (exi) continue;
+/*	private	mkCryptoIfNeeded = (ext: string, path: string)=> {
+		this.mkCryptoIfNeeded = ()=> {};
+		if (fs.existsSync(this.curCrypto + path)) return;
 
-				const base_sp = sp.slice(0, sp.lastIndexOf('.')+ 1) + ext;
-				this.encrypter(this.curPrj + base_sp);
-			}
-		}
-	}
+		const base_sp = path.slice(0, path.lastIndexOf('.')+ 1) + ext;
+		this.encrypter(this.curPrj + base_sp);
+	}*/
 
 
 	private	updPlugin() {
@@ -426,19 +431,17 @@ export class PrjFileProc {
 			foldProc(wd, (url, nm)=> {
 				// スプライトシート用json自動生成機能
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
-				const m = nm.match(this.regSprSheetImg);
-				if (! m) {
-					this.addPath(hFn2Path, dir, nm);
+				this.addPath(hFn2Path, dir, nm);
 
-					const m2 = nm.match(this.regNeedHash);
-					if (m2) {
-						const s = fs.readFileSync(url, {encoding: 'utf8'});
-						const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
-						const snm = nm.slice(0, -m2[0].length);
-						hFn2Path[snm][m2[1] +':RIPEMD160'] = h;
-					}
-					return;
+				const m2 = nm.match(this.regNeedHash);
+				if (m2) {
+					const s = fs.readFileSync(url, {encoding: 'utf8'});
+					const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
+					const snm = nm.slice(0, -m2[0].length);
+					hFn2Path[snm][m2[1] +':RIPEMD160'] = h;
 				}
+				const m = nm.match(this.regSprSheetImg);
+				if (! m) return;
 
 				const fnJs = path.resolve(wd, m[1] +'.json');
 				if (fs.existsSync(fnJs)) return;
