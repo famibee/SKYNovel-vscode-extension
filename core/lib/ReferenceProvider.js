@@ -19,17 +19,9 @@ class ReferenceProvider {
         this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.hScript = Object.create(null);
         this.REG_TAG_LET_ML = m_xregexp(`^\\[let_ml\\s`, 'g');
-        this.REG_MULTILINE_TAG = m_xregexp(`\\[
-		([^\\n\\]]+ \\n
-			(?:
-				(["'#]) .*? \\2
-			|	[^\\[\\]]
-			)*
-		)
-	\\]
-|	;[^\\n]+`, 'gx');
-        this.REG_TAG = m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
-        this.setEscape('');
+        this.REG_TAG = m_xregexp(`\\[ (?<name>[^\\]\\s]+) \\s*
+	(?<args> (?: [^"'#\\]]+ | (["'#]) .*? \\3 )*?)
+]`, 'x');
         this.loadCfg();
         const doc_sel = { scheme: 'file', language: 'skynovel' };
         if (!ReferenceProvider.inited) {
@@ -48,7 +40,7 @@ class ReferenceProvider {
         ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, this));
         ctx.subscriptions.push(vscode_1.languages.registerRenameProvider(doc_sel, this));
         this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
-        this.scanAllScript();
+        this.setEscape('');
     }
     prepareRename(doc, pos, _token) {
         doc.save();
@@ -120,7 +112,7 @@ class ReferenceProvider {
         return Promise.reject('No definition found');
     }
     scanAllScript(e) {
-        if (e && e.fsPath.slice(-3) != '.sn')
+        if ((e === null || e === void 0 ? void 0 : e.fsPath.slice(-3)) != '.sn')
             return;
         ReferenceProvider.hMacro = {};
         ReferenceProvider.hMacroUse = {};
@@ -131,6 +123,7 @@ class ReferenceProvider {
     chgPrj(e) { this.scanAllScript(e); }
     delPrj(e) { this.scanAllScript(e); }
     scanScript(url) {
+        var _a;
         if (url.slice(-3) != '.sn')
             return;
         const txt = fs.readFileSync(url, { encoding: 'utf8' });
@@ -163,9 +156,7 @@ class ReferenceProvider {
                 ReferenceProvider.hMacroUse[tag_name] = a;
                 continue;
             }
-            if (!this.alzTagArg.go(a_tag['args']))
-                throw '属性「' + this.alzTagArg.literal + '」は異常です';
-            const macro_name = this.alzTagArg.hPrm['name'].val;
+            const macro_name = (_a = this.alzTagArg.hPrm['name']) === null || _a === void 0 ? void 0 : _a.val;
             if (!macro_name)
                 continue;
             const idx = token.indexOf(macro_name, 12);
@@ -201,10 +192,10 @@ class ReferenceProvider {
         return aStr > bStr ? 1 : aStr === bStr ? 0 : -1;
     }
     resolveScript(txt) {
-        txt = txt.replace(/(\r\n|\r)/g, '\n');
-        const v = this.cnvMultilineTag(txt).match(this.REG_TOKEN);
-        if (!v)
-            throw 'this.cnvMultilineTag fail';
+        var _a;
+        const v = (_a = txt
+            .replace(/(\r\n|\r)/g, '\n')
+            .match(this.REG_TOKEN)) !== null && _a !== void 0 ? _a : [];
         for (let i = v.length - 1; i >= 0; --i) {
             const e = v[i];
             this.REG_TAG_LET_ML.lastIndex = 0;
@@ -255,30 +246,7 @@ class ReferenceProvider {
     }
     setEscape(ce) {
         this.REG_TOKEN = this.mkEscape(ce);
-    }
-    cnvMultilineTag(txt) {
-        return txt.replace(this.REG_MULTILINE_TAG, function () {
-            if (arguments[0].charAt(0) == ';')
-                return arguments[0];
-            let fore = '';
-            let back = '';
-            for (const v of arguments[1].match(ReferenceProvider.REG_MULTILINE_TAG_SPLIT)) {
-                switch (v.substr(-1)) {
-                    case '\n':
-                        back += v;
-                        break;
-                    case `"`:
-                    case `'`:
-                    case `#`:
-                        fore += v;
-                        break;
-                    default:
-                        fore += ' ' + CmnLib_1.trim(v);
-                        break;
-                }
-            }
-            return '[' + CmnLib_1.trim(fore.slice(1)) + ']' + back;
-        });
+        this.scanAllScript();
     }
 }
 exports.ReferenceProvider = ReferenceProvider;
@@ -394,5 +362,4 @@ ReferenceProvider.pickItems = [
 ReferenceProvider.inited = false;
 ReferenceProvider.hMacro = {};
 ReferenceProvider.hMacroUse = {};
-ReferenceProvider.REG_MULTILINE_TAG_SPLIT = m_xregexp(`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');
 //# sourceMappingURL=ReferenceProvider.js.map

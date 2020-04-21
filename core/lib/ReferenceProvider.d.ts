@@ -13,7 +13,7 @@ export declare class ReferenceProvider implements HoverProvider, DefinitionProvi
     provideRenameEdits(_doc: TextDocument, _pos: Position, newName: string, _token: CancellationToken): ProviderResult<WorkspaceEdit>;
     provideHover(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Hover>;
     provideDefinition(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
-    private scanAllScript;
+    scanAllScript(e?: Uri): void;
     private static hMacro;
     private static hMacroUse;
     crePrj(e: Uri): void;
@@ -30,8 +30,5 @@ export declare class ReferenceProvider implements HoverProvider, DefinitionProvi
     REG_TOKEN: RegExp;
     private mkEscape;
     setEscape(ce: string): void;
-    private readonly REG_MULTILINE_TAG;
-    private static readonly REG_MULTILINE_TAG_SPLIT;
-    private cnvMultilineTag;
     private readonly REG_TAG;
 }

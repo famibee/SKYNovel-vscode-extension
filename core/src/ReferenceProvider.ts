@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {trim, treeProc} from './CmnLib';
+import {treeProc} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {QuickPickItem, ExtensionContext, commands, workspace, QuickPickOptions, window, Uri, languages, Location, Position, Range, Hover, DiagnosticCollection, Diagnostic, DiagnosticSeverity, RenameProvider, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, DefinitionProvider, Definition, DefinitionLink, HoverProvider} from 'vscode';
 import m_xregexp = require('xregexp');
@@ -168,7 +168,6 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	private	static		inited	= false;
 
 	constructor(ctx: ExtensionContext, private curPrj: string) {
-		this.setEscape('');
 		this.loadCfg();
 
 		// コマンドパレット・イベント
@@ -196,8 +195,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		// 診断機能
 		this.clDiag = languages.createDiagnosticCollection('skynovel');
 
-		// プロジェクトフォルダ以下全走査
-		this.scanAllScript();
+		this.setEscape('');
 
 		// TODO: ラベルジャンプ
 	}
@@ -282,8 +280,8 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		return Promise.reject('No definition found');
 	}
 	// 全スクリプト走査
-	private scanAllScript(e?: Uri) {
-		if (e && e.fsPath.slice(-3) != '.sn') return;
+	scanAllScript(e?: Uri) {
+		if (e?.fsPath.slice(-3) != '.sn') return;
 
 		ReferenceProvider.hMacro = {};
 		ReferenceProvider.hMacroUse = {};
@@ -344,13 +342,13 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 //			const tag_fnc = this.hTag[tag_name];
 //			if (tag_fnc == null) throw '未定義のタグ['+ tag_name +']です';
 
-			if (! this.alzTagArg.go(a_tag['args'])) throw '属性「'+ this.alzTagArg.literal +'」は異常です';
+//			if (! this.alzTagArg.go(a_tag['args'])) throw '属性「'+ this.alzTagArg.literal +'」は異常です';
 
 		//	for (const k in this.alzTagArg.hPrm) {
 		//		let val = this.alzTagArg.hPrm[k].val;
 		//	}
 
-			const macro_name = this.alzTagArg.hPrm['name'].val;
+			const macro_name = this.alzTagArg.hPrm['name']?.val;
 			if (! macro_name) continue;
 
 			const idx = token.indexOf(macro_name, 12);
@@ -404,9 +402,9 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	private hScript	: HScript	= Object.create(null);	//{} シナリオキャッシュ
 	private	readonly REG_TAG_LET_ML		= m_xregexp(`^\\[let_ml\\s`, 'g');
 	private resolveScript(txt: string): Script {
-		txt = txt.replace(/(\r\n|\r)/g, '\n');
-		const v = this.cnvMultilineTag(txt).match(this.REG_TOKEN);
-		if (! v) throw 'this.cnvMultilineTag fail';
+		const v = txt
+			.replace(/(\r\n|\r)/g, '\n')
+			.match(this.REG_TOKEN) ?? [];
 		for (let i=v.length -1; i>=0; --i) {
 			const e = v[i];
 			this.REG_TAG_LET_ML.lastIndex = 0;
@@ -471,46 +469,14 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	//	RubySpliter.setEscape(ce);
 	//	this.REG_CANTC2M = new RegExp(`[\w\s;[\]*=&｜《》${ce}]`);
 	//	this.REG_TOKEN_NOTXT = new RegExp(`[\n\t;\[*&${ce ?`\\${ce}` :''}]`);
+
+		this.scanAllScript();
 	}
 
-	private	readonly	REG_MULTILINE_TAG	= m_xregexp(
-	`\\[
-		([^\\n\\]]+ \\n
-			(?:
-				(["'#]) .*? \\2
-			|	[^\\[\\]]
-			)*
-		)
-	\\]
-|	;[^\\n]+`
-		, 'gx');
-	private	static	readonly	REG_MULTILINE_TAG_SPLIT	= m_xregexp(
-		`((["'#]).*?\\2|;.*\\n|\\n+|[^\\n"'#;]+)`, 'g');
-	private	cnvMultilineTag(txt: string): string {	// テスト用にpublic
-		return txt.replace(
-			this.REG_MULTILINE_TAG,
-			function (): string {
-				if (arguments[0].charAt(0) == ';') return arguments[0];
-
-				let fore = '';
-				let back = '';
-				for (const v of arguments[1].match(ReferenceProvider.REG_MULTILINE_TAG_SPLIT)) {
-					switch (v.substr(-1)) {
-						case '\n':	back += v;	break;
-						case `"`:
-						case `'`:
-						case `#`:	fore += v;	break;
-						default:	fore += ' '+ trim(v);	break;
-					}
-				}
-
-				return '['+ trim(fore.slice(1)) +']'+ back;
-			}
-		);
-	}
-
-
-	private	readonly	REG_TAG	= m_xregexp(`^\\[ (?<name>\\S*) (\\s+ (?<args>.+) )? ]$`, 'x');
-
+	private	readonly	REG_TAG	= m_xregexp(
+		// 46 match 945 step (0ms) https://regex101.com/r/TKk1Iz/3
+`\\[ (?<name>[^\\]\\s]+) \\s*
+	(?<args> (?: [^"'#\\]]+ | (["'#]) .*? \\3 )*?)
+]`, 'x');
 
 }

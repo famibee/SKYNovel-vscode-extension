@@ -140,7 +140,7 @@ export class PrjFileProc {
 		if (fs.existsSync(this.fnDiff)) {
 			this.hDiff = fs.readJsonSync(this.fnDiff);
 		}
-		this.ps = new PnlPrjSetting(ctx, dir, chgTitle);
+		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.rp);
 		this.initCrypto();
 	}
 

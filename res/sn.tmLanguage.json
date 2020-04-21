@@ -12,110 +12,164 @@
 	"repository": {
 		"comment": {"patterns": [
 			{
-				"begin": "\\t*;",
-				"end": "\\n",
-				"name": "comment.line.character.skynovel"
+				"match": ";.*",
+				"name": "comment.line.skynovel"
 			}
 		]},
 		"label": {"patterns": [
 			{
-				"begin": "^\\*",
-				"end": "\\n",
+				"match": "^\\*\\w+",
 				"name": "constant.language.label.skynovel"
 			}
 		]},
 		"let_ml": {"patterns": [
 			{
-				"begin": "(?<!\\[)\\[let_ml\\]|^\\t*@let_ml",
-				"end": "\\[endlet_ml\\]|^\\t*@endlet_ml",
+				"name": "comment.block.documentation.let_ml.skynovel",
+				"begin": "\\[let_ml(.+?)]",
 				"beginCaptures": {
-					"0": {"name": "keyword.control.skynovel"}
+					"0": {"name": "entity.name.tag.let_ml.skynovel"},
+					"1": {"patterns": [{"include": "#attribute"}]}
 				},
-				"endCaptures": {
-					"0": {"name": "keyword.control.skynovel"}
-				},
-				"patterns": [
-					{"include": "source.frag"}
-				]
+				"end": "(?=\\[endlet_ml)"
 			}
 		]},
 		"tag": {"patterns": [
 			{
-				"begin": "(?<!\\[)\\[\\w+",
-				"end": "\\]",
-				"name": "meta.tag.skynovel",
-				"beginCaptures": {
-					"0": {"name": "entity.name.type.skynovel"}
-				},
-				"endCaptures": {
-					"0": {"name": "entity.name.type.skynovel"}
-				},
-				"patterns": [
-					{"include": "#attribute"}
-				]
+				"begin": "\\[\\w+",
+				"beginCaptures": {"0": {"name": "entity.name.tag.skynovel"}},
+				"patterns": [{"include": "#attribute"}],
+				"end": "]",
+				"endCaptures": {"0": {"name": "entity.name.tag.skynovel"}}
 			}
 		]},
+
 		"attribute": {"patterns": [
+			{"include": "#comment"},
 			{
-				"match": "(\\w+)(\\s*=\\s*(&?%?(\".*?\"|'.*?'|#.*?#|[^\\s\\]=]+)))?",
-				"captures": {
-					"1": {"name": "entity.name.function.skynovel"},
-					"2": {"name": "variable.parameter.skynovel"},
-					"3": {"patterns": [{"include": "#constant"}]}
-				}
+				"match": "[^\\w\\s;\\]]+",
+				"name": "invalid.illegal.val_name.skynovel"
+			},
+			{
+				"name": "variable.parameter.val_name.skynovel",
+				"begin": "\\w+",
+				"patterns": [
+					{"include": "#comment"},
+					{
+						"name": "keyword.operator.val.skynovel",
+						"begin": "=(?:\\s+|;[^\\n]*\\n)*(?!\\])",
+						"patterns": [{"include": "#constant"}],
+						"end": "(?=[\\s;\\]])"
+					},
+					{
+						"match": "=",
+						"name": "invalid.illegal.operator.val.skynovel"
+					}
+				],
+				"end": "(?=])"
 			}
 		]},
+
+
+"10_attribute": {"patterns": [
+	{"include": "#comment"},
+	{
+		"match": "[^\\w\\s|;\\]]+",
+		"name": "invalid.illegal.val_name.skynovel"
+	},
+	{
+		"match": "(\\w+)(?m:(?:\\s+|;[^\\n]*\\n)*(=)(?:\\s+|;.*\\n)*((?:[^\\s\"'#;\\]]+|([\"'#]).*?\\4)+))?",
+		"captures": {
+			"1": {"name": "variable.parameter.val_name.skynovel"},
+
+			"2": {"name": "keyword.operator.val.skynovel"},
+
+			"3": {"patterns": [{"include": "#constant"}]}
+		}
+	}
+]},
+
 		"constant": {
 			"patterns": [
+				{"include": "#constant_literal"},
 				{"include": "#constant_variable_language"},
 				{"include": "#constant_label"},
 				{"include": "#constant_ampersand_formula"},
 				{"include": "#constant_number"},
+				{"include": "#constant_operator"},
 				{"include": "#constant_string"}
 			],
 			"repository": {
+				"constant_literal": {"patterns": [
+					{
+						"match": "([\"'#])((#\\{([^}]*?)})|[^#]*?)\\1",
+						"captures": {
+							"0": {"name": "keyword.string.quoted.skynovel"},
+							"2": {"name": "string.quoted.skynovel"},
+							"3": {"name": "string.quoted.other"},
+							"4": {"patterns": [{"include": "#constant"}]}
+						}
+					}
+				]},
 				"constant_variable_language": {"patterns": [
 					{
-						"name": "variable.language.skynovel",
-						"match": "(true|false|null)"
+						"name": "constant.language.skynovel",
+						"match": "true|false|null"
 					}
 				]},
 				"constant_label": {"patterns": [
 					{
 						"name": "constant.language.label.skynovel",
-						"match": "\\*\\S+"
+						"match": "\\*\\w+"
 					}
 				]},
 				"constant_ampersand_formula": {"patterns": [
 					{
-						"name": "constant.numeric.skynovel",
-						"match": "&\\S+"
+						"name": "string.interpolated.skynovel",
+						"match": "&[^\\s|;\\]]+"
 					}
 				]},
 				"constant_number": {"patterns": [
 					{
 						"name": "constant.numeric.skynovel",
-						"match": "-?[0-9]+$"
+						"match": "0x[0-9a-fA-F]+|-?[0-9\\.]+"
+					}
+				]},
+				"constant_operator": {"patterns": [
+					{
+						"name": "keyword.operator.skynovel",
+						"match": "[\\*\\/¥%+-]|>>>|<<|>>|<=|<|>=|>|===|!==|==|!=|\\^|&&|\\|\\||\\|"
 					}
 				]},
 				"constant_string": {"patterns": [
 					{
-						"name": "string.quoted.skynovel",
-						"match": ".+"
+						"name": "string.interpolated.skynovel",
+						"match": "[^\\s|\\]]+"
 					}
 				]}
 			}
 		},
 		"ampersand_puts": {"patterns": [
 			{
-				"match": "&.+&\\n",
-				"name": "constant.numeric.skynovel"
+				"match": "&([^&\\n]+)&",
+				"captures": {
+					"0": {"name": "entity.name.tag.skynovel"},
+					"1": {"patterns": [{"include": "#constant"}]}
+				}
 			}
 		]},
 		"ampersand_let": {"patterns": [
 			{
-				"match": "&.+\\n",
-				"name": "constant.numeric.skynovel"
+				"match": "&(?:&([^=]+)|([^=]+))\\s*(=)([^;\\n]+)",
+				"captures": {
+					"0": {"name": "entity.name.tag.skynovel"},
+
+					"1": {"patterns": [{"include": "#constant"}]},
+					"2": {"name": "variable.parameter.skynovel"},
+
+					"3": {"name": "keyword.operator.skynovel"},
+
+					"4": {"patterns": [{"include": "#constant"}]}
+				}
 			}
 		]}
 	},
