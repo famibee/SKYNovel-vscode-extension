@@ -97,7 +97,7 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 		const existPkgJS = fs.existsSync(dir +'/package.json');
 		const existPrjJS = fs.existsSync(dir +'/prj/prj.json');
 		if (! existPkgJS || ! existPrjJS) {
-			const ti = new TreeItem(`${existPrjJS ?'prj' :'package'}.json がありません`);
+			const ti = new TreeItem(`${existPkgJS ?'prj' :'package'}.json がありません`);
 			ti.iconPath = oIcon('warn');
 			this.oTiPrj[dir] = [ti];
 			return;

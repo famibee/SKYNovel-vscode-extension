@@ -138,7 +138,7 @@
         "signature": "b55e8c965ddcce232ad30787cc2cd758be020e5d4ceeec800592febe961fbc83"
       },
       "../src/treedpworkspaces.ts": {
-        "version": "586210d56ff8494cc15bb08b139fe0f59e0e19c1ce270bb4a9452e18b825aa77",
+        "version": "2c056e83050d3c0bc8cbad620ea09b8c8cb7d998280fa1f2410324d7fb662f6e",
         "signature": "f9a4b7973110e7da5b65cbff943516f525292d153da782ba52c97718e88889be"
       },
       "../src/activitybar.ts": {
@@ -1574,6 +1574,14 @@
         "../../node_modules/@types/node/util.d.ts",
         "../../node_modules/@types/node/ts3.2/util.d.ts"
       ],
+      "../../node_modules/@types/node/ts3.2/base.d.ts": [
+        "../../node_modules/@types/node/base.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
+        "../../node_modules/@types/node/ts3.2/globals.d.ts",
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
       "../../node_modules/@types/node/assert.d.ts": [
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/fs.d.ts",
@@ -1613,14 +1621,6 @@
         "../../node_modules/@types/node/ts3.2/fs.d.ts",
         "../../node_modules/@types/node/util.d.ts",
         "../../node_modules/@types/node/ts3.2/util.d.ts"
-      ],
-      "../../node_modules/@types/node/ts3.2/base.d.ts": [
-        "../../node_modules/@types/node/base.d.ts",
-        "../../node_modules/@types/node/ts3.2/fs.d.ts",
-        "../../node_modules/@types/node/ts3.2/util.d.ts",
-        "../../node_modules/@types/node/ts3.2/globals.d.ts",
-        "../../node_modules/@types/node/fs.d.ts",
-        "../../node_modules/@types/node/util.d.ts"
       ]
     },
     "semanticDiagnosticsPerFile": [
@@ -1658,7 +1658,6 @@
       "../src/referenceprovider.ts",
       "../src/pnlprjsetting.ts",
       "../src/prjfileproc.ts",
-      "../src/treedpworkspaces.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
       "../../node_modules/@types/crypto-js/index.d.ts",
@@ -1701,17 +1700,18 @@
       "../../node_modules/@types/node/vm.d.ts",
       "../../node_modules/@types/node/worker_threads.d.ts",
       "../../node_modules/@types/node/zlib.d.ts",
+      "../../node_modules/@types/node/base.d.ts",
       "../../node_modules/@types/node/ts3.2/fs.d.ts",
       "../../node_modules/@types/node/ts3.2/util.d.ts",
       "../../node_modules/@types/node/ts3.2/globals.d.ts",
+      "../../node_modules/@types/node/ts3.2/base.d.ts",
+      "../../node_modules/@types/node/assert.d.ts",
+      "../../node_modules/@types/node/ts3.2/index.d.ts",
+      "../../node_modules/@types/fs-extra/index.d.ts",
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../../node_modules/@types/node/base.d.ts",
-      "../../node_modules/@types/node/ts3.2/base.d.ts",
-      "../../node_modules/@types/node/ts3.2/index.d.ts",
-      "../../node_modules/@types/node/assert.d.ts",
-      "../../node_modules/@types/fs-extra/index.d.ts"
+      "../src/treedpworkspaces.ts"
     ]
   },
   "version": "3.8.3"

@@ -72,7 +72,7 @@ class TreeDPWorkSpaces {
         const existPkgJS = fs.existsSync(dir + '/package.json');
         const existPrjJS = fs.existsSync(dir + '/prj/prj.json');
         if (!existPkgJS || !existPrjJS) {
-            const ti = new vscode_1.TreeItem(`${existPrjJS ? 'prj' : 'package'}.json がありません`);
+            const ti = new vscode_1.TreeItem(`${existPkgJS ? 'prj' : 'package'}.json がありません`);
             ti.iconPath = CmnLib_1.oIcon('warn');
             this.oTiPrj[dir] = [ti];
             return;
