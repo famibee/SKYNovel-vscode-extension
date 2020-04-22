@@ -5,6 +5,21 @@
 	"tasks": [
 		{
 			"type": "npm",
+			"script": "npm_check_updates_do",
+			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "version:patch",
+			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "package",
+			"problemMatcher": []
+		},
+		{
+			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
@@ -18,27 +33,12 @@
 		},
 		{
 			"type": "npm",
-			"script": "package",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "version:patch",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "npm_check_updates_do",
+			"script": "version:minor",
 			"problemMatcher": []
 		},
 		{
 			"type": "npm",
 			"script": "compile",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "version:minor",
 			"problemMatcher": []
 		}
 	]

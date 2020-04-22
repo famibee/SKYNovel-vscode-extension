@@ -42,7 +42,6 @@
 				"endCaptures": {"0": {"name": "entity.name.tag.skynovel"}}
 			}
 		]},
-
 		"attribute": {"patterns": [
 			{"include": "#comment"},
 			{
@@ -55,39 +54,25 @@
 				"patterns": [
 					{"include": "#comment"},
 					{
-						"name": "keyword.operator.val.skynovel",
-						"begin": "=(?:\\s+|;[^\\n]*\\n)*(?!\\])",
-						"patterns": [{"include": "#constant"}],
-						"end": "(?=[\\s;\\]])"
+						"match": "=\\s*(?=\\])",
+						"name": "invalid.illegal.nothing.val.skynovel"
 					},
 					{
-						"match": "=",
-						"name": "invalid.illegal.operator.val.skynovel"
+						"name": "keyword.operator.val.skynovel",
+						"begin": "=\\s*",
+						"patterns": [
+							{
+								"match": "=+",
+								"name": "invalid.illegal.ope_eq.val.skynovel"
+							},
+							{"include": "#constant"}
+						],
+						"end": "(?=[\\s;\\]])"
 					}
 				],
 				"end": "(?=])"
 			}
 		]},
-
-
-"10_attribute": {"patterns": [
-	{"include": "#comment"},
-	{
-		"match": "[^\\w\\s|;\\]]+",
-		"name": "invalid.illegal.val_name.skynovel"
-	},
-	{
-		"match": "(\\w+)(?m:(?:\\s+|;[^\\n]*\\n)*(=)(?:\\s+|;.*\\n)*((?:[^\\s\"'#;\\]]+|([\"'#]).*?\\4)+))?",
-		"captures": {
-			"1": {"name": "variable.parameter.val_name.skynovel"},
-
-			"2": {"name": "keyword.operator.val.skynovel"},
-
-			"3": {"patterns": [{"include": "#constant"}]}
-		}
-	}
-]},
-
 		"constant": {
 			"patterns": [
 				{"include": "#constant_literal"},

@@ -94,14 +94,17 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 		t.description = fld.name;
 		this.aTiRoot.push(t);
 
-		const pathPkg = dir +'/package.json';
-		if (! fs.existsSync(pathPkg)) {
-			this.oTiPrj[t.tooltip] = [new TreeItem('package.json がありません')];
+		const existPkgJS = fs.existsSync(dir +'/package.json');
+		const existPrjJS = fs.existsSync(dir +'/prj/prj.json');
+		if (! existPkgJS || ! existPrjJS) {
+			const ti = new TreeItem(`${existPrjJS ?'prj' :'package'}.json がありません`);
+			ti.iconPath = oIcon('warn');
+			this.oTiPrj[dir] = [ti];
 			return;
 		}
 
 		// プロジェクト追加
-		this.oTiPrj[t.tooltip] = this.TreeChild.map(v=> {
+		this.oTiPrj[dir] = this.TreeChild.map(v=> {
 			const t2 = new TreeItem(v.label);
 			t2.iconPath = oIcon(v.icon);
 			t2.contextValue = t2.label;

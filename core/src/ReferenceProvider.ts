@@ -58,6 +58,8 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		// 文字・文字レイヤ
 		{label: 'autowc', description: '文字ごとのウェイト'},
 		{label: 'ch', description: '文字を追加する'},
+		{label: 'ch_in_style', description: '文字出現演出定義'},
+		{label: 'ch_out_style', description: '文字消去演出定義'},
 		{label: 'clear_text', description: '文字消去'},
 		{label: 'current', description: 'デフォルト文字レイヤ設定'},
 		{label: 'endlink', description: 'ハイパーリンクの終了'},
@@ -75,13 +77,14 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		// 画像・画像レイヤ
 		{label: 'add_face', description: '差分画像の追加'},
+		{label: 'wv', description: '動画再生終了待ち'},
 
 		// HTMLフレーム
-		{label: 'add_frame', description: 'フレーム'},
-		{label: 'let_frame', description: 'フレーム'},
-		{label: 'set_frame', description: 'フレーム'},
-		{label: 'frame', description: 'フレーム'},
-		{label: 'tsy_frame', description: 'フレーム'},
+		{label: 'add_frame', description: 'フレーム追加'},
+		{label: 'let_frame', description: 'フレーム変数を取得'},
+		{label: 'set_frame', description: 'フレーム変数に設定'},
+		{label: 'frame', description: 'フレームに設定'},
+		{label: 'tsy_frame', description: 'フレームをトゥイーン開始'},
 
 		// イベント
 		{label: 'clear_event', description: 'イベントを全消去'},
@@ -152,14 +155,15 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		{label: 'snapshot', description: 'スナップショット'},
 		{label: 'title', description: 'タイトル指定'},
 		{label: 'toggle_full_screen', description: '全画面状態切替'},
+		{label: 'update_check', description: '更新チェック機能'},
 		{label: 'window', description: 'アプリウインドウ設定'},
 
 		// デバッグ・その他
-		{label: 'dump_val', description: '変数のダンプ'},
+		{label: 'dump_lay', description: 'レイヤのダンプ'},
 		{label: 'dump_script', description: 'スクリプトのダンプ'},
 		{label: 'dump_stack', description: 'スタックのダンプ'},
+		{label: 'dump_val', description: '変数のダンプ'},
 		{label: 'log', description: 'ログ出力'},
-		{label: 'dump_lay', description: 'レイヤのダンプ'},
 		{label: 'stats', description: 'パフォーマンス表示'},
 		{label: 'trace', description: 'デバッグ表示へ出力'},
 	];

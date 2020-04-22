@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.10.5",
+	"version": "1.10.6",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -454,7 +454,57 @@
 					"group": "7_modification"
 				}
 			]
-		}
+		},
+		"taskDefinitions": [
+			{
+				"type": "SKYNovel auto",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 1",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 2",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 3",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 4",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 5",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 6",
+				"required": [
+					"task"
+				]
+			},
+			{
+				"type": "SKYNovel 7",
+				"required": [
+					"task"
+				]
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -479,7 +529,7 @@
 		"@types/crypto-js": "^3.1.44",
 		"@types/fs-extra": "^8.1.0",
 		"@types/mocha": "^7.0.2",
-		"@types/node": "^13.13.1",
+		"@types/node": "^13.13.2",
 		"@types/uuid": "^7.0.2",
 		"@types/vscode": "^1.44.0",
 		"@types/xregexp": "^4.3.0",

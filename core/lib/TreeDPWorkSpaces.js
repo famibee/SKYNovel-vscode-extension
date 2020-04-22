@@ -69,12 +69,15 @@ class TreeDPWorkSpaces {
         t.tooltip = dir;
         t.description = fld.name;
         this.aTiRoot.push(t);
-        const pathPkg = dir + '/package.json';
-        if (!fs.existsSync(pathPkg)) {
-            this.oTiPrj[t.tooltip] = [new vscode_1.TreeItem('package.json がありません')];
+        const existPkgJS = fs.existsSync(dir + '/package.json');
+        const existPrjJS = fs.existsSync(dir + '/prj/prj.json');
+        if (!existPkgJS || !existPrjJS) {
+            const ti = new vscode_1.TreeItem(`${existPrjJS ? 'prj' : 'package'}.json がありません`);
+            ti.iconPath = CmnLib_1.oIcon('warn');
+            this.oTiPrj[dir] = [ti];
             return;
         }
-        this.oTiPrj[t.tooltip] = this.TreeChild.map(v => {
+        this.oTiPrj[dir] = this.TreeChild.map(v => {
             var _a;
             const t2 = new vscode_1.TreeItem(v.label);
             t2.iconPath = CmnLib_1.oIcon(v.icon);
