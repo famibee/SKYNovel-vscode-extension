@@ -13,7 +13,7 @@ const crc32 = require('crc-32');
 const stream_1 = require("stream");
 ;
 ;
-class PrjFileProc {
+class Project {
     constructor(ctx, dir, chgTitle) {
         this.ctx = ctx;
         this.dir = dir;
@@ -49,7 +49,10 @@ class PrjFileProc {
         ];
         this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
+        this.regPlgAddTag = /\.addTag\((["']).+?\1/g;
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
+        this.curPrj = dir + '/prj/';
+        this.rp = new ReferenceProvider_1.ReferenceProvider(ctx, this.curPrj);
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
@@ -58,10 +61,8 @@ class PrjFileProc {
             this.rebuildTask();
             vscode_1.window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', { modal: true });
         }
-        this.curPrj = dir + '/prj/';
         this.lenCurPrj = this.curPrj.length;
         this.updPathJson();
-        this.rp = new ReferenceProvider_1.ReferenceProvider(ctx, this.curPrj);
         const fwPlg = vscode_1.workspace.createFileSystemWatcher(this.curPlg + '/?*/');
         const fwPrj = vscode_1.workspace.createFileSystemWatcher(this.curPrj + '*/*');
         const fwPrjJs = vscode_1.workspace.createFileSystemWatcher(this.curPrj + 'prj.json');
@@ -257,7 +258,18 @@ class PrjFileProc {
         if (!fs.existsSync(this.curPlg))
             return;
         const h = {};
-        CmnLib_1.foldProc(this.curPlg, () => { }, nm => h[nm] = 0);
+        const hDefPlg = {};
+        CmnLib_1.foldProc(this.curPlg, () => { }, nm => {
+            h[nm] = 0;
+            const path = `${this.curPlg}/${nm}/index.js`;
+            if (!fs.existsSync(path))
+                return;
+            const txt = fs.readFileSync(path, 'utf8');
+            const a = txt.match(this.regPlgAddTag);
+            if (a)
+                a.map((v) => hDefPlg[v.slice(9, -1)] = true);
+        });
+        this.rp.hDefPlg = hDefPlg;
         fs.outputFile(this.curPlg + '.js', `export default ${JSON.stringify(h)};`)
             .then(() => this.rebuildTask())
             .catch((err) => console.error(`PrjFileProc updPlugin ${err}`));
@@ -371,5 +383,5 @@ class PrjFileProc {
         hExts[ext] = dir + '/' + nm;
     }
 }
-exports.PrjFileProc = PrjFileProc;
-//# sourceMappingURL=PrjFileProc.js.map
+exports.Project = Project;
+//# sourceMappingURL=Project.js.map

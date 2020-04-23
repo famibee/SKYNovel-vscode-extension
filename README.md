@@ -21,10 +21,10 @@
 - [simple sample project](https://github.com/famibee/SKYNovel_sample)
 
 ---
-
 ## Features
 - Startup timing:
-	- When prj / prj.json exists in "Open folder".
+	- When prj/prj.json and package.json exists in "Open folder".
+		- If the above conditions are met, the development function can be used as a SKYNovel project
 	- When you open the .sn file.
 - Add Activity Bar to provide various information and useful functions.
 - Syntax Highlight
@@ -34,19 +34,20 @@
 - Automatically Create SpriteSheet's json from images
 	+ ex) breakline.5x20.png -> breakline.json
 	+ It is meaningless and OK. Because it is internal processing.
-- Automatically Update core/plugin/plugin.js
+- Automatically Update core/plugin.js
 	+ It is meaningless and OK. Because it is internal processing.
 
 ## 機能
 # 起動タイミング
-- 「フォルダを開く」で prj/prj.json が存在するとき
+- 「フォルダを開く」で prj/prj.json と package.json が存在するとき
+	- 上記条件を満たせば、SKYNovelプロジェクトとして開発機能が使用できます
 - *.snファイルを開いたとき
 
-
+---
 # Activity Bar / アクティビティバー
 - Activity Barを追加し、各種情報や便利機能を提供します。
 
-	![](res/rm_activity_bar.jpg)
+	![](res/rm_activity_bar.png)
 
 - ライブラリ更新チェック
 	- 右下にポップアップ告知
@@ -71,15 +72,37 @@
 - プラグインフォルダ増減でビルドフレームワークに反映する機能
 	+ 意味不明でOK、内部的な処理なので
 
+---
 # Syntax Highlight / シンタックスハイライト
 - シンタックスハイライト（.sn スクリプトファイルを見やすく色分け）
-![](res/rm_syntax_highlight.jpg)
+![](res/rm_syntax_highlight.png)
 
+---
+# Diagnostic function
+- Displays an error when there are files with the same file name in different folders.
+- Error message for macro definition duplication in multiple files
+- Warning when using undefined macros
+- Report unused macro definitions
+- Error message on macro definition with predefined tag and same name
+- Warning if line break tag exceeds 10 lines
+
+# 診断機能
+- 別々のフォルダに同じファイル名のファイルが存在する場合にエラー表示
+- 複数ファイルでのマクロ定義重複にエラー表示
+- 未定義マクロを使用時に警告
+- 未使用のマクロ定義を報告
+- 定義済みのタグと同名マクロ定義にエラー表示
+- 改行タグが10行を超えたら警告
+
+
+![](res/rm_diagnostic0.png)
+
+---
 # Reference search palette
-You can open API references with your browser by following the steps
-1. Push Ctrl+Shift+P to open the Command Pallet.
-3. Execute the command "SKYNovel: Open reference search palette".
-3. Input tag name to open the reference.
+　Open the API reference with the following steps
+1. press Ctrl+Shift+P to open the command palette.
+2. Execute the command "SKYNovel: Open reference search palette".
+3. type the tag name you want to open the reference and press Enter to open the web manual.
 
 # リファレンス検索パレット
 　次の手順でAPIリファレンスを開けます。

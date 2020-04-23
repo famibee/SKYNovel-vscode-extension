@@ -1,5 +1,5 @@
 import { ExtensionContext } from 'vscode';
-export declare class PrjFileProc {
+export declare class Project {
     private readonly ctx;
     private readonly dir;
     readonly chgTitle: (title: string) => void;
@@ -39,6 +39,7 @@ export declare class PrjFileProc {
     private readonly LEN_ENC;
     private readonly regDir;
     private encrypter;
+    private readonly regPlgAddTag;
     private updPlugin;
     private rebuildTask;
     private updPathJson;

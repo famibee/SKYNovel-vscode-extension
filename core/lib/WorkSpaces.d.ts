@@ -1,5 +1,5 @@
 import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
-export declare class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
+export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
     private readonly chkLastVerSKYNovel;
     private readonly aTiRoot;
@@ -10,11 +10,16 @@ export declare class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly idxDevCrypto;
     private oPfp;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
+    private tidDelay;
+    private trgUpdDeco;
+    private teActive;
+    private decChars;
+    private updDeco;
     private fnc_onDidEndTaskProcess;
     private refresh;
     private readonly _onDidChangeTreeData;
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
-    private wsf2tree;
+    private makePrj;
     private updLocalSNVer;
     private dspCryptoMode;
     private onClickTreeItemBtn;

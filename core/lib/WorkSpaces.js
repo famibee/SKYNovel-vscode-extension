@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
-const PrjFileProc_1 = require("./PrjFileProc");
+const Project_1 = require("./Project");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
-class TreeDPWorkSpaces {
+class WorkSpaces {
     constructor(ctx, chkLastVerSKYNovel) {
         this.ctx = ctx;
         this.chkLastVerSKYNovel = chkLastVerSKYNovel;
@@ -24,6 +24,11 @@ class TreeDPWorkSpaces {
         this.idxDevTaskPackMac = 6;
         this.idxDevCrypto = 7;
         this.oPfp = {};
+        this.tidDelay = null;
+        this.decChars = {
+            aRange: [],
+            decorator: vscode_1.window.createTextEditorDecorationType({})
+        };
         this.fnc_onDidEndTaskProcess = (_e) => { };
         this._onDidChangeTreeData = new vscode_1.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -39,19 +44,63 @@ class TreeDPWorkSpaces {
         this.TreeChild.forEach(v => { if (v.cmd)
             ctx.subscriptions.push(vscode_1.commands.registerCommand(v.cmd, ti => this.onClickTreeItemBtn(ti))); });
         vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
+        this.trgUpdDeco(vscode_1.window.activeTextEditor);
+        vscode_1.window.onDidChangeActiveTextEditor(te => this.trgUpdDeco(te), null, ctx.subscriptions);
+        vscode_1.workspace.onDidCloseTextDocument(td => {
+            var _a;
+            if (((_a = this.teActive) === null || _a === void 0 ? void 0 : _a.document) == td)
+                this.teActive = undefined;
+        });
+        vscode_1.workspace.onDidChangeTextDocument(e => {
+            var _a;
+            if (e.document === ((_a = this.teActive) === null || _a === void 0 ? void 0 : _a.document))
+                this.trgUpdDeco(this.teActive);
+        }, null, ctx.subscriptions);
+    }
+    trgUpdDeco(te) {
+        if (!te)
+            return;
+        if (te.document.languageId != 'skynovel')
+            return;
+        this.teActive = te;
+        if (this.tidDelay)
+            clearTimeout(this.tidDelay);
+        this.tidDelay = setTimeout(() => this.updDeco(), 500);
+    }
+    updDeco() {
+        if (!this.teActive)
+            return;
+        const doc = this.teActive.document;
+        const src = doc.getText();
+        vscode_1.window.setStatusBarMessage('');
+        this.decChars.decorator.dispose();
+        this.decChars = {
+            aRange: [],
+            decorator: vscode_1.window.createTextEditorDecorationType({
+                'light': { 'textDecoration': 'underline', },
+                'dark': { 'textDecoration': 'underline', }
+            })
+        };
+        const regex = new RegExp('\\s(fn|label)\\=([^\\]\\s]+)', 'g');
+        let m;
+        while (m = regex.exec(src)) {
+            const lenVar = m[1].length;
+            this.decChars.aRange.push(new vscode_1.Range(doc.positionAt(m.index + lenVar + 2), doc.positionAt(m.index + lenVar + 2 + m[2].length)));
+        }
+        this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
     }
     refresh(e) {
         const aFld = vscode_1.workspace.workspaceFolders;
         if (!aFld)
             return;
         if (!e) {
-            aFld.forEach(fld => this.wsf2tree(fld));
+            aFld.forEach(fld => this.makePrj(fld));
             this.aTiRoot[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
             this._onDidChangeTreeData.fire();
             return;
         }
         if (e.added.length > 0)
-            this.wsf2tree(aFld.slice(-1)[0]);
+            this.makePrj(aFld.slice(-1)[0]);
         else {
             const nm = e.removed[0].name;
             const del = this.aTiRoot.findIndex(v => v.label === nm);
@@ -62,7 +111,7 @@ class TreeDPWorkSpaces {
         }
         this._onDidChangeTreeData.fire();
     }
-    wsf2tree(fld) {
+    makePrj(fld) {
         const t = new vscode_1.TreeItem('', vscode_1.TreeItemCollapsibleState.Collapsed);
         const dir = fld.uri.fsPath;
         t.iconPath = vscode_1.ThemeIcon.Folder;
@@ -87,16 +136,17 @@ class TreeDPWorkSpaces {
             return t2;
         });
         this.updLocalSNVer(dir);
-        this.oPfp[dir] = new PrjFileProc_1.PrjFileProc(this.ctx, dir, title => {
+        this.oPfp[dir] = new Project_1.Project(this.ctx, dir, title => {
             t.label = title;
             this._onDidChangeTreeData.fire(t);
         });
         this.dspCryptoMode(dir);
     }
     updLocalSNVer(dir) {
-        const tc = this.oTiPrj[dir];
-        const localVer = fs.readJsonSync(dir + '/package.json').dependencies.skynovel.slice(1);
-        tc[this.idxDevPrjSet].description = `-- ${localVer}`;
+        var _a, _b;
+        const o = fs.readJsonSync(dir + '/package.json');
+        const localVer = (_b = (_a = o === null || o === void 0 ? void 0 : o.dependencies) === null || _a === void 0 ? void 0 : _a.skynovel) === null || _b === void 0 ? void 0 : _b.slice(1);
+        this.oTiPrj[dir][this.idxDevPrjSet].description = localVer ? `-- ${localVer}` : '取得できません';
     }
     dspCryptoMode(dir) {
         const tc = this.oTiPrj[dir];
@@ -180,5 +230,5 @@ class TreeDPWorkSpaces {
         this.oPfp = {};
     }
 }
-exports.TreeDPWorkSpaces = TreeDPWorkSpaces;
-//# sourceMappingURL=TreeDPWorkSpaces.js.map
+exports.WorkSpaces = WorkSpaces;
+//# sourceMappingURL=WorkSpaces.js.map

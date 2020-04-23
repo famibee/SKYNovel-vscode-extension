@@ -21,7 +21,7 @@ import {Transform} from 'stream';
 interface IExts { [ext: string]: string | number; };
 interface IFn2Path { [fn: string]: IExts; };
 
-export class PrjFileProc {
+export class Project {
 	private	readonly	rp		: ReferenceProvider;	// リファレンス
 
 	private	readonly	curPlg	: string;
@@ -70,6 +70,9 @@ export class PrjFileProc {
 	private				hDiff	= Object.create(null);
 
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
+		this.curPrj = dir +'/prj/';
+		this.rp = new ReferenceProvider(ctx, this.curPrj);
+
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		if (fs.existsSync(this.dir +'/node_modules')) this.updPlugin();
@@ -78,10 +81,8 @@ export class PrjFileProc {
 			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
-		this.curPrj = dir +'/prj/';
 		this.lenCurPrj = this.curPrj.length;
 		this.updPathJson();
-		this.rp = new ReferenceProvider(ctx, this.curPrj);
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
@@ -383,11 +384,24 @@ export class PrjFileProc {
 	}*/
 
 
+	private	readonly	regPlgAddTag	= /\.addTag\((["']).+?\1/g;
 	private	updPlugin() {
 		if (! fs.existsSync(this.curPlg)) return;
 
-		const h: any = {};
-		foldProc(this.curPlg, ()=> {}, nm=> h[nm] = 0);
+		const h: {[plg_nm: string]: number} = {};
+		const hDefPlg: {[def_nm: string]: boolean} = {};
+		foldProc(this.curPlg, ()=> {}, nm=> {
+			h[nm] = 0;
+
+			const path = `${this.curPlg}/${nm}/index.js`;
+			if (! fs.existsSync(path)) return;
+
+			const txt = fs.readFileSync(path, 'utf8');
+			const a = txt.match(this.regPlgAddTag);
+			if (a) a.map((v: string)=> hDefPlg[v.slice(9, -1)] = true);
+		});
+		this.rp.hDefPlg = hDefPlg;
+
 		fs.outputFile(this.curPlg +'.js', `export default ${JSON.stringify(h)};`)
 		.then(()=> this.rebuildTask())
 		.catch((err: any)=> console.error(`PrjFileProc updPlugin ${err}`));

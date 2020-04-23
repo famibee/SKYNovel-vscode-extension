@@ -40,7 +40,7 @@ export class PnlPrjSetting {
 			this.oCfg.debug['debugLog'] = false;
 		}
 		chgTitle(this.oCfg.book.title);
-		this.rp.setEscape(this.oCfg.init.escape ?? '');
+		this.rp.setEscape(this.oCfg?.init?.escape ?? '');
 
 		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.localResourceRoots = Uri.file(path_doc);

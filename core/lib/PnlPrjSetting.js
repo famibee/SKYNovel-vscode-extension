@@ -5,7 +5,7 @@ const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 class PnlPrjSetting {
     constructor(ctx, dir, chgTitle, rp) {
-        var _a;
+        var _a, _b, _c;
         this.ctx = ctx;
         this.dir = dir;
         this.chgTitle = chgTitle;
@@ -85,7 +85,7 @@ class PnlPrjSetting {
             this.oCfg.debug['debugLog'] = false;
         }
         chgTitle(this.oCfg.book.title);
-        this.rp.setEscape((_a = this.oCfg.init.escape) !== null && _a !== void 0 ? _a : '');
+        this.rp.setEscape((_c = (_b = (_a = this.oCfg) === null || _a === void 0 ? void 0 : _a.init) === null || _b === void 0 ? void 0 : _b.escape) !== null && _c !== void 0 ? _c : '');
         const path_doc = ctx.extensionPath + `/res/setting/`;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {

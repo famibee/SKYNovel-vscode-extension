@@ -6,13 +6,18 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {oIcon, statBreak, is_mac, is_win} from './CmnLib';
-import {PrjFileProc} from './PrjFileProc';
+import {Project} from './Project';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor} from 'vscode';
 
 const fs = require('fs-extra');
 
-export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
+interface DecChars {
+	aRange		: Range[];
+	decorator	: TextEditorDecorationType;
+}
+
+export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
 	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
@@ -35,7 +40,7 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 	private	readonly idxDevTaskPackMac	= 6;
 	private	readonly idxDevCrypto		= 7;
 
-	private oPfp	: {[dir: string]: PrjFileProc}	= {};
+	private oPfp	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
 		if (is_win) {
@@ -51,7 +56,63 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 		this.TreeChild.forEach(v=> {if (v.cmd) ctx.subscriptions.push(commands.registerCommand(v.cmd, ti=> this.onClickTreeItemBtn(ti)))});
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
+
+		this.trgUpdDeco(window.activeTextEditor);
+		window.onDidChangeActiveTextEditor(te=> this.trgUpdDeco(te), null, ctx.subscriptions);
+		workspace.onDidCloseTextDocument(td=> {
+			if (this.teActive?.document == td) this.teActive = undefined;
+		});
+		workspace.onDidChangeTextDocument(e=> {
+			if (e.document === this.teActive?.document) this.trgUpdDeco(this.teActive);
+		}, null, ctx.subscriptions);
 	}
+
+	private tidDelay: NodeJS.Timer | null = null;
+	private trgUpdDeco(te: TextEditor | undefined) {
+		if (! te) return;
+		if (te.document.languageId != 'skynovel') return;
+
+		this.teActive = te;
+
+		// 遅延
+		if (this.tidDelay) clearTimeout(this.tidDelay);
+		this.tidDelay = setTimeout(()=> this.updDeco(), 500);
+	}
+
+	private teActive: TextEditor | undefined;
+	private decChars: DecChars = {
+		aRange: [],
+		decorator: window.createTextEditorDecorationType({})
+	};
+	private	updDeco() {
+		if (! this.teActive) return;
+
+		const doc = this.teActive.document;
+		const src = doc.getText();
+
+		window.setStatusBarMessage('');
+		this.decChars.decorator.dispose();
+		this.decChars = {
+			aRange: [],
+			decorator: window.createTextEditorDecorationType({
+				'light': {'textDecoration': 'underline',},
+				'dark': {'textDecoration': 'underline',}
+			})
+		}
+
+		// fn属性やlabel属性の値に下線を引くように
+		const regex = new RegExp('\\s(fn|label)\\=([^\\]\\s]+)', 'g');
+		let m;
+		while (m = regex.exec(src)) {
+			const lenVar = m[1].length;
+			this.decChars.aRange.push(new Range(
+				doc.positionAt(m.index +lenVar+2),
+				doc.positionAt(m.index +lenVar+2 + m[2].length)
+			));
+		}
+		this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
+	}
+
 	private	fnc_onDidEndTaskProcess = (_e: TaskProcessEndEvent)=> {};
 
 	private refresh(e?: WorkspaceFoldersChangeEvent): void {
@@ -61,14 +122,14 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 		// フォルダーを開いている（len>1 ならワークスペース）
 		if (! e)  {
 			// 起動時
-			aFld.forEach(fld=> this.wsf2tree(fld));	// 生成
+			aFld.forEach(fld=> this.makePrj(fld));	// 生成
 			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this._onDidChangeTreeData.fire();
 			return;
 		}
 
 		// フォルダ増減時
-		if (e.added.length > 0) this.wsf2tree(aFld.slice(-1)[0]);
+		if (e.added.length > 0) this.makePrj(aFld.slice(-1)[0]);
 			// 最後の一つと思われる
 		else {
 			const nm = e.removed[0].name;	// 一つだけ対応
@@ -86,7 +147,7 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
 	// WorkspaceFolder を TreeItem に反映
-	private wsf2tree(fld: WorkspaceFolder) {
+	private makePrj(fld: WorkspaceFolder) {
 		const t = new TreeItem('', TreeItemCollapsibleState.Collapsed);
 		const dir = fld.uri.fsPath;
 		t.iconPath = ThemeIcon.Folder;
@@ -115,7 +176,7 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 
 		this.updLocalSNVer(dir);
 
-		this.oPfp[dir] = new PrjFileProc(this.ctx, dir, title=> {
+		this.oPfp[dir] = new Project(this.ctx, dir, title=> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
 		});
@@ -123,9 +184,9 @@ export class TreeDPWorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
-		const tc = this.oTiPrj[dir];
-		const localVer = fs.readJsonSync(dir +'/package.json').dependencies.skynovel.slice(1);
-		tc[this.idxDevPrjSet].description = `-- ${localVer}`;
+		const o = fs.readJsonSync(dir +'/package.json');
+		const localVer = o?.dependencies?.skynovel?.slice(1);
+		this.oTiPrj[dir][this.idxDevPrjSet].description = localVer ?`-- ${localVer}` :'取得できません';
 	}
 	private dspCryptoMode(dir: string) {
 		const tc = this.oTiPrj[dir];

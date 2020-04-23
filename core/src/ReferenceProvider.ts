@@ -25,10 +25,12 @@ function openTagRef(v: QuickPickItem) {
 };
 
 export class ReferenceProvider implements HoverProvider, DefinitionProvider, RenameProvider {
+	private	static		inited	= false;
 	private	static readonly	pickItems: QuickPickItem[] = [
 		// 変数操作
 		{label: 'clearsysvar', description: 'システム変数の全消去'},
 		{label: 'clearvar', description: 'ゲーム変数の全消去'},
+		{label: 'endlet_ml', description: 'インラインテキスト代入'},
 		{label: 'let', description: '変数代入・演算'},
 		{label: 'let_abs', description: '絶対値'},
 		{label: 'let_char_at', description: '文字列から一字取りだし'},
@@ -167,17 +169,20 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		{label: 'stats', description: 'パフォーマンス表示'},
 		{label: 'trace', description: 'デバッグ表示へ出力'},
 	];
+	private	static		hTag	: {[name: string]: boolean}	= {};
 
-	private	readonly	clDiag	: DiagnosticCollection;
-	private	static		inited	= false;
+	private	readonly	clDiag		: DiagnosticCollection;
 
 	constructor(ctx: ExtensionContext, private curPrj: string) {
-		this.loadCfg();
-
 		// コマンドパレット・イベント
-		const doc_sel = {scheme: 'file', language: 'skynovel'};
 		if (! ReferenceProvider.inited) {
 			ReferenceProvider.inited = true;
+
+			const len = ReferenceProvider.pickItems.length;
+			for (let i=0; i<len; ++i) {
+				const q = ReferenceProvider.pickItems[i];
+				ReferenceProvider.hTag[q.label] = true;
+			}
 
 			ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
 				const options: QuickPickOptions = {
@@ -188,9 +193,12 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 				window.showQuickPick<QuickPickItem>(ReferenceProvider.pickItems, options).then(q=> {if (q) openTagRef(q)});
 			}));
 		}
+
+		this.loadCfg();
 		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
 		// 識別子の上にマウスカーソルを載せたとき
+		const doc_sel = {scheme: 'file', language: 'skynovel'};
 		languages.registerHoverProvider(doc_sel, this);
 		// 「定義へ移動」「定義をここに表示」
 		ctx.subscriptions.push(languages.registerDefinitionProvider(doc_sel, this));
@@ -198,8 +206,6 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		ctx.subscriptions.push(languages.registerRenameProvider(doc_sel, this));
 		// 診断機能
 		this.clDiag = languages.createDiagnosticCollection('skynovel');
-
-		this.setEscape('');
 
 		// TODO: ラベルジャンプ
 	}
@@ -211,8 +217,8 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		let is_mac_def = false;
 		let rng = new Range(0, 0, 0, 0);
-		for (const nm in ReferenceProvider.hMacro) {
-			const m = ReferenceProvider.hMacro[nm];
+		for (const nm in this.hMacro) {
+			const m = this.hMacro[nm];
 			if (doc.uri.fsPath == m.uri.fsPath && m.range.contains(pos)) {
 				is_mac_def = true;
 				rng = m.range;
@@ -226,7 +232,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 			rng = new Range(r.start.translate(0, 1), r.end);
 		}
 		this.macro_name4rename = doc.getText(rng);
-		const l = ReferenceProvider.hMacro[this.macro_name4rename];
+		const l = this.hMacro[this.macro_name4rename];
 		if (! l) return Promise.reject('タグは変名できません');
 
 		return Promise.resolve(rng);
@@ -238,11 +244,11 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		// マクロ定義
 		const we = new WorkspaceEdit();
-		const m = ReferenceProvider.hMacro[this.macro_name4rename];
+		const m = this.hMacro[this.macro_name4rename];
 		we.replace(m.uri, m.range, newName);
 
 		// マクロ使用箇所
-		(ReferenceProvider.hMacroUse[this.macro_name4rename] ?? [])
+		(this.hMacroUse[this.macro_name4rename] ?? [])
 		.forEach(p=> we.replace(p.uri, p.range, newName));
 
 		return Promise.resolve(we);
@@ -255,7 +261,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		if (! r) return Promise.reject('No word here.');
 
 		const tag_name = doc.lineAt(pos.line).text.slice(r.start.character +1, r.end.character);
-		const loc = ReferenceProvider.hMacro[tag_name];
+		const loc = this.hMacro[tag_name];
 		if (loc) return new Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
 
 		const len = ReferenceProvider.pickItems.length;
@@ -273,7 +279,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		if (! r) return Promise.reject('No word here.');
 
 		const tag_name = doc.lineAt(pos.line).text.slice(r.start.character +1, r.end.character);
-		const loc = ReferenceProvider.hMacro[tag_name];
+		const loc = this.hMacro[tag_name];
 		if (loc) return Promise.resolve(loc);
 
 		const len = ReferenceProvider.pickItems.length;
@@ -283,115 +289,151 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		}
 		return Promise.reject('No definition found');
 	}
-	// 全スクリプト走査
-	scanAllScript(e?: Uri) {
-		if (e?.fsPath.slice(-3) != '.sn') return;
 
-		ReferenceProvider.hMacro = {};
-		ReferenceProvider.hMacroUse = {};
+	private nm2Diag	: {[path: string]: Diagnostic[]}= {};
+	scanAllScript() {
+		this.hMacro = {};
+		this.hMacroUse = {};
 		this.clDiag.clear();
+		this.nm2Diag = {};
 		treeProc(this.curPrj, url=> this.scanScript(url));
+
+		for (const def_nm in this.hMacro) {
+			if (def_nm in this.hMacroUse) continue;
+
+			const loc = this.hMacro[def_nm];
+			this.nm2Diag[loc.uri.path].push(new Diagnostic(
+				loc.range,
+				`未使用のマクロ[${def_nm}]があります`,
+				DiagnosticSeverity.Information
+			));
+		}
+
+		for (const use_nm in this.hMacroUse) {
+			if (use_nm in this.hMacro) continue;
+
+			const aLoc = this.hMacroUse[use_nm];
+			aLoc.map(loc=> this.nm2Diag[loc.uri.path].push(new Diagnostic(
+				loc.range,
+				`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
+				DiagnosticSeverity.Warning
+			)));
+		}
+
+		for (const path in this.nm2Diag) {
+			this.clDiag.set(Uri.file(path), this.nm2Diag[path]);
+		}
 	}
-	private	static hMacro: {[name: string]: Location} = {};
-	private	static hMacroUse: {[name: string]: Location[]} = {};
-	crePrj(e: Uri) {this.scanAllScript(e)}	// ファイル増減
-	chgPrj(e: Uri) {this.scanAllScript(e)}	// ファイル変更
-	delPrj(e: Uri) {this.scanAllScript(e)}	// ファイル削除
+
+	private	$hDefPlg	: {[def_nm: string]: boolean}		= {};
+	set hDefPlg(hDefPlg: {[def_nm: string]: boolean}) {this.$hDefPlg = hDefPlg;}
+
+	private	hMacro		: {[nm: string]: Location}	= {};
+	private	hMacroUse	: {[nm: string]: Location[]}	= {};
+	crePrj(_e: Uri) {this.scanAllScript()}	// ファイル増減
+	chgPrj(_e: Uri) {this.scanAllScript()}	// ファイル変更
+	delPrj(_e: Uri) {this.scanAllScript()}	// ファイル削除
 
 	private	readonly	alzTagArg	= new AnalyzeTagArg;
-	// ファイル内定義検知
 	private	scanScript(url: string) {
 		if (url.slice(-3) != '.sn') return;
 
 		const txt = fs.readFileSync(url, {encoding: 'utf8'});
 		const script = this.hScript[url] = this.resolveScript(txt);
 
-		// 診断機能クリア（ドキュメントごと）
-		const uri = Uri.file(url);
-		this.clDiag.delete(uri);
-		const diags: Diagnostic[] = [];
+		this.nm2Diag[url] = this.nm2Diag[url] ?? [];
+		const diags = this.nm2Diag[url];
 		let show_mes = false;
 
-		const len = script.len;
-		let line = 0;
-		let col = 0;
-		for (let i=0; i<len; ++i) {
+		const lenToken = script.len;
+		let line = 0, col = 0;
+		const uri = Uri.file(url);
+		for (let i=0; i<lenToken; ++i) {
 			const token = script.aToken[i];
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
-			// \n 改行
-			if (uc == 10) {line += token.length; col = 0; continue;}
-			col += token.length;
-			if (uc != 91) continue;
+			const len = token.length;
+			if (uc == 10) {line += len; col = 0; continue;}	// \n 改行
+			if (uc != 91) {col += len; continue;}	// [ タグ開始
 
-			// [ タグ開始
 			const a_tag: any = m_xregexp.exec(token, this.REG_TAG);
 //			if (a_tag == null) throw 'タグ記述['+ token +']異常です(タグ解析)';
+				// TODO: 未作成
 			if (a_tag == null) continue;
 
-			const tag_name = a_tag['name'];
-			if (tag_name != 'macro') {
-				const a = ReferenceProvider.hMacroUse[tag_name] || [];
-				a.push(new Location(
-					uri,
-					new Range(
-						new Position(line, col -1 -tag_name.length),
-						new Position(line, col -1),
-					),
-				));
-				ReferenceProvider.hMacroUse[tag_name] = a;
-				continue;
-			}
-
-			// [macro name=lr][l][r][endmacro]
-//			const tag_fnc = this.hTag[tag_name];
-//			if (tag_fnc == null) throw '未定義のタグ['+ tag_name +']です';
-
-//			if (! this.alzTagArg.go(a_tag['args'])) throw '属性「'+ this.alzTagArg.literal +'」は異常です';
-
-		//	for (const k in this.alzTagArg.hPrm) {
-		//		let val = this.alzTagArg.hPrm[k].val;
-		//	}
-
-			const macro_name = this.alzTagArg.hPrm['name']?.val;
-			if (! macro_name) continue;
-
-			const idx = token.indexOf(macro_name, 12);
-			const mn_col = col -token.length +idx;
-			const rng = new Range(
-				new Position(line, mn_col),
-				new Position(line, mn_col +macro_name.length),
+			const rng_nm = new Range(
+				line, col +1,
+				line, col +1 +a_tag.name.length
 			);
-			const l = ReferenceProvider.hMacro[macro_name];
-			if (! l) {
-				ReferenceProvider.hMacro[macro_name] = new Location(
-					Uri.file(url),
-					rng,
-				);
-				continue;
-			}
 
-			const dd = this.clDiag.get(l.uri);
-			const dia = new Diagnostic(l.range, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error);
-			if (l.uri.fsPath == url) {
-				if (! diags.find(d=> d.range == l.range)) diags.push(dia);
-			}
+			// 複数行事の行カウント補正
+			let cntLines = 0;
+			let j = -1;
+			while ((j = token.indexOf('\n', j +1)) >= 0) ++cntLines;
+			if (cntLines <= 0) col += len;
 			else {
-				if ((! dd) || (! dd.find(d=> d.range == l.range))) this.clDiag.set(l.uri, [dia]);
+				line += cntLines;
+				col = len -token.lastIndexOf('\n');
+				if (cntLines > 10) {
+					diags.push(new Diagnostic(
+						new Range(
+							rng_nm.start.line, rng_nm.start.character -1,
+							rng_nm.end.line +cntLines, 0
+						),
+						`改行タグが10行を超えています`,
+						DiagnosticSeverity.Warning
+					));
+				}
 			}
 
-			const rng1 = new Range(
-				rng.start,
-				new Position(
-					rng.start.line, rng.start.character +macro_name.length),
-			);
-			diags.push(new Diagnostic(rng1, `マクロ定義（[${macro_name}]）が重複`, DiagnosticSeverity.Error));
+			const use_nm = a_tag.name;
+			if (use_nm != 'macro') {
+				if (use_nm in ReferenceProvider.hTag) continue;
+				if (use_nm in this.$hDefPlg) continue;
+
+				const a = this.hMacroUse[use_nm] ?? [];
+				a.push(new Location(uri, rng_nm));
+				this.hMacroUse[use_nm] = a;
+				continue;
+			}
+
+			// マクロ定義
+			this.alzTagArg.go(a_tag.args);
+			const def_nm = this.alzTagArg.hPrm.name?.val;
+			if (! def_nm) {
+				diags.push(new Diagnostic(rng_nm, `マクロ定義[${def_nm}]の引数が異常です`, DiagnosticSeverity.Error));
+				continue;
+			}
+
+			if (ReferenceProvider.hTag[def_nm]) {
+				diags.push(new Diagnostic(rng_nm, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+				continue;
+			}
+
+			const loc = this.hMacro[def_nm];
+			if (! loc) {	// 新規マクロ定義を登録
+				this.hMacro[def_nm] = new Location(Uri.file(url), rng_nm);
+				continue;
+			}
+
+			// すでに定義済みのマクロ
+			const dia = new Diagnostic(loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
+			if (! diags.find(d=> d.range == loc.range)) {
+				if (loc.uri.fsPath == url) diags.push(dia);
+				else this.clDiag.set(loc.uri, [dia]);
+			}
+			diags.push(new Diagnostic(
+				new Range(
+					rng_nm.start,
+					new Position(rng_nm.start.line, rng_nm.start.character +def_nm.length)
+				),
+				`マクロ定義（[${def_nm}]）が重複`,
+				DiagnosticSeverity.Error
+			));
 
 			if (show_mes) continue;
 			show_mes = true;
-			window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${macro_name}】が重複しています。どちらか削除して下さい`, {modal: true});
+			window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${def_nm}】が重複しています。どちらか削除して下さい`, {modal: true});
 		}
-
-		this.clDiag.set(Uri.file(url), diags);
 	}
 
 
@@ -406,21 +448,21 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	private hScript	: HScript	= Object.create(null);	//{} シナリオキャッシュ
 	private	readonly REG_TAG_LET_ML		= m_xregexp(`^\\[let_ml\\s`, 'g');
 	private resolveScript(txt: string): Script {
-		const v = txt
+		const a = txt
 			.replace(/(\r\n|\r)/g, '\n')
 			.match(this.REG_TOKEN) ?? [];
-		for (let i=v.length -1; i>=0; --i) {
-			const e = v[i];
+		for (let i=a.length -1; i>=0; --i) {
+			const t = a[i];
 			this.REG_TAG_LET_ML.lastIndex = 0;
-			if (this.REG_TAG_LET_ML.test(e)) {
-				const idx = e.indexOf(']') +1;
+			if (this.REG_TAG_LET_ML.test(t)) {
+				const idx = t.indexOf(']') +1;
 				if (idx == 0) throw '[let_ml]で閉じる【]】がありません';
-				const a = e.slice(0, idx);
-				const b = e.slice(idx);
-				v.splice(i, 1, a, b);
+				const s = t.slice(0, idx);
+				const e = t.slice(idx);
+				a.splice(i, 1, s, e);
 			}
 		}
-		const scr = {aToken :v, len :v.length, aLNum :[]};
+		const scr = {aToken :a, len :a.length, aLNum :[]};
 		this.replaceScript_let_ml(scr);
 
 		return scr;
@@ -478,8 +520,8 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 	}
 
 	private	readonly	REG_TAG	= m_xregexp(
-		// 46 match 945 step (0ms) https://regex101.com/r/TKk1Iz/3
-`\\[ (?<name>[^\\]\\s]+) \\s*
+		// 47 match 959 step (1ms) https://regex101.com/r/TKk1Iz/4
+`\\[ (?<name>[^\\s;\\]]+) \\s*
 	(?<args> (?: [^"'#\\]]+ | (["'#]) .*? \\3 )*?)
 ]`, 'x');
 
