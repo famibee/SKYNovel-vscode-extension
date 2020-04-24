@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "1.11.0",
+	"version": "1.11.1",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -131,6 +131,14 @@
 			{
 				"command": "skynovel.devCrypto",
 				"title": "Encryption switching",
+				"icon": {
+					"light": "res/light/gear.svg",
+					"dark": "res/dark/gear.svg"
+				}
+			},
+			{
+				"command": "skynovel.devReBuild",
+				"title": "ReBuild",
 				"icon": {
 					"light": "res/light/gear.svg",
 					"dark": "res/dark/gear.svg"
@@ -342,6 +350,11 @@
 					"group": "inline"
 				},
 				{
+					"command": "skynovel.devReBuild",
+					"when": "view == sn-dev && viewItem == 'リビルド'",
+					"group": "inline"
+				},
+				{
 					"command": "skynovel.devTaskWeb",
 					"when": "view == sn-dev && viewItem == 'ブラウザ版を起動'",
 					"group": "inline"
@@ -515,7 +528,8 @@
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
 		"package": "vsce package",
-		"test": "npm run compile && node ./node_modules/vscode/bin/test"
+		"test": "npm run compile && node ./node_modules/vscode/bin/test",
+		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i"
 	},
 	"dependencies": {
 		"crc-32": "^1.2.0",

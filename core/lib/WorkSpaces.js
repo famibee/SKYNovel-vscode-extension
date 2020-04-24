@@ -19,6 +19,7 @@ class WorkSpaces {
             { icon: 'windows', label: 'exe生成', cmd: 'skynovel.devTaskPackWin' },
             { icon: 'macosx', label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: CmnLib_1.is_mac ? '' : 'OS X 上のみ' },
             { icon: 'gear', label: '暗号化', cmd: 'skynovel.devCrypto' },
+            { icon: 'gear', label: 'リビルド', cmd: 'skynovel.devReBuild' },
         ];
         this.idxDevPrjSet = 1;
         this.idxDevTaskPackMac = 6;
@@ -203,6 +204,9 @@ class WorkSpaces {
                     this._onDidChangeTreeData.fire(ti);
                 });
                 return;
+            case 'skynovel.devReBuild':
+                cmd += 'npm run rebuild';
+                break;
             default: return;
         }
         const t = new vscode_1.Task({ type: 'SKYNovel ' + i }, tc.label, 'SKYNovel', new vscode_1.ShellExecution(cmd));

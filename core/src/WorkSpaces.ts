@@ -35,6 +35,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
 		{icon: 'macosx',	label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: is_mac ?'' :'OS X 上のみ'},
 		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypto'},
+		{icon: 'gear',		label: 'リビルド', cmd: 'skynovel.devReBuild'},
 	];
 	private	readonly idxDevPrjSet		= 1;
 	private	readonly idxDevTaskPackMac	= 6;
@@ -236,6 +237,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
+			case 'skynovel.devReBuild':	cmd += 'npm run rebuild';	break;
 			default:	return;
 		}
 		const t = new Task(
