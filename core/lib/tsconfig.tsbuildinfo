@@ -126,7 +126,7 @@
         "signature": "d02b0f36ed10a82605d0b1d72e57d156f6457bb1effae06b68dc0ace0e94c085"
       },
       "../src/referenceprovider.ts": {
-        "version": "9a05f9f96f82f79aaceb426ab8fd41a8450840ef2db329ef30bd536219300cb0",
+        "version": "4bfdae4f4bce51fbf043c8ac03012ebc78b676d8eaa8851dbd985e4a2a57f47c",
         "signature": "4141f76e637446175465def76dd75142d4cee2fd08a0e2da485275f4fbb3c92f"
       },
       "../src/pnlprjsetting.ts": {
@@ -1671,9 +1671,9 @@
       "../src/cmnlib.ts",
       "../../node_modules/@types/xregexp/index.d.ts",
       "../src/analyzetagarg.ts",
-      "../src/referenceprovider.ts",
       "../src/pnlprjsetting.ts",
       "../src/project.ts",
+      "../src/workspaces.ts",
       "../src/treedpdoc.ts",
       "../src/activitybar.ts",
       "../src/extension.ts",
@@ -1728,7 +1728,7 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../src/workspaces.ts"
+      "../src/referenceprovider.ts"
     ]
   },
   "version": "3.8.3"

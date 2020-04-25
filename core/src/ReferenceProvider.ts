@@ -31,7 +31,6 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		{label: 'clearsysvar', description: 'システム変数の全消去'},
 		{label: 'clearvar', description: 'ゲーム変数の全消去'},
 		{label: 'endlet_ml', description: 'インラインテキスト代入'},
-		{label: 'let', description: '変数代入・演算'},
 		{label: 'let_abs', description: '絶対値'},
 		{label: 'let_char_at', description: '文字列から一字取りだし'},
 		{label: 'let_index_of', description: '文字列で検索'},
@@ -41,6 +40,7 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 		{label: 'let_round', description: '四捨五入'},
 		{label: 'let_search', description: '正規表現で検索'},
 		{label: 'let_substr', description: '文字列から抜きだし'},
+		{label: 'let', description: '変数代入・演算'},
 
 		// レイヤ共通
 		{label: 'add_lay', description: 'レイヤを追加する'},
@@ -59,9 +59,9 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		// 文字・文字レイヤ
 		{label: 'autowc', description: '文字ごとのウェイト'},
-		{label: 'ch', description: '文字を追加する'},
 		{label: 'ch_in_style', description: '文字出現演出定義'},
 		{label: 'ch_out_style', description: '文字消去演出定義'},
+		{label: 'ch', description: '文字を追加する'},
 		{label: 'clear_text', description: '文字消去'},
 		{label: 'current', description: 'デフォルト文字レイヤ設定'},
 		{label: 'endlink', description: 'ハイパーリンクの終了'},
@@ -83,9 +83,9 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		// HTMLフレーム
 		{label: 'add_frame', description: 'フレーム追加'},
+		{label: 'frame', description: 'フレームに設定'},
 		{label: 'let_frame', description: 'フレーム変数を取得'},
 		{label: 'set_frame', description: 'フレーム変数に設定'},
-		{label: 'frame', description: 'フレームに設定'},
 		{label: 'tsy_frame', description: 'フレームをトゥイーン開始'},
 
 		// イベント
@@ -152,11 +152,16 @@ export class ReferenceProvider implements HoverProvider, DefinitionProvider, Ren
 
 		// システム
 		{label: 'close', description: 'アプリの終了'},
-		{label: 'loadplugin', description: 'プラグインの読み込み'},
+		{label: 'export', description: 'プレイデータをエクスポート'},
+		{label: 'import', description: 'プレイデータをインポート'},
+		{label: 'loadplugin', description: 'cssの読み込み'},
+//		{label: 'mouse', description: 'マウスの設定'},
 		{label: 'navigate_to', description: 'ＵＲＬを開く'},
+//		{label: 'set_focus', description: 'フォーカス移動'},
 		{label: 'snapshot', description: 'スナップショット'},
 		{label: 'title', description: 'タイトル指定'},
 		{label: 'toggle_full_screen', description: '全画面状態切替'},
+//		{label: 'unzip', description: 'ネット素材取得'},
 		{label: 'update_check', description: '更新チェック機能'},
 		{label: 'window', description: 'アプリウインドウ設定'},
 

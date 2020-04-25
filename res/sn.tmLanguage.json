@@ -104,7 +104,7 @@
 				"constant_label": {"patterns": [
 					{
 						"name": "constant.language.label.skynovel",
-						"match": "\\*\\w+"
+						"match": "\\*+\\w+"
 					}
 				]},
 				"constant_ampersand_formula": {"patterns": [
