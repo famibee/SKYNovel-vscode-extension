@@ -86,15 +86,25 @@
 			"repository": {
 				"constant_literal": {"patterns": [
 					{
-						"match": "([\"'#])((#\\{([^}]*?)})|[^#]*?)\\1",
+						"match": "([\"'#])(.*?)(\\1)",
 						"captures": {
-							"0": {"name": "keyword.string.quoted.skynovel"},
-							"2": {"name": "string.quoted.skynovel"},
-							"3": {"name": "string.quoted.other"},
-							"4": {"patterns": [{"include": "#constant"}]}
+							"1": {"name": "keyword.string.quoted.skynovel"},
+							"2": {"patterns": [{"include": "#constant_text"}]},
+							"3": {"name": "keyword.string.quoted.skynovel"}
 						}
 					}
 				]},
+					"constant_text": {"patterns": [
+						{
+							"match": "(#\\{)([^}]*)(})|[^#]+",
+							"captures": {
+								"0": {"name": "string.interpolated.skynovel"},
+								"1": {"name": "keyword.string.quoted.skynovel"},
+								"2": {"patterns": [{"include": "#constant"}]},
+								"3": {"name": "keyword.string.quoted.skynovel"}
+							}
+						}
+					]},
 				"constant_variable_language": {"patterns": [
 					{
 						"name": "constant.language.skynovel",
