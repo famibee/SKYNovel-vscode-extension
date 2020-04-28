@@ -6,10 +6,10 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath} from './CmnLib';
-import {ReferenceProvider} from './ReferenceProvider';
+import {ScriptScanner} from './ScriptScanner';
 import {PnlPrjSetting} from './PnlPrjSetting';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range} from 'vscode';
 const fs = require('fs-extra');
 const path = require('path');
 const img_size = require('image-size');
@@ -22,7 +22,7 @@ interface IExts { [ext: string]: string | number; };
 interface IFn2Path { [fn: string]: IExts; };
 
 export class Project {
-	private	readonly	rp		: ReferenceProvider;	// リファレンス
+	private	readonly	ss		: ScriptScanner;	// リファレンス
 
 	private	readonly	curPlg	: string;
 	private	readonly	curPrj	: string;
@@ -71,7 +71,7 @@ export class Project {
 
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPrj = dir +'/prj/';
-		this.rp = new ReferenceProvider(ctx, this.curPrj);
+		this.ss = new ScriptScanner(ctx, this.curPrj);
 
 		this.curPlg = dir +'/core/plugin';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
@@ -98,19 +98,19 @@ export class Project {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.crePrj(e);
-				this.rp.crePrj(e);
+				this.ss.crePrj(e);
 			}),
 			fwPrj.onDidChange(e=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.chgPrj(e);
-				this.rp.chgPrj(e);
+				this.ss.chgPrj(e);
 			}),
 			fwPrj.onDidDelete(e=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.delPrj(e);
-				this.rp.delPrj(e);
+				this.ss.delPrj(e);
 			}),
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
@@ -141,7 +141,7 @@ export class Project {
 		if (fs.existsSync(this.fnDiff)) {
 			this.hDiff = fs.readJsonSync(this.fnDiff);
 		}
-		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.rp);
+		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.ss);
 		this.initCrypto();
 	}
 
@@ -280,7 +280,7 @@ export class Project {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path == 'path.json') {	// 内容も変更
 					s = s.replace(this.regRepPathJson, '.bin"');
-/* // TODO: 作成中
+/* // TODO: ファイル名匿名化・作成中
 					const hPath: IFn2Path = JSON.parse(s);
 					for (const fn in hPath) {
 						const hExt2N = hPath[fn];
@@ -384,25 +384,41 @@ export class Project {
 	}*/
 
 
-	private	readonly	regPlgAddTag	= /\.addTag\((["']).+?\1/g;
+	private	static	readonly	regPlgAddTag
+		= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	private	updPlugin() {
 		if (! fs.existsSync(this.curPlg)) return;
 
-		const h: {[plg_nm: string]: number} = {};
-		const hDefPlg: {[def_nm: string]: boolean} = {};
+		const h4json: {[def_nm: string]: number} = {};
+		const hDefPlg: {[def_nm: string]: Location} = {};
 		foldProc(this.curPlg, ()=> {}, nm=> {
-			h[nm] = 0;
+			h4json[nm] = 0;
 
 			const path = `${this.curPlg}/${nm}/index.js`;
 			if (! fs.existsSync(path)) return;
 
 			const txt = fs.readFileSync(path, 'utf8');
-			const a = txt.match(this.regPlgAddTag);
-			if (a) a.map((v: string)=> hDefPlg[v.slice(9, -1)] = true);
-		});
-		this.rp.hDefPlg = hDefPlg;
+			let a;
+			Project.regPlgAddTag.lastIndex = 0;
+			while ((a = Project.regPlgAddTag.exec(txt))) {
+				const nm = a[2];
+				const len_nm = nm.length;
+				const idx_nm = Project.regPlgAddTag.lastIndex -len_nm -1;
 
-		fs.outputFile(this.curPlg +'.js', `export default ${JSON.stringify(h)};`)
+				let line = 0;
+				let j = idx_nm;
+				while ((j = txt.lastIndexOf('\n', j -1)) >= 0) ++line;
+
+				const col = idx_nm -txt.lastIndexOf('\n', idx_nm) -1;
+				hDefPlg[nm] = new Location(
+					Uri.file(path),
+					new Range(line, col, line, col +len_nm),
+				);
+			}
+		});
+		this.ss.setHDefPlg(hDefPlg);
+
+		fs.outputFile(this.curPlg +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(()=> this.rebuildTask())
 		.catch((err: any)=> console.error(`PrjFileProc updPlugin ${err}`));
 	}
@@ -447,33 +463,33 @@ export class Project {
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				this.addPath(hFn2Path, dir, nm);
 
-				const m2 = nm.match(this.regNeedHash);
-				if (m2) {
+				const a2 = nm.match(this.regNeedHash);
+				if (a2) {
 					const s = fs.readFileSync(url, {encoding: 'utf8'});
 					const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
-					const snm = nm.slice(0, -m2[0].length);
-					hFn2Path[snm][m2[1] +':RIPEMD160'] = h;
+					const snm = nm.slice(0, -a2[0].length);
+					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
 				}
-				const m = nm.match(this.regSprSheetImg);
-				if (! m) return;
+				const a = nm.match(this.regSprSheetImg);
+				if (! a) return;
 
-				const fnJs = path.resolve(wd, m[1] +'.json');
+				const fnJs = path.resolve(wd, a[1] +'.json');
 				if (fs.existsSync(fnJs)) return;
 
 				const size = img_size(url);
-				const xLen = uint(m[2]);
-				const yLen = uint(m[3]);
+				const xLen = uint(a[2]);
+				const yLen = uint(a[3]);
 				const w = size.width /xLen;
 				const h = size.height /yLen;
-				const basename = m[1];
-				const ext = m[4];
+				const basename = a[1];
+				const ext = a[4];
 
 				const oJs :any = {
 					frames: {},
 					meta: {
 						app: 'skynovel',
 						version: '1.0',
-						image: m[0],
+						image: a[0],
 						format: 'RGBA8888',
 						size: {w: size.width, h :size.height},
 						scale: 1,
@@ -495,9 +511,9 @@ export class Project {
 					}
 				}
 				fs.writeFileSync(fnJs, JSON.stringify(oJs));
-				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
+				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
 
-				this.addPath(hFn2Path, dir, `${m[1]}.json`);
+				this.addPath(hFn2Path, dir, `${a[1]}.json`);
 			}, ()=> {});
 		});
 

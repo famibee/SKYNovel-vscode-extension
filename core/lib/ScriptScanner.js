@@ -6,39 +6,31 @@ const vscode_1 = require("vscode");
 const m_xregexp = require("xregexp");
 const fs = require('fs-extra');
 ;
-;
 function openTagRef(v) {
     vscode_1.commands.executeCommand('vscode.open', vscode_1.Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#' + v.label));
 }
 ;
-class ReferenceProvider {
+class ScriptScanner {
     constructor(ctx, curPrj) {
+        var _a;
         this.curPrj = curPrj;
-        this.macro_name4rename = '';
+        this.nm4rename = '';
         this.nm2Diag = {};
-        this.$hDefPlg = {};
+        this.hPlugin = {};
         this.hMacro = {};
         this.hMacroUse = {};
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
-        this.loadCfg = () => ReferenceProvider.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
-        this.hScript = Object.create(null);
-        this.REG_TAG_LET_ML = m_xregexp(`^\\[let_ml\\s`, 'g');
-        this.REG_TAG = m_xregexp(`\\[ (?<name>[^\\s;\\]]+) \\s*
-	(?<args> (?: [^"'#\\]]+ | (["'#]) .*? \\3 )*?)
-]`, 'x');
-        if (!ReferenceProvider.inited) {
-            ReferenceProvider.inited = true;
-            const len = ReferenceProvider.pickItems.length;
-            for (let i = 0; i < len; ++i) {
-                const q = ReferenceProvider.pickItems[i];
-                ReferenceProvider.hTag[q.label] = true;
-            }
+        this.loadCfg = () => ScriptScanner.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
+        this.lenRootPath = ((_a = vscode_1.workspace.rootPath) !== null && _a !== void 0 ? _a : '').length + 1;
+        if (!ScriptScanner.inited) {
+            ScriptScanner.inited = true;
+            ScriptScanner.pickItems.map(q => ScriptScanner.hTag[q.label] = true);
             ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.openReferencePallet', () => {
                 const options = {
                     'placeHolder': 'Which reference will you open?',
                     'matchOnDescription': true,
                 };
-                vscode_1.window.showQuickPick(ReferenceProvider.pickItems, options).then(q => { if (q)
+                vscode_1.window.showQuickPick(ScriptScanner.pickItems, options).then(q => { if (q)
                     openTagRef(q); });
             }));
         }
@@ -47,77 +39,133 @@ class ReferenceProvider {
         const doc_sel = { scheme: 'file', language: 'skynovel' };
         vscode_1.languages.registerHoverProvider(doc_sel, this);
         ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, this));
+        ctx.subscriptions.push(vscode_1.languages.registerReferenceProvider(doc_sel, this));
         ctx.subscriptions.push(vscode_1.languages.registerRenameProvider(doc_sel, this));
         this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
     }
-    prepareRename(doc, pos, _token) {
-        doc.save();
-        let is_mac_def = false;
-        let rng = new vscode_1.Range(0, 0, 0, 0);
-        for (const nm in this.hMacro) {
-            const m = this.hMacro[nm];
-            if (doc.uri.fsPath == m.uri.fsPath && m.range.contains(pos)) {
-                is_mac_def = true;
-                rng = m.range;
-                break;
-            }
-        }
-        if (!is_mac_def) {
-            const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
-            if (!r)
-                return Promise.reject('No word here.');
-            rng = new vscode_1.Range(r.start.translate(0, 1), r.end);
-        }
-        this.macro_name4rename = doc.getText(rng);
-        const l = this.hMacro[this.macro_name4rename];
-        if (!l)
-            return Promise.reject('タグは変名できません');
-        return Promise.resolve(rng);
-    }
-    provideRenameEdits(_doc, _pos, newName, _token) {
-        var _a;
-        if (/(\s|　)/.test(newName))
-            return Promise.reject('空白を含む変名はできません');
-        const we = new vscode_1.WorkspaceEdit();
-        const m = this.hMacro[this.macro_name4rename];
-        we.replace(m.uri, m.range, newName);
-        ((_a = this.hMacroUse[this.macro_name4rename]) !== null && _a !== void 0 ? _a : [])
-            .forEach(p => we.replace(p.uri, p.range, newName));
-        return Promise.resolve(we);
-    }
     provideHover(doc, pos, _token) {
-        const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+        const r = doc.getWordRangeAtPosition(pos, ScriptScanner.regTagName);
         if (!r)
             return Promise.reject('No word here.');
-        const tag_name = doc.lineAt(pos.line).text.slice(r.start.character + 1, r.end.character);
-        const loc = this.hMacro[tag_name];
+        const nm = doc.lineAt(pos.line).text.slice(r.start.character, r.end.character);
+        const loc = this.hMacro[nm];
         if (loc)
-            return new vscode_1.Hover(`[${tag_name}] マクロです 定義ファイル：${loc.uri.fsPath}`);
-        const len = ReferenceProvider.pickItems.length;
-        for (let i = 0; i < len; ++i) {
-            const q = ReferenceProvider.pickItems[i];
-            if (q.label == tag_name)
-                return new vscode_1.Hover(`[${tag_name}] タグです 機能：${q.description}`);
-        }
+            return new vscode_1.Hover(`[${nm}] マクロです 定義ファイル：${loc.uri.fsPath.slice(this.lenRootPath)}`);
+        const locPlg = this.hPlugin[nm];
+        if (locPlg)
+            return new vscode_1.Hover(`[${nm}] プラグイン定義タグです 定義ファイル：${locPlg.uri.fsPath.slice(this.lenRootPath)}`);
+        const q = ScriptScanner.pickItems.find(q => q.label == nm);
+        if (q)
+            return new vscode_1.Hover(`[${nm}] タグです 機能：${q.description}`);
         return Promise.reject('No word here.');
     }
     provideDefinition(doc, pos, _token) {
-        const r = doc.getWordRangeAtPosition(pos, /\[[a-zA-Z0-9_]+/);
+        const r = doc.getWordRangeAtPosition(pos, ScriptScanner.regTagName);
         if (!r)
             return Promise.reject('No word here.');
-        const tag_name = doc.lineAt(pos.line).text.slice(r.start.character + 1, r.end.character);
-        const loc = this.hMacro[tag_name];
-        if (loc)
-            return Promise.resolve(loc);
-        const len = ReferenceProvider.pickItems.length;
-        for (let i = 0; i < len; ++i) {
-            const q = ReferenceProvider.pickItems[i];
-            if (q.label == tag_name) {
+        const isDirty = doc.isDirty;
+        return doc.save()
+            .then(() => new Promise((re, rj) => {
+            if (isDirty)
+                this.scanAllScript();
+            const nm = doc.lineAt(pos.line).text.slice(r.start.character, r.end.character);
+            const loc = this.hMacro[nm];
+            if (loc)
+                return re(loc);
+            const locPlg = this.hPlugin[nm];
+            if (locPlg)
+                return re(locPlg);
+            const q = ScriptScanner.pickItems.find(q => q.label == nm);
+            if (q) {
                 openTagRef(q);
-                break;
+                return;
             }
-        }
-        return Promise.reject('No definition found');
+            return rj('No definition found');
+        }));
+    }
+    provideReferences(doc, pos, _ctx, _token) {
+        const r = doc.getWordRangeAtPosition(pos, ScriptScanner.regTagName);
+        if (!r)
+            return Promise.reject('No word here.');
+        const isDirty = doc.isDirty;
+        return doc.save()
+            .then(() => new Promise((re, rj) => {
+            if (isDirty)
+                this.scanAllScript();
+            const nm = doc.lineAt(pos.line).text.slice(r.start.character, r.end.character);
+            const loc = this.hMacroUse[nm];
+            if (loc)
+                return re(loc);
+            return rj('No references found');
+        }));
+    }
+    prepareRename(doc, pos, _token) {
+        const r = doc.getWordRangeAtPosition(pos, ScriptScanner.regTagName);
+        if (!r)
+            return Promise.reject('No word here.');
+        const isDirty = doc.isDirty;
+        return doc.save()
+            .then(() => new Promise((re, rj) => {
+            if (isDirty)
+                this.scanAllScript();
+            const nm = doc.lineAt(pos.line).text.slice(r.start.character, r.end.character);
+            if (nm in ScriptScanner.hTag)
+                return rj('タグは変名できません');
+            const mp = this.hPlugin[nm];
+            if (mp) {
+                this.nm4rename = nm;
+                return re((doc.uri.path == mp.uri.path && mp.range.contains(pos))
+                    ? mp.range
+                    : r);
+            }
+            const m = this.hMacro[nm];
+            if (!m)
+                return rj('未定義マクロ・タグです');
+            this.nm4rename = nm;
+            return re((doc.uri.path == m.uri.path && m.range.contains(pos))
+                ? m.range
+                : r);
+        }));
+    }
+    provideRenameEdits(_doc, _pos, newName, _token) {
+        return new Promise((re, rj) => {
+            if (/(\s|　)/.test(newName)) {
+                rj('空白を含む変名はできません');
+                return;
+            }
+            if (newName in ScriptScanner.hTag) {
+                rj('既にあるタグ名です');
+                return;
+            }
+            if (newName in this.hMacro) {
+                rj('既にあるマクロ名です');
+                return;
+            }
+            if (newName in this.hPlugin) {
+                rj('既にあるプラグイン定義タグ名です');
+                return;
+            }
+            const we = new vscode_1.WorkspaceEdit();
+            const mu = this.hMacroUse[this.nm4rename];
+            if (mu) {
+                this.hMacroUse[newName] = mu;
+                delete this.hMacroUse[this.nm4rename];
+                mu.forEach(p => we.replace(p.uri, p.range, newName));
+            }
+            const mp = this.hPlugin[this.nm4rename];
+            if (mp) {
+                this.hPlugin[newName] = mp;
+                delete this.hPlugin[this.nm4rename];
+                we.replace(mp.uri, mp.range, newName);
+                re(we);
+                return;
+            }
+            const m = this.hMacro[this.nm4rename];
+            this.hMacro[newName] = m;
+            delete this.hMacro[this.nm4rename];
+            we.replace(m.uri, m.range, newName);
+            re(we);
+        });
     }
     scanAllScript() {
         this.hMacro = {};
@@ -134,84 +182,134 @@ class ReferenceProvider {
         for (const use_nm in this.hMacroUse) {
             if (use_nm in this.hMacro)
                 continue;
+            if (use_nm in this.hPlugin)
+                continue;
             const aLoc = this.hMacroUse[use_nm];
-            aLoc.map(loc => this.nm2Diag[loc.uri.path].push(new vscode_1.Diagnostic(loc.range, `未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`, vscode_1.DiagnosticSeverity.Warning)));
+            aLoc.forEach(loc => this.nm2Diag[loc.uri.path].push(new vscode_1.Diagnostic(loc.range, `未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`, vscode_1.DiagnosticSeverity.Warning)));
         }
         for (const path in this.nm2Diag) {
             this.clDiag.set(vscode_1.Uri.file(path), this.nm2Diag[path]);
         }
     }
-    set hDefPlg(hDefPlg) { this.$hDefPlg = hDefPlg; }
+    setHDefPlg(hDefPlg) { this.hPlugin = hDefPlg; }
     crePrj(_e) { this.scanAllScript(); }
     chgPrj(_e) { this.scanAllScript(); }
     delPrj(_e) { this.scanAllScript(); }
     scanScript(url) {
-        var _a, _b, _c;
+        var _a;
         if (url.slice(-3) != '.sn')
             return;
-        const txt = fs.readFileSync(url, { encoding: 'utf8' });
-        const script = this.hScript[url] = this.resolveScript(txt);
         this.nm2Diag[url] = (_a = this.nm2Diag[url]) !== null && _a !== void 0 ? _a : [];
         const diags = this.nm2Diag[url];
         let show_mes = false;
-        const lenToken = script.len;
         let line = 0, col = 0;
         const uri = vscode_1.Uri.file(url);
-        for (let i = 0; i < lenToken; ++i) {
-            const token = script.aToken[i];
+        let procToken = (token) => {
+            var _a, _b, _c, _d;
+            if (!token)
+                return;
             const uc = token.charCodeAt(0);
             const len = token.length;
             if (uc == 10) {
                 line += len;
                 col = 0;
-                continue;
+                return;
+            }
+            if (uc == 59) {
+                const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
+                if (a) {
+                    const nm = a[1];
+                    const mu = (_a = this.hMacroUse[nm]) !== null && _a !== void 0 ? _a : [];
+                    const rng = new vscode_1.Range(line, col + 22, line, col + 22 + len);
+                    mu.push(new vscode_1.Location(uri, rng));
+                    this.hMacroUse[nm] = mu;
+                }
+                col += len;
+                return;
             }
             if (uc != 91) {
                 col += len;
-                continue;
+                return;
             }
-            const a_tag = m_xregexp.exec(token, this.REG_TAG);
-            if (a_tag == null)
-                continue;
-            const rng_nm = new vscode_1.Range(line, col + 1, line, col + 1 + a_tag.name.length);
-            let cntLines = 0;
+            const a_tag = m_xregexp.exec(token, ScriptScanner.REG_TAG);
+            if (!a_tag) {
+                const rng = new vscode_1.Range(line, col, line, col + len);
+                diags.push(new vscode_1.Diagnostic(rng, `タグ記述【${token}】異常です`, vscode_1.DiagnosticSeverity.Error));
+                col += len;
+                return;
+            }
+            let lineTkn = 0;
             let j = -1;
             while ((j = token.indexOf('\n', j + 1)) >= 0)
-                ++cntLines;
-            if (cntLines <= 0)
+                ++lineTkn;
+            const rng_nm = new vscode_1.Range(line, col, line, col + a_tag.name.length);
+            if (lineTkn <= 0)
                 col += len;
             else {
-                line += cntLines;
-                col = len - token.lastIndexOf('\n');
-                if (cntLines > 10) {
-                    diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng_nm.start.line, rng_nm.start.character - 1, rng_nm.end.line + cntLines, 0), `改行タグが10行を超えています`, vscode_1.DiagnosticSeverity.Warning));
-                }
+                line += lineTkn;
+                col = len - token.lastIndexOf('\n') - 1;
+                if (lineTkn > 10)
+                    diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng_nm.start.line, rng_nm.start.character - 1, line, 0), `改行タグが10行を超えています`, vscode_1.DiagnosticSeverity.Warning));
             }
+            const rng = new vscode_1.Range(rng_nm.start.line, rng_nm.start.character + 1, rng_nm.end.line, rng_nm.end.character + 1);
             const use_nm = a_tag.name;
             if (use_nm != 'macro') {
-                if (use_nm in ReferenceProvider.hTag)
-                    continue;
-                if (use_nm in this.$hDefPlg)
-                    continue;
-                const a = (_b = this.hMacroUse[use_nm]) !== null && _b !== void 0 ? _b : [];
-                a.push(new vscode_1.Location(uri, rng_nm));
-                this.hMacroUse[use_nm] = a;
-                continue;
+                if (use_nm in ScriptScanner.hTag) {
+                    if (use_nm == 'let_ml')
+                        fncToken = tkn => {
+                            if (!tkn)
+                                return;
+                            const lenTkn = tkn.length;
+                            let lineTkn = 0;
+                            let j = -1;
+                            while ((j = tkn.indexOf('\n', j + 1)) >= 0)
+                                ++lineTkn;
+                            if (lineTkn == 0)
+                                col += lenTkn;
+                            else {
+                                line += lineTkn;
+                                col = lenTkn - tkn.lastIndexOf('\n') - 1;
+                            }
+                            fncToken = procToken;
+                        };
+                    return;
+                }
+                const mu = (_b = this.hMacroUse[use_nm]) !== null && _b !== void 0 ? _b : [];
+                mu.push(new vscode_1.Location(uri, rng));
+                this.hMacroUse[use_nm] = mu;
+                return;
             }
             this.alzTagArg.go(a_tag.args);
             const def_nm = (_c = this.alzTagArg.hPrm.name) === null || _c === void 0 ? void 0 : _c.val;
             if (!def_nm) {
-                diags.push(new vscode_1.Diagnostic(rng_nm, `マクロ定義[${def_nm}]の引数が異常です`, vscode_1.DiagnosticSeverity.Error));
-                continue;
+                diags.push(new vscode_1.Diagnostic(rng, `マクロ定義[${def_nm}]の引数が異常です`, vscode_1.DiagnosticSeverity.Error));
+                return;
             }
-            if (ReferenceProvider.hTag[def_nm]) {
-                diags.push(new vscode_1.Diagnostic(rng_nm, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
-                continue;
+            if (ScriptScanner.hTag[def_nm]) {
+                diags.push(new vscode_1.Diagnostic(rng, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
+                return;
+            }
+            if (this.hPlugin[def_nm]) {
+                diags.push(new vscode_1.Diagnostic(rng, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
+                return;
             }
             const loc = this.hMacro[def_nm];
             if (!loc) {
-                this.hMacro[def_nm] = new vscode_1.Location(vscode_1.Uri.file(url), rng_nm);
-                continue;
+                const m = token.match(ScriptScanner.regValName);
+                if (!m) {
+                    diags.push(new vscode_1.Diagnostic(rng, `マクロ定義（[${def_nm}]）が異常です`, vscode_1.DiagnosticSeverity.Error));
+                    return;
+                }
+                const idx_name_v = ((_d = m.index) !== null && _d !== void 0 ? _d : 0) + (m[3] ? 1 : 0);
+                let lineNmVal = 0;
+                let j = idx_name_v;
+                while ((j = token.lastIndexOf('\n', j - 1)) >= 0)
+                    ++lineNmVal;
+                const line2 = line - lineTkn + lineNmVal;
+                const col2 = ((lineNmVal == 0) ? col - len : 0)
+                    + idx_name_v - token.lastIndexOf('\n', idx_name_v) - 1;
+                this.hMacro[def_nm] = new vscode_1.Location(vscode_1.Uri.file(url), new vscode_1.Range(line2, col2, line2, col2 + def_nm.length));
+                return;
             }
             const dia = new vscode_1.Diagnostic(loc.range, `マクロ定義（[${def_nm}]）が重複`, vscode_1.DiagnosticSeverity.Error);
             if (!diags.find(d => d.range == loc.range)) {
@@ -220,12 +318,15 @@ class ReferenceProvider {
                 else
                     this.clDiag.set(loc.uri, [dia]);
             }
-            diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng_nm.start, new vscode_1.Position(rng_nm.start.line, rng_nm.start.character + def_nm.length)), `マクロ定義（[${def_nm}]）が重複`, vscode_1.DiagnosticSeverity.Error));
+            diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng_nm.start, new vscode_1.Position(line, col)), `マクロ定義（[${def_nm}]）が重複`, vscode_1.DiagnosticSeverity.Error));
             if (show_mes)
-                continue;
+                return;
             show_mes = true;
             vscode_1.window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義【${def_nm}】が重複しています。どちらか削除して下さい`, { modal: true });
-        }
+        };
+        let fncToken = procToken;
+        this.resolveScript(fs.readFileSync(url, { encoding: 'utf8' })).aToken
+            .forEach(token => fncToken(token));
     }
     compare(a, b) {
         const aStr = a.label + a.description;
@@ -239,8 +340,8 @@ class ReferenceProvider {
             .match(this.REG_TOKEN)) !== null && _a !== void 0 ? _a : [];
         for (let i = a.length - 1; i >= 0; --i) {
             const t = a[i];
-            this.REG_TAG_LET_ML.lastIndex = 0;
-            if (this.REG_TAG_LET_ML.test(t)) {
+            ScriptScanner.REG_TAG_LET_ML.lastIndex = 0;
+            if (ScriptScanner.REG_TAG_LET_ML.test(t)) {
                 const idx = t.indexOf(']') + 1;
                 if (idx == 0)
                     throw '[let_ml]で閉じる【]】がありません';
@@ -257,8 +358,8 @@ class ReferenceProvider {
         var _a;
         for (let i = scr.len - 1; i >= start_idx; --i) {
             const token = scr.aToken[i];
-            this.REG_TAG_LET_ML.lastIndex = 0;
-            if (this.REG_TAG_LET_ML.test(token)) {
+            ScriptScanner.REG_TAG_LET_ML.lastIndex = 0;
+            if (ScriptScanner.REG_TAG_LET_ML.test(token)) {
                 const idxSpl = token.indexOf(']') + 1;
                 const ml = token.slice(idxSpl);
                 const cnt = ((_a = ml.match(/\n/g)) !== null && _a !== void 0 ? _a : []).length;
@@ -290,9 +391,9 @@ class ReferenceProvider {
         this.scanAllScript();
     }
 }
-exports.ReferenceProvider = ReferenceProvider;
-ReferenceProvider.inited = false;
-ReferenceProvider.pickItems = [
+exports.ScriptScanner = ScriptScanner;
+ScriptScanner.inited = false;
+ScriptScanner.pickItems = [
     { label: 'clearsysvar', description: 'システム変数の全消去' },
     { label: 'clearvar', description: 'ゲーム変数の全消去' },
     { label: 'endlet_ml', description: 'インラインテキスト代入' },
@@ -408,5 +509,11 @@ ReferenceProvider.pickItems = [
     { label: 'stats', description: 'パフォーマンス表示' },
     { label: 'trace', description: 'デバッグ表示へ出力' },
 ];
-ReferenceProvider.hTag = {};
-//# sourceMappingURL=ReferenceProvider.js.map
+ScriptScanner.hTag = {};
+ScriptScanner.regTagName = /[^\s\[\]="'#;]+/;
+ScriptScanner.regValName = /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
+ScriptScanner.REG_TAG_LET_ML = m_xregexp(`^\\[let_ml\\s`, 'g');
+ScriptScanner.REG_TAG = m_xregexp(`\\[ (?<name>[^\\s;\\]]+) \\s*
+	(?<args> (?: [^"'#\\]]+ | (["'#]) .*? \\3 )*?)
+]`, 'x');
+//# sourceMappingURL=ScriptScanner.js.map

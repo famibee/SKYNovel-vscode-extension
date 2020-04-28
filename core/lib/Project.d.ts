@@ -3,7 +3,7 @@ export declare class Project {
     private readonly ctx;
     private readonly dir;
     readonly chgTitle: (title: string) => void;
-    private readonly rp;
+    private readonly ss;
     private readonly curPlg;
     private readonly curPrj;
     private readonly lenCurPrj;
@@ -39,7 +39,7 @@ export declare class Project {
     private readonly LEN_ENC;
     private readonly regDir;
     private encrypter;
-    private readonly regPlgAddTag;
+    private static readonly regPlgAddTag;
     private updPlugin;
     private rebuildTask;
     private updPathJson;

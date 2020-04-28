@@ -4,12 +4,12 @@ const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
 class PnlPrjSetting {
-    constructor(ctx, dir, chgTitle, rp) {
+    constructor(ctx, dir, chgTitle, ss) {
         var _a, _b, _c;
         this.ctx = ctx;
         this.dir = dir;
         this.chgTitle = chgTitle;
-        this.rp = rp;
+        this.ss = ss;
         this.oCfg = {
             book: {
                 title: '',
@@ -85,7 +85,7 @@ class PnlPrjSetting {
             this.oCfg.debug['debugLog'] = false;
         }
         chgTitle(this.oCfg.book.title);
-        this.rp.setEscape((_c = (_b = (_a = this.oCfg) === null || _a === void 0 ? void 0 : _a.init) === null || _b === void 0 ? void 0 : _b.escape) !== null && _c !== void 0 ? _c : '');
+        this.ss.setEscape((_c = (_b = (_a = this.oCfg) === null || _a === void 0 ? void 0 : _a.init) === null || _b === void 0 ? void 0 : _b.escape) !== null && _c !== void 0 ? _c : '');
         const path_doc = ctx.extensionPath + `/res/setting/`;
         this.localResourceRoots = vscode_1.Uri.file(path_doc);
         fs.readFile(path_doc + `index.htm`, { encoding: 'utf8' }, (err, data) => {
@@ -148,7 +148,7 @@ class PnlPrjSetting {
             const id2 = id.slice(0, iP);
             this.oCfg[id2][nm] = v;
             if (id2 == 'init' && nm == 'escape')
-                this.rp.setEscape(v);
+                this.ss.setEscape(v);
         }
         else {
             this.oCfg[id] = v;

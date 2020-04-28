@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {replaceFile, foldProc} from './CmnLib';
-import {ReferenceProvider} from './ReferenceProvider';
+import {ScriptScanner} from './ScriptScanner';
 
 import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 const fs = require('fs-extra');
@@ -21,7 +21,7 @@ export class PnlPrjSetting {
 	private	static	htmSrc	= '';
 
 
-	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly rp: ReferenceProvider) {
+	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly ss: ScriptScanner) {
 		this.fnPrj = dir +'/prj/';
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
@@ -40,7 +40,7 @@ export class PnlPrjSetting {
 			this.oCfg.debug['debugLog'] = false;
 		}
 		chgTitle(this.oCfg.book.title);
-		this.rp.setEscape(this.oCfg?.init?.escape ?? '');
+		this.ss.setEscape(this.oCfg?.init?.escape ?? '');
 
 		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.localResourceRoots = Uri.file(path_doc);
@@ -133,7 +133,7 @@ export class PnlPrjSetting {
 			const nm = id.slice(iP +1);
 			const id2 = id.slice(0, iP);
 			this.oCfg[id2][nm] = v;
-			if (id2 == 'init' && nm == 'escape') this.rp.setEscape(v);
+			if (id2 == 'init' && nm == 'escape') this.ss.setEscape(v);
 		}
 		else {
 			this.oCfg[id] = v;

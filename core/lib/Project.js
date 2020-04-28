@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
-const ReferenceProvider_1 = require("./ReferenceProvider");
+const ScriptScanner_1 = require("./ScriptScanner");
 const PnlPrjSetting_1 = require("./PnlPrjSetting");
 const vscode_1 = require("vscode");
 const fs = require('fs-extra');
@@ -49,10 +49,9 @@ class Project {
         ];
         this.LEN_ENC = 1024 * 10;
         this.regDir = /(^.+)\//;
-        this.regPlgAddTag = /\.addTag\((["']).+?\1/g;
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPrj = dir + '/prj/';
-        this.rp = new ReferenceProvider_1.ReferenceProvider(ctx, this.curPrj);
+        this.ss = new ScriptScanner_1.ScriptScanner(ctx, this.curPrj);
         this.curPlg = dir + '/core/plugin';
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
@@ -74,21 +73,21 @@ class Project {
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.crePrj(e);
-                this.rp.crePrj(e);
+                this.ss.crePrj(e);
             }),
             fwPrj.onDidChange(e => {
                 CmnLib_1.regNoUseSysPath.lastIndex = 0;
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.chgPrj(e);
-                this.rp.chgPrj(e);
+                this.ss.chgPrj(e);
             }),
             fwPrj.onDidDelete(e => {
                 CmnLib_1.regNoUseSysPath.lastIndex = 0;
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.delPrj(e);
-                this.rp.delPrj(e);
+                this.ss.delPrj(e);
             }),
             fwPrjJs.onDidChange(e => this.chgPrj(e)),
         ];
@@ -113,7 +112,7 @@ class Project {
         if (fs.existsSync(this.fnDiff)) {
             this.hDiff = fs.readJsonSync(this.fnDiff);
         }
-        this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle, this.rp);
+        this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle, this.ss);
         this.initCrypto();
     }
     get isCryptoMode() { return this.$isCryptoMode; }
@@ -257,20 +256,30 @@ class Project {
     updPlugin() {
         if (!fs.existsSync(this.curPlg))
             return;
-        const h = {};
+        const h4json = {};
         const hDefPlg = {};
         CmnLib_1.foldProc(this.curPlg, () => { }, nm => {
-            h[nm] = 0;
+            h4json[nm] = 0;
             const path = `${this.curPlg}/${nm}/index.js`;
             if (!fs.existsSync(path))
                 return;
             const txt = fs.readFileSync(path, 'utf8');
-            const a = txt.match(this.regPlgAddTag);
-            if (a)
-                a.map((v) => hDefPlg[v.slice(9, -1)] = true);
+            let a;
+            Project.regPlgAddTag.lastIndex = 0;
+            while ((a = Project.regPlgAddTag.exec(txt))) {
+                const nm = a[2];
+                const len_nm = nm.length;
+                const idx_nm = Project.regPlgAddTag.lastIndex - len_nm - 1;
+                let line = 0;
+                let j = idx_nm;
+                while ((j = txt.lastIndexOf('\n', j - 1)) >= 0)
+                    ++line;
+                const col = idx_nm - txt.lastIndexOf('\n', idx_nm) - 1;
+                hDefPlg[nm] = new vscode_1.Location(vscode_1.Uri.file(path), new vscode_1.Range(line, col, line, col + len_nm));
+            }
         });
-        this.rp.hDefPlg = hDefPlg;
-        fs.outputFile(this.curPlg + '.js', `export default ${JSON.stringify(h)};`)
+        this.ss.setHDefPlg(hDefPlg);
+        fs.outputFile(this.curPlg + '.js', `export default ${JSON.stringify(h4json)};`)
             .then(() => this.rebuildTask())
             .catch((err) => console.error(`PrjFileProc updPlugin ${err}`));
     }
@@ -300,32 +309,32 @@ class Project {
             const wd = path.resolve($cur, dir);
             CmnLib_1.foldProc(wd, (url, nm) => {
                 this.addPath(hFn2Path, dir, nm);
-                const m2 = nm.match(this.regNeedHash);
-                if (m2) {
+                const a2 = nm.match(this.regNeedHash);
+                if (a2) {
                     const s = fs.readFileSync(url, { encoding: 'utf8' });
                     const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
-                    const snm = nm.slice(0, -m2[0].length);
-                    hFn2Path[snm][m2[1] + ':RIPEMD160'] = h;
+                    const snm = nm.slice(0, -a2[0].length);
+                    hFn2Path[snm][a2[1] + ':RIPEMD160'] = h;
                 }
-                const m = nm.match(this.regSprSheetImg);
-                if (!m)
+                const a = nm.match(this.regSprSheetImg);
+                if (!a)
                     return;
-                const fnJs = path.resolve(wd, m[1] + '.json');
+                const fnJs = path.resolve(wd, a[1] + '.json');
                 if (fs.existsSync(fnJs))
                     return;
                 const size = img_size(url);
-                const xLen = CmnLib_1.uint(m[2]);
-                const yLen = CmnLib_1.uint(m[3]);
+                const xLen = CmnLib_1.uint(a[2]);
+                const yLen = CmnLib_1.uint(a[3]);
                 const w = size.width / xLen;
                 const h = size.height / yLen;
-                const basename = m[1];
-                const ext = m[4];
+                const basename = a[1];
+                const ext = a[4];
                 const oJs = {
                     frames: {},
                     meta: {
                         app: 'skynovel',
                         version: '1.0',
-                        image: m[0],
+                        image: a[0],
                         format: 'RGBA8888',
                         size: { w: size.width, h: size.height },
                         scale: 1,
@@ -346,8 +355,8 @@ class Project {
                     }
                 }
                 fs.writeFileSync(fnJs, JSON.stringify(oJs));
-                vscode_1.window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${m[1]}.json を自動生成しました`);
-                this.addPath(hFn2Path, dir, `${m[1]}.json`);
+                vscode_1.window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
+                this.addPath(hFn2Path, dir, `${a[1]}.json`);
             }, () => { });
         });
         return hFn2Path;
@@ -384,4 +393,5 @@ class Project {
     }
 }
 exports.Project = Project;
+Project.regPlgAddTag = /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 //# sourceMappingURL=Project.js.map
