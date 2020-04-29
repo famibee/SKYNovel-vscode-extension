@@ -73,7 +73,7 @@ export class Project {
 		this.curPrj = dir +'/prj/';
 		this.ss = new ScriptScanner(ctx, this.curPrj);
 
-		this.curPlg = dir +'/core/plugin';
+		this.curPlg = dir +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		if (fs.existsSync(this.dir +'/node_modules')) this.updPlugin();
 		else {
@@ -86,12 +86,13 @@ export class Project {
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
-		const fwPlg = workspace.createFileSystemWatcher(this.curPlg +'/?*/');
+		const fwPlg = workspace.createFileSystemWatcher(this.curPlg +'**/*');
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.curPrj +'*/*');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.curPrj +'prj.json');
 		this.aFSW = [
 			fwPlg.onDidCreate(()=> this.updPlugin()),
+			fwPlg.onDidChange(()=> this.updPlugin()),
 			fwPlg.onDidDelete(()=> this.updPlugin()),
 
 			fwPrj.onDidCreate(e=> {
@@ -117,7 +118,7 @@ export class Project {
 
 		this.curCrypto = dir +`/${this.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
-		const fnPass = this.curPlg +'/pass.json';
+		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);
 		this.hPass = exists_pass
 			? fs.readJsonSync(fnPass, {throws: false})
@@ -209,7 +210,7 @@ export class Project {
 		'core/web4webpack.js',
 	];
 	tglCryptoMode() {
-		const pathPre = this.curPlg +'/snsys_pre';
+		const pathPre = this.curPlg +'snsys_pre';
 		this.$isCryptoMode = ! this.$isCryptoMode;
 		if (! this.$isCryptoMode) {
 			fs.removeSync(this.curCrypto);
@@ -394,7 +395,7 @@ export class Project {
 		foldProc(this.curPlg, ()=> {}, nm=> {
 			h4json[nm] = 0;
 
-			const path = `${this.curPlg}/${nm}/index.js`;
+			const path = `${this.curPlg}${nm}/index.js`;
 			if (! fs.existsSync(path)) return;
 
 			const txt = fs.readFileSync(path, 'utf8');
@@ -418,7 +419,7 @@ export class Project {
 		});
 		this.ss.setHDefPlg(hDefPlg);
 
-		fs.outputFile(this.curPlg +'.js', `export default ${JSON.stringify(h4json)};`)
+		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(()=> this.rebuildTask())
 		.catch((err: any)=> console.error(`PrjFileProc updPlugin ${err}`));
 	}

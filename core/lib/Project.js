@@ -52,7 +52,7 @@ class Project {
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPrj = dir + '/prj/';
         this.ss = new ScriptScanner_1.ScriptScanner(ctx, this.curPrj);
-        this.curPlg = dir + '/core/plugin';
+        this.curPlg = dir + '/core/plugin/';
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
             this.updPlugin();
@@ -62,11 +62,12 @@ class Project {
         }
         this.lenCurPrj = this.curPrj.length;
         this.updPathJson();
-        const fwPlg = vscode_1.workspace.createFileSystemWatcher(this.curPlg + '/?*/');
+        const fwPlg = vscode_1.workspace.createFileSystemWatcher(this.curPlg + '**/*');
         const fwPrj = vscode_1.workspace.createFileSystemWatcher(this.curPrj + '*/*');
         const fwPrjJs = vscode_1.workspace.createFileSystemWatcher(this.curPrj + 'prj.json');
         this.aFSW = [
             fwPlg.onDidCreate(() => this.updPlugin()),
+            fwPlg.onDidChange(() => this.updPlugin()),
             fwPlg.onDidDelete(() => this.updPlugin()),
             fwPrj.onDidCreate(e => {
                 CmnLib_1.regNoUseSysPath.lastIndex = 0;
@@ -93,7 +94,7 @@ class Project {
         ];
         this.curCrypto = dir + `/${this.fld_crypto_prj}/`;
         this.$isCryptoMode = fs.existsSync(this.curCrypto);
-        const fnPass = this.curPlg + '/pass.json';
+        const fnPass = this.curPlg + 'pass.json';
         const exists_pass = fs.existsSync(fnPass);
         this.hPass = exists_pass
             ? fs.readJsonSync(fnPass, { throws: false })
@@ -162,7 +163,7 @@ class Project {
         return true;
     }
     tglCryptoMode() {
-        const pathPre = this.curPlg + '/snsys_pre';
+        const pathPre = this.curPlg + 'snsys_pre';
         this.$isCryptoMode = !this.$isCryptoMode;
         if (!this.$isCryptoMode) {
             fs.removeSync(this.curCrypto);
@@ -260,7 +261,7 @@ class Project {
         const hDefPlg = {};
         CmnLib_1.foldProc(this.curPlg, () => { }, nm => {
             h4json[nm] = 0;
-            const path = `${this.curPlg}/${nm}/index.js`;
+            const path = `${this.curPlg}${nm}/index.js`;
             if (!fs.existsSync(path))
                 return;
             const txt = fs.readFileSync(path, 'utf8');
@@ -279,7 +280,7 @@ class Project {
             }
         });
         this.ss.setHDefPlg(hDefPlg);
-        fs.outputFile(this.curPlg + '.js', `export default ${JSON.stringify(h4json)};`)
+        fs.outputFile(this.curPlg.slice(0, -1) + '.js', `export default ${JSON.stringify(h4json)};`)
             .then(() => this.rebuildTask())
             .catch((err) => console.error(`PrjFileProc updPlugin ${err}`));
     }

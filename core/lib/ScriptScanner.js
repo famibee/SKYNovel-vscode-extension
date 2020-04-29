@@ -37,11 +37,12 @@ class ScriptScanner {
         this.loadCfg();
         ctx.subscriptions.push(vscode_1.workspace.onDidChangeConfiguration(() => this.loadCfg()));
         const doc_sel = { scheme: 'file', language: 'skynovel' };
-        vscode_1.languages.registerHoverProvider(doc_sel, this);
+        ctx.subscriptions.push(vscode_1.languages.registerHoverProvider(doc_sel, this));
         ctx.subscriptions.push(vscode_1.languages.registerDefinitionProvider(doc_sel, this));
         ctx.subscriptions.push(vscode_1.languages.registerReferenceProvider(doc_sel, this));
         ctx.subscriptions.push(vscode_1.languages.registerRenameProvider(doc_sel, this));
         this.clDiag = vscode_1.languages.createDiagnosticCollection('skynovel');
+        ctx.subscriptions.push(this.clDiag);
     }
     provideHover(doc, pos, _token) {
         const r = doc.getWordRangeAtPosition(pos, ScriptScanner.regTagName);
@@ -78,7 +79,7 @@ class ScriptScanner {
             const q = ScriptScanner.pickItems.find(q => q.label == nm);
             if (q) {
                 openTagRef(q);
-                return;
+                return re();
             }
             return rj('No definition found');
         }));
@@ -129,22 +130,14 @@ class ScriptScanner {
     }
     provideRenameEdits(_doc, _pos, newName, _token) {
         return new Promise((re, rj) => {
-            if (/(\s|　)/.test(newName)) {
-                rj('空白を含む変名はできません');
-                return;
-            }
-            if (newName in ScriptScanner.hTag) {
-                rj('既にあるタグ名です');
-                return;
-            }
-            if (newName in this.hMacro) {
-                rj('既にあるマクロ名です');
-                return;
-            }
-            if (newName in this.hPlugin) {
-                rj('既にあるプラグイン定義タグ名です');
-                return;
-            }
+            if (/(\s|　)/.test(newName))
+                return rj('空白を含む変名はできません');
+            if (newName in ScriptScanner.hTag)
+                return rj('既にあるタグ名です');
+            if (newName in this.hMacro)
+                return rj('既にあるマクロ名です');
+            if (newName in this.hPlugin)
+                return rj('既にあるプラグイン定義タグ名です');
             const we = new vscode_1.WorkspaceEdit();
             const mu = this.hMacroUse[this.nm4rename];
             if (mu) {
@@ -157,14 +150,13 @@ class ScriptScanner {
                 this.hPlugin[newName] = mp;
                 delete this.hPlugin[this.nm4rename];
                 we.replace(mp.uri, mp.range, newName);
-                re(we);
-                return;
+                return re(we);
             }
             const m = this.hMacro[this.nm4rename];
             this.hMacro[newName] = m;
             delete this.hMacro[this.nm4rename];
             we.replace(m.uri, m.range, newName);
-            re(we);
+            return re(we);
         });
     }
     scanAllScript() {

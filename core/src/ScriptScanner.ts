@@ -200,7 +200,7 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 
 		// 識別子の上にマウスカーソルを載せたとき
 		const doc_sel = {scheme: 'file', language: 'skynovel'};
-		languages.registerHoverProvider(doc_sel, this);
+		ctx.subscriptions.push(languages.registerHoverProvider(doc_sel, this));
 		// 「定義へ移動」「定義をここに表示」
 		ctx.subscriptions.push(languages.registerDefinitionProvider(doc_sel, this));
 		// 「参照へ移動」「参照をここに表示」
@@ -209,6 +209,10 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 		ctx.subscriptions.push(languages.registerRenameProvider(doc_sel, this));
 		// 診断機能
 		this.clDiag = languages.createDiagnosticCollection('skynovel');
+		ctx.subscriptions.push(this.clDiag);
+
+		// コードアクション（電球マーク）
+		// languages.registerCodeActionsProvider
 
 		// TODO: ラベルジャンプ
 	}
@@ -252,7 +256,7 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 			if (locPlg) return re(locPlg);
 
 			const q = ScriptScanner.pickItems.find(q=> q.label == nm);
-			if (q) {openTagRef(q); return;}
+			if (q) {openTagRef(q); return re();}
 
 			return rj('No definition found');
 		}));
@@ -313,10 +317,10 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 	provideRenameEdits(_doc: TextDocument, _pos: Position, newName: string, _token: CancellationToken): ProviderResult<WorkspaceEdit> {
 		return new Promise((re, rj)=> {
 			// tokenに空白が含まれないこと
-			if (/(\s|　)/.test(newName)) {rj('空白を含む変名はできません'); return}
-			if (newName in ScriptScanner.hTag) {rj('既にあるタグ名です'); return}
-			if (newName in this.hMacro) {rj('既にあるマクロ名です'); return}
-			if (newName in this.hPlugin) {rj('既にあるプラグイン定義タグ名です'); return}
+			if (/(\s|　)/.test(newName)) return rj('空白を含む変名はできません');
+			if (newName in ScriptScanner.hTag) return rj('既にあるタグ名です');
+			if (newName in this.hMacro) return rj('既にあるマクロ名です');
+			if (newName in this.hPlugin) return rj('既にあるプラグイン定義タグ名です');
 
 			// 使用箇所
 			const we = new WorkspaceEdit();
@@ -335,8 +339,7 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 				delete this.hPlugin[this.nm4rename];
 
 				we.replace(mp.uri, mp.range, newName);
-				re(we);
-				return;
+				return re(we);
 			}
 
 			// マクロ定義
@@ -345,7 +348,7 @@ export class ScriptScanner implements HoverProvider, DefinitionProvider, Referen
 			delete this.hMacro[this.nm4rename];
 
 			we.replace(m.uri, m.range, newName);
-			re(we);
+			return re(we);
 		});
 	}
 

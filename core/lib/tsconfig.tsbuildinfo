@@ -126,7 +126,7 @@
         "signature": "d02b0f36ed10a82605d0b1d72e57d156f6457bb1effae06b68dc0ace0e94c085"
       },
       "../src/scriptscanner.ts": {
-        "version": "327e9a86ce1b65876d10973dda91d6f205f8e7e5aa228c1a551f2d17bad1922e",
+        "version": "d16dc19d31abc3fbee0b2050b3cc61fc25f8917875c4798390f8c409cf7b3e45",
         "signature": "4f5a0b454ed84bec717d8ccb83fab3665b8dc14b72e9a0ec693dfe0b643b5233"
       },
       "../src/pnlprjsetting.ts": {
@@ -134,7 +134,7 @@
         "signature": "8db58136e48441435e04e83be6330eae06b371b6ad839aacf1a1a903393ea955"
       },
       "../src/project.ts": {
-        "version": "ffd6bd207a176da1ed52a001a32f71ef3351114a7ab0dfb066381fa563bd8757",
+        "version": "10dca1ce37815943a5be5cda4fe0ef1b643a55889bffdc6eb97d5e147f91f93a",
         "signature": "ee33a01fd3c57c1ad508d9302353ec1eb5d6d28111ade2f059352a3fb79fa419"
       },
       "../src/workspaces.ts": {
@@ -1671,8 +1671,8 @@
       "../src/cmnlib.ts",
       "../../node_modules/@types/xregexp/index.d.ts",
       "../src/analyzetagarg.ts",
+      "../src/scriptscanner.ts",
       "../src/pnlprjsetting.ts",
-      "../src/project.ts",
       "../src/workspaces.ts",
       "../src/treedpdoc.ts",
       "../src/activitybar.ts",
@@ -1728,7 +1728,7 @@
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/uuid/interfaces.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
-      "../src/scriptscanner.ts"
+      "../src/project.ts"
     ]
   },
   "version": "3.8.3"
