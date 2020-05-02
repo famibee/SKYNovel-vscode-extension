@@ -13,7 +13,7 @@
 		"Programming Languages",
 		"Other"
 	],
-	"icon": "res/icon.png",
+	"icon": "res/img/icon_skynovel.png",
 	"activationEvents": [
 		"onLanguage:skynovel",
 		"onCommand:skynovel.openReferencePallet",
@@ -290,7 +290,7 @@
 				{
 					"id": "skynovel",
 					"title": "SKYNovel",
-					"icon": "res/icon-activity-bar.svg"
+					"icon": "res/img/icon-activity-bar.svg"
 				}
 			]
 		},
