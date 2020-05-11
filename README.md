@@ -56,6 +56,8 @@
 - Error display for duplicate label names in the same script.
 - Error display for macro definition duplication in multiple files.
 - Warning when using undefined macros.
+
+	![](res/img/diagnostic0.png)
 - Report unused macro definitions.
 
 	![](res/img/unused_macro0.png)
@@ -69,14 +71,14 @@
 - 同一スクリプト内でのラベル名重複にエラー表示
 - 複数ファイルでのマクロ定義重複にエラー表示
 - 未定義マクロを使用時に警告
+
+	![](res/img/diagnostic0.png)
 - 未使用のマクロ定義を報告
 
 	![](res/img/unused_macro0.png)
 	![](res/img/unused_macro1.png)
 	- マクロ定義後に【;#NO_WARM_UNUSED_MACRO （マクロ名）】という記述をすると、そのマクロは未使用でも報告しなくなります。
 - 改行タグが10行を超えたら警告（タグ閉じ忘れの恐れが多いので）
-
-![](res/img/diagnostic0.png)
 
 ---
 ## Coding assistance
