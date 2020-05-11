@@ -21,12 +21,12 @@
 - [simple sample project](https://github.com/famibee/SKYNovel_sample)
 
 # List of Functions / 機能一覧
-- [Startup timing / 起動タイミング](#Startup-timing-/-起動タイミング)
-- [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight-/-シンタックスハイライト)
+- [Startup timing / 起動タイミング](#Startup-timing--起動タイミング)
+- [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight--シンタックスハイライト)
 - [Diagnostic function](#Diagnostic-function) / [診断機能](#診断機能)
 - [Coding assistance](#Coding-assistance) / [コーディング補助](#コーディング補助)
-- [Activity Bar / アクティビティバー](#Activity-Bar-/-アクティビティバー)
-- [Reference search palette / リファレンス検索パレット](#Reference-search-palette-/-リファレンス検索パレット)
+- [Activity Bar / アクティビティバー](#Activity-Bar--アクティビティバー)
+- [Reference search palette / リファレンス検索パレット](#Reference-search-palette--リファレンス検索パレット)
 
 
 ---
@@ -57,6 +57,7 @@
 - Error display for macro definition duplication in multiple files.
 - Warning when using undefined macros.
 - Report unused macro definitions.
+
 	![](res/img/unused_macro0.png)
 	![](res/img/unused_macro1.png)
 	- After the macro is defined, the macro will not be reported even if it is not used, if [;#NO_WARM_UNUSED_MACRO (macro name)] is specified.
@@ -69,6 +70,7 @@
 - 複数ファイルでのマクロ定義重複にエラー表示
 - 未定義マクロを使用時に警告
 - 未使用のマクロ定義を報告
+
 	![](res/img/unused_macro0.png)
 	![](res/img/unused_macro1.png)
 	- マクロ定義後に【;#NO_WARM_UNUSED_MACRO （マクロ名）】という記述をすると、そのマクロは未使用でも報告しなくなります。
