@@ -14,7 +14,7 @@ import fs = require('fs-extra');
 const path = require('path');
 const img_size = require('image-size');
 const crypto = require('crypto-js');
-const uuidv4 = require('uuid/v4');
+const {v4: uuidv4} = require('uuid');
 const crc32 = require('crc-32');
 import {Transform} from 'stream';
 

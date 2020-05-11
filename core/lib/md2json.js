@@ -30,7 +30,8 @@ fs.readdirSync(path, { withFileTypes: true })
         param: aPrm,
         snippet: `\t${((_c = a[2]) !== null && _c !== void 0 ? _c : '').trim()}`.split('\n*\n').map(sn => {
             const i = sn.indexOf('\t');
-            return { nm: nm + sn.slice(0, i), txt: `${nm} ${sn.slice(i + 1)}` };
+            const a2 = sn.slice(i + 1);
+            return { nm: nm + sn.slice(0, i), txt: a2 ? `${nm} ${a2}` : nm };
         }),
         comment: repTag2MB((_d = a[3]) !== null && _d !== void 0 ? _d : '').trim(),
     };

@@ -342,11 +342,11 @@
         "signature": "5171627120eeb3a7e8afb8ed04ea9be7f0b53ba09bb1fc95172483e0fbb0740c"
       },
       "../src/scriptscanner.ts": {
-        "version": "4c0df120c2e9735c17fbe3462bd25820c0866e6f97b344d329a03dde3bcdab99",
+        "version": "51c1dce09846a21ae9383f31eadfbab13dccd452cfc9eb8e11158c68ac9eb478",
         "signature": "4ce30d91e8dd50795c753d0146d20c6ac95cb4fd13a1117d5ae80c0637a3c7f7"
       },
       "../src/md2json.ts": {
-        "version": "7b1cf735a2db05f83f54f24d9ce40cf853fea0c757c45fc2c977cb0413797520",
+        "version": "2228ac6da18e7aa44fe4d72c69351695c0c4a7fc85ab0203ff1f420ec4c2285e",
         "signature": "3fb42a2816bc49de980601b0e61466c4dbbe3fbb0016498f27c72389b8e7cb70"
       },
       "../src/codingsupporter.ts": {
@@ -358,7 +358,7 @@
         "signature": "4d6eac9672567f8a2dc7cf77f3c9ea9b841425d6ff4aea4f972ea8fd43f5c09b"
       },
       "../src/project.ts": {
-        "version": "f4763a423e555aa943dc5ccedd0bc0def7457b0664266d428d0eed07a5889ebb",
+        "version": "29e6293b86b1e91bde19a0c3128244d37a1fa9da34792e80427760b28515ad70",
         "signature": "3fe91be8012b8ed2edca54716d4c41cd75de20acf9b239f0f757793478c4a094"
       },
       "../src/workspaces.ts": {

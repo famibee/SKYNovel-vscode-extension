@@ -331,7 +331,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				//変数操作
 				try {
 					const o = ScriptScanner.splitAmpersand(token.slice(1));
-					if (o.name.charAt(0) != '&') this.hSetWords['代入変数名'].add(o.name);
+					if (o.name.charAt(0) != '&') this.hSetWords['代入変数名'].add(o.name.trimEnd());
 				} catch {}
 				return;
 			}

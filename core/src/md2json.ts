@@ -54,7 +54,8 @@ fs.readdirSync(path, {withFileTypes: true})
 		param	: aPrm,
 		snippet	: `\t${(a[2] ?? '').trim()}`.split('\n*\n').map(sn=> {
 			const i = sn.indexOf('\t');
-			return {nm: nm + sn.slice(0, i), txt: `${nm} ${sn.slice(i +1)}`};
+			const a2 = sn.slice(i +1);
+			return {nm: nm + sn.slice(0, i), txt: a2 ?`${nm} ${a2}` :nm};
 		}),
 		comment	: repTag2MB(a[3] ?? '').trim(),
 	};

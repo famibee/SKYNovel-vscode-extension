@@ -2,7 +2,7 @@
 	"name": "skynovel",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"author": "miyazawa famibee",
 	"publisher": "famibee",
 	"license": "MIT",
@@ -537,7 +537,7 @@
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.0.0",
 		"image-size": "^0.8.3",
-		"uuid": "^7.0.3"
+		"uuid": "^8.0.0"
 	},
 	"devDependencies": {
 		"@types/crypto-js": "^3.1.45",
