@@ -32,8 +32,9 @@ export declare class ScriptScanner {
     private nm2Diag;
     private isDuplicateMacroDef;
     private wasDuplicateMacroDef;
-    private goAll;
+    goAll(): void;
     goFile(uri: Uri): void;
+    private hScr2KeyWord;
     goScriptSrc(uri: Uri, src: string): void;
     private goInitFile;
     private goFinishFile;

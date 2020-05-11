@@ -15,21 +15,21 @@ class ScriptScanner {
         this.hMacroUse = {};
         this.hTagMacroUse = {};
         this.hSetWords = {
-            '代入変数名': new Set(),
-            'ジャンプ先': new Set(),
-            'レイヤ名': new Set(),
-            '文字レイヤ名': new Set(),
-            '画像レイヤ名': new Set(),
-            'マクロ名': new Set(),
-            'スクリプトファイル名': new Set(),
-            '画像ファイル名': new Set(),
-            '音声ファイル名': new Set(),
-            'HTMLファイル名': new Set(),
-            '差分名称': new Set(),
-            'フレーム名': new Set(),
-            'サウンドバッファ': new Set(),
-            '文字出現演出名': new Set(),
-            '文字消去演出名': new Set(),
+            '代入変数名': new Set,
+            'ジャンプ先': new Set,
+            'レイヤ名': new Set,
+            '文字レイヤ名': new Set,
+            '画像レイヤ名': new Set,
+            'マクロ名': new Set,
+            'スクリプトファイル名': new Set,
+            '画像ファイル名': new Set,
+            '音声ファイル名': new Set,
+            'HTMLファイル名': new Set,
+            '差分名称': new Set,
+            'フレーム名': new Set,
+            'サウンドバッファ': new Set,
+            '文字出現演出名': new Set,
+            '文字消去演出名': new Set,
         };
         this.cnvSnippet = (s, _cur_fn) => s;
         this.hPreWords = {
@@ -42,10 +42,11 @@ class ScriptScanner {
         this.nm2Diag = {};
         this.isDuplicateMacroDef = false;
         this.wasDuplicateMacroDef = false;
+        this.hScr2KeyWord = {};
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
         this.fncToken = this.procToken;
         this.hTagProc = {
-            'let_ml': () => {
+            'let_ml': (setKw) => {
                 var _a;
                 this.fncToken = (p, token) => {
                     const len2 = token.length;
@@ -62,10 +63,12 @@ class ScriptScanner {
                     this.fncToken = this.procToken;
                 };
                 const v = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
+                    setKw.add(`代入変数名\t${v}`);
                     this.hSetWords['代入変数名'].add(v);
+                }
             },
-            'macro': (uri, diags, p, token, len, rng, lineTkn, rng_nm) => {
+            'macro': (_setKw, uri, diags, p, token, len, rng, lineTkn, rng_nm) => {
                 var _a, _b;
                 const def_nm = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
                 if (!def_nm) {
@@ -108,75 +111,112 @@ class ScriptScanner {
                 }
                 diags.push(new vscode_1.Diagnostic(rng_nm.with({ end: new vscode_1.Position(p.line, p.col + def_nm.length) }), `マクロ定義（[${def_nm}]）が重複`, vscode_1.DiagnosticSeverity.Error));
             },
-            'let': () => {
+            'let': (setKw) => {
                 var _a;
                 const v = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['代入変数名'].add(v);
+                    setKw.add(`代入変数名\t${v}`);
+                }
             },
-            'add_frame': () => {
+            'add_frame': (setKw) => {
                 var _a;
                 const v = (_a = this.alzTagArg.hPrm.id) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['フレーム名'].add(v);
+                    setKw.add(`フレーム名\t${v}`);
+                }
             },
-            'playbgm': () => { this.hSetWords['サウンドバッファ'].add('BGM'); },
-            'playse': () => {
+            'playbgm': (setKw) => {
+                this.hSetWords['サウンドバッファ'].add('BGM');
+                setKw.add(`サウンドバッファ\tBGM`);
+            },
+            'playse': (setKw) => {
                 var _a, _b;
                 const v = (_b = (_a = this.alzTagArg.hPrm.buf) === null || _a === void 0 ? void 0 : _a.val) !== null && _b !== void 0 ? _b : 'SE';
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(v);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${v}`);
             },
-            'button': () => {
+            'button': (setKw) => {
                 var _a, _b, _c, _d, _e, _f;
                 const c = (_b = (_a = this.alzTagArg.hPrm.clicksebuf) === null || _a === void 0 ? void 0 : _a.val) !== null && _b !== void 0 ? _b : 'SYS';
-                if (c && c.charAt(0) != '&')
+                if (c && c.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(c);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${c}`);
                 const e = (_d = (_c = this.alzTagArg.hPrm.entersebuf) === null || _c === void 0 ? void 0 : _c.val) !== null && _d !== void 0 ? _d : 'SYS';
-                if (e && e.charAt(0) != '&')
+                if (e && e.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(e);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${e}`);
                 const l = (_f = (_e = this.alzTagArg.hPrm.leavesebuf) === null || _e === void 0 ? void 0 : _e.val) !== null && _f !== void 0 ? _f : 'SYS';
-                if (l && l.charAt(0) != '&')
+                if (l && l.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(l);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${l}`);
             },
-            'link': () => {
+            'link': (setKw) => {
                 var _a, _b, _c, _d, _e, _f;
                 const c = (_b = (_a = this.alzTagArg.hPrm.clicksebuf) === null || _a === void 0 ? void 0 : _a.val) !== null && _b !== void 0 ? _b : 'SYS';
-                if (c && c.charAt(0) != '&')
+                if (c && c.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(c);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${c}`);
                 const e = (_d = (_c = this.alzTagArg.hPrm.entersebuf) === null || _c === void 0 ? void 0 : _c.val) !== null && _d !== void 0 ? _d : 'SYS';
-                if (e && e.charAt(0) != '&')
+                if (e && e.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(e);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${e}`);
                 const l = (_f = (_e = this.alzTagArg.hPrm.leavesebuf) === null || _e === void 0 ? void 0 : _e.val) !== null && _f !== void 0 ? _f : 'SYS';
-                if (l && l.charAt(0) != '&')
+                if (l && l.charAt(0) != '&') {
                     this.hSetWords['サウンドバッファ'].add(l);
+                }
+                ;
+                setKw.add(`サウンドバッファ\t${l}`);
             },
-            'ch_in_style': () => {
+            'ch_in_style': (setKw) => {
                 var _a;
                 const v = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['文字出現演出名'].add(v);
+                    setKw.add(`文字出現演出名\t${v}`);
+                }
             },
-            'ch_out_style': () => {
+            'ch_out_style': (setKw) => {
                 var _a;
                 const v = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['文字消去演出名'].add(v);
+                    setKw.add(`文字消去演出名\t${v}`);
+                }
             },
-            'add_lay': () => {
+            'add_lay': (setKw) => {
                 var _a, _b;
                 const v = (_a = this.alzTagArg.hPrm.layer) === null || _a === void 0 ? void 0 : _a.val;
                 if (!v)
                     return;
                 this.hSetWords['レイヤ名'].add(v);
+                setKw.add(`レイヤ名\t${v}`);
                 const cls = (_b = this.alzTagArg.hPrm.class) === null || _b === void 0 ? void 0 : _b.val;
-                this.hSetWords[`${cls == 'grp' ? '画像' : '文字'}レイヤ名`].add(v);
+                const kwn = `${cls == 'grp' ? '画像' : '文字'}レイヤ名`;
+                this.hSetWords[kwn].add(v);
+                setKw.add(`${kwn}\t${v}`);
             },
-            'add_face': () => {
+            'add_face': (setKw) => {
                 var _a;
                 const v = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
-                if (v && v.charAt(0) != '&')
+                if (v && v.charAt(0) != '&') {
                     this.hSetWords['差分名称'].add(v);
+                    setKw.add(`差分名称\t${v}`);
+                }
             },
         };
         this.hTagProc['let_abs'] =
@@ -229,8 +269,11 @@ class ScriptScanner {
         this.hMacro = {};
         this.hMacroUse = {};
         this.hTagMacroUse = {};
+        for (const key in this.hSetWords)
+            this.hSetWords[key] = new Set;
         this.clDiag.clear();
         this.nm2Diag = {};
+        this.hScr2KeyWord = {};
         CmnLib_1.treeProc(this.curPrj, url => this.scanFile(vscode_1.Uri.file(url)));
         for (const def_nm in this.hMacro) {
             if (def_nm in this.hMacroUse)
@@ -256,14 +299,32 @@ class ScriptScanner {
     }
     goFile(uri) {
         this.goInitFile(uri);
-        if (fs.existsSync(uri.fsPath))
-            this.scanFile(uri);
+        this.scanFile(uri);
         this.goFinishFile(uri);
     }
     goScriptSrc(uri, src) {
         this.goInitFile(uri);
+        const path = uri.path;
+        const old = this.hScr2KeyWord[path];
+        this.hScr2KeyWord[path] = new Set;
         this.scanScriptSrc(uri, src);
         this.goFinishFile(uri);
+        const now = this.hScr2KeyWord[path];
+        for (const s of old) {
+            if (now.has(s))
+                continue;
+            let findOther = false;
+            for (const path_other in this.hScr2KeyWord) {
+                if (path_other == path)
+                    continue;
+                if (findOther = this.hScr2KeyWord[path_other].has(s))
+                    break;
+            }
+            if (findOther)
+                continue;
+            const a = s.split('\t');
+            this.hSetWords[a[0]].delete(a[1]);
+        }
     }
     goInitFile(uri) {
         const path = uri.path;
@@ -316,7 +377,7 @@ class ScriptScanner {
         this.bldCnvSnippet();
     }
     scanFile(uri) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         const path = uri.path;
         const fn = CmnLib_1.CmnLib.getFn(path);
         if (path.slice(-3) != '.sn') {
@@ -335,13 +396,15 @@ class ScriptScanner {
         this.nm2Diag[path] = (_a = this.nm2Diag[path]) !== null && _a !== void 0 ? _a : [];
         this.hSetWords['ジャンプ先'].add(`fn=${fn}`);
         this.hTagMacroUse[path] = (_b = this.hTagMacroUse[path]) !== null && _b !== void 0 ? _b : [];
+        this.hScr2KeyWord[path] = (_c = this.hScr2KeyWord[path]) !== null && _c !== void 0 ? _c : new Set();
         const td = vscode_1.workspace.textDocuments.find(td => td.fileName == uri.fsPath);
-        this.scanScriptSrc(uri, (_c = td === null || td === void 0 ? void 0 : td.getText()) !== null && _c !== void 0 ? _c : fs.readFileSync(uri.fsPath, { encoding: 'utf8' }));
+        this.scanScriptSrc(uri, (_d = td === null || td === void 0 ? void 0 : td.getText()) !== null && _d !== void 0 ? _d : fs.readFileSync(uri.fsPath, { encoding: 'utf8' }));
     }
     scanScriptSrc(uri, src) {
         const path = uri.path;
         const diags = this.nm2Diag[path];
         const hLabel = {};
+        const setKw = this.hScr2KeyWord[path];
         this.fncToken = this.procToken = (p, token) => {
             var _a, _b;
             const uc = token.charCodeAt(0);
@@ -362,7 +425,9 @@ class ScriptScanner {
                 return;
             }
             if ((uc == 42) && (token.length > 1)) {
-                this.hSetWords['ジャンプ先'].add(`fn=${CmnLib_1.CmnLib.getFn(path)} label=${token}`);
+                const kw = `fn=${CmnLib_1.CmnLib.getFn(path)} label=${token}`;
+                this.hSetWords['ジャンプ先'].add(kw);
+                setKw.add(`ジャンプ先\t${kw}`);
                 if (token.charAt(1) == '*')
                     return;
                 const rng = new vscode_1.Range(p.line, p.col, p.line, p.col + len);
@@ -383,8 +448,11 @@ class ScriptScanner {
                     return;
                 try {
                     const o = ScriptScanner.splitAmpersand(token.slice(1));
-                    if (o.name.charAt(0) != '&')
-                        this.hSetWords['代入変数名'].add(o.name.trimEnd());
+                    if (o.name.charAt(0) != '&') {
+                        const kw = o.name.trimEnd();
+                        this.hSetWords['代入変数名'].add(kw);
+                        setKw.add(`代入変数名\t${kw}`);
+                    }
                 }
                 catch { }
                 return;
@@ -426,7 +494,7 @@ class ScriptScanner {
             const fnc = this.hTagProc[use_nm];
             if (fnc) {
                 this.alzTagArg.go(a_tag.groups.args);
-                fnc(uri, diags, p, token, len, rng, lineTkn, rng_nm);
+                fnc(setKw, uri, diags, p, token, len, rng, lineTkn, rng_nm);
             }
         };
         const p = { line: 0, col: 0 };

@@ -11,7 +11,6 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     constructor(ctx: ExtensionContext, curPrj: string);
     private tidDelay;
     private hChgTxt;
-    private onUpdDoc;
     private delayedUpdate;
     private static initClass;
     private static readonly regTagName;
@@ -36,9 +35,9 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
         [def_nm: string]: Location;
     }): void;
     setEscape(ce: string): void;
-    readonly crePrj: (uri: Uri) => void;
+    readonly crePrj: (_: Uri) => void;
     readonly chgPrj: (uri: Uri) => void;
-    readonly delPrj: (uri: Uri) => void;
+    readonly delPrj: (_: Uri) => void;
     private loadCfg;
     private compare;
 }

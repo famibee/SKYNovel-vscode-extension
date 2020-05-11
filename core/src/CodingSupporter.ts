@@ -11,7 +11,7 @@ import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
 
-import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, TextDocumentChangeEvent} from 'vscode';
+import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation} from 'vscode';
 
 function openTagRef(v: QuickPickItem) {
 	commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
@@ -44,11 +44,7 @@ export class CodingSupporter implements HoverProvider, DefinitionProvider, Refer
 		});
 
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
-		commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, () => {
-			const doc = window.activeTextEditor?.document;
-			if (doc) this.scrScn.goScriptSrc(doc.uri, doc.getText());
-			commands.executeCommand('editor.action.triggerParameterHints');
-		});
+		commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, () => commands.executeCommand('editor.action.triggerParameterHints'));
 
 		// コード補完機能
 		this.aCITagMacro = [];
@@ -111,7 +107,17 @@ ${md.comment}`, true
 		// 引数の説明
 		ctx.subscriptions.push(languages.registerSignatureHelpProvider(doc_sel, this, ' '));
 		// テキストエディタ変化イベント
-		workspace.onDidChangeTextDocument(e=> this.onUpdDoc(e), null, ctx.subscriptions);
+		workspace.onDidChangeTextDocument(e=> {
+			const doc = e.document;
+			if (e.contentChanges.length == 0
+			||	! doc.isDirty
+			||	doc.languageId != 'skynovel'
+			||	doc.fileName.slice(0, this.lenRootPath -1) != workspace.rootPath) return;
+
+			this.hChgTxt[doc.fileName] = doc;
+			if (this.tidDelay) clearTimeout(this.tidDelay);
+			this.tidDelay = setTimeout(()=> this.delayedUpdate(), 500);
+		}, null, ctx.subscriptions);
 
 		// コードアクション（電球マーク）
 		// languages.registerCodeActionsProvider
@@ -124,18 +130,6 @@ ${md.comment}`, true
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	private tidDelay: NodeJS.Timer | null = null;
 	private	hChgTxt	: {[fn: string]: TextDocument}	= {};
-	private onUpdDoc(e: TextDocumentChangeEvent) {
-		const doc = e.document;
-		if (doc.fileName.slice(0, this.lenRootPath -1) != workspace.rootPath
-		||	doc.languageId != 'skynovel'
-		||	e.contentChanges.length == 0
-		||	! doc.isDirty) return;
-
-		// 遅延
-		this.hChgTxt[doc.fileName] = doc;
-		if (this.tidDelay) clearTimeout(this.tidDelay);
-		this.tidDelay = setTimeout(()=> this.delayedUpdate(), 500);
-	}
 	private delayedUpdate() {
 		const o = this.hChgTxt;	// Atomicにするため
 		this.hChgTxt = {};
@@ -410,10 +404,8 @@ ${md.detail}`
 		if (! g) return Promise.reject('No args here.');
 
 		const nm = g.name;
-//console.log(`fn:CodingSupporter.ts line:518 _shc:${shc.isRetrigger ?'T' :'F'} nm:${nm}: token=${token}=`);
 		const loc = this.scrScn.hMacro[nm];
 		if (loc) {	// TODO: マクロも「引数の説明」サポート
-//console.log(`fn:CodingSupporter.ts line:512 マクロです [${nm}]`);
 			return Promise.reject(`[${nm}] マクロです 定義ファイル：${loc.uri.path.slice(this.lenRootPath)}`);
 		}
 
@@ -466,9 +458,9 @@ ${md.detail}`
 
 	setEscape(ce: string) {this.scrScn.setEscape(ce);}
 
-	readonly	crePrj = (uri: Uri)=> this.scrScn.goFile(uri);	// ファイル増減
+	readonly	crePrj = (_: Uri)=> this.scrScn.goAll();		// ファイル増加
 	readonly	chgPrj = (uri: Uri)=> this.scrScn.goFile(uri);	// ファイル変更
-	readonly	delPrj = (uri: Uri)=> this.scrScn.goFile(uri);	// ファイル削除
+	readonly	delPrj = (_: Uri)=> this.scrScn.goAll();		// ファイル削除
 
 	private loadCfg = ()=> CodingSupporter.pickItems.sort(this.compare).forEach(q=> q.description += '（SKYNovel）');
 	private compare(a: QuickPickItem, b: QuickPickItem): number {

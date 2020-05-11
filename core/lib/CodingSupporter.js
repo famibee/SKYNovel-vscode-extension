@@ -16,9 +16,9 @@ class CodingSupporter {
         this.nm4rename = '';
         this.aCITagMacro = [];
         this.preSigHelp = new vscode_1.SignatureHelp();
-        this.crePrj = (uri) => this.scrScn.goFile(uri);
+        this.crePrj = (_) => this.scrScn.goAll();
         this.chgPrj = (uri) => this.scrScn.goFile(uri);
-        this.delPrj = (uri) => this.scrScn.goFile(uri);
+        this.delPrj = (_) => this.scrScn.goAll();
         this.loadCfg = () => CodingSupporter.pickItems.sort(this.compare).forEach(q => q.description += '（SKYNovel）');
         this.lenRootPath = ((_a = vscode_1.workspace.rootPath) !== null && _a !== void 0 ? _a : '').length + 1;
         CodingSupporter.initClass(ctx);
@@ -29,13 +29,7 @@ class CodingSupporter {
                 doc: (_a = q.description) !== null && _a !== void 0 ? _a : 'タグの説明',
             };
         });
-        vscode_1.commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, () => {
-            var _a;
-            const doc = (_a = vscode_1.window.activeTextEditor) === null || _a === void 0 ? void 0 : _a.document;
-            if (doc)
-                this.scrScn.goScriptSrc(doc.uri, doc.getText());
-            vscode_1.commands.executeCommand('editor.action.triggerParameterHints');
-        });
+        vscode_1.commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, () => vscode_1.commands.executeCommand('editor.action.triggerParameterHints'));
         this.aCITagMacro = [];
         const cmdScanScr_trgPrm = { title: '「スクリプト再捜査」「引数の説明」', command: CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS };
         for (const tag_nm in hMd) {
@@ -69,20 +63,19 @@ ${md.comment}`, true);
         ctx.subscriptions.push(this.clDiag);
         ctx.subscriptions.push(vscode_1.languages.registerCompletionItemProvider(doc_sel, this, '[', ' ', '='));
         ctx.subscriptions.push(vscode_1.languages.registerSignatureHelpProvider(doc_sel, this, ' '));
-        vscode_1.workspace.onDidChangeTextDocument(e => this.onUpdDoc(e), null, ctx.subscriptions);
+        vscode_1.workspace.onDidChangeTextDocument(e => {
+            const doc = e.document;
+            if (e.contentChanges.length == 0
+                || !doc.isDirty
+                || doc.languageId != 'skynovel'
+                || doc.fileName.slice(0, this.lenRootPath - 1) != vscode_1.workspace.rootPath)
+                return;
+            this.hChgTxt[doc.fileName] = doc;
+            if (this.tidDelay)
+                clearTimeout(this.tidDelay);
+            this.tidDelay = setTimeout(() => this.delayedUpdate(), 500);
+        }, null, ctx.subscriptions);
         this.scrScn = new ScriptScanner_1.ScriptScanner(curPrj, this.clDiag, CodingSupporter.hTag);
-    }
-    onUpdDoc(e) {
-        const doc = e.document;
-        if (doc.fileName.slice(0, this.lenRootPath - 1) != vscode_1.workspace.rootPath
-            || doc.languageId != 'skynovel'
-            || e.contentChanges.length == 0
-            || !doc.isDirty)
-            return;
-        this.hChgTxt[doc.fileName] = doc;
-        if (this.tidDelay)
-            clearTimeout(this.tidDelay);
-        this.tidDelay = setTimeout(() => this.delayedUpdate(), 500);
     }
     delayedUpdate() {
         const o = this.hChgTxt;
