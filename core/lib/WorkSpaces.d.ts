@@ -11,9 +11,10 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private oPfp;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
     private tidDelay;
-    private trgUpdDeco;
+    private onUpdDoc;
     private teActive;
     private decChars;
+    private static readonly REG_FN_OR_LABEL;
     private updDeco;
     private fnc_onDidEndTaskProcess;
     private refresh;

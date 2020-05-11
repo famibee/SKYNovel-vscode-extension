@@ -6,10 +6,10 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {replaceFile, foldProc} from './CmnLib';
-import {ScriptScanner} from './ScriptScanner';
+import {CodingSupporter} from './CodingSupporter';
 
 import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
-const fs = require('fs-extra');
+import fs = require('fs-extra');
 
 export class PnlPrjSetting {
 	private	readonly	fnPrj	: string;
@@ -21,7 +21,7 @@ export class PnlPrjSetting {
 	private	static	htmSrc	= '';
 
 
-	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly ss: ScriptScanner) {
+	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly ss: CodingSupporter) {
 		this.fnPrj = dir +'/prj/';
 		this.fnPrjJs = dir +'/prj/prj.json';
 		this.fnPkgJs = dir +'/package.json';
@@ -91,7 +91,7 @@ export class PnlPrjSetting {
 	get cfg() {return this.oCfg}
 	private	pnlWV	: WebviewPanel | null = null;
 	open() {
-		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
+		const column = window.activeTextEditor?.viewColumn;
 		if (this.pnlWV) {
 			this.pnlWV.reveal(column);
 			this.openSub();

@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
-const fs = require('fs-extra');
+const fs = require("fs-extra");
 class PnlPrjSetting {
     constructor(ctx, dir, chgTitle, ss) {
         var _a, _b, _c;
@@ -79,7 +79,7 @@ class PnlPrjSetting {
                 this.open();
             return;
         }
-        this.oCfg = Object.assign(Object.assign({}, this.oCfg), fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }));
+        this.oCfg = { ...this.oCfg, ...fs.readJsonSync(this.fnPrjJs, { encoding: 'utf8' }) };
         if ('slideBaseSpan' in this.oCfg.debug) {
             delete this.oCfg.debug['slideBaseSpan'];
             this.oCfg.debug['debugLog'] = false;
@@ -99,7 +99,8 @@ class PnlPrjSetting {
     }
     get cfg() { return this.oCfg; }
     open() {
-        const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
+        var _a;
+        const column = (_a = vscode_1.window.activeTextEditor) === null || _a === void 0 ? void 0 : _a.viewColumn;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
             this.openSub();

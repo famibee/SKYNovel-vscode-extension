@@ -11,7 +11,7 @@ import {TreeDPDoc} from './TreeDPDoc';
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, env, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn} from 'vscode';
 const {exec} = require('child_process');
-const fs = require('fs-extra');
+import fs = require('fs-extra');
 const os = require('os');
 const https = require('https');
 
@@ -67,7 +67,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	// refreshボタン
 	private refresh(): void {
 		this.refreshWork();
-		this._onDidChangeTreeData.fire();
+		this._onDidChangeTreeData.fire(undefined);
 	}
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -171,7 +171,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	private pnlWV: WebviewPanel | null = null;
 	private async activityBarBadge(num = 0) {
-		const column = window.activeTextEditor ? window.activeTextEditor.viewColumn : undefined;
+		const column = window.activeTextEditor?.viewColumn;
 		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
 
 		const path_doc = this.ctx.extensionPath +'/doc';

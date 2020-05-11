@@ -3,7 +3,7 @@ export declare class Project {
     private readonly ctx;
     private readonly dir;
     readonly chgTitle: (title: string) => void;
-    private readonly ss;
+    private readonly codSpt;
     private readonly curPlg;
     private readonly curPrj;
     private readonly lenCurPrj;

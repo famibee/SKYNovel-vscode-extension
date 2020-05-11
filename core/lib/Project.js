@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
-const ScriptScanner_1 = require("./ScriptScanner");
+const CodingSupporter_1 = require("./CodingSupporter");
 const PnlPrjSetting_1 = require("./PnlPrjSetting");
 const vscode_1 = require("vscode");
-const fs = require('fs-extra');
+const fs = require("fs-extra");
 const path = require('path');
 const img_size = require('image-size');
 const crypto = require('crypto-js');
@@ -51,7 +51,7 @@ class Project {
         this.regDir = /(^.+)\//;
         this.regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
         this.curPrj = dir + '/prj/';
-        this.ss = new ScriptScanner_1.ScriptScanner(ctx, this.curPrj);
+        this.codSpt = new CodingSupporter_1.CodingSupporter(ctx, this.curPrj);
         this.curPlg = dir + '/core/plugin/';
         fs.ensureDirSync(this.curPlg);
         if (fs.existsSync(this.dir + '/node_modules'))
@@ -74,21 +74,21 @@ class Project {
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.crePrj(e);
-                this.ss.crePrj(e);
+                this.codSpt.crePrj(e);
             }),
             fwPrj.onDidChange(e => {
                 CmnLib_1.regNoUseSysPath.lastIndex = 0;
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.chgPrj(e);
-                this.ss.chgPrj(e);
+                this.codSpt.chgPrj(e);
             }),
             fwPrj.onDidDelete(e => {
                 CmnLib_1.regNoUseSysPath.lastIndex = 0;
                 if (CmnLib_1.regNoUseSysPath.test(e.path))
                     return;
                 this.delPrj(e);
-                this.ss.delPrj(e);
+                this.codSpt.delPrj(e);
             }),
             fwPrjJs.onDidChange(e => this.chgPrj(e)),
         ];
@@ -113,7 +113,7 @@ class Project {
         if (fs.existsSync(this.fnDiff)) {
             this.hDiff = fs.readJsonSync(this.fnDiff);
         }
-        this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle, this.ss);
+        this.ps = new PnlPrjSetting_1.PnlPrjSetting(ctx, dir, chgTitle, this.codSpt);
         this.initCrypto();
     }
     get isCryptoMode() { return this.$isCryptoMode; }
@@ -266,7 +266,6 @@ class Project {
                 return;
             const txt = fs.readFileSync(path, 'utf8');
             let a;
-            Project.regPlgAddTag.lastIndex = 0;
             while ((a = Project.regPlgAddTag.exec(txt))) {
                 const nm = a[2];
                 const len_nm = nm.length;
@@ -279,7 +278,7 @@ class Project {
                 hDefPlg[nm] = new vscode_1.Location(vscode_1.Uri.file(path), new vscode_1.Range(line, col, line, col + len_nm));
             }
         });
-        this.ss.setHDefPlg(hDefPlg);
+        this.codSpt.setHDefPlg(hDefPlg);
         fs.outputFile(this.curPlg.slice(0, -1) + '.js', `export default ${JSON.stringify(h4json)};`)
             .then(() => this.rebuildTask())
             .catch((err) => console.error(`PrjFileProc updPlugin ${err}`));

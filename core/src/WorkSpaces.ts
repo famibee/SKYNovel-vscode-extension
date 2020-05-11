@@ -10,7 +10,7 @@ import {Project} from './Project';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor} from 'vscode';
 
-const fs = require('fs-extra');
+import fs = require('fs-extra');
 
 interface DecChars {
 	aRange		: Range[];
@@ -58,18 +58,18 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
 
-		this.trgUpdDeco(window.activeTextEditor);
-		window.onDidChangeActiveTextEditor(te=> this.trgUpdDeco(te), null, ctx.subscriptions);
+		this.onUpdDoc(window.activeTextEditor);
+		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
 		workspace.onDidCloseTextDocument(td=> {
 			if (this.teActive?.document == td) this.teActive = undefined;
 		});
 		workspace.onDidChangeTextDocument(e=> {
-			if (e.document === this.teActive?.document) this.trgUpdDeco(this.teActive);
+			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
 		}, null, ctx.subscriptions);
 	}
 
 	private tidDelay: NodeJS.Timer | null = null;
-	private trgUpdDeco(te: TextEditor | undefined) {
+	private onUpdDoc(te: TextEditor | undefined) {
 		if (! te) return;
 		if (te.document.languageId != 'skynovel') return;
 
@@ -85,6 +85,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		aRange: [],
 		decorator: window.createTextEditorDecorationType({})
 	};
+	private	static	readonly REG_FN_OR_LABEL = /(?<=\s)(?:fn|label)\s*=\s*([^\]\s]+)/g;
 	private	updDeco() {
 		if (! this.teActive) return;
 
@@ -102,13 +103,12 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// fn属性やlabel属性の値に下線を引くように
-		const regex = new RegExp('\\s(fn|label)\\=([^\\]\\s]+)', 'g');
 		let m;
-		while (m = regex.exec(src)) {
-			const lenVar = m[1].length;
+		// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
+		while (m = WorkSpaces.REG_FN_OR_LABEL.exec(src)) {
 			this.decChars.aRange.push(new Range(
-				doc.positionAt(m.index +lenVar+2),
-				doc.positionAt(m.index +lenVar+2 + m[2].length)
+				doc.positionAt(m.index +m[0].length -m[1].length),
+				doc.positionAt(m.index +m[0].length)
 			));
 		}
 		this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
@@ -125,7 +125,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			// 起動時
 			aFld.forEach(fld=> this.makePrj(fld));	// 生成
 			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
-			this._onDidChangeTreeData.fire();
+			this._onDidChangeTreeData.fire(undefined);
 			return;
 		}
 
@@ -142,7 +142,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 			this.oPfp[dir].dispose();
 		}
-		this._onDidChangeTreeData.fire();
+		this._onDidChangeTreeData.fire(undefined);
 	}
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -254,7 +254,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				if (e.execution.task.source != t.source) return;
 
 				this.updLocalSNVer(dir);
-				this._onDidChangeTreeData.fire();
+				this._onDidChangeTreeData.fire(undefined);
 			}
 			: ()=> {};
 		tasks.executeTask(t)

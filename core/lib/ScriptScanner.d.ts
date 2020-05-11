@@ -1,43 +1,59 @@
-import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink } from 'vscode';
-export declare class ScriptScanner implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider {
-    private curPrj;
-    private static inited;
-    private static readonly pickItems;
-    private static hTag;
+import { DiagnosticCollection, Location, Uri, Range } from 'vscode';
+export declare class ScriptScanner {
+    private readonly curPrj;
     private readonly clDiag;
-    constructor(ctx: ExtensionContext, curPrj: string);
-    private readonly lenRootPath;
-    private static readonly regTagName;
-    provideHover(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Hover>;
-    provideDefinition(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;
-    provideReferences(doc: TextDocument, pos: Position, _ctx: ReferenceContext, _token: CancellationToken): ProviderResult<Location[]>;
-    prepareRename(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Range | {
-        placeholder: string;
-        range: Range;
-    }>;
-    private nm4rename;
-    provideRenameEdits(_doc: TextDocument, _pos: Position, newName: string, _token: CancellationToken): ProviderResult<WorkspaceEdit>;
+    private readonly hTag;
+    constructor(curPrj: string, clDiag: DiagnosticCollection, hTag: {
+        [name: string]: boolean;
+    });
+    hPlugin: {
+        [tm: string]: Location;
+    };
+    hMacro: {
+        [mm: string]: Location;
+    };
+    hMacroUse: {
+        [mm: string]: Location[];
+    };
+    hTagMacroUse: {
+        [fn: string]: {
+            nm: string;
+            rng: Range;
+        }[];
+    };
+    private readonly hSetWords;
+    cnvSnippet: (s: string, _cur_fn: string) => string;
+    readonly hPreWords: {
+        [key: string]: string;
+    };
+    private hFn2JumpSnippet;
+    private bldCnvSnippet;
+    private static readonly sPredefWrtVar;
     private nm2Diag;
-    scanAllScript(): void;
-    private hPlugin;
-    setHDefPlg(hDefPlg: {
-        [def_nm: string]: Location;
-    }): void;
-    private hMacro;
-    private hMacroUse;
-    crePrj(_e: Uri): void;
-    chgPrj(_e: Uri): void;
-    delPrj(_e: Uri): void;
+    private isDuplicateMacroDef;
+    private wasDuplicateMacroDef;
+    private goAll;
+    goFile(uri: Uri): void;
+    goScriptSrc(uri: Uri, src: string): void;
+    private goInitFile;
+    private goFinishFile;
+    private static readonly EXT_SPRITE;
+    private static readonly EXT_SOUND;
+    private static readonly EXT_HTML;
+    private scanFile;
     private readonly alzTagArg;
     private static readonly regValName;
-    private scanScript;
-    private loadCfg;
-    private compare;
+    private scanScriptSrc;
+    private fncToken;
+    private procToken;
+    private readonly hTagProc;
+    private static splitAmpersand;
     private static readonly REG_TAG_LET_ML;
     private resolveScript;
     private replaceScript_let_ml;
-    REG_TOKEN: RegExp;
-    private mkEscape;
+    static readonly REG_TAG: RegExp;
+    static analyzTagArg: (token: string) => RegExpExecArray | null;
+    analyzToken(token: string): RegExpExecArray | null;
+    private REG_TOKEN;
     setEscape(ce: string): void;
-    private static readonly REG_TAG;
 }

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const CmnLib_1 = require("./CmnLib");
 const Project_1 = require("./Project");
 const vscode_1 = require("vscode");
-const fs = require('fs-extra');
+const fs = require("fs-extra");
 class WorkSpaces {
     constructor(ctx, chkLastVerSKYNovel) {
         this.ctx = ctx;
@@ -45,8 +45,8 @@ class WorkSpaces {
         this.TreeChild.forEach(v => { if (v.cmd)
             ctx.subscriptions.push(vscode_1.commands.registerCommand(v.cmd, ti => this.onClickTreeItemBtn(ti))); });
         vscode_1.tasks.onDidEndTaskProcess(e => this.fnc_onDidEndTaskProcess(e));
-        this.trgUpdDeco(vscode_1.window.activeTextEditor);
-        vscode_1.window.onDidChangeActiveTextEditor(te => this.trgUpdDeco(te), null, ctx.subscriptions);
+        this.onUpdDoc(vscode_1.window.activeTextEditor);
+        vscode_1.window.onDidChangeActiveTextEditor(te => this.onUpdDoc(te), null, ctx.subscriptions);
         vscode_1.workspace.onDidCloseTextDocument(td => {
             var _a;
             if (((_a = this.teActive) === null || _a === void 0 ? void 0 : _a.document) == td)
@@ -55,10 +55,10 @@ class WorkSpaces {
         vscode_1.workspace.onDidChangeTextDocument(e => {
             var _a;
             if (e.document === ((_a = this.teActive) === null || _a === void 0 ? void 0 : _a.document))
-                this.trgUpdDeco(this.teActive);
+                this.onUpdDoc(this.teActive);
         }, null, ctx.subscriptions);
     }
-    trgUpdDeco(te) {
+    onUpdDoc(te) {
         if (!te)
             return;
         if (te.document.languageId != 'skynovel')
@@ -82,11 +82,9 @@ class WorkSpaces {
                 'dark': { 'textDecoration': 'underline', }
             })
         };
-        const regex = new RegExp('\\s(fn|label)\\=([^\\]\\s]+)', 'g');
         let m;
-        while (m = regex.exec(src)) {
-            const lenVar = m[1].length;
-            this.decChars.aRange.push(new vscode_1.Range(doc.positionAt(m.index + lenVar + 2), doc.positionAt(m.index + lenVar + 2 + m[2].length)));
+        while (m = WorkSpaces.REG_FN_OR_LABEL.exec(src)) {
+            this.decChars.aRange.push(new vscode_1.Range(doc.positionAt(m.index + m[0].length - m[1].length), doc.positionAt(m.index + m[0].length)));
         }
         this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
     }
@@ -97,7 +95,7 @@ class WorkSpaces {
         if (!e) {
             aFld.forEach(fld => this.makePrj(fld));
             this.aTiRoot[0].collapsibleState = vscode_1.TreeItemCollapsibleState.Expanded;
-            this._onDidChangeTreeData.fire();
+            this._onDidChangeTreeData.fire(undefined);
             return;
         }
         if (e.added.length > 0)
@@ -110,7 +108,7 @@ class WorkSpaces {
             delete this.oTiPrj[dir];
             this.oPfp[dir].dispose();
         }
-        this._onDidChangeTreeData.fire();
+        this._onDidChangeTreeData.fire(undefined);
     }
     makePrj(fld) {
         const t = new vscode_1.TreeItem('', vscode_1.TreeItemCollapsibleState.Collapsed);
@@ -219,7 +217,7 @@ class WorkSpaces {
                     if (e.execution.task.source != t.source)
                         return;
                     this.updLocalSNVer(dir);
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(undefined);
                 }
                 : () => { };
         vscode_1.tasks.executeTask(t)
@@ -235,4 +233,5 @@ class WorkSpaces {
     }
 }
 exports.WorkSpaces = WorkSpaces;
+WorkSpaces.REG_FN_OR_LABEL = /(?<=\s)(?:fn|label)\s*=\s*([^\]\s]+)/g;
 //# sourceMappingURL=WorkSpaces.js.map

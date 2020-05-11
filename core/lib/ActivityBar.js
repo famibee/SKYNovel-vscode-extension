@@ -5,7 +5,7 @@ const WorkSpaces_1 = require("./WorkSpaces");
 const TreeDPDoc_1 = require("./TreeDPDoc");
 const vscode_1 = require("vscode");
 const { exec } = require('child_process');
-const fs = require('fs-extra');
+const fs = require("fs-extra");
 const os = require('os');
 const https = require('https');
 var eTree;
@@ -47,7 +47,7 @@ class ActivityBar {
         this.pnlWV.dispose(); }
     refresh() {
         this.refreshWork();
-        this._onDidChangeTreeData.fire();
+        this._onDidChangeTreeData.fire(undefined);
     }
     getChildren(t) {
         if (!t)
@@ -144,7 +144,8 @@ class ActivityBar {
         }).on('error', (e) => console.error(e.message));
     }
     async activityBarBadge(num = 0) {
-        const column = vscode_1.window.activeTextEditor ? vscode_1.window.activeTextEditor.viewColumn : undefined;
+        var _a;
+        const column = (_a = vscode_1.window.activeTextEditor) === null || _a === void 0 ? void 0 : _a.viewColumn;
         if (this.pnlWV) {
             this.pnlWV.reveal(column);
             return;

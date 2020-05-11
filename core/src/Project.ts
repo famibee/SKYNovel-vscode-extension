@@ -6,11 +6,11 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath} from './CmnLib';
-import {ScriptScanner} from './ScriptScanner';
+import {CodingSupporter} from './CodingSupporter';
 import {PnlPrjSetting} from './PnlPrjSetting';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range} from 'vscode';
-const fs = require('fs-extra');
+import fs = require('fs-extra');
 const path = require('path');
 const img_size = require('image-size');
 const crypto = require('crypto-js');
@@ -22,12 +22,12 @@ interface IExts { [ext: string]: string | number; };
 interface IFn2Path { [fn: string]: IExts; };
 
 export class Project {
-	private	readonly	ss		: ScriptScanner;	// リファレンス
+	private	readonly	codSpt		: CodingSupporter;
 
-	private	readonly	curPlg	: string;
-	private	readonly	curPrj	: string;
-	private	readonly	lenCurPrj: number;
-	private	readonly	curCrypto: string;
+	private	readonly	curPlg		: string;
+	private	readonly	curPrj		: string;
+	private	readonly	lenCurPrj	: number;
+	private	readonly	curCrypto	: string;
 	private readonly	fld_crypto_prj	= 'crypto_prj';
 //	private readonly	fld_crypto_prj	= '.prj';
 	private		$isCryptoMode	= true;
@@ -71,7 +71,7 @@ export class Project {
 
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
 		this.curPrj = dir +'/prj/';
-		this.ss = new ScriptScanner(ctx, this.curPrj);
+		this.codSpt = new CodingSupporter(ctx, this.curPrj);
 
 		this.curPlg = dir +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
@@ -99,19 +99,19 @@ export class Project {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.crePrj(e);
-				this.ss.crePrj(e);
+				this.codSpt.crePrj(e);
 			}),
 			fwPrj.onDidChange(e=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.chgPrj(e);
-				this.ss.chgPrj(e);
+				this.codSpt.chgPrj(e);
 			}),
 			fwPrj.onDidDelete(e=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(e.path)) return;
 				this.delPrj(e);
-				this.ss.delPrj(e);
+				this.codSpt.delPrj(e);
 			}),
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
@@ -142,7 +142,7 @@ export class Project {
 		if (fs.existsSync(this.fnDiff)) {
 			this.hDiff = fs.readJsonSync(this.fnDiff);
 		}
-		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.ss);
+		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.codSpt);
 		this.initCrypto();
 	}
 
@@ -400,7 +400,7 @@ export class Project {
 
 			const txt = fs.readFileSync(path, 'utf8');
 			let a;
-			Project.regPlgAddTag.lastIndex = 0;
+			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
 			while ((a = Project.regPlgAddTag.exec(txt))) {
 				const nm = a[2];
 				const len_nm = nm.length;
@@ -417,7 +417,7 @@ export class Project {
 				);
 			}
 		});
-		this.ss.setHDefPlg(hDefPlg);
+		this.codSpt.setHDefPlg(hDefPlg);
 
 		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(()=> this.rebuildTask())

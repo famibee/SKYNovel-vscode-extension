@@ -1,4 +1,4 @@
-import { ScriptScanner } from './ScriptScanner';
+import { CodingSupporter } from './CodingSupporter';
 import { ExtensionContext } from 'vscode';
 export declare class PnlPrjSetting {
     readonly ctx: ExtensionContext;
@@ -11,7 +11,7 @@ export declare class PnlPrjSetting {
     private readonly fnAppJs;
     private readonly localResourceRoots;
     private static htmSrc;
-    constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void, ss: ScriptScanner);
+    constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void, ss: CodingSupporter);
     private oCfg;
     get cfg(): any;
     private pnlWV;
