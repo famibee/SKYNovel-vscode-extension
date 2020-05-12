@@ -164,7 +164,7 @@
 - Although it is not included in the template, even if [if]-type tags and text are complexly intertwined
 ![](res/img/docsbl_3ifs.png)
 
-### Symbol Search Support
+### Symbol Search
  Press the following keys to see a list of symbols in the file you are viewing.
 
 |mac	|windows	|
@@ -178,7 +178,7 @@
 ![](res/img/docsbl_4search.png)
 
 
-## アウトライン表示とシンボル検索サポート
+## アウトライン表示とシンボル検索
 ### アウトライン表示
 【表示】-【ビューを開く...】から【アウトライン】を選ぶと、表示中のファイルに含まれるシンボル一覧が表示されます。
 　シンボルとは「ラベル、マクロ定義、テキスト、一部タグ（条件分岐と処理の流れ変更に関わるもの）」のことです。
