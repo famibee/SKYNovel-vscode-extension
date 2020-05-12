@@ -11,17 +11,17 @@ import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
 
-import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation} from 'vscode';
+import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, DocumentSymbolProvider, SymbolInformation, DocumentSymbol} from 'vscode';
 
 function openTagRef(v: QuickPickItem) {
 	commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
 }
 
 
-export class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider {
-	private			readonly	lenRootPath: number;
+export class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
+	private			readonly	lenRootPath	: number;
 
-	private	static	readonly	pickItems: QuickPickItem[] = [];
+	private	static	readonly	pickItems	: QuickPickItem[] = [];
 	private	static		hTag		: {[tag_nm: string]: boolean}	= {};
 	private	static		hSnippet	: {[tag_nm: string]: string}	= {};
 
@@ -34,7 +34,6 @@ export class CodingSupporter implements HoverProvider, DefinitionProvider, Refer
 	}}	= {};
 
 	private	static	readonly CMD_SCANSCR_TRGPARAMHINTS = 'extension.skynovel.scanScr_trgParamHints';
-
 	constructor(ctx: ExtensionContext, curPrj: string) {
 		this.lenRootPath = (workspace.rootPath ?? '').length +1;
 		CodingSupporter.initClass(ctx);
@@ -106,11 +105,21 @@ ${md.comment}`, true
 		ctx.subscriptions.push(languages.registerCompletionItemProvider(doc_sel, this, '[', ' ', '='));
 		// 引数の説明
 		ctx.subscriptions.push(languages.registerSignatureHelpProvider(doc_sel, this, ' '));
+		// アウトライン
+		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(doc_sel, this));
+
+		// TODO: ラベルジャンプ
+		//	https://code.visualstudio.com/api/language-extensions/programmatic-language-features
+		// languages.registerHoverProvider
+		// languages.registerDocumentLinkProvider
+
+		// コードアクション（電球マーク）
+		// languages.registerCodeActionsProvider
+
 		// テキストエディタ変化イベント
 		workspace.onDidChangeTextDocument(e=> {
 			const doc = e.document;
 			if (e.contentChanges.length == 0
-			||	! doc.isDirty
 			||	doc.languageId != 'skynovel'
 			||	doc.fileName.slice(0, this.lenRootPath -1) != workspace.rootPath) return;
 
@@ -119,17 +128,13 @@ ${md.comment}`, true
 			this.tidDelay = setTimeout(()=> this.delayedUpdate(), 500);
 		}, null, ctx.subscriptions);
 
-		// コードアクション（電球マーク）
-		// languages.registerCodeActionsProvider
-
 		this.scrScn = new ScriptScanner(curPrj, this.clDiag, CodingSupporter.hTag);
-
-		// TODO: ラベルジャンプ
 	}
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	private tidDelay: NodeJS.Timer | null = null;
 	private	hChgTxt	: {[fn: string]: TextDocument}	= {};
+	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}	= {};
 	private delayedUpdate() {
 		const o = this.hChgTxt;	// Atomicにするため
 		this.hChgTxt = {};
@@ -137,6 +142,8 @@ ${md.comment}`, true
 			const doc = o[fn];
 			this.scrScn.goScriptSrc(doc.uri, doc.getText());
 		}
+		for (const rsv_nm in this.hRsvNm2Then) this.hRsvNm2Then[rsv_nm]();
+		this.hRsvNm2Then = {};
 	}
 
 
@@ -451,6 +458,20 @@ ${md.detail}`
 
 		const arg_nm = inp.slice(0, includesEq);
 		return md.param.findIndex(p=> p.name == arg_nm);
+	}
+
+	// アウトライン
+	private	hScr2Pro: {[scr_path: string] :1}	= {};
+	provideDocumentSymbols(doc: TextDocument, _token: CancellationToken): ProviderResult<SymbolInformation[] | DocumentSymbol[]> {
+		const path = doc.uri.path;
+		if (doc.isDirty && (path in this.hScr2Pro)) return new Promise(
+			rs=> this.hRsvNm2Then['アウトライン'] = ()=> {
+				rs(this.scrScn.hSn2aDsOutline[path] ?? []);
+			}
+		);
+
+		this.hScr2Pro[path] = 1;
+		return new Promise(rs=> rs(this.scrScn.hSn2aDsOutline[path] ?? []));
 	}
 
 

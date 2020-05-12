@@ -1,4 +1,4 @@
-import { DiagnosticCollection, Location, Uri, Range } from 'vscode';
+import { DiagnosticCollection, Location, Uri, Range, DocumentSymbol } from 'vscode';
 export declare class ScriptScanner {
     private readonly curPrj;
     private readonly clDiag;
@@ -32,6 +32,10 @@ export declare class ScriptScanner {
     private nm2Diag;
     private isDuplicateMacroDef;
     private wasDuplicateMacroDef;
+    hSn2aDsOutline: {
+        [sn: string]: DocumentSymbol[];
+    };
+    aDsOutline: DocumentSymbol[];
     goAll(): void;
     goFile(uri: Uri): void;
     private hScr2KeyWord;
@@ -48,6 +52,7 @@ export declare class ScriptScanner {
     private fncToken;
     private procToken;
     private readonly hTagProc;
+    private readonly aDsOutlineStack;
     private static splitAmpersand;
     private static readonly REG_TAG_LET_ML;
     private resolveScript;

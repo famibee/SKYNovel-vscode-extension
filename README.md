@@ -25,6 +25,7 @@
 - [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight--シンタックスハイライト)
 - [Diagnostic function](#Diagnostic-function) / [診断機能](#診断機能)
 - [Coding assistance](#Coding-assistance) / [コーディング補助](#コーディング補助)
+- [Outline view and symbol search](#Outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
 - [Activity Bar / アクティビティバー](#Activity-Bar--アクティビティバー)
 - [Reference search palette / リファレンス検索パレット](#Reference-search-palette--リファレンス検索パレット)
 
@@ -130,6 +131,95 @@
 	![](res/img/rmenu_ref.png)
 - 「シンボルの名前変更」
 	![](res/img/rename_plugin_tag.png)
+
+
+---
+## Outline view and symbol search
+### outline display
+[View] - [Open View...] to display a list of symbols contained in the currently displayed file.
+　Symbols are "labels, macro definitions, text, and partial tags (those involved in conditional branching and processing flow changes).
+- [jump]
+- [call]
+- [event]
+- [button]
+- [link]
+- [s]
+- [if]
+- [elsif]
+- [else]
+
+ Select a symbol from the list and press the Enter key to go to that symbol.
+
+ For example, the template would look something like this
+
+- main .sn is prefixed by [event] system and [button] in the title.
+![](res/img/docsbl_0main.png)
+
+- sub .sn has a lot of macro definitions
+![](res/img/docsbl_1sub.png)
+
+- The text is text-centric
+![](res/img/docsbl_2ss000.png)
+
+- Although it is not included in the template, even if [if]-type tags and text are complexly intertwined
+![](res/img/docsbl_3ifs.png)
+
+### Symbol Search Support
+ Press the following keys to see a list of symbols in the file you are viewing.
+
+|mac	|windows	|
+--|--
+|command + shift + o	|Ctrl + Shift + o	|
+|Or command + p followed by @	|Or Ctrl + p followed by @	|
+
+ If you continue typing ":", it will be sorted by category, such as label or macro definition.
+ You can also select a symbol and press Enter to go to that symbol.
+
+![](res/img/docsbl_4search.png)
+
+
+## アウトライン表示とシンボル検索サポート
+### アウトライン表示
+【表示】-【ビューを開く...】から【アウトライン】を選ぶと、表示中のファイルに含まれるシンボル一覧が表示されます。
+　シンボルとは「ラベル、マクロ定義、テキスト、一部タグ（条件分岐と処理の流れ変更に関わるもの）」のことです。
+- [jump]
+- [call]
+- [event]
+- [button]
+- [link]
+- [s]
+- [if]
+- [elsif]
+- [else]
+
+　一覧からシンボルを選択し、Enterキーを押すとそのシンボルに移動します。
+
+　例えばテンプレートでは以下のような表示になります。
+
+- main .sn は最初の方に[event]系、タイトルの[button]がならぶ
+![](res/img/docsbl_0main.png)
+
+- sub .sn はマクロ定義がずらり
+![](res/img/docsbl_1sub.png)
+
+- 本文だとテキスト中心
+![](res/img/docsbl_2ss000.png)
+
+- テンプレートには含まれませんが、[if]系タグとテキストが複雑に絡み合っていてもこのとおり
+![](res/img/docsbl_3ifs.png)
+
+### シンボル検索サポート
+　以下のキーを押すと、表示しているファイル内のシンボルの一覧が表示されます。
+
+|mac	|windows	|
+--|--
+|command + shift + o	|Ctrl + Shift + o	|
+|もしくは command + p のち @	|もしくは Ctrl + p のち @	|
+
+　続けて「:」をタイプすると、ラベルやマクロ定義等のカテゴリごとにソートされます。
+　こちらもシンボルを選択し、Enterキーを押すとそのシンボルに移動します。
+
+![](res/img/docsbl_4search.png)
 
 
 ---

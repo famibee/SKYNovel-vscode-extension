@@ -42,6 +42,7 @@ class ScriptScanner {
         this.nm2Diag = {};
         this.isDuplicateMacroDef = false;
         this.wasDuplicateMacroDef = false;
+        this.hSn2aDsOutline = {};
         this.hScr2KeyWord = {};
         this.alzTagArg = new AnalyzeTagArg_1.AnalyzeTagArg;
         this.fncToken = this.procToken;
@@ -68,26 +69,26 @@ class ScriptScanner {
                     this.hSetWords['代入変数名'].add(v);
                 }
             },
-            'macro': (_setKw, uri, diags, p, token, len, rng, lineTkn, rng_nm) => {
+            'macro': (_setKw, uri, token, rngp1, diags, p, lineTkn, rng_nm) => {
                 var _a, _b;
                 const def_nm = (_a = this.alzTagArg.hPrm.name) === null || _a === void 0 ? void 0 : _a.val;
                 if (!def_nm) {
-                    diags.push(new vscode_1.Diagnostic(rng, `マクロ定義[${def_nm}]の属性が異常です`, vscode_1.DiagnosticSeverity.Error));
+                    diags.push(new vscode_1.Diagnostic(rngp1, `マクロ定義[${def_nm}]の属性が異常です`, vscode_1.DiagnosticSeverity.Error));
                     return;
                 }
                 if (this.hTag[def_nm]) {
-                    diags.push(new vscode_1.Diagnostic(rng, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
+                    diags.push(new vscode_1.Diagnostic(rngp1, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
                     return;
                 }
                 if (this.hPlugin[def_nm]) {
-                    diags.push(new vscode_1.Diagnostic(rng, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
+                    diags.push(new vscode_1.Diagnostic(rngp1, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, vscode_1.DiagnosticSeverity.Error));
                     return;
                 }
                 const loc = this.hMacro[def_nm];
                 if (!loc) {
                     const m = token.match(ScriptScanner.regValName);
                     if (!m) {
-                        diags.push(new vscode_1.Diagnostic(rng, `マクロ定義（[${def_nm}]）が異常です`, vscode_1.DiagnosticSeverity.Error));
+                        diags.push(new vscode_1.Diagnostic(rngp1, `マクロ定義（[${def_nm}]）が異常です`, vscode_1.DiagnosticSeverity.Error));
                         return;
                     }
                     const idx_name_v = ((_b = m.index) !== null && _b !== void 0 ? _b : 0) + (m[3] ? 1 : 0);
@@ -96,9 +97,14 @@ class ScriptScanner {
                     while ((j = token.lastIndexOf('\n', j - 1)) >= 0)
                         ++lineNmVal;
                     const line2 = p.line - lineTkn + lineNmVal;
-                    const col2 = ((lineNmVal == 0) ? p.col - len : 0)
+                    const col2 = ((lineNmVal == 0) ? p.col - token.length : 0)
                         + idx_name_v - token.lastIndexOf('\n', idx_name_v) - 1;
-                    this.hMacro[def_nm] = new vscode_1.Location(uri, new vscode_1.Range(line2, col2, line2, col2 + def_nm.length));
+                    const rng2 = new vscode_1.Range(line2, col2, line2, col2 + def_nm.length);
+                    this.hMacro[def_nm] = new vscode_1.Location(uri, rng2);
+                    const ds = new vscode_1.DocumentSymbol(def_nm, 'マクロ定義', vscode_1.SymbolKind.Class, rng2, rng2);
+                    this.aDsOutline.push(ds);
+                    this.aDsOutlineStack.push(this.aDsOutline);
+                    this.aDsOutline = ds.children;
                     return;
                 }
                 this.isDuplicateMacroDef = true;
@@ -110,6 +116,22 @@ class ScriptScanner {
                         this.clDiag.set(loc.uri, [dia]);
                 }
                 diags.push(new vscode_1.Diagnostic(rng_nm.with({ end: new vscode_1.Position(p.line, p.col + def_nm.length) }), `マクロ定義（[${def_nm}]）が重複`, vscode_1.DiagnosticSeverity.Error));
+            },
+            'endmacro': () => { var _a; return this.aDsOutline = (_a = this.aDsOutlineStack.pop()) !== null && _a !== void 0 ? _a : []; },
+            'if': (_setKw, _uri, token, rng) => {
+                const ds = new vscode_1.DocumentSymbol(token, '', vscode_1.SymbolKind.Function, rng, rng);
+                this.aDsOutline.push(ds);
+                this.aDsOutlineStack.push(this.aDsOutline);
+                this.aDsOutline = ds.children;
+            },
+            'elsif': (setKw, uri, token, rng, diags, p, lineTkn, rng_nm) => {
+                var _a;
+                this.hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+                this.aDsOutline = (_a = this.aDsOutlineStack.pop()) !== null && _a !== void 0 ? _a : [];
+            },
+            'endif': () => { var _a; return this.aDsOutline = (_a = this.aDsOutlineStack.pop()) !== null && _a !== void 0 ? _a : []; },
+            's': (_setKw, _uri, token, rng) => {
+                this.aDsOutline.push(new vscode_1.DocumentSymbol(token, '', vscode_1.SymbolKind.Function, rng, rng));
             },
             'let': (setKw) => {
                 var _a;
@@ -219,6 +241,7 @@ class ScriptScanner {
                 }
             },
         };
+        this.aDsOutlineStack = [];
         this.hTagProc['let_abs'] =
             this.hTagProc['let_char_at'] =
                 this.hTagProc['let_index_of'] =
@@ -228,6 +251,13 @@ class ScriptScanner {
                                 this.hTagProc['let_search'] =
                                     this.hTagProc['let_substr'] = this.hTagProc['let'];
         this.hTagProc['set_frame'] = this.hTagProc['let_frame'];
+        this.hTagProc['jump'] =
+            this.hTagProc['call'] =
+                this.hTagProc['event'] =
+                    this.hTagProc['button'] =
+                        this.hTagProc['link'] =
+                            this.hTagProc['return'] = this.hTagProc['s'];
+        this.hTagProc['else'] = this.hTagProc['elsif'];
     }
     bldCnvSnippet() {
         let eq = true;
@@ -274,6 +304,7 @@ class ScriptScanner {
         this.clDiag.clear();
         this.nm2Diag = {};
         this.hScr2KeyWord = {};
+        this.hSn2aDsOutline = {};
         CmnLib_1.treeProc(this.curPrj, url => this.scanFile(vscode_1.Uri.file(url)));
         for (const def_nm in this.hMacro) {
             if (def_nm in this.hMacroUse)
@@ -405,45 +436,22 @@ class ScriptScanner {
         const diags = this.nm2Diag[path];
         const hLabel = {};
         const setKw = this.hScr2KeyWord[path];
+        this.aDsOutline = this.hSn2aDsOutline[path] = [];
         this.fncToken = this.procToken = (p, token) => {
             var _a, _b;
             const uc = token.charCodeAt(0);
             const len = token.length;
+            if (uc == 9) {
+                p.col += len;
+                return;
+            }
             if (uc == 10) {
                 p.line += len;
                 p.col = 0;
                 return;
             }
-            if (uc == 59) {
-                const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
-                if (a) {
-                    const nm = a[1];
-                    (this.hMacroUse[nm] = (_a = this.hMacroUse[nm]) !== null && _a !== void 0 ? _a : [])
-                        .push(new vscode_1.Location(uri, new vscode_1.Range(p.line, p.col + 22, p.line, p.col + 22 + len)));
-                }
-                p.col += len;
-                return;
-            }
-            if ((uc == 42) && (token.length > 1)) {
-                const kw = `fn=${CmnLib_1.CmnLib.getFn(path)} label=${token}`;
-                this.hSetWords['ジャンプ先'].add(kw);
-                setKw.add(`ジャンプ先\t${kw}`);
-                if (token.charAt(1) == '*')
-                    return;
-                const rng = new vscode_1.Range(p.line, p.col, p.line, p.col + len);
-                if (token in hLabel) {
-                    const rng0 = hLabel[token];
-                    if (rng0) {
-                        diags.push(new vscode_1.Diagnostic(rng0, `同一スクリプトにラベル【${token}】が重複しています`, vscode_1.DiagnosticSeverity.Error));
-                        hLabel[token] = null;
-                    }
-                    diags.push(new vscode_1.Diagnostic(rng, `同一スクリプトにラベル【${token}】が重複しています`, vscode_1.DiagnosticSeverity.Error));
-                }
-                else
-                    hLabel[token] = rng;
-                return;
-            }
             if (uc == 38) {
+                p.col += len;
                 if (token.substr(-1) == '&')
                     return;
                 try {
@@ -457,13 +465,45 @@ class ScriptScanner {
                 catch { }
                 return;
             }
+            if (uc == 59) {
+                const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
+                if (a) {
+                    const nm = a[1];
+                    (this.hMacroUse[nm] = (_a = this.hMacroUse[nm]) !== null && _a !== void 0 ? _a : [])
+                        .push(new vscode_1.Location(uri, new vscode_1.Range(p.line, p.col + 22, p.line, p.col + 22 + len)));
+                }
+                p.col += len;
+                return;
+            }
+            const rng = new vscode_1.Range(p.line, p.col, p.line, p.col + len);
+            if ((uc == 42) && (token.length > 1)) {
+                p.col += len;
+                const kw = `fn=${CmnLib_1.CmnLib.getFn(path)} label=${token}`;
+                this.hSetWords['ジャンプ先'].add(kw);
+                setKw.add(`ジャンプ先\t${kw}`);
+                this.aDsOutline.push(new vscode_1.DocumentSymbol(token, '', vscode_1.SymbolKind.Key, rng, rng));
+                if (token.charAt(1) == '*')
+                    return;
+                if (token in hLabel) {
+                    const rng0 = hLabel[token];
+                    if (rng0) {
+                        diags.push(new vscode_1.Diagnostic(rng0, `同一スクリプトにラベル【${token}】が重複しています`, vscode_1.DiagnosticSeverity.Error));
+                        hLabel[token] = null;
+                    }
+                    diags.push(new vscode_1.Diagnostic(rng, `同一スクリプトにラベル【${token}】が重複しています`, vscode_1.DiagnosticSeverity.Error));
+                }
+                else
+                    hLabel[token] = rng;
+                return;
+            }
             if (uc != 91) {
                 p.col += len;
+                this.aDsOutline.push(new vscode_1.DocumentSymbol(token, '', vscode_1.SymbolKind.String, rng, rng));
                 return;
             }
             const a_tag = ScriptScanner.REG_TAG.exec(token);
             if (!a_tag) {
-                diags.push(new vscode_1.Diagnostic(new vscode_1.Range(p.line, p.col, p.line, p.col + len), `タグ記述【${token}】異常です`, vscode_1.DiagnosticSeverity.Error));
+                diags.push(new vscode_1.Diagnostic(rng, `タグ記述【${token}】異常です`, vscode_1.DiagnosticSeverity.Error));
                 p.col += len;
                 return;
             }
@@ -471,30 +511,31 @@ class ScriptScanner {
             let j = -1;
             while ((j = token.indexOf('\n', j + 1)) >= 0)
                 ++lineTkn;
-            const rng_nm = new vscode_1.Range(p.line, p.col, p.line, p.col + a_tag.groups.name.length);
             if (lineTkn <= 0)
                 p.col += len;
             else {
                 p.line += lineTkn;
                 p.col = len - token.lastIndexOf('\n') - 1;
                 if (lineTkn > 10)
-                    diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng_nm.start.line, rng_nm.start.character - 1, p.line, 0), `改行タグが10行を超えています`, vscode_1.DiagnosticSeverity.Warning));
+                    diags.push(new vscode_1.Diagnostic(new vscode_1.Range(rng.start.line, rng.start.character - 1, p.line, 0), `改行タグが10行を超えています`, vscode_1.DiagnosticSeverity.Warning));
             }
-            const rng = new vscode_1.Range(rng_nm.start.translate(0, 1), rng_nm.end.translate(0, 1));
             const use_nm = a_tag.groups.name;
-            this.hTagMacroUse[path].push({ nm: use_nm, rng: new vscode_1.Range(rng_nm.start, new vscode_1.Position(p.line, p.col)) });
+            this.hTagMacroUse[path].push({ nm: use_nm, rng: rng.with(undefined, new vscode_1.Position(p.line, p.col))
+            });
             if (use_nm in this.hPlugin)
                 return;
+            const rng_nm = new vscode_1.Range(rng.start, rng.end.translate(0, a_tag.groups.name.length - len));
+            const rngp1 = new vscode_1.Range(rng_nm.start.translate(0, 1), rng_nm.end.translate(0, 1));
             if (!(use_nm in this.hTag)) {
                 const mu = (_b = this.hMacroUse[use_nm]) !== null && _b !== void 0 ? _b : [];
-                mu.push(new vscode_1.Location(uri, rng));
+                mu.push(new vscode_1.Location(uri, rngp1));
                 this.hMacroUse[use_nm] = mu;
                 return;
             }
             const fnc = this.hTagProc[use_nm];
             if (fnc) {
                 this.alzTagArg.go(a_tag.groups.args);
-                fnc(setKw, uri, diags, p, token, len, rng, lineTkn, rng_nm);
+                fnc(setKw, uri, token, rngp1, diags, p, lineTkn, rng_nm);
             }
         };
         const p = { line: 0, col: 0 };

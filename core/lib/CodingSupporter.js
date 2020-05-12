@@ -13,9 +13,11 @@ class CodingSupporter {
         this.hArgDesc = {};
         this.tidDelay = null;
         this.hChgTxt = {};
+        this.hRsvNm2Then = {};
         this.nm4rename = '';
         this.aCITagMacro = [];
         this.preSigHelp = new vscode_1.SignatureHelp();
+        this.hScr2Pro = {};
         this.crePrj = (_) => this.scrScn.goAll();
         this.chgPrj = (uri) => this.scrScn.goFile(uri);
         this.delPrj = (_) => this.scrScn.goAll();
@@ -63,10 +65,10 @@ ${md.comment}`, true);
         ctx.subscriptions.push(this.clDiag);
         ctx.subscriptions.push(vscode_1.languages.registerCompletionItemProvider(doc_sel, this, '[', ' ', '='));
         ctx.subscriptions.push(vscode_1.languages.registerSignatureHelpProvider(doc_sel, this, ' '));
+        ctx.subscriptions.push(vscode_1.languages.registerDocumentSymbolProvider(doc_sel, this));
         vscode_1.workspace.onDidChangeTextDocument(e => {
             const doc = e.document;
             if (e.contentChanges.length == 0
-                || !doc.isDirty
                 || doc.languageId != 'skynovel'
                 || doc.fileName.slice(0, this.lenRootPath - 1) != vscode_1.workspace.rootPath)
                 return;
@@ -84,6 +86,9 @@ ${md.comment}`, true);
             const doc = o[fn];
             this.scrScn.goScriptSrc(doc.uri, doc.getText());
         }
+        for (const rsv_nm in this.hRsvNm2Then)
+            this.hRsvNm2Then[rsv_nm]();
+        this.hRsvNm2Then = {};
     }
     static initClass(ctx) {
         CodingSupporter.initClass = () => { };
@@ -357,6 +362,16 @@ ${md.detail}`));
         }
         const arg_nm = inp.slice(0, includesEq);
         return md.param.findIndex(p => p.name == arg_nm);
+    }
+    provideDocumentSymbols(doc, _token) {
+        const path = doc.uri.path;
+        if (doc.isDirty && (path in this.hScr2Pro))
+            return new Promise(rs => this.hRsvNm2Then['アウトライン'] = () => {
+                var _a;
+                rs((_a = this.scrScn.hSn2aDsOutline[path]) !== null && _a !== void 0 ? _a : []);
+            });
+        this.hScr2Pro[path] = 1;
+        return new Promise(rs => { var _a; return rs((_a = this.scrScn.hSn2aDsOutline[path]) !== null && _a !== void 0 ? _a : []); });
     }
     setHDefPlg(hDefPlg) { this.scrScn.hPlugin = hDefPlg; }
     setEscape(ce) { this.scrScn.setEscape(ce); }

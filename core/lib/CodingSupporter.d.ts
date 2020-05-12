@@ -1,5 +1,5 @@
-import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, SignatureHelpProvider, SignatureHelpContext, SignatureHelp } from 'vscode';
-export declare class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider {
+import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, DocumentSymbolProvider, SymbolInformation, DocumentSymbol } from 'vscode';
+export declare class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
     private readonly lenRootPath;
     private static readonly pickItems;
     private static hTag;
@@ -11,6 +11,7 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     constructor(ctx: ExtensionContext, curPrj: string);
     private tidDelay;
     private hChgTxt;
+    private hRsvNm2Then;
     private delayedUpdate;
     private static initClass;
     private static readonly regTagName;
@@ -31,6 +32,8 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     provideSignatureHelp(doc: TextDocument, pos: Position, _token: CancellationToken, shc: SignatureHelpContext): ProviderResult<SignatureHelp>;
     private static readonly REG_FIELD;
     private searchArgName;
+    private hScr2Pro;
+    provideDocumentSymbols(doc: TextDocument, _token: CancellationToken): ProviderResult<SymbolInformation[] | DocumentSymbol[]>;
     setHDefPlg(hDefPlg: {
         [def_nm: string]: Location;
     }): void;

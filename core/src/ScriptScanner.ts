@@ -8,7 +8,7 @@
 import {treeProc, CmnLib} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 
-import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace} from 'vscode';
+import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind} from 'vscode';
 
 import fs = require('fs-extra');
 
@@ -22,7 +22,7 @@ interface Pos {
 	col		: number;
 }
 interface FncTagProc {
-	(setKw: Set<string>, uri: Uri, diags: Diagnostic[], p: Pos, token: string, len: number, rng: Range, lineTkn: number, rng_nm: Range): void;
+	(setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range): void;
 }
 
 export class ScriptScanner {
@@ -36,6 +36,13 @@ export class ScriptScanner {
 		this.hTagProc['let_search'] =
 		this.hTagProc['let_substr'] = this.hTagProc['let'];
 		this.hTagProc['set_frame'] = this.hTagProc['let_frame'];
+		this.hTagProc['jump'] =
+		this.hTagProc['call'] =
+		this.hTagProc['event'] =
+		this.hTagProc['button'] =
+		this.hTagProc['link'] =
+		this.hTagProc['return'] = this.hTagProc['s'];
+		this.hTagProc['else'] = this.hTagProc['elsif'];
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
@@ -137,6 +144,8 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 	private	nm2Diag	: {[url: string]: Diagnostic[]}= {};
 	private	isDuplicateMacroDef		= false;
 	private	wasDuplicateMacroDef	= false;
+	hSn2aDsOutline	: {[sn: string]: DocumentSymbol[]}	= {};
+	aDsOutline		: DocumentSymbol[];
 	goAll() {
 		this.isDuplicateMacroDef = false;
 		this.hMacro = {};
@@ -146,6 +155,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.clDiag.clear();
 		this.nm2Diag = {};
 		this.hScr2KeyWord = {};
+		this.hSn2aDsOutline = {};
 
 		treeProc(this.curPrj, url=> this.scanFile(Uri.file(url)));
 
@@ -315,10 +325,26 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			// ラベル重複チェック用
 		const setKw = this.hScr2KeyWord[path];
 			// キーワード削除チェック用
+		this.aDsOutline = this.hSn2aDsOutline[path] = [];
 		this.fncToken = this.procToken = (p: Pos, token: string)=> {
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
 			const len = token.length;
+			if (uc == 9) {p.col += len; return;}	// \t タブ
 			if (uc == 10) {p.line += len; p.col = 0; return;}	// \n 改行
+			if (uc == 38) {	// & 変数操作・変数表示
+				p.col += len;
+				if (token.substr(-1) == '&') return;
+				//変数操作
+				try {
+					const o = ScriptScanner.splitAmpersand(token.slice(1));
+					if (o.name.charAt(0) != '&') {
+						const kw = o.name.trimEnd();
+						this.hSetWords['代入変数名'].add(kw);
+						setKw.add(`代入変数名\t${kw}`);
+					}
+				} catch {}
+				return;
+			}
 			if (uc == 59) {	// ; コメント
 				const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
 				if (a) {
@@ -332,16 +358,19 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				p.col += len;
 				return;
 			}
+			const rng = new Range(
+				p.line, p.col,
+				p.line, p.col +len
+			);
 			if ((uc == 42) && (token.length > 1)) {	// * ラベル
+				p.col += len;
+
 				const kw = `fn=${CmnLib.getFn(path)} label=${token}`;
 				this.hSetWords['ジャンプ先'].add(kw);
 				setKw.add(`ジャンプ先\t${kw}`);
-
+				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
 				if (token.charAt(1) == '*') return;	// 無名ラベルは除外
-				const rng = new Range(
-					p.line, p.col,
-					p.line, p.col +len
-				);
+
 				if (token in hLabel) {
 					const rng0 = hLabel[token];
 					if (rng0) {
@@ -353,64 +382,52 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				else hLabel[token] = rng;
 				return;
 			}
-			if (uc == 38) {	// & 変数操作・変数表示
-				if (token.substr(-1) == '&') return;
-				//変数操作
-				try {
-					const o = ScriptScanner.splitAmpersand(token.slice(1));
-					if (o.name.charAt(0) != '&') {
-						const kw = o.name.trimEnd();
-						this.hSetWords['代入変数名'].add(kw);
-						setKw.add(`代入変数名\t${kw}`);
-					}
-				} catch {}
+			if (uc != 91) {	// 文字表示
+				p.col += len;
+
+				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.String, rng, rng));
 				return;
 			}
-			if (uc != 91) {p.col += len; return;}	// [ タグ開始
 
+			// [ タグ開始
 			const a_tag: any = ScriptScanner.REG_TAG.exec(token);
 			if (! a_tag) {	// []、[ ]など
-				diags.push(new Diagnostic(new Range(
-					p.line, p.col,
-					p.line, p.col +len
-				), `タグ記述【${token}】異常です`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rng, `タグ記述【${token}】異常です`, DiagnosticSeverity.Error));
 				p.col += len;
 				return;
 			}
 
-			// 複数行事の行カウント補正
+			// 複数行での行カウント補正
 			let lineTkn = 0;
 			let j = -1;
 			while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
-
-			const rng_nm = new Range(
-				p.line, p.col,
-				p.line, p.col +a_tag.groups.name.length
-			);
 			if (lineTkn <= 0) p.col += len;
 			else {
 				p.line += lineTkn;
 				p.col = len -token.lastIndexOf('\n') -1;
 				if (lineTkn > 10) diags.push(new Diagnostic(new Range(
-					rng_nm.start.line, rng_nm.start.character -1,
+					rng.start.line, rng.start.character -1,
 					p.line, 0
 				), `改行タグが10行を超えています`, DiagnosticSeverity.Warning));
 			}
 
-			const rng = new Range(
+			const use_nm = a_tag.groups.name;
+			this.hTagMacroUse[path].push({nm: use_nm, rng:
+				rng.with(undefined, new Position(p.line, p.col))
+			});
+			if (use_nm in this.hPlugin) return;
+
+			const rng_nm = new Range(
+				rng.start,
+				rng.end.translate(0, a_tag.groups.name.length -len)
+			);
+			const rngp1 = new Range(
 				rng_nm.start.translate(0, 1),
 				rng_nm.end.translate(0, 1),
 			);
-			const use_nm = a_tag.groups.name;
-			this.hTagMacroUse[path].push({nm: use_nm, rng: new Range(
-				rng_nm.start,
-				new Position(p.line, p.col),
-			)});
-
-			if (use_nm in this.hPlugin) return;
 			if (! (use_nm in this.hTag)) {
 				const mu = this.hMacroUse[use_nm] ?? [];	// 使用箇所更新
-				mu.push(new Location(uri, rng));
+				mu.push(new Location(uri, rngp1));
 				this.hMacroUse[use_nm] = mu;
 				return;
 			}
@@ -418,7 +435,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			const fnc = this.hTagProc[use_nm];
 			if (fnc) {
 				this.alzTagArg.go(a_tag.groups.args);
-				fnc(setKw, uri, diags, p, token, len, rng, lineTkn, rng_nm);
+				fnc(setKw, uri, token, rngp1, diags, p, lineTkn, rng_nm);
 			}
 		};
 
@@ -449,19 +466,19 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			}
 		},
 
-		'macro': (_setKw: Set<string>, uri: Uri, diags: Diagnostic[], p: Pos, token: string, len: number, rng: Range, lineTkn: number, rng_nm: Range)=> {	
+		'macro': (_setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
 			const def_nm = this.alzTagArg.hPrm.name?.val;
 			if (! def_nm) {	// [macro name=]など
-				diags.push(new Diagnostic(rng, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rngp1, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
 				return;
 			}
 
 			if (this.hTag[def_nm]) {
-				diags.push(new Diagnostic(rng, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rngp1, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
 				return;
 			}
 			if (this.hPlugin[def_nm]) {
-				diags.push(new Diagnostic(rng, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rngp1, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
 				return;
 			}
 
@@ -469,23 +486,28 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			if (! loc) {	// 新規マクロ定義を登録
 				const m = token.match(ScriptScanner.regValName);
 				if (! m) {	// 失敗ケースが思い当たらない
-					diags.push(new Diagnostic(rng, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
+					diags.push(new Diagnostic(rngp1, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
 					return;
 				}
 
 				const idx_name_v = (m.index ?? 0) +(m[3] ?1 :0);	// '"#分
-
 				let lineNmVal = 0;
 				let j = idx_name_v;
 				while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
-
 				const line2 = p.line -lineTkn +lineNmVal;
-				const col2 = ((lineNmVal == 0) ?p.col -len :0)
+				const col2 = ((lineNmVal == 0) ?p.col -token.length :0)
 					+ idx_name_v -token.lastIndexOf('\n', idx_name_v) -1;
-				this.hMacro[def_nm] = new Location(uri, new Range(
+				const rng2 = new Range(
 					line2, col2,
 					line2, col2 +def_nm.length,
-				));
+				);
+				this.hMacro[def_nm] = new Location(uri, rng2);
+
+				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
+				this.aDsOutline.push(ds);
+				this.aDsOutlineStack.push(this.aDsOutline);
+				this.aDsOutline = ds.children;
+
 				return;
 			}
 
@@ -502,6 +524,25 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				`マクロ定義（[${def_nm}]）が重複`,
 				DiagnosticSeverity.Error
 			));
+		},
+		'endmacro': ()=> this.aDsOutline = this.aDsOutlineStack.pop() ?? [],
+
+		'if': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
+			const ds = new DocumentSymbol(token, '', SymbolKind.Function, rng, rng);
+			this.aDsOutline.push(ds);
+			this.aDsOutlineStack.push(this.aDsOutline);
+			this.aDsOutline = ds.children;
+		},
+		'elsif': (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+			this.hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+
+			this.aDsOutline = this.aDsOutlineStack.pop() ?? [];
+		},
+		//'else':  == elsif
+		'endif': ()=> this.aDsOutline = this.aDsOutlineStack.pop() ?? [],
+
+		's': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
+			this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Function, rng, rng));
 		},
 
 		'let': (setKw: Set<string>)=> {
@@ -589,6 +630,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			}
 		},
 	};
+	private	readonly	aDsOutlineStack		: DocumentSymbol[][]	= [];
 
 
 	private	static	splitAmpersand(token: string): {
