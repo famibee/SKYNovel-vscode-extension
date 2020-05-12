@@ -153,15 +153,19 @@
  For example, the template would look something like this
 
 - main .sn is prefixed by [event] system and [button] in the title.
+
 ![](res/img/docsbl_0main.png)
 
 - sub .sn has a lot of macro definitions
+
 ![](res/img/docsbl_1sub.png)
 
 - The text is text-centric
+
 ![](res/img/docsbl_2ss000.png)
 
 - Although it is not included in the template, even if [if]-type tags and text are complexly intertwined
+
 ![](res/img/docsbl_3ifs.png)
 
 ### Symbol Search
@@ -197,15 +201,19 @@
 　例えばテンプレートでは以下のような表示になります。
 
 - main .sn は最初の方に[event]系、タイトルの[button]がならぶ
+
 ![](res/img/docsbl_0main.png)
 
 - sub .sn はマクロ定義がずらり
+
 ![](res/img/docsbl_1sub.png)
 
 - 本文だとテキスト中心
+
 ![](res/img/docsbl_2ss000.png)
 
 - テンプレートには含まれませんが、[if]系タグとテキストが複雑に絡み合っていてもこのとおり
+
 ![](res/img/docsbl_3ifs.png)
 
 ### シンボル検索サポート
