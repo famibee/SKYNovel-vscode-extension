@@ -1,23 +1,26 @@
 {
 	"name": "skynovel",
-	"displayName": "SKYNovel",
-	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
-	"version": "2.1.1",
-	"author": "miyazawa famibee",
+	"version": "2.2.0",
 	"publisher": "famibee",
-	"license": "MIT",
 	"engines": {
 		"vscode": "^1.45.0"
 	},
+	"license": "MIT",
+	"displayName": "SKYNovel",
+	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
 	"categories": [
 		"Programming Languages",
+		"Snippets",
+		"Debuggers",
 		"Other"
 	],
-	"icon": "res/img/icon_skynovel.png",
-	"activationEvents": [
-		"onLanguage:skynovel",
-		"onCommand:skynovel.openReferencePallet",
-		"workspaceContains:prj/prj.json"
+	"keywords": [
+		"skynovel",
+		"vscode",
+		"vscode-extension",
+		"vscode-plugin",
+		"typescript",
+		"multi-root ready"
 	],
 	"main": "core/lib/extension.js",
 	"contributes": {
@@ -40,6 +43,26 @@
 				"language": "skynovel",
 				"scopeName": "source.skynovel",
 				"path": "res/sn.tmLanguage.json"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "skynovel",
+				"label": "SKYNovel Debug",
+				"languages": [
+					"skynovel",
+					"typescript",
+					"javascript"
+				],
+				"initialConfigurations": [
+					{
+						"name": "ローカルホストにChrome起動で接続",
+						"request": "launch",
+						"type": "chrome",
+						"url": "http://localhost:8080/web.htm",
+						"webRoot": "${workspaceFolder}"
+					}
+				]
 			}
 		],
 		"commands": [
@@ -519,6 +542,32 @@
 			}
 		]
 	},
+	"activationEvents": [
+		"onLanguage:skynovel",
+		"onCommand:skynovel.openReferencePallet",
+		"workspaceContains:prj/prj.json"
+	],
+	"author": "miyazawa famibee",
+	"dependencies": {
+		"crc-32": "^1.2.0",
+		"crypto-js": "^4.0.0",
+		"fs-extra": "^9.0.0",
+		"image-size": "^0.8.3",
+		"uuid": "^8.0.0",
+		"vscode-debugadapter": "^1.40.0",
+		"vscode-debugprotocol": "^1.40.0"
+	},
+	"devDependencies": {
+		"@types/crypto-js": "^3.1.45",
+		"@types/fs-extra": "^8.1.0",
+		"@types/mocha": "^7.0.2",
+		"@types/node": "^14.0.1",
+		"@types/uuid": "^7.0.3",
+		"@types/vscode": "^1.45.0",
+		"typescript": "^3.9.2",
+		"vscode-debugadapter-testsupport": "^1.40.3",
+		"vscode-test": "^1.3.0"
+	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p core/",
@@ -527,36 +576,12 @@
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
-		"package": "vsce package",
+		"publish": "vsce package",
 		"md2json": "node core/lib/md2json.js",
 		"test": "npm run compile && node ./node_modules/vscode/bin/test",
 		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i"
 	},
-	"dependencies": {
-		"crc-32": "^1.2.0",
-		"crypto-js": "^4.0.0",
-		"fs-extra": "^9.0.0",
-		"image-size": "^0.8.3",
-		"uuid": "^8.0.0"
-	},
-	"devDependencies": {
-		"@types/crypto-js": "^3.1.45",
-		"@types/fs-extra": "^8.1.0",
-		"@types/mocha": "^7.0.2",
-		"@types/node": "^13.13.5",
-		"@types/uuid": "^7.0.2",
-		"@types/vscode": "^1.45.0",
-		"typescript": "^3.8.3",
-		"vscode-test": "^1.3.0"
-	},
-	"keywords": [
-		"skynovel",
-		"vscode",
-		"vscode-extension",
-		"vscode-plugin",
-		"typescript",
-		"multi-root ready"
-	],
+	"icon": "res/img/icon_skynovel.png",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/famibee/SKYNovel-vscode-extension.git"

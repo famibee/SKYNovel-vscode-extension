@@ -1,3 +1,6 @@
+## v2.2.0
+- breaking change：新テンプレ「doc」フォルダ構成変更（prj→doc/prj）対応（後方互換性なし）
+- upd：Nodeパッケージを最新Active LTSに更新（v12.16.3）
 ## v2.1.1
 - add：アウトライン表示タグに[jump][call][event][button][link]追加
 - bug：後で開いたスクリプトでアウトライン表示されない件

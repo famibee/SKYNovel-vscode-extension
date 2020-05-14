@@ -15,7 +15,7 @@
 		},
 		{
 			"type": "npm",
-			"script": "package",
+			"script": "publish",
 			"problemMatcher": []
 		},
 		{
@@ -34,11 +34,6 @@
 		{
 			"type": "npm",
 			"script": "version:minor",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "compile",
 			"problemMatcher": []
 		}
 	]

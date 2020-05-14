@@ -8,14 +8,11 @@
 import {CmnLib} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
+//import {MockDebugSession} from './mockDebug';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
 
 import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, DocumentSymbolProvider, SymbolInformation, DocumentSymbol} from 'vscode';
-
-function openTagRef(v: QuickPickItem) {
-	commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
-}
 
 
 export class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
@@ -108,6 +105,43 @@ ${md.comment}`, true
 		// アウトライン
 		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(doc_sel, this));
 
+		// ctx.subscriptions.push(debug.registerDebugConfigurationProvider(doc_sel.language, {
+		/*
+			"name": "ローカルホストにChrome起動で接続",
+			"request": "launch",
+			"type": "chrome",
+			"url": "http://localhost:8080/web.htm",
+			"webRoot": "${workspaceFolder}",
+
+			"preLaunchTask": "npm: server4debugger"
+
+			"postDebugTask": "",
+			"skipFiles": []
+		*/
+
+
+		// debug adapters can be run in different ways by using a vscode.DebugAdapterDescriptorFactory:
+/*		const dadf: DebugAdapterDescriptorFactory = {
+			createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
+				return new DebugAdapterInlineImplementation(
+					new MockDebugSession()
+				);
+			}
+		};
+		ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory('mock', dadf));
+		if ('dispose' in dadf) ctx.subscriptions.push(dadf);
+*/
+		// override VS Code's default implementation of the debug hover
+		/*
+		vscode.languages.registerEvaluatableExpressionProvider('markdown', {
+			provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
+				const wordRange = document.getWordRangeAtPosition(position);
+				return wordRange ? new vscode.EvaluatableExpression(wordRange) : undefined;
+			}
+		});
+		*/
+
+
 		// TODO: ラベルジャンプ
 		//	https://code.visualstudio.com/api/language-extensions/programmatic-language-features
 		// languages.registerHoverProvider
@@ -165,8 +199,11 @@ ${md.comment}`, true
 				'placeHolder': 'Which reference will you open?',
 				'matchOnDescription': true,
 			};
-			window.showQuickPick<QuickPickItem>(CodingSupporter.pickItems, op).then(q=> {if (q) openTagRef(q)});
+			window.showQuickPick<QuickPickItem>(CodingSupporter.pickItems, op).then(q=> {if (q) CodingSupporter.openTagRef(q)});
 		}));
+	}
+	private static openTagRef(v: QuickPickItem) {
+		commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
 	}
 
 
@@ -230,7 +267,7 @@ ${md.detail}`
 			const loc = this.scrScn.hMacro[nm] ?? this.scrScn.hPlugin[nm];
 			if (loc) return re(loc);
 			const q = CodingSupporter.pickItems.find(q=> q.label == nm);
-			if (q) {openTagRef(q); return re();}
+			if (q) {CodingSupporter.openTagRef(q); return re();}
 
 			return rj('No definition found');
 		});
@@ -474,6 +511,30 @@ ${md.detail}`
 		return new Promise(rs=> rs(this.scrScn.hSn2aDsOutline[path] ?? []));
 	}
 
+/*
+	// 
+	resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, config: DebugConfiguration, _token?: CancellationToken): ProviderResult<DebugConfiguration> {
+		// if launch.json is missing or empty
+		if (! config.type && ! config.request && ! config.name) {
+			const ed = window.activeTextEditor;
+			if (ed?.document.languageId === 'skynovel') {
+				config.type = 'mock';
+				config.name = 'Launch';
+				config.request = 'launch';
+				config.program = '${file}';
+				config.stopOnEntry = true;
+			}
+		}
+
+		if (! config.program) {
+			return window.showInformationMessage('Cannot find a program to debug').then(_ => {
+				return undefined;	// abort launch
+			});
+		}
+
+		return config;
+	}
+*/
 
 	setHDefPlg(hDefPlg: {[def_nm: string]: Location}) {this.scrScn.hPlugin = hDefPlg}
 

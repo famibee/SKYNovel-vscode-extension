@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.TreeDPDoc = void 0;
 const CmnLib_1 = require("./CmnLib");
 const vscode_1 = require("vscode");
 class TreeDPDoc {

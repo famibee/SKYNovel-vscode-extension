@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CmnLib = exports.replaceFile = exports.foldProc = exports.treeProc = exports.regNoUseSysPath = exports.statBreak = exports.is_mac = exports.is_win = exports.oIcon = exports.uint = void 0;
 const vscode_1 = require("vscode");
 function uint(o) {
     const v = parseInt(String(o), 10);
@@ -70,8 +71,11 @@ async function replaceFile(src, r, rep, dest = src) {
     }
 }
 exports.replaceFile = replaceFile;
-class CmnLib {
-}
+let CmnLib = (() => {
+    class CmnLib {
+    }
+    CmnLib.getFn = (path) => m_path.basename(path, m_path.extname(path));
+    return CmnLib;
+})();
 exports.CmnLib = CmnLib;
-CmnLib.getFn = (path) => m_path.basename(path, m_path.extname(path));
 //# sourceMappingURL=CmnLib.js.map

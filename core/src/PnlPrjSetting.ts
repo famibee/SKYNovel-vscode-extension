@@ -22,10 +22,10 @@ export class PnlPrjSetting {
 
 
 	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly ss: CodingSupporter) {
-		this.fnPrj = dir +'/prj/';
-		this.fnPrjJs = dir +'/prj/prj.json';
+		this.fnPrj = dir +'/doc/prj/';
+		this.fnPrjJs = this.fnPrj +'prj.json';
+		this.fnAppJs = dir +'/doc/app.js';
 		this.fnPkgJs = dir +'/package.json';
-		this.fnAppJs = dir +'/app.js';
 
 		if (PnlPrjSetting.htmSrc) {
 			if (this.oCfg.save_ns == 'hatsune' ||

@@ -14,6 +14,7 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     private hRsvNm2Then;
     private delayedUpdate;
     private static initClass;
+    private static openTagRef;
     private static readonly regTagName;
     provideHover(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Hover>;
     provideDefinition(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;

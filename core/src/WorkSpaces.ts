@@ -157,7 +157,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.aTiRoot.push(t);
 
 		const existPkgJS = fs.existsSync(dir +'/package.json');
-		const existPrjJS = fs.existsSync(dir +'/prj/prj.json');
+		const existPrjJS = fs.existsSync(dir +'/doc/prj/prj.json');
 		if (! existPkgJS || ! existPrjJS) {
 			const ti = new TreeItem(`${existPkgJS ?'prj' :'package'}.json がありません`);
 			ti.iconPath = oIcon('warn');

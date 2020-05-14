@@ -70,7 +70,7 @@ export class Project {
 	private				hDiff	= Object.create(null);
 
 	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
-		this.curPrj = dir +'/prj/';
+		this.curPrj = dir +'/doc/prj/';
 		this.codSpt = new CodingSupporter(ctx, this.curPrj);
 
 		this.curPlg = dir +'/core/plugin/';
