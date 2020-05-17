@@ -167,8 +167,8 @@
         "affectsGlobalScope": true
       },
       "../src/cmnlib.ts": {
-        "version": "38dc902bf1ed61312459ddcda21573a565bdd1faf887a5cafc6b8fa076685db6",
-        "signature": "f7a09ba229df61167c213bc2f6efe0303d98efdfef1511870387eaa2d4b997ba",
+        "version": "2920d23b3ce7f8089c60abfdf31b2f87423f1b06ca6567b58a43095dfa7a455d",
+        "signature": "1071e1056e0493cdce0eabf73f74fba722978c7437f4b953b5aa6fbcfd9a45d4",
         "affectsGlobalScope": false
       },
       "../src/analyzetagarg.ts": {
@@ -189,6 +189,11 @@
       "../../node_modules/@types/node/buffer.d.ts": {
         "version": "61215c1a376bbe8f51cab4cc4ddbf3746387015113c37a84d981d4738c21b878",
         "signature": "61215c1a376bbe8f51cab4cc4ddbf3746387015113c37a84d981d4738c21b878",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/events/index.d.ts": {
+        "version": "400db42c3a46984118bff14260d60cec580057dc1ab4c2d7310beb643e4f5935",
+        "signature": "400db42c3a46984118bff14260d60cec580057dc1ab4c2d7310beb643e4f5935",
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/child_process.d.ts": {
@@ -467,7 +472,7 @@
         "affectsGlobalScope": false
       },
       "../src/activitybar.ts": {
-        "version": "b1ce6735d16ba82a1e3d5c73fe74341955648f26a181f21f5bdd513c88ef5f61",
+        "version": "79ff446172ef470348bb78fdfca1c6011b571bdea8d46191f194c772093e987e",
         "signature": "01acf63b377fa280da2acd2403c3019712a7de523a08cb330c668edcdf9159d3",
         "affectsGlobalScope": false
       },
@@ -531,6 +536,16 @@
         "signature": "54a3ea9626950f8020b041da2178134a168b8e6ef22d3a7f2d6023cc07cfe9c6",
         "affectsGlobalScope": false
       },
+      "../../node_modules/@types/minimatch/index.d.ts": {
+        "version": "1d1e6bd176eee5970968423d7e215bfd66828b6db8d54d17afec05a831322633",
+        "signature": "1d1e6bd176eee5970968423d7e215bfd66828b6db8d54d17afec05a831322633",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/glob/index.d.ts": {
+        "version": "d852d6282c8dc8156d26d6bda83ab4bde51fee05ba2fe0ecdc165ddda009d3ee",
+        "signature": "d852d6282c8dc8156d26d6bda83ab4bde51fee05ba2fe0ecdc165ddda009d3ee",
+        "affectsGlobalScope": false
+      },
       "../../node_modules/@types/mocha/index.d.ts": {
         "version": "f24768499dab9a34c0aff9c9e3fbfe5117001bfabba4a1db01a17df086d6a606",
         "signature": "f24768499dab9a34c0aff9c9e3fbfe5117001bfabba4a1db01a17df086d6a606",
@@ -564,15 +579,15 @@
       "noUnusedLocals": true,
       "noUnusedParameters": true,
       "allowUnreachableCode": false,
-      "allowUnusedLabels": false,
-      "suppressExcessPropertyErrors": false,
+      "allowUnusedLabels": true,
+      "suppressExcessPropertyErrors": true,
       "suppressImplicitAnyIndexErrors": false,
+      "strictPropertyInitialization": false,
       "incremental": true,
       "lib": [
         "lib.es2019.d.ts"
       ],
       "project": "..",
-      "watch": true,
       "configFilePath": "../tsconfig.json"
     },
     "referencedMap": {
@@ -698,11 +713,32 @@
         "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/util.d.ts"
       ],
+      "../../node_modules/@types/events/index.d.ts": [
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
       "../../node_modules/@types/fs-extra/index.d.ts": [
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/ts3.7/index.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
+      "../../node_modules/@types/glob/index.d.ts": [
+        "../../node_modules/@types/minimatch/index.d.ts",
+        "../../node_modules/@types/node/events.d.ts",
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
+        "../../node_modules/@types/node/ts3.7/index.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
+      "../../node_modules/@types/minimatch/index.d.ts": [
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/util.d.ts"
       ],
       "../../node_modules/@types/mocha/index.d.ts": [
@@ -1388,6 +1424,9 @@
       "../src/activitybar.ts": [
         "../../node_modules/@types/vscode/index.d.ts"
       ],
+      "../src/cmnlib.ts": [
+        "../../node_modules/@types/vscode/index.d.ts"
+      ],
       "../src/codingsupporter.ts": [
         "../../node_modules/@types/vscode/index.d.ts"
       ],
@@ -1423,11 +1462,32 @@
         "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/util.d.ts"
       ],
+      "../../node_modules/@types/events/index.d.ts": [
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
       "../../node_modules/@types/fs-extra/index.d.ts": [
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/fs.d.ts",
         "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/ts3.7/index.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
+      "../../node_modules/@types/glob/index.d.ts": [
+        "../../node_modules/@types/minimatch/index.d.ts",
+        "../../node_modules/@types/node/events.d.ts",
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
+        "../../node_modules/@types/node/ts3.7/index.d.ts",
+        "../../node_modules/@types/node/util.d.ts"
+      ],
+      "../../node_modules/@types/minimatch/index.d.ts": [
+        "../../node_modules/@types/node/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/fs.d.ts",
+        "../../node_modules/@types/node/ts3.2/util.d.ts",
         "../../node_modules/@types/node/util.d.ts"
       ],
       "../../node_modules/@types/mocha/index.d.ts": [
@@ -2124,7 +2184,10 @@
       "../src/treedpdoc.ts",
       "../src/workspaces.ts",
       "../../node_modules/@types/crypto-js/index.d.ts",
+      "../../node_modules/@types/events/index.d.ts",
       "../../node_modules/@types/fs-extra/index.d.ts",
+      "../../node_modules/@types/glob/index.d.ts",
+      "../../node_modules/@types/minimatch/index.d.ts",
       "../../node_modules/@types/mocha/index.d.ts",
       "../../node_modules/@types/node/async_hooks.d.ts",
       "../../node_modules/@types/node/base.d.ts",

@@ -12,10 +12,8 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"preLaunchTask": "npm: watch"
+			"preLaunchTask": "dbg start",
+			"postDebugTask": "dbg stop"
 		}
 	]
 }

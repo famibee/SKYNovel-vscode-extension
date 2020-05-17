@@ -5,16 +5,19 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {workspace} from 'vscode';
+import {workspace, ExtensionContext} from 'vscode';
 
 // =============== Global
 export function uint(o: any): number {
 	const v = parseInt(String(o), 10);
 	return v < 0 ? -v : v;
 }
+
+export function setCtx4(ctx0: ExtensionContext) {extPath = ctx0.extensionPath;}
+let extPath = '';
 export function oIcon(name: string) {return {
-	light: `${__filename}/../../../res/light/${name}.svg`,
-	dark: `${__filename}/../../../res/dark/${name}.svg`
+	light: `${extPath}/res/light/${name}.svg`,
+	dark: `${extPath}/res/dark/${name}.svg`,
 }};
 
 

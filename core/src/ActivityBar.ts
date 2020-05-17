@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, is_win, is_mac} from './CmnLib';
+import {oIcon, setCtx4, is_win, is_mac} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {TreeDPDoc} from './TreeDPDoc';
 
@@ -24,6 +24,8 @@ enum eTree {
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
+		setCtx4(ctx);
+
 		ActivityBar.actBar = new ActivityBar(ctx);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
 		ActivityBar.trDPWss = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);

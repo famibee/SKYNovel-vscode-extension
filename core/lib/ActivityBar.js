@@ -35,6 +35,7 @@ let ActivityBar = (() => {
             ctx.subscriptions.push(vscode_1.commands.registerCommand('skynovel.opNodeSite', () => vscode_1.env.openExternal(vscode_1.Uri.parse('https://nodejs.org/ja/'))));
         }
         static start(ctx) {
+            CmnLib_1.ctx4Icon(ctx);
             ActivityBar.actBar = new ActivityBar(ctx);
             ctx.subscriptions.push(vscode_1.window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
             ActivityBar.trDPWss = new WorkSpaces_1.WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);

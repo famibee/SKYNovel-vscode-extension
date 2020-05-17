@@ -1,3 +1,7 @@
+## v2.2.1
+- upd：webpackによりモジュールバンドル
+- add：【デバッグ機能実行時】にも拡張機能起動するように
+- upd：ライブラリ更新
 ## v2.2.0
 - breaking change：新テンプレ「doc」フォルダ構成変更（prj→doc/prj）対応（後方互換性なし）
 - upd：Nodeパッケージを最新Active LTSに更新（v12.16.3）

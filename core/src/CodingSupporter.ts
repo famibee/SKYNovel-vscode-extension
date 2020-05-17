@@ -8,11 +8,11 @@
 import {CmnLib} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
-//import {MockDebugSession} from './mockDebug';
+import {MockDebugSession} from './mockDebug';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
 
-import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, DocumentSymbolProvider, SymbolInformation, DocumentSymbol} from 'vscode';
+import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, DocumentSymbolProvider, SymbolInformation, DocumentSymbol, debug, DebugAdapterDescriptorFactory, DebugSession, DebugAdapterDescriptor, DebugAdapterInlineImplementation, EvaluatableExpression} from 'vscode';
 
 
 export class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
@@ -105,41 +105,44 @@ ${md.comment}`, true
 		// アウトライン
 		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(doc_sel, this));
 
-		// ctx.subscriptions.push(debug.registerDebugConfigurationProvider(doc_sel.language, {
-		/*
-			"name": "ローカルホストにChrome起動で接続",
-			"request": "launch",
-			"type": "chrome",
-			"url": "http://localhost:8080/web.htm",
-			"webRoot": "${workspaceFolder}",
 
-			"preLaunchTask": "npm: server4debugger"
-
-			"postDebugTask": "",
-			"skipFiles": []
-		*/
-
-
-		// debug adapters can be run in different ways by using a vscode.DebugAdapterDescriptorFactory:
-/*		const dadf: DebugAdapterDescriptorFactory = {
+		const dadf: DebugAdapterDescriptorFactory = {
 			createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-				return new DebugAdapterInlineImplementation(
+				return new DebugAdapterInlineImplementation(	// インライン型
 					new MockDebugSession()
 				);
 			}
 		};
-		ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory('mock', dadf));
+		ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(doc_sel.language, dadf));
 		if ('dispose' in dadf) ctx.subscriptions.push(dadf);
-*/
+
 		// override VS Code's default implementation of the debug hover
-		/*
-		vscode.languages.registerEvaluatableExpressionProvider('markdown', {
-			provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
-				const wordRange = document.getWordRangeAtPosition(position);
-				return wordRange ? new vscode.EvaluatableExpression(wordRange) : undefined;
+		languages.registerEvaluatableExpressionProvider(doc_sel, {
+			provideEvaluatableExpression(doc: TextDocument, pos: Position): ProviderResult<EvaluatableExpression> {
+				const rng = doc.getWordRangeAtPosition(pos);
+				return rng ? new EvaluatableExpression(rng) : undefined;
 			}
 		});
-		*/
+/*
+// =============
+vscode.debug.registerDebugAdapterDescriptorFactory('abl', {
+	createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
+		return new vscode.DebugAdapterExecutable(	// 実行可能ファイル型
+			"/usr/bin/java",
+			[
+				join(context.extensionPath, "bin", "abl.jar")
+			],
+			{
+				"cwd": "some current working directory path",
+				"env": {
+					"key": "value"
+				}
+			}
+		);
+	}
+});
+*/
+
 
 
 		// TODO: ラベルジャンプ

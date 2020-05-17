@@ -1,4 +1,6 @@
+import { ExtensionContext } from 'vscode';
 export declare function uint(o: any): number;
+export declare function setCtx4(ctx0: ExtensionContext): void;
 export declare function oIcon(name: string): {
     light: string;
     dark: string;

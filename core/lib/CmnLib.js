@@ -1,16 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CmnLib = exports.replaceFile = exports.foldProc = exports.treeProc = exports.regNoUseSysPath = exports.statBreak = exports.is_mac = exports.is_win = exports.oIcon = exports.uint = void 0;
+exports.CmnLib = exports.replaceFile = exports.foldProc = exports.treeProc = exports.regNoUseSysPath = exports.statBreak = exports.is_mac = exports.is_win = exports.oIcon = exports.ctx4Icon = exports.uint = void 0;
 const vscode_1 = require("vscode");
 function uint(o) {
     const v = parseInt(String(o), 10);
     return v < 0 ? -v : v;
 }
 exports.uint = uint;
+function ctx4Icon(ctx0) {
+    ctx = ctx0;
+    console.log(`fn:CmnLib.ts line:17 __filename:${__filename}:`);
+    console.log(`fn:CmnLib.ts line:18 path:${ctx.asAbsolutePath(`res/light/document.svg`)}`);
+}
+exports.ctx4Icon = ctx4Icon;
+let ctx;
 function oIcon(name) {
     return {
         light: `${__filename}/../../../res/light/${name}.svg`,
-        dark: `${__filename}/../../../res/dark/${name}.svg`
+        dark: `${__filename}/../../../res/dark/${name}.svg`,
     };
 }
 exports.oIcon = oIcon;

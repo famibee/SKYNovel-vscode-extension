@@ -38,6 +38,8 @@
 	- 上記条件を満たせば、SKYNovelプロジェクトとして開発機能が使用できます
 - When you open the .sn file. (Enable syntax highlighting only)
 	- *.snファイルを開いたとき（シンタックスハイライトのみ有効に）
+- During debugging (e.g., by pressing F5 key)
+	- デバッグ機能実行時（F5キー押下など）
 
 
 ---
@@ -100,11 +102,13 @@
 		![](res/img/auto_comp_val.png)
 - Snippet completion
 - Jump to definition / Show definition here (Tag, Macro, Plugin definition tag)
+	- (Use F12 key to go back and forth between macro definition and macro usage)
 	![](res/img/rmenu_peek.png)
 	![](res/img/rmenu_def.png)
 - Jump to reference / Show reference here (Tag, Macro, Plugin definition tag)
 	![](res/img/rmenu_ref.png)
 - Rename symbol (Macro name, Plugin definition tag)
+	- (also activated by the F2 key)
 	![](res/img/rename_plugin_tag.png)
 
 ## コーディング補助
@@ -125,11 +129,13 @@
 		![](res/img/auto_comp_val.png)
 - タグ入力時にスニペット挿入
 - 「定義へ移動」「定義をここに表示」
+	- （F12キーでマクロ定義とマクロ使用箇所を行ったり来たりできます）
 	![](res/img/rmenu_peek.png)
 	![](res/img/rmenu_def.png)
 - 「参照へ移動」「参照をここに表示」
 	![](res/img/rmenu_ref.png)
 - 「シンボルの名前変更」
+	- （F2キーでも起動）
 	![](res/img/rename_plugin_tag.png)
 
 
