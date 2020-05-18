@@ -1,3 +1,5 @@
+## v2.2.2
+- add：[playse][playbgm]に属性start_ms（開始位置）、end_ms（終了位置）、ret_ms（ループ戻り位置）追加
 ## v2.2.1
 - upd：webpackによりモジュールバンドル
 - add：【デバッグ機能実行時】にも拡張機能起動するように
