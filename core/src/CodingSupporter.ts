@@ -8,14 +8,36 @@
 import {CmnLib} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
-import {MockDebugSession} from './mockDebug';
+import {initDebug} from './DebugAdapter';
+import {
+	DocumentSelector,
+	QuickPickItem,		// クイックピック
+	HoverProvider,		// 識別子の上にマウスカーソルを載せたとき
+	DefinitionProvider,	// 「定義へ移動」「定義をここに表示」
+	ReferenceProvider,	// 「参照へ移動」「参照をここに表示」
+	ReferenceContext,
+	RenameProvider,		// 「シンボルの名前変更」
+	CompletionItemProvider,	// コード補完機能
+	DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString,
+	SignatureHelpProvider,	// 引数の説明
+	SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation,
+	DocumentSymbolProvider,	// アウトライン
+	SymbolInformation, DocumentSymbol,
+	EvaluatableExpression,	// デバッグホバー
+} from 'vscode';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
 
-import {QuickPickItem, HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation, DocumentSymbolProvider, SymbolInformation, DocumentSymbol, debug, DebugAdapterDescriptorFactory, DebugSession, DebugAdapterDescriptor, DebugAdapterInlineImplementation, EvaluatableExpression} from 'vscode';
 
-
-export class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
+export class CodingSupporter implements
+	HoverProvider,			// 識別子の上にマウスカーソルを載せたとき
+	DefinitionProvider,		// 「定義へ移動」「定義をここに表示」
+	ReferenceProvider,		// 「参照へ移動」「参照をここに表示」
+	RenameProvider,			// 「シンボルの名前変更」
+	CompletionItemProvider,	// コード補完機能
+	SignatureHelpProvider,	// 引数の説明
+	DocumentSymbolProvider	// アウトライン
+	{
 	private			readonly	lenRootPath	: number;
 
 	private	static	readonly	pickItems	: QuickPickItem[] = [];
@@ -31,8 +53,8 @@ export class CodingSupporter implements HoverProvider, DefinitionProvider, Refer
 	}}	= {};
 
 	private	static	readonly CMD_SCANSCR_TRGPARAMHINTS = 'extension.skynovel.scanScr_trgParamHints';
-	constructor(ctx: ExtensionContext, curPrj: string) {
-		this.lenRootPath = (workspace.rootPath ?? '').length +1;
+	constructor(ctx: ExtensionContext, pathWs: string, curPrj: string) {
+		this.lenRootPath = pathWs.length +1;
 		CodingSupporter.initClass(ctx);
 		CodingSupporter.pickItems.map(q=> this.hArgDesc[q.label] = {
 			label	: `[${q.label} ...]`,
@@ -40,7 +62,7 @@ export class CodingSupporter implements HoverProvider, DefinitionProvider, Refer
 		});
 
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
-		commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, () => commands.executeCommand('editor.action.triggerParameterHints'));
+		commands.registerCommand(CodingSupporter.CMD_SCANSCR_TRGPARAMHINTS, ()=> commands.executeCommand('editor.action.triggerParameterHints'));
 
 		// コード補完機能
 		this.aCITagMacro = [];
@@ -87,62 +109,40 @@ ${md.comment}`, true
 		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
 		// 識別子の上にマウスカーソルを載せたとき
-		const doc_sel = {scheme: 'file', language: 'skynovel'};
-		ctx.subscriptions.push(languages.registerHoverProvider(doc_sel, this));
+		const docsel: DocumentSelector = {scheme: 'file', language: 'skynovel'};
+		ctx.subscriptions.push(languages.registerHoverProvider(docsel, this));
 		// 「定義へ移動」「定義をここに表示」
-		ctx.subscriptions.push(languages.registerDefinitionProvider(doc_sel, this));
+		ctx.subscriptions.push(languages.registerDefinitionProvider(docsel, this));
 		// 「参照へ移動」「参照をここに表示」
-		ctx.subscriptions.push(languages.registerReferenceProvider(doc_sel, this));
+		ctx.subscriptions.push(languages.registerReferenceProvider(docsel, this));
 		// 「シンボルの名前変更」
-		ctx.subscriptions.push(languages.registerRenameProvider(doc_sel, this));
+		ctx.subscriptions.push(languages.registerRenameProvider(docsel, this));
 		// 診断機能
-		this.clDiag = languages.createDiagnosticCollection(doc_sel.language);
+		this.clDiag = languages.createDiagnosticCollection(docsel.language);
 		ctx.subscriptions.push(this.clDiag);
 		// コード補完機能
-		ctx.subscriptions.push(languages.registerCompletionItemProvider(doc_sel, this, '[', ' ', '='));
+		ctx.subscriptions.push(languages.registerCompletionItemProvider(docsel, this, '[', ' ', '='));
 		// 引数の説明
-		ctx.subscriptions.push(languages.registerSignatureHelpProvider(doc_sel, this, ' '));
+		ctx.subscriptions.push(languages.registerSignatureHelpProvider(docsel, this, ' '));
 		// アウトライン
-		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(doc_sel, this));
+		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(docsel, this));
 
+		// デバッガ
+		initDebug(ctx, docsel);
 
-		const dadf: DebugAdapterDescriptorFactory = {
-			createDebugAdapterDescriptor(_session: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-				return new DebugAdapterInlineImplementation(	// インライン型
-					new MockDebugSession()
-				);
-			}
-		};
-		ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(doc_sel.language, dadf));
-		if ('dispose' in dadf) ctx.subscriptions.push(dadf);
-
-		// override VS Code's default implementation of the debug hover
-		languages.registerEvaluatableExpressionProvider(doc_sel, {
+		// デバッグ中のみ有効なホバー
+		languages.registerEvaluatableExpressionProvider(docsel, {
 			provideEvaluatableExpression(doc: TextDocument, pos: Position): ProviderResult<EvaluatableExpression> {
-				const rng = doc.getWordRangeAtPosition(pos);
-				return rng ? new EvaluatableExpression(rng) : undefined;
+				const r = doc.getWordRangeAtPosition(pos, CodingSupporter.REG_VAR);
+				if (! r) return Promise.reject('No word here.');
+
+				const txt = doc.getText(r);
+				const hc = txt.charAt(0);
+				if (hc === '[' || hc === '*' || hc === ';'
+				|| txt.slice(-1)=== '=') return Promise.reject('No word here.');
+				return new EvaluatableExpression(r, txt);
 			}
 		});
-/*
-// =============
-vscode.debug.registerDebugAdapterDescriptorFactory('abl', {
-	createDebugAdapterDescriptor(session: DebugSession, executable: DebugAdapterExecutable | undefined): ProviderResult<DebugAdapterDescriptor> {
-		return new vscode.DebugAdapterExecutable(	// 実行可能ファイル型
-			"/usr/bin/java",
-			[
-				join(context.extensionPath, "bin", "abl.jar")
-			],
-			{
-				"cwd": "some current working directory path",
-				"env": {
-					"key": "value"
-				}
-			}
-		);
-	}
-});
-*/
-
 
 
 		// TODO: ラベルジャンプ
@@ -156,7 +156,7 @@ vscode.debug.registerDebugAdapterDescriptorFactory('abl', {
 		// テキストエディタ変化イベント
 		workspace.onDidChangeTextDocument(e=> {
 			const doc = e.document;
-			if (e.contentChanges.length == 0
+			if (e.contentChanges.length === 0
 			||	doc.languageId != 'skynovel'
 			||	doc.fileName.slice(0, this.lenRootPath -1) != workspace.rootPath) return;
 
@@ -167,6 +167,8 @@ vscode.debug.registerDebugAdapterDescriptorFactory('abl', {
 
 		this.scrScn = new ScriptScanner(curPrj, this.clDiag, CodingSupporter.hTag);
 	}
+	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
+	private	static	readonly	REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	private tidDelay: NodeJS.Timer | null = null;
@@ -205,10 +207,11 @@ vscode.debug.registerDebugAdapterDescriptorFactory('abl', {
 			window.showQuickPick<QuickPickItem>(CodingSupporter.pickItems, op).then(q=> {if (q) CodingSupporter.openTagRef(q)});
 		}));
 	}
-	private static openTagRef(v: QuickPickItem) {
-		commands.executeCommand('vscode.open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
-	}
 
+	// クイックピック
+	private static openTagRef(v: QuickPickItem) {
+		commands.executeCommand('open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
+	}
 
 	// 識別子の上にマウスカーソルを載せたとき
 	private static	readonly regTagName	= /[^\s\[\]="'#;]+/;
@@ -269,7 +272,7 @@ ${md.detail}`
 			const nm = doc.getText(doc.getWordRangeAtPosition(pos));
 			const loc = this.scrScn.hMacro[nm] ?? this.scrScn.hPlugin[nm];
 			if (loc) return re(loc);
-			const q = CodingSupporter.pickItems.find(q=> q.label == nm);
+			const q = CodingSupporter.pickItems.find(q=> q.label === nm);
 			if (q) {CodingSupporter.openTagRef(q); return re();}
 
 			return rj('No definition found');
@@ -302,7 +305,7 @@ ${md.detail}`
 			if (! m) return rj('未定義マクロ・タグです');
 
 			this.nm4rename = nm;
-			return re((doc.uri == m.uri && m.range.contains(pos)) ?m.range :r);
+			return re((doc.uri === m.uri && m.range.contains(pos)) ?m.range :r);
 		});
 	}
 	private nm4rename = '';
@@ -349,11 +352,11 @@ ${md.detail}`
 	provideCompletionItems(doc: TextDocument, pos: Position, _token: CancellationToken, cc: CompletionContext): ProviderResult<CompletionItem[] | CompletionList> {
 		const line = doc.lineAt(pos.line);
 		const trgChr = cc.triggerCharacter;
-		if (trgChr == '[') {	// タグやマクロ候補を表示
+		if (trgChr === '[') {	// タグやマクロ候補を表示
 			const t = line.text.slice(pos.character -1, pos.character +1);
 			// res/language-configuration.json の autoClosingPairs で自動に閉じる、
 			// またはそのような状況で発火させる
-			return (t == '[]') ?this.aCITagMacro :[];
+			return (t === '[]') ?this.aCITagMacro :[];
 		}
 
 		const aUse = this.scrScn.hTagMacroUse[doc.uri.path];
@@ -363,16 +366,16 @@ ${md.detail}`
 		const md = hMd[use.nm];
 		if (! md) return [];	// 前に警告出してる
 		// 属性候補を表示
-		if (trgChr == ' ') return md.param.map(p=> new CompletionItem(
+		if (trgChr === ' ') return md.param.map(p=> new CompletionItem(
 			p.name, CompletionItemKind.Field
 		));
 
 		// 属性値候補を表示
-		// if (trgChr == '=')
+		// if (trgChr === '=')
 		const r = doc.getWordRangeAtPosition(pos, CodingSupporter.REG_FIELD);
 		if (! r) return [];
 		const idxParam = this.searchArgName(doc.getText(r), md);
-		if (idxParam == -1) return [];
+		if (idxParam === -1) return [];
 		const prm_details = md.param[idxParam];
 		let rangetype = prm_details?.rangetype;
 		if (! rangetype) return [];
@@ -395,13 +398,13 @@ ${md.detail}`
 			default:	kind = CompletionItemKind.EnumMember;	break;
 		}
 		return words.slice(1, -1).split(',').map(v=> new CompletionItem(
-			v, (v.slice(0, 6) == 'const.') ?CompletionItemKind.Constant :kind
+			v, (v.slice(0, 6) === 'const.') ?CompletionItemKind.Constant :kind
 		));
 	}
 	// 遅延でコード補完処理
 	resolveCompletionItem(ci: CompletionItem, _token: CancellationToken): ProviderResult<CompletionItem> {
 		// 遅延で各要素の詳細な情報(detail, documentationプロパティ)を
-		if (ci.kind == CompletionItemKind.Snippet) {
+		if (ci.kind === CompletionItemKind.Snippet) {
 			const sn = CodingSupporter.hSnippet[ci.label];
 			if (sn) ci.insertText = new SnippetString(this.scrScn.cnvSnippet(
 				sn,
@@ -491,13 +494,13 @@ ${md.detail}`
 		const includesEq = inp.search(/(?<=[^=]+)=/);
 		// = 打鍵済みなら属性名確定で、同一を探す
 		//（配列で前の方のyoyoにマッチしyにマッチしない、という事があるので）
-		if (includesEq == -1) {
+		if (includesEq === -1) {
 			const reg = new RegExp(`^${inp.replace(/=.*$/,'')}`);
 			return md.param.findIndex(p=> reg.test(p.name));
 		}
 
 		const arg_nm = inp.slice(0, includesEq);
-		return md.param.findIndex(p=> p.name == arg_nm);
+		return md.param.findIndex(p=> p.name === arg_nm);
 	}
 
 	// アウトライン
@@ -514,30 +517,6 @@ ${md.detail}`
 		return new Promise(rs=> rs(this.scrScn.hSn2aDsOutline[path] ?? []));
 	}
 
-/*
-	// 
-	resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, config: DebugConfiguration, _token?: CancellationToken): ProviderResult<DebugConfiguration> {
-		// if launch.json is missing or empty
-		if (! config.type && ! config.request && ! config.name) {
-			const ed = window.activeTextEditor;
-			if (ed?.document.languageId === 'skynovel') {
-				config.type = 'mock';
-				config.name = 'Launch';
-				config.request = 'launch';
-				config.program = '${file}';
-				config.stopOnEntry = true;
-			}
-		}
-
-		if (! config.program) {
-			return window.showInformationMessage('Cannot find a program to debug').then(_ => {
-				return undefined;	// abort launch
-			});
-		}
-
-		return config;
-	}
-*/
 
 	setHDefPlg(hDefPlg: {[def_nm: string]: Location}) {this.scrScn.hPlugin = hDefPlg}
 

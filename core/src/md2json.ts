@@ -43,7 +43,7 @@ fs.readdirSync(path, {withFileTypes: true})
 	const len0 = a.length;
 	if (len0 > 4) a.splice(3, len0, a.slice(3).join('***'));
 	const prm = (a[1] ?? '').trim();
-	const aPrm = (prm == '') ?[] :prm.split('\n').map(line=> {
+	const aPrm = (prm === '') ?[] :prm.split('\n').map(line=> {
 		const o: any = {};
 		line.slice(2).split('\t')
 		.forEach((c, i)=> o[idx2nmParam[i]] = repTag2MB(c));

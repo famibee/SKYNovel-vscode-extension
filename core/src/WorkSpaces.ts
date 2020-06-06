@@ -41,7 +41,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private	readonly idxDevTaskPackMac	= 6;
 	private	readonly idxDevCrypto		= 7;
 
-	private oPfp	: {[dir: string]: Project}	= {};
+	private hPrj	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
 		if (is_win) {
@@ -61,7 +61,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
 		workspace.onDidCloseTextDocument(td=> {
-			if (this.teActive?.document == td) this.teActive = undefined;
+			if (this.teActive?.document === td) this.teActive = undefined;
 		});
 		workspace.onDidChangeTextDocument(e=> {
 			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
@@ -140,7 +140,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			const dir = e.removed[0].uri.fsPath;
 			delete this.oTiPrj[dir];
 
-			this.oPfp[dir].dispose();
+			this.hPrj[dir].dispose();
 		}
 		this._onDidChangeTreeData.fire(undefined);
 	}
@@ -177,7 +177,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		this.updLocalSNVer(dir);
 
-		this.oPfp[dir] = new Project(this.ctx, dir, title=> {
+		this.hPrj[dir] = new Project(this.ctx, dir, title=> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
 		});
@@ -191,7 +191,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 	private dspCryptoMode(dir: string) {
 		const tc = this.oTiPrj[dir];
-		const fpf = this.oPfp[dir];
+		const fpf = this.hPrj[dir];
 		tc[this.idxDevCrypto].description = `-- ${fpf.isCryptoMode ?'する' :'しない'}`;
 	}
 
@@ -210,11 +210,11 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		// メイン処理
 		const i = this.TreeChild.findIndex(v=> v.label === ti.label);
-		if (i == -1) return;
+		if (i === -1) return;
 
 		const tc = this.TreeChild[i];
 		switch (tc.cmd) {
-			case 'skynovel.devPrjSet':	this.oPfp[dir].openPrjSetting();
+			case 'skynovel.devPrjSet':	this.hPrj[dir].openPrjSetting();
 				return;
 			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
 				statBreak()} npm run webpack:dev`;
@@ -232,7 +232,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				.then(a=> {
 					if (a != 'はい') return;
 
-					this.oPfp[dir].tglCryptoMode();
+					this.hPrj[dir].tglCryptoMode();
 					this.dspCryptoMode(dir);
 					this._onDidChangeTreeData.fire(ti);
 				});
@@ -247,8 +247,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			new ShellExecution(cmd),
 		);
 		this.fnc_onDidEndTaskProcess
-		= (tc.cmd == 'skynovel.devSnUpd'
-		|| tc.cmd == 'skynovel.devLibUpd')
+		= (tc.cmd === 'skynovel.devSnUpd'
+		|| tc.cmd === 'skynovel.devLibUpd')
 			? e=> {
 				if (e.execution.task.definition.type != t.definition.type) return;
 				if (e.execution.task.source != t.source) return;
@@ -267,8 +267,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 
 	dispose() {
-		for (const dir in this.oPfp) this.oPfp[dir].dispose();
-		this.oPfp = {};
+		for (const dir in this.hPrj) this.hPrj[dir].dispose();
+		this.hPrj = {};
 	}
 
 }

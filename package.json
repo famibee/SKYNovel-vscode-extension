@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "2.2.2",
+	"version": "2.2.3",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.45.1"
@@ -56,7 +56,23 @@
 				"label": "SKYNovel Debug",
 				"languages": [
 					"skynovel"
-				]
+				],
+				"configurationAttributes": {
+					"attach": {
+						"properties": {
+							"userDataDir": {
+								"type": "string",
+								"description": "Absolute path to App Data.",
+								"default": "${workspaceFolder}/.vscode/chrome"
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop after launch.",
+								"default": true
+							}
+						}
+					}
+				}
 			}
 		],
 		"commands": [
@@ -539,9 +555,10 @@
 	"activationEvents": [
 		"onLanguage:skynovel",
 		"onCommand:skynovel.openReferencePallet",
-		"workspaceContains:prj/prj.json",
+		"workspaceContains:doc/prj/**/*",
 		"onDebug",
-		"onDebugDynamicConfigurations:mock"
+		"onDebugInitialConfigurations",
+		"onDebugResolve"
 	],
 	"author": "miyazawa famibee",
 	"dependencies": {
@@ -550,21 +567,21 @@
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.0.0",
 		"image-size": "^0.8.3",
-		"uuid": "^8.0.0",
-		"vscode-debugadapter": "^1.40.0",
-		"vscode-debugprotocol": "^1.40.0"
+		"uuid": "^8.1.0",
+		"vscode-debugadapter": "^1.41.0",
+		"vscode-debugprotocol": "^1.41.0"
 	},
 	"devDependencies": {
-		"@types/crypto-js": "^3.1.46",
-		"@types/fs-extra": "^9.0.0",
+		"@types/crypto-js": "^3.1.47",
+		"@types/fs-extra": "^9.0.1",
 		"@types/mocha": "^7.0.2",
-		"@types/node": "^14.0.1",
-		"@types/uuid": "^7.0.3",
+		"@types/node": "^14.0.11",
+		"@types/uuid": "^7.0.4",
 		"@types/vscode": "^1.45.1",
-		"ts-loader": "^7.0.4",
-		"typescript": "^3.9.2",
-		"vscode-debugadapter-testsupport": "^1.40.3",
-		"vscode-test": "^1.3.0",
+		"ts-loader": "^7.0.5",
+		"typescript": "^3.9.5",
+		"vscode-debugadapter-testsupport": "^1.41.0",
+		"vscode-test": "^1.4.0",
 		"webpack": "^4.43.0",
 		"webpack-cli": "^3.3.11"
 	},
@@ -579,7 +596,6 @@
 		"vscode:prepublish": "npm run md2json && npm run wp:pro",
 		"wp:pro": "webpack -p --config ./core/webpack.config.js",
 		"md2json": "node core/lib/md2json.js",
-		"test": "npm run build && node ./node_modules/vscode/bin/test",
 		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i"
 	},
 	"icon": "res/img/icon_skynovel.png",

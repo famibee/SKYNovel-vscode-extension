@@ -69,13 +69,13 @@ export class Project {
 	private	readonly	fnDiff	: string;
 	private				hDiff	= Object.create(null);
 
-	constructor(private readonly ctx: ExtensionContext, private readonly dir: string, readonly chgTitle: (title: string)=> void) {
-		this.curPrj = dir +'/doc/prj/';
-		this.codSpt = new CodingSupporter(ctx, this.curPrj);
+	constructor(private readonly ctx: ExtensionContext, private readonly pathWs: string, readonly chgTitle: (title: string)=> void) {
+		this.curPrj = pathWs +'/doc/prj/';
+		this.codSpt = new CodingSupporter(ctx, pathWs, this.curPrj);
 
-		this.curPlg = dir +'/core/plugin/';
+		this.curPlg = pathWs +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
-		if (fs.existsSync(this.dir +'/node_modules')) this.updPlugin();
+		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
 			this.rebuildTask();
 			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
@@ -116,7 +116,7 @@ export class Project {
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
-		this.curCrypto = dir +`/${this.fld_crypto_prj}/`;
+		this.curCrypto = pathWs +`/${this.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);
@@ -138,11 +138,11 @@ export class Project {
 			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
 		);
 
-		this.fnDiff = dir +'/core/diff.json';
+		this.fnDiff = pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) {
 			this.hDiff = fs.readJsonSync(this.fnDiff);
 		}
-		this.ps = new PnlPrjSetting(ctx, dir, chgTitle, this.codSpt);
+		this.ps = new PnlPrjSetting(ctx, pathWs, chgTitle, this.codSpt);
 		this.initCrypto();
 	}
 
@@ -197,7 +197,7 @@ export class Project {
 			fs.closeSync(fd);
 			hash = crc32.buf(b);
 		}
-		if (this.hDiff[short_path] == hash) return false;
+		if (this.hDiff[short_path] === hash) return false;
 
 		this.hDiff[short_path] = hash;
 		return true;
@@ -219,14 +219,14 @@ export class Project {
 
 			// SKYNovelが見に行くプロジェクトフォルダ名変更
 			this.aRepl.forEach(url=> replaceFile(
-				this.dir +'/'+ url,
+				this.pathWs +'/'+ url,
 				new RegExp(`\\(hPlg, {.+?}\\);`),
 				`(hPlg);`,
 			));
 
 			// ビルド情報：パッケージするフォルダ名変更
 			replaceFile(
-				this.dir +'/package.json',
+				this.pathWs +'/package.json',
 				new RegExp(`"${this.fld_crypto_prj}\\/",`),
 				`"prj/",`,
 			);
@@ -238,14 +238,14 @@ export class Project {
 
 		// SKYNovelが見に行くプロジェクトフォルダ名変更
 		this.aRepl.forEach(url=> replaceFile(
-			this.dir +'/'+ url,
+			this.pathWs +'/'+ url,
 			/\(hPlg\);/,
 			`(hPlg, {cur: '${this.fld_crypto_prj}/', crypto: true});`,
 		));
 
 		// ビルド情報：パッケージするフォルダ名変更
 		replaceFile(
-			this.dir +'/package.json',
+			this.pathWs +'/package.json',
 			/"prj\/",/,
 			`"${this.fld_crypto_prj}/",`,
 		);
@@ -279,15 +279,15 @@ export class Project {
 
 			if (this.regFullCrypto.test(short_path)) {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
-				if (short_path == 'path.json') {	// 内容も変更
+				if (short_path === 'path.json') {	// 内容も変更
 					s = s.replace(this.regRepPathJson, '.bin"');
 /* // TODO: ファイル名匿名化・作成中
 					const hPath: IFn2Path = JSON.parse(s);
 					for (const fn in hPath) {
 						const hExt2N = hPath[fn];
 						for (const ext in hExt2N) {
-							if (ext == ':cnt') continue;
-							if (ext.slice(-10) == ':RIPEMD160') continue;
+							if (ext === ':cnt') continue;
+							if (ext.slice(-10) === ':RIPEMD160') continue;
 							const path = String(hExt2N[ext]);
 							this.mkCryptoIfNeeded(ext, path);
 
@@ -326,7 +326,7 @@ export class Project {
 			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
 
 			const tr = new Transform({transform: (chunk, _enc, cb)=> {
-				if (nokori == 0) {cb(null, chunk); return;}
+				if (nokori === 0) {cb(null, chunk); return;}
 
 				const len = chunk.length;
 				if (nokori > len) {
@@ -351,11 +351,11 @@ export class Project {
 
 				tr.push(e);
 
-				cb(null, (nokori == len) ?null :chunk.slice(nokori));
+				cb(null, (nokori === len) ?null :chunk.slice(nokori));
 				nokori = 0;
 			}})
 			.on('end', ()=> {
-				if (nokori == 0) return;
+				if (nokori === 0) return;
 
 				const e6 = crypto.AES.encrypt(
 					crypto.lib.WordArray.create(bh.slice(0, i)),
@@ -424,8 +424,8 @@ export class Project {
 		.catch((err: any)=> console.error(`PrjFileProc updPlugin ${err}`));
 	}
 	private rebuildTask() {
-		let cmd = `cd "${this.dir}" ${statBreak()} `;
-		if (! fs.existsSync(this.dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
+		if (! fs.existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 		cmd += 'npm run webpack:dev';
 		const t = new Task(
 			{type: 'SKYNovel auto'},	// definition（タスクの一意性）
@@ -538,9 +538,9 @@ export class Project {
 				if (! selected) return;
 
 				const id = Number(selected.label.slice(0, 1));
-				const fn = this.curPrj + (id == 1 ?hExts[ext] :dir +'/'+ nm);
+				const fn = this.curPrj + (id === 1 ?hExts[ext] :dir +'/'+ nm);
 				window.showInformationMessage(`${fn} を削除しますか？`, {modal: true}, 'はい')
-				.then(a=> {if (a == 'はい') fs.removeSync(fn);});
+				.then(a=> {if (a === 'はい') fs.removeSync(fn);});
 			});
 			return;
 		}

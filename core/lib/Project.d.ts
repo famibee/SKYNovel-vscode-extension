@@ -1,7 +1,7 @@
 import { ExtensionContext } from 'vscode';
 export declare class Project {
     private readonly ctx;
-    private readonly dir;
+    private readonly pathWs;
     readonly chgTitle: (title: string) => void;
     private readonly codSpt;
     private readonly curPlg;
@@ -20,7 +20,7 @@ export declare class Project {
     private readonly aFSW;
     private readonly fnDiff;
     private hDiff;
-    constructor(ctx: ExtensionContext, dir: string, chgTitle: (title: string) => void);
+    constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void);
     private ps;
     openPrjSetting(): void;
     dispose(): void;

@@ -3,7 +3,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private readonly ctx;
     static start(ctx: ExtensionContext): void;
     private static actBar;
-    private static trDPWss;
+    private static workSps;
     static stopActBar(): void;
     private static readonly aTiRoot;
     private aReady;

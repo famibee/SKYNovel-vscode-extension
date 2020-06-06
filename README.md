@@ -32,14 +32,12 @@
 
 ---
 ## Startup timing / 起動タイミング
-- When prj/prj.json and package.json exists in "Open folder".
-	- 「フォルダを開く」で prj/prj.json と package.json が存在するとき
-- If the above conditions are met, the development function can be used as a SKYNovel project
-	- 上記条件を満たせば、SKYNovelプロジェクトとして開発機能が使用できます
-- When you open the .sn file. (Enable syntax highlighting only)
-	- *.snファイルを開いたとき（シンタックスハイライトのみ有効に）
+- When you open a file under the doc/prj folder of a template.
+	- テンプレートのdoc/prjフォルダ下のファイルを開いたとき
 - During debugging (e.g., by pressing F5 key)
 	- デバッグ機能実行時（F5キー押下など）
+- When using the debugging function.
+	- デバッグ機能使用時
 
 
 ---

@@ -28,15 +28,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ActivityBar.actBar = new ActivityBar(ctx);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
-		ActivityBar.trDPWss = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.trDPWss));
+		ActivityBar.workSps = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.workSps));
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
 	private static actBar: ActivityBar;
-	private static trDPWss: WorkSpaces;
+	private static workSps: WorkSpaces;
 	static stopActBar() {
 		ActivityBar.actBar.dispose();
-		ActivityBar.trDPWss.dispose();
+		ActivityBar.workSps.dispose();
 	}
 
 
@@ -55,10 +55,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
-			Uri.parse('https://nodejs.org/dist/v12.16.3/node-v12.16.3'+ (
+			Uri.parse('https://nodejs.org/dist/v14.4.0/node-v14.4.0'+ (
 				is_mac
 				? '.pkg'
-				: ((os.arch().slice(-2)=='64' ?'-x64' :'-x86') +'.msi')
+				: `${os.arch().slice(-2)=='64' ?'-x64' :'-x86'}.msi`
 			))
 		)));	// NOTE: URLを更新したら以降にある「node -v」を壊しDLボタンの動作確認
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
@@ -81,7 +81,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		if (! t) return Promise.resolve(ActivityBar.aTiRoot);
 
 		const ret: TreeItem[] = [];
-		if (t.label == 'Node.js') ActivityBar.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
+		if (t.label === 'Node.js') ActivityBar.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
 		return Promise.resolve(ret);
 	}
 
@@ -164,15 +164,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					if (! fs.existsSync(fnLocal)) return false;
 
 					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
-					if (localVer.slice(0, 4) == 'ile:') return false;
+					if (localVer.slice(0, 4) === 'ile:') return false;
 					return (newVer != localVer);
 				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
 			});
-		}).on('error', (e: Error) => console.error(e.message));
+		}).on('error', (e: Error)=> console.error(e.message));
 	}
 
 	private pnlWV: WebviewPanel | null = null;
-	private async activityBarBadge(num = 0) {
+	private activityBarBadge(num = 0) {
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
 

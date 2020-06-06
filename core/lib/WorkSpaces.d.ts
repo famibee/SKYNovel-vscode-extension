@@ -8,7 +8,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly idxDevPrjSet;
     private readonly idxDevTaskPackMac;
     private readonly idxDevCrypto;
-    private oPfp;
+    private hPrj;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
     private tidDelay;
     private onUpdDoc;

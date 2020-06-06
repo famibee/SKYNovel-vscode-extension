@@ -68,7 +68,7 @@ export class ScriptScanner {
 		'文字消去演出名': new Set,
 	};
 
-	cnvSnippet	= (s: string, _cur_fn: string) =>s;
+	cnvSnippet	= (s: string, _cur_fn: string)=>s;
 	// 変化が無い固定選択値はこちらに
 	readonly	hPreWords		: {[key: string]: string}	= {
 		'イベント名': `|Click,RightClick,MiddleClick,UpWheel,DownWheel,Control,Alt,Meta,Backspace,Enter,=,A,alt+A,ctrl+A,shift+A,alt+ctrl+A,ctrl+shift+A,alt+shift+A,alt+ctrl+shift+A,' ',ArrowLeft,ArrowRight,ArrowUp,ArrowDown,Tab,Delete,Home,End,PageUp,PageDown|`,
@@ -91,7 +91,7 @@ export class ScriptScanner {
 			const set = this.hSetWords[key];
 			const str = `|${[...set.values()].sort().join(',')}|`;
 			if (this.hPreWords[key] !== str) eq = false;
-			this.hPreWords[key] = (str == '||') ?`:${key}` :str;
+			this.hPreWords[key] = (str === '||') ?`:${key}` :str;
 		}
 		if (eq) return;
 
@@ -213,7 +213,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			if (now.has(s)) continue;
 			let findOther = false;
 			for (const path_other in this.hScr2KeyWord) {
-				if (path_other == path) continue;
+				if (path_other === path) continue;
 				if (findOther = this.hScr2KeyWord[path_other].has(s)) break;
 			}
 			if (findOther) continue;
@@ -249,7 +249,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			if (def_nm in this.hMacroUse) continue;
 
 			const loc = this.hMacro[def_nm];
-			if (loc.uri.path == path) continue;	// 更新分のみ
+			if (loc.uri.path === path) continue;	// 更新分のみ
 			this.nm2Diag[loc.uri.path].push(new Diagnostic(
 				loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
@@ -263,7 +263,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 			const aLoc = this.hMacroUse[use_nm];
 			aLoc.forEach(loc=> {
-				if (loc.uri.path == path) return;	// 更新分のみ
+				if (loc.uri.path === path) return;	// 更新分のみ
 				this.nm2Diag[loc.uri.path].push(new Diagnostic(
 					loc.range,
 					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
@@ -307,7 +307,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.hTagMacroUse[path] = this.hTagMacroUse[path] ?? [];
 		this.hScr2KeyWord[path] = this.hScr2KeyWord[path] ?? new Set();
 
-		const td = workspace.textDocuments.find(td=> td.fileName == uri.fsPath);
+		const td = workspace.textDocuments.find(td=> td.fileName ===uri.fsPath);
 		this.scanScriptSrc(
 			uri,
 			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'})
@@ -329,11 +329,11 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.fncToken = this.procToken = (p: Pos, token: string)=> {
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
 			const len = token.length;
-			if (uc == 9) {p.col += len; return;}	// \t タブ
-			if (uc == 10) {p.line += len; p.col = 0; return;}	// \n 改行
-			if (uc == 38) {	// & 変数操作・変数表示
+			if (uc === 9) {p.col += len; return;}	// \t タブ
+			if (uc === 10) {p.line += len; p.col = 0; return;}	// \n 改行
+			if (uc === 38) {	// & 変数操作・変数表示
 				p.col += len;
-				if (token.substr(-1) == '&') return;
+				if (token.substr(-1) === '&') return;
 				//変数操作
 				try {
 					const o = ScriptScanner.splitAmpersand(token.slice(1));
@@ -345,7 +345,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				} catch {}
 				return;
 			}
-			if (uc == 59) {	// ; コメント
+			if (uc === 59) {	// ; コメント
 				const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
 				if (a) {
 					const nm = a[1];
@@ -362,14 +362,14 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				p.line, p.col,
 				p.line, p.col +len
 			);
-			if ((uc == 42) && (token.length > 1)) {	// * ラベル
+			if ((uc === 42) && (token.length > 1)) {	// * ラベル
 				p.col += len;
 
 				const kw = `fn=${CmnLib.getFn(path)} label=${token}`;
 				this.hSetWords['ジャンプ先'].add(kw);
 				setKw.add(`ジャンプ先\t${kw}`);
 				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
-				if (token.charAt(1) == '*') return;	// 無名ラベルは除外
+				if (token.charAt(1) === '*') return;	// 無名ラベルは除外
 
 				if (token in hLabel) {
 					const rng0 = hLabel[token];
@@ -452,7 +452,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				let lineTkn = 0;
 				let j = -1;
 				while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
-				if (lineTkn == 0) p.col += len2; else {
+				if (lineTkn === 0) p.col += len2; else {
 					p.line += lineTkn;
 					p.col = len2 -token.lastIndexOf('\n') -1;
 				}
@@ -495,7 +495,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				let j = idx_name_v;
 				while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
 				const line2 = p.line -lineTkn +lineNmVal;
-				const col2 = ((lineNmVal == 0) ?p.col -token.length :0)
+				const col2 = ((lineNmVal === 0) ?p.col -token.length :0)
 					+ idx_name_v -token.lastIndexOf('\n', idx_name_v) -1;
 				const rng2 = new Range(
 					line2, col2,
@@ -513,10 +513,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 			// すでに定義済みのマクロ
 			this.isDuplicateMacroDef = true;
-			if (! diags.find(d=> d.range == loc.range)) {
+			if (! diags.find(d=> d.range === loc.range)) {
 				// （走査上たまたまの）一つめ
 				const dia = new Diagnostic(loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
-				if (loc.uri == uri) diags.push(dia);
+				if (loc.uri === uri) diags.push(dia);
 				else this.clDiag.set(loc.uri, [dia]);
 			}
 			diags.push(new Diagnostic(	// （走査上たまたまの）二つめ以降
@@ -538,7 +538,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 			this.aDsOutline = this.aDsOutlineStack.pop() ?? [];
 		},
-		//'else':  == elsif
+		//'else':  === elsif
 		'endif': ()=> this.aDsOutline = this.aDsOutlineStack.pop() ?? [],
 
 		's': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
@@ -618,7 +618,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			this.hSetWords['レイヤ名'].add(v);
 			setKw.add(`レイヤ名\t${v}`);
 			const cls = this.alzTagArg.hPrm.class?.val;
-			const kwn = `${cls == 'grp' ?'画像' :'文字'}レイヤ名`;
+			const kwn = `${cls === 'grp' ?'画像' :'文字'}レイヤ名`;
 			this.hSetWords[kwn].add(v);
 			setKw.add(`${kwn}\t${v}`);
 		},
@@ -642,11 +642,11 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			// != を弾けないので中途半端ではある
 		const cnt_equa = equa.length;
 		if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
-		if (equa[1].charAt(0) == '&') throw '「&計算」書式では「&」指定が不要です';
+		if (equa[1].charAt(0) === '&') throw '「&計算」書式では「&」指定が不要です';
 		return {
 			name: equa[0].replace(/＝/g, '==').replace(/≠/g, '!='),
 			text: equa[1].replace(/＝/g, '==').replace(/≠/g, '!='),
-			cast: ((cnt_equa == 3) ?equa[2].trim() :null)
+			cast: ((cnt_equa === 3) ?equa[2].trim() :null)
 		};
 	}
 
@@ -659,7 +659,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			const t = a[i];
 			if (ScriptScanner.REG_TAG_LET_ML.test(t)) {
 				const idx = t.indexOf(']') +1;
-				if (idx == 0) throw '[let_ml]で閉じる【]】がありません';
+				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';
 				const s = t.slice(0, idx);
 				const e = t.slice(idx);
 				a.splice(i, 1, s, e);

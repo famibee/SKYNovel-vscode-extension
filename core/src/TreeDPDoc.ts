@@ -42,7 +42,7 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 	constructor(readonly ctx: ExtensionContext) {
 		this.aTiRoot.forEach(t=> {
 			t.iconPath =
-				(t.collapsibleState == TreeItemCollapsibleState.None)
+				(t.collapsibleState === TreeItemCollapsibleState.None)
 				? oIcon('document')
 				: ThemeIcon.Folder;
 			t.contextValue = t.label;

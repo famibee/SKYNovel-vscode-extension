@@ -28,8 +28,8 @@ export class PnlPrjSetting {
 		this.fnPkgJs = dir +'/package.json';
 
 		if (PnlPrjSetting.htmSrc) {
-			if (this.oCfg.save_ns == 'hatsune' ||
-				this.oCfg.save_ns == 'uc') this.open();
+			if (this.oCfg.save_ns === 'hatsune' ||
+				this.oCfg.save_ns === 'uc') this.open();
 			return;
 		}
 
@@ -49,8 +49,8 @@ export class PnlPrjSetting {
 
 			PnlPrjSetting.htmSrc = String(data);
 
-			if (this.oCfg.save_ns == 'hatsune' ||
-				this.oCfg.save_ns == 'uc') this.open();
+			if (this.oCfg.save_ns === 'hatsune' ||
+				this.oCfg.save_ns === 'uc') this.open();
 		});
 	}
 
@@ -133,7 +133,7 @@ export class PnlPrjSetting {
 			const nm = id.slice(iP +1);
 			const id2 = id.slice(0, iP);
 			this.oCfg[id2][nm] = v;
-			if (id2 == 'init' && nm == 'escape') this.ss.setEscape(v);
+			if (id2 === 'init' && nm === 'escape') this.ss.setEscape(v);
 		}
 		else {
 			this.oCfg[id] = v;

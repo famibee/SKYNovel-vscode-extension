@@ -8,7 +8,8 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     private readonly scrScn;
     private readonly hArgDesc;
     private static readonly CMD_SCANSCR_TRGPARAMHINTS;
-    constructor(ctx: ExtensionContext, curPrj: string);
+    constructor(ctx: ExtensionContext, pathWs: string, curPrj: string);
+    private static readonly REG_VAR;
     private tidDelay;
     private hChgTxt;
     private hRsvNm2Then;
