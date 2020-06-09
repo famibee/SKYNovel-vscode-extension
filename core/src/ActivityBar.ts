@@ -163,7 +163,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					const fnLocal = fld.uri.fsPath + '/package.json';
 					if (! fs.existsSync(fnLocal)) return false;
 
-					const localVer = fs.readJsonSync(fnLocal).dependencies.skynovel.slice(1);
+					const localVer = fs.readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1);
 					if (localVer.slice(0, 4) === 'ile:') return false;
 					return (newVer != localVer);
 				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);

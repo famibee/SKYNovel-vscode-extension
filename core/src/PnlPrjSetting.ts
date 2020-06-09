@@ -140,8 +140,7 @@ export class PnlPrjSetting {
 		}
 		fs.outputJson(this.fnPrjJs, this.oCfg);
 
-		const r = this.hRep[id];
-		if (r) r(v);
+		this.hRep[id]?.(v);
 	}
 	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
 		"save_ns"	: async val=> {
