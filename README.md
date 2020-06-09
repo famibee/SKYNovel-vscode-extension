@@ -1,6 +1,8 @@
 # SKYNovel Extension for VSCode
 [![MIT License](https://img.shields.io/github/license/famibee/SKYNovel-vscode-extension.svg)](LICENSE)
 ![](https://img.shields.io/badge/platform-windows%20%7C%20macos-lightgrey.svg)
+![GitHub package.json version](https://img.shields.io/github/package-json/v/famibee/SKYNovel-vscode-extension?color=brightgreen)
+![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
 
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension)
 [![dependencies](https://david-dm.org/famibee/SKYNovel-vscode-extension/dev-status.svg)](https://david-dm.org/famibee/SKYNovel-vscode-extension?type=dev)
@@ -22,11 +24,13 @@
 
 # List of Functions / 機能一覧
 - [Startup timing / 起動タイミング](#Startup-timing--起動タイミング)
+- [shortcut key / ショートカットキー](#shortcut-key--ショートカットキー)
 - [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight--シンタックスハイライト)
 - [Diagnostic function](#Diagnostic-function) / [診断機能](#診断機能)
 - [Coding assistance](#Coding-assistance) / [コーディング補助](#コーディング補助)
 - [Outline view and symbol search](#Outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
 - [Activity Bar / アクティビティバー](#Activity-Bar--アクティビティバー)
+- [Debugger](#Debugger) / [デバッガー](#デバッガー)
 - [Reference search palette / リファレンス検索パレット](#Reference-search-palette--リファレンス検索パレット)
 
 
@@ -38,6 +42,30 @@
 	- デバッグ機能実行時（F5キー押下など）
 - When using the debugging function.
 	- デバッグ機能使用時
+
+
+---
+## shortcut key / ショートカットキー
+- normal condition / 通常状態
+
+	| Key	| Func	| 機能	|
+	| - | - | - |
+	| F2	| rename the macro	| マクロ名変更	|
+	| F5	| Activate debug function	| デバッグ機能起動	|
+	| F9	| Switching Breakpoints	| ブレークポイントの切り替え	|
+	| F12	| 定義へ移動、定義をここに表示	| Go to definitions, and view definitions here	|
+
+- Debugger running / デバッガー実行中
+
+	| Key	| Func	| 機能	|
+	| - | - | - |
+	| F5	| Continue	| 続行	|
+	| F6	| Pause	| 一時停止 |
+	| F10	| Step over	| ステップオーバー |
+	| F11	| Step-in	| ステップイン |
+	| Shift + F11	| Step out	| ステップアウト |
+	| Shift + Ctrl + F5	| restart button	| 再起動ボタン |
+	| Shift + F5	| stop	| 停止 |
 
 
 ---
@@ -253,6 +281,419 @@
 
 ![](res/img/updchk0.jpg)
 
+
+---
+## Debugger
+- You can debug like a high-level programming language with VSCode, including step-in breakpoints.
+	- (If you've never used a debugger in VSCode, the following documentation may be a bit helpful)
+		[Debugging in Visual Studio Code](https://code.visualstudio.com/docs/editor/debugging#_debug-actions)
+	- Currently, only unpackaged and debug-launched apps can be debugged.
+
+
+- [Debugger Function Overview](#Debugger-Function-Overview)
+	- [Support for attach and launch](#Support-for-attach-and-launch)
+	- [Function to create a debug configuration "SKYNovel Debug".](#Function-to-create-a-debug-configuration-"SKYNovel-Debug".)
+	- [About the Debug Button Bar](#About-the-Debug-Button-Bar)
+	- [breakpoint stop](#breakpoint-stop)
+		- [(A) line breakpoint](#(A)-line-breakpoint)
+		- [(B) conditional breakpoint](#(B)-conditional-breakpoint)
+		- [(C) hit-count breakpoint](#hit-(C)-count-breakpoint)
+		- [(D) data breakpoint](#(D)-data-breakpoint)
+		- [(E) function breakpoint](#(E)-function-breakpoint)
+	- [Variable View](#Variable-View)
+	- [Watching View](#Watching-View)
+	- [call stack view](#call-stack-view)
+	- [Debugging Console REPL](#Debugging-Console-REPL)
+- [Hovering over a variable while stopped displays the value](#Hovering-over-a-variable-while-stopped-displays-the-value)
+- [The ability to move back the breakpoint on a blank or comment-only line at the start of a debug](#The-ability-to-move-back-the-breakpoint-on-a-blank-or-comment-only-line-at-the-start-of-a-debug)
+
+
+---
+## デバッガー
+- ステップイン・ブレークポイントなど、VSCode で高級プログラム言語のようなデバッグが可能です。
+	- （VSCode でのデバッガーを使用したことがない方は、以下のドキュメントが少し参考になるかも）
+		[Visual Studio Codeでデバッグする](https://webdesign.vdlz.xyz/Editor/VSCode/Doc/Editor/Doc005_Debugging.html)（内容はやや古いが邦訳）
+	- 現在デバッグできるのは、非パッケージ化・デバッグ起動アプリのみです。
+
+- [デバッガー機能概要](#デバッガー機能概要)
+	- [attach・launch 起動対応](#attach・launch-起動対応)
+	- [デバッグ構成「SKYNovel Debug」作成機能](#デバッグ構成「SKYNovel-Debug」作成機能)
+	- [デバッグボタンバーについて](#デバッグボタンバーについて)
+	- [ブレークポイント停止](#ブレークポイント停止)（通ったら、タグや&変数操作処理前にブレーク）
+		- [(A) 行ブレークポイント](#(A)-行ブレークポイント)
+		- [(B) 条件式ブレークポイント](#(B)-条件式ブレークポイント)（条件式が真なら、（略）処理前にブレーク）
+		- [(C) ヒットカウントブレークポイント](#(C)-ヒットカウントブレークポイント)（ｎ回以上通ったら、（略）処理前にブレーク）
+		- [(D) データブレークポイント](#(D)-データブレークポイント)（変数値が変化したときにブレーク）
+		- [(E) 関数ブレークポイント](#(E)-関数ブレークポイント)（指定したタグやマクロが呼ばれる直前にブレーク）
+	- [変数ビュー](#変数ビュー)（スクリプト実行位置の変数値を表示）
+	- [ウォッチ式ビュー](#ウォッチ式ビュー)
+	- [コールスタックビュー](#コールスタックビュー)
+	- [デバッグコンソールREPL](#デバッグコンソールREPL)（Read-Eval-Print Loop）、ブレーク時に式を手入力して値を調べられる
+- [停止中、変数にホバーすると値を表示](#停止中、変数にホバーすると値を表示)
+- [デバッグ開始時、空白やコメントのみの行に指定されたブレークポイントを後ろにずらす機能](#デバッグ開始時、空白やコメントのみの行に指定されたブレークポイントを後ろにずらす機能)
+
+
+---
+## Debugger Function Overview
+
+### Support for attach and launch
+
+1. select the debugger (triangle on the insect) on the active bar, select [App+Dbg], and
+
+	![](res/img/dbg_actber_run0.png)
+
+2. Press the green triangular execution button to start the debugger (after that, just press the F5 key). (Thereafter, simply press the F5 key to start it.)
+
+	![](res/img/dbg_actber_run1.png)
+
+3. the application version starts and stops at the beginning of the script (main.sn, the first digit of the first line).
+
+	A band cursor, pentagon stop mark, and debug button bar appear on the stop line.
+The call stack view will also show [main.sn 1:1]
+
+	![](res/img/dbg_actber_run2.png)
+
+### Function to create a debug configuration "SKYNovel Debug".
+	If you have not yet created a debug configuration, you will see the following display: 1.
+
+1. Click the [Create launch.json file] blue link.
+
+	![](res/img/dbg_init_js0.png)
+
+2. The launch.json file is created.
+
+	![](res/img/dbg_init_js1.png)
+
+3. If you don't have [App+Dbg], you will need to enter some of the information manually.
+
+	Open the .vscode/launch.json file with the gear button to the immediate right and
+	Please add the [compounds] designation manually.
+
+	![](res/img/dbg_launch_js0.png)
+
+```json
+	"configurations": [.
+		{
+			"name": "1. Launch the app",
+			"type": "node",
+			"request": "launch",
+		},
+		{
+			"name": "2. Connect to the app",
+			"type": "skynovel",
+			"request": "attach",
+		},
+
+		{
+			"name": "2b.debugger",
+			"type": "skynovel",
+			"request": "launch",
+		}
+	],
+	"compounds": [
+		{
+			"name": "App+Dbg",
+			"configurations": ["1. Launch the app", "2b.Debugger"]
+		}
+	]
+```
+
+### About the Debug Button Bar
+	You can run through the tags and & assignment grammars one step at a time, or you can skip to a break point (see below).
+	You can even skip to the breakpoint (see below).
+
+![](res/img/dbg_actber_run3.png)
+
+	1. Continue (F5 key)/Pause (F6 key)
+		Continue ... Skip to breakpoint (waiting for events such as ka[l][p][s])
+		Pause ... Pause (usually when waiting for an event)
+	2. Step over (F10 key)
+		If you're a macro, don't go inside, skip to the outside.
+	3. Step-in (F11 key)
+		If it's a macro, go inside. Otherwise, step over.
+	4. Step out (Shift + F11)
+		Skip from inside the macro until you get out. Otherwise, step over.
+	5. restart button (Shift + Ctrl + F5 keys)
+		Resume from the beginning of the game engine.
+	6. stop (Shift + F5 key)
+		Stop the debugger and the app, or quit debugging (stop each of the two)
+
+### breakpoint stop
+	Stops the break before processing tag and & variable operations. There are five types as follows.
+
+### (A) line breakpoint
+	If you click on the left side of the line number, the mark with a red circle will appear.
+	The execution process of SKYNovel stops when it passes through there.
+
+	It also appears in the breakpoint view.
+	Breakpoints can be deleted, but you can also uncheck the checkbox to temporarily disable the breakpoint.
+
+![](res/img/dbg_bp0.png)
+
+### (B) conditional breakpoint
+	If the conditional expression is true, then (abbreviated) break before processing
+
+1. right-click on the breakpoint and select
+
+	![](res/img/dbg_bp1.png)
+
+2. Selecting 【Expressions】 from 【Editing】 allows you to enter a conditional expression.
+
+	When passing through, it only breaks if the conditional expression is true.
+
+	![](res/img/dbg_bp2.png)
+
+### (C) hit-count breakpoint
+	If it passes more than n times, it breaks before processing.
+
+1. if you select [Hit Count] from [Edit]
+
+	![](res/img/dbg_bp10.png)
+
+2. You can enter the hit count of "How many times do you want to break here?".
+
+	![](res/img/dbg_bp11.png)
+
+### (D) data breakpoint
+	Break when the value of the variable is changed
+
+	When you right-click on a variable in the Variable View and click on "Suspend when the value is changed," you can change the value of the variable by clicking on "Stop". Change Breakpoints] is added.
+	(In the case of tmp variable, it is not displayed in the variable view because the variable does not exist unless something is assigned. (e.g. "I'll be back")
+
+![](res/img/dbg_bp_valchg0.png)
+
+### (E) function breakpoint
+	Break just before the specified tag or macro is called
+
+1. If you press the "+" button in the breakpoint view and enter a tag or macro name, you will be able to see the following information
+
+	![](res/img/dbg_bp_fnc0.png)
+
+2. Break at all points just before it is called.
+
+	![](res/img/dbg_bp_fnc1.png)
+
+### Variable View
+	Display variable values of the script execution position
+
+1. You can check the contents of the variable.
+
+	![](res/img/dbg_varview0.png)
+
+2. It is possible to change the value of a variable by inputting it manually while the program is stopped.
+	- However, a variable name that begins with "const.〜" cannot be changed.
+	- In addition, some variables whose variable names begin with "sn.˜" can be changed by SKYNovel. If you change it, it will be fixed at the input value.
+
+		![](res/img/dbg_varview1.png)
+		![](res/img/dbg_varview2.png)
+
+### Watching View
+	If you register a variable or an expression, it will be displayed.
+	If you register a variable or expression that you want to see how it changes, it will be highlighted whenever it changes.
+	You can also register variables that do not (yet) exist. It will be displayed as 【null】.
+
+![](res/img/dbg_watch0.png)
+
+### call stack view
+	Displays the break, step, etc. stop position.
+	If it is in a macro, it shows the call hierarchy.
+
+![](res/img/dbg_callstackview0.png)
+
+### Debugging Console REPL
+	Read-Eval-Print Loop, which allows you to look up the value by manually entering an expression on a break.
+
+![](res/img/dbg_repl0.png)
+
+## Hovering over a variable while stopped displays the value
+	Normal hovering in tag and macro definition display is temporarily disabled
+
+![](res/img/dbg_hovervar0.png)
+
+## The ability to move back the breakpoint on a blank or comment-only line at the start of a debug
+
+![](res/img/dbg_bp_move0.png)
+
+
+
+## デバッガー機能概要
+### attach・launch 起動対応
+
+1. アクティブバーのデバッガー（虫に三角マーク）を選び、【App+Dbg】を選んで、
+
+	![](res/img/dbg_actber_run0.png)
+
+2. 緑三角の実行ボタンを押すと、デバッガーが起動します。（以後はF5キーを押すだけで起動します）
+
+	![](res/img/dbg_actber_run1.png)
+
+3. アプリ版が起動し、スクリプト冒頭（main.sn、1行目の1桁目）で停止します。
+
+	停止行に帯カーソルと五角形の停止マーク、デバッグボタンバーが現われ、
+	コールスタックビューにも【main.sn 1:1】と表示されます。
+
+	![](res/img/dbg_actber_run2.png)
+
+### デバッグ構成「SKYNovel Debug」作成機能
+	デバッグ構成が未作成の場合は、以下の表示になります。
+
+1. 【launch.json ファイルを作成します】青文字リンクをクリック
+
+	![](res/img/dbg_init_js0.png)
+
+2. launch.json ファイルが作成されます。
+
+	![](res/img/dbg_init_js1.png)
+
+3. 【App+Dbg】がない場合は、一部手入力が必要です。
+
+	すぐ右の歯車ボタンで .vscode/launch.json ファイルを開き、
+	手入力で【compounds】指定を追記して下さい。
+
+	![](res/img/dbg_launch_js0.png)
+
+```json
+	"configurations": [
+		{
+			"name": "1.アプリを起動",
+			"type": "node",
+			"request": "launch",
+		},
+		{
+			"name": "2.アプリに接続",
+			"type": "skynovel",
+			"request": "attach",
+		},
+
+		{
+			"name": "2b.デバッガ",
+			"type": "skynovel",
+			"request": "launch",
+		}
+	],
+	"compounds": [
+		{
+			"name": "App+Dbg",
+			"configurations": ["1.アプリを起動", "2b.デバッガ"]
+		}
+	]
+```
+
+### デバッグボタンバーについて
+	タグや&代入文法を１ステップとして、一つずつ実行したり出来ます。
+	ブレークポイント（後述）までスキップすることもできます。
+
+![](res/img/dbg_actber_run3.png)
+
+	1. 続行（F5 キー） / 一時停止（F6 キー）
+		続行 ... ブレークポイント（か[l][p][s]などイベント待ち）までスキップ
+		一時停止 ... 一時停止する（ふつうイベント待ちで押せるようになる）
+	2. ステップオーバー（F10 キー）
+		マクロなら中へ入らず、外に出たところまでスキップ
+	3. ステップイン（F11 キー）
+		マクロなら中へ入る。それ以外はステップオーバー
+	4. ステップアウト（Shift + F11 キー）
+		マクロ内から外に出るまで飛ばす。それ以外はステップオーバー
+	5. 再起動ボタン（Shift + Ctrl + F5 キー）
+		ゲームエンジン冒頭から再開する
+	6. 停止（Shift + F5 キー）
+		デバッガーやアプリを停止、デバッグ終了（２つそれぞれを停止して下さい）
+
+### ブレークポイント停止
+	タグや&変数操作処理前にブレーク停止する機能。次の五種類があります。
+
+### (A) 行ブレークポイント
+	行番号の左をクリックすると赤丸マークの目印が付きます。
+	SKYNovelの実行処理がそこを通ると停止します。
+
+	ブレークポイントビューにも表示されます。
+	ブレークポイントは削除もできますが、チェックボックスを外すと一時的にブレークしないようにできます。
+
+![](res/img/dbg_bp0.png)
+
+### (B) 条件式ブレークポイント
+	条件式が真なら、（略）処理前にブレーク
+
+1. ブレークポイントを右クリックし、
+
+	![](res/img/dbg_bp1.png)
+
+2. 【編集】から【式】を選択すると、条件式を入力できます。
+
+	ここを通る際、条件式が真である場合のみブレークします。
+
+	![](res/img/dbg_bp2.png)
+
+### (C) ヒットカウントブレークポイント
+	ｎ回以上通ったら、（略）処理前にブレーク
+
+1. 【編集】から【ヒットカウント】を選択すると、
+
+	![](res/img/dbg_bp10.png)
+
+2. 「ここを何回目に通ったときにブレークするか」のヒットカウント回数を入力できます。
+
+	![](res/img/dbg_bp11.png)
+
+### (D) データブレークポイント
+	変数値が変化したときにブレーク
+
+	変数ビューの変数を右クリックし、【値が変更されたときに中断】をクリックすると、【変数値変更ブレークポイント】が追加されます。
+	（tmp変数の場合はなにか代入しないと変数が存在しないため、変数ビューに表示されません）
+
+![](res/img/dbg_bp_valchg0.png)
+
+### (E) 関数ブレークポイント
+	指定したタグやマクロが呼ばれる直前にブレーク
+
+1. ブレークポイントビューで「＋」ボタンを押し、タグやマクロ名を入力すると、
+
+	![](res/img/dbg_bp_fnc0.png)
+
+2. それが呼び出される直前、すべての箇所でブレークします。
+
+	![](res/img/dbg_bp_fnc1.png)
+
+### 変数ビュー
+	スクリプト実行位置の変数値を表示
+
+1. 変数の内容を確認できます。
+
+	![](res/img/dbg_varview0.png)
+
+2. 【値の設定】停止中、手入力で変数値変更が可能です。
+	- ただし変数名が「const.〜」で始まる変数は変更不可です。
+	- また変数名が「sn.〜」で始まる変数は SKYNovelが変化させるものがあり、それを変更すると入力値で固定されてしまいます。
+
+		![](res/img/dbg_varview1.png)
+		![](res/img/dbg_varview2.png)
+
+### ウォッチ式ビュー
+	変数や式を登録しておくと、表示されます。
+	様子を見たい変数や式を登録しておくと、変化するたびに強調表示されます。
+	（まだ）存在しない変数も登録しておけます。（【null】と表示されます）
+
+![](res/img/dbg_watch0.png)
+
+### コールスタックビュー
+	ブレークやステップなどの停止位置を表示します。
+	マクロ内なら呼び出し階層を表示します。
+
+![](res/img/dbg_callstackview0.png)
+
+### デバッグコンソールREPL
+	（Read-Eval-Print Loop）、ブレーク時に式を手入力して値を調べられる
+
+![](res/img/dbg_repl0.png)
+
+### 停止中、変数にホバーすると値を表示
+	タグやマクロ定義表示の通常ホバーは一時無効になる
+
+![](res/img/dbg_hovervar0.png)
+
+### デバッグ開始時、空白やコメントのみの行に指定されたブレークポイントを後ろにずらす機能
+
+![](res/img/dbg_bp_move0.png)
 
 ---
 ## Reference search palette / リファレンス検索パレット

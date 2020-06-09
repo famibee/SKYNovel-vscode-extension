@@ -20,7 +20,7 @@ import {
 } from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {basename} from 'path';
-import {Debugger, InfoBreakpoint} from './Debugger';
+import {Debugger} from './Debugger';
 const {Subject} = require('await-notify');
 
 
@@ -124,8 +124,8 @@ class DebugAdapter extends LoggingDebugSession {
 //console.log(`fn:DebugAdapter.ts line:100 dbg -> exception`);
 			this.sendEvent(new StoppedEvent('exception', DebugAdapter.THREAD_ID));
 		});
-		this.dbg.on('breakpointValidated', (bp: InfoBreakpoint)=> {
-			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{verified: bp.verified, id: bp.id}));
+		this.dbg.on('breakpointValidated', (bp: DebugProtocol.Breakpoint)=> {
+			this.sendEvent(new BreakpointEvent('changed', bp));
 		});
 		this.dbg.on('output', (text, filePath, line, column)=> {
 //console.log(`fn:DebugAdapter.ts line:107 dbg -> output`);
@@ -173,7 +173,7 @@ class DebugAdapter extends LoggingDebugSession {
 		// the adapter implements the configurationDoneRequest.
 		res.body.supportsConfigurationDoneRequest = true;
 
-		// 関数ブレークポイント
+		// 関数ブレークポイントをサポート
 		res.body.supportsFunctionBreakpoints = true;
 
 		// 式評価ブレークポイントをサポート
@@ -182,30 +182,31 @@ class DebugAdapter extends LoggingDebugSession {
 		// ヒットカウントブレークポイントをサポート
 		res.body.supportsHitConditionalBreakpoints = true;
 
-		// ソースにカーソルを置いたときに VS コードが 'evaluate' を使うように
+		// ソースにカーソルホバーしたときの 'evaluate' をサポート
 		res.body.supportsEvaluateForHovers = true;
 
 	// Available filters or options for the setExceptionBreakpoints request.
 //		res.body.exceptionBreakpointFilters?: ExceptionBreakpointsFilter[];
 
-		// '戻る' ボタンを表示する
+		// '戻る' ボタンをサポート
 	// The debug adapter supports stepping back via the 'stepBack' and 'reverseContinue' requests.
 		res.body.supportsStepBack = false;
 //		res.body.supportsStepBack = true;
 
-	// The debug adapter supports setting a variable to a value.
+		// 変数値変更をサポート
 		res.body.supportsSetVariable = true;
 
-	// The debug adapter supports restarting a frame.
-//		res.body.supportsRestartFrame?: boolean;
+		// スタックフレームの実行を再開
+//		res.body.supportsRestartFrame = true;
 
 	// The debug adapter supports the 'gotoTargets' request.
 //		res.body.supportsGotoTargetsRequest?: boolean;
+		// あまりサポートすべき機能ではない気がする
 
 	// The debug adapter supports the 'stepInTargets' request.
 //		res.body.supportsStepInTargetsRequest?: boolean;
 
-		// REPLでの補完をサポートする
+		// REPLでの補完をサポート
 		res.body.supportsCompletionsRequest = true;
 
 	// The set of characters that should trigger completion in a REPL. If not specified, the UI should assume the '.' character.
@@ -241,7 +242,8 @@ class DebugAdapter extends LoggingDebugSession {
 //		res.body.supportsDelayedStackTraceLoading?: boolean;
 
 	// The debug adapter supports the 'loadedSources' request.
-//		res.body.supportsLoadedSourcesRequest?: boolean;
+//		res.body.supportsLoadedSourcesRequest = true;
+		// VSCode GUIに反映されないのでまだ実装されてないか
 
 	// ログポイント：ブレークせずに、コンソールにメッセージを記録
 //		res.body.supportsLogPoints = true;
@@ -270,11 +272,13 @@ class DebugAdapter extends LoggingDebugSession {
 	// The debug adapter supports the 'cancel' request.
 		res.body.supportsCancelRequest = false;
 //		res.body.supportsCancelRequest = true;
+			// 長時間レスポンスがないリクエストのキャンセル機能らしい
+			// 実装例は mockDebug.ts に
 
 		// breakpointLocationsリクエストを送信する
 	// The debug adapter supports the 'breakpointLocations' request.
-		res.body.supportsBreakpointLocationsRequest = false;
 //		res.body.supportsBreakpointLocationsRequest = true;
+			// イベント発生しないので VSCodeでは未実装？
 
 	// The debug adapter supports the 'clipboard' context value in the 'evaluate' request.
 //		res.body.supportsClipboardContext?: boolean;
@@ -351,15 +355,21 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 		"sourceModified": false		// trueは、基礎となるソースが変更され、新しいブレークポイントの位置が変更されたことを示します。
 	}
 }*/
-		const path = args.source.path!;
-		this.dbg.clearBreakpoints(path);
-
-		res.body = {breakpoints: (args.breakpoints ?? []).map(o=> {
-			const {verified, ln, id} = this.dbg.setBreakPoint(path, this.convertClientLineToDebugger(o.line), o);
-			const bp = <DebugProtocol.Breakpoint> new Breakpoint(verified, this.convertDebuggerLineToClient(ln));
-			bp.id = id;
-			return bp;
-		})};
+		res.body = {
+			breakpoints: this.dbg.setBreakPoints(
+				args.source.path!,
+				(args.breakpoints ?? [])
+				.map(o=> <DebugProtocol.SourceBreakpoint>{
+					...o,
+					line: this.convertClientLineToDebugger(o.line),
+				}),
+			)
+			.map(o=> new Breakpoint(
+				o.verified,
+				this.convertDebuggerLineToClient(o.ln),
+				o.col
+			))
+		};
 		this.sendResponse(res);
 	}
 
@@ -379,15 +389,22 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 
 //	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments, request?: DebugProtocol.Request): void {}
 
+	protected restartFrameRequest(res: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, req?: DebugProtocol.Request): void {
+console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)})`);
 
-//	protected restartFrameRequest(response: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, request?: DebugProtocol.Request): void {}
-//	protected gotoRequest(response: DebugProtocol.GotoResponse, args: DebugProtocol.GotoArguments, request?: DebugProtocol.Request): void {}
-	protected pauseRequest(_res: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments): void {
-console.log(`fn:DebugAdapter.ts line:288 pauseRequest args:${JSON.stringify(args)}`);
+// args.frameId: number ... 0〜	SKYNovelでいうスタック深さ
+		// バックステップなど、状態戻し機構が出来ないとこれもできないかなと。
+
+
 	}
+
+//	protected gotoRequest(response: DebugProtocol.GotoResponse, args: DebugProtocol.GotoArguments, request?: DebugProtocol.Request): void {}
+
+	protected pauseRequest(_res: DebugProtocol.PauseResponse, _args: DebugProtocol.PauseArguments): void {this.dbg.pause();}
+
 /*
 	protected sourceRequest(res: DebugProtocol.SourceResponse, _args: DebugProtocol.SourceArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:271 loadedSourcesRequest() res:${JSON.stringify(res)} _args:${JSON.stringify(_args)} req:${JSON.stringify(req)}`);
+console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)} _args:${JSON.stringify(_args)} req:${JSON.stringify(req)})`);
 	}
 */
 
@@ -580,6 +597,7 @@ console.log(`fn:DebugAdapter.ts line:329 `);
 		return type;
 	}
 
+	// 変数値変更
 	protected async setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request): Promise<void> {
 		await this.dbg.setVariable(res.request_seq, args.name, args.value);
 		res.body = {value: args.value,};
@@ -767,9 +785,10 @@ console.log(`fn:DebugAdapter.ts line:329 `);
 		this._cancelledProgressId = undefined;
 	}
 */
-
+/*
 	protected breakpointLocationsRequest(res: DebugProtocol.BreakpointLocationsResponse, args: DebugProtocol.BreakpointLocationsArguments, _request?: DebugProtocol.Request): void {
 console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.source.path:${args.source.path}`);
+
 		if (args.source.path) {
 			const bps = this.dbg.getBreakpoints(args.source.path, this.convertClientLineToDebugger(args.line));
 			res.body = {
@@ -780,12 +799,15 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 			};
 		}
 		else res.body = {breakpoints: []};
+
+
+		res.body = {breakpoints: []};
 		this.sendResponse(res);
 	}
+*/
 
 	// （変数を右クリックで）データブレークポイント設定ＵＩ
 	protected dataBreakpointInfoRequest(res: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
-//console.log(`fn:DebugAdapter.ts line:659 dataBreakpointInfoRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args, null, 2)}`);
 		if (args.variablesReference && args.name) {
 			const v = this.getVar(args.name);
 			if (v.exist) res.body = {
@@ -805,39 +827,6 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 
 	// データブレークポイントをデバッガーへ
 	protected async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
-//console.log(`fn:DebugAdapter.ts line:681 setDataBreakpointsRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args, null, 2)}`);
-/* res:{"seq":0,"type":"response","request_seq":26,"command":"setDataBreakpoints","success":true}
-args:{
-	"breakpoints": [
-		{
-			"enabled": true,
-			"id": "81635417-3c8c-4d1b-906b-c929a6f0e38c",
-			"sessionData": {},
-			"description": "変数値変更：tmp:a",
-			"dataId": "tmp:a",
-			"canPersist": true,
-			"accessTypes": ["readWrite"],
-			"data": {
-				"supportsConditionalBreakpoints": true,
-				"supportsHitConditionalBreakpoints": true,
-				"supportsLogPoints": false,
-				"supportsFunctionBreakpoints": false,
-				"supportsDataBreakpoints": true,
-				"verified": true,
-				"sessionId": "a2cb5f19-544a-4cd1-a1c6-69beb8fd4a4a"
-			}
-		},
-		{
-			"enabled": true,
-			"id": "788f486d-5cf8-4aea-8071-c4b505516291",
-			"sessionData": {},
-			"description": "変数値変更：tmp:h",
-			"dataId": "tmp:h",
-			"canPersist": true,
-			"accessTypes": ["readWrite"]
-		}
-	]
-}*/
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		args.breakpoints.forEach(dbp=> {
@@ -882,11 +871,84 @@ args:{
 	}
 
 //	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments, request?: DebugProtocol.Request): void;
-/*
-	protected loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, _args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} _args:${JSON.stringify(_args)} req:${JSON.stringify(req)}`);
+
+	protected loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
+console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
+
+
+		res.body.sources = [
+			{
+				name: 'main.sn とか?',
+				path: 'doc/prj/script/main.sn',
+				sourceReference: 0,
+			}
+		]
+		this.sendResponse(res);
+
+
+			/**
+			 * The short name of the source. Every source returned from the debug adapter has a name.
+			 * When sending a source to the debug adapter this name is optional.
+			ソースの短い名前。デバッグ・アダプタから返されるソースにはすべて名前があります。
+			デバッグ・アダプタにソースを送信する場合、この名前はオプションです。			
+			 */
+//			name?: string;
+
+			/**
+			 * The path of the source to be shown in the UI.
+			 * It is only used to locate and load the content of the source if no sourceReference is specified (or its value is 0).
+			UIに表示されるソースのパスです。
+			sourceReference が指定されていない場合 (または値が 0 の場合) にのみ、ソースのコンテンツを検索してロードするために使用されます。
+			 */
+//			path?: string;
+
+			/**
+			 * If sourceReference > 0 the contents of the source must be retrieved through the SourceRequest (even if a path is specified).
+			 * A sourceReference is only valid for a session, so it must not be used to persist a source.
+			sourceReference > 0の場合、ソースの内容は(パスが指定されていても)SourceRequestを通して取得しなければなりません。
+			sourceReferenceはセッションに対してのみ有効なので、ソースを永続化するために使用してはいけません。
+			 * The value should be less than or equal to 2147483647 (2^31 - 1).
+			 */
+//			sourceReference?: number;
+
+			/**
+			 * An optional hint for how to present the source in the UI.
+			 * A value of 'deemphasize' can be used to indicate that the source is not available or that it is skipped on stepping.
+			ソースをUIでどのように表示するかについてのオプションのヒントです。
+			deemphasize' の値を使用すると、ソースが利用できないことを示したり、ステッピング時にスキップされたりすることができます。
+			 */
+//			presentationHint?: 'normal' | 'emphasize' | 'deemphasize';
+			// 強調, 軽視
+
+			/**
+			 * The (optional) origin of this source: possible values 'internal module', 'inlined content from source map', etc.
+			このソースの (オプションの) 原点: 可能な値は '内部モジュール'、'ソースマップからのインラインコンテンツ' などです。
+			 */
+//			origin?: string;
+
+			/**
+			 * An optional list of sources that are related to this source. These may be the source that generated this source.
+			このソースに関連するソースのオプションのリスト。これらは、このソースを生成したソースである可能性があります。
+			 */
+//			sources?: Source[];
+
+			/**
+			 * Optional data that a debug adapter might want to loop through the client.
+			 * The client should leave the data intact and persist it across sessions. The client should not interpret the data.
+			デバッグアダプタがクライアントを経由してループする可能性のあるオプションのデータです。
+			クライアントはデータをそのままにして、セッション間でデータを保持する必要があります。クライアントはデータを解釈してはいけません。
+			 */
+//			adapterData?: any;
+
+			/**
+			 * The checksums associated with this file.
+			このファイルに関連付けられたチェックサム。
+			 */
+//			checksums?: Checksum[];
+
+
 	}
-*/
+
 //	protected readMemoryRequest(response: DebugProtocol.ReadMemoryResponse, args: DebugProtocol.ReadMemoryArguments, request?: DebugProtocol.Request): void;
 //	protected disassembleRequest(response: DebugProtocol.DisassembleResponse, args: DebugProtocol.DisassembleArguments, request?: DebugProtocol.Request): void;
 

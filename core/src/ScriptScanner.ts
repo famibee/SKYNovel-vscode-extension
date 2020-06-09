@@ -441,7 +441,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 		const p = {line: 0, col: 0};
 		this.resolveScript(src).aToken
-		.forEach((token: string)=> {if (token) this.fncToken(p, token)});
+		.forEach(token=> {if (token) this.fncToken(p, token)});
 	}
 	private fncToken = this.procToken;
 	private procToken(_p: Pos, _token: string) {}

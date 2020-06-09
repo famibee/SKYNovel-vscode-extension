@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "2.2.4",
+	"version": "3.0.0",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.45.1"
@@ -575,7 +575,7 @@
 		"@types/crypto-js": "^3.1.47",
 		"@types/fs-extra": "^9.0.1",
 		"@types/mocha": "^7.0.2",
-		"@types/node": "^14.0.11",
+		"@types/node": "^14.0.12",
 		"@types/uuid": "^8.0.0",
 		"@types/vscode": "^1.45.1",
 		"ts-loader": "^7.0.5",
