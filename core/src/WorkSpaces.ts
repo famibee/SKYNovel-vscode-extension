@@ -186,7 +186,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
 		const o = fs.readJsonSync(dir +'/package.json');
-		const localVer = o?.dependencies?.skynovel?.slice(1);
+		const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
 		this.oTiPrj[dir][this.idxDevPrjSet].description = localVer ?`-- ${localVer}` :'取得できません';
 	}
 	private dspCryptoMode(dir: string) {
