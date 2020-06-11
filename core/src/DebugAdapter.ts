@@ -15,7 +15,6 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-//	ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
@@ -73,7 +72,6 @@ export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
 			// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
 			return {
 				cwd: '${workspaceFolder}',
-//				userDataDir: '${workspaceFolder}/.vscode/chrome',
 				...cfg,
 			};
 		}

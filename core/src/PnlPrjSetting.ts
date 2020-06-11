@@ -160,17 +160,16 @@ export class PnlPrjSetting {
 		"book.creator"	: async val=> {
 			await replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
 			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
-			await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
 		},
 		'book.pub_url'	: async val=> {
 			await replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
-			await replaceFile(this.fnAppJs, /((?:submitURL|homepage)\s*:\s*)(['"]).*\2/g, `$1"${val}"`);
 
 			// ついでに発表年を
 			await replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`)
 		},
 		'book.detail'	: val=> replaceFile(this.fnPkgJs,
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
+		'book.publisher'		: async val=> await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`),
 	}
 
 }

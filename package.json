@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.0.1",
+	"version": "3.0.2",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.45.1"
@@ -59,6 +59,20 @@
 				],
 				"configurationAttributes": {
 					"attach": {
+						"properties": {
+							"userDataDir": {
+								"type": "string",
+								"description": "Absolute path to App Data.",
+								"default": "${workspaceFolder}/.vscode/chrome"
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop after launch.",
+								"default": true
+							}
+						}
+					},
+					"launch": {
 						"properties": {
 							"userDataDir": {
 								"type": "string",
@@ -575,7 +589,7 @@
 		"@types/crypto-js": "^3.1.47",
 		"@types/fs-extra": "^9.0.1",
 		"@types/mocha": "^7.0.2",
-		"@types/node": "^14.0.12",
+		"@types/node": "^14.0.13",
 		"@types/uuid": "^8.0.0",
 		"@types/vscode": "^1.45.1",
 		"ts-loader": "^7.0.5",
