@@ -116,7 +116,7 @@ export class Project {
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
-		this.curCrypto = pathWs +`/${this.fld_crypto_prj}/`;
+		this.curCrypto = pathWs +`/doc/${this.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);

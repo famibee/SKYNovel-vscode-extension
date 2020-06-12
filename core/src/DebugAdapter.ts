@@ -119,14 +119,14 @@ class DebugAdapter extends LoggingDebugSession {
 			this.sendEvent(new StoppedEvent('data breakpoint', DebugAdapter.THREAD_ID));
 		});
 		this.dbg.on('stopOnException', ()=> {
-//console.log(`fn:DebugAdapter.ts line:100 dbg -> exception`);
+//console.log(`fn:DebugAdapter.ts line:122 dbg -> exception`);
 			this.sendEvent(new StoppedEvent('exception', DebugAdapter.THREAD_ID));
 		});
 		this.dbg.on('breakpointValidated', (bp: DebugProtocol.Breakpoint)=> {
 			this.sendEvent(new BreakpointEvent('changed', bp));
 		});
 		this.dbg.on('output', (text, filePath, line, column)=> {
-//console.log(`fn:DebugAdapter.ts line:107 dbg -> output`);
+//console.log(`fn:DebugAdapter.ts line:129 dbg -> output`);
 			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
 
 			if (text === 'start' || text === 'startCollapsed' || text === 'end') {
