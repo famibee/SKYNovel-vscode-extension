@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.0.3",
+	"version": "3.0.4",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.46.0"

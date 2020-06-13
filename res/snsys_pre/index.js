@@ -27,13 +27,10 @@ exports.init = hSN=> {
 			const b = Buffer.from(e2.toString(crypto.enc.Hex), 'hex');
 	//		const v = b.readUInt8(0);
 			const fm = hN2Ext[b.readUInt8(1)];
-			const mime = fm.mime;
-			if (! mime) {
-				const bl = new Blob([b.slice(2), data.slice(4+cl)]);
-				return bl.arrayBuffer();
-			}
-			const bl = new Blob([b.slice(2), data.slice(4+cl)], {type: mime});
-			return new Promise(fm.fnc(bl));
+			const ab = [Buffer.from(b.slice(2)), data.slice(4+cl)];
+			return fm.fnc
+			? new Promise(fm.fnc(new Blob(ab, {type: fm.mime})))
+			: new Blob(ab).arrayBuffer();
 		});
 		hSN.setEnc(data=> crypto.AES.encrypt(data, pbkdf2, {iv: iv}));
 		hSN.getStK(()=> p.stk);
