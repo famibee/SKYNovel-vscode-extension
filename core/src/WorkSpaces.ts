@@ -50,8 +50,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			npm: 'npm run pack:win'},
 		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 app,dmg',
 			npm: 'npm run pack:mac'},
-		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
-			npm: 'npm run webpack:pro'},
+//		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
+//			npm: 'npm run webpack:pro'},
 	];
 	private	readonly idxDevPrjSet	= 1;
 	private	readonly idxDevCrypto	= 3;
