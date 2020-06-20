@@ -5,12 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, statBreak, is_mac, is_win} from './CmnLib';
+import {oIcon, statBreak, is_win, treeProc} from './CmnLib';
 import {Project} from './Project';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri} from 'vscode';
 
 import fs = require('fs-extra');
+import archiver = require('archiver');
+import {basename, dirname} from 'path';
 
 interface DecChars {
 	aRange		: Range[];
@@ -21,31 +23,45 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
 	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
-	private	readonly TreeChild	: {
+	private	readonly aTreeTmp	: {
+		cmd		: string,
 		icon	: string,
 		label	: string,
-		cmd		: string,
 		desc?	: string,
+		npm?	: string,
 	}[] = [
-		{icon: 'gear',	label: 'プロジェクト設定', cmd: 'skynovel.devPrjSet'},
-		{icon: 'skynovel',	label: 'SKYNovel更新', cmd: 'skynovel.devSnUpd'},
-		{icon: 'plugin',	label: '全ライブラリ更新', cmd: 'skynovel.devLibUpd'},
-		{icon: 'browser',	label: 'ブラウザ版を起動', cmd: 'skynovel.devTaskWeb'},
-		{icon: 'electron',	label: 'アプリ版を起動', cmd: 'skynovel.devTaskStart'},
-		{icon: 'windows',	label: 'exe生成', cmd: 'skynovel.devTaskPackWin'},
-		{icon: 'macosx',	label: 'app生成', cmd: 'skynovel.devTaskPackMac', desc: is_mac ?'' :'OS X 上のみ'},
-		{icon: 'gear',		label: '暗号化', cmd: 'skynovel.devCrypto'},
-		{icon: 'gear',		label: 'リビルド', cmd: 'skynovel.devReBuild'},
+		{cmd: 'PrjSet',		icon: 'gear',		label: 'プロジェクト設定'},
+		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
+			npm: `npm un -S skynovel ${statBreak()
+			} npm i @famibee/skynovel@latest ${statBreak()
+			} npm run webpack:dev`},
+		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
+			npm: `npm update ${statBreak()
+			} npm update --dev ${statBreak()
+			} npm run webpack:dev`},
+		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
+		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
+			npm: 'npm run rebuild'},
+		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
+			npm: 'npm run web'},
+		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
+			npm: 'npm run start'},
+		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows用 exe',
+			npm: 'npm run pack:win'},
+		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 app,dmg',
+			npm: 'npm run pack:mac'},
+		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
+			npm: 'npm run webpack:pro'},
 	];
-	private	readonly idxDevPrjSet		= 1;
-	private	readonly idxDevTaskPackMac	= 6;
-	private	readonly idxDevCrypto		= 7;
+	private	readonly idxDevPrjSet	= 1;
+	private	readonly idxDevCrypto	= 3;
+	private	readonly idxDevPackMac	= 8;
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
 		if (is_win) {
-			const tc = this.TreeChild[this.idxDevTaskPackMac];
+			const tc = this.aTreeTmp[this.idxDevPackMac];
 			tc.label = '';
 			tc.cmd = '';
 			tc.desc = '（Windowsでは使えません）';
@@ -54,9 +70,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
-		this.TreeChild.forEach(v=> {if (v.cmd) ctx.subscriptions.push(commands.registerCommand(v.cmd, ti=> this.onClickTreeItemBtn(ti)))});
+		this.aTreeTmp.forEach(v=> {if (v.cmd) ctx.subscriptions.push(commands.registerCommand('skynovel.dev'+ v.cmd, ti=> this.onClickTreeItemBtn(ti)))});
 
-		tasks.onDidEndTaskProcess(e=> this.fnc_onDidEndTaskProcess(e));
+		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.name](e));
 
 		this.onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
@@ -114,8 +130,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
 	}
 
-	private	fnc_onDidEndTaskProcess = (_e: TaskProcessEndEvent)=> {};
-
 	private refresh(e?: WorkspaceFoldersChangeEvent): void {
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) return;	// undefinedだった場合はファイルを開いている
@@ -166,10 +180,10 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// プロジェクト追加
-		this.oTiPrj[dir] = this.TreeChild.map(v=> {
+		this.oTiPrj[dir] = this.aTreeTmp.map(v=> {
 			const t2 = new TreeItem(v.label);
 			t2.iconPath = oIcon(v.icon);
-			t2.contextValue = t2.label;
+			t2.contextValue = 'skynovel.dev'+ v.cmd;
 			t2.description = v.desc ?? '';
 			t2.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
 			return t2;
@@ -195,8 +209,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		tc[this.idxDevCrypto].description = `-- ${fpf.isCryptoMode ?'する' :'しない'}`;
 	}
 
+	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {};
 	private onClickTreeItemBtn(ti: TreeItem) {
-		if (! ti) console.log(`fn:TreeDPDev.ts line:133 onClickTreeItemBtn undefined...`);
+		if (! ti) return;	// ここには来ないはず
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) {	// undefinedだった場合はファイルを開いている
 			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
@@ -209,25 +224,15 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
-		const i = this.TreeChild.findIndex(v=> v.label === ti.label);
+		const i = this.aTreeTmp.findIndex(v=> v.label === ti.label);
 		if (i === -1) return;
 
-		const tc = this.TreeChild[i];
-		switch (tc.cmd) {
-			case 'skynovel.devPrjSet':	this.hPrj[dir].openPrjSetting();
-				return;
-			case 'skynovel.devSnUpd':	cmd += `npm i skynovel@latest ${
-				statBreak()} npm run webpack:dev`;
-				this.chkLastVerSKYNovel();
-				break;
-			case 'skynovel.devLibUpd':	cmd += `npm update ${
-				statBreak()} npm update --dev ${
-				statBreak()} npm run webpack:dev`;	break;
-			case 'skynovel.devTaskWeb':		cmd += 'npm run web';		break;
-			case 'skynovel.devTaskStart':	cmd += 'npm run start';		break;
-			case 'skynovel.devTaskPackWin':	cmd += 'npm run pack:win';	break;
-			case 'skynovel.devTaskPackMac':	cmd += 'npm run pack:mac';	break;
-			case 'skynovel.devCrypto':
+		const tc = this.aTreeTmp[i];	// タスク作成
+		if (tc.npm) cmd += tc.npm;
+		switch (tc.cmd) {	// タスク前処理
+			case 'PrjSet':	this.hPrj[dir].openPrjSetting();	return;
+			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
+			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a != 'はい') return;
@@ -237,33 +242,78 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
-			case 'skynovel.devReBuild':	cmd += 'npm run rebuild';	break;
-			default:	return;
+
+			case 'PackFreem':
+				let find_ng = false;
+				treeProc(dir +'/doc/prj', url=> {
+					if (find_ng || url.slice(-4) !== '.svg') return;
+
+					find_ng = true;
+					window.showErrorMessage(
+						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
+					)
+					.then(a=> {switch (a) {
+						case 'フォルダを開く':
+							env.openExternal(Uri.file(dirname(url)));	break;
+						case 'Online Converter':
+							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
+							break;
+					}});
+				});
+				if (find_ng) return;
+				break;
 		}
+
 		const t = new Task(
 			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
 			tc.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		this.fnc_onDidEndTaskProcess
-		= (tc.cmd === 'skynovel.devSnUpd'
-		|| tc.cmd === 'skynovel.devLibUpd')
-			? e=> {
-				if (e.execution.task.definition.type != t.definition.type) return;
-				if (e.execution.task.source != t.source) return;
+		switch (tc.cmd) {	// タスク後処理
+			case 'SnUpd':
+			case 'LibUpd':
+				this.hOnEndTask[tc.label] = e=> {
+					if (e.execution.task.definition.type != t.definition.type) return;
+					if (e.execution.task.source != t.source) return;
 
-				this.updLocalSNVer(dir);
-				this._onDidChangeTreeData.fire(undefined);
-			}
-			: ()=> {};
+					this.updLocalSNVer(dir);
+					this._onDidChangeTreeData.fire(undefined);
+				};
+				break;
+
+			case 'PackWin':
+			case 'PackMac':
+				this.hOnEndTask[tc.label] = ()=> window.showInformationMessage(
+					`${tc.label} パッケージを生成しました`,
+					'出力フォルダを開く'
+				).then(()=> env.openExternal(Uri.file(dir +'/build/')));
+				break;
+
+			case 'PackFreem':	this.hOnEndTask[tc.label] = ()=> {
+				const arc = archiver.create('zip', {zlib: {level: 9},})
+				.append(fs.createReadStream(dir +'/doc/web.htm'), {name: 'index.html'})
+				.append(fs.createReadStream(dir +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.glob('web.js', {cwd: dir +'/doc/'})
+				.glob('prj/**/*', {cwd: dir +'/doc/'});
+
+				const fn_out = `${basename(dir)}_1.0freem.zip`;
+				const ws = fs.createWriteStream(dir +`/build/${fn_out}`)
+				.on('close', ()=> window.showInformationMessage(
+					`ふりーむ！形式で出力（${fn_out}）しました`, 'フォルダを開く',
+				).then(()=> env.openExternal(Uri.file(dir +'/build/'))));
+				arc.pipe(ws);
+				arc.finalize();	// zip圧縮実行
+				};
+				break;
+		}
 		tasks.executeTask(t)
 		.then(undefined, rj=> console.error(`fn:TreeDPDev onClickTreeItemBtn() rj:${rj.message}`));
 	}
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		return Promise.resolve(t ?this.oTiPrj[t.tooltip!] :this.aTiRoot);
+	getChildren(t?: TreeItem): TreeItem[] {
+		return t ?this.oTiPrj[t.tooltip!] :this.aTiRoot;
 	}
 
 	dispose() {

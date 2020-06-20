@@ -123,11 +123,11 @@ export class Project {
 		this.hPass = exists_pass
 			? fs.readJsonSync(fnPass, {throws: false})
 			: {
-				pass	: uuidv4(),
-				salt	: String(crypto.lib.WordArray.random(128 / 8)),
-				iv		: String(crypto.lib.WordArray.random(128 / 8)),
-				ite		: 500 + Math.floor(new Date().getTime() %300),
-				stk		: String(crypto.lib.WordArray.random(128 / 8)),
+				pass: uuidv4(),
+				salt: String(crypto.lib.WordArray.random(128 / 8)),
+				iv	: String(crypto.lib.WordArray.random(128 / 8)),
+				ite	: 500 + Math.floor(new Date().getTime() %300),
+				stk	: String(crypto.lib.WordArray.random(128 / 8)),
 			};
 		if (! exists_pass) fs.outputJsonSync(fnPass, this.hPass);
 
@@ -206,7 +206,6 @@ export class Project {
 
 	private	readonly	aRepl = [
 		'core/app4webpack.js',
-		'core/mob4webpack.js',
 		'core/web4webpack.js',
 	];
 	tglCryptoMode() {

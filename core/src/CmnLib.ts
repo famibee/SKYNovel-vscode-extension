@@ -34,8 +34,8 @@ export const statBreak: {(): string} =
 
 
 // 階層フォルダ逐次処理
-const m_fs = require('fs-extra');
-const m_path = require('path');
+import m_fs = require('fs-extra');
+import {resolve, basename, extname} from 'path';
 const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 export const regNoUseSysPath = /\/(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
 
@@ -44,7 +44,7 @@ export function treeProc(wd: string, fnc: (url: string)=> void) {
 		regNoUseSysFile.lastIndex = 0;
 		const nm = String(d.name).normalize('NFC');
 		if (regNoUseSysFile.test(nm)) return;
-		const url = m_path.resolve(wd, nm);
+		const url = resolve(wd, nm);
 		if (d.isDirectory()) {treeProc(url, fnc); return;}
 
 		fnc(url);
@@ -58,23 +58,24 @@ export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncF
 		if (regNoUseSysFile.test(nm)) return;
 		if (d.isDirectory()) {fncFld(nm); return;}
 
-		const url = m_path.resolve(wd, nm);
+		const url = resolve(wd, nm);
 		fnc(url, nm);
 	});
 }
 
-export async function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
+export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 	try {
 		if (! m_fs.existsSync(src)) return;
 
-		const txt = await m_fs.readFile(src, {encoding: 'utf8'});
+		const txt = m_fs.readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
-		if (txt != ret) await m_fs.outputFile(dest, ret);
-	} catch (err) {
+		if (txt != ret) m_fs.writeFileSync(dest, ret);
+	}
+	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);
 	}
 }
 
 export class CmnLib {
-	static	readonly 	getFn = (path: string)=> m_path.basename(path, m_path.extname(path));
+	static	readonly 	getFn = (path: string)=> basename(path, extname(path));
 }

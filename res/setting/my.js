@@ -33,17 +33,17 @@ window.addEventListener('message', e=> {
 		"save_ns"		: "hatsune",
 		"book.title"	: "初音館にて",
 		"book.creator"	: "夕街昇雪",
-		"book.cre_url"	: "https://twitter.com/#!/ugainovel",
+		"book.cre_url"	: "https://twitter.com/ugainovel",
 		"book.publisher": "活動漫画屋",
-		"book.pub_url"	: "http://ugainovel.blog112.fc2.com/",
+		"book.pub_url"	: "https://ugainovel.blog.fc2.com/",
 		"book.detail"	: "江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。",
 	}, {
 		"save_ns"		: "uc",
 		"book.title"	: "桜の樹の下には",
 		"book.creator"	: "夕街昇雪",
-		"book.cre_url"	: "https://twitter.com/#!/ugainovel",
+		"book.cre_url"	: "https://twitter.com/ugainovel",
 		"book.publisher": "活動漫画屋",
-		"book.pub_url"	: "http://ugainovel.blog112.fc2.com/",
+		"book.pub_url"	: "https://ugainovel.blog.fc2.com/",
 		"book.detail"	: "梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。",
 	}];
 	const chkEqTemp = i=> {

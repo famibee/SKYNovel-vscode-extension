@@ -8,7 +8,7 @@
 import {replaceFile, foldProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 
-import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
+import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import fs = require('fs-extra');
 
 export class PnlPrjSetting {
@@ -16,16 +16,30 @@ export class PnlPrjSetting {
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	fnAppJs	: string;
+	private	readonly	fnReadme4Freem	: string;
 	private	readonly	localResourceRoots: Uri;
 
 	private	static	htmSrc	= '';
 
-
-	constructor(readonly ctx: ExtensionContext, readonly dir: string, private readonly chgTitle: (title: string)=> void, private readonly ss: CodingSupporter) {
-		this.fnPrj = dir +'/doc/prj/';
+	constructor(readonly ctx: ExtensionContext, readonly pathWs: string, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter) {
+		this.fnPrj = pathWs +'/doc/prj/';
 		this.fnPrjJs = this.fnPrj +'prj.json';
-		this.fnAppJs = dir +'/doc/app.js';
-		this.fnPkgJs = dir +'/package.json';
+		this.fnAppJs = pathWs +'/doc/app.js';
+		this.fnPkgJs = pathWs +'/package.json';
+
+		this.fnReadme4Freem = pathWs +'/build/include/readme.txt';
+		let init_freem = false;
+		if (! fs.existsSync(this.fnReadme4Freem)) {
+			init_freem = true;
+			fs.ensureFileSync(this.fnReadme4Freem);
+			fs.copyFileSync(
+				this.ctx.extensionPath +`/res/readme.txt`,
+				this.fnReadme4Freem,
+			);
+
+			workspace.openTextDocument(this.fnReadme4Freem)
+			.then(doc=> window.showTextDocument(doc));
+		}
 
 		if (PnlPrjSetting.htmSrc) {
 			if (this.oCfg.save_ns === 'hatsune' ||
@@ -40,7 +54,11 @@ export class PnlPrjSetting {
 			this.oCfg.debug['debugLog'] = false;
 		}
 		chgTitle(this.oCfg.book.title);
-		this.ss.setEscape(this.oCfg?.init?.escape ?? '');
+		this.codSpt.setEscape(this.oCfg?.init?.escape ?? '');
+		if (init_freem) {
+			['title','version','creator','cre_url','publisher','pub_url',]
+			.forEach(nm=> this.hRep['book.'+ nm](this.oCfg.book[nm]));
+		}
 
 		const path_doc = ctx.extensionPath +`/res/setting/`;
 		this.localResourceRoots = Uri.file(path_doc);
@@ -133,7 +151,7 @@ export class PnlPrjSetting {
 			const nm = id.slice(iP +1);
 			const id2 = id.slice(0, iP);
 			this.oCfg[id2][nm] = v;
-			if (id2 === 'init' && nm === 'escape') this.ss.setEscape(v);
+			if (id2 === 'init' && nm === 'escape') this.codSpt.setEscape(v);
 		}
 		else {
 			this.oCfg[id] = v;
@@ -143,33 +161,46 @@ export class PnlPrjSetting {
 		this.hRep[id]?.(v);
 	}
 	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
-		"save_ns"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
-			await replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+		"save_ns"	: val=> {
+			replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
 		},
 		'window.width'	: val=> replaceFile(this.fnAppJs,
 			/(width\s*: ).*(,)/, `$1${val}$2`),
 		'window.height'	: val=> replaceFile(this.fnAppJs,
 			/(height\s*: ).*(,)/, `$1${val}$2`),
-		'book.version'	: val=> replaceFile(this.fnPkgJs,
-			/("version"\s*:\s*").*(")/, `$1${val}$2`),
+		'book.version'	: val=> {
+			replaceFile(this.fnPkgJs, /("version"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.fnReadme4Freem, /(【Version】)\S+/g, `$1${val}`);
+		},
 		'book.title'	: val=> {
 			this.chgTitle(val);
 			replaceFile(this.fnPkgJs, /("productName"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.fnReadme4Freem, /(【タイトル】)\S+/g, `$1${val}`);
 		},
-		"book.creator"	: async val=> {
-			await replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
-			await replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
+		"book.creator"	: val=> {
+			replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
+			replaceFile(this.fnReadme4Freem, /(【著 作 者】)\S+/g, `$1${val}`);
 		},
-		'book.pub_url'	: async val=> {
-			await replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
+		'book.cre_url'	: val=> {
+			replaceFile(this.fnReadme4Freem, /(【連 絡 先】メール： )\S+/, `$1${val}`);
+		},
+		'book.publisher': val=> {
+			replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
 
 			// ついでに発表年を
-			await replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`)
+			replaceFile(this.fnReadme4Freem, /(Copyright \(C\) )\d+ "([^"]+)"/g, `$1${(new Date()).getFullYear()} "${val}"`);
+		},
+		'book.pub_url'	: val=> {
+			replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.fnReadme4Freem, /(　　　　　　ＷＥＢ： )\S+/g, `$1${val}`);
+
+			// ついでに発表年を
+			replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`);
 		},
 		'book.detail'	: val=> replaceFile(this.fnPkgJs,
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
-		'book.publisher'		: async val=> await replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`),
 	}
 
 }

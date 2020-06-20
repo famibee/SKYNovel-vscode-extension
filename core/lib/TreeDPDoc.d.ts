@@ -1,11 +1,10 @@
 import { TreeDataProvider, TreeItem, ExtensionContext } from 'vscode';
 export declare class TreeDPDoc implements TreeDataProvider<TreeItem> {
-    readonly ctx: ExtensionContext;
+    private readonly ctx;
+    private readonly aTreeTmp;
     private readonly aTiRoot;
-    private readonly aTiTemp;
-    private readonly aTiFamibee;
-    private readonly aTiVSCodeEx;
     constructor(ctx: ExtensionContext);
+    private generate;
     getTreeItem: (t: TreeItem) => TreeItem;
-    getChildren(t?: TreeItem): Thenable<TreeItem[]>;
+    getChildren(t?: TreeItem): TreeItem[];
 }

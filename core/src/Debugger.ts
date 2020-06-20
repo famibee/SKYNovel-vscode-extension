@@ -21,7 +21,7 @@ export interface InfoBreakpoint {
 export class Debugger extends EventEmitter {
 	// 与えられたプログラムの実行を開始します
 	private	readonly	hProcSnRes: {[nm: string]: (o: any)=> boolean}	= {
-		stopOnStep	: o=> {this.sendEvent2Adpt(o.type);	return false;},
+		stopOnStep: o=> {this.sendEvent2Adpt(o.type);	return false;},
 		stopOnBreakpoint: o=> {this.sendEvent2Adpt(o.type);	return false;},
 		stopOnDataBreakpoint: o=> {this.sendEvent2Adpt(o.type);	return false;},
 	};

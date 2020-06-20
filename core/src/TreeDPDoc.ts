@@ -9,93 +9,71 @@ import {oIcon} from './CmnLib';
 
 import {TreeDataProvider, TreeItem, ExtensionContext, commands, env, Uri, TreeItemCollapsibleState, ThemeIcon} from 'vscode';
 
+interface	TTmpTI {
+	label		: string;
+	icon?		: string;
+	cmd?		: string;
+	url?		: string;
+	children?	: TTmpTI[];
+}
+
 export class TreeDPDoc implements TreeDataProvider<TreeItem> {
-	private readonly	aTiRoot		: TreeItem[] = [
-		new TreeItem('開発者向け情報'),
-		new TreeItem('タグリファレンス'),
-		new TreeItem('マクロ・プラグインリファレンス'),
-		new TreeItem('機能ギャラリー'),
-		new TreeItem('テンプレート プロジェクト', TreeItemCollapsibleState.Collapsed),
-		new TreeItem('famibee 連絡先', TreeItemCollapsibleState.Collapsed),
-		new TreeItem('オススメVSCode拡張機能', TreeItemCollapsibleState.Collapsed),
+	private	readonly	aTreeTmp: TTmpTI[]	= [
+		{label: '開発者向け情報', icon: 'document',
+			url: 'https://famibee.github.io/SKYNovel/dev.htm'},
+		{label: 'タグリファレンス', icon: 'document',
+			url: 'https://famibee.github.io/SKYNovel/tag.htm'},
+		{label: 'マクロ・プラグインリファレンス', icon: 'document',
+			cmd: 'opMacroPlg',
+			url: 'https://famibee.github.io/SKYNovel/macro_plg.htm'},
+		{label: '機能ギャラリー', icon: 'document',
+			url: 'https://famibee.github.io/SKYNovel_gallery/'},
+		{label: 'テンプレート プロジェクト', children: [
+			{label: '横書き「初音館にて」', icon: 'baggage', url: 'https://github.com/famibee/SKYNovel_hatsune/archive/master.zip'},
+			{label: '縦書き「桜の樹の下には」', icon: 'baggage', url: 'https://github.com/famibee/SKYNovel_uc/archive/master.zip'},
+		]},
+		{label: 'famibee  連絡先', children: [
+			{label: 'famibee blog', icon: 'document', url: 'https://famibee.blog.fc2.com/'},
+			{label: 'famibee Mail', icon: 'mail', url: 'mailto:famibee@gmail.com'},
+			{label: 'famibee Twitter', icon: 'twitter', url: 'https://twitter.com/famibee'},
+		]},
+		{label: 'オススメVSCode拡張機能', children: [
+			{label: '日本語化', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja'},
+			{label: 'Material Icon Theme', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme'},
+			{label: 'Bookmarks', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks'},
+			{label: 'HTML Preview', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode'},
+			{label: 'HTMLHint', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint'},
+			{label: 'Live Server', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer'},
+			{label: 'glTF Tools', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'},
+		]},
 	];
-	private readonly	aTiTemp		: TreeItem[] = [
-		new TreeItem('横書き「初音館にて」'),
-		new TreeItem('縦書き「桜の樹の下には」'),
-	];
-	private readonly	aTiFamibee	: TreeItem[] = [
-		new TreeItem('famibee blog'),
-		new TreeItem('famibee Mail'),
-		new TreeItem('famibee Twitter'),
-	];
-	private readonly	aTiVSCodeEx	: TreeItem[] = [
-		new TreeItem('日本語化'),
-		new TreeItem('Material Icon Theme'),
-		new TreeItem('Bookmarks'),
-		new TreeItem('HTML Preview'),
-		new TreeItem('HTMLHint'),
-		new TreeItem('Cordova Tools'),
-		new TreeItem('Debugger for Chrome'),
-		new TreeItem('glTF Tools'),
-	];
+	private readonly	aTiRoot	= this.generate('doc', this.aTreeTmp);
 
-	constructor(readonly ctx: ExtensionContext) {
-		this.aTiRoot.forEach(t=> {
-			t.iconPath =
-				(t.collapsibleState === TreeItemCollapsibleState.None)
-				? oIcon('document')
-				: ThemeIcon.Folder;
-			t.contextValue = t.label;
+	constructor(private readonly ctx: ExtensionContext) {}
+
+	private	generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
+		return aTi.map((o, idx)=> {
+			const id = (parent === 'doc' ?`skynovel.` :'') +`${parent}/${idx}`;
+			const t = new TreeItem(o.label);
+			t.contextValue = id;
+			if (o.children) {
+				t.iconPath = ThemeIcon.Folder;
+				t.collapsibleState = TreeItemCollapsibleState.Collapsed;
+			}
+			else t.iconPath = o.icon ?oIcon(o.icon) :ThemeIcon.File;
+
+			if (o.url) this.ctx.subscriptions.push(commands.registerCommand(
+				id, ()=> env.openExternal(Uri.parse(o.url!))
+			));
+
+			return t;
 		});
-
-		this.aTiTemp.forEach(t=> {
-			t.iconPath = oIcon('baggage');
-			t.contextValue = t.label;
-		});
-
-		this.aTiFamibee.forEach(t=> {
-			t.iconPath = oIcon('document');
-			t.contextValue = t.label;
-		});
-		this.aTiFamibee[1].iconPath = oIcon('mail');
-		this.aTiFamibee[2].iconPath = oIcon('twitter');
-
-		this.aTiVSCodeEx.forEach(t=> {
-			t.iconPath = oIcon('gear');
-			t.contextValue = t.label;
-		});
-
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opDev', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/dev.htm'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opTag', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/tag.htm'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opMacroPlg', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel/macro_plg.htm'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opGallery', ()=> env.openExternal(Uri.parse('https://famibee.github.io/SKYNovel_gallery/'))));
-
-		ctx.subscriptions.push(commands.registerCommand('skynovel.dlTmpYoko', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_hatsune/archive/master.zip'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.dlTmpTate', ()=> env.openExternal(Uri.parse('https://github.com/famibee/SKYNovel_uc/archive/master.zip'))));
-
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opFamibeeBlog', ()=> env.openExternal(Uri.parse('https://famibee.blog.fc2.com/'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.mail2famibee', ()=> env.openExternal(Uri.parse('mailto:famibee@gmail.com'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.tw2famibee', ()=> env.openExternal(Uri.parse('https://twitter.com/famibee'))));
-
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExJa', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=MS-CEINTL.vscode-language-pack-ja'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExIcon', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=PKief.material-icon-theme'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExBookmarks', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=alefragnani.Bookmarks'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExLiveHTMLPrev', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=tht13.html-preview-vscode'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExHTMLHint', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=mkaufman.HTMLHint'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExCordovaTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.cordova-tools'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExDbg4Chrome', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome'))));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.opVSCodeExglTFTools', ()=> env.openExternal(Uri.parse('https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'))));
 	}
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(this.aTiRoot);
-
-		switch (t.label) {
-		case 'テンプレート プロジェクト':	return Promise.resolve(this.aTiTemp);
-		case 'famibee 連絡先':	return Promise.resolve(this.aTiFamibee);
-		case 'オススメVSCode拡張機能':	return Promise.resolve(this.aTiVSCodeEx);
-		}
-		return Promise.resolve([]);
+	getChildren(t?: TreeItem): TreeItem[] {	// 下に子が居ると何度も呼ばれる
+		if (! t) return this.aTiRoot;
+		const aTi = this.aTreeTmp.find(v=> v.label === t.label);
+		return aTi?.children ?this.generate(t.contextValue!, aTi.children) :[];
 	}
 }
