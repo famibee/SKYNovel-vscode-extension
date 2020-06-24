@@ -9,6 +9,8 @@ export declare class PnlPrjSetting {
     private readonly fnPrjJs;
     private readonly fnPkgJs;
     private readonly fnAppJs;
+    private readonly fnInsNsh;
+    private readonly fnIcon;
     private readonly fnReadme4Freem;
     private readonly localResourceRoots;
     private static htmSrc;

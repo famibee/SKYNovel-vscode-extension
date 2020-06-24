@@ -1,8 +1,14 @@
+## v3.2.0
+- add：各種開発ツール押下時に build/icon.png から windows/macOS 用アイコンを生成するように（タイムスタンプにより更新検知・再生成）
+- add：Windowsでの PowerShell スクリプト実行ポリシーについて警告と変更案内を表示
+- add：Windowsインストールで readme.txt もプログラムメニューへ追加するように
+- add：build/installer.nsh がなければ追加、プロジェクト設定で著作者変更時、追従書き換え
+- chg：【生成】はnpm経由ではなくターミナル・コマンドプロンプト経由にしてエラーが分かりやすく
 ## v3.1.1
 - chg：開発中機能を非表示に
 ## v3.1.0
 - chg：開発ツールビュー、並びや表記など変更・整理
-- add：build/include/readme.txtがなければ追加＆エディタで開いて入力を促すように
+- add：build/include/readme.txt がなければ追加＆エディタで開いて入力を促すように
 - add：プロジェクト設定でタイトルなど変更時、readme.txtを追従書き換え
 - add：パッケージビルドでreadme.txtを同梱するように
 - bug：SKYNovel更新でライブラリ名が古かった件

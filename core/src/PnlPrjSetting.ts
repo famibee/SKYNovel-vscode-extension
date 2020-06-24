@@ -16,6 +16,8 @@ export class PnlPrjSetting {
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	fnAppJs	: string;
+	private	readonly	fnInsNsh: string;
+	private	readonly	fnIcon	: string;
 	private	readonly	fnReadme4Freem	: string;
 	private	readonly	localResourceRoots: Uri;
 
@@ -33,13 +35,25 @@ export class PnlPrjSetting {
 			init_freem = true;
 			fs.ensureFileSync(this.fnReadme4Freem);
 			fs.copyFileSync(
-				this.ctx.extensionPath +`/res/readme.txt`,
+				this.ctx.extensionPath +'/res/readme.txt',
 				this.fnReadme4Freem,
 			);
 
 			workspace.openTextDocument(this.fnReadme4Freem)
 			.then(doc=> window.showTextDocument(doc));
 		}
+
+		this.fnInsNsh = pathWs +'/build/installer.nsh';
+		if (! fs.existsSync(this.fnInsNsh)) fs.copyFileSync(
+			this.ctx.extensionPath +'/res/installer.nsh',
+			this.fnInsNsh,
+		);
+
+		this.fnIcon = pathWs +'/build/icon.png';
+		if (! fs.existsSync(this.fnIcon)) fs.copyFileSync(
+			this.ctx.extensionPath +'/res/icon.png',
+			this.fnIcon,
+		);
 
 		if (PnlPrjSetting.htmSrc) {
 			if (this.oCfg.save_ns === 'hatsune' ||
@@ -188,6 +202,7 @@ export class PnlPrjSetting {
 		},
 		'book.publisher': val=> {
 			replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
+			replaceFile(this.fnInsNsh, /(!define PUBLISHER ").+"/, `$1${val}"`);
 
 			// ついでに発表年を
 			replaceFile(this.fnReadme4Freem, /(Copyright \(C\) )\d+ "([^"]+)"/g, `$1${(new Date()).getFullYear()} "${val}"`);

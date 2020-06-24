@@ -13,6 +13,8 @@ import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemC
 import fs = require('fs-extra');
 import archiver = require('archiver');
 import {basename, dirname} from 'path';
+import png2icons = require('png2icons');
+const {execSync} = require('child_process');
 
 interface DecChars {
 	aRange		: Range[];
@@ -47,9 +49,14 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
 			npm: 'npm run start'},
 		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows用 exe',
-			npm: 'npm run pack:win'},
-		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 app,dmg',
-			npm: 'npm run pack:mac'},
+			npm: `npm run webpack:pro ${statBreak()
+			} ./node_modules/.bin/electron-builder --win --x64`},
+		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 dmg',
+			npm: `npm run webpack:pro ${statBreak()
+			} ./node_modules/.bin/electron-builder --mac --x64`},
+//		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux用 AppImage',
+//			npm: `npm run webpack:pro ${statBreak()
+//			} ./node_modules/.bin/electron-builder --linux --x64`},
 //		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
 //			npm: 'npm run webpack:pro'},
 	];
@@ -220,8 +227,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		// カレントディレクトリ設定（必要なら）
 		let cmd = (aFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
-		const dir = ti.tooltip ?? '';
-		if (! fs.existsSync(dir +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+		const pathWs = ti.tooltip ?? '';
+		if (! fs.existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
 		const i = this.aTreeTmp.findIndex(v=> v.label === ti.label);
@@ -230,22 +237,22 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		const tc = this.aTreeTmp[i];	// タスク作成
 		if (tc.npm) cmd += tc.npm;
 		switch (tc.cmd) {	// タスク前処理
-			case 'PrjSet':	this.hPrj[dir].openPrjSetting();	return;
+			case 'PrjSet':	this.hPrj[pathWs].openPrjSetting();	return;
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a != 'はい') return;
 
-					this.hPrj[dir].tglCryptoMode();
-					this.dspCryptoMode(dir);
+					this.hPrj[pathWs].tglCryptoMode();
+					this.dspCryptoMode(pathWs);
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
 
 			case 'PackFreem':
 				let find_ng = false;
-				treeProc(dir +'/doc/prj', url=> {
+				treeProc(pathWs +'/doc/prj', url=> {
 					if (find_ng || url.slice(-4) !== '.svg') return;
 
 					find_ng = true;
@@ -264,6 +271,47 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				break;
 		}
 
+		// アイコン生成
+		switch (tc.cmd) {
+			case 'TaskWeb':
+			case 'TaskApp':
+			case 'PackWin':
+			case 'PackMac':
+			case 'PackLinux':
+				const fnIcon = pathWs +'/build/icon.png';
+				if (! fs.existsSync(fnIcon)) break;
+
+				const mtPng = fs.statSync(fnIcon).mtimeMs;
+				const bIconPng = fs.readFileSync(fnIcon);
+				fs.ensureDirSync(pathWs +'/build/icon/');
+				//png2icons.setLogger(console.log);
+			{
+				const fn = pathWs +'/build/icon/icon.icns';
+				const mt = fs.existsSync(fn) ?fs.statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
+					if (b) fs.writeFileSync(fn, b);
+				}
+			}
+			{
+				const fn = pathWs +'/build/icon/icon.ico';
+				const mt = fs.existsSync(fn) ?fs.statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
+					if (b) fs.writeFileSync(fn, b);
+				}
+			}
+				break;
+		}
+
+		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
+		if (is_win && tc.cmd === 'PackWin' && /(Restricted|AllSigned)/.test(
+			execSync('PowerShell Get-ExecutionPolicy'))) {
+			window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
+			.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
+			return;
+		}
+
 		const t = new Task(
 			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
 			tc.label,					// name、UIに表示
@@ -277,31 +325,33 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 					if (e.execution.task.definition.type != t.definition.type) return;
 					if (e.execution.task.source != t.source) return;
 
-					this.updLocalSNVer(dir);
+					this.updLocalSNVer(pathWs);
 					this._onDidChangeTreeData.fire(undefined);
 				};
 				break;
 
 			case 'PackWin':
 			case 'PackMac':
+			case 'PackLinux':
 				this.hOnEndTask[tc.label] = ()=> window.showInformationMessage(
 					`${tc.label} パッケージを生成しました`,
-					'出力フォルダを開く'
-				).then(()=> env.openExternal(Uri.file(dir +'/build/')));
+					'出力フォルダを開く',
+				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
 				break;
 
 			case 'PackFreem':	this.hOnEndTask[tc.label] = ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(fs.createReadStream(dir +'/doc/web.htm'), {name: 'index.html'})
-				.append(fs.createReadStream(dir +'/build/include/readme.txt'), {name: 'readme.txt'})
-				.glob('web.js', {cwd: dir +'/doc/'})
-				.glob('prj/**/*', {cwd: dir +'/doc/'});
+				.append(fs.createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
+				.append(fs.createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.glob('web.js', {cwd: pathWs +'/doc/'})
+				.glob('prj/**/*', {cwd: pathWs +'/doc/'});
 
-				const fn_out = `${basename(dir)}_1.0freem.zip`;
-				const ws = fs.createWriteStream(dir +`/build/${fn_out}`)
+				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
+				const ws = fs.createWriteStream(pathWs +`/build/${fn_out}`)
 				.on('close', ()=> window.showInformationMessage(
-					`ふりーむ！形式で出力（${fn_out}）しました`, 'フォルダを開く',
-				).then(()=> env.openExternal(Uri.file(dir +'/build/'))));
+					`ふりーむ！形式で出力（${fn_out}）しました`,
+					'出力フォルダを開く',
+				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))}));
 				arc.pipe(ws);
 				arc.finalize();	// zip圧縮実行
 				};

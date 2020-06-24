@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.1.1",
+	"version": "3.2.0",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.46.0"
@@ -186,6 +186,14 @@
 			{
 				"command": "skynovel.devPackMac",
 				"title": "npm pack:mac (for macOS Package)",
+				"icon": {
+					"light": "res/light/baggage.svg",
+					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "skynovel.devPackLinux",
+				"title": "npm pack:lnk (for Linux Package)",
 				"icon": {
 					"light": "res/light/baggage.svg",
 					"dark": "res/dark/baggage.svg"
@@ -415,6 +423,11 @@
 				},
 				{
 					"group": "inline",
+					"command": "skynovel.devPackLinux",
+					"when": "view == sn-dev && viewItem == 'skynovel.devPackLinux'"
+				},
+				{
+					"group": "inline",
 					"command": "skynovel.devPackFreem",
 					"when": "view == sn-dev && viewItem == 'skynovel.devPackFreem'"
 				},
@@ -569,7 +582,8 @@
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.0.0",
 		"image-size": "^0.8.3",
-		"uuid": "^8.1.0",
+		"png2icons": "^2.0.1",
+		"uuid": "^8.2.0",
 		"vscode-debugadapter": "^1.41.0",
 		"vscode-debugprotocol": "^1.41.0"
 	},
@@ -578,7 +592,7 @@
 		"@types/crypto-js": "^3.1.47",
 		"@types/fs-extra": "^9.0.1",
 		"@types/mocha": "^7.0.2",
-		"@types/node": "^14.0.13",
+		"@types/node": "^14.0.14",
 		"@types/uuid": "^8.0.0",
 		"@types/vscode": "^1.46.0",
 		"ts-loader": "^7.0.5",

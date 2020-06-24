@@ -28,6 +28,7 @@
 - [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight--シンタックスハイライト)
 - [Diagnostic function](#Diagnostic-function) / [診断機能](#診断機能)
 - [Coding assistance](#Coding-assistance) / [コーディング補助](#コーディング補助)
+- [Automatic icon creation](#Automatic-icon-creation) / [アイコン自動作成](#アイコン自動作成)
 - [Outline view and symbol search](#Outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
 - [Activity Bar / アクティビティバー](#Activity-Bar--アクティビティバー)
 - [Debugger](#Debugger) / [デバッガー](#デバッガー)
@@ -163,6 +164,13 @@
 - 「シンボルの名前変更」
 	- （F2キーでも起動）
 	![](res/img/rename_plugin_tag.png)
+
+
+---
+## Automatic icon creation / アイコン自動作成
+- Just prepare "build/icon.png" and it will automatically generate ".ico" file for Windows and ".icns" file for macOS.
+	- 「build/icon.png」を準備するだけで、Windows 用の「.ico」ファイル、macOS 用の「.icns」ファイルを自動生成します。
+![](res/img/gene_icon.png)
 
 
 ---
