@@ -23,6 +23,8 @@ export declare class Project {
     constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void);
     private ps;
     openPrjSetting(): void;
+    get title(): any;
+    get version(): any;
     dispose(): void;
     private crePrj;
     private chgPrj;

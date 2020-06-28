@@ -48,21 +48,26 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			npm: 'npm run web'},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
 			npm: 'npm run start'},
-		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows用 exe',
+		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows用 exe x64',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --win --x64`},
+			} ./node_modules/.bin/electron-builder --win --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
+		//	} ./node_modules/.bin/electron-builder --win --x64 --ia32`},
+				// 一パッケージに統合型、ファイルサイズ二倍になる
+		{cmd: 'PackWin32',	icon: 'windows',	label: '生成：Windows用 exe ia32',
+			npm: `npm run webpack:pro ${statBreak()
+			} ./node_modules/.bin/electron-builder --win --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
 		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 dmg',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --mac --x64`},
-//		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux用 AppImage',
-//			npm: `npm run webpack:pro ${statBreak()
-//			} ./node_modules/.bin/electron-builder --linux --x64`},
+			} ./node_modules/.bin/electron-builder --mac`},
+		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux用 AppImage',
+			npm: `npm run webpack:pro ${statBreak()
+			} ./node_modules/.bin/electron-builder --linux`},
 //		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
 //			npm: 'npm run webpack:pro'},
 	];
 	private	readonly idxDevPrjSet	= 1;
 	private	readonly idxDevCrypto	= 3;
-	private	readonly idxDevPackMac	= 8;
+	private	readonly idxDevPackMac	= 9;
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
@@ -235,16 +240,19 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		if (i === -1) return;
 
 		const tc = this.aTreeTmp[i];	// タスク作成
-		if (tc.npm) cmd += tc.npm;
+		const prj = this.hPrj[pathWs];
+		if (tc.npm) cmd += tc.npm
+			.replace(/\${prj.title}/g, prj.title)
+			.replace(/\${prj.version}/g, prj.version);
 		switch (tc.cmd) {	// タスク前処理
-			case 'PrjSet':	this.hPrj[pathWs].openPrjSetting();	return;
+			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a != 'はい') return;
 
-					this.hPrj[pathWs].tglCryptoMode();
+					prj.tglCryptoMode();
 					this.dspCryptoMode(pathWs);
 					this._onDidChangeTreeData.fire(ti);
 				});
@@ -276,6 +284,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			case 'TaskWeb':
 			case 'TaskApp':
 			case 'PackWin':
+			case 'PackWin32':
 			case 'PackMac':
 			case 'PackLinux':
 				const fnIcon = pathWs +'/build/icon.png';
@@ -305,11 +314,16 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
-		if (is_win && tc.cmd === 'PackWin' && /(Restricted|AllSigned)/.test(
-			execSync('PowerShell Get-ExecutionPolicy'))) {
-			window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
-			.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
-			return;
+		switch (tc.cmd) {
+			case 'PackWin':
+			case 'PackWin32':
+				if (! is_win) break;
+				if (! /(Restricted|AllSigned)/.test(
+					execSync('PowerShell Get-ExecutionPolicy'))) break;
+
+				window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
+				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
+				return;
 		}
 
 		const t = new Task(
@@ -331,6 +345,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				break;
 
 			case 'PackWin':
+			case 'PackWin32':
 			case 'PackMac':
 			case 'PackLinux':
 				this.hOnEndTask[tc.label] = ()=> window.showInformationMessage(

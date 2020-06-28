@@ -1,3 +1,6 @@
+## v3.2.1
+- add：Windowsパッケージ（nsis インストーラーexe）生成を x64 と ia32 個別のボタンに
+- add：Linuxパッケージ（AMD64 ＆ Intel64 のAppImage）生成ボタンを追加
 ## v3.2.0
 - add：各種開発ツール押下時に build/icon.png から windows/macOS 用アイコンを生成するように（タイムスタンプにより更新検知・再生成）
 - add：Windowsでの PowerShell スクリプト実行ポリシーについて警告と変更案内を表示

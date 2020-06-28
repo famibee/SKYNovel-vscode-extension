@@ -148,6 +148,8 @@ export class Project {
 
 	private	ps: PnlPrjSetting;
 	openPrjSetting() {this.ps.open();}
+	get title() {return this.ps.cfg.book.title}
+	get version() {return this.ps.cfg.book.version}
 
 	dispose() {this.aFSW.forEach(f=> f.dispose());}
 

@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.2.0",
+	"version": "3.2.1",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.46.0"
@@ -177,7 +177,15 @@
 			},
 			{
 				"command": "skynovel.devPackWin",
-				"title": "npm pack:win (for Windows Package)",
+				"title": "npm pack:win (for x64 Windows Package)",
+				"icon": {
+					"light": "res/light/baggage.svg",
+					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "skynovel.devPackWin32",
+				"title": "npm pack:win (for ia32 Windows Package)",
 				"icon": {
 					"light": "res/light/baggage.svg",
 					"dark": "res/dark/baggage.svg"
@@ -415,6 +423,11 @@
 					"group": "inline",
 					"command": "skynovel.devPackWin",
 					"when": "view == sn-dev && viewItem == 'skynovel.devPackWin'"
+				},
+				{
+					"group": "inline",
+					"command": "skynovel.devPackWin32",
+					"when": "view == sn-dev && viewItem == 'skynovel.devPackWin32'"
 				},
 				{
 					"group": "inline",
