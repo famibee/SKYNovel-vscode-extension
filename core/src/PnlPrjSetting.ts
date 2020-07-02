@@ -118,7 +118,7 @@ export class PnlPrjSetting {
 			masume		: false,	// テキストレイヤ：ガイドマス目を表示するか
 			variable	: false,
 		},
-		code	: {},
+		code	: {},	// 暗号化しないフォルダ
 	};
 	get cfg() {return this.oCfg}
 	private	pnlWV	: WebviewPanel | null = null;

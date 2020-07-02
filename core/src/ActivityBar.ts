@@ -12,8 +12,8 @@ import {TreeDPDoc} from './TreeDPDoc';
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, env, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn} from 'vscode';
 const {exec} = require('child_process');
 import fs = require('fs-extra');
-const os = require('os');
-const https = require('https');
+import os = require('os');
+import https = require('https');
 
 enum eTree {
 	NODE = 0,

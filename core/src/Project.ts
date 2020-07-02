@@ -11,11 +11,11 @@ import {PnlPrjSetting} from './PnlPrjSetting';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range} from 'vscode';
 import fs = require('fs-extra');
-const path = require('path');
+import path = require('path');
 const img_size = require('image-size');
-const crypto = require('crypto-js');
-const {v4: uuidv4} = require('uuid');
-const crc32 = require('crc-32');
+import crypto = require('crypto-js');
+import {v4 as uuidv4, v5 as uuidv5} from 'uuid';
+import crc32 = require('crc-32');
 import {Transform} from 'stream';
 
 interface IExts { [ext: string]: string | number; };
@@ -32,9 +32,9 @@ export class Project {
 //	private readonly	fld_crypto_prj	= '.prj';
 	private		$isCryptoMode	= true;
 	get isCryptoMode() {return this.$isCryptoMode;}
-	private	regNeedCrypto	= /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
-	private	regFullCrypto	= /\.(sn|json|html?)$/;
-	private	regRepPathJson	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)"/g;
+	private readonly	regNeedCrypto	= /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
+	private readonly	regFullCrypto	= /\.(sn|json|html?)$/;
+	private readonly	regRepPathJson	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 		// この末端の「"」は必須。変更時は delPrj_sub() 内も
 	private readonly	hExt2N: {[name: string]: number} = {
 		'jpg'	: 1,
@@ -52,7 +52,7 @@ export class Project {
 		'webm'	: 21,
 		'ogv'	: 22,
 	};
-	private	regNeedHash	= /\.(js|css)$/;	// 改竄チェック処理対象
+	private	readonly	regNeedHash	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 
 	private	readonly	hPass: {
@@ -67,7 +67,10 @@ export class Project {
 	private	readonly	aFSW	: Disposable[];
 
 	private	readonly	fnDiff	: string;
-	private				hDiff	= Object.create(null);
+	private				hDiff	: {[fn: string]: {
+		hash: number,	// ファイル変更検知ハッシュ
+		cn	: string,	// ファイル名匿名化辞書
+	}}	= Object.create(null);
 
 	constructor(private readonly ctx: ExtensionContext, private readonly pathWs: string, readonly chgTitle: (title: string)=> void) {
 		this.curPrj = pathWs +'/doc/prj/';
@@ -139,9 +142,7 @@ export class Project {
 		);
 
 		this.fnDiff = pathWs +'/core/diff.json';
-		if (fs.existsSync(this.fnDiff)) {
-			this.hDiff = fs.readJsonSync(this.fnDiff);
-		}
+		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
 		this.ps = new PnlPrjSetting(ctx, pathWs, chgTitle, this.codSpt);
 		this.initCrypto();
 	}
@@ -160,7 +161,7 @@ export class Project {
 		const short_path = e.path.slice(this.lenCurPrj);
 		this.regNeedCrypto.lastIndex = 0;
 		fs.removeSync(
-			this.curCrypto + (short_path +'"')
+			this.curCrypto + short_path
 			.replace(this.regRepPathJson, '.bin')
 			.replace(/"/, '')
 		);
@@ -172,16 +173,14 @@ export class Project {
 
 	// プロジェクトフォルダ以下全走査で暗号化
 	private initCrypto() {
-		treeProc(
-			this.curPrj,
-			this.$isCryptoMode
-				? url=> {if (this.isDiff(url)) this.encrypter(url)}
-				: url=> this.isDiff(url)
-		);
+		const fnc: (url: string)=> void = this.$isCryptoMode
+			? url=> {if (this.isDiff(url)) this.encrypter(url)}
+			: url=> this.isDiff(url);
+		treeProc(this.curPrj, fnc);
 		this.updDiffJson();
 	}
 	private	encIfNeeded(url: string) {
-		if (this.isDiff(url) && this.$isCryptoMode) this.encrypter(url);
+		if (this.$isCryptoMode && this.isDiff(url)) this.encrypter(url);
 		this.updDiffJson();
 	}
 	private	updDiffJson() {fs.writeJsonSync(this.fnDiff, this.hDiff);}
@@ -199,11 +198,21 @@ export class Project {
 			fs.closeSync(fd);
 			hash = crc32.buf(b);
 		}
-		if (this.hDiff[short_path] === hash) return false;
+		if (this.hDiff[short_path]?.hash === hash) return false;
 
-		this.hDiff[short_path] = hash;
+		this.hDiff[short_path] = {
+			hash: hash,
+			cn:	this.regNeedCrypto.test(short_path)
+				? short_path.replace(
+					this.REG_SPATH2HFN,
+					`$1/${uuidv5(short_path, this.hPass.pass)}$2`
+				)
+				.replace(this.regRepPathJson, '.bin')
+				: short_path,
+		};
 		return true;
 	}
+	private	readonly	REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
 
 
 	private	readonly	aRepl = [
@@ -265,13 +274,12 @@ export class Project {
 
 	private	pbkdf2	: any;
 	private	iv		: any;
-	private	readonly LEN_ENC	= 1024 *10;
-	private	readonly regDir = /(^.+)\//;
-//	private	readonly regFFn = /[^\/\s\.]+\.(.+)/g
+	private	static	readonly LEN_ENC	= 1024 *10;
+	private	static	readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {
 		try {
 			const short_path = url.slice(this.lenCurPrj);
-			const url_out = this.curCrypto + short_path;
+			const url_out = this.curCrypto + this.hDiff[short_path].cn;
 			if (! this.regNeedCrypto.test(url)) {
 				fs.ensureLink(url, url_out)
 				.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
@@ -281,8 +289,7 @@ export class Project {
 			if (this.regFullCrypto.test(short_path)) {
 				let s = await fs.readFile(url, {encoding: 'utf8'});
 				if (short_path === 'path.json') {	// 内容も変更
-					s = s.replace(this.regRepPathJson, '.bin"');
-/* // TODO: ファイル名匿名化・作成中
+					// ファイル名匿名化
 					const hPath: IFn2Path = JSON.parse(s);
 					for (const fn in hPath) {
 						const hExt2N = hPath[fn];
@@ -290,29 +297,33 @@ export class Project {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-10) === ':RIPEMD160') continue;
 							const path = String(hExt2N[ext]);
+							const dir = Project.regDir.exec(path);
+							if (dir && this.ps.cfg.code[dir[1]]) continue;
+/*
 							this.mkCryptoIfNeeded(ext, path);
 
 							// 置換するのはファイル名だが、乱数名が同じなので拡張子も
 							hExt2N[ext] = path.replace(this.regFn, (_m, m1)=> crypto.RIPEMD160(m1) +'.'+ m1);
+*/
+							hExt2N[ext] = this.hDiff[path].cn;
 						}
 					}
-
-	console.log(`fn:PrjFileProc.ts line:299 hPath:%o`, hPath);
-*/
+					s = JSON.stringify(hPath);
+//	console.log(`fn:Project.ts line:307 NEW path.json:%o`, hPath);
 				}
 				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
 				return;
 			}
 
-			const dir = this.regDir.exec(short_path);
+			const dir = Project.regDir.exec(short_path);
 			if (dir && this.ps.cfg.code[dir[1]]) {
 				fs.ensureLink(url, url_out)
 				.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
 				return;
 			}
 
-			let nokori = this.LEN_ENC;
+			let nokori = Project.LEN_ENC;
 			let i = 2;
 			const bh = new Uint8Array(i + nokori);
 			bh[0] = 0;	// bin ver
@@ -386,8 +397,7 @@ export class Project {
 	}*/
 
 
-	private	static	readonly	regPlgAddTag
-		= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
+	private	readonly	regPlgAddTag = /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	private	updPlugin() {
 		if (! fs.existsSync(this.curPlg)) return;
 
@@ -402,10 +412,10 @@ export class Project {
 			const txt = fs.readFileSync(path, 'utf8');
 			let a;
 			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
-			while ((a = Project.regPlgAddTag.exec(txt))) {
+			while ((a = this.regPlgAddTag.exec(txt))) {
 				const nm = a[2];
 				const len_nm = nm.length;
-				const idx_nm = Project.regPlgAddTag.lastIndex -len_nm -1;
+				const idx_nm = this.regPlgAddTag.lastIndex -len_nm -1;
 
 				let line = 0;
 				let j = idx_nm;

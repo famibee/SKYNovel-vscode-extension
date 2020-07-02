@@ -1,11 +1,8 @@
 //@ts-check
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-
-exports.init = hSN=> {
+export function init(hSN) {
 	(async ()=> {
 		const p = {p:0};
-		const crypto = await require('crypto-js');
+		const crypto = await import('crypto-js');
 		const iv = crypto.enc.Hex.parse(p.iv);
 		const pbkdf2 = crypto.PBKDF2(
 			crypto.enc.Utf8.parse(p.pass),
@@ -54,17 +51,17 @@ const fncVideo = bl=> (rs, rj)=> {
 	v.src = URL.createObjectURL(bl);
 };
 const hN2Ext = {
-	1	: {exp: 'jpeg', fnc: fncImage, mime: 'image/jpeg'},
-	2	: {exp: 'png', fnc: fncImage, mime: 'image/png'},
-	3	: {exp: 'svg', fnc: fncImage, mime: 'image/svg+xml'},
-	4	: {exp: 'webp', fnc: fncImage, mime: 'image/webp'},
-	10	: {exp: 'mp3', fnc: null, mime: ''},
-	11	: {exp: 'm4a', fnc: null, mime: ''},
-	12	: {exp: 'ogg', fnc: null, mime: ''},
-	13	: {exp: 'aac', fnc: null, mime: ''},
-	14	: {exp: 'flac', fnc: null, mime: ''},
-	15	: {exp: 'wav', fnc: null, mime: ''},
-	20	: {exp: 'mp4', fnc: fncVideo, mime: 'video/mp4'},
-	21	: {exp: 'webm', fnc: fncVideo, mime: 'video/webm'},
-	22	: {exp: 'ogv', fnc: fncVideo, mime: 'video/ogv'},
+	1	: {ext: 'jpeg', fnc: fncImage, mime: 'image/jpeg'},
+	2	: {ext: 'png', fnc: fncImage, mime: 'image/png'},
+	3	: {ext: 'svg', fnc: fncImage, mime: 'image/svg+xml'},
+	4	: {ext: 'webp', fnc: fncImage, mime: 'image/webp'},
+	10	: {ext: 'mp3', fnc: null, mime: ''},
+	11	: {ext: 'm4a', fnc: null, mime: ''},
+	12	: {ext: 'ogg', fnc: null, mime: ''},
+	13	: {ext: 'aac', fnc: null, mime: ''},
+	14	: {ext: 'flac', fnc: null, mime: ''},
+	15	: {ext: 'wav', fnc: null, mime: ''},
+	20	: {ext: 'mp4', fnc: fncVideo, mime: 'video/mp4'},
+	21	: {ext: 'webm', fnc: fncVideo, mime: 'video/webm'},
+	22	: {ext: 'ogv', fnc: fncVideo, mime: 'video/ogv'},
 };

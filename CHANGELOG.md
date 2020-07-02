@@ -1,3 +1,5 @@
+## v3.2.2
+- bug：暗号化切り替え時の不具合修正
 ## v3.2.1
 - add：Windowsパッケージ（nsis インストーラーexe）生成を x64 と ia32 個別のボタンに
 - add：Linuxパッケージ（AMD64 ＆ Intel64 のAppImage）生成ボタンを追加

@@ -69,6 +69,7 @@ export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 
 		const txt = m_fs.readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
+		m_fs.ensureFileSync(dest);
 		if (txt != ret) m_fs.writeFileSync(dest, ret);
 	}
 	catch (err) {
