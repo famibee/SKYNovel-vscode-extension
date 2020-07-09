@@ -28,8 +28,9 @@ export class Project {
 	private	readonly	curPrj		: string;
 	private	readonly	lenCurPrj	: number;
 	private	readonly	curCrypto	: string;
-	private readonly	fld_crypto_prj	= 'crypto_prj';
-//	private readonly	fld_crypto_prj	= '.prj';
+	private	static readonly	fld_crypto_prj	= 'crypto_prj';
+//	private	static readonly	fld_crypto_prj	= '.prj';
+	static get fldnm_crypto_prj() {return Project.fld_crypto_prj}
 	private		$isCryptoMode	= true;
 	get isCryptoMode() {return this.$isCryptoMode;}
 	private readonly	regNeedCrypto	= /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
@@ -119,7 +120,7 @@ export class Project {
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
-		this.curCrypto = pathWs +`/doc/${this.fld_crypto_prj}/`;
+		this.curCrypto = pathWs +`/doc/${Project.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);
@@ -237,7 +238,7 @@ export class Project {
 			// ビルド情報：パッケージするフォルダ名変更
 			replaceFile(
 				this.pathWs +'/package.json',
-				new RegExp(`"${this.fld_crypto_prj}\\/",`),
+				new RegExp(`"${Project.fld_crypto_prj}\\/",`),
 				`"prj/",`,
 			);
 
@@ -250,14 +251,14 @@ export class Project {
 		this.aRepl.forEach(url=> replaceFile(
 			this.pathWs +'/'+ url,
 			/\(hPlg\);/,
-			`(hPlg, {cur: '${this.fld_crypto_prj}/', crypto: true});`,
+			`(hPlg, {cur: '${Project.fld_crypto_prj}/', crypto: true});`,
 		));
 
 		// ビルド情報：パッケージするフォルダ名変更
 		replaceFile(
 			this.pathWs +'/package.json',
 			/"prj\/",/,
-			`"${this.fld_crypto_prj}/",`,
+			`"${Project.fld_crypto_prj}/",`,
 		);
 
 		// プラグインソースに埋め込む
@@ -275,7 +276,7 @@ export class Project {
 	private	pbkdf2	: any;
 	private	iv		: any;
 	private	static	readonly LEN_ENC	= 1024 *10;
-	private	static	readonly regDir = /(^.+)\//;
+	private			readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {
 		try {
 			const short_path = url.slice(this.lenCurPrj);
@@ -297,26 +298,20 @@ export class Project {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-10) === ':RIPEMD160') continue;
 							const path = String(hExt2N[ext]);
-							const dir = Project.regDir.exec(path);
+							const dir = this.regDir.exec(path);
 							if (dir && this.ps.cfg.code[dir[1]]) continue;
-/*
-							this.mkCryptoIfNeeded(ext, path);
 
-							// 置換するのはファイル名だが、乱数名が同じなので拡張子も
-							hExt2N[ext] = path.replace(this.regFn, (_m, m1)=> crypto.RIPEMD160(m1) +'.'+ m1);
-*/
 							hExt2N[ext] = this.hDiff[path].cn;
 						}
 					}
 					s = JSON.stringify(hPath);
-//	console.log(`fn:Project.ts line:307 NEW path.json:%o`, hPath);
 				}
 				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
 				return;
 			}
 
-			const dir = Project.regDir.exec(short_path);
+			const dir = this.regDir.exec(short_path);
 			if (dir && this.ps.cfg.code[dir[1]]) {
 				fs.ensureLink(url, url_out)
 				.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
@@ -387,14 +382,6 @@ export class Project {
 		}
 		catch (e) {console.error(`encrypter other ${e.message}`);}
 	}
-	// 対応する暗号化ファイルが無い場合、再生成
-/*	private	mkCryptoIfNeeded = (ext: string, path: string)=> {
-		this.mkCryptoIfNeeded = ()=> {};
-		if (fs.existsSync(this.curCrypto + path)) return;
-
-		const base_sp = path.slice(0, path.lastIndexOf('.')+ 1) + ext;
-		this.encrypter(this.curPrj + base_sp);
-	}*/
 
 
 	private	readonly	regPlgAddTag = /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;

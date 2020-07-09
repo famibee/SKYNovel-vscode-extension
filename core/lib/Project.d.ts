@@ -8,7 +8,8 @@ export declare class Project {
     private readonly curPrj;
     private readonly lenCurPrj;
     private readonly curCrypto;
-    private readonly fld_crypto_prj;
+    private static readonly fld_crypto_prj;
+    static get fldnm_crypto_prj(): string;
     private $isCryptoMode;
     get isCryptoMode(): boolean;
     private readonly regNeedCrypto;
@@ -40,7 +41,7 @@ export declare class Project {
     private pbkdf2;
     private iv;
     private static readonly LEN_ENC;
-    private static readonly regDir;
+    private readonly regDir;
     private encrypter;
     private readonly regPlgAddTag;
     private updPlugin;

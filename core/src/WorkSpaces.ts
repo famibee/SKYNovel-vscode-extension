@@ -62,8 +62,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux用 AppImage',
 			npm: `npm run webpack:pro ${statBreak()
 			} ./node_modules/.bin/electron-builder --linux`},
-//		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
-//			npm: 'npm run webpack:pro'},
+		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
+			npm: 'npm run webpack:pro'},
 	];
 	private	readonly idxDevPrjSet	= 1;
 	private	readonly idxDevCrypto	= 3;
@@ -359,10 +359,14 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				.append(fs.createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
 				.append(fs.createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
 				.glob('web.js', {cwd: pathWs +'/doc/'})
-				.glob('prj/**/*', {cwd: pathWs +'/doc/'});
+				.glob('web.*.js', {cwd: pathWs +'/doc/'})
+				.glob(`${
+					prj.isCryptoMode ?Project.fldnm_crypto_prj :'prj'
+				}/**/*`, {cwd: pathWs +'/doc/'})
+				.glob('favicon.ico', {cwd: pathWs +'/doc/'});
 
 				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
-				const ws = fs.createWriteStream(pathWs +`/build/${fn_out}`)
+				const ws = fs.createWriteStream(pathWs +`/build/package/${fn_out}`)
 				.on('close', ()=> window.showInformationMessage(
 					`ふりーむ！形式で出力（${fn_out}）しました`,
 					'出力フォルダを開く',

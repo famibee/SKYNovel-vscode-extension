@@ -1,3 +1,10 @@
+## v3.3.0
+- add：ふりーむ！形式 zip生成機能
+	- エントリをindex.htmlに変名
+	- zip圧縮（ルートにindex.html、その他フォルダ・ファイル群）
+	- ふりーむ！では svg ファイル使用禁止のため、エラーにして変換サイトなど案内
+	- 動作確認は、zip 解凍して html ファイルを拡張機能「Live Server」で開くとよい。
+		Live Server - Visual Studio Marketplace https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer
 ## v3.2.2
 - add：暗号化ファイル名もハッシュ化・匿名化
 - bug：暗号化切り替え時の不具合修正
