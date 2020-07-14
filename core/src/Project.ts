@@ -29,7 +29,6 @@ export class Project {
 	private	readonly	lenCurPrj	: number;
 	private	readonly	curCrypto	: string;
 	private	static readonly	fld_crypto_prj	= 'crypto_prj';
-//	private	static readonly	fld_crypto_prj	= '.prj';
 	static get fldnm_crypto_prj() {return Project.fld_crypto_prj}
 	private		$isCryptoMode	= true;
 	get isCryptoMode() {return this.$isCryptoMode;}

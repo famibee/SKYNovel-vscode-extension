@@ -10,10 +10,12 @@ export function init(hSN) {
 			{keySize: p.keySize, iterations: p.ite}
 		);
 		hSN.setPre(async (ext, data)=> {
-			if (regFullCrypto.test(ext)) return crypto.AES.decrypt(
-				//@ts-ignore
-				{ciphertext: crypto.enc.Base64.parse(data)}, pbkdf2, {iv: iv},
-			).toString(crypto.enc.Utf8);
+			if (regFullCrypto.test(ext)) return Promise.resolve(
+				crypto.AES.decrypt(		//@ts-ignore
+					{ciphertext: crypto.enc.Base64.parse(data)},
+					pbkdf2, {iv: iv},
+				).toString(crypto.enc.Utf8)
+			);
 			if (ext != 'bin') return data;
 
 			const cl = Buffer.from(data.slice(0, 4)).readUInt32LE(0);

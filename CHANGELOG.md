@@ -1,3 +1,6 @@
+## v3.3.1
+- feat: [frame]にイベントを無視させるdisabled属性追加
+- info：スクリプト復号化処理に Promise.resolve をかました
 ## v3.3.0
 - add：ふりーむ！形式 zip生成機能
 	- エントリをindex.htmlに変名
