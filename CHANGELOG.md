@@ -1,3 +1,5 @@
+## v3.3.2
+- fix: ライブラリ更新
 ## v3.3.1
 - feat: [frame]にイベントを無視させるdisabled属性追加
 - info：スクリプト復号化処理に Promise.resolve をかました
