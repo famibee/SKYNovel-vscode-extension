@@ -6,6 +6,7 @@
 - page		fore	fore、back	ページの裏表
 - id	y		フレーム名	処理対象のフレーム
 - canskip		true	Boolean	クリックなどでウエイトをキャンセルできるか
+- global		false	Boolean	グローバルイベント待ちを有効にするか<br/>※canskipと同時にtrueにするとエラー
 
 ***
 layer=${1{{レイヤ名}}} canskip=${2|true,false|}

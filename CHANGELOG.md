@@ -1,3 +1,8 @@
+## v3.3.6
+- feat: [button][link]にマウスカーソルを載せるとツールチップス表示する hint属性追加
+- breaking change: [button]style属性をCSS形式ではなくJSONに。タグリファレンスにもPIXI TextStyleと明記
+- feat: [wait][wv][wait_tsy][wf][wb][ws][wl]にグローバルイベント待ちを有効/無効にする global属性（デフォルト=false）追加
+- fix: ライブラリ更新
 ## v3.3.5
 - upd：Nodeパッケージを最新【v14.8.0（Current）】に更新
 - fix: ライブラリ更新
