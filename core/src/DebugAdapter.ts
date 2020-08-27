@@ -166,7 +166,7 @@ class DebugAdapter extends LoggingDebugSession {
 //		if (args.supportsProgressReporting) this._reportProgress = true;
 
 		// build and return the capabilities of this debug adapter:
-		res.body = res.body ?? {};
+		res.body ??= {};
 
 		// the adapter implements the configurationDoneRequest.
 		res.body.supportsConfigurationDoneRequest = true;

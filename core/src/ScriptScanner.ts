@@ -235,7 +235,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 		const oMU: {[mm: string]: Location[]} = {};
 		for (const mn in this.hMacroUse) this.hMacroUse[mn].forEach(loc=> {
-			if (loc.uri.path != path) (oMU[mn] = oMU[mn] ?? []).push(loc);
+			if (loc.uri.path != path) (oMU[mn] ??= []).push(loc);
 		})
 		this.hMacroUse = oMU;
 
@@ -302,10 +302,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.hSetWords['スクリプトファイル名'].add(fn);
 
 		// goAll()で真っ先に通るので、goScriptSrc()では割愛
-		this.nm2Diag[path] = this.nm2Diag[path] ?? [];
+		this.nm2Diag[path] ??= [];
 		this.hSetWords['ジャンプ先'].add(`fn=${fn}`);
-		this.hTagMacroUse[path] = this.hTagMacroUse[path] ?? [];
-		this.hScr2KeyWord[path] = this.hScr2KeyWord[path] ?? new Set();
+		this.hTagMacroUse[path] ??= [];
+		this.hScr2KeyWord[path] ??= new Set();
 
 		const td = workspace.textDocuments.find(td=> td.fileName ===uri.fsPath);
 		this.scanScriptSrc(
@@ -349,7 +349,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
 				if (a) {
 					const nm = a[1];
-					(this.hMacroUse[nm] = this.hMacroUse[nm] ?? [])
+					(this.hMacroUse[nm] ??= [])
 					.push(new Location(uri, new Range(
 						p.line, p.col +22,
 						p.line, p.col +22 +len

@@ -1,3 +1,6 @@
+## v3.3.7
+- upd: フォーカス移動[set_focus]タグ作成、内部辞書更新
+- fix: 新しい演算子（&&=、||=、??=）を積極使用（TypeScript 4.0.2）
 ## v3.3.6
 - feat: [button][link]にマウスカーソルを載せるとツールチップス表示する hint属性追加
 - breaking change: [button]style属性をCSS形式ではなくJSONに。タグリファレンスにもPIXI TextStyleと明記

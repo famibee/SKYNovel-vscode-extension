@@ -28,7 +28,7 @@ const hMd: {[name: string]: MD_STRUCT} = {};
 
 const REG_TAG2MB = /~~~skynovel\n(.+?)\n~~~|\[([a-z_]+)]/gs;
 const repTag2MB = (md: string)=> md
-	.replace(REG_TAG2MB, (a, p1)=> p1 ?a :'[[$1]](https://famibee.github.io/SKYNovel/tag.htm#$1)')
+	.replace(REG_TAG2MB, (a, p1, p2)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.htm#${p2})`)
 	.replace(/<br\/?>/g, '  \n');
 
 import fs = require('fs-extra');

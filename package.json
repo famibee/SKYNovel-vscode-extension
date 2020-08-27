@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.3.6",
+	"version": "3.3.7",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.48.0"
@@ -609,7 +609,7 @@
 		"@types/uuid": "^8.3.0",
 		"@types/vscode": "^1.48.0",
 		"ts-loader": "^8.0.3",
-		"typescript": "^3.9.7",
+		"typescript": "^4.0.2",
 		"vscode-debugadapter-testsupport": "^1.41.0",
 		"vscode-test": "^1.4.0",
 		"webpack": "^4.44.1",
@@ -626,7 +626,8 @@
 		"vscode:prepublish": "npm run md2json && npm run wp:pro",
 		"wp:pro": "webpack -p --config ./core/webpack.config.js",
 		"md2json": "node core/lib/md2json.js",
-		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i"
+		"md2json_bld": "tsc -p core/tsconfig_md.json",
+		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i && npm run md2json_bld"
 	},
 	"icon": "res/img/icon_skynovel.png",
 	"repository": {
