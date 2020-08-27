@@ -4,7 +4,9 @@
 ***
 - layer		デフォルト文字レイヤ	文字レイヤ名	文字を表示するレイヤ名
 - page		fore	fore、back	ページの裏表
-- style		何もしない	CSS style	※文字表示中の場合はすべてのスタイルが変更される
+- style		'background-color: rgba(255,0,0,0.5);'	CSS style	リンク上にマウスカーソルが乗っていない状態のCSS スタイル
+- style_hover		'background-color: rgba(255,0,0,0.9);'	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしていない）のCSS スタイル
+- style_clicked		styleの値	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしている）のCSS スタイル
 - ch_in_style		何もしない	文字出現演出名	[ch_in_style]で定義した文字出現演出名
 - ch_out_style		何もしない	文字消去演出名	[ch_out_style]で定義した文字消去演出名
 - wait		現在の文字表示速度	ミリ秒	一時的な文字表示速度。0で瞬時。
