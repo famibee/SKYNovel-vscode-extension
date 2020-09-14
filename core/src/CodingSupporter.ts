@@ -366,9 +366,11 @@ ${md.detail}`
 		const md = hMd[use.nm];
 		if (! md) return [];	// 前に警告出してる
 		// 属性候補を表示
-		if (trgChr === ' ') return md.param.map(p=> new CompletionItem(
-			p.name, CompletionItemKind.Field
-		));
+		if (trgChr === ' ') return md.param.map(p=> {
+			const ci = new CompletionItem(p.name, CompletionItemKind.Field);
+			ci.detail = p.comment;	// 属性候補選択時のコメント
+			return ci;
+		});
 
 		// 属性値候補を表示
 		// if (trgChr === '=')

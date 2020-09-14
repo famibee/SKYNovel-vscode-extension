@@ -1,9 +1,9 @@
 {
 	"name": "skynovel",
-	"version": "3.3.8",
+	"version": "3.3.9",
 	"publisher": "famibee",
 	"engines": {
-		"vscode": "^1.48.0"
+		"vscode": "^1.49.0"
 	},
 	"license": "MIT",
 	"displayName": "SKYNovel",
@@ -589,7 +589,7 @@
 	],
 	"author": "miyazawa famibee",
 	"dependencies": {
-		"archiver": "^5.0.0",
+		"archiver": "^5.0.2",
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
@@ -605,9 +605,9 @@
 		"@types/crypto-js": "^3.1.47",
 		"@types/fs-extra": "^9.0.1",
 		"@types/mocha": "^8.0.3",
-		"@types/node": "^14.6.0",
+		"@types/node": "^14.10.1",
 		"@types/uuid": "^8.3.0",
-		"@types/vscode": "^1.48.0",
+		"@types/vscode": "^1.49.0",
 		"ts-loader": "^8.0.3",
 		"typescript": "^4.0.2",
 		"vscode-debugadapter-testsupport": "^1.41.0",
