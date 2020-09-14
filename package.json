@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.3.9",
+	"version": "3.3.10",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.49.0"
@@ -594,7 +594,7 @@
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.0.1",
-		"image-size": "^0.8.3",
+		"image-size": "^0.9.1",
 		"png2icons": "^2.0.1",
 		"uuid": "^8.3.0",
 		"vscode-debugadapter": "^1.41.1",
