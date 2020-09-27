@@ -4,6 +4,7 @@
 // オブジェクト指向、メッセージドリブンと云えばそうなもかもしれんけど、さ。
 const vscode = acquireVsCodeApi();
 window.addEventListener('message', e=> {
+//vscode.postMessage({cmd: 'info', text: '@@@'});	// デバッグ時はこのように
 	if (! e.isTrusted) {
 		vscode.postMessage({cmd: 'warn', text: `(my.js) isTrusted = false`});
 		return;
@@ -13,9 +14,9 @@ window.addEventListener('message', e=> {
 	const o = e.data.o;
 
 	for (const n in o) {
-		if (n == 'save_ns') continue;
+		if (n === 'save_ns') continue;
 		const en = o[n];
-		if (n == 'debug' || n == 'code') for (const k in en) {
+		if (n === 'debug' || n === 'code') for (const k in en) {
 			document.getElementById(`${n}.${k}`).checked = en[k];
 		}
 		else for (const k in en) {
@@ -28,56 +29,51 @@ window.addEventListener('message', e=> {
 	elm.value = o.save_ns;
 	elm.focus();
 
-	let is_warn = false;
 	const hTemp = [{
-		"save_ns"		: "hatsune",
-		"book.title"	: "初音館にて",
-		"book.creator"	: "夕街昇雪",
-		"book.cre_url"	: "https://twitter.com/ugainovel",
-		"book.publisher": "活動漫画屋",
-		"book.pub_url"	: "https://ugainovel.blog.fc2.com/",
-		"book.detail"	: "江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。",
+		'save_ns'		: 'hatsune',
+		'book.title'	: '初音館にて',
+		'book.creator'	: '夕街昇雪',
+		'book.cre_url'	: 'https://twitter.com/ugainovel',
+		'book.publisher': '活動漫画屋',
+		'book.pub_url'	: 'https://ugainovel.blog.fc2.com/',
+		'book.detail'	: '江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。',
 	}, {
-		"save_ns"		: "uc",
-		"book.title"	: "桜の樹の下には",
-		"book.creator"	: "夕街昇雪",
-		"book.cre_url"	: "https://twitter.com/ugainovel",
-		"book.publisher": "活動漫画屋",
-		"book.pub_url"	: "https://ugainovel.blog.fc2.com/",
-		"book.detail"	: "梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。",
+		'save_ns'		: 'uc',
+		'book.title'	: '桜の樹の下には',
+		'book.creator'	: '夕街昇雪',
+		'book.cre_url'	: 'https://twitter.com/ugainovel',
+		'book.publisher': '活動漫画屋',
+		'book.pub_url'	: 'https://ugainovel.blog.fc2.com/',
+		'book.detail'	: '梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。',
 	}];
 	const chkEqTemp = i=> {
 		const len = hTemp.length;
 		const cl = i.classList;
 		for (let j=0; j<len; ++j) {
 			if (hTemp[j][i.id] == i.value) {	// テンプレと同じ値は警告
-				is_warn = true;
-				cl.add('red');
-				cl.add('lighten-4');
+				cl.add('is-invalid');
+				cl.remove('is-valid');
 				break;
 			}
 
-			cl.remove('red');
-			cl.remove('lighten-4');
+			cl.add('is-valid');
+			cl.remove('is-invalid');
 		}
 	};
-	Array.prototype.slice.call(document.getElementsByClassName('validate'))
-	.forEach(i=> {
-		chkEqTemp(i);
-		i.addEventListener('input', ()=> {
-			chkEqTemp(i);
-			vscode.postMessage({cmd: 'input', id: i.id, val: i.value});
+	document.querySelectorAll('.sn-vld').forEach(c=> {
+		chkEqTemp(c);
+		c.addEventListener('input', ()=> {
+			chkEqTemp(c);
+			vscode.postMessage({cmd: 'input', id: c.id, val: c.value});
 		}, {passive: true});
 	});
-	if (is_warn) vscode.postMessage({cmd: 'warn', text: `テンプレのままの設定があります。他の作品とかぶりますので、変更してください`});
 
-	Array.prototype.slice.call(document.getElementsByClassName('filled-in'))
-	.forEach(c=> c.addEventListener('input', ()=> {
+	document.querySelectorAll('.sn-chk').forEach(c=> c.addEventListener('input', ()=> {
 		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
 	}, {passive: true}));
 
 	['cre_url', 'pub_url'].forEach(id=> {
-		document.getElementById(`open.${id}`).addEventListener('click', e=> {
+		document.getElementById(`open.${id}`).addEventListener('click', ()=> {
 			vscode.postMessage({
 				cmd: 'openURL',
 				url: document.getElementById(`book.${id}`).value,

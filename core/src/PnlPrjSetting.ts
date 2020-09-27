@@ -74,9 +74,9 @@ export class PnlPrjSetting {
 			.forEach(nm=> this.hRep['book.'+ nm](this.oCfg.book[nm]));
 		}
 
-		const path_doc = ctx.extensionPath +`/res/setting/`;
+		const path_doc = ctx.extensionPath +`/res/webview/`;
 		this.localResourceRoots = Uri.file(path_doc);
-		fs.readFile(path_doc +`index.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
+		fs.readFile(path_doc +`setting.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
 			if (err) console.error(`PrjSetting constructor ${err}`);
 
 			PnlPrjSetting.htmSrc = String(data);
@@ -154,7 +154,7 @@ export class PnlPrjSetting {
 
 		this.pnlWV!.webview.html = PnlPrjSetting.htmSrc
 		.replace(/(href|src)="\.\//g, `$1="${this.pnlWV!.webview.asWebviewUri(this.localResourceRoots)}/`)
-		.replace(/(.+)"code.\w+"(.+)<span>\w+(.+)\n/, a.map(fld=> `$1"code.${fld}"$2<span>${fld}$3\n`).join(''));
+		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 	}
 	private inputProc(id: string, val: string) {
 		const v: any = /^[-]?([1-9]\d*|0)$/.test(val)
