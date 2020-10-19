@@ -5,6 +5,6 @@ export declare class TreeDPDoc implements TreeDataProvider<TreeItem> {
     private readonly aTiRoot;
     constructor(ctx: ExtensionContext);
     private generate;
-    getTreeItem: (t: TreeItem) => TreeItem;
+    readonly getTreeItem: (t: TreeItem) => TreeItem;
     getChildren(t?: TreeItem): TreeItem[];
 }

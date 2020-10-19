@@ -138,7 +138,10 @@ export class Project {
 		this.pbkdf2 = crypto.PBKDF2(
 			crypto.enc.Utf8.parse(this.hPass.pass),
 			crypto.enc.Hex.parse(this.hPass.salt),
-			{keySize: this.hPass.keySize, iterations: this.hPass.ite},
+			{
+				keySize: parseInt(this.hPass.keySize),
+				iterations: parseInt(this.hPass.ite),
+			},
 		);
 
 		this.fnDiff = pathWs +'/core/diff.json';
@@ -345,7 +348,7 @@ export class Project {
 
 				bh.set(chunk.slice(0, nokori), i);
 				const e6 = crypto.AES.encrypt(
-					crypto.lib.WordArray.create(bh),
+					crypto.lib.WordArray.create(Array.from(bh)),
 					this.pbkdf2,
 					{iv: this.iv},
 				);
@@ -364,7 +367,7 @@ export class Project {
 				if (nokori === 0) return;
 
 				const e6 = crypto.AES.encrypt(
-					crypto.lib.WordArray.create(bh.slice(0, i)),
+					crypto.lib.WordArray.create(Array.from(bh.slice(0, i))),
 					this.pbkdf2,
 					{iv: this.iv},
 				);

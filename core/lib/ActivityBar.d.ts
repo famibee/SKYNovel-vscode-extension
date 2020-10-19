@@ -14,6 +14,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
     readonly getTreeItem: (t: TreeItem) => TreeItem;
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;
+    private cntErr;
     private refreshWork;
     private static chkLastVerSKYNovel;
     private pnlWV;

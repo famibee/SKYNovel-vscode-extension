@@ -70,7 +70,7 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 		});
 	}
 
-	getTreeItem = (t: TreeItem)=> t;
+	readonly getTreeItem = (t: TreeItem)=> t;
 	getChildren(t?: TreeItem): TreeItem[] {	// 下に子が居ると何度も呼ばれる
 		if (! t) return this.aTiRoot;
 		const aTi = this.aTreeTmp.find(v=> v.label === t.label);

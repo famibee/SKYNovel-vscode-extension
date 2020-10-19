@@ -58,7 +58,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			Uri.parse('https://nodejs.org/dist/v14.12.0/node-v14.12.0'+ (
 				is_mac
 				? '.pkg'
-				: `${os.arch().slice(-2)=='64' ?'-x64' :'-x86'}.msi`
+				: `${os.arch().slice(-2) === '64' ?'-x64' :'-x86'}.msi`
 			))
 		)));	// NOTE: URLを更新したら以降にある「node -v」を壊しDLボタンの動作確認
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
@@ -86,8 +86,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 	// 環境チェック
+	private	cntErr	= 0;
 	private refreshWork(): void {
-		let error = 0;
+		this.cntErr = 0;
+
 		if (! this.aReady[eTree.NODE]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
 			const node = ActivityBar.aTiRoot[eTree.NODE];
 			if (err) {
@@ -95,7 +97,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				node.description = `-- 見つかりません`;
 				node.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire(node);
-				this.activityBarBadge(++error);
+				this.activityBarBadge();
 				return;
 			}
 			this.aReady[eTree.NODE] = true;
@@ -116,7 +118,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					wbt.description = `-- 見つかりません`;
 					wbt.iconPath = oIcon('error');
 					this._onDidChangeTreeData.fire(wbt);
-					this.activityBarBadge(++error);
+					this.activityBarBadge();
 					return;
 				}
 				this.aReady[eTree.WINDOWS_BUILD_TOOLS] = true;
@@ -133,7 +135,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				npm.description = `-- 見つかりません`;
 				npm.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire(npm);
-				this.activityBarBadge(++error);
+				this.activityBarBadge();
 				return;
 			}
 			this.aReady[eTree.NPM] = true;
@@ -172,12 +174,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 	private pnlWV: WebviewPanel | null = null;
-	private activityBarBadge(num = 0) {
+	private activityBarBadge() {
+		++this.cntErr;
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
 
-		const path_doc = this.ctx.extensionPath +'/doc';
-		this.pnlWV = window.createWebviewPanel('SKYNovel-envinfo', 'SKYNovel情報', column || ViewColumn.One, {
+		const path_doc = this.ctx.extensionPath +'/res/preenv';
+		this.pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
 			enableScripts: false,
 			localResourceRoots: [Uri.file(path_doc)],
 		});
@@ -187,9 +190,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			if (err) throw err;
 
 			this.pnlWV!.webview.html = data
-				.replace('${エラー数}', String(num))
-				.replace(/<img src="img\//g, `<img src="vscode-resource:${path_doc}/img/`)
-				.replace('type="text/css" href="', `type="text/css" href="vscode-resource:${path_doc}/`);
+				.replace('${エラー数}', String(this.cntErr))
+				.replace(/(<img src=")img\//g, `$1vscode-resource:${path_doc}/img/`)
+				.replace('type="text/css" href="', `$0vscode-resource:${path_doc}/`);
 		});
 	}
 
