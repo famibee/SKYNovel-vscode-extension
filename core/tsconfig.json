@@ -26,7 +26,7 @@
 		"strictPropertyInitialization": false,	// クラス定義時、インスタンス変数の初期化が宣言時、もしくはコンストラクタのどちらでも行われていない場合にエラー
 		"incremental": true,		// 差分ビルド
 		"lib": [
-			"es2019"
+			"es2020"
 		],
 	},
 	"include": [

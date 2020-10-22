@@ -55,7 +55,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
-			Uri.parse('https://nodejs.org/dist/v14.12.0/node-v14.12.0'+ (
+			Uri.parse('https://nodejs.org/dist/v14.14.0/node-v14.14.0'+ (
 				is_mac
 				? '.pkg'
 				: `${os.arch().slice(-2) === '64' ?'-x64' :'-x86'}.msi`
