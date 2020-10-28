@@ -47,8 +47,10 @@ window.addEventListener('message', e=> {
 		'book.detail'	: '梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。',
 	}];
 	const chkEqTemp = i=> {
-		const len = hTemp.length;
 		const cl = i.classList;
+		if (! cl.contains('sn-vld')) return;
+
+		const len = hTemp.length;
 		for (let j=0; j<len; ++j) {
 			if (hTemp[j][i.id] == i.value) {	// テンプレと同じ値は警告
 				cl.add('is-invalid');
@@ -60,7 +62,7 @@ window.addEventListener('message', e=> {
 			cl.remove('is-invalid');
 		}
 	};
-	document.querySelectorAll('.sn-vld').forEach(c=> {
+	document.querySelectorAll('.sn-vld, .sn-gray').forEach(c=> {
 		chkEqTemp(c);
 		c.addEventListener('input', ()=> {
 			chkEqTemp(c);
