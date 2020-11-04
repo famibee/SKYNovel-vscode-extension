@@ -15,6 +15,8 @@ export declare class PnlPrjSetting {
     private readonly localResourceRoots;
     private static htmSrc;
     constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void, codSpt: CodingSupporter);
+    noticeCreDir(path: string): void;
+    noticeDelDir(path: string): void;
     private oCfg;
     get cfg(): any;
     private pnlWV;

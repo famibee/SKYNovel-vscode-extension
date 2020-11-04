@@ -10,6 +10,7 @@ import {CodingSupporter} from './CodingSupporter';
 
 import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import fs = require('fs-extra');
+import m_path = require('path');
 
 export class PnlPrjSetting {
 	private	readonly	fnPrj	: string;
@@ -74,6 +75,16 @@ export class PnlPrjSetting {
 			.forEach(nm=> this.hRep['book.'+ nm](this.oCfg.book[nm]));
 		}
 
+		// prj.json に既にないディレクトリのcodeがあれば削除
+		const a: string[] = [];
+		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
+		const oCode: {[name: string]: string} = {};
+		for (const nm in this.oCfg.code) {
+			if (a.includes(nm)) oCode[nm] = this.oCfg[nm];
+		}
+		this.oCfg.code = oCode;
+		fs.outputJson(this.fnPrjJs, this.oCfg);
+
 		const path_doc = ctx.extensionPath +`/res/webview/`;
 		this.localResourceRoots = Uri.file(path_doc);
 		fs.readFile(path_doc +`setting.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
@@ -84,6 +95,20 @@ export class PnlPrjSetting {
 			if (this.oCfg.save_ns === 'hatsune' ||
 				this.oCfg.save_ns === 'uc') this.open();
 		});
+	}
+
+	noticeCreDir(path: string) {
+		if (! fs.statSync(path).isDirectory()) return;
+
+		this.oCfg.code[m_path.basename(path)] = false;
+		//fs.outputJson(this.fnPrjJs, this.oCfg);
+			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
+		this.openSub();	// 出来れば一部だけ更新したいが
+	}
+	noticeDelDir(path: string) {
+		delete this.oCfg.code[m_path.basename(path)];
+		fs.outputJson(this.fnPrjJs, this.oCfg);
+		this.openSub();	// 出来れば一部だけ更新したいが
 	}
 
 	private oCfg	: any = {
@@ -150,7 +175,7 @@ export class PnlPrjSetting {
 	}
 	private openSub() {
 		const a: string[] = [];
-		foldProc(this.fnPrj, ()=> {}, nm=> {a.push(nm); this.oCfg.code[nm]});
+		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
 		this.pnlWV!.webview.html = PnlPrjSetting.htmSrc
 		.replace(/(href|src)="\.\//g, `$1="${this.pnlWV!.webview.asWebviewUri(this.localResourceRoots)}/`)

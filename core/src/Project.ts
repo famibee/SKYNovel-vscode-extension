@@ -93,6 +93,8 @@ export class Project {
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.curPrj +'*/*');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.curPrj +'prj.json');
+		// フォルダ監視
+		const fwFld = workspace.createFileSystemWatcher(this.curPrj +'*');
 		this.aFSW = [
 			fwPlg.onDidCreate(()=> this.updPlugin()),
 			fwPlg.onDidChange(()=> this.updPlugin()),
@@ -117,6 +119,13 @@ export class Project {
 				this.codSpt.delPrj(e);
 			}),
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
+
+			fwFld.onDidCreate(e=> this.ps.noticeCreDir(e.path)),
+			/*fwFld.onDidChange(e=> {	// フォルダ名ではこれが発生せず、Cre & Del
+				if (e.path.slice(-9) === 'path.json') return;
+console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
+			}),*/
+			fwFld.onDidDelete(e=> this.ps.noticeDelDir(e.path)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypto = pathWs +`/doc/${Project.fld_crypto_prj}/`;
