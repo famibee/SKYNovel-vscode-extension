@@ -273,7 +273,7 @@ ${md.detail}`
 			const loc = this.scrScn.hMacro[nm] ?? this.scrScn.hPlugin[nm];
 			if (loc) return re(loc);
 			const q = CodingSupporter.pickItems.find(q=> q.label === nm);
-			if (q) {CodingSupporter.openTagRef(q); return re();}
+			if (q) {CodingSupporter.openTagRef(q); return re(null);}
 
 			return rj('No definition found');
 		});

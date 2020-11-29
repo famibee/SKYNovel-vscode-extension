@@ -60,10 +60,10 @@ export class Debugger extends EventEmitter {
 	}
 	end() {this.send2SN({type: 'disconnect'}); this.sktDbg?.end();}
 
-	restart(ri: number): Promise<any> {return new Promise<any[]>(res=> {
+	readonly	restart = (ri: number)=> new Promise<void>(res=> {
 		this.send2SN({type: 'restart', ri: ri});			// request
 		this.hProcSnRes[ri] = ()=> {res(); return true;}	// response
-	});}
+	});
 
 	continue(rev = false) {this.send2SN({type: 'continue', reverse: rev});}
 		// 次のブレークポイントまでプログラムを続行。ブレークポイントがなければ最後まで実行。

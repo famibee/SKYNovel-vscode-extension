@@ -48,36 +48,42 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			npm: 'npm run web'},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
 			npm: 'npm run start'},
-		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows用 exe x64',
+		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows exe x64',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --win --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
-		//	} ./node_modules/.bin/electron-builder --win --x64 --ia32`},
+			} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
+		//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
 				// 一パッケージに統合型、ファイルサイズ二倍になる
-		{cmd: 'PackWin32',	icon: 'windows',	label: '生成：Windows用 exe ia32',
+		{cmd: 'PackWin32',	icon: 'windows',	label: '生成：Windows exe ia32',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --win --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
-		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS用 dmg',
+			} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
+		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS dmg x64',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --mac`},
-		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux用 AppImage',
+			} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`},
+		{cmd: 'PackMacArm64',	icon: 'macosx',	label: '生成：macOS dmg arm64',
 			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder --linux`},
+			} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`},
+			// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
+				// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
+		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux AppImage',
+			npm: `npm run webpack:pro ${statBreak()
+			} ./node_modules/.bin/electron-builder -l`},
+			// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
 		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
 			npm: 'npm run webpack:pro'},
 	];
 	private	readonly idxDevPrjSet	= 1;
 	private	readonly idxDevCrypto	= 3;
-	private	readonly idxDevPackMac	= 9;
+	private	readonly aIdxDevPackMac	= [9, 10];
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
-		if (is_win) {
-			const tc = this.aTreeTmp[this.idxDevPackMac];
+		if (is_win) this.aIdxDevPackMac.forEach(i=> {
+			const tc = this.aTreeTmp[i];
 			tc.label = '';
 			tc.cmd = '';
 			tc.desc = '（Windowsでは使えません）';
-		}
+		});
 
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));

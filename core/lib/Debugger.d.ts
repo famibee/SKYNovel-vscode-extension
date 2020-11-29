@@ -16,7 +16,7 @@ export declare class Debugger extends EventEmitter {
     private sktBuf;
     private send2SN;
     end(): void;
-    restart(ri: number): Promise<any>;
+    readonly restart: (ri: number) => Promise<void>;
     continue(rev?: boolean): void;
     step(rev?: boolean): void;
     stepin(): void;

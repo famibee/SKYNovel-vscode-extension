@@ -1,9 +1,9 @@
 {
 	"name": "skynovel",
-	"version": "3.3.16",
+	"version": "3.4.0",
 	"publisher": "famibee",
 	"engines": {
-		"vscode": "^1.50.0"
+		"vscode": "^1.51.0"
 	},
 	"license": "MIT",
 	"displayName": "SKYNovel",
@@ -193,7 +193,15 @@
 			},
 			{
 				"command": "skynovel.devPackMac",
-				"title": "npm pack:mac (for macOS Package)",
+				"title": "npm pack:mac (for x64 macOS Package)",
+				"icon": {
+					"light": "res/light/baggage.svg",
+					"dark": "res/dark/baggage.svg"
+				}
+			},
+			{
+				"command": "skynovel.devPackMacArm64",
+				"title": "npm pack:mac (for arm64 macOS Package)",
 				"icon": {
 					"light": "res/light/baggage.svg",
 					"dark": "res/dark/baggage.svg"
@@ -436,6 +444,11 @@
 				},
 				{
 					"group": "inline",
+					"command": "skynovel.devPackMacArm64",
+					"when": "view == sn-dev && viewItem == 'skynovel.devPackMacArm64'"
+				},
+				{
+					"group": "inline",
 					"command": "skynovel.devPackLinux",
 					"when": "view == sn-dev && viewItem == 'skynovel.devPackLinux'"
 				},
@@ -589,7 +602,7 @@
 	],
 	"author": "miyazawa famibee",
 	"dependencies": {
-		"archiver": "^5.0.2",
+		"archiver": "^5.1.0",
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
@@ -601,15 +614,16 @@
 		"vscode-debugprotocol": "^1.42.0"
 	},
 	"devDependencies": {
-		"@types/archiver": "^3.1.1",
+		"@types/archiver": "^5.1.0",
 		"@types/crypto-js": "^4.0.1",
-		"@types/fs-extra": "^9.0.3",
-		"@types/mocha": "^8.0.3",
-		"@types/node": "^14.14.6",
+		"@types/fs-extra": "^9.0.4",
+		"@types/mocha": "^8.0.4",
+		"@types/node": "^14.14.10",
 		"@types/uuid": "^8.3.0",
-		"@types/vscode": "^1.50.0",
-		"ts-loader": "^8.0.8",
-		"typescript": "^4.0.5",
+		"@types/vscode": "^1.51.0",
+		"electron": "^11.0.3",
+		"ts-loader": "^8.0.11",
+		"typescript": "^4.1.2",
 		"vscode-debugadapter-testsupport": "^1.42.0",
 		"vscode-test": "^1.4.1",
 		"webpack": "^4.44.2",
