@@ -1,9 +1,9 @@
 {
 	"name": "skynovel",
-	"version": "3.4.0",
+	"version": "3.4.1",
 	"publisher": "famibee",
 	"engines": {
-		"vscode": "^1.51.0"
+		"vscode": "^1.52.0"
 	},
 	"license": "MIT",
 	"displayName": "SKYNovel",
@@ -32,6 +32,7 @@
 				],
 				"extensions": [
 					".sn",
+					".ssn",
 					".an",
 					".ks"
 				],
@@ -364,8 +365,8 @@
 					"name": "開発環境"
 				},
 				{
-					"id": "sn-dev",
-					"name": "開発ツール"
+					"id": "sn-ws",
+					"name": "ワークスペース"
 				},
 				{
 					"id": "sn-doc",
@@ -395,67 +396,67 @@
 				{
 					"group": "inline",
 					"command": "skynovel.devPrjSet",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPrjSet'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPrjSet'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devSnUpd",
-					"when": "view == sn-dev && viewItem == 'skynovel.devSnUpd'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devSnUpd'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devLibUpd",
-					"when": "view == sn-dev && viewItem == 'skynovel.devLibUpd'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devLibUpd'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devCrypto",
-					"when": "view == sn-dev && viewItem == 'skynovel.devCrypto'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devCrypto'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devReBuild",
-					"when": "view == sn-dev && viewItem == 'skynovel.devReBuild'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devReBuild'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskWeb",
-					"when": "view == sn-dev && viewItem == 'skynovel.devTaskWeb'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devTaskWeb'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskApp",
-					"when": "view == sn-dev && viewItem == 'skynovel.devTaskApp'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devTaskApp'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackWin",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackWin'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackWin'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackWin32",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackWin32'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackWin32'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackMac",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackMac'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackMac'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackMacArm64",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackMacArm64'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackMacArm64'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackLinux",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackLinux'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackLinux'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackFreem",
-					"when": "view == sn-dev && viewItem == 'skynovel.devPackFreem'"
+					"when": "view == sn-ws && viewItem == 'skynovel.devPackFreem'"
 				},
 				{
 					"group": "inline",
@@ -590,6 +591,18 @@
 					"task"
 				]
 			}
+		],
+		"customEditors": [
+			{
+				"viewType": "SKYNovel.score",
+				"displayName": "SKYNovel スコア Editer",
+				"selector": [
+					{
+						"filenamePattern": "*.ssn"
+					}
+				],
+				"priority": "default"
+			}
 		]
 	},
 	"activationEvents": [
@@ -598,7 +611,8 @@
 		"workspaceContains:doc/prj/**/*",
 		"onDebug",
 		"onDebugInitialConfigurations",
-		"onDebugResolve"
+		"onDebugResolve",
+		"onCustomEditor:SKYNovel.score"
 	],
 	"author": "miyazawa famibee",
 	"dependencies": {
@@ -609,22 +623,22 @@
 		"fs-extra": "^9.0.1",
 		"image-size": "^0.9.3",
 		"png2icons": "^2.0.1",
-		"uuid": "^8.3.1",
-		"vscode-debugadapter": "^1.42.1",
-		"vscode-debugprotocol": "^1.42.0"
+		"uuid": "^8.3.2",
+		"vscode-debugadapter": "^1.43.0",
+		"vscode-debugprotocol": "^1.43.0"
 	},
 	"devDependencies": {
 		"@types/archiver": "^5.1.0",
 		"@types/crypto-js": "^4.0.1",
-		"@types/fs-extra": "^9.0.4",
-		"@types/mocha": "^8.0.4",
-		"@types/node": "^14.14.10",
+		"@types/fs-extra": "^9.0.5",
+		"@types/mocha": "^8.2.0",
+		"@types/node": "^14.14.14",
 		"@types/uuid": "^8.3.0",
-		"@types/vscode": "^1.51.0",
-		"electron": "^11.0.3",
-		"ts-loader": "^8.0.11",
-		"typescript": "^4.1.2",
-		"vscode-debugadapter-testsupport": "^1.42.0",
+		"@types/vscode": "^1.52.0",
+		"electron": "^11.1.0",
+		"ts-loader": "^8.0.12",
+		"typescript": "^4.1.3",
+		"vscode-debugadapter-testsupport": "^1.43.0",
 		"vscode-test": "^1.4.1",
 		"webpack": "^4.44.2",
 		"webpack-cli": "^3.3.12"

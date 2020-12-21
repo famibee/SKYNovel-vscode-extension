@@ -1,3 +1,4 @@
+import { IFn2Path } from './CmnLib';
 import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, DocumentSymbolProvider, SymbolInformation, DocumentSymbol } from 'vscode';
 export declare class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
     private readonly lenRootPath;
@@ -11,7 +12,7 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     constructor(ctx: ExtensionContext, pathWs: string, curPrj: string);
     private static readonly REG_VAR;
     private tidDelay;
-    private hChgTxt;
+    private aChgTxt;
     private hRsvNm2Then;
     private delayedUpdate;
     private static initClass;
@@ -45,4 +46,5 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     readonly delPrj: (_: Uri) => void;
     private loadCfg;
     private compare;
+    updPath(hPath: IFn2Path): void;
 }

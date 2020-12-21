@@ -1,4 +1,5 @@
-import { DiagnosticCollection, Location, Uri, Range, DocumentSymbol } from 'vscode';
+import { IFn2Path } from './CmnLib';
+import { DiagnosticCollection, Location, Uri, Range, DocumentSymbol, TextDocumentChangeEvent } from 'vscode';
 export declare class ScriptScanner {
     private readonly curPrj;
     private readonly clDiag;
@@ -39,15 +40,19 @@ export declare class ScriptScanner {
     goAll(): void;
     goFile(uri: Uri): void;
     private hScr2KeyWord;
-    goScriptSrc(uri: Uri, src: string): void;
+    goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void;
     private goInitFile;
     private goFinishFile;
-    private static readonly EXT_SPRITE;
-    private static readonly EXT_SOUND;
-    private static readonly EXT_HTML;
+    isSkipUpd(path: string): boolean;
+    private static readonly REG_SPRITE;
+    private static readonly REG_SOUND;
+    private static readonly REG_HTML;
     private scanFile;
+    private readonly cteScore;
+    updPath(hPath: IFn2Path): void;
     private readonly alzTagArg;
     private static readonly regValName;
+    private static hPath2AToken;
     private scanScriptSrc;
     private fncToken;
     private procToken;

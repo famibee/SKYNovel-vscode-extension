@@ -1,5 +1,5 @@
-out
-node_modules
-.vscode/
-.vscode-test/
-*.vsix
+/.vscode/
+/.vscode-test/
+/*.vsix
+
+/node_modules/

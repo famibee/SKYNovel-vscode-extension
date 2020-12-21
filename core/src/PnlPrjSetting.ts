@@ -87,14 +87,12 @@ export class PnlPrjSetting {
 
 		const path_doc = ctx.extensionPath +`/res/webview/`;
 		this.localResourceRoots = Uri.file(path_doc);
-		fs.readFile(path_doc +`setting.htm`, {encoding: 'utf8'}, (err: any, data: any)=> {
-			if (err) console.error(`PrjSetting constructor ${err}`);
+		PnlPrjSetting.htmSrc =
+		fs.readFileSync(path_doc +`setting.htm`, {encoding: 'utf8'})
+		.replace('<meta_autooff ', '<meta ');	// ローカルデバッグしたいので
 
-			PnlPrjSetting.htmSrc = String(data);
-
-			if (this.oCfg.save_ns === 'hatsune' ||
-				this.oCfg.save_ns === 'uc') this.open();
-		});
+		if (this.oCfg.save_ns === 'hatsune'
+		|| this.oCfg.save_ns === 'uc') this.open();
 	}
 
 	noticeCreDir(path: string) {
@@ -177,8 +175,9 @@ export class PnlPrjSetting {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
-		this.pnlWV!.webview.html = PnlPrjSetting.htmSrc
-		.replace(/(href|src)="\.\//g, `$1="${this.pnlWV!.webview.asWebviewUri(this.localResourceRoots)}/`)
+		const wb = this.pnlWV!.webview;
+		wb.html = PnlPrjSetting.htmSrc
+		.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(this.localResourceRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 	}
 	private inputProc(id: string, val: string) {

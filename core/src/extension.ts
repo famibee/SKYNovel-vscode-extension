@@ -13,4 +13,4 @@ import {ExtensionContext} from 'vscode';
 export function activate(ctx: ExtensionContext) {ActivityBar.start(ctx);}
 
 // 拡張機能が非アクティブ化されたときに、実行
-export function deactivate() {ActivityBar.stopActBar();}
+export function deactivate() {ActivityBar.stop();}

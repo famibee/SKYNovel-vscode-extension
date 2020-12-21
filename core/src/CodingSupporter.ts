@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {CmnLib} from './CmnLib';
+import {CmnLib, IFn2Path} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
 import {initDebug} from './DebugAdapter';
@@ -24,6 +24,7 @@ import {
 	DocumentSymbolProvider,	// アウトライン
 	SymbolInformation, DocumentSymbol,
 	EvaluatableExpression,	// デバッグホバー
+	TextDocumentChangeEvent,
 } from 'vscode';
 
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
@@ -157,10 +158,12 @@ ${md.comment}`, true
 		workspace.onDidChangeTextDocument(e=> {
 			const doc = e.document;
 			if (e.contentChanges.length === 0
-			||	doc.languageId != 'skynovel'
-			||	doc.fileName.slice(0, this.lenRootPath -1) != workspace.rootPath) return;
+			||	doc.languageId !== 'skynovel'
+			||	doc.fileName.slice(0, this.lenRootPath -1) != pathWs) return;
 
-			this.hChgTxt[doc.fileName] = doc;
+			if (this.scrScn.isSkipUpd(doc.fileName)) return;
+
+			this.aChgTxt.push(e);
 			if (this.tidDelay) clearTimeout(this.tidDelay);
 			this.tidDelay = setTimeout(()=> this.delayedUpdate(), 500);
 		}, null, ctx.subscriptions);
@@ -171,16 +174,15 @@ ${md.comment}`, true
 	private	static	readonly	REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
-	private tidDelay: NodeJS.Timer | null = null;
-	private	hChgTxt	: {[fn: string]: TextDocument}	= {};
-	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}	= {};
+	private tidDelay	: NodeJS.Timer | null	= null;
+	private	aChgTxt		: TextDocumentChangeEvent[]		= [];
+	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}			= {};
 	private delayedUpdate() {
-		const o = this.hChgTxt;	// Atomicにするため
-		this.hChgTxt = {};
-		for (const fn in o) {
-			const doc = o[fn];
-			this.scrScn.goScriptSrc(doc.uri, doc.getText());
-		}
+		const a = this.aChgTxt;	// Atomicにするため
+		this.aChgTxt = [];
+		this.scrScn.goScriptSrc(a);
+
+		// アウトライン
 		for (const rsv_nm in this.hRsvNm2Then) this.hRsvNm2Then[rsv_nm]();
 		this.hRsvNm2Then = {};
 	}
@@ -535,4 +537,5 @@ ${md.detail}`
 		return aStr > bStr ? 1 : aStr === bStr ? 0 : -1;
 	}
 
+	updPath(hPath: IFn2Path): void {this.scrScn.updPath(hPath);}
 }

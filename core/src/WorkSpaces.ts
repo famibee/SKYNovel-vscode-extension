@@ -7,6 +7,7 @@
 
 import {oIcon, statBreak, is_win, treeProc} from './CmnLib';
 import {Project} from './Project';
+import {CteScore} from './CteScore';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri} from 'vscode';
 
@@ -100,6 +101,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		workspace.onDidChangeTextDocument(e=> {
 			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
 		}, null, ctx.subscriptions);
+
+		CteScore.init(ctx);
 	}
 
 	private tidDelay: NodeJS.Timer | null = null;
@@ -238,7 +241,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		// カレントディレクトリ設定（必要なら）
 		let cmd = (aFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
-		const pathWs = ti.tooltip ?? '';
+		const pathWs = String(ti.tooltip ?? '');
 		if (! fs.existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
@@ -332,8 +335,10 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				return;
 		}
 
+		const curFld = aFld.find(v=> v.uri.path === ti.tooltip);
 		const t = new Task(
 			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
+			curFld!,
 			tc.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
@@ -388,7 +393,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 	getTreeItem = (t: TreeItem)=> t;
 	getChildren(t?: TreeItem): TreeItem[] {
-		return t ?this.oTiPrj[t.tooltip!] :this.aTiRoot;
+		return t ?this.oTiPrj[String(t.tooltip!)] :this.aTiRoot;
 	}
 
 	dispose() {

@@ -1,5 +1,13 @@
 import { ExtensionContext } from 'vscode';
 export declare function uint(o: any): number;
+export declare const REG_SCRIPT: RegExp;
+export interface IExts {
+    [ext: string]: string | number;
+}
+export interface IFn2Path {
+    [fn: string]: IExts;
+}
+export declare function getNonce(): string;
 export declare function setCtx4(ctx0: ExtensionContext): void;
 export declare function oIcon(name: string): {
     light: string;

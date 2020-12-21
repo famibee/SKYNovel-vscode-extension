@@ -37,7 +37,7 @@ export function init(hSN) {
 	})();
 }
 
-const regFullCrypto = /(^|\.)(sn|json|html?)$/;
+const regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
 
 const fncImage = bl=> (rs, rj)=> {
 	const img = new Image();

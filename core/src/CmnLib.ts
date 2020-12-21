@@ -13,6 +13,23 @@ export function uint(o: any): number {
 	return v < 0 ? -v : v;
 }
 
+export	const	REG_SCRIPT	= /\.(sn|ssn)$/;
+
+
+// =============== Project
+export interface IExts { [ext: string]: string | number; };
+export interface IFn2Path { [fn: string]: IExts; };
+
+
+export function getNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}
+
 export function setCtx4(ctx0: ExtensionContext) {extPath = ctx0.extensionPath;}
 let extPath = '';
 export function oIcon(name: string) {return {

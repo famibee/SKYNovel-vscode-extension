@@ -7,6 +7,7 @@
 
 import {oIcon, setCtx4, is_win, is_mac} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
+import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, env, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn} from 'vscode';
@@ -28,15 +29,22 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ActivityBar.actBar = new ActivityBar(ctx);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
+
 		ActivityBar.workSps = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-dev', ActivityBar.workSps));
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
+
+//		ActivityBar.tlBox = new ToolBox(ctx);
+//		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
+
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
 	private static actBar: ActivityBar;
 	private static workSps: WorkSpaces;
-	static stopActBar() {
+	private static tlBox: ToolBox;
+	static stop() {
 		ActivityBar.actBar.dispose();
 		ActivityBar.workSps.dispose();
+		ActivityBar.tlBox.dispose();
 	}
 
 
@@ -50,7 +58,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		ActivityBar.aTiRoot.forEach(v=> v.contextValue = v.label);
+		ActivityBar.aTiRoot.forEach(v=> v.contextValue = String(v.label));
 		this.refreshWork();
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン

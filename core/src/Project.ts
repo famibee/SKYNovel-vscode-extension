@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PnlPrjSetting} from './PnlPrjSetting';
 
@@ -18,9 +18,6 @@ import {v4 as uuidv4, v5 as uuidv5} from 'uuid';
 import crc32 = require('crc-32');
 import {Transform} from 'stream';
 
-interface IExts { [ext: string]: string | number; };
-interface IFn2Path { [fn: string]: IExts; };
-
 export class Project {
 	private	readonly	codSpt		: CodingSupporter;
 
@@ -32,8 +29,8 @@ export class Project {
 	static get fldnm_crypto_prj() {return Project.fld_crypto_prj}
 	private		$isCryptoMode	= true;
 	get isCryptoMode() {return this.$isCryptoMode;}
-	private readonly	regNeedCrypto	= /\.(sn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
-	private readonly	regFullCrypto	= /\.(sn|json|html?)$/;
+	private readonly	regNeedCrypto	= /\.(sn|ssn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
+	private readonly	regFullCrypto	= /\.(sn|ssn|json|html?)$/;
 	private readonly	regRepPathJson	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 		// この末端の「"」は必須。変更時は delPrj_sub() 内も
 	private readonly	hExt2N: {[name: string]: number} = {
@@ -100,32 +97,35 @@ export class Project {
 			fwPlg.onDidChange(()=> this.updPlugin()),
 			fwPlg.onDidDelete(()=> this.updPlugin()),
 
-			fwPrj.onDidCreate(e=> {
+			fwPrj.onDidCreate(uri=> {
 				regNoUseSysPath.lastIndex = 0;
-				if (regNoUseSysPath.test(e.path)) return;
-				this.crePrj(e);
-				this.codSpt.crePrj(e);
+				if (regNoUseSysPath.test(uri.path)) return;
+				this.crePrj(uri);
+				this.codSpt.crePrj(uri);
 			}),
-			fwPrj.onDidChange(e=> {
+			fwPrj.onDidChange(uri=> {
+				// エディタで開いたファイルは更新監視をしない。文字変更イベントで処理する
+				if (workspace.textDocuments.find(td=> td.uri.path === uri.path)) return;
+
 				regNoUseSysPath.lastIndex = 0;
-				if (regNoUseSysPath.test(e.path)) return;
-				this.chgPrj(e);
-				this.codSpt.chgPrj(e);
+				if (regNoUseSysPath.test(uri.path)) return;
+				this.chgPrj(uri);
+				this.codSpt.chgPrj(uri);
 			}),
-			fwPrj.onDidDelete(e=> {
+			fwPrj.onDidDelete(uri=> {
 				regNoUseSysPath.lastIndex = 0;
-				if (regNoUseSysPath.test(e.path)) return;
-				this.delPrj(e);
-				this.codSpt.delPrj(e);
+				if (regNoUseSysPath.test(uri.path)) return;
+				this.delPrj(uri);
+				this.codSpt.delPrj(uri);
 			}),
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 
-			fwFld.onDidCreate(e=> this.ps.noticeCreDir(e.path)),
+			fwFld.onDidCreate(uri=> this.ps.noticeCreDir(uri.path)),
 			/*fwFld.onDidChange(e=> {	// フォルダ名ではこれが発生せず、Cre & Del
 				if (e.path.slice(-9) === 'path.json') return;
 console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 			}),*/
-			fwFld.onDidDelete(e=> this.ps.noticeDelDir(e.path)),
+			fwFld.onDidDelete(uri=> this.ps.noticeDelDir(uri.path)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
 		this.curCrypto = pathWs +`/doc/${Project.fld_crypto_prj}/`;
@@ -430,7 +430,7 @@ console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 
 		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(()=> this.rebuildTask())
-		.catch((err: any)=> console.error(`PrjFileProc updPlugin ${err}`));
+		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
 	private rebuildTask() {
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
@@ -451,9 +451,10 @@ console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 		try {
 			const hPath = this.get_hPathFn2Exts(this.curPrj);
 			await fs.outputJson(this.curPrj +'path.json', hPath);
+			this.codSpt.updPath(hPath);
 			if (this.$isCryptoMode) this.encrypter(this.curPrj +'path.json');
 		}
-		catch (err) {console.error(`PrjFileProc updPathJson ${err}`);}
+		catch (err) {console.error(`Project updPathJson ${err}`);}
 	}
 	private	readonly regSprSheetImg = /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
 	private get_hPathFn2Exts($cur: string): IFn2Path {

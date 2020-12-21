@@ -5,11 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, CmnLib} from './CmnLib';
+import {treeProc, CmnLib, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
+import {CteScore} from './CteScore';
 
-import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind} from 'vscode';
-
+import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument} from 'vscode';
 import fs = require('fs-extra');
 
 interface Script {
@@ -197,29 +197,49 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.scanFile(uri);
 		this.goFinishFile(uri);
 	}
-	private	hScr2KeyWord	: {[scr_path: string]: Set<string>}	= {};
-	goScriptSrc(uri: Uri, src: string): void {
-		this.goInitFile(uri);
-		const path = uri.path;
-		const old = this.hScr2KeyWord[path];
-		this.hScr2KeyWord[path] = new Set;
+	private	hScr2KeyWord	: {[path: string]: Set<string>}	= {};
+	goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void {
+		const hDoc: {[path: string]: TextDocument} = {};
+		const hUpdFull: {[path: string]: boolean} = {};
+		aChgTxt.forEach(e=> {
+			const path = e.document.fileName;
+			hDoc[path] = e.document;
+console.log(`fn:ScriptScanner.ts line:206 goScriptSrc fn:${path}`);
+			this.cteScore.separation(path);
+			e.contentChanges.forEach(c=> {
+console.log(`fn:ScriptScanner.ts line:208  (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
+				if (c.range.start.character === 0 && c.range.end.character === 0) this.cteScore.updDiffLine(path, c, this.resolveScript(c.text).aToken);
+				else hUpdFull[path] = true;
+			});
+			this.cteScore.combining(path);
+		});
 
-		this.scanScriptSrc(uri, src);
+		for (const path in hDoc) {
+			const doc = hDoc[path];
+			const uri = doc.uri;
+			this.goInitFile(uri);
+			const old = this.hScr2KeyWord[path];
+			this.hScr2KeyWord[path] = new Set;
 
-		this.goFinishFile(uri);
-		// キーワード削除対応
-		const now = this.hScr2KeyWord[path];
-		for (const s of old) {
-			if (now.has(s)) continue;
-			let findOther = false;
-			for (const path_other in this.hScr2KeyWord) {
-				if (path_other === path) continue;
-				if (findOther = this.hScr2KeyWord[path_other].has(s)) break;
+			// TODO: できれば差分更新したい
+			this.scanScriptSrc(uri, doc.getText());
+			if (hUpdFull[path]) this.cteScore.setAToken(path, this.curPrj, ScriptScanner.hPath2AToken[path]);
+
+			this.goFinishFile(uri);
+			// キーワード削除対応
+			const now = this.hScr2KeyWord[path];
+			for (const s of old) {
+				if (now.has(s)) continue;
+				let findOther = false;
+				for (const path_other in this.hScr2KeyWord) {
+					if (path_other === path) continue;
+					if (findOther = this.hScr2KeyWord[path_other].has(s)) break;
+				}
+				if (findOther) continue;
+
+				const a = s.split('\t');
+				this.hSetWords[a[0]].delete(a[1]);
 			}
-			if (findOther) continue;
-
-			const a = s.split('\t');
-			this.hSetWords[a[0]].delete(a[1]);
 		}
 	}
 	private goInitFile(uri: Uri) {
@@ -280,21 +300,23 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.bldCnvSnippet();
 	}
 
-	private	static	readonly	EXT_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;
-//	private	static	readonly	EXT_FONT	= /\.(woff2|otf|ttf)$/;
-	private	static	readonly	EXT_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
-	private	static	readonly	EXT_HTML	= /\.(htm|html)$/;
+	isSkipUpd(path: string): boolean {return this.cteScore.isSkipUpd(path);}
+
+	private	static	readonly	REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;
+//	private	static	readonly	REG_FONT	= /\.(woff2|otf|ttf)$/;
+	private	static	readonly	REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
+	private	static	readonly	REG_HTML	= /\.(htm|html)$/;
 	private	scanFile(uri: Uri) {
 		const path = uri.path;
 		const fn = CmnLib.getFn(path);
-		if (path.slice(-3) != '.sn') {
-			if (ScriptScanner.EXT_SPRITE.test(path)) {
+		if (! REG_SCRIPT.test(path)) {
+			if (ScriptScanner.REG_SPRITE.test(path)) {
 				this.hSetWords['画像ファイル名'].add(fn);
 			}
-			else if (ScriptScanner.EXT_SOUND.test(path)) {
+			else if (ScriptScanner.REG_SOUND.test(path)) {
 				this.hSetWords['音声ファイル名'].add(fn);
 			}
-			else if (ScriptScanner.EXT_HTML.test(path)) {
+			else if (ScriptScanner.REG_HTML.test(path)) {
 				this.hSetWords['HTMLファイル名'].add(fn);
 			}
 			return;
@@ -312,11 +334,16 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			uri,
 			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'})
 		);
+		this.cteScore.setAToken(path, this.curPrj, ScriptScanner.hPath2AToken[path]);
 	}
+
+	private	readonly	cteScore	= new CteScore;
+	updPath(hPath: IFn2Path): void {this.cteScore.updPath(this.curPrj, hPath);}
 
 	private			readonly	alzTagArg	= new AnalyzeTagArg;
 	private	static	readonly	regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
+	private	static	hPath2AToken	: {[path: string]: string[]}	= {};
 	private	scanScriptSrc(uri: Uri, src: string) {
 		const path = uri.path;
 		const diags = this.nm2Diag[path];
@@ -382,7 +409,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				else hLabel[token] = rng;
 				return;
 			}
-			if (uc != 91) {	// 文字表示
+			if (uc !== 91) {	// 文字表示
 				p.col += len;
 
 				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.String, rng, rng));
@@ -397,7 +424,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				return;
 			}
 
-			// 複数行での行カウント補正
+			// 複数行タグでの行カウント補正
 			let lineTkn = 0;
 			let j = -1;
 			while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
@@ -440,8 +467,9 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		};
 
 		const p = {line: 0, col: 0};
-		this.resolveScript(src).aToken
-		.forEach(token=> {if (token) this.fncToken(p, token)});
+		const a = this.resolveScript(src).aToken;
+		a.forEach(token=> {if (token) this.fncToken(p, token)});
+		ScriptScanner.hPath2AToken[path] = a;
 	}
 	private fncToken = this.procToken;
 	private procToken(_p: Pos, _token: string) {}
@@ -690,7 +718,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 	static	readonly	REG_TAG	= /\[(?<name>[^\s;\]]+)\s*(?<args>(?:[^"'#\]]+|(["'#]).*?\3)*?)]/;
 
 	static	analyzTagArg = (token: string)=> ScriptScanner.REG_TAG.exec(token);
-	analyzToken(token: string) {
+	analyzToken(token: string): RegExpExecArray | null {
 		this.REG_TOKEN.lastIndex = 0;	// /gなので必要
 		return this.REG_TOKEN.exec(token);
 	}
@@ -721,5 +749,4 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 		this.goAll();
 	}
-
 }
