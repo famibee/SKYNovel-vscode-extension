@@ -1,3 +1,7 @@
+## v3.4.3
+- fix: スクリプト変更時のエラー報告処理が途中で止まる場合があった件
+- fix: 未使用マクロチェック機能不具合修正
+- fix: 未使用のマクロ警告抑制（#NO_WARM_UNUSED_MACRO）機能不具合修正
 ## v3.4.2
 - fix: WindowsでのPowerShell判定をやや修正
 - fix: VSCode API の new Task()の非推奨形式を使わないように

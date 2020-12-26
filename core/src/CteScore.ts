@@ -40,21 +40,20 @@ export class CteScore implements CustomTextEditorProvider {
 		return false;
 	}
 	setAToken(path: string, curPrj: string, aToken: string[]) {
-		const exist = path in CteScore.hPath2Tokens;
-//console.log(`fn:CteScore.ts line:43 setAToken path=${path} exist:${exist}`);
+//console.log(`fn:CteScore.ts line:43 setAToken path=${path}`);
 		CteScore.hPath2Tokens[path] = {
 			uriCurPrj	: Uri.parse(curPrj),
 			aToken		: aToken,
 			skipupd		: false,
 		};
-		if (exist) this.upd_webview(path);
+		this.upd_webview(path);
 	}
 
 	separation(path: string) {	// 分離
-		CteScore.hPath2Wb[path].postMessage({cmd: 'separation'});
+		CteScore.hPath2Wb[path]?.postMessage({cmd: 'separation'});
 	}
 	combining(path: string) {	// 結合
-		CteScore.hPath2Wb[path].postMessage({cmd: 'combining'});
+		CteScore.hPath2Wb[path]?.postMessage({cmd: 'combining'});
 	}
 	updDiffLine(path: string, c: TextDocumentContentChangeEvent, aToken: string[]) {
 		const sta = c.range.start;
@@ -212,6 +211,7 @@ export class CteScore implements CustomTextEditorProvider {
 	private upd_webview(path: string) {
 		let stt = {line: 1};
 		const wb = CteScore.hPath2Wb[path];
+		if (! wb) return;
 		wb.html = CteScore.htmBaseSrc
 		.replace(/<tbody>[\s\S]+<\/tbody>/, `<tbody>${
 			CteScore.hPath2Tokens[path].aToken

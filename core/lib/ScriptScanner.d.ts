@@ -16,6 +16,9 @@ export declare class ScriptScanner {
     hMacroUse: {
         [mm: string]: Location[];
     };
+    hMacroUse4NoWarm: {
+        [mm: string]: Location[];
+    };
     hTagMacroUse: {
         [fn: string]: {
             nm: string;

@@ -48,6 +48,7 @@ export class ScriptScanner {
 	hPlugin		: {[tm: string]: Location}		= {};
 	hMacro		: {[mm: string]: Location}		= {};
 	hMacroUse	: {[mm: string]: Location[]}	= {};
+	hMacroUse4NoWarm	: {[mm: string]: Location[]}	= {};
 	hTagMacroUse: {[fn: string]: {nm: string, rng: Range}[]}	= {};
 	// 新キーワード選択値はここに追加する
 	private readonly	hSetWords	: {[key: string]: Set<string>}	= {
@@ -150,6 +151,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.isDuplicateMacroDef = false;
 		this.hMacro = {};
 		this.hMacroUse = {};
+		this.hMacroUse4NoWarm = {};
 		this.hTagMacroUse = {};
 		for (const key in this.hSetWords) this.hSetWords[key] = new Set;
 		this.clDiag.clear();
@@ -159,8 +161,9 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 		treeProc(this.curPrj, url=> this.scanFile(Uri.file(url)));
 
+		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
 		for (const def_nm in this.hMacro) {
-			if (def_nm in this.hMacroUse) continue;
+			if (def_nm in mu) continue;
 
 			const loc = this.hMacro[def_nm];
 			this.nm2Diag[loc.uri.path].push(new Diagnostic(
@@ -207,7 +210,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 //console.log(`fn:ScriptScanner.ts line:206 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
-//console.log(`fn:ScriptScanner.ts line:208  (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
+//console.log(`fn:ScriptScanner.ts line:208 * (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
 				if (c.range.start.character === 0 && c.range.end.character === 0) this.cteScore.updDiffLine(path, c, this.resolveScript(c.text).aToken);
 				else hUpdFull[path] = true;
 			});
@@ -265,12 +268,13 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 	}
 	private	goFinishFile(uri: Uri) {
 		const path = uri.path;
+		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
 		for (const def_nm in this.hMacro) {
-			if (def_nm in this.hMacroUse) continue;
+			if (def_nm in mu) continue;
 
 			const loc = this.hMacro[def_nm];
-			if (loc.uri.path === path) continue;	// 更新分のみ
-			this.nm2Diag[loc.uri.path].push(new Diagnostic(
+			if (loc.uri.path !== path) continue;	// 更新分のみ
+			this.nm2Diag[path].push(new Diagnostic(
 				loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
 				DiagnosticSeverity.Information
@@ -283,8 +287,8 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 			const aLoc = this.hMacroUse[use_nm];
 			aLoc.forEach(loc=> {
-				if (loc.uri.path === path) return;	// 更新分のみ
-				this.nm2Diag[loc.uri.path].push(new Diagnostic(
+				if (loc.uri.path !== path) return;	// 更新分のみ
+				this.nm2Diag[path].push(new Diagnostic(
 					loc.range,
 					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
 					DiagnosticSeverity.Warning
@@ -376,7 +380,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
 				if (a) {
 					const nm = a[1];
-					(this.hMacroUse[nm] ??= [])
+					(this.hMacroUse4NoWarm[nm] ??= [])
 					.push(new Location(uri, new Range(
 						p.line, p.col +22,
 						p.line, p.col +22 +len
