@@ -13,13 +13,13 @@ export declare class CteScore implements CustomTextEditorProvider {
     private static hPath2Wb;
     resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void>;
     private static regFld;
-    private update_wv_db;
+    private upd_webview_db;
     private static hPrj2hPath;
     updPath(curPrj: string, hPath: IFn2Path): void;
-    private update_webview;
+    private upd_webview;
     private token2html;
     private make_tr_td0;
-    private update_webview_tag;
+    private make_tds_tag;
     private static readonly alzTagArg;
     private static hTag2Tds;
     private static macro_nm;

@@ -9,7 +9,7 @@ import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2P
 import {CodingSupporter} from './CodingSupporter';
 import {PnlPrjSetting} from './PnlPrjSetting';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
 import path = require('path');
 const img_size = require('image-size');
@@ -69,11 +69,13 @@ export class Project {
 		cn	: string,	// ファイル名匿名化辞書
 	}}	= Object.create(null);
 
-	constructor(private readonly ctx: ExtensionContext, private readonly pathWs: string, readonly chgTitle: (title: string)=> void) {
-		this.curPrj = pathWs +'/doc/prj/';
-		this.codSpt = new CodingSupporter(ctx, pathWs, this.curPrj);
+	private readonly pathWs: string;
+	constructor(private readonly ctx: ExtensionContext, private readonly wsFld: WorkspaceFolder, readonly chgTitle: (title: string)=> void) {
+		this.pathWs = wsFld.uri.fsPath;
+		this.curPrj = this.pathWs +'/doc/prj/';
+		this.codSpt = new CodingSupporter(ctx, this.pathWs, this.curPrj);
 
-		this.curPlg = pathWs +'/core/plugin/';
+		this.curPlg = this.pathWs +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
@@ -128,7 +130,7 @@ console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 			fwFld.onDidDelete(uri=> this.ps.noticeDelDir(uri.path)),
 		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
 
-		this.curCrypto = pathWs +`/doc/${Project.fld_crypto_prj}/`;
+		this.curCrypto = this.pathWs +`/doc/${Project.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);
@@ -153,9 +155,9 @@ console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 			},
 		);
 
-		this.fnDiff = pathWs +'/core/diff.json';
+		this.fnDiff = this.pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
-		this.ps = new PnlPrjSetting(ctx, pathWs, chgTitle, this.codSpt);
+		this.ps = new PnlPrjSetting(ctx, this.pathWs, chgTitle, this.codSpt);
 		this.initCrypto();
 	}
 
@@ -438,6 +440,7 @@ console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
 		cmd += 'npm run webpack:dev';
 		const t = new Task(
 			{type: 'SKYNovel auto'},	// definition（タスクの一意性）
+			this.wsFld!,
 			'webpack:dev',				// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),

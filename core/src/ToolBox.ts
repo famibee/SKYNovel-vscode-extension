@@ -24,33 +24,42 @@ export class ToolBox implements WebviewViewProvider {
 			scr		: string;
 		}[];
 	}[]= [
-		{カテゴリ: 'システム', 要素: [
+		// Solid Icons | Font Awesome https://fontawesome.com/icons?d=gallery&s=solid&m=free
+		{カテゴリ: 'テキスト系', 要素: [
+			{icon: 'fa-align-left', name: 'テキスト', style: 'btn-primary', scr: '[ch text=##]'},
+			{icon: 'fa-comment', name: '表示', style: 'btn-primary', scr: '[txt_fi time=${ms}]'},
+			{icon: 'fa-comment-slash', name: '消去', style: 'btn-outline-primary', scr: '[txt_fo time=${ms}]'},
+			{icon: 'fa-ruler-combined', name: 'デザイン', style: 'btn-primary', scr: '[txt_cfg layer=${文字レイヤ名}]'},
+		],},
+		{カテゴリ: '背景・人物系', 要素: [
+			{icon: 'fa-images', name: '背景切替', style: 'btn-success text-black', scr: '[bg_chg]'},
+			{icon: 'fa-user', name: '人物登場・切替', style: 'btn-success text-black', scr: '[hu]'},
+			{icon: 'fa-user-slash', name: '人物退場', style: 'btn-outline-success', scr: '[hu_hide]'},
+			{icon: 'fa-running', name: '人物移動', style: 'btn-success text-black', scr: '[hu_mov]'},
+			{icon: 'fa-door-open', name: '場面転換', style: 'btn-success text-black', scr: '[scene_change bg=${bg}]'},
+		],},
+		{カテゴリ: '音系', 要素: [
+			{icon: 'fa-play', name: 'BGM再生', style: 'btn-info text-black', scr: '[bgm fn=${ＢＧＭファイル名} time=${ms}]'},
+			{icon: 'fa-stop', name: 'BGM停止', style: 'btn-outline-info', scr: '[fadeoutbgm time=${ms}'},
+			{icon: 'fa-bell', name: '効果音再生', style: 'btn-warning text-black', scr: '[se fn=${音声ファイル名}]'},
+			{icon: 'fa-bell-slash', name: '効果音停止', style: 'btn-outline-warning', scr: ''},
+		],},
+		{カテゴリ: '選択肢やジャンプ系', 要素: [
+			{icon: 'fa-project-diagram', name: '選択肢', style: 'btn-primary', scr: ''},
+			{icon: 'fa-tag', name: 'ラベル', style: 'btn-outline-light', scr: '*${ラベル名宣言}'},
+			{icon: 'fa-stop', name: '停止', style: 'btn-primary', scr: '[s]'},
+			{icon: 'fa-external-link-alt', name: 'ジャンプ', scr: '[jump fn=${ファイル名} label=${ラベル名}]'},
+			{icon: 'fa-exchange-alt', name: 'コール', scr: '[call fn=${ファイル名} label=${ラベル名}]'},
+			{icon: 'fa-long-arrow-alt-left', name: '戻る', scr: '[return]'},
+		],},
+		{カテゴリ: '演出・その他', 要素: [
 			{icon: '', name: '空行', style: 'btn-outline-primary', scr: '\n\n'},
 			{icon: 'fa-comment-dots', name: 'コメント', style: 'btn-outline-light btn-rounded', scr: ';$$$'},
-			{icon: 'fa-stop', name: '停止する', style: 'btn-primary', scr: ''},
-			{icon: 'fa-hourglass-start', name: '時間待ち', style: 'btn-primary', scr: ''},
-			{icon: 'fa-calculator', name: '変数操作', style: 'btn-secondary', scr: ''},
+			{icon: 'fa-hourglass-start', name: '待機', style: 'btn-primary', scr: ''},
+			{icon: 'fa-bolt', name: '振動', scr: '[quake time=${時間ms}]'},
 			{icon: 'fa-th', name: 'アルバム解放', scr: '[アルバム解放 name=$$$]'},
-			{icon: 'fa-code', name: 'SKYNovelタグ・マクロ', style: 'btn-light', scr: ''},
-		],},
-		{カテゴリ: '文字レイヤ', 要素: [
-			{icon: 'fa-ruler-combined', name: '文字表現デザイン', style: 'btn-primary', scr: ''},
-			{icon: 'fa-hourglass-start', name: 'クリック待ち', style: 'btn-primary', scr: '[waitclick]'},
-			{icon: 'fa-align-left', name: '文字改行', style: 'btn-primary', scr: '[r]'},
-			{icon: 'fa-caret-square-right', name: '改行待ち', style: 'btn-primary', scr: '[l]'},
-			{icon: 'fa-book-open', name: '改ページ待ち', style: 'btn-primary', scr: '[plc]'},
-			{icon: 'fa-sign-out-alt', name: '文字ボタン', style: 'btn-primary', scr: ''},
-			{icon: 'fa-sign-out-alt', name: '画像ボタン', style: 'btn-primary', scr: ''},
-		],},
-		{カテゴリ: '画像レイヤ', 要素: [
-			{icon: 'fa-images', name: '背景切替', style: 'btn-success text-black', scr: ''},
-			{icon: 'fa-user', name: '立ち絵表示', style: 'btn-success text-black', scr: ''},
-		],},
-		{カテゴリ: '条件分岐', 要素: [
-			{icon: 'fa-external-link-alt', name: 'ジャンプ', scr: '[jump fn=${ファイル名} label=${ラベル名}'},
-			{icon: 'fa-exchange-alt', name: 'コール', scr: '[call fn=${ファイル名} label=${ラベル名}'},
-			{icon: 'fa-long-arrow-alt-left', name: 'コール元へ戻る', scr: '[return]'},
-			{icon: 'fa-tag', name: 'ラベル', style: 'btn-outline-light', scr: '*$$$'},
+			{icon: 'fa-calculator', name: '変数操作', style: 'btn-secondary', scr: '[let name=${変数名} text=${文字}]'},
+			{icon: 'fa-code', name: 'タグ・マクロ', style: 'btn-light', scr: ''},
 		],},
 	];
 
@@ -90,7 +99,7 @@ export class ToolBox implements WebviewViewProvider {
 	return v.カテゴリ +`
 <div class="d-flex flex-wrap">`
 	+ v.要素.map(vv=> `
-	<button id="${vv.name}" type="button" class="btn ${vv.style ?? 'btn-secondary'} btn-sm text-left p-2 mt-1 mr-1" data-ripple-color="dark" draggable="true" data-scr="${encodeURIComponent(vv.scr)}">
+	<button id="${vv.name}" type="button" class="btn ${vv.style ?? 'btn-secondary'} btn-sm text-start p-2 mt-1 mr-1" data-ripple-color="dark" draggable="true" data-scr="${encodeURIComponent(vv.scr)}">
 		<i class="fas ${vv.icon}"></i>
 		${vv.name}
 	</button>`).join('')+ `

@@ -8,19 +8,32 @@ document.addEventListener('DOMContentLoaded', ()=> {
 
 	if (vscode) document.getElementById('sn-grpModal')
 	.addEventListener('show.bs.modal', e=> {
+console.log(`fn:score.js line:11 show.bs.modal`);
 		const ds = e.relatedTarget.dataset;
 		show_modal(ds.title, ds.fld);
-	});
+	}, {passive: true});
 
+	trHd = document.querySelector('tr');
+	aTr = Array.from(document.querySelectorAll('tr')).slice(1);
+	next_id = lenTr = aTr.length;
 	rsv_ev();
 	vscode?.postMessage({cmd: 'loaded'});
 
 	if (! vscode) {
+		searchPath = fn=> fn;
 		combining();	// 結合
 	//	separation();	// 分離（テスト）
 	}
 });
+// 削除ボタン非表示
+function tglEditOff() {
+	Array.from(document.getElementsByClassName('tglEdit'))
+	.forEach(e=> e.classList.add('d-none'));
+}
 
+let trHd;
+let aTr = [];
+let lenTr = 0;
 let next_id = 0;
 let path_prj = './score_mat/';
 let hFld2url = {};
@@ -30,15 +43,15 @@ function show_modal(title, key) {
 	document.getElementById('sn-grpModalLabel').textContent = title;
 	document.getElementById('sn-grpModalBody')
 	.innerHTML = `
-<div class="card-group">`+ hFld2url[key].map((v, i)=> {return `
-	<div class="card">
-		<img src="${path_prj}${v.path}" class="card-img-top"/>
-		<div class="card-body"><div class="form-check">
-			<input class="form-check-input" type="radio" name="sn-grpModal_img" id="sn-grpModal_img${i}"/>
-			<label class="form-check-label" for="sn-grpModal_img${i}">${v.fn}</label>
-		</div></div>
-	</div>
-`}) +`</div>`;
+<div class="card-group">`+ hFld2url[key].map((v, i)=> `
+<div class="card">
+	<img src="${path_prj}${v.path}" class="card-img-top"/>
+	<div class="card-body"><div class="form-check">
+		<input class="form-check-input" type="radio" name="sn-grpModal_img" id="sn-grpModal_img${i}"/>
+		<label class="form-check-label" for="sn-grpModal_img${i}">${v.fn}</label>
+	</div></div>
+</div>
+`) +`</div>`;
 }
 
 window.addEventListener('message', e=> {
@@ -50,43 +63,59 @@ window.addEventListener('message', e=> {
 
 	const o = e.data;
 	switch (o.cmd) {
-		case 'update':
+		case 'upd_db':
 			path_prj = o.path_prj;
 			hFld2url = o.hFld2url;
 			hPath = o.hPath;
 			combining();	// 結合
 			break;
 
-		case 'add_res':
-			const new_tr = document.querySelector(`tr[data-row="${o.row}"]`);
-			new_tr.innerHTML = o.htm;
+		case 'add_res':{
+			const tr = document.querySelector(`tr[data-row="${o.row}"]`);
+			tr.innerHTML = o.htm;
+			rsv_ev_one(tr);	// renew()代わりのイベント張り直し
+			savehtm();	// 結合前に
 			combining();	// 結合
+		}
 			break;
 
 		case 'separation':	separation();	break;	// 分離
-		case 'combining':	combining();	break;	// 結合
-		case 'del':
-			document.getElementsByClassName('sn-row')[o.sl].remove();	break;
+		case 'combining':	savehtm();	combining();	break;	// 結合
 		case 'ins':{
+			tglEditOff();	// 削除ボタン非表示
 			const new_tr = document.createElement('tr');
 			new_tr.dataset.row = next_id++;
-			new_tr.classList.add('sn-row');
 			new_tr.innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
-				// <tr data-row="${line}" class="sn-row">
-			const rows = document.getElementsByClassName('sn-row');
-			if (o.sl >= rows.length) {
-				const tr_to = rows[0];
+			if (o.sl >= lenTr) {
+				const tr_to = aTr[0];
 				tr_to.parentElement.appendChild(new_tr);
+				aTr.push(new_tr);
 			}
 			else {
-				const tr_to = rows[o.sl];
+				const tr_to = aTr[o.sl];
 				tr_to.parentElement.insertBefore(new_tr, tr_to);
+				aTr.splice(o.sl, 0, new_tr);
 			}
+			++lenTr;
 			rsv_ev_one(new_tr);	// renew()代わりのイベント張り直し
 		}
 			break;
+		case 'rep':
+			tglEditOff();	// 削除ボタン非表示
+			aTr[o.sl].innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
+			rsv_ev_one(new_tr);	// renew()代わりのイベント張り直し
+			break;
+		case 'del':
+			aTr[o.sl].remove();
+			aTr.splice(o.sl, 1);
+			--lenTr;
+			break;
 	}
-});
+}, {passive: true});
+
+function savehtm() {
+	vscode.postMessage({cmd: 'savehtm', tbody: document.getElementsByTagName('tbody')[0].innerHTML});
+}
 
 const	regPath = /([^\/\s]+)\.([^\d]\w+)/;
 	// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
@@ -138,40 +167,80 @@ function searchPath(path, extptn = '') {
 	return ret;
 }
 
+function findTr(nd) {
+	while (nd.nodeName !== 'TR') {
+		if (nd.nodeName === 'BODY') return null;
+		nd = nd.parentElement;
+	}
+	return nd;
+}
+
+function tr2lnum(nd) {return aTr.findIndex(tr=> tr === nd);}
+
+// ボタン文字の設定
+function faceChg(cmp) {
+	const btn = findTr(cmp).querySelector('button');
+	if (! btn.dataset.face) return;
+
+	btn.innerHTML = `<i class="fas ${btn.dataset.faceicon}" aria-hidden="true"></i>`+ txtOmitted(cmp.value);
+}
+function txtOmitted(txt) {return (txt.length > 10) ?txt.slice(0, 10) +'…' :txt;}
 
 // イベント張り
 function rsv_ev_one(pa) {
+	// 削除ボタン
+	Array.from(pa.querySelectorAll('button.btn-danger'))
+	.forEach(btn=> btn.addEventListener('click', e=> {
+		const nd = findTr(e.target);
+		const lnum = tr2lnum(nd);
+		separation();	// 分離
+		nd.remove();
+		savehtm();	// 結合前に
+		combining();	// 結合
+		aTr.splice(lnum, 1);
+		--lenTr;
+		vscode?.postMessage({cmd: 'del', lnum: lnum});
+	}, {passive: true}));
+
 	// 本文
 	Array.from(pa.querySelectorAll('button.sn-ext_txt'))
-	.forEach(btn=> new mdb.Popover(btn, {
-		container: 'body',
-		content: btn.nextElementSibling.children[0],
-		trigger: 'click hover',
-		html: true,
-		placement: 'bottom',
-	}));
+	.forEach(btn=> new mdb.Dropdown(btn));
 
-	// テキストエリアの高さを自動変更
+	// テキストエリア
 	Array.from(pa.querySelectorAll('textarea'))
-	.forEach(e=> e.addEventListener('input', ()=> {
-		e.style.height = '10px';
-		const sclH = parseInt(e.scrollHeight);
-		const lineH = parseInt(window.getComputedStyle(e).lineHeight);
-		if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
-		e.style.height = sclH +'px';
-	}));
+	.forEach(ta=> {
+		faceChg(ta);	// ボタン文字の設定
+		const lnum = tr2lnum(findTr(ta));
+		new mdb.Input(ta.parentElement).init();
+		ta.addEventListener('input', ()=> {
+			// 高さを自動変更
+			ta.style.height = '10px';
+			let sclH = parseInt(ta.scrollHeight);
+			const lineH = parseInt(window.getComputedStyle(ta).lineHeight);
+			if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
+			ta.style.height = sclH +'px';
+
+			faceChg(ta);	// ボタン文字の設定
+
+			vscode.postMessage({cmd: 'input', lnum: lnum, nm: ta.dataset.nm, val: ta.value}, {passive: true});
+		}, {passive: true})
+	});
 
 	// ドラッグ出来るアイテムの設定
 	Array.from(pa.querySelectorAll('button[draggable="true"]'))
 	.forEach(btn=> btn.addEventListener('dragstart', e=> {
 		e.dataTransfer.setData('from', 'score');
 		e.dataTransfer.setData('id', e.target.id);
-	}));
+	}, {passive: true}));
+
+	// 
+/*
+	document.querySelectorAll('.sn-chk').forEach(c=> c.addEventListener('input', ()=> {
+		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
+	}, {passive: true}));
+*/
 }
 function rsv_ev() {
-//vscode.postMessage({cmd: 'info', text: `renew`});
-	next_id = Array.from(document.querySelectorAll('tr')).length;
-
 	// イベント張り
 	rsv_ev_one(document);
 
@@ -179,54 +248,42 @@ function rsv_ev() {
 	const tb = document.getElementsByTagName('tbody')[0];
 	// ドロップゾーンの設定
 	tb.addEventListener('dragenter', e=> {
-		e.preventDefault();
-
-		let nd = e.target;
-		while (nd.nodeName !== 'TR') {
-			if (nd.nodeName === 'BODY') return;
-			nd = nd.parentElement;
-		}
+		let nd = findTr(e.target);
+		if (! nd) return;
 		nd.classList.add('table-danger');
-	});
-	tb.addEventListener('dragover', e=> {
-		e.preventDefault();
-	});
-	tb.addEventListener('dragleave', e=> {
-		e.preventDefault();
 
-		let nd = e.target;
-		while (nd.nodeName !== 'TR') {
-			if (nd.nodeName === 'BODY') return;
-			nd = nd.parentElement;
-		}
+		e.preventDefault();
+	});
+	tb.addEventListener('dragover', e=> e.preventDefault());
+	tb.addEventListener('dragleave', e=> {
+		let nd = findTr(e.target);
+		if (! nd) return;
 		nd.classList.remove('table-danger');
+
+		e.preventDefault();
 	});
 
 	//ドロップされたときの処理
 	tb.addEventListener('drop', e=> {
-		let nd = e.target;
-		while (nd.nodeName !== 'TD') {
-			if (nd.nodeName === 'BODY') return;
-			nd = nd.parentElement;
-		}
-		nd.parentElement.classList.remove('table-danger');
+		let tr_to = findTr(e.target);
+		if (! tr_to) return;
+		tr_to.classList.remove('table-danger');
+		tglEditOff();	// 削除ボタン非表示
 
 		const from = e.dataTransfer.getData('from');
 		const id = e.dataTransfer.getData('id');
 
-		const rows = document.getElementsByClassName('sn-row');
-		const len = rows.length;
-		const tr_to = nd.parentElement;
-		let to = 0;
-		for (; to<len; ++to) if (rows[to] === tr_to) break;
-//console.log(`fn:score.js line:179 from:${from} id:${id} to:%o`, tr_to);
+		let to = 0;	// 見出し含まず、<tr>一行目を0とする
+		for (; to<lenTr; ++to) if (aTr[to] === tr_to) break;
+//console.log(`fn:score.js line:247 from:${from} id:${id} to:${to} tr_to:%o`, tr_to);
+		const pa = tr_to.parentElement;
 		if (from === 'toolbox') {
 			const new_tr = document.createElement('tr');
 			new_tr.dataset.row = next_id;
-			new_tr.classList.add('sn-row');
-				// <tr data-row="${line}" class="sn-row">
 			separation();	// 分離
-			tr_to.parentElement.insertBefore(new_tr, tr_to);
+			pa.insertBefore(new_tr, tr_to);
+			aTr.splice(to, 0, new_tr);
+			++lenTr;
 			// 後で	combining();	// 結合
 
 			const scr = e.dataTransfer.getData('scr');
@@ -235,22 +292,33 @@ function rsv_ev() {
 		}
 
 		if (from === 'score') {
-			const tr_from = document.getElementById(id).parentElement.parentElement;
+			const tr_from = findTr(document.getElementById(id));
 			let fr = 0;
-			for (; fr<len; ++fr) if (rows[fr] === tr_from) break;
+			for (; fr<lenTr; ++fr) if (aTr[fr] === tr_from) break;
 
 			separation();	// 分離
-			if (fr +1 === to)
-				tr_to.parentElement.insertBefore(tr_to, tr_from);
-			else tr_to.parentElement.insertBefore(
-				tr_from,
-				(fr > to) ?tr_to :tr_to.nextSibling
-			);
+			if (fr +1 === to) {
+				pa.insertBefore(tr_to, tr_from);
+				aTr.splice(to, 2, tr_to, tr_from);
+			}
+			else {
+				pa.insertBefore(tr_from, (fr > to) ?tr_to :tr_to.nextSibling);
+				if (fr > to) {
+					aTr.splice(fr, 1);
+					aTr.splice(to, 0, tr_from);
+				}
+				else {
+					aTr.splice(to +1, 0, tr_from);
+					aTr.splice(fr, 1);
+				}
+			}
+//console.log(`fn:score.js line:278 aTr:${aTr.map(v=> v.dataset.row).join()}`);
+			savehtm();	// 結合前に
 			combining();	// 結合
 
 			vscode?.postMessage({cmd: 'move', from: fr, to: to});
 		}
-	});
+	}, {passive: true});
 }
 
 const EXT_SPRITE	= 'png|jpg|jpeg|json|svg|webp|mp4|webm';
@@ -258,9 +326,6 @@ const EXT_SCRIPT	= 'ssn|sn';
 const EXT_SOUND		= 'mp3|m4a|ogg|aac|flac|wav';
 
 function combining() {	// 結合
-	const aTr = Array.from(document.querySelectorAll('tr'));
-
-	const trHd = aTr.shift();
 	const hCmbCol = {};
 	const lenCols = trHd.children.length;
 	let aInf = Array(lenCols);
@@ -316,9 +381,6 @@ function combining() {	// 結合
 }
 
 function separation() {	// 分離
-	const aTr = Array.from(document.querySelectorAll('tr'));
-
-	const trHd = aTr.shift();
 	const hCmbCol = {};
 	const lenCols = trHd.children.length;
 	let aInf = Array(lenCols);

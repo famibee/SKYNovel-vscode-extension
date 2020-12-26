@@ -204,10 +204,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		aChgTxt.forEach(e=> {
 			const path = e.document.fileName;
 			hDoc[path] = e.document;
-console.log(`fn:ScriptScanner.ts line:206 goScriptSrc fn:${path}`);
+//console.log(`fn:ScriptScanner.ts line:206 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
-console.log(`fn:ScriptScanner.ts line:208  (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
+//console.log(`fn:ScriptScanner.ts line:208  (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
 				if (c.range.start.character === 0 && c.range.end.character === 0) this.cteScore.updDiffLine(path, c, this.resolveScript(c.text).aToken);
 				else hUpdFull[path] = true;
 			});

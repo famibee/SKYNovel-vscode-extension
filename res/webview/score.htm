@@ -46,9 +46,9 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</th>
 </tr></thead><tbody>
 
-<tr id="sn-rid0">
+<tr data-row="0">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-sm px-2 text-left" data-ripple-color="dark" id="btn0" draggable="true">
+		<button type="button" class="btn btn-primary btn-sm px-2 text-start" data-ripple-color="dark" id="btn0" draggable="true">
 			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
 			コール *init
 		</button>
@@ -68,9 +68,9 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid1">
+<tr data-row="1">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid1Modal">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid1Modal">
 			<i class="fa fa-cog" aria-hidden="true"></i>
 			初期化設定
 		</button>
@@ -90,10 +90,10 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid2">
+<tr data-row="2">
 	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="境内_昼.jpg">
-		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
+		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
 			<i class="fas fa-image"></i>
 			石段_昼
 		</button>
@@ -112,7 +112,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid3">
+<tr data-row="3">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -121,7 +121,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-start">
-		<button type="button" class="btn btn-info btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
+		<button type="button" class="btn btn-info btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
 			<i class="fa fa-play" aria-hidden="true"></i>
 			free04
 		</button>
@@ -134,11 +134,11 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid4">
+<tr data-row="4">
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="moro_nor.png">
-		<button type="button" class="btn btn-secondary btn-block btn-sm px-2 text-left dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+		<button type="button" class="btn btn-secondary btn-block btn-sm px-2 text-start dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
 			<i class="fas fa-user"></i>
 			諸戸_通常
 		</button>
@@ -166,20 +166,21 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid5">
+<tr data-row="5">
 	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+		<button type="button" class="btn btn-primary dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
 			さゞえも鬼に…
 		</button>
 		<div class="dropdown-menu">
 			<form class="p-1">
 				<div class="form-outline">
-					<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2">　さゞえも鬼になるまじきものにもあらずと、夢心におもひぬ。</textarea>
+					<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2" id="taSample">　さゞえも鬼になるまじきものにもあらずと、夢心におもひぬ。</textarea>
+					<label class="form-label" for="taSample">本文</label>
 				</div>
 			</form>
 		</div>
@@ -194,14 +195,14 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid6">
+<tr data-row="6">
 	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+		<button type="button" class="btn btn-primary dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
 			改ページ待ち
 		</button>
 		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
@@ -235,9 +236,9 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid7">
+<tr data-row="7">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
 			<i class="fas fa-hourglass-start"></i>
 			2000ms
 		</button>
@@ -257,7 +258,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid8">
+<tr data-row="8">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -267,7 +268,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-warning btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid5_h1Modal">
+		<button type="button" class="btn btn-warning btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid5_h1Modal">
 			<i class="fas fa-bell"></i>
 			退場音
 		</button>
@@ -279,11 +280,11 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid9">
+<tr data-row="9">
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-left" text-left data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid4Modal">
+		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-start" text-start data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid4Modal">
 			(退場)
 		</button>
 	</td>
@@ -300,10 +301,10 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid10">
+<tr data-row="10">
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid2Modal">
+		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid2Modal">
 			(消去)
 		</button>
 	</td>
@@ -321,7 +322,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid11">
+<tr data-row="11">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -330,7 +331,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-outline-info btn-block btn-sm px-2 text-left" text-left data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
+		<button type="button" class="btn btn-outline-info btn-block btn-sm px-2 text-start" text-start data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
 			<i class="fa fa-chevron-down" aria-hidden="true"></i> 1000ms
 		</button>
 	</td>
@@ -342,9 +343,9 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid12">
+<tr data-row="12">
 	<td class="p-0">
-		<button type="button" class="btn btn-block btn-sm px-2 text-left" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid9Modal">
+		<button type="button" class="btn btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid9Modal">
 			(空白セル)
 		</button>
 	</td>
@@ -363,7 +364,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid13">
+<tr data-row="13">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -380,7 +381,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid14">
+<tr data-row="14">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -397,7 +398,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid15">
+<tr data-row="15">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -414,7 +415,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid16">
+<tr data-row="16">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -431,7 +432,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</div></td>
 </tr>
 
-<tr id="sn-rid17">
+<tr data-row="17">
 	<td></td>
 	<td></td>
 	<td></td>
@@ -522,12 +523,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 					<label class="form-label" for="book.pub_url">出版者ＵＲＬ</label>
 				</div>
 				<button class="btn btn-info" type="button" id="open.pub_url">Open</button>
-				<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-			</div></div>
-
-			<div class="col-12 px-1 py-3"><div class="form-outline">
-				<textarea id="book.detail" class="form-control sn-vld is-invalid" placeholder="インストーラーに表示する内容説明">%book.detail%</textarea>
-				<label class="form-label" for="book.detail">内容：プロジェクトの説明</label>
 				<div class="invalid-feedback">あなたの作品情報に変更してください</div>
 			</div></div>
 		</div></div>

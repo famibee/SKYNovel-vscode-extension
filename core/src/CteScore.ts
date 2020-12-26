@@ -40,14 +40,14 @@ export class CteScore implements CustomTextEditorProvider {
 		return false;
 	}
 	setAToken(path: string, curPrj: string, aToken: string[]) {
-//console.log(`fn:CteScore.ts line:43 setAToken path_doc=${path_doc}`);
 		const exist = path in CteScore.hPath2Tokens;
+//console.log(`fn:CteScore.ts line:43 setAToken path=${path} exist:${exist}`);
 		CteScore.hPath2Tokens[path] = {
 			uriCurPrj	: Uri.parse(curPrj),
 			aToken		: aToken,
 			skipupd		: false,
 		};
-		if (exist) this.update_webview(path);
+		if (exist) this.upd_webview(path);
 	}
 
 	separation(path: string) {	// 分離
@@ -61,20 +61,15 @@ export class CteScore implements CustomTextEditorProvider {
 		const end = c.range.end;
 		if (sta.character > 0 || end.character > 0) return;
 		const wb = CteScore.hPath2Wb[path];
-		if (sta.line === end.line) wb.postMessage({
-			cmd	: 'ins',
+		if (c.text === '') wb.postMessage({cmd: 'del', sl: sta.line,});
+		else wb.postMessage({
+			cmd	: (sta.line === end.line) ?'ins' :'rep',
 			sl	: sta.line,
-		//	sc	: sta.character,
 			htm	: c.text === '\n'
 				? this.token2html({line: sta.line +1}, '\n\n', -1)
 				: aToken.map(t=> this.token2html({line: sta.line +1}, t, 0)).join('')
 			.replace(/\$\{webview.cspSource}/g, wb.cspSource)
 			.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(CteScore.localExtensionResRoots)}/`),	// ファイルごとだけでなく分割ごとにも値が変わる
-		});
-		else if (c.text === '') wb.postMessage({
-			cmd	: 'del',
-			sl	: sta.line,
-		//	el	: end.line,
 		});
 	}
 
@@ -93,13 +88,14 @@ export class CteScore implements CustomTextEditorProvider {
 			case 'info':	window.showInformationMessage(o.text); break;
 			case 'warn':	window.showWarningMessage(o.text); break;
 
-			case 'loaded':	this.update_wv_db(doc.fileName);	break;
+			case 'loaded':	this.upd_webview_db(doc.fileName);	break;
+			case 'savehtm':	wb.html = wb.html
+				.replace(/<tbody>[\s\S]+<\/tbody>/, `<tbody>${o.tbody}</tbody>`);	break;
 
 			case 'move':{
 				const from = o.from, to = o.to;
 				if (from === to) break;
 
-//console.log(`fn:CteScore.ts line:73 move from:${from} to:${to}`);
 				t.skipupd = true;
 				const ed = new WorkspaceEdit();
 				const rng_from = new Range(from, 0, from +1, 0);
@@ -117,25 +113,50 @@ export class CteScore implements CustomTextEditorProvider {
 				break;
 
 			case 'add_req':{
-//console.log(`fn:CteScore.ts line:91 add_req row:${o.row} scr:${o.scr} to:${o.to}`);
 				wb.postMessage({
 					cmd	: 'add_res',
 					row	: o.row,
-					htm	: this.token2html({line: o.row}, o.scr, o.to -1)
+					htm	: this.token2html({line: o.row}, o.scr, o.row)
 					.replace(/\$\{webview.cspSource}/g, wb.cspSource)
 					.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(CteScore.localExtensionResRoots)}/`),	// ファイルごとだけでなく分割ごとにも値が変わる
 				});
 
 				t.skipupd = true;
 				const ed = new WorkspaceEdit();
-				ed.insert(doc.uri, new Position(o.to -1, 0), (o.scr === '\n\n') ?'\n' :(o.scr +'\n'));
+				ed.insert(doc.uri, new Position(o.to, 0), (o.scr === '\n\n') ?'\n' :(o.scr +'\n'));
+				workspace.applyEdit(ed);
+			}
+				break;
+
+			case 'del':{
+				t.skipupd = true;
+				const ed = new WorkspaceEdit();
+				ed.delete(doc.uri, new Range(o.lnum, 0, o.lnum +1, 0));
+				workspace.applyEdit(ed);
+			}
+				break;
+
+			case 'input':{
+//console.log(`fn:CteScore.ts line:143 input lnum:${o.lnum} nm:${o.nm} val:${o.val}`);
+				t.skipupd = true;
+				const ed = new WorkspaceEdit();
+				const rng = new Range(o.lnum, 0, o.lnum +1, 0);
+				const txt = doc.getText(rng);
+				ed.replace(
+					doc.uri,
+					new Range(o.lnum, 0, o.lnum +1, 0),
+					txt.replace(
+						new RegExp(`${o.nm}=#.*#`, 'g'),
+						`${o.nm}=#${o.val}#`
+					)
+				);
 				workspace.applyEdit(ed);
 			}
 				break;
 			}
 		}, false);
 
-		this.update_webview(doc.uri.path);
+		this.upd_webview(doc.uri.path);
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
@@ -146,7 +167,7 @@ export class CteScore implements CustomTextEditorProvider {
 		// TODO: sn→ssnらしきものに強制改行を入れるのならここでか
 	}
 	private	static	regFld	= /\w+/;
-	private	update_wv_db(path: string) {
+	private	upd_webview_db(path: string) {
 		const hFld2: {[fld: string]: {
 			ext		: string;
 			path	: string;
@@ -172,7 +193,7 @@ export class CteScore implements CustomTextEditorProvider {
 
 		const wb = CteScore.hPath2Wb[path];
 		wb.postMessage({
-			cmd			: 'update',
+			cmd			: 'upd_db',
 			path_prj	: String(wb.asWebviewUri(t.uriCurPrj)),	// 最後に「/」必要
 			hFld2url	: hFld2,
 			hPath		: hPath,
@@ -184,11 +205,11 @@ export class CteScore implements CustomTextEditorProvider {
 		CteScore.hPrj2hPath[curPrj] = hPath;
 		for (const path_doc in CteScore.hPath2Tokens) {
 			if (path_doc in CteScore.hPath2Wb
-			&&	CteScore.hPath2Tokens[path_doc].uriCurPrj.path === curPrj) this.update_wv_db(path_doc);
+			&&	CteScore.hPath2Tokens[path_doc].uriCurPrj.path === curPrj) this.upd_webview_db(path_doc);
 		}
 	}
 
-	private update_webview(path: string) {
+	private upd_webview(path: string) {
 		let stt = {line: 1};
 		const wb = CteScore.hPath2Wb[path];
 		wb.html = CteScore.htmBaseSrc
@@ -218,7 +239,7 @@ export class CteScore implements CustomTextEditorProvider {
 			case 38:	// & 変数操作・変数表示
 				const is_dsp = (token.slice(-1) === '&');
 				tds = this.make_tds(
-					0, stt.line, 'btn-secondary btn-block',
+					0, stt.line, 'btn-secondary btn-block" data-face="true',
 					'fa-calculator',
 					is_dsp
 						? '変数表示'
@@ -231,7 +252,7 @@ export class CteScore implements CustomTextEditorProvider {
 
 			case 59:	// ; コメント
 				tds = this.make_tds(
-					0, stt.line, 'btn-outline-light btn-rounded',
+					0, stt.line, 'btn-outline-light btn-rounded" data-face="true',
 					'fa-comment-dots',
 					token.slice(1, 11) +'…',
 					token.slice(1),
@@ -240,7 +261,7 @@ export class CteScore implements CustomTextEditorProvider {
 
 			case 42:	// * ラベル
 				tds = this.make_tds(
-					0, stt.line, 'btn-outline-light',
+					0, stt.line, 'btn-outline-light" data-face="true',
 					'fa-tag', token.slice(1),
 				);
 				break;
@@ -252,15 +273,16 @@ export class CteScore implements CustomTextEditorProvider {
 				while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
 				if (lineTkn > 0) stt.line += lineTkn;
 
-				if (tds = this.update_webview_tag(token, stt.line)) break;
+				if (tds = this.make_tds_tag(token, stt.line, idx)) break;
 				return '';
 
 			default:	// 文字表示
 				tds = this.make_tds(
-					5, stt.line, 'btn-outline-primary btn-block text-white dropdown-toggle sn-ext_txt" data-toggle="dropdown" aria-expanded="false',
-					'', token.slice(0, 10) +'…', '', `
+					5, stt.line, 'btn-outline-primary btn-block text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
+					'', '', '', `
 	<div class="form-outline col-12">
-		<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2">${token}</textarea>
+		<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2" data-nm="text" id="sn-ta${idx}">${token}</textarea>
+		<label class="form-label" for="sn-ta${idx}">本文テキスト</label>
 	</div>`		);
 		}
 
@@ -268,7 +290,7 @@ export class CteScore implements CustomTextEditorProvider {
 	}
 	private	make_tr_td0(line: number, tds: string): string {
 		return `
-<tr data-row="${line}" class="sn-row">
+<tr data-row="${line}">
 	${tds}
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
@@ -278,7 +300,7 @@ export class CteScore implements CustomTextEditorProvider {
 </tr>`;
 	}
 
-	private	update_webview_tag(token: string, line: number): string {
+	private	make_tds_tag(token: string, line: number, row: number): string {
 		const a_tag: any = ScriptScanner.analyzTagArg(token);
 		const g = a_tag?.groups;
 		if (! g) return '';
@@ -291,11 +313,10 @@ export class CteScore implements CustomTextEditorProvider {
 			return this.make_tds(
 				oTds.col ?? 0, line,
 				(oTds.btn_style ?? 'btn-secondary')
-				+ (oTds.args
-					?` dropdown-toggle" data-toggle="dropdown" aria-expanded="false` :''),
+				+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
 				oTds.icon, oTds.btn_face,
 				oTds.tooltip ?? g.args,
-				oTds.args ?oTds.args.map((v, i)=> {
+				oTds.args ?oTds.args.map(v=> {
 					let ret = '';
 					let fo = 'form-outline';
 					switch (v.type) {
@@ -305,8 +326,8 @@ export class CteScore implements CustomTextEditorProvider {
 	:len === 2 ?'col-2'
 	:''
 }">
-	<input type="checkbox" value="${v.val}" class="form-check-input px-0" id="sn-chk${i}" checked/>
-	<label class="form-check-label" for="sn-chk${i}">${v.hint ?? v.name}</label>
+	<input type="checkbox" value="${v.val}" class="form-check-input px-0" id="sn-chk${row}" checked/>
+	<label class="form-check-label" for="sn-chk${row}">${v.hint ?? v.name}</label>
 </div>`;					break;
 
 						case 'rule':	ret = `
@@ -315,37 +336,43 @@ export class CteScore implements CustomTextEditorProvider {
 	:len === 2 ?'col-2'
 	:''
 }">
-	<button type="button" class="btn btn-success btn-block btn-sm px-2 text-left text-lowercase sn-fld" id="sn-btn${i}" data-ripple-color="dark" data-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="rule">
+	<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start text-lowercase sn-fld" id="sn-btn${row}" data-ripple-color="dark" data-mdb-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="rule">
 		<i class="fas fa-image"></i>
 		${v.hint ?? v.name}
 	</button>
-	<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${i}" readonly/>
+	<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${row}" readonly/>
 </div>`;
 							fo = '';
 							// form-outlineを使うとエラー
 							// しかもhtm出力して動かさないとわからない
 							break;
 
+						case 'textarea':
+							ret = `
+<textarea class="form-control" placeholder="${v.hint ?? v.name}を入力" cols="40" rows="2" data-nm="${v.name}" id="sn-ta${row}">${v.val}</textarea>
+<label class="form-label" for="sn-ta${row}">${v.hint ?? v.name}</label>`;
+							break;
+
 						default:	ret = `
 <input type="${
 	v.type === 'num' ?'number' :'text'
-}" value="${v.val}" id="sn-txf${i}" class="form-control ${
-	len === 1 ?'col-12 col-sm-3 col-md-2'
-	:len === 2 ?'col-2'
-	:''
+}" value="${v.val}" id="sn-txf${row}" class="form-control ${
+	len === 1	? 'col-12 col-sm-3 col-md-2'
+	: len === 2	? 'col-2'
+	: ''
 }"/>
-<label class="form-label" for="sn-txf${i}">${v.hint ?? v.name}</label>`;
+<label class="form-label" for="sn-txf${row}">${v.hint ?? v.name}</label>`;
 					}
 					return `
 <div class="${fo} col-12 ${
-len === 1	?''
-:len === 2	?'col-md-6'
-:'col-md-6 col-lg-4'
+	len === 1	? ''
+	: len === 2	? 'col-md-6'
+	: 'col-md-6 col-lg-4'
 } mt-3 ${
-v.type === 'bool' ?'pt-2' :''
+	v.type === 'bool' ?'pt-2' :''
 }">${ret}</div>`;
 				}).join('') :'',
-				oTds.cls_style ?? '',
+				oTds.td_style ?? '',
 			);
 		}
 
@@ -358,18 +385,29 @@ v.type === 'bool' ?'pt-2' :''
 	private	static	readonly	alzTagArg	= new AnalyzeTagArg;
 	private	static	hTag2Tds	: {[tag_name: string]: (hPrm: HPRM)=> {
 		col?		: number,
-		cls_style?	: string,
+		td_style?	: string,
 		btn_style?	: string,
 		icon		: string,
 		btn_face	: string,
 		tooltip?	: string,
 		args?		: {
 			name	: string;
-			type	: 'bool'|'str'|'num'|'rule';
+			type	: 'bool'|'str'|'num'|'rule'|'textarea';
 			val?	: string;
 			hint?	: string;
 		}[],
 	}}	= {
+		ch			: hPrm=> {return {
+			col			: 5,
+			btn_style	: 'btn-outline-primary btn-block text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
+			icon		: '',
+			btn_face	: '',
+			tooltip		: '',
+			args		: [
+				{name: 'text', type: 'textarea', val: hPrm.text?.val ?? '', hint: '本文テキスト'},
+			],
+		}},
+
 		jump		: hPrm=> {return {
 			icon		: 'fa-external-link-alt',
 			btn_face	: 'ジャンプ'
@@ -384,7 +422,7 @@ v.type === 'bool' ?'pt-2' :''
 		}},
 		return		: _=> {return {
 			icon		: 'fa-long-arrow-alt-left',
-			btn_face	: 'コール元へ戻る',
+			btn_face	: '戻る',
 		}},
 		add_lay		: hPrm=> {
 			let col = 0;
@@ -468,7 +506,7 @@ v.type === 'bool' ?'pt-2' :''
 		grp			: hPrm=> {
 			return {
 				col			: 1,
-				cls_style	: 'sn-cmb-'
+				td_style	: 'sn-cmb-'
 					+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg?.val}` :'end'),
 				btn_style	: 'btn-success btn-block text-black',
 				icon		: 'fa-images',
@@ -586,7 +624,7 @@ v.type === 'bool' ?'pt-2' :''
 
 		bgm			: hPrm=> {return {
 			col			: 7,
-			cls_style	: 'sn-cmb-'
+			td_style	: 'sn-cmb-'
 				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn?.val}` :'end'),
 			btn_style	: 'btn-info btn-block text-black',
 			icon		: 'fa-play',
@@ -594,14 +632,14 @@ v.type === 'bool' ?'pt-2' :''
 		}},
 		stopbgm		: _=> {return {
 			col			: 7,
-			cls_style	: 'sn-cmb-end',
+			td_style	: 'sn-cmb-end',
 			btn_style	: 'btn-outline-info btn-block',
 			icon		: 'fa-stop',
 			btn_face	: '再生停止',
 		}},
 		fadeoutbgm	: hPrm=> {return {
 			col			: 7,
-			cls_style	: 'sn-cmb-end',
+			td_style	: 'sn-cmb-end',
 			btn_style	: 'btn-outline-info btn-block',
 			icon		: 'fa-volume-down',
 			btn_face	: `フェードアウト ${hPrm.time?.val}ms かけて`,
@@ -612,7 +650,7 @@ v.type === 'bool' ?'pt-2' :''
 			btn_style	: 'btn-primary btn-block',
 			icon		: 'fa-hourglass-start',
 			btn_face	: `${hPrm.time?.val ?? 0}ms`,
-			tooltip		: '時間待ち'
+			tooltip		: '待機'
 				+ (hPrm.time?.val ?` time=${hPrm.time?.val}ms` :'')
 				+ (hPrm.canskip?.val ?` スキップできるか=${hPrm.canskip?.val}` :''),
 		}},
@@ -657,19 +695,18 @@ v.type === 'bool' ?'pt-2' :''
 		}},
 	};
 	private	static	macro_nm	= '';
-	private	make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', style = ''): string {
+	private	make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = ''): string {
 		return '<td></td>'.repeat(col) +`
-	<td class="p-0 ${style}">
-		<button type="button" class="btn btn-sm px-2 text-left text-lowercase ${btn_style}" data-ripple-color="dark" id="sn-btn${line}" draggable="true"${
+	<td class="p-0 ${td_style}">
+		<button type="button" class="btn btn-sm px-2 text-start text-lowercase ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="sn-btn${line}" draggable="true"${
 			tooltip
-			?` data-toggle="tooltip" data-placement="right" title="${tooltip}"`
+			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
 			:''
 		}>
 			<i class="fas ${icon}" aria-hidden="true"></i>
 			${btn_face}
 		</button>
-		${aft ?`
-		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12"><form class="p-1 d-flex flex-wrap">${aft}</form></div>` :''}
+		${aft ?`<div class="dropdown-menu col-xxl-4 col-sm-6 col-12"><form class="p-1 d-flex flex-wrap">${aft}</form></div>` :''}
 	</td>`+ '<td></td>'.repeat(8 -col);
 	}
 

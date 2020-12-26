@@ -1,7 +1,7 @@
-import { ExtensionContext } from 'vscode';
+import { ExtensionContext, WorkspaceFolder } from 'vscode';
 export declare class Project {
     private readonly ctx;
-    private readonly pathWs;
+    private readonly wsFld;
     readonly chgTitle: (title: string) => void;
     private readonly codSpt;
     private readonly curPlg;
@@ -21,7 +21,8 @@ export declare class Project {
     private readonly aFSW;
     private readonly fnDiff;
     private hDiff;
-    constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void);
+    private readonly pathWs;
+    constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void);
     private ps;
     openPrjSetting(): void;
     get title(): any;

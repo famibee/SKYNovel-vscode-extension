@@ -183,12 +183,12 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
 
 	// WorkspaceFolder を TreeItem に反映
-	private makePrj(fld: WorkspaceFolder) {
+	private makePrj(wsFld: WorkspaceFolder) {
 		const t = new TreeItem('', TreeItemCollapsibleState.Collapsed);
-		const dir = fld.uri.fsPath;
+		const dir = wsFld.uri.fsPath;
 		t.iconPath = ThemeIcon.Folder;
 		t.tooltip = dir;	// 他のキーになっているので変更不可
-		t.description = fld.name;
+		t.description = wsFld.name;
 		this.aTiRoot.push(t);
 
 		const existPkgJS = fs.existsSync(dir +'/package.json');
@@ -212,7 +212,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		this.updLocalSNVer(dir);
 
-		this.hPrj[dir] = new Project(this.ctx, dir, title=> {
+		this.hPrj[dir] = new Project(this.ctx, wsFld, title=> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
 		});
@@ -233,14 +233,14 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {};
 	private onClickTreeItemBtn(ti: TreeItem) {
 		if (! ti) return;	// ここには来ないはず
-		const aFld = workspace.workspaceFolders;
-		if (! aFld) {	// undefinedだった場合はファイルを開いている
+		const aWsFld = workspace.workspaceFolders;
+		if (! aWsFld) {	// undefinedだった場合はファイルを開いている
 			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
 			return;	// 一応どうやってもここには来れないようではある
 		}
 
 		// カレントディレクトリ設定（必要なら）
-		let cmd = (aFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
+		let cmd = (aWsFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
 		const pathWs = String(ti.tooltip ?? '');
 		if (! fs.existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
@@ -335,10 +335,10 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				return;
 		}
 
-		const curFld = aFld.find(v=> v.uri.path === ti.tooltip);
+		const wsFld = aWsFld.find(v=> v.uri.path === ti.tooltip);
 		const t = new Task(
 			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
-			curFld!,
+			wsFld!,
 			tc.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
