@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2020 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -92,7 +92,7 @@ export class Project {
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.curPrj +'*/*');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.curPrj +'prj.json');
-		// フォルダ監視
+		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.curPrj +'*');
 		this.aFSW = [
 			fwPlg.onDidCreate(()=> this.updPlugin()),
@@ -123,12 +123,12 @@ export class Project {
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 
 			fwFld.onDidCreate(uri=> this.ps.noticeCreDir(uri.path)),
-			/*fwFld.onDidChange(e=> {	// フォルダ名ではこれが発生せず、Cre & Del
-				if (e.path.slice(-9) === 'path.json') return;
-console.log(`fn:Project.ts line:127 Cha path:${e.path}`);
+			/*fwFld.onDidChange(uri=> {	// フォルダ名ではこれが発生せず、Cre & Del
+				if (uri.path.slice(-5) === '.json') return;
+console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			}),*/
 			fwFld.onDidDelete(uri=> this.ps.noticeDelDir(uri.path)),
-		];	// NOTE: ワークスペースだと、削除イベントしか発生しない？？
+		];
 
 		this.curCrypto = this.pathWs +`/doc/${Project.fld_crypto_prj}/`;
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);

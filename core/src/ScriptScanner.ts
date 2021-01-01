@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2020 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -24,6 +24,10 @@ interface Pos {
 interface FncTagProc {
 	(setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range): void;
 }
+interface MacDef {
+	loc		: Location;
+	hPrm	: any;
+}
 
 export class ScriptScanner {
 	constructor(private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}) {
@@ -46,7 +50,7 @@ export class ScriptScanner {
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
-	hMacro		: {[mm: string]: Location}		= {};
+	hMacro		: {[mm: string]: MacDef}		= {};
 	hMacroUse	: {[mm: string]: Location[]}	= {};
 	hMacroUse4NoWarm	: {[mm: string]: Location[]}	= {};
 	hTagMacroUse: {[fn: string]: {nm: string, rng: Range}[]}	= {};
@@ -165,9 +169,9 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		for (const def_nm in this.hMacro) {
 			if (def_nm in mu) continue;
 
-			const loc = this.hMacro[def_nm];
-			this.nm2Diag[loc.uri.path].push(new Diagnostic(
-				loc.range,
+			const m = this.hMacro[def_nm];
+			this.nm2Diag[m.loc.uri.path].push(new Diagnostic(
+				m.loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
 				DiagnosticSeverity.Information
 			));
@@ -207,10 +211,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		aChgTxt.forEach(e=> {
 			const path = e.document.fileName;
 			hDoc[path] = e.document;
-//console.log(`fn:ScriptScanner.ts line:206 goScriptSrc fn:${path}`);
+//console.log(`fn:ScriptScanner.ts line:214 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
-//console.log(`fn:ScriptScanner.ts line:208 * (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
+//console.log(`fn:ScriptScanner.ts line:217 * (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
 				if (c.range.start.character === 0 && c.range.end.character === 0) this.cteScore.updDiffLine(path, c, this.resolveScript(c.text).aToken);
 				else hUpdFull[path] = true;
 			});
@@ -249,10 +253,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		const path = uri.path;
 
 		this.isDuplicateMacroDef = false;
-		const oM: {[mm: string]: Location} = {};
+		const oM: {[mm: string]: MacDef} = {};
 		for (const mn in this.hMacro) {
-			const loc = this.hMacro[mn];
-			if (loc.uri.path != path) oM[mn] = loc;
+			const m = this.hMacro[mn];
+			if (m.loc.uri.path != path) oM[mn] = m;
 		}
 		this.hMacro = oM;
 
@@ -272,10 +276,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		for (const def_nm in this.hMacro) {
 			if (def_nm in mu) continue;
 
-			const loc = this.hMacro[def_nm];
-			if (loc.uri.path !== path) continue;	// 更新分のみ
+			const m = this.hMacro[def_nm];
+			if (m.loc.uri.path !== path) continue;	// 更新分のみ
 			this.nm2Diag[path].push(new Diagnostic(
-				loc.range,
+				m.loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
 				DiagnosticSeverity.Information
 			));
@@ -348,6 +352,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 	private	static	readonly	regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
 	private	static	hPath2AToken	: {[path: string]: string[]}	= {};
+	private	static	REG_NO_WARM_UNUSED_MACRO= /#NO_WARM_UNUSED_MACRO\s+(\S+)/;
 	private	scanScriptSrc(uri: Uri, src: string) {
 		const path = uri.path;
 		const diags = this.nm2Diag[path];
@@ -377,7 +382,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				return;
 			}
 			if (uc === 59) {	// ; コメント
-				const a = token.match(/#NO_WARM_UNUSED_MACRO\s+(\S+)/);
+				const a = token.match(ScriptScanner.REG_NO_WARM_UNUSED_MACRO);
 				if (a) {
 					const nm = a[1];
 					(this.hMacroUse4NoWarm[nm] ??= [])
@@ -499,7 +504,8 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		},
 
 		'macro': (_setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
-			const def_nm = this.alzTagArg.hPrm.name?.val;
+			const hPrm = this.alzTagArg.hPrm;
+			const def_nm = hPrm.name?.val;
 			if (! def_nm) {	// [macro name=]など
 				diags.push(new Diagnostic(rngp1, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
 				return;
@@ -514,15 +520,15 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				return;
 			}
 
-			const loc = this.hMacro[def_nm];
-			if (! loc) {	// 新規マクロ定義を登録
-				const m = token.match(ScriptScanner.regValName);
-				if (! m) {	// 失敗ケースが思い当たらない
+			const m = this.hMacro[def_nm];
+			if (! m) {	// 新規マクロ定義を登録
+				const m2 = token.match(ScriptScanner.regValName);
+				if (! m2) {	// 失敗ケースが思い当たらない
 					diags.push(new Diagnostic(rngp1, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
 					return;
 				}
 
-				const idx_name_v = (m.index ?? 0) +(m[3] ?1 :0);	// '"#分
+				const idx_name_v = (m2.index ?? 0) +(m2[3] ?1 :0);	// '"#分
 				let lineNmVal = 0;
 				let j = idx_name_v;
 				while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
@@ -533,7 +539,11 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 					line2, col2,
 					line2, col2 +def_nm.length,
 				);
-				this.hMacro[def_nm] = new Location(uri, rng2);
+				this.hMacro[def_nm] = {
+					loc: new Location(uri, rng2),
+					hPrm: hPrm,
+				};
+//console.log(`fn:ScriptScanner.ts line:546 def_nm:${def_nm} hPrm:${JSON.stringify(hPrm)}`);
 
 				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
 				this.aDsOutline.push(ds);
@@ -545,11 +555,11 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 			// すでに定義済みのマクロ
 			this.isDuplicateMacroDef = true;
-			if (! diags.find(d=> d.range === loc.range)) {
+			if (! diags.find(d=> d.range === m.loc.range)) {
 				// （走査上たまたまの）一つめ
-				const dia = new Diagnostic(loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
-				if (loc.uri === uri) diags.push(dia);
-				else this.clDiag.set(loc.uri, [dia]);
+				const dia = new Diagnostic(m.loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
+				if (m.loc.uri === uri) diags.push(dia);
+				else this.clDiag.set(m.loc.uri, [dia]);
 			}
 			diags.push(new Diagnostic(	// （走査上たまたまの）二つめ以降
 				rng_nm.with({end: new Position(p.line, p.col +def_nm.length)}),

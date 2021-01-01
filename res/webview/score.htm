@@ -3,7 +3,7 @@
 <title>スコア エディタ</title>
 <link rel="canonical" href="index.htm">
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
+<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
 <link rel="stylesheet" href="./lib/mdb.min.css">
 <link rel="stylesheet" href="./lib/fontawesome/all.min.css">
 <style>
@@ -25,7 +25,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <script defer nonce="${nonce}" src="./lib/mdb.min.js"></script>
 <script defer nonce="${nonce}" src="./score.js"></script>
 </head>
-<body class="bg-dark bg-gradient black-text">
+<body class="p-0 bg-dark bg-gradient black-text">
 
 
 <div>
@@ -39,7 +39,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<th class="p-1">mes_c2p</th>
 	<th class="p-1" data-cmb="bgm">BGM</th>
 	<th class="p-1">SE</th>
-	<th class="p-1" style="max-width: 30px;">
+	<th class="p-1">詳細</th>
+	<th class="p-1">
 		<button id="tglEdit" type="button" class="btn btn-secondary btn-sm py-0">
 			<i class="fas fa-bars"></i>
 		</button>
@@ -48,9 +49,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 
 <tr data-row="0">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-sm px-2 text-start" data-ripple-color="dark" id="btn0" draggable="true">
+		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark" draggable="true">
 			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
-			コール *init
 		</button>
 	</td>
 	<td></td>
@@ -61,6 +61,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" id="btn0" draggable="true">
+			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
+			コール *init
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -70,9 +76,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 
 <tr data-row="1">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid1Modal">
+		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark" draggable="true">
 			<i class="fa fa-cog" aria-hidden="true"></i>
-			初期化設定
 		</button>
 	</td>
 	<td></td>
@@ -83,6 +88,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="modal" data-mdb-target="#sn-rid1Modal">
+			<i class="fa fa-cog" aria-hidden="true"></i>
+			初期化設定
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -92,10 +103,9 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 
 <tr data-row="2">
 	<td></td>
-	<td class="p-0 sn-cmb-start" data-fn="境内_昼.jpg">
-		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
+	<td class="p-0 sn-cmb-start" data-fn="../../preenv/img/node_win8.jpg">
+		<button type="button" class="btn btn-success btn-block btn-sm" data-ripple-color="dark">
 			<i class="fas fa-image"></i>
-			石段_昼
 		</button>
 	</td>
 	<td></td>
@@ -105,6 +115,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="modal" data-mdb-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
+			<i class="fas fa-image"></i>
+			石段_昼
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -120,13 +136,18 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td class="p-0 sn-cmb-start">
-		<button type="button" class="btn btn-info btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
+	<td class="p-0 sn-cmb-start" data-fn="free04">
+		<button type="button" class="btn btn-info btn-block btn-sm" data-ripple-color="dark" data-mdb-toggle="tooltip" title="fn=free04">
+			<i class="fa fa-play" aria-hidden="true"></i>
+		</button>
+	</td>
+	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-info btn-block btn-sm px-2 text-start" data-ripple-color="dark">
 			<i class="fa fa-play" aria-hidden="true"></i>
 			free04
 		</button>
 	</td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -137,7 +158,18 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <tr data-row="4">
 	<td></td>
 	<td></td>
-	<td class="p-0 sn-cmb-start" data-fn="moro_nor.png">
+	<td class="p-0 sn-cmb-start" data-fn="../../img/icon_skynovel.png">
+		<button type="button" class="btn btn-secondary btn-block btn-sm">
+			<i class="fas fa-user"></i>
+		</button>
+	</td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td class="p-0">
 		<button type="button" class="btn btn-secondary btn-block btn-sm px-2 text-start dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
 			<i class="fas fa-user"></i>
 			諸戸_通常
@@ -153,12 +185,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			</form>
 		</div>
 	</td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -173,21 +199,16 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-primary dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
-			さゞえも鬼に…
+		<button type="button" class="btn btn-primary btn-block btn-sm">
+			<i class="fas fa-align-left"></i>
 		</button>
-		<div class="dropdown-menu">
-			<form class="p-1">
-				<div class="form-outline">
-					<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2" id="taSample">　さゞえも鬼になるまじきものにもあらずと、夢心におもひぬ。</textarea>
-					<label class="form-label" for="taSample">本文</label>
-				</div>
-			</form>
-		</div>
 	</td>
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<form><textarea class="form-control bg-light" placeholder="本文テキストを入力">　さゞえも鬼になるまじきものにもあらずと、夢心におもひぬ。</textarea></form>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -202,7 +223,16 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-primary dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
+		<button type="button" class="btn btn-primary btn-block btn-sm">
+			<i class="fas fa-align-left"></i>
+		</button>
+	</td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-mdb-toggle="dropdown" aria-expanded="false">
+			<i class="fas fa-align-left"></i>
 			改ページ待ち
 		</button>
 		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
@@ -226,9 +256,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			</form>
 		</div>
 	</td>
-	<td></td>
-	<td></td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -238,9 +265,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 
 <tr data-row="7">
 	<td class="p-0">
-		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
-			<i class="fas fa-hourglass-start"></i>
-			2000ms
+		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark">
+			<i class="fas fa-hourglass-start" aria-hidden="true"></i>
 		</button>
 	</td>
 	<td></td>
@@ -251,9 +277,15 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
+			<i class="fas fa-hourglass-start" aria-hidden="true"></i>
+			2000ms
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<i class="fas fa-times" aria-hidden="true"></i>
 		</button>
 	</div></td>
 </tr>
@@ -267,6 +299,11 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-warning btn-block btn-sm" data-ripple-color="dark">
+			<i class="fas fa-bell"></i>
+		</button>
+	</td>
 	<td class="p-0">
 		<button type="button" class="btn btn-warning btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid5_h1Modal">
 			<i class="fas fa-bell"></i>
@@ -284,8 +321,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-start" text-start data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid4Modal">
-			(退場)
+		<button type="button" class="btn btn-outline-secondary btn-block btn-sm" data-ripple-color="dark">
+			<i class="fas fa-user"></i>
 		</button>
 	</td>
 	<td></td>
@@ -294,6 +331,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-start" data-ripple-color="dark">
+			<i class="fas fa-user"></i>
+			(退場)
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -304,8 +347,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <tr data-row="10">
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid2Modal">
-			(消去)
+		<button type="button" class="btn btn-outline-success btn-block btn-sm" data-ripple-color="dark">
+			<i class="fas fa-image"></i>
 		</button>
 	</td>
 	<td></td>
@@ -315,6 +358,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-outline-success btn-block btn-sm px-2 text-start" data-ripple-color="dark">
+			<i class="fas fa-image"></i>
+			(消去)
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -331,11 +380,16 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td class="p-0 sn-cmb-end">
-		<button type="button" class="btn btn-outline-info btn-block btn-sm px-2 text-start" text-start data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid3Modal">
-			<i class="fa fa-chevron-down" aria-hidden="true"></i> 1000ms
+		<button type="button" class="btn btn-outline-info btn-block btn-sm" data-ripple-color="dark">
+			<i class="fa fa-chevron-down" aria-hidden="true"></i>
 		</button>
 	</td>
 	<td></td>
+	<td class="p-0">
+		<button type="button" class="btn btn-outline-info btn-block btn-sm px-2 text-start" data-ripple-color="dark">
+			<i class="fa fa-chevron-down" aria-hidden="true"></i> 1000ms
+		</button>
+	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -344,19 +398,20 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="12">
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid9Modal">
 			(空白セル)
 		</button>
 	</td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -365,6 +420,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="13">
+	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -391,6 +447,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -399,6 +456,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="15">
+	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -425,6 +483,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
+	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -433,6 +492,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="17">
+	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -453,13 +513,12 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </div>
 
 
-
-<!-- Modal -->
+<!-- Modal Setting -->
 <div class="modal fade" id="sn-rid1Modal" tabindex="-1" aria-labelledby="sn-rid1ModalLabel" aria-hidden="true">
 <div class="modal-dialog"><div class="modal-content">
 	<div class="modal-header">
 		<h5 class="modal-title" id="sn-rid1ModalLabel">初期化と設定</h5>
-		<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+		<button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
 	</div>
 	<div class="modal-body">
 		
@@ -608,84 +667,40 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </div>
 
 
-
+<!-- Modal Grp -->
 <div class="modal fade" id="sn-grpModal" tabindex="-1" aria-labelledby="sn-grpModalLabel" aria-hidden="true">
 	<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
 		<div class="modal-header">
 			<h5 class="modal-title" id="sn-grpModalLabel">背景選択</h5>
-			<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+			<button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
 		</div>
 		<div id="sn-grpModalBody" class="modal-body">
 
 <div class="card-group">
-</div>
-
+	<div class="card">
+		<img src="../../res/preenv/img/node_win6.jpg" class="card-img-top"/>
+		<div class="card-footer">
+			<button type="button" class="btn btn-primary">node_win6</button>
 		</div>
-		<div class="modal-footer">
-			<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-			<button type="button" class="btn btn-primary">OK</button>
+	</div>
+	<div class="card">
+		<img src="../../res/preenv/img/node_win7.jpg" class="card-img-top"/>
+		<div class="card-footer">
+			<button type="button" class="btn btn-primary">node_win7</button>
+		</div>
+	</div>
+	<div class="card">
+		<img src="../../res/preenv/img/node_win8.jpg" class="card-img-top"/>
+		<div class="card-footer">
+			<button type="button" class="btn btn-primary">node_win8</button>
+		</div>
+	</div>
+</div><!-- card-group  -->
+
 		</div>
 	</div></div>
 </div>
 
-
-
-<div class="modal fade" id="sn-rid2Modal" tabindex="-1" aria-labelledby="sn-rid2ModalLabel" aria-hidden="true">
-<div class="modal-dialog"><div class="modal-content">
-	<div class="modal-header">
-		<h5 class="modal-title" id="sn-rid2ModalLabel">背景選択</h5>
-		<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
-	</div>
-	<div class="modal-body">
-
-
-	</div>
-	<div class="modal-footer">
-		<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-		<button type="button" class="btn btn-primary">Save changes</button>
-	</div>
-</div></div>
-</div>
-
-
-<div class="modal fade" id="sn-rid3Modal" tabindex="-1" aria-labelledby="sn-rid3ModalLabel" aria-hidden="true">
-<div class="modal-dialog"><div class="modal-content">
-	<div class="modal-header">
-		<h5 class="modal-title" id="sn-rid3ModalLabel">Modal title</h5>
-		<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
-	</div>
-	<div class="modal-body">
-		
-
-
-		
-	</div>
-	<div class="modal-footer">
-		<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-		<button type="button" class="btn btn-primary">Save changes</button>
-	</div>
-</div></div>
-</div>
-
-
-<div class="modal fade" id="sn-rid4Modal" tabindex="-1" aria-labelledby="sn-rid4ModalLabel" aria-hidden="true">
-<div class="modal-dialog"><div class="modal-content">
-	<div class="modal-header">
-		<h5 class="modal-title" id="sn-rid4ModalLabel">人物・表情選択</h5>
-		<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
-	</div>
-	<div class="modal-body">
-		
-
-
-		
-	</div>
-	<div class="modal-footer">
-		<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-		<button type="button" class="btn btn-primary">Save changes</button>
-	</div>
-</div></div>
-</div>
 
 
 <div class="modal fade" id="sn-rid9Modal" tabindex="-1" aria-labelledby="sn-rid9ModalLabel" aria-hidden="true">
@@ -715,26 +730,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 		
 		
 		
-	</div>
-</div></div>
-</div>
-
-
-<div class="modal fade" id="sn-rid999Modal" tabindex="-1" aria-labelledby="sn-rid999ModalLabel" aria-hidden="true">
-<div class="modal-dialog"><div class="modal-content">
-	<div class="modal-header">
-		<h5 class="modal-title" id="sn-rid999ModalLabel">Modal title</h5>
-		<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
-	</div>
-	<div class="modal-body">
-		
-
-
-		
-	</div>
-	<div class="modal-footer">
-		<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-		<button type="button" class="btn btn-primary">Save changes</button>
 	</div>
 </div></div>
 </div>

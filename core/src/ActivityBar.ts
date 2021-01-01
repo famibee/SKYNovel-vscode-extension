@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2020 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -63,7 +63,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
-			Uri.parse('https://nodejs.org/dist/v14.15.1/node-v14.15.1'+ (
+			Uri.parse('https://nodejs.org/dist/v14.15.3/node-v14.15.3'+ (
 				is_mac
 				? '.pkg'
 				: `${os.arch().slice(-2) === '64' ?'-x64' :'-x86'}.msi`

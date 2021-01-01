@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2020 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -223,9 +223,9 @@ ${md.comment}`, true
 
 		// 「定義へ移動」があるので、下手にリンクを張らない方がいい
 		const nm = doc.getText(doc.getWordRangeAtPosition(pos));
-		const locMac = this.scrScn.hMacro[nm];
-		if (locMac) {
-			const fn = locMac.uri.fsPath;
+		const m = this.scrScn.hMacro[nm];
+		if (m) {
+			const fn = m.loc.uri.fsPath;
 			return new Hover(new MarkdownString(
 `~~~skynovel
 (マクロ) [${nm}]
@@ -272,7 +272,7 @@ ${md.detail}`
 
 		return new Promise((re, rj)=> {
 			const nm = doc.getText(doc.getWordRangeAtPosition(pos));
-			const loc = this.scrScn.hMacro[nm] ?? this.scrScn.hPlugin[nm];
+			const loc = this.scrScn.hMacro[nm]?.loc ?? this.scrScn.hPlugin[nm];
 			if (loc) return re(loc);
 			const q = CodingSupporter.pickItems.find(q=> q.label === nm);
 			if (q) {CodingSupporter.openTagRef(q); return re(null);}
@@ -344,7 +344,7 @@ ${md.detail}`
 			this.scrScn.hMacro[newName] = m;
 			delete this.scrScn.hMacro[this.nm4rename];
 
-			we.replace(m.uri, m.range, newName);
+			we.replace(m.loc.uri, m.loc.range, newName);
 			return re(we);
 		});
 	}
@@ -458,9 +458,9 @@ ${md.detail}`
 		if (! g) return Promise.reject('No args here.');
 
 		const nm = g.name;
-		const loc = this.scrScn.hMacro[nm];
-		if (loc) {	// TODO: マクロも「引数の説明」サポート
-			return Promise.reject(`[${nm}] マクロです 定義ファイル：${loc.uri.path.slice(this.lenRootPath)}`);
+		const m = this.scrScn.hMacro[nm];
+		if (m) {	// TODO: マクロも「引数の説明」サポート。doc/md/*.md を解析（複数行データ対応するため）
+			return Promise.reject(`[${nm}] マクロです 定義ファイル：${m.loc.uri.path.slice(this.lenRootPath)}`);
 		}
 
 		const md = hMd[nm];

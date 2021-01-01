@@ -67,7 +67,7 @@ window.addEventListener('message', e=> {
 			path_prj = o.path_prj;
 			hFld2url = o.hFld2url;
 			hPath = o.hPath;
-			combining();	// 結合
+			if (o.combining) combining();	// 結合
 			break;
 
 		case 'add_res':{
@@ -102,11 +102,13 @@ window.addEventListener('message', e=> {
 			break;
 		case 'rep':
 			tglEditOff();	// 削除ボタン非表示
-			aTr[o.sl].innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
-			rsv_ev_one(new_tr);	// renew()代わりのイベント張り直し
+			if (o.sl < lenTr) {
+				aTr[o.sl].innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
+				rsv_ev_one(aTr[o.sl]);	// renew()代わりのイベント張り直し
+			}
 			break;
 		case 'del':
-			aTr[o.sl].remove();
+			if (o.sl < lenTr) aTr[o.sl].remove();
 			aTr.splice(o.sl, 1);
 			--lenTr;
 			break;
@@ -177,15 +179,6 @@ function findTr(nd) {
 
 function tr2lnum(nd) {return aTr.findIndex(tr=> tr === nd);}
 
-// ボタン文字の設定
-function faceChg(cmp) {
-	const btn = findTr(cmp).querySelector('button');
-	if (! btn.dataset.face) return;
-
-	btn.innerHTML = `<i class="fas ${btn.dataset.faceicon}" aria-hidden="true"></i>`+ txtOmitted(cmp.value);
-}
-function txtOmitted(txt) {return (txt.length > 10) ?txt.slice(0, 10) +'…' :txt;}
-
 // イベント張り
 function rsv_ev_one(pa) {
 	// 削除ボタン
@@ -209,7 +202,6 @@ function rsv_ev_one(pa) {
 	// テキストエリア
 	Array.from(pa.querySelectorAll('textarea'))
 	.forEach(ta=> {
-		faceChg(ta);	// ボタン文字の設定
 		const lnum = tr2lnum(findTr(ta));
 		new mdb.Input(ta.parentElement).init();
 		ta.addEventListener('input', ()=> {
@@ -220,9 +212,7 @@ function rsv_ev_one(pa) {
 			if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
 			ta.style.height = sclH +'px';
 
-			faceChg(ta);	// ボタン文字の設定
-
-			vscode.postMessage({cmd: 'input', lnum: lnum, nm: ta.dataset.nm, val: ta.value}, {passive: true});
+			vscode.postMessage({cmd: 'input', lnum: lnum, nm: ta.dataset.nm, val: ta.value});
 		}, {passive: true})
 	});
 
@@ -335,6 +325,7 @@ function combining() {	// 結合
 			before_chg	: false,
 			elm_start	: null,
 			style		: '',
+			tooltip		: '',
 		};
 		const cmb = trHd.children[i].dataset.cmb;
 		if (cmb) hCmbCol[i] = cmb;
@@ -356,9 +347,11 @@ function combining() {	// 結合
 					case 'bg':
 					case 'fg':
 						inf.style = `background: url(${path_prj + searchPath(td.dataset.fn, EXT_SPRITE)}) repeat-y 50% 0%; background-size: 100% auto;`;
+						inf.tooltip = `fn=${td.dataset.fn}`;
 						break;
 					case 'bgm':
 						inf.style = 'background: linear-gradient(-135deg, #39C0ED, #1E00FF);';
+						inf.tooltip = `fn=${td.dataset.fn}`;
 						break;
 					default:	inf.style = '';
 				}
@@ -368,6 +361,7 @@ function combining() {	// 結合
 					inf.elm_start = td;
 					td.rowSpan = 1;
 					td.setAttribute('style', inf.style);
+					if (inf.tooltip) td.title = inf.tooltip;
 				}
 				else if (cl.contains('sn-cmb-end')) inf.in_area = false;
 				else {
@@ -406,6 +400,7 @@ function separation() {	// 分離
 				td.removeAttribute('style');
 				inf.rowSpan = td.rowSpan -1;
 				td.rowSpan = 1;
+				td.title = '';
 			}
 		}
 	});

@@ -18,7 +18,7 @@ export declare class CteScore implements CustomTextEditorProvider {
     updPath(curPrj: string, hPath: IFn2Path): void;
     private upd_webview;
     private token2html;
-    private make_tr_td0;
+    private make_tr;
     private make_tds_tag;
     private static readonly alzTagArg;
     private static hTag2Tds;

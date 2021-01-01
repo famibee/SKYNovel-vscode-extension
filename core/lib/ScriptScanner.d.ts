@@ -1,5 +1,9 @@
 import { IFn2Path } from './CmnLib';
 import { DiagnosticCollection, Location, Uri, Range, DocumentSymbol, TextDocumentChangeEvent } from 'vscode';
+interface MacDef {
+    loc: Location;
+    hPrm: any;
+}
 export declare class ScriptScanner {
     private readonly curPrj;
     private readonly clDiag;
@@ -11,7 +15,7 @@ export declare class ScriptScanner {
         [tm: string]: Location;
     };
     hMacro: {
-        [mm: string]: Location;
+        [mm: string]: MacDef;
     };
     hMacroUse: {
         [mm: string]: Location[];
@@ -56,6 +60,7 @@ export declare class ScriptScanner {
     private readonly alzTagArg;
     private static readonly regValName;
     private static hPath2AToken;
+    private static REG_NO_WARM_UNUSED_MACRO;
     private scanScriptSrc;
     private fncToken;
     private procToken;
@@ -71,3 +76,4 @@ export declare class ScriptScanner {
     private REG_TOKEN;
     setEscape(ce: string): void;
 }
+export {};
