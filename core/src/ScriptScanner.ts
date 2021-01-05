@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, CmnLib, IFn2Path, REG_SCRIPT} from './CmnLib';
+import {treeProc, CmnLib, IFn2Path, REG_SCRIPT, chkBoolean} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {CteScore} from './CteScore';
 
@@ -50,9 +50,9 @@ export class ScriptScanner {
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
-	hMacro		: {[mm: string]: MacDef}		= {};
-	hMacroUse	: {[mm: string]: Location[]}	= {};
-	hMacroUse4NoWarm	: {[mm: string]: Location[]}	= {};
+	hMacro		: {[nm: string]: MacDef}		= {};
+	hMacroUse	: {[nm: string]: Location[]}	= {};
+	hMacroUse4NoWarm	: {[nm: string]: Location[]}	= {};
 	hTagMacroUse: {[fn: string]: {nm: string, rng: Range}[]}	= {};
 	// 新キーワード選択値はここに追加する
 	private readonly	hSetWords	: {[key: string]: Set<string>}	= {
@@ -207,16 +207,23 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 	private	hScr2KeyWord	: {[path: string]: Set<string>}	= {};
 	goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void {
 		const hDoc: {[path: string]: TextDocument} = {};
-		const hUpdFull: {[path: string]: boolean} = {};
+		const hUpdScore: {[path: string]: boolean} = {};
 		aChgTxt.forEach(e=> {
-			const path = e.document.fileName;
-			hDoc[path] = e.document;
-//console.log(`fn:ScriptScanner.ts line:214 goScriptSrc fn:${path}`);
+			const doc = e.document;
+			const path = doc.fileName;
+			if (path.slice(-4) !== '.ssn') return;
+
+			hDoc[path] = doc;
+//console.log(`fn:ScriptScanner.ts line:217 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
-//console.log(`fn:ScriptScanner.ts line:217 * (${c.range.start.line}_${c.range.start.character}_${c.range.end.line}_${c.range.end.character})=${c.text}=`);
-				if (c.range.start.character === 0 && c.range.end.character === 0) this.cteScore.updDiffLine(path, c, this.resolveScript(c.text).aToken);
-				else hUpdFull[path] = true;
+				const sl = c.range.start.line;
+				const el = c.range.end.line;
+//console.log(`fn:ScriptScanner.ts line:222 * (${sl},${c.range.start.character})(${el},${c.range.end.character})=${c.text}=`);
+				const text = (sl === el && c.text.slice(-1) !== '\n')
+					? doc.lineAt(sl).text
+					: c.text;
+				hUpdScore[path] ||= this.cteScore.updLine(doc, c.range, text, this.resolveScript(text).aToken);
 			});
 			this.cteScore.combining(path);
 		});
@@ -228,9 +235,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			const old = this.hScr2KeyWord[path];
 			this.hScr2KeyWord[path] = new Set;
 
-			// TODO: できれば差分更新したい
-			this.scanScriptSrc(uri, doc.getText());
-			if (hUpdFull[path]) this.cteScore.setAToken(path, this.curPrj, ScriptScanner.hPath2AToken[path]);
+			// TODO: （.snのみ）できれば差分更新したい
+				// 内部辞書変更
+				// 行増減考慮
+			this.scanScriptSrc(uri, doc.getText(), hUpdScore[path]);
 
 			this.goFinishFile(uri);
 			// キーワード削除対応
@@ -250,26 +258,40 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		}
 	}
 	private goInitFile(uri: Uri) {
-		const path = uri.path;
-
+		// pathが同じ情報をクリア
 		this.isDuplicateMacroDef = false;
-		const oM: {[mm: string]: MacDef} = {};
-		for (const mn in this.hMacro) {
-			const m = this.hMacro[mn];
-			if (m.loc.uri.path != path) oM[mn] = m;
-		}
-		this.hMacro = oM;
 
-		const oMU: {[mm: string]: Location[]} = {};
-		for (const mn in this.hMacroUse) this.hMacroUse[mn].forEach(loc=> {
-			if (loc.uri.path != path) (oMU[mn] ??= []).push(loc);
+		const path = uri.path;
+		const hMD: {[nm: string]: MacDef} = {};
+		const hMacroOld: {[nm: string]: MacDef} = {};
+		for (const nm in this.hMacro) {
+			const m = this.hMacro[nm];
+			if (m.loc.uri.path !== path) hMD[nm] = m;
+			else {hMacroOld[nm] = m; this.cteScore.undefMacro(nm);}
+		}
+		this.hMacro = hMD;
+		this.hMacroOld = hMacroOld;
+		this.aMacroAdd = [];
+
+		const hMU: {[nm: string]: Location[]} = {};
+		for (const nm in this.hMacroUse) this.hMacroUse[nm].forEach(loc=> {
+			if (loc.uri.path != path) (hMU[nm] ??= []).push(loc);
 		})
-		this.hMacroUse = oMU;
+		this.hMacroUse = hMU;
+
+		const hMU4NW: {[nm: string]: Location[]} = {};
+		for (const nm in this.hMacroUse4NoWarm) this.hMacroUse4NoWarm[nm]
+		.forEach(loc=> {
+			if (loc.uri.path != path) (hMU4NW[nm] ??= []).push(loc);
+		})
+		this.hMacroUse4NoWarm = hMU4NW;
 
 		this.hTagMacroUse[path] = [];
 		this.clDiag.delete(uri);
 		this.nm2Diag[path] = [];
 	}
+	private	hMacroOld	: {[nm: string]: MacDef}	= {};
+	private	aMacroAdd	: string[]	= [];
 	private	goFinishFile(uri: Uri) {
 		const path = uri.path;
 		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
@@ -300,6 +322,39 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			});
 		}
 
+		if (path.slice(-4) === '.ssn') {
+			const doc = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
+			if (doc) {
+				const hMacroOld = this.hMacroOld;
+				for (const nm in hMacroOld) {
+					if ((! (nm in this.hMacro))	// マクロ定義が削除された
+					||	JSON.stringify(Object.entries(this.hMacro[nm].hPrm).sort())
+					!==	JSON.stringify(Object.entries(hMacroOld[nm].hPrm).sort()))
+					// マクロ定義の引数が更新された
+					this.hMacroUse[nm]?.forEach(loc=> {
+						const txt = doc.lineAt(loc.range.start.line).text;
+						this.cteScore.updLine(
+							doc,
+							loc.range,
+							txt,
+							this.resolveScript(txt).aToken
+						);	// 最新ssn定義で更新
+					});
+				}
+
+				// 追加されたマクロ定義
+				this.aMacroAdd.forEach(nm=> this.hMacroUse[nm]?.forEach(loc=> {
+					const txt = doc.lineAt(loc.range.start.line).text;
+					this.cteScore.updLine(
+						doc,
+						loc.range,
+						txt,
+						this.resolveScript(txt).aToken,
+					);
+				}));
+			}
+		}
+
 		this.clDiag.set(uri, this.nm2Diag[path]);	// 更新分のみ
 
 		if (this.isDuplicateMacroDef && ! this.wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
@@ -308,7 +363,10 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		this.bldCnvSnippet();
 	}
 
-	isSkipUpd(path: string): boolean {return this.cteScore.isSkipUpd(path);}
+	isSkipUpd(path: string): boolean {
+		if (path.slice(-4) !== '.ssn') return false;
+		return this.cteScore.isSkipUpd(path);
+	}
 
 	private	static	readonly	REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;
 //	private	static	readonly	REG_FONT	= /\.(woff2|otf|ttf)$/;
@@ -340,20 +398,18 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		const td = workspace.textDocuments.find(td=> td.fileName ===uri.fsPath);
 		this.scanScriptSrc(
 			uri,
-			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'})
+			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'}),
+			true,
 		);
-		this.cteScore.setAToken(path, this.curPrj, ScriptScanner.hPath2AToken[path]);
 	}
 
 	private	readonly	cteScore	= new CteScore;
-	updPath(hPath: IFn2Path): void {this.cteScore.updPath(this.curPrj, hPath);}
+	updPath(hPath: IFn2Path) {this.cteScore.updPath(this.curPrj, hPath);}
 
 	private			readonly	alzTagArg	= new AnalyzeTagArg;
 	private	static	readonly	regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
-	private	static	hPath2AToken	: {[path: string]: string[]}	= {};
-	private	static	REG_NO_WARM_UNUSED_MACRO= /#NO_WARM_UNUSED_MACRO\s+(\S+)/;
-	private	scanScriptSrc(uri: Uri, src: string) {
+	private	scanScriptSrc(uri: Uri, src: string, isUpdScore: boolean) {
 		const path = uri.path;
 		const diags = this.nm2Diag[path];
 
@@ -381,19 +437,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 				} catch {}
 				return;
 			}
-			if (uc === 59) {	// ; コメント
-				const a = token.match(ScriptScanner.REG_NO_WARM_UNUSED_MACRO);
-				if (a) {
-					const nm = a[1];
-					(this.hMacroUse4NoWarm[nm] ??= [])
-					.push(new Location(uri, new Range(
-						p.line, p.col +22,
-						p.line, p.col +22 +len
-					)));
-				}
-				p.col += len;
-				return;
-			}
+			if (uc === 59) {p.col += len;	return;}	// ; コメント
 			const rng = new Range(
 				p.line, p.col,
 				p.line, p.col +len
@@ -478,7 +522,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		const p = {line: 0, col: 0};
 		const a = this.resolveScript(src).aToken;
 		a.forEach(token=> {if (token) this.fncToken(p, token)});
-		ScriptScanner.hPath2AToken[path] = a;
+		if (isUpdScore && path.slice(-4) === '.ssn') this.cteScore.updScore(path, this.curPrj, a);
 	}
 	private fncToken = this.procToken;
 	private procToken(_p: Pos, _token: string) {}
@@ -543,12 +587,22 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 					loc: new Location(uri, rng2),
 					hPrm: hPrm,
 				};
-//console.log(`fn:ScriptScanner.ts line:546 def_nm:${def_nm} hPrm:${JSON.stringify(hPrm)}`);
+				this.aMacroAdd.push(def_nm);
 
 				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
 				this.aDsOutline.push(ds);
 				this.aDsOutlineStack.push(this.aDsOutline);
 				this.aDsOutline = ds.children;
+
+				if ('nowarn_unused' in hPrm) {
+					if (chkBoolean(hPrm.nowarn_unused.val)) this.hMacroUse4NoWarm[def_nm] = [new Location(uri, rng2)];
+					else delete this.hMacroUse4NoWarm[def_nm];
+				}
+				if (uri.path.slice(-4) === '.ssn') {
+					const o: {[k: string]: string} = {};
+					for (const k in hPrm) o[k] = String(hPrm[k].val);
+					this.cteScore.defMacro(def_nm, o);
+				}
 
 				return;
 			}

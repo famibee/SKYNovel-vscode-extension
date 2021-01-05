@@ -33,8 +33,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		ActivityBar.workSps = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
 
-//		ActivityBar.tlBox = new ToolBox(ctx);
-//		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
+/**/		ActivityBar.tlBox = new ToolBox(ctx);
+/**/		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
 
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
@@ -63,7 +63,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
-			Uri.parse('https://nodejs.org/dist/v14.15.3/node-v14.15.3'+ (
+			Uri.parse('https://nodejs.org/dist/v14.15.4/node-v14.15.4'+ (
 				is_mac
 				? '.pkg'
 				: `${os.arch().slice(-2) === '64' ?'-x64' :'-x86'}.msi`

@@ -94,6 +94,18 @@ export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 	}
 }
 
+/*export	function argChk_Boolean(hash: any, name: string, def: boolean): boolean {
+	if (! (name in hash)) return hash[name] = def;
+
+	return hash[name] = chkBoolean(hash[name]);
+}*/
+export	function chkBoolean(v: any): boolean {
+	if (v === null) return false;
+
+	const v2 = String(v);
+	return (v2 === 'false')? false : Boolean(v2);
+}
+
 export class CmnLib {
 	static	readonly 	getFn = (path: string)=> basename(path, extname(path));
 }

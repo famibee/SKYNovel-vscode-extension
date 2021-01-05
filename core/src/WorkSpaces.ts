@@ -86,6 +86,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			tc.desc = '（Windowsでは使えません）';
 		});
 
+		CteScore.init(ctx);
+
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
@@ -101,8 +103,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		workspace.onDidChangeTextDocument(e=> {
 			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
 		}, null, ctx.subscriptions);
-
-		CteScore.init(ctx);
 	}
 
 	private tidDelay: NodeJS.Timer | null = null;

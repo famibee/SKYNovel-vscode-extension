@@ -15,13 +15,13 @@ export declare class ScriptScanner {
         [tm: string]: Location;
     };
     hMacro: {
-        [mm: string]: MacDef;
+        [nm: string]: MacDef;
     };
     hMacroUse: {
-        [mm: string]: Location[];
+        [nm: string]: Location[];
     };
     hMacroUse4NoWarm: {
-        [mm: string]: Location[];
+        [nm: string]: Location[];
     };
     hTagMacroUse: {
         [fn: string]: {
@@ -49,6 +49,8 @@ export declare class ScriptScanner {
     private hScr2KeyWord;
     goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void;
     private goInitFile;
+    private hMacroOld;
+    private aMacroAdd;
     private goFinishFile;
     isSkipUpd(path: string): boolean;
     private static readonly REG_SPRITE;
@@ -59,8 +61,6 @@ export declare class ScriptScanner {
     updPath(hPath: IFn2Path): void;
     private readonly alzTagArg;
     private static readonly regValName;
-    private static hPath2AToken;
-    private static REG_NO_WARM_UNUSED_MACRO;
     private scanScriptSrc;
     private fncToken;
     private procToken;

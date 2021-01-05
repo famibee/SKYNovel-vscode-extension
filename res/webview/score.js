@@ -35,7 +35,7 @@ let trHd;
 let aTr = [];
 let lenTr = 0;
 let next_id = 0;
-let path_prj = './score_mat/';
+let pathPrj = './score_mat/';
 let hFld2url = {};
 let hPath = {};
 
@@ -45,7 +45,7 @@ function show_modal(title, key) {
 	.innerHTML = `
 <div class="card-group">`+ hFld2url[key].map((v, i)=> `
 <div class="card">
-	<img src="${path_prj}${v.path}" class="card-img-top"/>
+	<img src="${pathPrj}${v.path}" class="card-img-top"/>
 	<div class="card-body"><div class="form-check">
 		<input class="form-check-input" type="radio" name="sn-grpModal_img" id="sn-grpModal_img${i}"/>
 		<label class="form-check-label" for="sn-grpModal_img${i}">${v.fn}</label>
@@ -62,9 +62,18 @@ window.addEventListener('message', e=> {
 	}
 
 	const o = e.data;
+/*
+		const oaa = {...o};
+		delete oaa.cmd;
+		delete oaa.pathPrj;
+		delete oaa.hFld2url;
+		delete oaa.hPath;
+		delete oaa.htm;
+	console.log(`fn:score.js line:65 cmd:${o.cmd} o:${JSON.stringify(oaa)}`);
+*/
 	switch (o.cmd) {
 		case 'upd_db':
-			path_prj = o.path_prj;
+			pathPrj = o.pathPrj;
 			hFld2url = o.hFld2url;
 			hPath = o.hPath;
 			if (o.combining) combining();	// 結合
@@ -74,18 +83,18 @@ window.addEventListener('message', e=> {
 			const tr = document.querySelector(`tr[data-row="${o.row}"]`);
 			tr.innerHTML = o.htm;
 			rsv_ev_one(tr);	// renew()代わりのイベント張り直し
-			savehtm();	// 結合前に
+			save_tbody();	// 結合前に
 			combining();	// 結合
 		}
 			break;
 
 		case 'separation':	separation();	break;	// 分離
-		case 'combining':	savehtm();	combining();	break;	// 結合
+		case 'combining':	save_tbody();	combining();	break;	// 結合
 		case 'ins':{
 			tglEditOff();	// 削除ボタン非表示
 			const new_tr = document.createElement('tr');
 			new_tr.dataset.row = next_id++;
-			new_tr.innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
+			new_tr.innerHTML = o.htm;
 			if (o.sl >= lenTr) {
 				const tr_to = aTr[0];
 				tr_to.parentElement.appendChild(new_tr);
@@ -98,25 +107,24 @@ window.addEventListener('message', e=> {
 			}
 			++lenTr;
 			rsv_ev_one(new_tr);	// renew()代わりのイベント張り直し
-		}
-			break;
-		case 'rep':
-			tglEditOff();	// 削除ボタン非表示
-			if (o.sl < lenTr) {
-				aTr[o.sl].innerHTML = o.htm.replace(/<tr .+>|<\/tr>/g, '');
-				rsv_ev_one(aTr[o.sl]);	// renew()代わりのイベント張り直し
-			}
-			break;
+		}	break;
 		case 'del':
 			if (o.sl < lenTr) aTr[o.sl].remove();
 			aTr.splice(o.sl, 1);
 			--lenTr;
 			break;
+		case 'rep':
+			tglEditOff();	// 削除ボタン非表示
+			if (o.sl >= lenTr) break;
+
+			aTr[o.sl].innerHTML = o.htm;
+			rsv_ev_one(aTr[o.sl]);	// renew()代わりのイベント張り直し
+			break;
 	}
 }, {passive: true});
 
-function savehtm() {
-	vscode.postMessage({cmd: 'savehtm', tbody: document.getElementsByTagName('tbody')[0].innerHTML});
+function save_tbody() {
+	vscode.postMessage({cmd: 'save_tbody', tbody: document.getElementsByTagName('tbody')[0].innerHTML});
 }
 
 const	regPath = /([^\/\s]+)\.([^\d]\w+)/;
@@ -188,7 +196,7 @@ function rsv_ev_one(pa) {
 		const lnum = tr2lnum(nd);
 		separation();	// 分離
 		nd.remove();
-		savehtm();	// 結合前に
+		save_tbody();	// 結合前に
 		combining();	// 結合
 		aTr.splice(lnum, 1);
 		--lenTr;
@@ -200,8 +208,7 @@ function rsv_ev_one(pa) {
 	.forEach(btn=> new mdb.Dropdown(btn));
 
 	// テキストエリア
-	Array.from(pa.querySelectorAll('textarea'))
-	.forEach(ta=> {
+	Array.from(pa.querySelectorAll('textarea')).forEach(ta=> {
 		const lnum = tr2lnum(findTr(ta));
 		new mdb.Input(ta.parentElement).init();
 		ta.addEventListener('input', ()=> {
@@ -212,8 +219,16 @@ function rsv_ev_one(pa) {
 			if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
 			ta.style.height = sclH +'px';
 
+			chgOtherTrBrother(ta);	// <TR>内の他の兄弟要素を更新
+
 			vscode.postMessage({cmd: 'input', lnum: lnum, nm: ta.dataset.nm, val: ta.value});
-		}, {passive: true})
+		}, {passive: true});
+/*
+		ta.addEventListener('keydown', e=> {
+			if (e.metaKey && e.code === 'KeyZ') e.preventDefault();
+//console.log(`fn:score.js line:238 metaKey:${e.metaKey} shiftKey:${e.shiftKey} code:${e.code}`);
+		}, {passive: true});
+*/
 	});
 
 	// ドラッグ出来るアイテムの設定
@@ -229,6 +244,13 @@ function rsv_ev_one(pa) {
 		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
 	}, {passive: true}));
 */
+}
+function chgOtherTrBrother(cmp) {	// <TR>内の他の兄弟要素を更新
+	const tr = findTr(cmp);
+	Array.from(tr.querySelectorAll(`[data-nm]`)).forEach(c=> {
+		if (c === cmp) return;
+		c.value = cmp.value;
+	});
 }
 function rsv_ev() {
 	// イベント張り
@@ -265,7 +287,6 @@ function rsv_ev() {
 
 		let to = 0;	// 見出し含まず、<tr>一行目を0とする
 		for (; to<lenTr; ++to) if (aTr[to] === tr_to) break;
-//console.log(`fn:score.js line:247 from:${from} id:${id} to:${to} tr_to:%o`, tr_to);
 		const pa = tr_to.parentElement;
 		if (from === 'toolbox') {
 			const new_tr = document.createElement('tr');
@@ -302,8 +323,7 @@ function rsv_ev() {
 					aTr.splice(fr, 1);
 				}
 			}
-//console.log(`fn:score.js line:278 aTr:${aTr.map(v=> v.dataset.row).join()}`);
-			savehtm();	// 結合前に
+			save_tbody();	// 結合前に
 			combining();	// 結合
 
 			vscode?.postMessage({cmd: 'move', from: fr, to: to});
@@ -331,6 +351,7 @@ function combining() {	// 結合
 		if (cmb) hCmbCol[i] = cmb;
 	}
 
+	aTr = Array.from(document.querySelectorAll('tr')).slice(1);
 	aTr.forEach(tr=> {
 		for (let c=lenCols -1; c>=0; --c) {
 			const cmb = hCmbCol[c];
@@ -346,7 +367,7 @@ function combining() {	// 結合
 				switch (cmb) {
 					case 'bg':
 					case 'fg':
-						inf.style = `background: url(${path_prj + searchPath(td.dataset.fn, EXT_SPRITE)}) repeat-y 50% 0%; background-size: 100% auto;`;
+						inf.style = `background: url(${pathPrj + searchPath(td.dataset.fn, EXT_SPRITE)}) repeat-y 50% 0%; background-size: 100% auto;`;
 						inf.tooltip = `fn=${td.dataset.fn}`;
 						break;
 					case 'bgm':

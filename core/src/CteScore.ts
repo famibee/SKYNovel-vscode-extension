@@ -9,7 +9,7 @@ import {IFn2Path, getNonce} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
 
-import {CustomTextEditorProvider, TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position, TextDocumentContentChangeEvent} from 'vscode';
+import {CustomTextEditorProvider, TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position} from 'vscode';
 import fs = require('fs-extra');
 
 interface HTDS {
@@ -42,74 +42,103 @@ export class CteScore implements CustomTextEditorProvider {
 		fs.readFileSync(path_ext_res +`score.htm`, {encoding: 'utf8'})
 		.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 		.replace(/\$\{nonce}/g, nonce)
-		.replace(/<tbody>[\s\S]+<\/tbody>/, '<tbody> </tbody>')
+		.replace(/<tbody>[\s\S]+<\/tbody>/, '<tbody/>')
 		.replace(/<div class="card-group">[\s\S]+<\/div><!-- card-group  -->/, '<div class="card-group"> </div><!-- card-group  -->');
 	}
 
 	private	static	hPath2Tokens	: {[path: string]: {
-		uriCurPrj	: Uri;
-		aToken		: string[];
-		skipupd		: boolean;
+		uriPrj	: Uri;
+		htm		: string;
+		skipupd	: boolean;
 	}}	= {};
+	updScore(path: string, curPrj: string, aToken: string[]) {
+		const s = {line: 1};
+		CteScore.hPath2Tokens[path] = {
+			uriPrj	: Uri.parse(curPrj),
+			htm		: CteScore.htmBaseSrc.replace('<tbody/>', `<tbody>${
+				aToken.map((token, i)=> this.token2html(s, token, i)).join('')
+			}</tbody>`),
+			skipupd	: false,
+		};
+
+		const wv = CteScore.hPath2Wv[path];
+		if (wv) wv.html = this.repWvUri(CteScore.hPath2Tokens[path].htm, wv);
+	}
+	private	repWvUri(inp: string, wv: Webview): string {
+		return inp
+		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
+	}
+
 	isSkipUpd(path: string): boolean {
 		const t = CteScore.hPath2Tokens[path];
-//console.log(`fn:CteScore.ts line:38 isSkip path_doc=${path_doc} skip:${t?.skipupd}`);
 		if (t?.skipupd) {t.skipupd = false; return true;}
 		return false;
 	}
-	setAToken(path: string, curPrj: string, aToken: string[]) {
-//console.log(`fn:CteScore.ts line:61 setAToken path=${path}`);
-		CteScore.hPath2Tokens[path] = {
-			uriCurPrj	: Uri.parse(curPrj),
-			aToken		: aToken,
-			skipupd		: false,
-		};
-		this.upd_webview(path);
-	}
+
 
 	separation(path: string) {	// 分離
-		CteScore.hPath2Wb[path]?.postMessage({cmd: 'separation'});
+		CteScore.hPath2Wv[path]?.postMessage({cmd: 'separation'});
 	}
 	combining(path: string) {	// 結合
-		CteScore.hPath2Wb[path]?.postMessage({cmd: 'combining'});
+		CteScore.hPath2Wv[path]?.postMessage({cmd: 'combining'});
 	}
-	updDiffLine(path: string, c: TextDocumentContentChangeEvent, aToken: string[]) {
-		const sta = c.range.start;
-		const end = c.range.end;
-		if (sta.character > 0 || end.character > 0) return;
-		const wb = CteScore.hPath2Wb[path];
-		if (! wb) return;
+	updLine(doc: TextDocument, rng: Range, txt: string, aToken: string[]): boolean {	// 分離状態でコールすること
+		const wv = CteScore.hPath2Wv[doc.fileName];
+		if (! wv) return false;
 
-		if (c.text === '') wb.postMessage({cmd: 'del', sl: sta.line,});
-		else wb.postMessage({
-			cmd	: (sta.line === end.line) ?'ins' :'rep',
-			sl	: sta.line,
-			htm	: c.text === '\n'
-				? this.token2html({line: sta.line +1}, '\n\n', -1)
-				: aToken.map(t=> this.token2html({line: sta.line +1}, t, 0)).join('')
-			.replace(/\$\{webview.cspSource}/g, wb.cspSource)
-			.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(CteScore.localExtensionResRoots)}/`),	// ファイルごとだけでなく分割ごとにも値が変わる
+		const sl = rng.start.line;
+		const el = rng.end.line;
+		if ((rng.start.character > 0 ||
+			rng.end.character > 0) && sl !== el) return true;
+			// 全スキャン。せっかくScoreなので差分更新はオーバースペック
+
+		if (txt === '') {wv.postMessage({cmd: 'del', sl: sl}); return false;}
+
+		wv.postMessage({
+			cmd	: (sl === el && txt.slice(-1) === '\n') ?'ins' :'rep',
+			sl	: sl,
+			htm	: (txt === '\n'
+				? this.token2html({line: sl +1}, '\n\n', -1)
+				: this.repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
+					? ''	// \t(9) タブ、\n(10) 改行
+					: this.token2html({line: sl +1}, t, 0)
+				).join(''), wv))
+				.replace(/<tr .+>|<\/tr>/g, ''),
 		});
+		return false;
+	}
+
+	undefMacro(def_nm: string) {delete CteScore.hTag2Tds[def_nm];}
+	defMacro(def_nm: string, hPrm: any) {
+//console.log(`fn:CteScore.ts line:114 defMacro def_nm:${def_nm} hPrm:${JSON.stringify(hPrm)}`);
+		CteScore.hTag2Tds[def_nm] = ()=> {return {...{
+			icon		: 'icon未指定',
+			btn_face	: 'btn_face未指定',
+		}, ...hPrm}};
 	}
 
 
-	private	static	hPath2Wb	: {[path: string]: Webview}	= {};
+	private	static	hPath2Wv	: {[path: string]: Webview}	= {};
 	async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
 		const t = CteScore.hPath2Tokens[doc.fileName];
-		const wb = webviewPanel.webview;
-		CteScore.hPath2Wb[doc.fileName] = wb;
-		wb.options = {
+		const wv = webviewPanel.webview;
+		const path = doc.fileName;
+		CteScore.hPath2Wv[path] = wv;
+		wv.options = {
 			enableScripts: true,
-			localResourceRoots: [CteScore.localExtensionResRoots, t.uriCurPrj,],
+			localResourceRoots: [CteScore.localExtensionResRoots, t.uriPrj],
 		};
-		wb.onDidReceiveMessage(o=> {
+		wv.onDidReceiveMessage(o=> {
 			switch (o.cmd) {
 			case 'info':	window.showInformationMessage(o.text); break;
 			case 'warn':	window.showWarningMessage(o.text); break;
 
-			case 'loaded':	this.upd_webview_db(doc.fileName, true);	break;
-			case 'savehtm':	wb.html = wb.html
-				.replace(/<tbody>[\s\S]+<\/tbody>/, `<tbody>${o.tbody}</tbody>`);	break;
+			case 'loaded':	this.updWv_db(path, true);	break;
+			case 'save_tbody':
+				CteScore.hPath2Tokens[path].htm = wv.html
+				.replace(/<tbody>[\s\S]+<\/tbody>/,`<tbody>${o.tbody}</tbody>`);
+				break;
 
 			case 'move':{
 				const from = o.from, to = o.to;
@@ -132,12 +161,10 @@ export class CteScore implements CustomTextEditorProvider {
 				break;
 
 			case 'add_req':{
-				wb.postMessage({
+				wv.postMessage({
 					cmd	: 'add_res',
 					row	: o.row,
-					htm	: this.token2html({line: o.row}, o.scr, o.row)
-					.replace(/\$\{webview.cspSource}/g, wb.cspSource)
-					.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(CteScore.localExtensionResRoots)}/`),	// ファイルごとだけでなく分割ごとにも値が変わる
+					htm	: this.repWvUri(this.token2html({line: o.row}, o.scr, o.row), wv),
 				});
 
 				t.skipupd = true;
@@ -156,7 +183,7 @@ export class CteScore implements CustomTextEditorProvider {
 				break;
 
 			case 'input':{
-//console.log(`fn:CteScore.ts line:143 input lnum:${o.lnum} nm:${o.nm} val:${o.val}`);
+//console.log(`fn:CteScore.ts line:172 input lnum:${o.lnum} nm:${o.nm} val:${o.val}`);
 				t.skipupd = true;
 				const ed = new WorkspaceEdit();
 				const rng = new Range(o.lnum, 0, o.lnum +1, 0);
@@ -164,10 +191,7 @@ export class CteScore implements CustomTextEditorProvider {
 				ed.replace(
 					doc.uri,
 					new Range(o.lnum, 0, o.lnum +1, 0),
-					txt.replace(
-						new RegExp(`${o.nm}=#.*#`, 'g'),
-						`${o.nm}=#${o.val}#`
-					)
+					txt.replace(/(\S+=#).*#/, `$1${o.val}#`)
 				);
 				workspace.applyEdit(ed);
 			}
@@ -175,7 +199,7 @@ export class CteScore implements CustomTextEditorProvider {
 			}
 		}, false);
 
-		this.upd_webview(doc.uri.path);
+		wv.html = this.repWvUri(CteScore.hPath2Tokens[doc.uri.path].htm, wv);
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
@@ -186,14 +210,14 @@ export class CteScore implements CustomTextEditorProvider {
 		// NOTE: sn→ssnらしきものに強制改行を入れるのならここでか
 	}
 	private	static	regFld	= /\w+/;
-	private	upd_webview_db(path: string, combining: boolean) {
+	private	updWv_db(path: string, combining: boolean) {
 		const hFld2: {[fld: string]: {
 			ext		: string;
 			path	: string;
 			fn		: string;
 		}[]} =	{};
 		const t = CteScore.hPath2Tokens[path];
-		const hPath = CteScore.hPrj2hPath[t.uriCurPrj.path];
+		const hPath = CteScore.hPrj2hPath[t.uriPrj.path];
 		for (const fn in hPath) {
 			const p = hPath[fn];
 			for (const ext in p) {
@@ -210,37 +234,26 @@ export class CteScore implements CustomTextEditorProvider {
 			}
 		}
 
-		const wb = CteScore.hPath2Wb[path];
-		wb.postMessage({
+		const wv = CteScore.hPath2Wv[path];
+		wv.postMessage({
 			cmd			: 'upd_db',
-			path_prj	: String(wb.asWebviewUri(t.uriCurPrj)),	// 最後に「/」必要
+			pathPrj		: String(wv.asWebviewUri(t.uriPrj)),	// 最後に「/」必要
 			hFld2url	: hFld2,
 			hPath		: hPath,
 			combining	: combining,
 		});
 	}
 
+
 	private	static	hPrj2hPath	: {[prj: string]: IFn2Path}	= {};
 	updPath(curPrj: string, hPath: IFn2Path) {
 		CteScore.hPrj2hPath[curPrj] = hPath;
 		for (const path_doc in CteScore.hPath2Tokens) {
-			if (path_doc in CteScore.hPath2Wb
-			&&	CteScore.hPath2Tokens[path_doc].uriCurPrj.path === curPrj) this.upd_webview_db(path_doc, false);
+			if (path_doc in CteScore.hPath2Wv
+			&&	CteScore.hPath2Tokens[path_doc].uriPrj.path === curPrj) this.updWv_db(path_doc, false);
 		}
 	}
 
-	private upd_webview(path: string) {
-		let stt = {line: 1};
-		const wb = CteScore.hPath2Wb[path];
-		if (! wb) return;
-		wb.html = CteScore.htmBaseSrc
-		.replace('<tbody> </tbody>', `<tbody>${
-			CteScore.hPath2Tokens[path].aToken
-			.map((token, idx)=> this.token2html(stt, token, idx)).join('')
-		}</tbody>`)
-		.replace(/\$\{webview.cspSource}/g, wb.cspSource)
-		.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(CteScore.localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
-	}
 
 	private	token2html(stt: {line: number}, token: string, idx: number): string {
 		let tds = '';
@@ -273,11 +286,14 @@ export class CteScore implements CustomTextEditorProvider {
 
 			case 59:	// ; コメント
 				tds = this.make_tds(
-					0, stt.line, 'btn-outline-light btn-rounded" data-face="true',
+					0, stt.line, 'btn-outline-light btn-rounded dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-comment-dots',
 					token.slice(1, 11) +'…',
-					token.slice(1),
-				);
+					token.slice(1), `
+	<div class="form-outline col-12">
+		<textarea class="form-control" placeholder="コメントを入力" cols="40" rows="2" data-nm="text" id="sn-cm${idx}">${token}</textarea>
+		<label class="form-label" for="sn-cm${idx}">コメント</label>
+	</div>`		);
 				break;
 
 			case 42:	// * ラベル
@@ -288,7 +304,6 @@ export class CteScore implements CustomTextEditorProvider {
 				break;
 
 			case 91:	// [ タグ開始
-//console.log(`fn:CteScore.ts line:191 line:${line} token:${token}`);
 				let lineTkn = 0;	// 複数行タグでの行カウント補正
 				let j = -1;
 				while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
@@ -327,84 +342,82 @@ export class CteScore implements CustomTextEditorProvider {
 		if (! g) return '';
 
 		const t2t = CteScore.hTag2Tds[g.name];
-		if (t2t) {
-			CteScore.alzTagArg.go(g.args);
-			const oTds = t2t(CteScore.alzTagArg.hPrm);
-			const len = oTds.args ?oTds.args.length : 0;
-			const frm_style =
-				len === 1 ?'col-12 col-sm-3 col-md-2'
-			:	len === 2 ?'col-2'
-			:	'';
-			return this.make_tds(
-				oTds.col ?? 0, line,
-				(oTds.btn_style ?? 'btn-secondary')
-				+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
-				oTds.icon, oTds.btn_face,
-				oTds.tooltip ?? g.args,
-				oTds.args ?oTds.args.map(v=> {
-					let ret = '';
-					let fo = 'form-outline';
-					switch (v.type) {
-						case 'bool':	ret = `
-<div class="form-check ml-3 py-2 ${frm_style}">
-	<input type="checkbox" value="${v.val}" class="form-check-input px-0" id="sn-chk${row}" checked/>
-	<label class="form-check-label" for="sn-chk${row}">${v.hint ?? v.name}</label>
-</div>`;					break;
-
-						case 'rule':	ret = `
-<div class="input-group mb-3 ${frm_style}">
-	<button type="button" class="btn btn-success btn-sm px-2 text-start text-lowercase sn-fld" id="sn-btn${row}" data-ripple-color="dark" data-target="#sn-grpModal" data-title="背景選択" data-fld="rule">
-		<i class="fas fa-image"></i>
-		${v.hint ?? v.name}
-	</button>
-</div>`;
-/*
-	<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${row}" readonly/>
-
-
-						case 'rule':	ret = `
-<div class="input-group mb-3 ${frm_style}">
-	<button type="button" class="btn btn-success btn-sm px-2 text-start text-lowercase sn-fld" id="sn-btn${row}" data-ripple-color="dark" data-mdb-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-fld="rule">
-		<i class="fas fa-image"></i>
-		${v.hint ?? v.name}
-	</button>
-	<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${row}" readonly/>
-</div>`;
-*/
-							fo = '';
-							// form-outlineを使うとエラー
-							// しかもhtm出力して動かさないとわからない
-							break;
-
-						case 'textarea':
-							ret = `
-<textarea class="form-control" placeholder="${v.hint ?? v.name}を入力" cols="40" rows="2" data-nm="${v.name}" id="sn-ta${row}">${v.val}</textarea>
-<label class="form-label" for="sn-ta${row}">${v.hint ?? v.name}</label>`;
-							break;
-
-						default:	ret = `
-<input type="${
-	v.type === 'num' ?'number' :'text'
-}" value="${v.val}" id="sn-txf${row}" class="form-control ${frm_style}"/>
-<label class="form-label" for="sn-txf${row}">${v.hint ?? v.name}</label>`;
-					}
-					return `
-<div class="${fo} col-12 ${
-	len === 1	? ''
-	: len === 2	? 'col-md-6'
-	: 'col-md-6 col-lg-4'
-} mt-3 ${
-	v.type === 'bool' ?'pt-2' :''
-}">${ret}</div>`;
-				}).join('') :'',
-				oTds.td_style ?? '',
-				oTds.detail ?? '',
-			);
-		}
-
-		return this.make_tds(
+		if (! t2t) return this.make_tds(
 			0, line, 'btn-light',
 			'fa-code', g.name, g.args,
+		);
+
+		CteScore.alzTagArg.go(g.args);
+		const oTds = t2t(CteScore.alzTagArg.hPrm);
+		const len = oTds.args ?oTds.args.length : 0;
+		const frm_style =
+			len === 1 ?'col-12 col-sm-3 col-md-2'
+		:	len === 2 ?'col-2'
+		:	'';
+		return this.make_tds(
+			oTds.col ?? 0, line,
+			(oTds.btn_style ?? 'btn-secondary')
+			+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
+			oTds.icon, oTds.btn_face,
+			oTds.tooltip ?? g.args,
+			oTds.args ?oTds.args.map(v=> {
+				let ret = '';
+				let fo = 'form-outline';
+				switch (v.type) {
+					case 'bool':	ret = `
+<div class="form-check ml-3 py-2 ${frm_style}">
+<input type="checkbox" value="${v.val}" class="form-check-input px-0" id="sn-chk${row}" checked/>
+<label class="form-check-label" for="sn-chk${row}">${v.hint ?? v.name}</label>
+</div>`;					break;
+
+					case 'rule':	ret = `
+<div class="input-group mb-3 ${frm_style}">
+<button type="button" class="btn btn-success btn-sm px-2 text-start text-lowercase sn-fld" id="sn-btn${row}" data-ripple-color="dark" data-target="#sn-grpModal" data-title="背景選択" data-nm="rule">
+	<i class="fas fa-image"></i>
+	${v.hint ?? v.name}
+</button>
+</div>`;
+/*
+<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${row}" readonly/>
+
+
+					case 'rule':	ret = `
+<div class="input-group mb-3 ${frm_style}">
+<button type="button" class="btn btn-success btn-sm px-2 text-start text-lowercase sn-fld" id="sn-btn${row}" data-ripple-color="dark" data-mdb-toggle="modal" data-target="#sn-grpModal" data-title="背景選択" data-nm="rule">
+	<i class="fas fa-image"></i>
+	${v.hint ?? v.name}
+</button>
+<input type="text" value="${v.val}" class="form-control" placeholder="${v.hint ?? v.name}" aria-label="${v.hint ?? v.name}" aria-describedby="sn-btn${row}" readonly/>
+</div>`;
+*/
+						fo = '';
+						// form-outlineを使うとエラー
+						// しかもhtm出力して動かさないとわからない
+						break;
+
+					case 'textarea':
+						ret = `
+<textarea class="form-control" placeholder="${v.hint ?? v.name}を入力" cols="40" rows="2" data-nm="${v.name}" id="sn-ta${row}">${v.val}</textarea>
+<label class="form-label" for="sn-ta${row}">${v.hint ?? v.name}</label>`;
+						break;
+
+					default:	ret = `
+<input type="${
+v.type === 'num' ?'number' :'text'
+}" value="${v.val}" id="sn-txf${row}" class="form-control ${frm_style}"/>
+<label class="form-label" for="sn-txf${row}">${v.hint ?? v.name}</label>`;
+				}
+				return `
+<div class="${fo} col-12 ${
+len === 1	? ''
+: len === 2	? 'col-md-6'
+: 'col-md-6 col-lg-4'
+} mt-3 ${
+v.type === 'bool' ?'pt-2' :''
+}">${ret}</div>`;
+			}).join('') :'',
+			oTds.td_style ?? '',
+			oTds.detail ?? '',
 		);
 	}
 
@@ -419,7 +432,7 @@ export class CteScore implements CustomTextEditorProvider {
 			args		: [
 				{name: 'text', type: 'textarea', val: hPrm.text?.val ?? '', hint: '本文テキスト'},
 			],
-			detail		: `<form><textarea class="form-control bg-light" placeholder="本文テキストを入力">${hPrm.text?.val ?? ''}</textarea></form>`,
+			detail		: `<form><textarea class="form-control bg-light" placeholder="本文テキストを入力" data-nm="text">${hPrm.text?.val ?? ''}</textarea></form>`,
 		}},
 
 		jump		: hPrm=> {return {
@@ -718,7 +731,7 @@ export class CteScore implements CustomTextEditorProvider {
 	</td>`+
 	'<td></td>'.repeat(8 -col) +`
 	<td class="p-0">${
-		detail ?detail :`
+		detail || `
 		<button type="button" class="btn btn-block btn-sm px-2 text-start text-lowercase ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="sn-btn${line}" draggable="true"${
 			tooltip
 			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
