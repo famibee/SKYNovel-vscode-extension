@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PnlPrjSetting} from './PnlPrjSetting';
 
@@ -103,7 +103,7 @@ export class Project {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.crePrj(uri);
-				this.codSpt.crePrj(uri);
+				if (REG_SCRIPT.test(uri.path)) this.codSpt.crePrj(uri);
 			}),
 			fwPrj.onDidChange(uri=> {
 				// エディタで開いたファイルは更新監視をしない。文字変更イベントで処理する
@@ -112,13 +112,13 @@ export class Project {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.chgPrj(uri);
-				this.codSpt.chgPrj(uri);
+				if (REG_SCRIPT.test(uri.path)) this.codSpt.chgPrj(uri);
 			}),
 			fwPrj.onDidDelete(uri=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.delPrj(uri);
-				this.codSpt.delPrj(uri);
+				if (REG_SCRIPT.test(uri.path)) this.codSpt.delPrj(uri);
 			}),
 			fwPrjJs.onDidChange(e=> this.chgPrj(e)),
 

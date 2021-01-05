@@ -53,8 +53,8 @@ export const statBreak: {(): string} =
 // 階層フォルダ逐次処理
 import m_fs = require('fs-extra');
 import {resolve, basename, extname} from 'path';
-const regNoUseSysFile = /^(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
-export const regNoUseSysPath = /\/(\..+|.+.db|.+.ini|_notes|Icon\r)$/;
+const regNoUseSysFile = /^(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
+export const regNoUseSysPath = /\/(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 
 export function treeProc(wd: string, fnc: (url: string)=> void) {
 	m_fs.readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {

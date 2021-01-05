@@ -211,9 +211,9 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		aChgTxt.forEach(e=> {
 			const doc = e.document;
 			const path = doc.fileName;
+			hDoc[path] = doc;
 			if (path.slice(-4) !== '.ssn') return;
 
-			hDoc[path] = doc;
 //console.log(`fn:ScriptScanner.ts line:217 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
