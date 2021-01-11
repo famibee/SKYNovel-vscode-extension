@@ -54,6 +54,7 @@ export declare class ScriptScanner {
     private goFinishFile;
     isSkipUpd(path: string): boolean;
     private static readonly REG_SPRITE;
+    private static readonly REG_NOSPR;
     private static readonly REG_SOUND;
     private static readonly REG_HTML;
     private scanFile;

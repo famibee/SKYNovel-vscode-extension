@@ -3,6 +3,7 @@
 
 ***
 - name	y	マクロ名	String	既存のタグやマクロと重複しないマクロ名
+- nowarn_unused		false	Boolean	true：未使用警告を止める
 
 ***
 name=${1:マクロ名}]

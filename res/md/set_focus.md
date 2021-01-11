@@ -5,6 +5,7 @@
 - to	y		prev、next、null	prev……追加順で前に移動<br/>next……追加順で次に移動<br/>null……どの[button][link]にもフォーカスがない状態にする
 - add	y		（querySelectorAll()引数なセレクタ指定）	[event key='dom=（略）']指定していないフレーム内HTML要素にフォーカス移動対象に加えられる。<br/>【例】[set_focus add='dom=archive:.card-image,.btn_delete']
 - del	y		（querySelectorAll()引数なセレクタ指定）	フォーカス移動対象から外す。<br/>【例】[set_focus del='dom=archive:.card-image,.btn_delete']
+- need_err		true	Boolean	HTML内にセレクタ（add・del属性）に対応する要素が見つからない場合にエラーを出すか
 
 ***
 to=${1|prev,next,null|}

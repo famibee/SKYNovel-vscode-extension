@@ -47,6 +47,8 @@ export class ScriptScanner {
 		this.hTagProc['link'] =
 		this.hTagProc['return'] = this.hTagProc['s'];
 		this.hTagProc['else'] = this.hTagProc['elsif'];
+
+		this.cteScore	= new CteScore(curPrj);
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
@@ -95,7 +97,11 @@ export class ScriptScanner {
 		for (const key in this.hSetWords) {
 			const set = this.hSetWords[key];
 			const str = `|${[...set.values()].sort().join(',')}|`;
-			if (this.hPreWords[key] !== str) eq = false;
+			if (this.hPreWords[key] !== str) {
+				eq = false;
+				this.cteScore.updWords(key, set);
+					// この中は参照渡しとReq/Res型なので、更新確認は別にいらない
+			}
 			this.hPreWords[key] = (str === '||') ?`:${key}` :str;
 		}
 		if (eq) return;
@@ -327,12 +333,12 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 			if (doc) {
 				const hMacroOld = this.hMacroOld;
 				for (const nm in hMacroOld) {
-					if ((! (nm in this.hMacro))	// マクロ定義が削除された
-					||	JSON.stringify(Object.entries(this.hMacro[nm].hPrm).sort())
-					!==	JSON.stringify(Object.entries(hMacroOld[nm].hPrm).sort()))
+					if (! (nm in this.hMacro)	// マクロ定義が削除された
+					||	Object.entries(this.hMacro[nm].hPrm).sort().join()
+					!==	Object.entries(hMacroOld[nm].hPrm).sort().join())
 					// マクロ定義の引数が更新された
 					this.hMacroUse[nm]?.forEach(loc=> {
-						const txt = doc.lineAt(loc.range.start.line).text;
+						const txt =doc.lineAt(loc.range.start.line).text.trim();
 						this.cteScore.updLine(
 							doc,
 							loc.range,
@@ -344,7 +350,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 
 				// 追加されたマクロ定義
 				this.aMacroAdd.forEach(nm=> this.hMacroUse[nm]?.forEach(loc=> {
-					const txt = doc.lineAt(loc.range.start.line).text;
+					const txt = doc.lineAt(loc.range.start.line).text.trim();
 					this.cteScore.updLine(
 						doc,
 						loc.range,
@@ -368,7 +374,9 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		return this.cteScore.isSkipUpd(path);
 	}
 
-	private	static	readonly	REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;
+	private	static	readonly	REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;	// https://regex101.com/r/DPaLv3/1
+	private	static	readonly	REG_NOSPR	= /\/(path|prj)\.json$/;
+		// https://regex101.com/r/DPaLv3/2
 //	private	static	readonly	REG_FONT	= /\.(woff2|otf|ttf)$/;
 	private	static	readonly	REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
 	private	static	readonly	REG_HTML	= /\.(htm|html)$/;
@@ -377,6 +385,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		const fn = CmnLib.getFn(path);
 		if (! REG_SCRIPT.test(path)) {
 			if (ScriptScanner.REG_SPRITE.test(path)) {
+				if (ScriptScanner.REG_NOSPR.test(path)) return;
 				this.hSetWords['画像ファイル名'].add(fn);
 			}
 			else if (ScriptScanner.REG_SOUND.test(path)) {
@@ -403,8 +412,8 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		);
 	}
 
-	private	readonly	cteScore	= new CteScore;
-	updPath(hPath: IFn2Path) {this.cteScore.updPath(this.curPrj, hPath);}
+	private	readonly	cteScore	: CteScore;
+	updPath(hPath: IFn2Path) {this.cteScore.updPath(hPath);}
 
 	private			readonly	alzTagArg	= new AnalyzeTagArg;
 	private	static	readonly	regValName
@@ -520,7 +529,7 @@ sn.tagL.enabled`.replace(/\n/g, ',');
 		};
 
 		const p = {line: 0, col: 0};
-		const a = this.resolveScript(src).aToken;
+		const a = this.resolveScript(src.trim()).aToken;
 		a.forEach(token=> {if (token) this.fncToken(p, token)});
 		if (isUpdScore && path.slice(-4) === '.ssn') this.cteScore.updScore(path, this.curPrj, a);
 	}

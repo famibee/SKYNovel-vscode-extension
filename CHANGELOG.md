@@ -1,3 +1,11 @@
+## v3.5.3
+- fix: [dump_script][event][set_focus]コード補完機能にneed_err属性についての記述追加
+- fix: 内部修正・開発中
+	- リファクタリング
+	- 項目にselect・range type追加
+	- mes_c2pレイヤ削除
+	- colを辞書駆動に
+	- 画像ファイル名辞書にpath.json、prj.jsonが含まれていた件
 ## v3.5.2
 - fix: .snファイル変更監視の不具合修正
 ## v3.5.1

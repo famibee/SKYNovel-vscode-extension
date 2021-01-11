@@ -36,7 +36,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<th class="p-1" data-cmb="fg">1</th>
 	<th class="p-1" data-cmb="fg">2</th>
 	<th class="p-1">mes</th>
-	<th class="p-1">mes_c2p</th>
 	<th class="p-1" data-cmb="bgm">BGM</th>
 	<th class="p-1">SE</th>
 	<th class="p-1">詳細</th>
@@ -53,7 +52,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
 		</button>
 	</td>
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -87,7 +85,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="modal" data-mdb-target="#sn-rid1Modal">
 			<i class="fa fa-cog" aria-hidden="true"></i>
@@ -114,7 +111,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="modal" data-mdb-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
 			<i class="fas fa-image"></i>
@@ -135,7 +131,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="free04">
 		<button type="button" class="btn btn-info btn-block btn-sm" data-ripple-color="dark" data-mdb-toggle="tooltip" title="fn=free04">
 			<i class="fa fa-play" aria-hidden="true"></i>
@@ -143,10 +138,85 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td></td>
 	<td class="p-0">
-		<button type="button" class="btn btn-info btn-block btn-sm px-2 text-start" data-ripple-color="dark">
+		<button type="button" class="btn btn-info btn-block btn-sm dropdown-toggle px-2 text-start" data-ripple-color="dark" data-mdb-toggle="dropdown" aria-expanded="false">
 			<i class="fa fa-play" aria-hidden="true"></i>
 			free04
 		</button>
+		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
+			<form class="p-1 d-flex flex-wrap">
+		<div class="form-outline col-12 col-md-6 col-lg-4 mt-2 mb-1">
+
+<input class="form-control" list="${id}lst" id="${id}dl" placeholder="検索..." data-key="${v.key}" data-filter="${v.filter}" value="New York"/>
+<label for="${id}dl" class="form-label">${v.hint ?? v.name}</label>
+<datalist id="${id}lst">
+	<option>San Francisco</option>
+	<option>New York</option>
+	<option>Seattle</option>
+	<option>Los Angeles</option>
+	<option>Chicago</option>
+</datalist>
+<script>
+	document.addEventListener('DOMContentLoaded', ()=> {
+		document.getElementById('${id}dl').addEventListener('click', e=> {
+console.log(`fn:score.htm line:167 click`);
+			e.stopPropagation();
+		});
+	});
+</script>
+
+		</div>
+		<div class="form-outline0 col-12 col-md-6 col-lg-4 mt-2 mb-1 px-3">
+
+			<div class="form-control">
+				<label class="form-label select-label" for="sn-3sel">音声ファイル名</label>
+				<select class="select" id="sn-3sel">
+					<option>San Francisco</option>
+					<option selected>New York</option>
+					<option>Seattle</option>
+					<option>Los Angeles</option>
+					<option>Chicago</option>
+				</select>
+			</div>
+<script>
+	document.addEventListener('DOMContentLoaded', ()=> {
+		for (const c of document.getElementsByTagName('select')) {
+			c.addEventListener('click', e=> {
+console.log(`fn:score.htm line:186 click`);
+				e.stopPropagation();
+			});
+		}
+	});
+</script>
+
+		</div>
+		<div class="form-outline col-12 col-md-6 col-lg-4 mt-2 mb-1">
+
+			<div class="range form-control">
+			<label class="form-label" for="sn-3:3rng2">不透明度（0.0 - 1.0）</label>
+				<input type="range" id="sn-3:3rng2" class="form-range" min="0.0" max="1.0" step="0.1" value="1"/>
+			</div>
+
+		</div>
+		<div class="form-outline0 col-12 col-md-6 col-lg-4 mt-2 mb-1">
+
+			<div class="form-control">
+			<div class="form-check">
+				<input type="checkbox" id="sn-3:4chk" class="form-check-input" value=""/>
+				<label class="form-check-label" for="sn-3:4chk">
+					Default checkbox
+				</label>
+			</div>
+			</div>
+
+		</div>
+		<div class="form-outline col-12 col-md-6 col-lg-4 mt-2 mb-1">
+
+			<input type="text" value="音声" id="sn-3:2tx" class="form-control"/>
+			<label class="form-label" for="sn-3:2tx">再開時の再生停止</label>
+
+		</div>
+			</form>
+		</div>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
@@ -163,7 +233,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			<i class="fas fa-user"></i>
 		</button>
 	</td>
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -205,7 +274,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<form><textarea class="form-control bg-light" placeholder="本文テキストを入力">　さゞえも鬼になるまじきものにもあらずと、夢心におもひぬ。</textarea></form>
 	</td>
@@ -229,7 +297,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-mdb-toggle="dropdown" aria-expanded="false">
 			<i class="fas fa-align-left"></i>
@@ -245,11 +312,11 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			</div>
 		</div>
 		<div class="form-outline col-12 col-md-6 col-lg-4 mt-2 mb-1">
-			<input type="number" value="500" id="sn-txf${i}" class="form-control"/>
+			<input type="number" value="500" id="sn-txf6_1${i}" class="form-control"/>
 			<label class="form-label" for="sn-txf${i}">再開時の効果音FO時間</label>
 		</div>
 		<div class="form-outline col-12 col-md-6 col-lg-4 mt-2 mb-1">
-			<input type="text" value="音声" id="sn-txf2{i}" class="form-control"/>
+			<input type="text" value="音声" id="sn-txf6_2{i}" class="form-control"/>
 			<label class="form-label" for="sn-txf2{i}">再開時の再生停止</label>
 		</div>
 
@@ -276,7 +343,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
 			<i class="fas fa-hourglass-start" aria-hidden="true"></i>
@@ -291,7 +357,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="8">
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -330,7 +395,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-start" data-ripple-color="dark">
 			<i class="fas fa-user"></i>
@@ -357,7 +421,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-outline-success btn-block btn-sm px-2 text-start" data-ripple-color="dark">
 			<i class="fas fa-image"></i>
@@ -372,7 +435,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="11">
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -406,7 +468,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid9Modal">
 			(空白セル)
@@ -420,7 +481,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="13">
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -447,7 +507,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -456,7 +515,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="15">
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -483,7 +541,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td></td>
 	<td></td>
-	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
 			<i class="fas fa-times"></i>
@@ -492,7 +549,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 </tr>
 
 <tr data-row="17">
-	<td></td>
 	<td></td>
 	<td></td>
 	<td></td>
@@ -621,11 +677,21 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 				<input type="color" id="init.bg_color" value="#000000" class="form-control"/>
 				<label class="form-label" for="init.bg_color">背景色</label>
 			</div></div>
-
+<!--
 			<div class="col-12 px-1 pt-3"><h5>暗号化しないフォルダ</h5></div>
-			<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check"><input id="code.script" type="checkbox" class="form-check-input sn-chk"/><label class="form-label"><span>script</span></label></div>
+			<div class="form-outline0 col-12 px-1 pt-3">
+				<div class="form-control">
+				<div class="form-check">
+					<input type="checkbox" id="code.script" class="form-check-input" value=""/>
+					<label class="form-check-label" for="code.script">
+						script
+					</label>
+				</div>
+				</div>
+			</div>
+-->
 				<!-- これのみテンプレ。内部置換のため spanは必須、改行も禁止 -->
-
+<!--
 		</div></div>
 		<div class="tab-pane fade" id="sn-rid1tab-tabs-3" role="tabpanel" aria-labelledby="sn-rid1tab-tab-3"><div class="row">
 			<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
@@ -652,7 +718,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 			<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
 				<input id="debug.variable" type="checkbox" class="form-check-input sn-chk"/>
 				<label class="form-label">variable</label></div>
-
+-->
 		</div></div>
 		</div>
 		<!-- Tabs content -->

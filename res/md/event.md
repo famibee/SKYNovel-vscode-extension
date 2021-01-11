@@ -9,6 +9,7 @@
 - arg		null	String	指定した場合、クリック時ジャンプ先で「&sn.eventArg」にて値を受け取れる
 - url		開くURL	URL文字列	開くURL
 - del		false	Boolean	trueを指定すると予約済みイベントを削除する。<br/>fn/label/callとdelは同時指定できません
+- need_err		true	Boolean	HTML内にセレクタ（key属性）に対応する要素が見つからない場合にエラーを出すか
 
 ***
 key=${1{{イベント名}}} ${2{{ジャンプ先}}} global=${3|true,false|}

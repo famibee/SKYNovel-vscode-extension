@@ -57,7 +57,7 @@ export class CodingSupporter implements
 	constructor(ctx: ExtensionContext, pathWs: string, curPrj: string) {
 		this.lenRootPath = pathWs.length +1;
 		CodingSupporter.initClass(ctx);
-		CodingSupporter.pickItems.map(q=> this.hArgDesc[q.label] = {
+		CodingSupporter.pickItems.forEach(q=> this.hArgDesc[q.label] = {
 			label	: `[${q.label} ...]`,
 			doc		: q.description ?? 'タグの説明',
 		});

@@ -14,8 +14,8 @@ console.log(`fn:score.js line:11 show.bs.modal`);
 	}, {passive: true});
 
 	trHd = document.querySelector('tr');
-	aTr = Array.from(document.querySelectorAll('tr')).slice(1);
-	next_id = lenTr = aTr.length;
+	updATr();
+	next_id = lenTr;
 	rsv_ev();
 	vscode?.postMessage({cmd: 'loaded'});
 
@@ -30,6 +30,10 @@ function tglEditOff() {
 	Array.from(document.getElementsByClassName('tglEdit'))
 	.forEach(e=> e.classList.add('d-none'));
 }
+function updATr() {
+	aTr = Array.from(document.querySelectorAll('tr')).slice(1);
+	lenTr = aTr.length;
+}
 
 let trHd;
 let aTr = [];
@@ -38,6 +42,7 @@ let next_id = 0;
 let pathPrj = './score_mat/';
 let hFld2url = {};
 let hPath = {};
+let hWords = {};
 
 function show_modal(title, key) {
 	document.getElementById('sn-grpModalLabel').textContent = title;
@@ -55,7 +60,6 @@ function show_modal(title, key) {
 }
 
 window.addEventListener('message', e=> {
-//vscode.postMessage({cmd: 'info', text: `score.js`});
 	if (! e.isTrusted) {
 		vscode.postMessage({cmd: 'warn', text: `(score.js) isTrusted = false`});
 		return;
@@ -76,10 +80,44 @@ window.addEventListener('message', e=> {
 			pathPrj = o.pathPrj;
 			hFld2url = o.hFld2url;
 			hPath = o.hPath;
-			if (o.combining) combining();	// 結合
 			break;
 
-		case 'add_res':{
+		case 'upd_btn_face':{
+			tglEditOff();	// 削除ボタン非表示
+			if (o.ln >= lenTr) break;
+
+			const btn = aTr[o.ln].getElementsByTagName('button');
+			btn[1].innerHTML = o.htm;
+
+			const tbl = document.createElement('tr');
+			tbl.innerHTML = o.td;
+			const vtd = tbl.children[0];
+			if (vtd.classList.contains('sn-cmb-start')) {
+				const td = findTd(btn[0]);
+				td.classList.add('sn-cmb-start');
+				td.dataset.fn = vtd.dataset.fn;
+
+				const tr2tds = aTr[o.ln +1].querySelectorAll('td[rowspan]');
+				if (tr2tds.length > 0) {
+					const td2 = tr2tds[0];
+					td2.title = `${o.nm}=${o.val}`;
+					td2.style.backgroundImage = td2.style.backgroundImage
+					.replace(
+						/(doc\/prj\/).+"\)$/,
+						`$1${searchPath(o.val, EXT_SPRITE)}`
+					);
+				}
+			}
+		}	break;
+
+		case 'del_wds':	delete hWords[o.key];	break;
+		case 'res_wds':
+			const a = hWords[o.key] = o.aWd;
+			hKey2AWdsReq[o.key].forEach(f=> f(a));
+			delete hKey2AWdsReq[o.key];
+			break;
+
+		case 'tool_res':{
 			const tr = document.querySelector(`tr[data-row="${o.row}"]`);
 			tr.innerHTML = o.htm;
 			rsv_ev_one(tr);	// renew()代わりのイベント張り直し
@@ -95,30 +133,31 @@ window.addEventListener('message', e=> {
 			const new_tr = document.createElement('tr');
 			new_tr.dataset.row = next_id++;
 			new_tr.innerHTML = o.htm;
-			if (o.sl >= lenTr) {
+			if (o.ln >= lenTr) {
 				const tr_to = aTr[0];
 				tr_to.parentElement.appendChild(new_tr);
 				aTr.push(new_tr);
 			}
 			else {
-				const tr_to = aTr[o.sl];
+				const tr_to = aTr[o.ln];
 				tr_to.parentElement.insertBefore(new_tr, tr_to);
-				aTr.splice(o.sl, 0, new_tr);
+				aTr.splice(o.ln, 0, new_tr);
 			}
 			++lenTr;
 			rsv_ev_one(new_tr);	// renew()代わりのイベント張り直し
 		}	break;
 		case 'del':
-			if (o.sl < lenTr) aTr[o.sl].remove();
-			aTr.splice(o.sl, 1);
+			if (o.ln < lenTr) aTr[o.ln].remove();
+			aTr.splice(o.ln, 1);
 			--lenTr;
 			break;
 		case 'rep':
 			tglEditOff();	// 削除ボタン非表示
-			if (o.sl >= lenTr) break;
+			if (o.ln >= lenTr) break;
 
-			aTr[o.sl].innerHTML = o.htm;
-			rsv_ev_one(aTr[o.sl]);	// renew()代わりのイベント張り直し
+			aTr[o.ln].innerHTML = o.htm;
+			rsv_ev_one(aTr[o.ln]);	// renew()代わりのイベント張り直し
+			updATr();	// なにを何行追加されるか不明なので
 			break;
 	}
 }, {passive: true});
@@ -134,7 +173,12 @@ function searchPath(path, extptn = '') {
 	let fn = a ?a[1] :path;
 	const ext = a ?a[2] :'';
 	const h_exts = hPath[fn];
-	if (! h_exts) throw `サーチパスに存在しないファイル【${path}】です`;
+	if (! h_exts) {
+		const m = `サーチパスに存在しないファイル【${path}】です`;
+		console.error(m);
+		vscode?.postMessage({cmd: 'err', text: m});
+		throw m;
+	}
 
 	let ret = '';
 	if (! ext) {	// fnに拡張子が含まれていない
@@ -184,14 +228,20 @@ function findTr(nd) {
 	}
 	return nd;
 }
+function findTd(nd) {
+	while (nd.nodeName !== 'TD') {
+		if (nd.nodeName === 'BODY') return null;
+		nd = nd.parentElement;
+	}
+	return nd;
+}
 
 function tr2lnum(nd) {return aTr.findIndex(tr=> tr === nd);}
 
 // イベント張り
 function rsv_ev_one(pa) {
 	// 削除ボタン
-	Array.from(pa.querySelectorAll('button.btn-danger'))
-	.forEach(btn=> btn.addEventListener('click', e=> {
+	for (const btn of pa.querySelectorAll('button.btn-danger')) btn.addEventListener('click', e=> {
 		const nd = findTr(e.target);
 		const lnum = tr2lnum(nd);
 		separation();	// 分離
@@ -201,60 +251,114 @@ function rsv_ev_one(pa) {
 		aTr.splice(lnum, 1);
 		--lenTr;
 		vscode?.postMessage({cmd: 'del', lnum: lnum});
-	}, {passive: true}));
+	}, {passive: true});
 
 	// 本文
-	Array.from(pa.querySelectorAll('button.sn-ext_txt'))
-	.forEach(btn=> new mdb.Dropdown(btn));
+	for (const btn of pa.querySelectorAll('button.sn-ext_txt')) new mdb.Dropdown(btn);
 
 	// テキストエリア
-	Array.from(pa.querySelectorAll('textarea')).forEach(ta=> {
-		const lnum = tr2lnum(findTr(ta));
+	for (const ta of pa.querySelectorAll('input,textarea')) ta=> {
 		new mdb.Input(ta.parentElement).init();
-		ta.addEventListener('input', ()=> {
-			// 高さを自動変更
-			ta.style.height = '10px';
-			let sclH = parseInt(ta.scrollHeight);
-			const lineH = parseInt(window.getComputedStyle(ta).lineHeight);
-			if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
-			ta.style.height = sclH +'px';
+		ta.addEventListener('input', e=> {
+			if (e.target.nodeName === 'TEXTAREA') {
+				// 高さを自動変更
+				ta.style.height = '10px';
+				let sclH = parseInt(ta.scrollHeight);
+				const lineH = parseInt(window.getComputedStyle(ta).lineHeight);
+				if (sclH < lineH *2) sclH = lineH *2;	// 最低2行
+				ta.style.height = sclH +'px';
+			}
 
 			chgOtherTrBrother(ta);	// <TR>内の他の兄弟要素を更新
 
-			vscode.postMessage({cmd: 'input', lnum: lnum, nm: ta.dataset.nm, val: ta.value});
+			vscode.postMessage({cmd: 'input', ln: tr2lnum(findTr(ta)), nm: ta.dataset.nm, val: ta.value});
 		}, {passive: true});
-/*
-		ta.addEventListener('keydown', e=> {
-			if (e.metaKey && e.code === 'KeyZ') e.preventDefault();
-//console.log(`fn:score.js line:238 metaKey:${e.metaKey} shiftKey:${e.shiftKey} code:${e.code}`);
-		}, {passive: true});
-*/
-	});
+	}
 
 	// ドラッグ出来るアイテムの設定
-	Array.from(pa.querySelectorAll('button[draggable="true"]'))
-	.forEach(btn=> btn.addEventListener('dragstart', e=> {
+	for (const btn of pa.querySelectorAll('button[draggable="true"]')) btn.addEventListener('dragstart', e=> {
 		e.dataTransfer.setData('from', 'score');
 		e.dataTransfer.setData('id', e.target.id);
-	}, {passive: true}));
+	}, {passive: true});
 
-	// 
-/*
-	document.querySelectorAll('.sn-chk').forEach(c=> c.addEventListener('input', ()=> {
-		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
-	}, {passive: true}));
-*/
+	// select系
+	for (const s of pa.getElementsByTagName('select')) {
+		for (const btn of findTd(s).getElementsByClassName('dropdown-toggle')) {
+			btn.addEventListener('show.bs.dropdown', ()=> {
+				const fnc = a=> {
+					const f = s.dataset.filter;
+					if (f) {
+						const exp = new RegExp(f);
+						a = a.filter(fn=> {try {
+							return exp.test(searchPath(fn, s.dataset.exts));
+						} catch (e) {
+							return false;
+						}});
+					}
+					s.innerHTML =`
+	<option selected>${s.value}</option>
+	<option value="null">（指定なし）</option><option>${
+		a.sort().join('</option><option>')
+	}</option>`;
+				};
+				const key = s.dataset.key;
+				const a = hWords[key];
+				if (a) fnc(a); else {
+					const aw = hKey2AWdsReq[key];
+					if (aw) {aw.push(fnc); return;}
+					hKey2AWdsReq[key] = [fnc];
+					vscode?.postMessage({cmd: 'req_wds', key: key});
+				}
+			});
+		}
+
+		s.addEventListener('change', ()=> {
+			chgOtherTrBrother(s);	// <TR>内の他の兄弟要素を更新
+
+			vscode.postMessage({cmd: 'input', ln: tr2lnum(findTr(s)), nm: s.dataset.nm, val: s.value});
+		}, {passive: true});
+
+		// dropdownが閉じてしまう対策
+		s.addEventListener('click', e=> e.stopPropagation());
+	}
+	// range系
+	for (const r of pa.querySelectorAll('input[type="range"]')) {
+		r.addEventListener('change', ()=> {
+			chgOtherTrBrother(r);	// <TR>内の他の兄弟要素を更新
+
+			vscode?.postMessage({cmd: 'input', ln: tr2lnum(findTr(r)), nm: r.dataset.nm, val: r.value});
+		}, {passive: true});
+	}
+	// checkbox系
+	let skipDummyChkEv = false;
+	for (const r of pa.querySelectorAll('input[type="checkbox"]')) {
+		r.addEventListener('change', e=> {
+			if (skipDummyChkEv) {skipDummyChkEv = false; return;}
+
+			chgOtherTrBrother(r);	// <TR>内の他の兄弟要素を更新
+
+			vscode?.postMessage({cmd: 'input', ln: tr2lnum(findTr(r)), nm: r.dataset.nm, val: r.checked});
+		}, {passive: true});
+
+		// dropdownが閉じてしまう対策2(vscodeではこれもいる)
+		r.addEventListener('click', e=> e.stopPropagation());
+		// dropdownが閉じてしまう対策
+		r.nextElementSibling.addEventListener('click', e=> {
+			e.stopPropagation();
+			skipDummyChkEv = true;	// 以下によるイベント重複対策
+			r.click();		// チェックが入らないので手動
+		});
+	}
 }
+let hKey2AWdsReq = {};
 function chgOtherTrBrother(cmp) {	// <TR>内の他の兄弟要素を更新
-	const tr = findTr(cmp);
-	Array.from(tr.querySelectorAll(`[data-nm]`)).forEach(c=> {
+	Array.from(findTr(cmp).querySelectorAll(`[data-nm=${cmp.dataset.nm}]`)).forEach(c=> {
 		if (c === cmp) return;
 		c.value = cmp.value;
 	});
 }
 function rsv_ev() {
-	// イベント張り
-	rsv_ev_one(document);
+	rsv_ev_one(document);	// イベント張り
 
 	// ドラッグ＆ドロップ関連
 	const tb = document.getElementsByTagName('tbody')[0];
@@ -285,8 +389,7 @@ function rsv_ev() {
 		const from = e.dataTransfer.getData('from');
 		const id = e.dataTransfer.getData('id');
 
-		let to = 0;	// 見出し含まず、<tr>一行目を0とする
-		for (; to<lenTr; ++to) if (aTr[to] === tr_to) break;
+		const to = tr2lnum(tr_to);	// 見出し含まず、<tr>一行目を0とする
 		const pa = tr_to.parentElement;
 		if (from === 'toolbox') {
 			const new_tr = document.createElement('tr');
@@ -298,15 +401,13 @@ function rsv_ev() {
 			// 後で	combining();	// 結合
 
 			const scr = e.dataTransfer.getData('scr');
-			vscode?.postMessage({cmd: 'add_req', id: id, row: next_id++, scr: scr, to: to});
+			vscode?.postMessage({cmd: 'tool_put', id: id, row: next_id++, scr: scr, to: to});
 			return;
 		}
 
 		if (from === 'score') {
 			const tr_from = findTr(document.getElementById(id));
-			let fr = 0;
-			for (; fr<lenTr; ++fr) if (aTr[fr] === tr_from) break;
-
+			const fr = tr2lnum(tr_from);
 			separation();	// 分離
 			if (fr +1 === to) {
 				pa.insertBefore(tr_to, tr_from);
@@ -351,7 +452,6 @@ function combining() {	// 結合
 		if (cmb) hCmbCol[i] = cmb;
 	}
 
-	aTr = Array.from(document.querySelectorAll('tr')).slice(1);
 	aTr.forEach(tr=> {
 		for (let c=lenCols -1; c>=0; --c) {
 			const cmb = hCmbCol[c];
@@ -400,9 +500,7 @@ function separation() {	// 分離
 	const lenCols = trHd.children.length;
 	let aInf = Array(lenCols);
 	for (let i=0; i<lenCols; ++i) {
-		aInf[i] = {
-			rowSpan	: 0,
-		};
+		aInf[i] = {rowSpan: 0,};
 		const cmb = trHd.children[i].dataset.cmb;
 		if (cmb) hCmbCol[i] = cmb;
 	}
@@ -420,7 +518,7 @@ function separation() {	// 分離
 			if (td.rowSpan > 1) {
 				td.removeAttribute('style');
 				inf.rowSpan = td.rowSpan -1;
-				td.rowSpan = 1;
+				delete td.rowSpan;
 				td.title = '';
 			}
 		}
