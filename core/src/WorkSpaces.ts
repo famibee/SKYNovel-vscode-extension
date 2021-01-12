@@ -5,11 +5,12 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, statBreak, is_win, treeProc} from './CmnLib';
+import {statBreak, is_win, treeProc} from './CmnLib';
 import {Project} from './Project';
 import {CteScore} from './CteScore';
+import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, commands, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, ThemeIcon, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri} from 'vscode';
 
 import fs = require('fs-extra');
 import archiver = require('archiver');
@@ -26,13 +27,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
 	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
-	private	readonly aTreeTmp	: {
-		cmd		: string,
-		icon	: string,
-		label	: string,
-		desc?	: string,
-		npm?	: string,
-	}[] = [
+	private	readonly aTreeTmp	: TREEITEM_CFG[] = [
 		{cmd: 'PrjSet',		icon: 'gear',		label: 'プロジェクト設定'},
 		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
 			npm: `npm un -S skynovel ${statBreak()
@@ -49,49 +44,43 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			npm: 'npm run web'},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
 			npm: 'npm run start'},
-		{cmd: 'PackWin',	icon: 'windows',	label: '生成：Windows exe x64',
-			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
-		//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
-				// 一パッケージに統合型、ファイルサイズ二倍になる
-		{cmd: 'PackWin32',	icon: 'windows',	label: '生成：Windows exe ia32',
-			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
-		{cmd: 'PackMac',	icon: 'macosx',		label: '生成：macOS dmg x64',
-			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`},
-		{cmd: 'PackMacArm64',	icon: 'macosx',	label: '生成：macOS dmg arm64',
-			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`},
-			// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
-				// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
-		{cmd: 'PackLinux',	icon: 'linux',		label: '生成：Linux AppImage',
-			npm: `npm run webpack:pro ${statBreak()
-			} ./node_modules/.bin/electron-builder -l`},
-			// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
-		{cmd: 'PackFreem',	icon: 'freem',		label: '生成：ふりーむ！形式 zip',
-			npm: 'npm run webpack:pro'},
+		{cmd: '', icon: '',label: '生成', children: [
+			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
+			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
+					// 一パッケージに統合型、ファイルサイズ二倍になる
+			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
+			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`,
+				forMac: true,},
+			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`,
+				forMac: true,},
+				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
+					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
+			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -l`},
+				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
+			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
+				npm: 'npm run webpack:pro'},
+		]},
 	];
 	private	readonly idxDevPrjSet	= 1;
 	private	readonly idxDevCrypto	= 3;
-	private	readonly aIdxDevPackMac	= [9, 10];
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
-		if (is_win) this.aIdxDevPackMac.forEach(i=> {
-			const tc = this.aTreeTmp[i];
-			tc.label = '';
-			tc.cmd = '';
-			tc.desc = '（Windowsでは使えません）';
-		});
-
 		CteScore.init(ctx);
 
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
-
-		this.aTreeTmp.forEach(v=> {if (v.cmd) ctx.subscriptions.push(commands.registerCommand('skynovel.dev'+ v.cmd, ti=> this.onClickTreeItemBtn(ti)))});
 
 		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.name](e));
 
@@ -184,34 +173,27 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {
-		const t = new TreeItem('', TreeItemCollapsibleState.Collapsed);
 		const dir = wsFld.uri.fsPath;
-		t.iconPath = ThemeIcon.Folder;
-		t.tooltip = dir;	// 他のキーになっているので変更不可
-		t.description = wsFld.name;
-		this.aTiRoot.push(t);
-
 		const existPkgJS = fs.existsSync(dir +'/package.json');
-		const existPrjJS = fs.existsSync(dir +'/doc/prj/prj.json');
-		if (! existPkgJS || ! existPrjJS) {
-			const ti = new TreeItem(`${existPkgJS ?'prj' :'package'}.json がありません`);
-			ti.iconPath = oIcon('warn');
-			this.oTiPrj[dir] = [ti];
-			return;
-		}
+		const isPrjValid = existPkgJS && fs.existsSync(dir+'/doc/prj/prj.json');
+		const t = new MyTreeItem({
+			cmd		: '',
+			icon	: '',
+			label	: '',
+			desc	: wsFld.name,
+			children: isPrjValid ? this.aTreeTmp : [{
+				cmd		: '',
+				icon	: 'warn',
+				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
+			}],
+		}, dir, this.ctx, (ti, cfg)=> this.onClickTreeItemBtn(ti, cfg))
+		t.collapsibleState = TreeItemCollapsibleState.Collapsed;
+		this.aTiRoot.push(t);
+		this.oTiPrj[dir] = t.children;	// プロジェクト追加
 
-		// プロジェクト追加
-		this.oTiPrj[dir] = this.aTreeTmp.map(v=> {
-			const t2 = new TreeItem(v.label);
-			t2.iconPath = oIcon(v.icon);
-			t2.contextValue = 'skynovel.dev'+ v.cmd;
-			t2.description = v.desc ?? '';
-			t2.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
-			return t2;
-		});
+		if (! isPrjValid) return;
 
 		this.updLocalSNVer(dir);
-
 		this.hPrj[dir] = new Project(this.ctx, wsFld, title=> {
 			t.label = title;
 			this._onDidChangeTreeData.fire(t);
@@ -231,8 +213,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 
 	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {};
-	private onClickTreeItemBtn(ti: TreeItem) {
-		if (! ti) return;	// ここには来ないはず
+	private onClickTreeItemBtn(ti: TreeItem, cfg: TREEITEM_CFG) {
 		const aWsFld = workspace.workspaceFolders;
 		if (! aWsFld) {	// undefinedだった場合はファイルを開いている
 			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
@@ -245,15 +226,11 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		if (! fs.existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
-		const i = this.aTreeTmp.findIndex(v=> v.label === ti.label);
-		if (i === -1) return;
-
-		const tc = this.aTreeTmp[i];	// タスク作成
 		const prj = this.hPrj[pathWs];
-		if (tc.npm) cmd += tc.npm
+		if (cfg.npm) cmd += cfg.npm
 			.replace(/\${prj.title}/g, prj.title)
 			.replace(/\${prj.version}/g, prj.version);
-		switch (tc.cmd) {	// タスク前処理
+		switch (cfg.cmd) {	// タスク前処理
 			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
 			case 'Crypto':
@@ -289,7 +266,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// アイコン生成
-		switch (tc.cmd) {
+		switch (cfg.cmd) {
 			case 'TaskWeb':
 			case 'TaskApp':
 			case 'PackWin':
@@ -323,7 +300,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
-		switch (tc.cmd) {
+		switch (cfg.cmd) {
 			case 'PackWin':
 			case 'PackWin32':
 				if (! is_win) break;
@@ -337,16 +314,16 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		const wsFld = aWsFld.find(v=> v.uri.path === ti.tooltip);
 		const t = new Task(
-			{type: 'SKYNovel ' +i},	// definition（タスクの一意性）
+			{type: 'SKYNovel '+ cfg.cmd},	// definition（タスクの一意性）
 			wsFld!,
-			tc.label,					// name、UIに表示
+			cfg.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		switch (tc.cmd) {	// タスク後処理
+		switch (cfg.cmd) {	// タスク後処理
 			case 'SnUpd':
 			case 'LibUpd':
-				this.hOnEndTask[tc.label] = e=> {
+				this.hOnEndTask[cfg.label] = e=> {
 					if (e.execution.task.definition.type != t.definition.type) return;
 					if (e.execution.task.source != t.source) return;
 
@@ -359,13 +336,13 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			case 'PackWin32':
 			case 'PackMac':
 			case 'PackLinux':
-				this.hOnEndTask[tc.label] = ()=> window.showInformationMessage(
-					`${tc.label} パッケージを生成しました`,
+				this.hOnEndTask[cfg.label] = ()=> window.showInformationMessage(
+					`${cfg.label} パッケージを生成しました`,
 					'出力フォルダを開く',
 				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
 				break;
 
-			case 'PackFreem':	this.hOnEndTask[tc.label] = ()=> {
+			case 'PackFreem':	this.hOnEndTask[cfg.label] = ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
 				.append(fs.createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
 				.append(fs.createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
@@ -392,9 +369,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren(t?: TreeItem): TreeItem[] {
-		return t ?this.oTiPrj[String(t.tooltip!)] :this.aTiRoot;
-	}
+	getChildren = (t?: TreeItem)=> t ?(t as MyTreeItem)?.children ?? [] :this.aTiRoot;
 
 	dispose() {
 		for (const dir in this.hPrj) this.hPrj[dir].dispose();

@@ -12,7 +12,7 @@ export declare class PnlPrjSetting {
     private readonly fnInsNsh;
     private readonly fnIcon;
     private readonly fnReadme4Freem;
-    private readonly localResourceRoots;
+    private readonly localExtensionResRoots;
     private static htmSrc;
     constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void, codSpt: CodingSupporter);
     noticeCreDir(path: string): void;

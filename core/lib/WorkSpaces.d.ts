@@ -7,7 +7,6 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly aTreeTmp;
     private readonly idxDevPrjSet;
     private readonly idxDevCrypto;
-    private readonly aIdxDevPackMac;
     private hPrj;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
     private tidDelay;
@@ -25,6 +24,6 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private hOnEndTask;
     private onClickTreeItemBtn;
     getTreeItem: (t: TreeItem) => TreeItem;
-    getChildren(t?: TreeItem): TreeItem[];
+    getChildren: (t?: TreeItem | undefined) => TreeItem[];
     dispose(): void;
 }

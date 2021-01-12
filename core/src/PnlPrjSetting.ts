@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {replaceFile, foldProc} from './CmnLib';
+import {replaceFile, foldProc, getNonce} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 
 import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
@@ -20,7 +20,7 @@ export class PnlPrjSetting {
 	private	readonly	fnInsNsh: string;
 	private	readonly	fnIcon	: string;
 	private	readonly	fnReadme4Freem	: string;
-	private	readonly	localResourceRoots: Uri;
+	private	readonly	localExtensionResRoots: Uri;
 
 	private	static	htmSrc	= '';
 
@@ -85,14 +85,17 @@ export class PnlPrjSetting {
 		this.oCfg.code = oCode;
 		fs.outputJson(this.fnPrjJs, this.oCfg);
 
-		const path_doc = ctx.extensionPath +`/res/webview/`;
-		this.localResourceRoots = Uri.file(path_doc);
-		PnlPrjSetting.htmSrc =
-		fs.readFileSync(path_doc +`setting.htm`, {encoding: 'utf8'})
-		.replace('<meta_autooff ', '<meta ');	// ローカルデバッグしたいので
+		const path_ext_htm = ctx.extensionPath +`/res/webview/`;
+		this.localExtensionResRoots = Uri.file(path_ext_htm);
+		fs.readFile(path_ext_htm +`setting.htm`, {encoding: 'utf8'})
+		.then(htm=> {
+			PnlPrjSetting.htmSrc = htm
+			.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
+			.replace(/\$\{nonce}/g, getNonce());
 
-		if (this.oCfg.save_ns === 'hatsune'
-		|| this.oCfg.save_ns === 'uc') this.open();
+			if (this.oCfg.save_ns === 'hatsune'
+			|| this.oCfg.save_ns === 'uc') this.open();
+		})
 	}
 
 	noticeCreDir(path: string) {
@@ -155,7 +158,7 @@ export class PnlPrjSetting {
 
 		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
 			enableScripts: true,
-			localResourceRoots: [this.localResourceRoots],
+			localResourceRoots: [this.localExtensionResRoots],
 		});
 
 		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
@@ -175,9 +178,10 @@ export class PnlPrjSetting {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
-		const wb = this.pnlWV!.webview;
-		wb.html = PnlPrjSetting.htmSrc
-		.replace(/(href|src)="\.\//g, `$1="${wb.asWebviewUri(this.localResourceRoots)}/`)
+		const wv = this.pnlWV!.webview;
+		wv.html = PnlPrjSetting.htmSrc
+		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 	}
 	private inputProc(id: string, val: string) {

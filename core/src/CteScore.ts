@@ -50,15 +50,14 @@ export class CteScore {
 			}
 		});
 
-		const path_ext_res = ctx.extensionPath +`/res/webview/`;
-		CteScore.localExtensionResRoots = Uri.file(path_ext_res);
-		const nonce = getNonce();
+		const path_ext_htm = ctx.extensionPath +`/res/webview/`;
+		CteScore.localExtensionResRoots = Uri.file(path_ext_htm);
 		CteScore.htmBaseSrc =
-		fs.readFileSync(path_ext_res +`score.htm`, {encoding: 'utf8'})
+		fs.readFileSync(path_ext_htm +`score.htm`, {encoding: 'utf8'})
 		.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
-		.replace(/\$\{nonce}/g, nonce)
+		.replace(/\$\{nonce}/g, getNonce())
 		.replace(/<tbody>[\s\S]+<\/tbody>/, '<tbody/>')
-		.replace(/<div class="card-group">[\s\S]+<\/div><!-- card-group  -->/, '<div class="card-group"> </div><!-- card-group  -->');
+		.replace(/(<div class="card-group">)[\s\S]+(<\/div><!-- card-group  -->)/, '$1 $2');
 	}
 
 	private	static	hCur2Me		: {[path: string]: CteScore}	= {};
@@ -176,7 +175,7 @@ export class CteScore {
 					for (const i of this.hBufWords[p1]) {ret = `#${i}#`; break;}
 					return ret;
 				});
-console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
+/**/console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
 				wv.postMessage({
 					cmd	: 'tool_res',
 					row	: o.row,

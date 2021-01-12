@@ -83,4 +83,4 @@ window.addEventListener('message', e=> {
 		}, {passive: true});
 	});
 }, {passive: true});
-vscode.postMessage({cmd: 'get'});
+vscode?.postMessage({cmd: 'get'});

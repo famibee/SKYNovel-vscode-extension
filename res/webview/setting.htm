@@ -3,10 +3,10 @@
 <title>プロジェクト設定</title>
 <link rel="canonical" href="index.htm">
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: ${webview.cspSource}; script-src vscode-resource: ${webview.cspSource}; style-src vscode-resource: ${webview.cspSource};"/>
+<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
 <link rel="stylesheet" href="./lib/mdb.min.css">
-<script defer src="./lib/mdb.min.js"></script>
-<script defer src="./setting.js"></script>
+<script defer nonce="${nonce}" src="./lib/mdb.min.js"></script>
+<script defer nonce="${nonce}" src="./setting.js"></script>
 </head>
 <body class="white black-text">
 
@@ -76,11 +76,11 @@
 
 	<div class="col-12 px-1 pt-3"><h5>初期値</h5></div>
 	<div class="col-6 col-md-3 p-1"><div class="form-outline">
-		<input type="number" id="init.tagch_msecwait" value="" class="form-control  sn-gray" placeholder="ミリ秒単位で指定"/>
+		<input type="number" id="init.tagch_msecwait" value="" class="form-control sn-gray" placeholder="ミリ秒単位で指定"/>
 		<label class="form-label" for="init.tagch_msecwait">文字表示待ち時間</label>
 	</div></div>
 	<div class="col-6 col-md-3 p-1"><div class="form-outline">
-		<input type="number" id="init.auto_msecpagewait" value="" class="form-control  sn-gray" placeholder="ミリ秒単位で指定"/>
+		<input type="number" id="init.auto_msecpagewait" value="" class="form-control sn-gray" placeholder="ミリ秒単位で指定"/>
 		<label class="form-label" for="init.auto_msecpagewait">自動読み時文字表示待ち時間</label>
 	</div></div>
 
@@ -91,7 +91,7 @@
 		<label class="form-label" for="init.escape">エスケープ文字</label>
 	</div></div>
 	<div class="col-2 col-lg-1 p-1"><div class="form-outline">
-		<input type="color" id="init.bg_color" value="" class="form-control  sn-gray"/>
+		<input type="color" id="init.bg_color" value="#000000" class="form-control  sn-gray"/>
 		<label class="form-label" for="init.bg_color">背景色</label>
 	</div></div>
 

@@ -65,19 +65,18 @@ export class ToolBox implements WebviewViewProvider {
 	];
 
 	resolveWebviewView(wvv: WebviewView, _ctx: WebviewViewResolveContext, _token: CancellationToken) {
-		wvv.webview.options = {
+		const wv = wvv.webview;
+		wv.options = {
 			enableScripts: true,
 			localResourceRoots: [this.localExtensionResRoots],
 		};
-
-		const wb = wvv.webview;
 		const nonce = getNonce();
-		const uri = wb.asWebviewUri(this.localExtensionResRoots);
-		wvv.webview.html = `<!doctype html><html>
+		const uri = wv.asWebviewUri(this.localExtensionResRoots);
+		wv.html = `<!doctype html><html>
 <head><meta charset="utf-8"/>
 <title>スコア ツールボックス</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${wb.cspSource} https:; script-src 'nonce-${nonce}' ${wb.cspSource}; style-src ${wb.cspSource} 'unsafe-inline'; font-src ${wb.cspSource};"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${wv.cspSource} https:; script-src 'nonce-${nonce}' ${wv.cspSource}; style-src ${wv.cspSource} 'unsafe-inline'; font-src ${wv.cspSource};"/>
 <link rel="stylesheet" href="${uri}/lib/mdb.min.css">
 <link rel="stylesheet" href="${uri}/lib/fontawesome/all.min.css">
 <style>
