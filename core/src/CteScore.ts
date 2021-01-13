@@ -42,10 +42,10 @@ export class CteScore {
 			async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
 				const path = doc.fileName;
 				for (const cur in CteScore.hCur2Me) {
-					if (cur === path.slice(0, cur.length)) {
-						CteScore.hCur2Me[cur].resolveCustomTextEditor(doc, webviewPanel);
-						break;
-					}
+					if (cur !== path.slice(0, cur.length)) continue;
+
+					CteScore.hCur2Me[cur].resolveCustomTextEditor(doc, webviewPanel);
+					break;
 				}
 			}
 		});

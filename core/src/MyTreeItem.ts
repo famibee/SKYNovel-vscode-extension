@@ -22,7 +22,7 @@ export interface TREEITEM_CFG {
 export class MyTreeItem extends TreeItem {
 	private		_children	: TreeItem[]	= [];
 
-	constructor(cfg: TREEITEM_CFG, dir: string, ctx: ExtensionContext, onClickTreeItemBtn: (ti: TreeItem, cfg: TREEITEM_CFG)=> void) {
+	constructor(readonly cfg: TREEITEM_CFG, readonly dir: string, readonly ctx: ExtensionContext, readonly onClickTreeItemBtn: (ti: TreeItem, cfg: TREEITEM_CFG)=> void) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
 		this.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報

@@ -22,7 +22,7 @@ export class PnlPrjSetting {
 	private	readonly	fnReadme4Freem	: string;
 	private	readonly	localExtensionResRoots: Uri;
 
-	private	static	htmSrc	= '';
+	private				htmSrc	= '';
 
 	constructor(readonly ctx: ExtensionContext, readonly pathWs: string, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter) {
 		this.fnPrj = pathWs +'/doc/prj/';
@@ -32,35 +32,31 @@ export class PnlPrjSetting {
 
 		this.fnReadme4Freem = pathWs +'/build/include/readme.txt';
 		let init_freem = false;
+		const path_ext = ctx.extensionPath;
+
 		if (! fs.existsSync(this.fnReadme4Freem)) {
 			init_freem = true;
 			fs.ensureFileSync(this.fnReadme4Freem);
-			fs.copyFileSync(
-				this.ctx.extensionPath +'/res/readme.txt',
-				this.fnReadme4Freem,
-			);
+			fs.copyFileSync(path_ext +'/res/readme.txt', this.fnReadme4Freem);
 
 			workspace.openTextDocument(this.fnReadme4Freem)
 			.then(doc=> window.showTextDocument(doc));
 		}
 
 		this.fnInsNsh = pathWs +'/build/installer.nsh';
-		if (! fs.existsSync(this.fnInsNsh)) fs.copyFileSync(
-			this.ctx.extensionPath +'/res/installer.nsh',
-			this.fnInsNsh,
+		if (! fs.existsSync(this.fnInsNsh)) fs.copyFile(
+			path_ext +'/res/installer.nsh', this.fnInsNsh
 		);
 
 		this.fnIcon = pathWs +'/build/icon.png';
-		if (! fs.existsSync(this.fnIcon)) fs.copyFileSync(
-			this.ctx.extensionPath +'/res/icon.png',
-			this.fnIcon,
+		if (! fs.existsSync(this.fnIcon)) fs.copyFile(
+			path_ext +'/res/icon.png', this.fnIcon
 		);
 
-		if (PnlPrjSetting.htmSrc) {
-			if (this.oCfg.save_ns === 'hatsune' ||
-				this.oCfg.save_ns === 'uc') this.open();
-			return;
-		}
+		const fnLaunchJs = pathWs +'/.vscode/launch.json';
+		if (! fs.existsSync(fnLaunchJs)) fs.copyFile(
+			path_ext +'/res/launch.json', fnLaunchJs
+		);
 
 		this.oCfg = {...this.oCfg, ...fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
 		// v0.15.1【「slideBaseSpan」廃止】
@@ -85,11 +81,11 @@ export class PnlPrjSetting {
 		this.oCfg.code = oCode;
 		fs.outputJson(this.fnPrjJs, this.oCfg);
 
-		const path_ext_htm = ctx.extensionPath +`/res/webview/`;
+		const path_ext_htm = path_ext +`/res/webview/`;
 		this.localExtensionResRoots = Uri.file(path_ext_htm);
 		fs.readFile(path_ext_htm +`setting.htm`, {encoding: 'utf8'})
 		.then(htm=> {
-			PnlPrjSetting.htmSrc = htm
+			this.htmSrc = htm
 			.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 			.replace(/\$\{nonce}/g, getNonce());
 
@@ -156,7 +152,7 @@ export class PnlPrjSetting {
 			return;
 		}
 
-		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', 'プロジェクト設定', column || ViewColumn.One, {
+		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定・基本情報', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [this.localExtensionResRoots],
 		});
@@ -179,7 +175,7 @@ export class PnlPrjSetting {
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
 		const wv = this.pnlWV!.webview;
-		wv.html = PnlPrjSetting.htmSrc
+		wv.html = this.htmSrc
 		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加

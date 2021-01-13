@@ -33,8 +33,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		ActivityBar.workSps = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
 
-//		ActivityBar.tlBox = new ToolBox(ctx);
-//		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
+		ActivityBar.tlBox = new ToolBox(ctx);
+		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
 
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}

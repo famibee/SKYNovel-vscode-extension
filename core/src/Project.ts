@@ -8,6 +8,7 @@
 import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PnlPrjSetting} from './PnlPrjSetting';
+import {PnlBodyDesign} from './PnlBodyDesign';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
@@ -158,11 +159,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.fnDiff = this.pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
 		this.ps = new PnlPrjSetting(ctx, this.pathWs, chgTitle, this.codSpt);
+		this.bd = new PnlBodyDesign(ctx, this.pathWs);
 		this.initCrypto();
 	}
 
 	private	ps: PnlPrjSetting;
 	openPrjSetting() {this.ps.open();}
+	private	bd: PnlBodyDesign;
+	openBodyDesign() {this.bd.open();}
 	get title() {return this.ps.cfg.book.title}
 	get version() {return this.ps.cfg.book.version}
 

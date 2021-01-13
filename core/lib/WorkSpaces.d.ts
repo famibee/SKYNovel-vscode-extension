@@ -5,7 +5,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly aTiRoot;
     private readonly oTiPrj;
     private readonly aTreeTmp;
-    private readonly idxDevPrjSet;
+    private readonly idxDevSnUpd;
     private readonly idxDevCrypto;
     private hPrj;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);

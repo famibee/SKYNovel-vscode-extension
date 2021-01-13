@@ -28,7 +28,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
 
 	private	readonly aTreeTmp	: TREEITEM_CFG[] = [
-		{cmd: 'PrjSet',		icon: 'gear',		label: 'プロジェクト設定'},
 		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
 			npm: `npm un -S skynovel ${statBreak()
 			} npm i @famibee/skynovel@latest ${statBreak()
@@ -37,9 +36,13 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			npm: `npm update ${statBreak()
 			} npm update --dev ${statBreak()
 			} npm run webpack:dev`},
-		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
+		{cmd: '', icon: '',label: '設定', children: [
+			{cmd: 'PrjSet',		icon: 'gear',		label: '基本情報'},
+//			{cmd: 'BodyDesign',	icon: 'gear',		label: '本文デザイン'},
+		]},
+		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
 		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
 			npm: 'npm run web'},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
@@ -71,8 +74,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				npm: 'npm run webpack:pro'},
 		]},
 	];
-	private	readonly idxDevPrjSet	= 1;
-	private	readonly idxDevCrypto	= 3;
+	private	readonly idxDevSnUpd	= 0;
+	private	readonly idxDevCrypto	= 4;
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
@@ -204,7 +207,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private updLocalSNVer(dir: string) {
 		const o = fs.readJsonSync(dir +'/package.json');
 		const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
-		this.oTiPrj[dir][this.idxDevPrjSet].description = localVer ?`-- ${localVer}` :'取得できません';
+		this.oTiPrj[dir][this.idxDevSnUpd].description = localVer ?`-- ${localVer}` :'取得できません';
 	}
 	private dspCryptoMode(dir: string) {
 		const tc = this.oTiPrj[dir];
@@ -231,8 +234,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			.replace(/\${prj.title}/g, prj.title)
 			.replace(/\${prj.version}/g, prj.version);
 		switch (cfg.cmd) {	// タスク前処理
-			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
+			case 'PrjSet':	prj.openPrjSetting();	return;
+			case 'BodyDesign':	prj.openBodyDesign();	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {

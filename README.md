@@ -300,7 +300,6 @@
 
 - [Debugger Function Overview](#Debugger-Function-Overview)
 	- [Support for attach and launch](#Support-for-attach-and-launch)
-	- [Function to create a debug configuration "SKYNovel Debug".](#Function-to-create-a-debug-configuration-"SKYNovel-Debug".)
 	- [About the Debug Button Bar](#About-the-Debug-Button-Bar)
 	- [breakpoint stop](#breakpoint-stop)
 		- [(A) line breakpoint](#(A)-line-breakpoint)
@@ -325,7 +324,6 @@
 
 - [デバッガー機能概要](#デバッガー機能概要)
 	- [attach・launch 起動対応](#attach・launch-起動対応)
-	- [デバッグ構成「SKYNovel Debug」作成機能](#デバッグ構成「SKYNovel-Debug」作成機能)
 	- [デバッグボタンバーについて](#デバッグボタンバーについて)
 	- [ブレークポイント停止](#ブレークポイント停止)（通ったら、タグや&変数操作処理前にブレーク）
 		- [(A) 行ブレークポイント](#(A)-行ブレークポイント)
@@ -346,7 +344,7 @@
 
 ### Support for attach and launch
 
-1. select the debugger (triangle on the insect) on the active bar, select [App+Dbg], and
+1. select the debugger (triangle on the insect) on the active bar, select [デバッグ開始], and
 
 	![](res/img/dbg_actber_run0.png)
 
@@ -360,51 +358,6 @@
 The call stack view will also show [main.sn 1:1]
 
 	![](res/img/dbg_actber_run2.png)
-
-### Function to create a debug configuration "SKYNovel Debug".
-	If you have not yet created a debug configuration, you will see the following display: 1.
-
-1. Click the [Create launch.json file] blue link.
-
-	![](res/img/dbg_init_js0.png)
-
-2. The launch.json file is created.
-
-	![](res/img/dbg_init_js1.png)
-
-3. If you don't have [App+Dbg], you will need to enter some of the information manually.
-
-	Open the .vscode/launch.json file with the gear button to the immediate right and
-	Please add the [compounds] designation manually.
-
-	![](res/img/dbg_launch_js0.png)
-
-```json
-	"configurations": [.
-		{
-			"name": "1. Launch the app",
-			"type": "node",
-			"request": "launch",
-		},
-		{
-			"name": "2. Connect to the app",
-			"type": "skynovel",
-			"request": "attach",
-		},
-
-		{
-			"name": "2b.debugger",
-			"type": "skynovel",
-			"request": "launch",
-		}
-	],
-	"compounds": [
-		{
-			"name": "App+Dbg",
-			"configurations": ["1. Launch the app", "2b.Debugger"]
-		}
-	]
-```
 
 ### About the Debug Button Bar
 	You can run through the tags and & assignment grammars one step at a time, or you can skip to a break point (see below).
@@ -527,7 +480,7 @@ The call stack view will also show [main.sn 1:1]
 ## デバッガー機能概要
 ### attach・launch 起動対応
 
-1. アクティブバーのデバッガー（虫に三角マーク）を選び、【App+Dbg】を選んで、
+1. アクティブバーのデバッガー（虫に三角マーク）を選び、【デバッグ開始】を選んで、
 
 	![](res/img/dbg_actber_run0.png)
 
@@ -541,51 +494,6 @@ The call stack view will also show [main.sn 1:1]
 	コールスタックビューにも【main.sn 1:1】と表示されます。
 
 	![](res/img/dbg_actber_run2.png)
-
-### デバッグ構成「SKYNovel Debug」作成機能
-	デバッグ構成が未作成の場合は、以下の表示になります。
-
-1. 【launch.json ファイルを作成します】青文字リンクをクリック
-
-	![](res/img/dbg_init_js0.png)
-
-2. launch.json ファイルが作成されます。
-
-	![](res/img/dbg_init_js1.png)
-
-3. 【App+Dbg】がない場合は、一部手入力が必要です。
-
-	すぐ右の歯車ボタンで .vscode/launch.json ファイルを開き、
-	手入力で【compounds】指定を追記して下さい。
-
-	![](res/img/dbg_launch_js0.png)
-
-```json
-	"configurations": [
-		{
-			"name": "1.アプリを起動",
-			"type": "node",
-			"request": "launch",
-		},
-		{
-			"name": "2.アプリに接続",
-			"type": "skynovel",
-			"request": "attach",
-		},
-
-		{
-			"name": "2b.デバッガ",
-			"type": "skynovel",
-			"request": "launch",
-		}
-	],
-	"compounds": [
-		{
-			"name": "App+Dbg",
-			"configurations": ["1.アプリを起動", "2b.デバッガ"]
-		}
-	]
-```
 
 ### デバッグボタンバーについて
 	タグや&代入文法を１ステップとして、一つずつ実行したり出来ます。

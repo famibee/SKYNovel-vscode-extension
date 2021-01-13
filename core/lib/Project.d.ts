@@ -25,6 +25,8 @@ export declare class Project {
     constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void);
     private ps;
     openPrjSetting(): void;
+    private bd;
+    openBodyDesign(): void;
     get title(): any;
     get version(): any;
     dispose(): void;

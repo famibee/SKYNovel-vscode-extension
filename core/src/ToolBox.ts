@@ -9,21 +9,25 @@ import {getNonce} from './CmnLib';
 
 import {WebviewViewProvider, ExtensionContext, WebviewView, WebviewViewResolveContext, CancellationToken, Uri, window} from 'vscode';
 
+interface CTG_ACMD {
+	カテゴリ	: string;
+	要素: {
+		icon	: string;
+		name	: string;
+		style?	: string;
+		scr		: string;
+	}[];
+}
+
 export class ToolBox implements WebviewViewProvider {
 	private	readonly	localExtensionResRoots: Uri;
 	constructor(readonly ctx: ExtensionContext) {
 		this.localExtensionResRoots = Uri.file(ctx.extensionPath +'/res/webview');
+/**/	this.aCtgACmd0 = this.aCtgACmd0 ?? [];
 	}
 
-	private	readonly aCtgACmd : {
-		カテゴリ	: string;
-		要素: {
-			icon	: string;
-			name	: string;
-			style?	: string;
-			scr		: string;
-		}[];
-	}[]= [
+	private	readonly aCtgACmd : CTG_ACMD[]= [
+/**/	];private	readonly aCtgACmd0 : CTG_ACMD[]= [
 		// Solid Icons | Font Awesome https://fontawesome.com/icons?d=gallery&s=solid&m=free
 		{カテゴリ: 'テキスト系', 要素: [
 			{icon: 'fa-align-left', name: 'テキスト', style: 'btn-primary', scr: '[ch text=##]'},
