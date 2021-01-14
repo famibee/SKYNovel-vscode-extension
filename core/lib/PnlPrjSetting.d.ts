@@ -1,8 +1,8 @@
 import { CodingSupporter } from './CodingSupporter';
-import { ExtensionContext } from 'vscode';
+import { WorkspaceFolder, ExtensionContext } from 'vscode';
 export declare class PnlPrjSetting {
     readonly ctx: ExtensionContext;
-    readonly pathWs: string;
+    readonly wsFld: WorkspaceFolder;
     private readonly chgTitle;
     private readonly codSpt;
     private readonly fnPrj;
@@ -14,7 +14,7 @@ export declare class PnlPrjSetting {
     private readonly fnReadme4Freem;
     private readonly localExtensionResRoots;
     private htmSrc;
-    constructor(ctx: ExtensionContext, pathWs: string, chgTitle: (title: string) => void, codSpt: CodingSupporter);
+    constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void, codSpt: CodingSupporter);
     noticeCreDir(path: string): void;
     noticeDelDir(path: string): void;
     private oCfg;

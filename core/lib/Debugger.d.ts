@@ -16,17 +16,15 @@ export declare class Debugger extends EventEmitter {
     private sktBuf;
     private send2SN;
     end(): void;
-    readonly restart: (ri: number) => Promise<void>;
-    continue(rev?: boolean): void;
-    step(rev?: boolean): void;
-    stepin(): void;
-    stepout(): void;
-    pause(): void;
-    var(ri: number, scope: string): Promise<{
-        [nm: string]: any;
-    }>;
-    stack(ri: number, start: number, end: number): Promise<any[]>;
-    eval(ri: number, txt: string): Promise<any>;
+    restart: (ri: number) => Promise<void>;
+    continue: (rev?: boolean) => void;
+    step: (rev?: boolean) => void;
+    stepin: () => void;
+    stepout: () => void;
+    pause: () => void;
+    var: (ri: number, scope: string) => Promise<any[]>;
+    stack: (ri: number, start: number, end: number) => Promise<any[]>;
+    eval: (ri: number, txt: string) => Promise<any>;
     private idBP;
     private fn2ABP;
     setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[];

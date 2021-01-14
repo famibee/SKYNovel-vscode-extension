@@ -60,39 +60,33 @@ export class Debugger extends EventEmitter {
 	}
 	end() {this.send2SN({type: 'disconnect'}); this.sktDbg?.end();}
 
-	readonly	restart = (ri: number)=> new Promise<void>(res=> {
+	restart = (ri: number)=> new Promise<void>(res=> {
 		this.send2SN({type: 'restart', ri: ri});			// request
 		this.hProcSnRes[ri] = ()=> {res(); return true;}	// response
 	});
 
-	continue(rev = false) {this.send2SN({type: 'continue', reverse: rev});}
+	continue = (rev = false)=> this.send2SN({type: 'continue', reverse: rev});
 		// 次のブレークポイントまでプログラムを続行。ブレークポイントがなければ最後まで実行。
-	step(rev = false) {this.send2SN({type: 'stepover', reverse: rev});}
-	stepin() {this.send2SN({type: 'stepin'});}
-	stepout() {this.send2SN({type: 'stepout'});}
-	pause() {this.send2SN({type: 'pause'});}
+	step = (rev = false)=> this.send2SN({type: 'stepover', reverse: rev});
+	stepin = ()=> this.send2SN({type: 'stepin'});
+	stepout = ()=> this.send2SN({type: 'stepout'});
+	pause = ()=> this.send2SN({type: 'pause'});
 
-	var(ri: number, scope: string): Promise<{[nm: string]: any}> {
-		return new Promise<any[]>(res=> {
-			this.send2SN({type: 'var', ri: ri, scope: scope});	// request
-			this.hProcSnRes[ri] = o=> {res(o.v); return true;}	// response
-		});
-	}
-	stack(ri: number, start: number, end: number): Promise<any[]> {
-		return new Promise<any[]>(res=> {
-			this.send2SN({type: 'stack', ri: ri});	// request
-			this.hProcSnRes[ri] = o=> {				// response
-				res(Array.isArray(o.a) ?o.a.slice(start, end) :[]);
-				return true;	// once
-			}
-		});
-	}
-	eval(ri: number, txt: string): Promise<any> {
-		return new Promise<any[]>(res=> {
-			this.send2SN({type: 'eval', ri: ri, txt: txt});		// request
-			this.hProcSnRes[ri] = o=> {res(o.v); return true;}	// response
-		});
-	}
+	var = (ri: number, scope: string)=> new Promise<any[]>(res=> {
+		this.send2SN({type: 'var', ri: ri, scope: scope});	// request
+		this.hProcSnRes[ri] = o=> {res(o.v); return true;}	// response
+	});
+	stack = (ri: number, start: number, end: number)=> new Promise<any[]>(res=> {
+		this.send2SN({type: 'stack', ri: ri});	// request
+		this.hProcSnRes[ri] = o=> {				// response
+			res(Array.isArray(o.a) ?o.a.slice(start, end) :[]);
+			return true;	// once
+		};
+	});
+	eval = (ri: number, txt: string)=> new Promise<any>(res=> {
+		this.send2SN({type: 'eval', ri: ri, txt: txt});		// request
+		this.hProcSnRes[ri] = o=> {res(o.v); return true;}	// response
+	});
 
 
 	private idBP = 0;	// フロントエンドが管理するためのID

@@ -8,7 +8,7 @@
 import {replaceFile, foldProc, getNonce} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 
-import {WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
+import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import fs = require('fs-extra');
 import m_path = require('path');
 
@@ -24,7 +24,8 @@ export class PnlPrjSetting {
 
 	private				htmSrc	= '';
 
-	constructor(readonly ctx: ExtensionContext, readonly pathWs: string, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter) {
+		const pathWs = wsFld.uri.fsPath;
 		this.fnPrj = pathWs +'/doc/prj/';
 		this.fnPrjJs = this.fnPrj +'prj.json';
 		this.fnAppJs = pathWs +'/doc/app.js';

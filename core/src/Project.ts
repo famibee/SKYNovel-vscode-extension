@@ -158,8 +158,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.fnDiff = this.pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
-		this.ps = new PnlPrjSetting(ctx, this.pathWs, chgTitle, this.codSpt);
-		this.bd = new PnlBodyDesign(ctx, this.pathWs);
+		this.ps = new PnlPrjSetting(ctx, wsFld, chgTitle, this.codSpt);
+		this.bd = new PnlBodyDesign(ctx, wsFld);
 		this.initCrypto();
 	}
 
