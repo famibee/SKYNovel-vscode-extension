@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.5.5",
+	"version": "3.5.6",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.52.0"
@@ -123,14 +123,6 @@
 			{
 				"command": "skynovel.devPrjSet",
 				"title": "Project Setting",
-				"icon": {
-					"light": "res/light/gear.svg",
-					"dark": "res/dark/gear.svg"
-				}
-			},
-			{
-				"command": "skynovel.devBodyDesign",
-				"title": "Body Design",
 				"icon": {
 					"light": "res/light/gear.svg",
 					"dark": "res/dark/gear.svg"
@@ -413,11 +405,6 @@
 				},
 				{
 					"group": "inline",
-					"command": "skynovel.devBodyDesign",
-					"when": "view == sn-ws && viewItem == 'skynovel.devBodyDesign'"
-				},
-				{
-					"group": "inline",
 					"command": "skynovel.devSnUpd",
 					"when": "view == sn-ws && viewItem == 'skynovel.devSnUpd'"
 				},
@@ -650,7 +637,7 @@
 		"@types/crypto-js": "^4.0.1",
 		"@types/fs-extra": "^9.0.6",
 		"@types/mocha": "^8.2.0",
-		"@types/node": "^14.14.20",
+		"@types/node": "^14.14.21",
 		"@types/uuid": "^8.3.0",
 		"@types/vscode": "^1.52.0",
 		"electron": "^11.2.0",

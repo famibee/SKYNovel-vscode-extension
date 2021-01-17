@@ -18,7 +18,7 @@ import {
 	ReferenceContext,
 	RenameProvider,		// 「シンボルの名前変更」
 	CompletionItemProvider,	// コード補完機能
-	DiagnosticCollection, ExtensionContext, commands, QuickPickOptions, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString,
+	DiagnosticCollection, ExtensionContext, commands, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString,
 	SignatureHelpProvider,	// 引数の説明
 	SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation,
 	DocumentSymbolProvider,	// アウトライン
@@ -201,13 +201,13 @@ ${md.comment}`, true
 			md.snippet.forEach(sn=> CodingSupporter.hSnippet[sn.nm] = sn.txt);
 		}
 
-		ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> {
-			const op: QuickPickOptions = {
+		ctx.subscriptions.push(commands.registerCommand(
+			'skynovel.openReferencePallet', ()=>
+			window.showQuickPick<QuickPickItem>(CodingSupporter.pickItems, {
 				'placeHolder': 'Which reference will you open?',
 				'matchOnDescription': true,
-			};
-			window.showQuickPick<QuickPickItem>(CodingSupporter.pickItems, op).then(q=> {if (q) CodingSupporter.openTagRef(q)});
-		}));
+			}).then(q=> {if (q) CodingSupporter.openTagRef(q)}
+		)));
 	}
 
 	// クイックピック

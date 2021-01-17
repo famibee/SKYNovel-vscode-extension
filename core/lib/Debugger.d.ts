@@ -10,8 +10,8 @@ export interface InfoBreakpoint {
 }
 export declare class Debugger extends EventEmitter {
     private readonly hProcSnRes;
-    launch(args: DebugConfiguration): void;
-    attach(args: DebugConfiguration, runtype?: string): void;
+    attach(args: DebugConfiguration): void;
+    private connect;
     private sktDbg;
     private sktBuf;
     private send2SN;

@@ -38,10 +38,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
-		{cmd: '', icon: '',label: '設定', children: [
-			{cmd: 'PrjSet',		icon: 'gear',		label: '基本情報'},
-//			{cmd: 'BodyDesign',	icon: 'gear',		label: '本文デザイン'},
-		]},
+		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
 		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
 		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
 			npm: 'npm run web'},
@@ -236,7 +233,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		switch (cfg.cmd) {	// タスク前処理
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
 			case 'PrjSet':	prj.openPrjSetting();	return;
-			case 'BodyDesign':	prj.openBodyDesign();	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {

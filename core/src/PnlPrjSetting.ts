@@ -66,7 +66,7 @@ export class PnlPrjSetting {
 			this.oCfg.debug['debugLog'] = false;
 		}
 		chgTitle(this.oCfg.book.title);
-		this.codSpt.setEscape(this.oCfg?.init?.escape ?? '');
+		codSpt.setEscape(this.oCfg?.init?.escape ?? '');
 		if (init_freem) {
 			['title','version','creator','cre_url','publisher','pub_url',]
 			.forEach(nm=> this.hRep['book.'+ nm](this.oCfg.book[nm]));

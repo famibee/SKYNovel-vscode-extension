@@ -25,12 +25,12 @@ export class Debugger extends EventEmitter {
 		stopOnBreakpoint: o=> {this.sendEvent2Adpt(o.type);	return false;},
 		stopOnDataBreakpoint: o=> {this.sendEvent2Adpt(o.type);	return false;},
 	};
-	launch(args: DebugConfiguration) {
+	attach(args: DebugConfiguration) {
 		const US_LAUNCH = `${args.cwd}/.vscode/sn_launch.sock`;
 		try {unlinkSync(US_LAUNCH);} catch {}
-		createServer(()=> this.attach(args, 'launch')).listen(US_LAUNCH);
+		createServer(()=> this.connect(args, 'launch')).listen(US_LAUNCH);
 	}
-	attach(args: DebugConfiguration, runtype = 'attach') {
+	private	connect(args: DebugConfiguration, runtype = 'attach') {
 		this.sktDbg = createConnection(`${args.cwd}/.vscode/skynovel.sock`)
 		.on('data', b=> {
 			const s = b.toString();

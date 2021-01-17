@@ -30,20 +30,14 @@ export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
 	debug.registerDebugConfigurationProvider(lng, {
 		provideDebugConfigurations(_folder: WorkspaceFolder | undefined): ProviderResult<DebugConfiguration[]> {return [
 			{
-				name: "1.アプリを起動",
-				type: "node",
-				request: "launch",
+				"name": "1.デバッグ版アプリを起動",
+				"request": "launch",
+				"type": "node",
 			},
 			{
-				name: "2.アプリに接続",
-				type: "skynovel",
-				request: "attach",
-			},
-
-			{
-				name: "2b.デバッガ",
-				type: "skynovel",
-				request: "launch",
+				"name": "2.デバッガを起動",
+				"request": "attach",
+				"type": "skynovel",
 			},
 		];}
 	});
@@ -305,13 +299,10 @@ class DebugAdapter extends LoggingDebugSession {
 
 //	protected sendErrorResponse(response: DebugProtocol.Response, codeOrMessage: number | DebugProtocol.Message, format?: string, variables?: any, dest?: ErrorDestination): void;
 
-//	protected runInTerminalRequest(args: DebugProtocol.RunInTerminalRequestArguments, timeout: number, cb: (response: DebugProtocol.RunInTerminalResponse) => void): void;
+//	runInTerminalRequest(args: DebugProtocol.RunInTerminalRequestArguments, timeout: number, cb: (response: DebugProtocol.RunInTerminalResponse) => void): void;
 
 
-	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {
-		logger.setup(Logger.LogLevel.Stop, false);
-		this.dbg.launch(args as DebugConfiguration);
-	}
+//	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {}	// 現状使わない
 	protected attachRequest(_res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
 		logger.setup(Logger.LogLevel.Stop, false);
 		this.dbg.attach(args as DebugConfiguration);

@@ -5,25 +5,20 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "1.アプリを起動",
-			"type": "node",
-			"request": "launch"
+			"name": "1.デバッグ版アプリを起動",
+			"request": "launch",
+			"type": "node"
 		},
 		{
-			"name": "2.アプリに接続",
-			"type": "skynovel",
-			"request": "attach"
-		},
-		{
-			"name": "2b.デバッガ",
-			"type": "skynovel",
-			"request": "launch"
+			"name": "2.デバッガを起動",
+			"request": "attach",
+			"type": "skynovel"
 		}
 	],
 	"compounds": [
 		{
 			"name": "デバッグ開始",
-			"configurations": ["1.アプリを起動", "2b.デバッガ"]
+			"configurations": ["1.デバッグ版アプリを起動", "2.デバッガを起動"]
 		}
 	]
 }

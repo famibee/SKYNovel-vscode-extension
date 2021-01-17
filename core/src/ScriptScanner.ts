@@ -48,7 +48,7 @@ export class ScriptScanner {
 		this.hTagProc['return'] = this.hTagProc['s'];
 		this.hTagProc['else'] = this.hTagProc['elsif'];
 
-		this.cteScore	= new CteScore(curPrj);
+		this.cteScore = new CteScore(curPrj);
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
