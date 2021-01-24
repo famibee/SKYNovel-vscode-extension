@@ -1,6 +1,6 @@
 import { CodingSupporter } from './CodingSupporter';
 import { WorkspaceFolder, ExtensionContext } from 'vscode';
-export declare class PnlPrjSetting {
+export declare class PrjSetting {
     readonly ctx: ExtensionContext;
     readonly wsFld: WorkspaceFolder;
     private readonly chgTitle;
@@ -15,6 +15,8 @@ export declare class PnlPrjSetting {
     private readonly localExtensionResRoots;
     private htmSrc;
     constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void, codSpt: CodingSupporter);
+    private static readonly hWsFld2token;
+    static getDebugertoken(wsFld: WorkspaceFolder | undefined): string;
     noticeCreDir(path: string): void;
     noticeDelDir(path: string): void;
     private oCfg;

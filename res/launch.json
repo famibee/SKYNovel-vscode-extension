@@ -5,20 +5,46 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "1.デバッグ版アプリを起動",
+			"name": "10.ブラウザ版",
 			"request": "launch",
-			"type": "node"
+			"type": "pwa-node",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": [
+				"run-script",
+				"watch:wdsdbg"
+			],
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"console": "internalConsole",
+			"internalConsoleOptions": "openOnSessionStart"
 		},
 		{
-			"name": "2.デバッガを起動",
+			"name": "1.アプリ版",
+			"request": "launch",
+			"type": "node",
+			"port": 3776,
+			"console": "internalConsole",
+			"internalConsoleOptions": "openOnSessionStart"
+		},
+		{
+			"name": "2.デバッガ",
 			"request": "attach",
-			"type": "skynovel"
+			"type": "skynovel",
+			"port": 3776,
+				// 【1.アプリ版】port や【package.json watch:wdsdbg】 とあわせる
+			"weburi": "http://localhost:8080"
+				// core/wds.config.js devServer.port とあわせる（省略時は8080）
 		}
 	],
 	"compounds": [
 		{
-			"name": "デバッグ開始",
-			"configurations": ["1.デバッグ版アプリを起動", "2.デバッガを起動"]
+			"name": "appデバッグ",
+			"configurations": ["1.アプリ版", "2.デバッガ"]
+		},
+		{
+			"name": "webデバッグ",
+			"configurations": ["10.ブラウザ版", "2.デバッガ"]
 		}
 	]
 }

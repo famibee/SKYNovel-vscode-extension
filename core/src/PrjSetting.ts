@@ -11,8 +11,9 @@ import {CodingSupporter} from './CodingSupporter';
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import fs = require('fs-extra');
 import m_path = require('path');
+import {v4 as uuidv4} from 'uuid';
 
-export class PnlPrjSetting {
+export class PrjSetting {
 	private	readonly	fnPrj	: string;
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
@@ -93,6 +94,14 @@ export class PnlPrjSetting {
 			if (this.oCfg.save_ns === 'hatsune'
 			|| this.oCfg.save_ns === 'uc') this.open();
 		})
+
+		PrjSetting.hWsFld2token[wsFld.uri.path] = ()=> this.oCfg.debuger_token;
+	}
+
+	private	static	readonly	hWsFld2token: {[path: string]: ()=> string}= {};
+	static	getDebugertoken(wsFld: WorkspaceFolder | undefined) {
+		if (! wsFld) return '';
+		return PrjSetting.hWsFld2token[wsFld.uri.path]() ?? '';
 	}
 
 	noticeCreDir(path: string) {
@@ -142,6 +151,7 @@ export class PnlPrjSetting {
 			variable	: false,
 		},
 		code	: {},	// 暗号化しないフォルダ
+		debuger_token	: '',		// デバッガとの接続トークン
 	};
 	get cfg() {return this.oCfg}
 	private	pnlWV	: WebviewPanel | null = null;
@@ -203,6 +213,11 @@ export class PnlPrjSetting {
 		"save_ns"	: val=> {
 			replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
 			replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+
+			if (! this.oCfg.debuger_token) {
+				this.oCfg.debuger_token = uuidv4();
+				fs.outputJson(this.fnPrjJs, this.oCfg);
+			}
 		},
 		'window.width'	: val=> replaceFile(this.fnAppJs,
 			/(width\s*: ).*(,)/, `$1${val}$2`),

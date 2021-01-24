@@ -96,14 +96,13 @@ ${md.comment}`, true
 		//	ci.tags? = ReadonlyArray<CompletionItemTag>
 		//	ci.textEdit? = TextEdit
 
-			const len = md.snippet.length;
-			for (let i=1; i<len; ++i) {
-				const ci2 = new CompletionItem(md.snippet[i].nm, CompletionItemKind.Snippet);
+			md.snippet.forEach(v=> {
+				const ci2 = new CompletionItem(v.nm,CompletionItemKind.Snippet);
 				ci2.detail = md.detail;
 				ci2.command = cmdScanScr_trgPrm;
 				ci2.documentation = ci.documentation;
 				this.aCITagMacro.push(ci2);
-			}
+			});
 		}
 
 		this.loadCfg();
@@ -174,7 +173,7 @@ ${md.comment}`, true
 	private	static	readonly	REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
-	private tidDelay	: NodeJS.Timer | null	= null;
+	private tidDelay	: any | null	= null;
 	private	aChgTxt		: TextDocumentChangeEvent[]		= [];
 	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}			= {};
 	private delayedUpdate() {
@@ -250,12 +249,9 @@ ${md.comment}`, true
 		let label = `[${nm}`;
 		const md = hMd[nm];
 		if (! md) return Promise.reject('Nothing md file.');	// 前に警告出してる
-		(md.param as MD_PARAM_DETAILS[]).forEach(prm=> {
-			const p = `${prm.name}=${
-				prm.default ?`%${prm.name}|${prm.default}` :'【必須】'
-			}`;
-			label += ' '+ p;
-		});
+		(md.param as MD_PARAM_DETAILS[]).forEach(prm=> label += ` ${prm.name}=${
+			prm.default ?`%${prm.name}|${prm.default}` :'【必須】'
+		}`);
 		return new Hover(new MarkdownString(
 `~~~skynovel
 (タグ) ${label}]

@@ -10,9 +10,9 @@ import {Project} from './Project';
 import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
 
-import fs = require('fs-extra');
+import {existsSync, readJsonSync, statSync, readFileSync, ensureDirSync, writeFileSync, createReadStream, createWriteStream} from 'fs-extra';
 import archiver = require('archiver');
 import {basename, dirname} from 'path';
 import png2icons = require('png2icons');
@@ -41,9 +41,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
 		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
 		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
-			npm: 'npm run web'},
+			npm: 'npm run web',		dbg: true,},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-			npm: 'npm run start'},
+			npm: 'npm run start',	dbg: true,},
 		{cmd: '', icon: '',label: '生成', children: [
 			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
 				npm: `npm run webpack:pro ${statBreak()
@@ -94,7 +94,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}, null, ctx.subscriptions);
 	}
 
-	private tidDelay: NodeJS.Timer | null = null;
+	private tidDelay: any | null = null;
 	private onUpdDoc(te: TextEditor | undefined) {
 		if (! te) return;
 		if (te.document.languageId != 'skynovel') return;
@@ -103,7 +103,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 		// 遅延
 		if (this.tidDelay) clearTimeout(this.tidDelay);
-		this.tidDelay = setTimeout(()=> this.updDeco(), 500);
+		this.tidDelay = globalThis.setTimeout(()=> this.updDeco(), 500);
 	}
 
 	private teActive: TextEditor | undefined;
@@ -174,8 +174,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {
 		const dir = wsFld.uri.fsPath;
-		const existPkgJS = fs.existsSync(dir +'/package.json');
-		const isPrjValid = existPkgJS && fs.existsSync(dir+'/doc/prj/prj.json');
+		const existPkgJS = existsSync(dir +'/package.json');
+		const isPrjValid = existPkgJS && existsSync(dir+'/doc/prj/prj.json');
 		const t = new MyTreeItem({
 			cmd		: '',
 			icon	: '',
@@ -186,7 +186,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				icon	: 'warn',
 				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
 			}],
-		}, dir, this.ctx, (ti, cfg)=> this.onClickTreeItemBtn(ti, cfg))
+		}, dir, this.ctx, (ti, btn_nm, cfg)=> this.onClickTreeItemBtn(wsFld, ti, btn_nm, cfg))
 		t.collapsibleState = TreeItemCollapsibleState.Collapsed;
 		this.aTiRoot.push(t);
 		this.oTiPrj[dir] = t.children;	// プロジェクト追加
@@ -202,7 +202,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 	// ローカル SKYNovel バージョン調査
 	private updLocalSNVer(dir: string) {
-		const o = fs.readJsonSync(dir +'/package.json');
+		const o = readJsonSync(dir +'/package.json');
 		const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
 		this.oTiPrj[dir][this.idxDevSnUpd].description = localVer ?`-- ${localVer}` :'取得できません';
 	}
@@ -213,24 +213,17 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	}
 
 	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {};
-	private onClickTreeItemBtn(ti: TreeItem, cfg: TREEITEM_CFG) {
-		const aWsFld = workspace.workspaceFolders;
-		if (! aWsFld) {	// undefinedだった場合はファイルを開いている
-			window.showWarningMessage(`[SKYNovel] フォルダを開いているときのみ使用できます`);
-			return;	// 一応どうやってもここには来れないようではある
-		}
-
-		// カレントディレクトリ設定（必要なら）
-		let cmd = (aWsFld.length > 1) ?`cd "${ti.tooltip}" ${statBreak()} ` :'';
-		const pathWs = String(ti.tooltip ?? '');
-		if (! fs.existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
+		const pathWs = wsFld.uri.fsPath;
+		let cmd = `cd "${pathWs}" ${statBreak()} `;
+		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 
 		// メイン処理
 		const prj = this.hPrj[pathWs];
 		if (cfg.npm) cmd += cfg.npm
 			.replace(/\${prj.title}/g, prj.title)
 			.replace(/\${prj.version}/g, prj.version);
-		switch (cfg.cmd) {	// タスク前処理
+		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
 			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'Crypto':
@@ -243,6 +236,12 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 					this._onDidChangeTreeData.fire(ti);
 				});
 				return;
+
+			case 'TaskWebDbg':
+				debug.startDebugging(wsFld, 'webデバッグ');	return;
+
+			case 'TaskAppDbg':
+				debug.startDebugging(wsFld, 'appデバッグ');	return;
 
 			case 'PackFreem':
 				let find_ng = false;
@@ -266,7 +265,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 
 		// アイコン生成
-		switch (cfg.cmd) {
+		switch (btn_nm) {
 			case 'TaskWeb':
 			case 'TaskApp':
 			case 'PackWin':
@@ -274,33 +273,33 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			case 'PackMac':
 			case 'PackLinux':
 				const fnIcon = pathWs +'/build/icon.png';
-				if (! fs.existsSync(fnIcon)) break;
+				if (! existsSync(fnIcon)) break;
 
-				const mtPng = fs.statSync(fnIcon).mtimeMs;
-				const bIconPng = fs.readFileSync(fnIcon);
-				fs.ensureDirSync(pathWs +'/build/icon/');
+				const mtPng = statSync(fnIcon).mtimeMs;
+				const bIconPng = readFileSync(fnIcon);
+				ensureDirSync(pathWs +'/build/icon/');
 				//png2icons.setLogger(console.log);
 			{
 				const fn = pathWs +'/build/icon/icon.icns';
-				const mt = fs.existsSync(fn) ?fs.statSync(fn).mtimeMs :0;
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
 				if (mtPng > mt) {
 					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
-					if (b) fs.writeFileSync(fn, b);
+					if (b) writeFileSync(fn, b);
 				}
 			}
 			{
 				const fn = pathWs +'/build/icon/icon.ico';
-				const mt = fs.existsSync(fn) ?fs.statSync(fn).mtimeMs :0;
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
 				if (mtPng > mt) {
 					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
-					if (b) fs.writeFileSync(fn, b);
+					if (b) writeFileSync(fn, b);
 				}
 			}
 				break;
 		}
 
 		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
-		switch (cfg.cmd) {
+		switch (btn_nm) {
 			case 'PackWin':
 			case 'PackWin32':
 				if (! is_win) break;
@@ -312,15 +311,14 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				return;
 		}
 
-		const wsFld = aWsFld.find(v=> v.uri.path === ti.tooltip);
 		const t = new Task(
-			{type: 'SKYNovel '+ cfg.cmd},	// definition（タスクの一意性）
-			wsFld!,
+			{type: 'SKYNovel '+ btn_nm},	// definition（タスクの一意性）
+			wsFld,
 			cfg.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		switch (cfg.cmd) {	// タスク後処理
+		switch (btn_nm) {	// タスク後処理
 			case 'SnUpd':
 			case 'LibUpd':
 				this.hOnEndTask[cfg.label] = e=> {
@@ -344,8 +342,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 			case 'PackFreem':	this.hOnEndTask[cfg.label] = ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(fs.createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
-				.append(fs.createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
+				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
 				.glob('web.js', {cwd: pathWs +'/doc/'})
 				.glob('web.*.js', {cwd: pathWs +'/doc/'})
 				.glob(`${
@@ -354,7 +352,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				.glob('favicon.ico', {cwd: pathWs +'/doc/'});
 
 				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
-				const ws = fs.createWriteStream(pathWs +`/build/package/${fn_out}`)
+				const ws = createWriteStream(pathWs +`/build/package/${fn_out}`)
 				.on('close', ()=> window.showInformationMessage(
 					`ふりーむ！形式で出力（${fn_out}）しました`,
 					'出力フォルダを開く',
@@ -365,7 +363,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 				break;
 		}
 		tasks.executeTask(t)
-		.then(undefined, rj=> console.error(`fn:TreeDPDev onClickTreeItemBtn() rj:${rj.message}`));
+		.then(undefined, rj=> console.error(`fn:WorkSpaces onClickTreeItemBtn() rj:${rj.message}`));
 	}
 
 	getTreeItem = (t: TreeItem)=> t;

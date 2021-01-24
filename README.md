@@ -299,7 +299,7 @@
 
 
 - [Debugger Function Overview](#Debugger-Function-Overview)
-	- [Support for attach and launch](#Support-for-attach-and-launch)
+	- [Automatically launch and connect the app and browser versions](#Automatically-launch-and-connect-the-app-and-browser-versions)
 	- [About the Debug Button Bar](#About-the-Debug-Button-Bar)
 	- [breakpoint stop](#breakpoint-stop)
 		- [(A) line breakpoint](#(A)-line-breakpoint)
@@ -323,7 +323,7 @@
 	- 現在デバッグできるのは、非パッケージ化・デバッグ起動アプリのみです。
 
 - [デバッガー機能概要](#デバッガー機能概要)
-	- [attach・launch 起動対応](#attach・launch-起動対応)
+	- [アプリ・ブラウザ版の起動と接続を自動で](#アプリ・ブラウザ版の起動と接続を自動で)
 	- [デバッグボタンバーについて](#デバッグボタンバーについて)
 	- [ブレークポイント停止](#ブレークポイント停止)（通ったら、タグや&変数操作処理前にブレーク）
 		- [(A) 行ブレークポイント](#(A)-行ブレークポイント)
@@ -342,17 +342,17 @@
 ---
 ## Debugger Function Overview
 
-### Support for attach and launch
+### Automatically launch and connect the app and browser versions
 
-1. select the debugger (triangle on the insect) on the active bar, select [デバッグ開始], and
+1. Click the pause symbol (vertical bar in a triangle) that appears when you place the mouse cursor over [Launch: App Version].
 
-	![](res/img/dbg_actber_run0.png)
+	![](res/img/dbg_actber_run1a.png)
 
-2. Press the green triangular execution button to start the debugger (after that, just press the F5 key). (Thereafter, simply press the F5 key to start it.)
+	(If you are using the browser version, click the pause symbol on the [Launch: Browser Version].
 
-	![](res/img/dbg_actber_run1.png)
+	![](res/img/dbg_actber_run1b.png)
 
-3. the application version starts and stops at the beginning of the script (main.sn, the first digit of the first line).
+2. the application version starts and stops at the beginning of the script (main.sn, the first digit of the first line).
 
 	A band cursor, pentagon stop mark, and debug button bar appear on the stop line.
 The call stack view will also show [main.sn 1:1]
@@ -478,17 +478,17 @@ The call stack view will also show [main.sn 1:1]
 
 
 ## デバッガー機能概要
-### attach・launch 起動対応
+### アプリ・ブラウザ版の起動と接続を自動で
 
-1. アクティブバーのデバッガー（虫に三角マーク）を選び、【デバッグ開始】を選んで、
+1. 【起動：アプリ版】にマウスカーソルをのせると出てくる、一時停止マーク（三角に縦棒）をクリック
 
-	![](res/img/dbg_actber_run0.png)
+	![](res/img/dbg_actber_run1a.png)
 
-2. 緑三角の実行ボタンを押すと、デバッガーが起動します。（以後はF5キーを押すだけで起動します）
+	（ブラウザ版なら【起動：ブラウザ版】の一時停止マークをクリック）
 
-	![](res/img/dbg_actber_run1.png)
+	![](res/img/dbg_actber_run1b.png)
 
-3. アプリ版が起動し、スクリプト冒頭（main.sn、1行目の1桁目）で停止します。
+2. アプリ版が起動し、スクリプト冒頭（main.sn、1行目の1桁目）で停止します。
 
 	停止行に帯カーソルと五角形の停止マーク、デバッグボタンバーが現われ、
 	コールスタックビューにも【main.sn 1:1】と表示されます。

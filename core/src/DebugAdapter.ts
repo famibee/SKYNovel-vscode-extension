@@ -23,62 +23,77 @@ import {Debugger} from './Debugger';
 const {Subject} = require('await-notify');
 
 
+let daii: DebugAdapterInlineImplementation | null = null;
+
 export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
-	// デバッグ構成解決
-	// .vscode/launch.json がない場合のデバッグ構成作成初期値
+	// デバッグ構成解決【.vscode/launch.json がない場合のデバッグ構成作成初期値】
 	const lng = docsel.language ?? '';
 	debug.registerDebugConfigurationProvider(lng, {
 		provideDebugConfigurations(_folder: WorkspaceFolder | undefined): ProviderResult<DebugConfiguration[]> {return [
 			{
-				"name": "1.デバッグ版アプリを起動",
-				"request": "launch",
-				"type": "node",
+				name	: '10.ブラウザ版',
+				request	: 'launch',
+				type	: 'pwa-node',
+				runtimeExecutable	: 'npm',
+				runtimeArgs	: [
+					'run-script',
+					'watch:wdsdbg'
+				],
+				skipFiles	: [
+					'<node_internals>/**'
+				],
+				console		: 'internalConsole',
+				internalConsoleOptions	: 'openOnSessionStart'
 			},
 			{
-				"name": "2.デバッガを起動",
-				"request": "attach",
-				"type": "skynovel",
+				name	: '1.アプリ版',
+				request	: 'launch',
+				type	: 'node',
+				port	: 3776,
+				console	: 'internalConsole',
+				internalConsoleOptions: 'openOnSessionStart',
+			},
+			{
+				name	: '2.デバッガ',
+				request	: 'attach',
+				type	: 'skynovel',
+				port	: 3776,
+				weburi	: 'http://localhost:8080',
 			},
 		];}
 	});
 
+	// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
 	ctx.subscriptions.push(debug.registerDebugConfigurationProvider('node', {
 		resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, cfg: DebugConfiguration): ProviderResult<DebugConfiguration> {
-			// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
+			const ex = '${workspaceFolder}/node_modules/.bin/electron';
 			return {
 				program: '${workspaceFolder}/doc/app.js',
-				runtimeExecutable: '${workspaceFolder}/node_modules/.bin/electron',
-				windows: {
-					runtimeExecutable: '${workspaceFolder}/node_modules/.bin/electron.cmd'
-				},
+				runtimeExecutable: ex,
+				windows: {runtimeExecutable: ex +'.cmd'},
 				console: 'integratedTerminal',
 				autoAttachChildProcesses: true,
 				skipFiles: [
 					'<node_internals>/**/*.js'
 				],
 				...cfg,
-				env: {SKYNOVEL_DBG: 'on', ...cfg.env,},
+				env: {SKYNOVEL_DBG: 'on', SKYNOVEL_PORT: cfg.port ?? 3776, ...cfg.env,},
 			};
 		}
 	}));
 	ctx.subscriptions.push(debug.registerDebugConfigurationProvider(lng, {
 		resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, cfg: DebugConfiguration): ProviderResult<DebugConfiguration> {
 			// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
-			return {
-				cwd: '${workspaceFolder}',
-				...cfg,
-			};
+			return {cwd: '${workspaceFolder}', port: 3776, weburi: 'http://localhost:8080', ...cfg,};
 		}
 	}));
 
-
 	// デバッグアダプタ工場（request は attach/launch どちらも）
 	const dadf: DebugAdapterDescriptorFactory = {
-		createDebugAdapterDescriptor(_ss: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-			return new DebugAdapterInlineImplementation(new DebugAdapter());
+		createDebugAdapterDescriptor(ss: DebugSession): ProviderResult<DebugAdapterDescriptor> {
+			return daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ss.workspaceFolder)));
 		},
 	};
-
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
 	if ('dispose' in dadf) ctx.subscriptions.push(dadf);
 }
@@ -88,18 +103,18 @@ function timeout(ms: number) {return new Promise(re=> setTimeout(re, ms));}
 
 class DebugAdapter extends LoggingDebugSession {
 	// 複数のスレッドをサポートしないので、デフォルトのスレッドにハードコードされたID
-	private static	readonly THREAD_ID = 1;
+	private static	readonly	THREAD_ID	= 1;
 
-	private	readonly	dbg	= new Debugger();	// runtime (or debugger)
+	private	readonly	dbg		: Debugger;	// runtime (or debugger)
 
 	// セッションごと【▶（デバッグの開始）や⟲（再起動ボタン）】に生成する
-	constructor() {
+	constructor(readonly wsFld: WorkspaceFolder | undefined) {
 		super('sn_debug.txt');
 
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
-		// setup event handlers
+		this.dbg = new Debugger(wsFld);
 		this.dbg.on('stopOnEntry', ()=> {
 			this.sendEvent(new StoppedEvent('entry', DebugAdapter.THREAD_ID));
 		});
@@ -140,7 +155,7 @@ class DebugAdapter extends LoggingDebugSession {
 	protected initializeRequest(res: DebugProtocol.InitializeResponse, _args: DebugProtocol.InitializeRequestArguments): void {
 		// https://microsoft.github.io/debug-adapter-protocol/overview
 		// Specification https://microsoft.github.io/debug-adapter-protocol/specification#Types_InitializeRequestArguments
-//console.log(`"res":${JSON.stringify(res)}, "args":${JSON.stringify(args, null, 2)}`);
+//console.log(`"res":${JSON.stringify(res)}, "args":${JSON.stringify(_args, null, 2)}`);
 /*{
 	"args": {
 		"clientID": "vscode",
@@ -412,7 +427,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		const end = start + maxLevels;
 		const stk = await this.dbg.stack(res.request_seq, start, end);
 		res.body = {	// これによりVSCodeは現在地を知る
-			stackFrames: stk.map((f: any, i)=> new StackFrame(
+			stackFrames: stk.map((f, i)=> new StackFrame(
 				i,
 				f.nm,
 				this.createSource(f.fn),
@@ -463,10 +478,9 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 //console.log(`fn:DebugAdapter.ts line:325 variablesRequest(res=${JSON.stringify(res, null, 2)}= args=${JSON.stringify(args, null, 2)}= request:${JSON.stringify(request, null, 2)})`);
 		if (this.mapIsLongrunning.get(args.variablesReference)) {
 			// long running
-console.log(`fn:DebugAdapter.ts line:329 `);
 			if (request) this.mapCancelationTokens.set(request.seq, false);
 
-			for (let i = 0; i < 100; i++) {
+			for (let i=0; i<100; ++i) {
 				await timeout(1000);
 				aVar.push({
 					name: `i_${i}`,

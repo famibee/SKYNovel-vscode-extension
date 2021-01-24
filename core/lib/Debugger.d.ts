@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { DebugConfiguration } from 'vscode';
+import { DebugConfiguration, WorkspaceFolder } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { EventEmitter } from 'events';
 export interface InfoBreakpoint {
@@ -9,13 +9,14 @@ export interface InfoBreakpoint {
     verified: boolean;
 }
 export declare class Debugger extends EventEmitter {
-    private readonly hProcSnRes;
+    readonly wsFld: WorkspaceFolder | undefined;
+    private pathWs;
+    constructor(wsFld: WorkspaceFolder | undefined);
     attach(args: DebugConfiguration): void;
-    private connect;
-    private sktDbg;
-    private sktBuf;
+    private aSkBuf;
     private send2SN;
     end(): void;
+    private readonly hProcSnRes;
     restart: (ri: number) => Promise<void>;
     continue: (rev?: boolean) => void;
     step: (rev?: boolean) => void;
@@ -23,7 +24,12 @@ export declare class Debugger extends EventEmitter {
     stepout: () => void;
     pause: () => void;
     var: (ri: number, scope: string) => Promise<any[]>;
-    stack: (ri: number, start: number, end: number) => Promise<any[]>;
+    stack: (ri: number, start: number, end: number) => Promise<{
+        nm: string;
+        fn: string;
+        ln: number;
+        col: number;
+    }[]>;
     eval: (ri: number, txt: string) => Promise<any>;
     private idBP;
     private fn2ABP;

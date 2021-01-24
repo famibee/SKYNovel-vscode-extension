@@ -11,6 +11,7 @@ import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIco
 
 export interface TREEITEM_CFG {
 	cmd		: string,
+	dbg?	: boolean,
 	icon	: string,
 	label	: string,
 	desc?	: string,
@@ -22,16 +23,19 @@ export interface TREEITEM_CFG {
 export class MyTreeItem extends TreeItem {
 	private		_children	: TreeItem[]	= [];
 
-	constructor(readonly cfg: TREEITEM_CFG, readonly dir: string, readonly ctx: ExtensionContext, readonly onClickTreeItemBtn: (ti: TreeItem, cfg: TREEITEM_CFG)=> void) {
+	constructor(readonly cfg: TREEITEM_CFG, readonly dir: string, readonly ctx: ExtensionContext, readonly onClickTreeItemBtn: (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG)=> void) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
-		this.tooltip = dir;	// 親プロジェクト特定用、まぁ見えても変でない情報
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';
 		else {
 			this.description = cfg.desc ?? '';
 			if (cfg.cmd) {
-				this.contextValue = 'skynovel.dev'+ cfg.cmd;
-				ctx.subscriptions.push(commands.registerCommand(this.contextValue, ti=> onClickTreeItemBtn(ti, cfg)));
+				const btn_nm = this.contextValue = 'skynovel.dev'+ cfg.cmd;
+				ctx.subscriptions.push(commands.registerCommand(btn_nm, ti=> onClickTreeItemBtn(ti, cfg.cmd, cfg)));
+				if (cfg.dbg) {
+					const btn_nm2 = btn_nm +'Dbg';
+					ctx.subscriptions.push(commands.registerCommand(btn_nm2, ti=> onClickTreeItemBtn(ti, cfg.cmd +'Dbg', cfg)));
+				}
 			}
 		}
 

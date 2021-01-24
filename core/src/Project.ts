@@ -7,7 +7,7 @@
 
 import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
-import {PnlPrjSetting} from './PnlPrjSetting';
+import {PrjSetting} from './PrjSetting';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
@@ -157,11 +157,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.fnDiff = this.pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
-		this.ps = new PnlPrjSetting(ctx, wsFld, chgTitle, this.codSpt);
+		this.ps = new PrjSetting(ctx, wsFld, chgTitle, this.codSpt);
 		this.initCrypto();
 	}
 
-	private	readonly	ps: PnlPrjSetting;
+	private	readonly	ps: PrjSetting;
 	openPrjSetting() {this.ps.open();}
 	get title() {return this.ps.cfg.book.title}
 	get version() {return this.ps.cfg.book.version}
@@ -431,7 +431,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.codSpt.setHDefPlg(hDefPlg);
 
 		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
-		.then(()=> this.rebuildTask())
+		.then(()=> this.rebuildTask())	// NOTE: 起動時にビルドが走るのはこれ
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
 	private rebuildTask() {

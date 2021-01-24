@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.5.6",
+	"version": "3.6.0",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.52.0"
@@ -59,31 +59,31 @@
 					"skynovel"
 				],
 				"configurationAttributes": {
-					"attach": {
+					"launch": {
 						"properties": {
-							"userDataDir": {
-								"type": "string",
-								"description": "Absolute path to App Data.",
-								"default": "${workspaceFolder}/.vscode/chrome"
-							},
 							"stopOnEntry": {
 								"type": "boolean",
 								"description": "Automatically stop after launch.",
 								"default": true
+							},
+							"port": {
+								"type": "integer",
+								"description": "connect port",
+								"default": 3776
 							}
 						}
 					},
-					"launch": {
+					"attach": {
 						"properties": {
-							"userDataDir": {
-								"type": "string",
-								"description": "Absolute path to App Data.",
-								"default": "${workspaceFolder}/.vscode/chrome"
+							"port": {
+								"type": "integer",
+								"description": "connect port",
+								"default": 3776
 							},
-							"stopOnEntry": {
-								"type": "boolean",
-								"description": "Automatically stop after launch.",
-								"default": true
+							"weburi": {
+								"type": "string",
+								"description": "web app uri",
+								"default": "http://localhost:8080"
 							}
 						}
 					}
@@ -169,11 +169,27 @@
 				}
 			},
 			{
+				"command": "skynovel.devTaskWebDbg",
+				"title": "npm web (on Browser debug)",
+				"icon": {
+					"light": "res/light/debug.svg",
+					"dark": "res/dark/debug.svg"
+				}
+			},
+			{
 				"command": "skynovel.devTaskApp",
 				"title": "npm start (on Electron)",
 				"icon": {
 					"light": "res/light/play.svg",
 					"dark": "res/dark/play.svg"
+				}
+			},
+			{
+				"command": "skynovel.devTaskAppDbg",
+				"title": "npm start (on Electron debug)",
+				"icon": {
+					"light": "res/light/debug.svg",
+					"dark": "res/dark/debug.svg"
 				}
 			},
 			{
@@ -430,7 +446,17 @@
 				},
 				{
 					"group": "inline",
+					"command": "skynovel.devTaskWebDbg",
+					"when": "view == sn-ws && viewItem == 'skynovel.devTaskWeb'"
+				},
+				{
+					"group": "inline",
 					"command": "skynovel.devTaskApp",
+					"when": "view == sn-ws && viewItem == 'skynovel.devTaskApp'"
+				},
+				{
+					"group": "inline",
+					"command": "skynovel.devTaskAppDbg",
 					"when": "view == sn-ws && viewItem == 'skynovel.devTaskApp'"
 				},
 				{
@@ -625,9 +651,10 @@
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
-		"fs-extra": "^9.0.1",
+		"fs-extra": "^9.1.0",
 		"image-size": "^0.9.3",
 		"png2icons": "^2.0.1",
+		"socket.io": "^3.1.0",
 		"uuid": "^8.3.2",
 		"vscode-debugadapter": "^1.43.0",
 		"vscode-debugprotocol": "^1.43.0"
@@ -637,16 +664,21 @@
 		"@types/crypto-js": "^4.0.1",
 		"@types/fs-extra": "^9.0.6",
 		"@types/mocha": "^8.2.0",
-		"@types/node": "^14.14.21",
+		"@types/node": "^14.14.22",
+		"@types/socket.io": "^2.1.12",
 		"@types/uuid": "^8.3.0",
 		"@types/vscode": "^1.52.0",
-		"electron": "^11.2.0",
+		"electron": "^11.2.1",
 		"ts-loader": "^8.0.14",
 		"typescript": "^4.1.3",
 		"vscode-debugadapter-testsupport": "^1.43.0",
 		"vscode-test": "^1.4.1",
 		"webpack": "^4.46.0",
 		"webpack-cli": "^3.3.12"
+	},
+	"optionalDependencies": {
+		"bufferutil": "^4.0.3",
+		"utf-8-validate": "^5.0.4"
 	},
 	"scripts": {
 		"build": "webpack --mode development --config ./core/webpack.config.js",

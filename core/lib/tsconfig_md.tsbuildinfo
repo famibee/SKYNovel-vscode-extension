@@ -31,6 +31,11 @@
         "signature": "e6b724280c694a9f588847f754198fb96c43d805f065c3a5b28bbc9594541c84",
         "affectsGlobalScope": false
       },
+      "../../node_modules/typescript/lib/lib.dom.d.ts": {
+        "version": "abadddbf660adeec27e9a56584907d52fa1d6e1e1dc49f639a921baa951b7a84",
+        "signature": "abadddbf660adeec27e9a56584907d52fa1d6e1e1dc49f639a921baa951b7a84",
+        "affectsGlobalScope": true
+      },
       "../../node_modules/typescript/lib/lib.es2015.core.d.ts": {
         "version": "46ee15e9fefa913333b61eaf6b18885900b139867d89832a515059b62cf16a17",
         "signature": "46ee15e9fefa913333b61eaf6b18885900b139867d89832a515059b62cf16a17",
@@ -421,15 +426,50 @@
         "signature": "1290b9127bae7391a0a2ef732da845717eaeab990d6f53b3c092e64bdbe0b42b",
         "affectsGlobalScope": false
       },
+      "../../node_modules/@types/component-emitter/index.d.ts": {
+        "version": "a3a88c1869ba1022dfaefac47ff7a984ec62510e9b4d60988f91d5e523266c34",
+        "signature": "a3a88c1869ba1022dfaefac47ff7a984ec62510e9b4d60988f91d5e523266c34",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/cookie/index.d.ts": {
+        "version": "405ad6db8aa3d5618c3be21cde8125de28a3e40690eb05136c123f420c05c082",
+        "signature": "405ad6db8aa3d5618c3be21cde8125de28a3e40690eb05136c123f420c05c082",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/cors/index.d.ts": {
+        "version": "93e84a7d4af3809d0bb3d6d5cfb1b0edf082093588ea0a8df78ba5d3e71126d5",
+        "signature": "93e84a7d4af3809d0bb3d6d5cfb1b0edf082093588ea0a8df78ba5d3e71126d5",
+        "affectsGlobalScope": false
+      },
       "../../node_modules/@types/crypto-js/index.d.ts": {
         "version": "9764460948ab86a538eddf0dd7c98d41095ee2bc0bb092ec87e65ff799c98b78",
         "signature": "9764460948ab86a538eddf0dd7c98d41095ee2bc0bb092ec87e65ff799c98b78",
         "affectsGlobalScope": true
       },
+      "../../node_modules/@types/engine.io/index.d.ts": {
+        "version": "854089953b8bdf60437d229c41544eb8fd374206b49f99647298ff7824f4932e",
+        "signature": "854089953b8bdf60437d229c41544eb8fd374206b49f99647298ff7824f4932e",
+        "affectsGlobalScope": false
+      },
       "../../node_modules/@types/mocha/index.d.ts": {
         "version": "a3a5fc3a8b77a1b96277eff237a15d065d525a6c1c66b303dc98be708e30e7f8",
         "signature": "a3a5fc3a8b77a1b96277eff237a15d065d525a6c1c66b303dc98be708e30e7f8",
         "affectsGlobalScope": true
+      },
+      "../../node_modules/socket.io-parser/dist/index.d.ts": {
+        "version": "6ce9c4c7d976960a7f14dfe40e26c357bcab9405eb2eea38f79760ed4f323512",
+        "signature": "6ce9c4c7d976960a7f14dfe40e26c357bcab9405eb2eea38f79760ed4f323512",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/socket.io/index.d.ts": {
+        "version": "589a23e38353a6ba3a66b339c81cee68aa7604776f9322b4c50564165d9fa0f6",
+        "signature": "589a23e38353a6ba3a66b339c81cee68aa7604776f9322b4c50564165d9fa0f6",
+        "affectsGlobalScope": false
+      },
+      "../../node_modules/@types/socket.io-parser/index.d.ts": {
+        "version": "8487571622eefb9421499874014fa1cc0898bd15724565002a27b67d8e285072",
+        "signature": "8487571622eefb9421499874014fa1cc0898bd15724565002a27b67d8e285072",
+        "affectsGlobalScope": false
       },
       "../../node_modules/@types/uuid/index.d.ts": {
         "version": "96b49a9de749afcf92b5bce1d8cc42cfae6816cdf5ea36584fd9256b8b2e5292",
@@ -480,6 +520,15 @@
         "../../node_modules/@types/node/stream.d.ts",
         "../../node_modules/@types/node/zlib.d.ts"
       ],
+      "../../node_modules/@types/cors/index.d.ts": [
+        "../../node_modules/@types/node/http.d.ts"
+      ],
+      "../../node_modules/@types/engine.io/index.d.ts": [
+        "../../node_modules/@types/node/events.d.ts",
+        "../../node_modules/@types/node/http.d.ts",
+        "../../node_modules/@types/node/index.d.ts",
+        "../../node_modules/@types/node/net.d.ts"
+      ],
       "../../node_modules/@types/fs-extra/index.d.ts": [
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/index.d.ts"
@@ -658,6 +707,19 @@
       ],
       "../../node_modules/@types/node/zlib.d.ts": [
         "../../node_modules/@types/node/stream.d.ts"
+      ],
+      "../../node_modules/@types/socket.io-parser/index.d.ts": [
+        "../../node_modules/@types/node/index.d.ts"
+      ],
+      "../../node_modules/@types/socket.io/index.d.ts": [
+        "../../node_modules/@types/engine.io/index.d.ts",
+        "../../node_modules/@types/node/http.d.ts",
+        "../../node_modules/@types/node/https.d.ts",
+        "../../node_modules/@types/node/index.d.ts",
+        "../../node_modules/socket.io-parser/dist/index.d.ts"
+      ],
+      "../../node_modules/socket.io-parser/dist/index.d.ts": [
+        "../../node_modules/@types/component-emitter/index.d.ts"
       ]
     },
     "exportedModulesMap": {
@@ -667,6 +729,15 @@
         "../../node_modules/@types/node/stream.d.ts",
         "../../node_modules/@types/node/zlib.d.ts"
       ],
+      "../../node_modules/@types/cors/index.d.ts": [
+        "../../node_modules/@types/node/http.d.ts"
+      ],
+      "../../node_modules/@types/engine.io/index.d.ts": [
+        "../../node_modules/@types/node/events.d.ts",
+        "../../node_modules/@types/node/http.d.ts",
+        "../../node_modules/@types/node/index.d.ts",
+        "../../node_modules/@types/node/net.d.ts"
+      ],
       "../../node_modules/@types/fs-extra/index.d.ts": [
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/index.d.ts"
@@ -845,12 +916,29 @@
       ],
       "../../node_modules/@types/node/zlib.d.ts": [
         "../../node_modules/@types/node/stream.d.ts"
+      ],
+      "../../node_modules/@types/socket.io-parser/index.d.ts": [
+        "../../node_modules/@types/node/index.d.ts"
+      ],
+      "../../node_modules/@types/socket.io/index.d.ts": [
+        "../../node_modules/@types/engine.io/index.d.ts",
+        "../../node_modules/@types/node/http.d.ts",
+        "../../node_modules/@types/node/https.d.ts",
+        "../../node_modules/@types/node/index.d.ts",
+        "../../node_modules/socket.io-parser/dist/index.d.ts"
+      ],
+      "../../node_modules/socket.io-parser/dist/index.d.ts": [
+        "../../node_modules/@types/component-emitter/index.d.ts"
       ]
     },
     "semanticDiagnosticsPerFile": [
       "../src/md2json.ts",
       "../../node_modules/@types/archiver/index.d.ts",
+      "../../node_modules/@types/component-emitter/index.d.ts",
+      "../../node_modules/@types/cookie/index.d.ts",
+      "../../node_modules/@types/cors/index.d.ts",
       "../../node_modules/@types/crypto-js/index.d.ts",
+      "../../node_modules/@types/engine.io/index.d.ts",
       "../../node_modules/@types/fs-extra/index.d.ts",
       "../../node_modules/@types/glob/index.d.ts",
       "../../node_modules/@types/minimatch/index.d.ts",
@@ -902,8 +990,12 @@
       "../../node_modules/@types/node/wasi.d.ts",
       "../../node_modules/@types/node/worker_threads.d.ts",
       "../../node_modules/@types/node/zlib.d.ts",
+      "../../node_modules/@types/socket.io-parser/index.d.ts",
+      "../../node_modules/@types/socket.io/index.d.ts",
       "../../node_modules/@types/uuid/index.d.ts",
       "../../node_modules/@types/vscode/index.d.ts",
+      "../../node_modules/socket.io-parser/dist/index.d.ts",
+      "../../node_modules/typescript/lib/lib.dom.d.ts",
       "../../node_modules/typescript/lib/lib.es2015.collection.d.ts",
       "../../node_modules/typescript/lib/lib.es2015.core.d.ts",
       "../../node_modules/typescript/lib/lib.es2015.d.ts",
