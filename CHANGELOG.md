@@ -1,6 +1,8 @@
+## v3.7.1
+- fix: Undoや手入力でも青四角を戻す・動かすように
 ## v3.7.0
 - feat: デバッグ実行時、一時停止した際にボタン位置・サイズをdrag&dropで変更できる機能
-- feat: .vscode/launch.jsonに stopOnEntry（最初の行で停止するか）機能追加
+- feat: .vscode/launch.jsonに stopOnEntry（最初の行で停止するか選べる）機能追加
 - fix: デバッガ・アプリ間プロトコル改善
 - fix: 設定画面の変更が反映されない・内部エラー修正
 ## v3.6.0

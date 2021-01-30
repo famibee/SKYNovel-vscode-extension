@@ -142,7 +142,11 @@ export class Debugger extends EventEmitter {
 				di[':col_e'] -= q.length -n.length;
 //console.log(`fn:Debugger.ts line:143  N =(${n})= ce:${di[':col_e']}`);
 				di[':token'] = n;
-				dbg.send2SN('_replaceToken', {':idx_tkn': di[':idx_tkn'], ':token': n,});
+				dbg.send2SN('_replaceToken', {
+					':idx_tkn': di[':idx_tkn'],
+					':token': n,
+					':id': id,
+				});
 				break;
 			}
 		});
