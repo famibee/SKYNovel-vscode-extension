@@ -33,8 +33,9 @@
 			"type": "skynovel",
 			"port": 3776,
 				// 【1.アプリ版】port や【package.json watch:wdsdbg】 とあわせる
-			"weburi": "http://localhost:8080"
+			"weburi": "http://localhost:8080",
 				// core/wds.config.js devServer.port とあわせる（省略時は8080）
+			"stopOnEntry": false
 		}
 	],
 	"compounds": [

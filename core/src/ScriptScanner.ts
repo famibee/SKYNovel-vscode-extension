@@ -7,6 +7,7 @@
 
 import {treeProc, CmnLib, IFn2Path, REG_SCRIPT, chkBoolean} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
+import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 
 import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument} from 'vscode';
@@ -277,15 +278,20 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 		aChgTxt.forEach(e=> {
 			const doc = e.document;
 			const path = doc.fileName;
-			hDoc[path] = doc;
-			if (path.slice(-4) !== '.ssn') return;
+			const isSn = path.slice(-3) === '.sn';
+			const isSsn = path.slice(-4) === '.ssn';
+			if (! isSn && ! isSsn) return;
 
-//console.log(`fn:ScriptScanner.ts line:217 goScriptSrc fn:${path}`);
+			hDoc[path] = doc;
+			if (isSn) {Debugger.noticeChgDoc(this.curPrj, e); return;}
+			if (! isSsn) return;
+
+//console.log(`fn:ScriptScanner.ts line:289 goScriptSrc fn:${path}`);
 			this.cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
 				const sl = c.range.start.line;
 				const el = c.range.end.line;
-//console.log(`fn:ScriptScanner.ts line:222 * (${sl},${c.range.start.character})(${el},${c.range.end.character})=${c.text}=`);
+//console.log(`fn:ScriptScanner.ts line:294 * (${sl},${c.range.start.character})(${el},${c.range.end.character})=${c.text}=`);
 				const text = (sl === el && c.text.slice(-1) !== '\n')
 					? doc.lineAt(sl).text
 					: c.text;
@@ -341,14 +347,14 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 
 		const hMU: {[nm: string]: Location[]} = {};
 		for (const nm in this.hMacroUse) this.hMacroUse[nm].forEach(loc=> {
-			if (loc.uri.path != path) (hMU[nm] ??= []).push(loc);
+			if (loc.uri.path !== path) (hMU[nm] ??= []).push(loc);
 		})
 		this.hMacroUse = hMU;
 
 		const hMU4NW: {[nm: string]: Location[]} = {};
 		for (const nm in this.hMacroUse4NoWarm) this.hMacroUse4NoWarm[nm]
 		.forEach(loc=> {
-			if (loc.uri.path != path) (hMU4NW[nm] ??= []).push(loc);
+			if (loc.uri.path !== path) (hMU4NW[nm] ??= []).push(loc);
 		})
 		this.hMacroUse4NoWarm = hMU4NW;
 
@@ -498,7 +504,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 				//変数操作
 				try {
 					const o = ScriptScanner.splitAmpersand(token.slice(1));
-					if (o.name.charAt(0) != '&') {
+					if (o.name.charAt(0) !== '&') {
 						const kw = o.name.trimEnd();
 						this.hSetWords['代入変数名'].add(kw);
 						setKw.add(`代入変数名\t${kw}`);
@@ -610,7 +616,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 			};
 
 			const v = this.alzTagArg.hPrm.name?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				setKw.add(`代入変数名\t${v}`);
 				this.hSetWords['代入変数名'].add(v);
 			}
@@ -712,14 +718,14 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 
 		'let': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.name?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['代入変数名'].add(v);
 				setKw.add(`代入変数名\t${v}`);
 			}
 		},
 		'add_frame': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.id?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['フレーム名'].add(v);
 				setKw.add(`フレーム名\t${v}`);
 			}
@@ -730,48 +736,48 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 		},
 		'playse': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.buf?.val ?? 'SE';
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(v)};
 				setKw.add(`サウンドバッファ\t${v}`);
 		},
 		'button': (setKw: Set<string>)=> {
 			const c = this.alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
-			if (c && c.charAt(0) != '&') {
+			if (c && c.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(c)};
 				setKw.add(`サウンドバッファ\t${c}`);
 			const e = this.alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
-			if (e && e.charAt(0) != '&') {
+			if (e && e.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(e)};
 				setKw.add(`サウンドバッファ\t${e}`);
 			const l = this.alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
-			if (l && l.charAt(0) != '&') {
+			if (l && l.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(l)};
 				setKw.add(`サウンドバッファ\t${l}`);
 		},
 		'link': (setKw: Set<string>)=> {
 			const c = this.alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
-			if (c && c.charAt(0) != '&') {
+			if (c && c.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(c)};
 				setKw.add(`サウンドバッファ\t${c}`);
 			const e = this.alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
-			if (e && e.charAt(0) != '&') {
+			if (e && e.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(e)};
 				setKw.add(`サウンドバッファ\t${e}`);
 			const l = this.alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
-			if (l && l.charAt(0) != '&') {
+			if (l && l.charAt(0) !== '&') {
 				this.hSetWords['サウンドバッファ'].add(l)};
 				setKw.add(`サウンドバッファ\t${l}`);
 		},
 		'ch_in_style': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.name?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['文字出現演出名'].add(v);
 				setKw.add(`文字出現演出名\t${v}`);
 			}
 		},
 		'ch_out_style': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.name?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['文字消去演出名'].add(v);
 				setKw.add(`文字消去演出名\t${v}`);
 			}
@@ -789,7 +795,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 		},
 		'add_face': (setKw: Set<string>)=> {
 			const v = this.alzTagArg.hPrm.name?.val;
-			if (v && v.charAt(0) != '&') {
+			if (v && v.charAt(0) !== '&') {
 				this.hSetWords['差分名称'].add(v);
 				setKw.add(`差分名称\t${v}`);
 			}

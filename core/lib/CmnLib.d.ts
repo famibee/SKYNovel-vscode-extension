@@ -1,6 +1,7 @@
-import { ExtensionContext } from 'vscode';
+import { DocumentFilter, ExtensionContext } from 'vscode';
 export declare function uint(o: any): number;
 export declare const REG_SCRIPT: RegExp;
+export declare const docsel: DocumentFilter;
 export interface IExts {
     [ext: string]: string | number;
 }

@@ -59,6 +59,7 @@ export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
 				type	: 'skynovel',
 				port	: 3776,
 				weburi	: 'http://localhost:8080',
+				stopOnEntry	: false,
 			},
 		];}
 	});
@@ -318,9 +319,11 @@ class DebugAdapter extends LoggingDebugSession {
 
 
 //	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {}	// 現状使わない
-	protected attachRequest(_res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
+	protected attachRequest(res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
 		logger.setup(Logger.LogLevel.Stop, false);
 		this.dbg.attach(args as DebugConfiguration);
+//		res.body = {};
+		this.sendResponse(res);
 	}
 
 	/**

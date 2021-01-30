@@ -5,7 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, setCtx4, is_win, is_mac} from './CmnLib';
+import {oIcon, setCtx4, is_win, is_mac, docsel} from './CmnLib';
+import {initDebug} from './DebugAdapter';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
@@ -70,6 +71,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			))
 		)));	// NOTE: URLを更新したら以降にある「node -v」を壊しDLボタンの動作確認
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
+
+		initDebug(ctx, docsel);	// デバッガ
 	}
 
 	private dispose() {if (this.pnlWV) this.pnlWV.dispose();}

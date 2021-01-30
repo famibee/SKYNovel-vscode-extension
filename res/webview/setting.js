@@ -14,7 +14,7 @@ window.addEventListener('message', e=> {
 	const o = e.data.o;
 
 	for (const n in o) {
-		if (n === 'save_ns') continue;
+		if (n === 'save_ns' || n === 'debuger_token') continue;
 		const en = o[n];
 		if (n === 'debug' || n === 'code') for (const k in en) {
 			document.getElementById(`${n}.${k}`).checked = en[k];

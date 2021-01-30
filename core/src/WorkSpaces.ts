@@ -94,16 +94,16 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}, null, ctx.subscriptions);
 	}
 
-	private tidDelay: any | null = null;
+	private tidDelay: NodeJS.Timer | null = null;
 	private onUpdDoc(te: TextEditor | undefined) {
 		if (! te) return;
-		if (te.document.languageId != 'skynovel') return;
+		if (te.document.languageId !== 'skynovel') return;
 
 		this.teActive = te;
 
 		// 遅延
 		if (this.tidDelay) clearTimeout(this.tidDelay);
-		this.tidDelay = globalThis.setTimeout(()=> this.updDeco(), 500);
+		this.tidDelay = setTimeout(()=> this.updDeco(), 500);
 	}
 
 	private teActive: TextEditor | undefined;
@@ -322,8 +322,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			case 'SnUpd':
 			case 'LibUpd':
 				this.hOnEndTask[cfg.label] = e=> {
-					if (e.execution.task.definition.type != t.definition.type) return;
-					if (e.execution.task.source != t.source) return;
+					if (e.execution.task.definition.type !== t.definition.type) return;
+					if (e.execution.task.source !== t.source) return;
 
 					this.updLocalSNVer(pathWs);
 					this._onDidChangeTreeData.fire(undefined);

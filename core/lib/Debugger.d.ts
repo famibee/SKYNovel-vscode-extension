@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { DebugConfiguration, WorkspaceFolder } from 'vscode';
+import { DebugConfiguration, WorkspaceFolder, TextDocumentChangeEvent } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { EventEmitter } from 'events';
 export interface InfoBreakpoint {
@@ -12,11 +12,14 @@ export declare class Debugger extends EventEmitter {
     readonly wsFld: WorkspaceFolder | undefined;
     private pathWs;
     constructor(wsFld: WorkspaceFolder | undefined);
+    private static hcurPrj2Dbg;
     attach(args: DebugConfiguration): void;
-    private aSkBuf;
     private send2SN;
     end(): void;
+    private destroy;
     private readonly hProcSnRes;
+    private hDCId2DI;
+    static noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent): void;
     restart: (ri: number) => Promise<void>;
     continue: (rev?: boolean) => void;
     step: (rev?: boolean) => void;

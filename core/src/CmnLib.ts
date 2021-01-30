@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {workspace, ExtensionContext} from 'vscode';
+import {DocumentFilter, workspace, ExtensionContext} from 'vscode';
 
 // =============== Global
 export function uint(o: any): number {
@@ -14,6 +14,8 @@ export function uint(o: any): number {
 }
 
 export	const	REG_SCRIPT	= /\.(sn|ssn)$/;
+
+export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
 
 // =============== Project
@@ -87,7 +89,7 @@ export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 		const txt = m_fs.readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
 		m_fs.ensureFileSync(dest);
-		if (txt != ret) m_fs.writeFileSync(dest, ret);
+		if (txt !== ret) m_fs.writeFileSync(dest, ret);
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);

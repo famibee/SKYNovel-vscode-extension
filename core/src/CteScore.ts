@@ -87,6 +87,10 @@ export class CteScore {
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
 	}
 
+	add_lay(_o: any) {
+//console.log(`fn:CteScore.ts line:91 [add_lay] layer:${_o.layer} class:${_o.class}`);
+	}
+
 	isSkipUpd(path: string): boolean {
 		const t = this.hPath2Tokens[path];
 		if (t?.skipupd) {t.skipupd = false; return true;}

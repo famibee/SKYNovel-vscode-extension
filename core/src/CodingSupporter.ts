@@ -5,12 +5,10 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {CmnLib, IFn2Path} from './CmnLib';
+import {CmnLib, IFn2Path, docsel} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
-import {initDebug} from './DebugAdapter';
 import {
-	DocumentSelector,
 	QuickPickItem,		// クイックピック
 	HoverProvider,		// 識別子の上にマウスカーソルを載せたとき
 	DefinitionProvider,	// 「定義へ移動」「定義をここに表示」
@@ -109,7 +107,6 @@ ${md.comment}`, true
 		ctx.subscriptions.push(workspace.onDidChangeConfiguration(()=> this.loadCfg()));
 
 		// 識別子の上にマウスカーソルを載せたとき
-		const docsel: DocumentSelector = {scheme: 'file', language: 'skynovel'};
 		ctx.subscriptions.push(languages.registerHoverProvider(docsel, this));
 		// 「定義へ移動」「定義をここに表示」
 		ctx.subscriptions.push(languages.registerDefinitionProvider(docsel, this));
@@ -126,9 +123,6 @@ ${md.comment}`, true
 		ctx.subscriptions.push(languages.registerSignatureHelpProvider(docsel, this, ' '));
 		// アウトライン
 		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(docsel, this));
-
-		// デバッガ
-		initDebug(ctx, docsel);
 
 		// デバッグ中のみ有効なホバー
 		languages.registerEvaluatableExpressionProvider(docsel, {
@@ -158,7 +152,7 @@ ${md.comment}`, true
 			const doc = e.document;
 			if (e.contentChanges.length === 0
 			||	doc.languageId !== 'skynovel'
-			||	doc.fileName.slice(0, this.lenRootPath -1) != pathWs) return;
+			||	doc.fileName.slice(0, this.lenRootPath -1) !== pathWs) return;
 
 			if (this.scrScn.isSkipUpd(doc.fileName)) return;
 
@@ -173,7 +167,7 @@ ${md.comment}`, true
 	private	static	readonly	REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
-	private tidDelay	: any | null	= null;
+	private tidDelay	:  NodeJS.Timer | null	= null;
 	private	aChgTxt		: TextDocumentChangeEvent[]		= [];
 	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}			= {};
 	private delayedUpdate() {
@@ -466,7 +460,7 @@ ${md.detail}`
 			const ad = this.hArgDesc[nm];	// NOTE: マクロ定義で増減
 			let label = `[${nm}`;
 			const aSiP: ParameterInformation[] = [];
-			if (md.param.length > 0 && md.param[0].name != '') md.param
+			if (md.param.length > 0 && md.param[0].name !== '') md.param
 			.forEach(prm=> {
 				const p = `${prm.name}=${
 					prm.required ?'【必須】' :`%${prm.name}|${prm.default}`

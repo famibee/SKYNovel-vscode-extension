@@ -10,6 +10,7 @@ export declare class CteScore {
     private hPath2Tokens;
     updScore(path: string, curPrj: string, aToken: string[]): void;
     private repWvUri;
+    add_lay(_o: any): void;
     isSkipUpd(path: string): boolean;
     separation(path: string): void;
     combining(path: string): void;
