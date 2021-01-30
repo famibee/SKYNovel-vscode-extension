@@ -127,21 +127,17 @@ export class Debugger extends EventEmitter {
 		const dbg = Debugger.hcurPrj2Dbg[curPrj];
 		if (! dbg) return;
 
-//console.log(`fn:Debugger.ts line:130 noticeChgDoc path:${e.document.fileName}`);
 		e.contentChanges.forEach(c=> {
 			for (const id in dbg.hDCId2DI) {
 				const di = dbg.hDCId2DI[id];
 				if (! di.rng.contains(c.range)) continue;
-				const q = di[':token'];
+				const sa = c.text.length -c.rangeLength;
+				di[':col_e'] += sa;
+				di.rng = di.rng.with(di.rng.start, di.rng.end.translate(0, sa))
 				const n = e.document.getText(di.rng);
-				if (q === n) continue;
-
-				// upd sn inside
-//				const col_e = di[':col_e'];
-//console.log(`fn:Debugger.ts line:141  Q =(${q})= col_e:${col_e}`);
-				di[':col_e'] -= q.length -n.length;
-//console.log(`fn:Debugger.ts line:143  N =(${n})= ce:${di[':col_e']}`);
 				di[':token'] = n;
+
+				if (n.charAt(0) !== '[' || n.slice(-1) !== ']') continue;
 				dbg.send2SN('_replaceToken', {
 					':idx_tkn': di[':idx_tkn'],
 					':token': n,
