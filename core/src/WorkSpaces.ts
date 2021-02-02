@@ -5,8 +5,9 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, is_win, treeProc} from './CmnLib';
+import {statBreak, is_win, treeProc, oIcon} from './CmnLib';
 import {Project} from './Project';
+import {initDebug} from './DebugAdapter';
 import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 
@@ -77,8 +78,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private hPrj	: {[dir: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
-		CteScore.init(ctx);
-
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
@@ -92,7 +91,74 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		workspace.onDidChangeTextDocument(e=> {
 			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
 		}, null, ctx.subscriptions);
+
+		// デバッガ
+		const emDbgLayTd: EventEmitter<TreeItem | undefined> = new EventEmitter();
+		initDebug(ctx, o=> {
+			switch (o.タグ名) {
+				case ':connect':
+					this.tiLayers = [];
+					break;
+				case ':disconnect':
+					this.tiLayers = [];
+					emDbgLayTd.fire(undefined);
+					break;
+
+				case 'add_lay':{
+					const t = new TreeItem(o.layer);
+					if (o.class === 'txt') {
+						t.iconPath = oIcon('comment');
+						t.tooltip = `文字レイヤ ${o.layer}`;
+						t.collapsibleState = TreeItemCollapsibleState.Expanded;
+					}
+					else {
+						t.iconPath = oIcon(o.layer === 'base' ?'image' :'user');
+						t.tooltip = `画像レイヤ ${o.layer}`;
+					}
+	//				t.collapsibleState = TreeItemCollapsibleState.Expanded;
+					t.command = {
+						command: 'skynovel.tiLayers.selectNode',
+						title: 'Select Node',
+						arguments: [o.layer],
+					};
+					this.tiLayers.push(t);
+					emDbgLayTd.fire(undefined);
+				}	break;
+			}
+		});
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-layers', {
+			getChildren: (t?: TreeItem)=> {
+				if (! t) return this.tiLayers;
+
+				const icon: any = t.iconPath;
+				const a: {label: string, icon: string}[]
+				= icon.dark.slice(-11) === 'comment.svg'
+				? [
+					{label: 'ボタン',		icon: 'hand-point-down'},
+//					{label: 'トゥイーン',	icon: 'object-group'},
+				]
+				: [
+//					{label: '差分画像',		icon: 'images'},
+//					{label: 'トゥイーン',	icon: 'object-group'},
+				];
+				return a.map(v=> {
+					const ti = new TreeItem(v.label);
+					ti.iconPath = oIcon(v.icon);
+					ti.command = {
+						command: 'skynovel.tiLayers.selectNode',
+						title: 'Select Node',
+						arguments: [t.label +'/'+ ti.label],
+					};
+					return ti;
+				});
+			},
+			getTreeItem: t=> t,
+			onDidChangeTreeData: emDbgLayTd.event,
+		}));
+
+		CteScore.init(ctx);
 	}
+	private	tiLayers	: TreeItem[]	= [];
 
 	private tidDelay: NodeJS.Timer | null = null;
 	private onUpdDoc(te: TextEditor | undefined) {
@@ -149,7 +215,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			// 起動時
 			aFld.forEach(fld=> this.makePrj(fld));	// 生成
 			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
-			this._onDidChangeTreeData.fire(undefined);
+			this.emPrjTD.fire(undefined);
 			return;
 		}
 
@@ -166,10 +232,10 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 			this.hPrj[dir].dispose();
 		}
-		this._onDidChangeTreeData.fire(undefined);
+		this.emPrjTD.fire(undefined);
 	}
-	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
-	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
+	private readonly emPrjTD: EventEmitter<TreeItem | undefined> = new EventEmitter();
+	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.emPrjTD.event;
 
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {
@@ -196,7 +262,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.updLocalSNVer(dir);
 		this.hPrj[dir] = new Project(this.ctx, wsFld, title=> {
 			t.label = title;
-			this._onDidChangeTreeData.fire(t);
+			this.emPrjTD.fire(t);
 		});
 		this.dspCryptoMode(dir);
 	}
@@ -233,7 +299,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 					prj.tglCryptoMode();
 					this.dspCryptoMode(pathWs);
-					this._onDidChangeTreeData.fire(ti);
+					this.emPrjTD.fire(ti);
 				});
 				return;
 
@@ -326,7 +392,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 					if (e.execution.task.source !== t.source) return;
 
 					this.updLocalSNVer(pathWs);
-					this._onDidChangeTreeData.fire(undefined);
+					this.emPrjTD.fire(undefined);
 				};
 				break;
 

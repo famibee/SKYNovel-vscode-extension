@@ -6,7 +6,8 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private static workSps;
     private static tlBox;
     static stop(): void;
-    private static readonly aTiRoot;
+    private readonly aDevEnv;
+    private readonly aTiRoot;
     private aReady;
     private constructor();
     private dispose;
@@ -17,7 +18,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;
     private cntErr;
     private refreshWork;
-    private static chkLastVerSKYNovel;
+    private chkLastVerSKYNovel;
     private pnlWV;
     private activityBarBadge;
 }

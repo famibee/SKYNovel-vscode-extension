@@ -8,7 +8,7 @@
 import {
 	debug, WorkspaceFolder, DebugConfiguration,
 	DebugAdapterDescriptorFactory, DebugAdapterDescriptor,
-	DebugSession, ProviderResult, ExtensionContext, DocumentFilter,
+	DebugSession, ProviderResult, ExtensionContext,
 	DebugAdapterInlineImplementation,	// インライン型アダプタ
 } from 'vscode';
 import {
@@ -22,10 +22,12 @@ import {basename} from 'path';
 import {Debugger} from './Debugger';
 const {Subject} = require('await-notify');
 
+import {docsel} from './CmnLib';
+
 
 let daii: DebugAdapterInlineImplementation | null = null;
 
-export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
+export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void {
 	// デバッグ構成解決【.vscode/launch.json がない場合のデバッグ構成作成初期値】
 	const lng = docsel.language ?? '';
 	debug.registerDebugConfigurationProvider(lng, {
@@ -92,7 +94,7 @@ export function initDebug(ctx: ExtensionContext, docsel: DocumentFilter): void {
 	// デバッグアダプタ工場（request は attach/launch どちらも）
 	const dadf: DebugAdapterDescriptorFactory = {
 		createDebugAdapterDescriptor(ss: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-			return daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ss.workspaceFolder)));
+			return daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ss.workspaceFolder, hookTag)));
 		},
 	};
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
@@ -109,13 +111,13 @@ class DebugAdapter extends LoggingDebugSession {
 	private	readonly	dbg		: Debugger;	// runtime (or debugger)
 
 	// セッションごと【▶（デバッグの開始）や⟲（再起動ボタン）】に生成する
-	constructor(readonly wsFld: WorkspaceFolder | undefined) {
+	constructor(readonly wsFld: WorkspaceFolder | undefined, hookTag: (o: any)=> void) {
 		super('sn_debug.txt');
 
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
-		this.dbg = new Debugger(wsFld);
+		this.dbg = new Debugger(wsFld, hookTag);
 		this.dbg.on('stopOnEntry', ()=> {
 			this.sendEvent(new StoppedEvent('entry', DebugAdapter.THREAD_ID));
 		});

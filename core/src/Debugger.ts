@@ -8,7 +8,7 @@
 import {uint} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
-import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent} from 'vscode';
+import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, commands} from 'vscode';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
 import {EventEmitter} from 'events';
@@ -23,12 +23,15 @@ export interface InfoBreakpoint {
 
 export class Debugger extends EventEmitter {
 	private	pathWs	= '';
-	constructor(readonly wsFld: WorkspaceFolder | undefined) {	// 一度だけ
+	constructor(readonly wsFld: WorkspaceFolder | undefined, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
 		super();
 		if (wsFld) {
 			this.pathWs = wsFld.uri.path;
 			Debugger.hcurPrj2Dbg[this.pathWs +'/doc/prj/'] = this;
 		}
+		commands.registerCommand('skynovel.tiLayers.selectNode', node=> {
+			this.send2SN('_selectNode', {node: node});
+		});
 	}
 	private	static	hcurPrj2Dbg: {[pathWs: string]: Debugger}	= {};
 
@@ -39,10 +42,11 @@ export class Debugger extends EventEmitter {
 		// 象と散歩: Markdown（Typora）でシーケンス図を描く！ https://walking-elephant.blogspot.com/2019/08/markdowntypora.html
 		this.hProcSnRes.hi = ()=> {
 			this.send2SN('auth', {t: PrjSetting.getDebugertoken(this.wsFld), ...args});
+			this.hookTag({タグ名: ':connect'});
 			return false;
 		};
 
-		const srv = new Server(args.port, {cors: {origin: args.weburi}})
+		new Server(args.port, {cors: {origin: args.weburi}})
 		.on('connection', (sk: Socket)=> {
 			sk.on('data', (type: string, o: any)=> {
 //console.log(`fn:Debugger.ts 新RSV sn -> dbgs id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
@@ -54,21 +58,23 @@ export class Debugger extends EventEmitter {
 //console.log(`fn:Debugger.ts 新SND dbg -> sns id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
 				sk.emit('data', type, o);
 			};
+			const fncEnd = this.end;
 			this.end = ()=> {
-				this.end = ()=> {};
+				this.end = fncEnd;
+				this.end();
 				this.send2SN('disconnect', {});
 				this.send2SN = ()=> {};
 				sk.disconnect();
-				srv.close();
-				this.destroy();
 			};
 		});
 	}
 
 	private	send2SN(_type: string, _o: object = {}) {}
 
-	end() {this.destroy()}
-	private	destroy() {delete Debugger.hcurPrj2Dbg[this.pathWs];}
+	end() {
+		delete Debugger.hcurPrj2Dbg[this.pathWs];
+		this.hookTag({タグ名: ':disconnect'});
+	}
 
 	private	readonly	hProcSnRes
 	: {[type: string]: (type: string, o: any)=> boolean}	= {
@@ -87,8 +93,9 @@ export class Debugger extends EventEmitter {
 				rng: new Range(ln, col_s, ln, col_e),
 			};
 				// TODO: スクリプト編集とこの辞書の更新は？　:lnとか変わる
-				// 行挿入・削除イベントを取る？　ゲームリロードなら話が早いが。
-				// 行の長さもけっこう変わる
+
+			this.hookTag(o);
+
 			return false;
 		},
 		_enterDesign: _=> {
@@ -114,6 +121,17 @@ export class Debugger extends EventEmitter {
 
 			return false;
 		},
+		_focusScript: (_, o)=> {
+			o[':path'] = o[':path'].replace('${pathbase}', this.pathWs +'/doc');
+			const ln = o[':ln'] -1;
+			window.showTextDocument(Uri.file(o[':path']), {
+				selection: new Range(
+					new Position(ln, o[':col_s']),
+					new Position(ln, o[':col_e'])
+				),
+			});
+			return false;
+		},
 	};
 	private	hDCId2DI: {[id: string]: {
 		uri		: Uri,
@@ -131,6 +149,7 @@ export class Debugger extends EventEmitter {
 			for (const id in dbg.hDCId2DI) {
 				const di = dbg.hDCId2DI[id];
 				if (! di.rng.contains(c.range)) continue;
+
 				const sa = c.text.length -c.rangeLength;
 				di[':col_e'] += sa;
 				di.rng = di.rng.with(di.rng.start, di.rng.end.translate(0, sa))
@@ -143,7 +162,6 @@ export class Debugger extends EventEmitter {
 					':token': n,
 					':id': id,
 				});
-				break;
 			}
 		});
 	}

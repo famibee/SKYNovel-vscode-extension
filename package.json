@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.7.2",
+	"version": "3.8.0",
 	"publisher": "famibee",
 	"engines": {
 		"vscode": "^1.52.0"
@@ -397,6 +397,12 @@
 				{
 					"id": "sn-doc",
 					"name": "ドキュメント・連絡先"
+				}
+			],
+			"debug": [
+				{
+					"id": "sn-layers",
+					"name": "レイヤ構造（上が奥）"
 				}
 			]
 		},

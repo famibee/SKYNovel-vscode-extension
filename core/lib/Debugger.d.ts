@@ -10,13 +10,13 @@ export interface InfoBreakpoint {
 }
 export declare class Debugger extends EventEmitter {
     readonly wsFld: WorkspaceFolder | undefined;
+    private readonly hookTag;
     private pathWs;
-    constructor(wsFld: WorkspaceFolder | undefined);
+    constructor(wsFld: WorkspaceFolder | undefined, hookTag: (o: any) => void);
     private static hcurPrj2Dbg;
     attach(args: DebugConfiguration): void;
     private send2SN;
     end(): void;
-    private destroy;
     private readonly hProcSnRes;
     private hDCId2DI;
     static noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent): void;

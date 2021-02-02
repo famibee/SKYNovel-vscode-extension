@@ -9,6 +9,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly idxDevCrypto;
     private hPrj;
     constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
+    private tiLayers;
     private tidDelay;
     private onUpdDoc;
     private teActive;
@@ -16,7 +17,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private static readonly REG_FN_OR_LABEL;
     private updDeco;
     private refresh;
-    private readonly _onDidChangeTreeData;
+    private readonly emPrjTD;
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
     private makePrj;
     private updLocalSNVer;

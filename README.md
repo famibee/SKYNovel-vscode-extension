@@ -664,6 +664,8 @@ The call stack view will also show [main.sn 1:1]
 
 ---
 ## License ... [MIT](LICENSE)
+- Font Awesome -- [Font Awesome Free License](https://fontawesome.com/license/free) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))
+- Other libraries -- About [MIT](https://opensource.org/licenses/mit-license.php).
 
 ---
 ## Famibee is ?

@@ -5,8 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, setCtx4, is_win, is_mac, docsel} from './CmnLib';
-import {initDebug} from './DebugAdapter';
+import {oIcon, setCtx4, is_win, is_mac} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
@@ -31,9 +30,6 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		ActivityBar.actBar = new ActivityBar(ctx);
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
 
-		ActivityBar.workSps = new WorkSpaces(ctx, ActivityBar.chkLastVerSKYNovel);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
-
 		ActivityBar.tlBox = new ToolBox(ctx);
 		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
 
@@ -49,18 +45,28 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 
-	private static readonly aTiRoot: TreeItem[] = [
-		new TreeItem('Node.js'),
-		new TreeItem('npm'),
-		new TreeItem(is_win ?'windows-build-tools' :''),
-		new TreeItem('SKYNovel（最新）'),
+	private readonly aDevEnv: {label: string, icon: string}[]
+	= [
+		{label: 'Node.js',	icon: 'node-js-brands'},
+		{label: 'npm',		icon: 'npm-brands'},
+		{label: is_win ?'windows-build-tools' :'',	icon: 'windows'},
+		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
 	];
+	private readonly aTiRoot: TreeItem[] = [];
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		ActivityBar.aTiRoot.forEach(v=> v.contextValue = String(v.label));
+		this.aTiRoot = this.aDevEnv.map(v=> {
+			const ti = new TreeItem(v.label);
+			if (v.label) ti.iconPath = oIcon(v.icon);
+			ti.contextValue = v.label;
+			return ti;
+		});
 		this.refreshWork();
+
+		ActivityBar.workSps = new WorkSpaces(ctx, this.chkLastVerSKYNovel);
+		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
@@ -71,8 +77,6 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			))
 		)));	// NOTE: URLを更新したら以降にある「node -v」を壊しDLボタンの動作確認
 		ctx.subscriptions.push(commands.registerCommand('skynovel.opNodeSite', ()=> env.openExternal(Uri.parse('https://nodejs.org/ja/'))));
-
-		initDebug(ctx, docsel);	// デバッガ
 	}
 
 	private dispose() {if (this.pnlWV) this.pnlWV.dispose();}
@@ -89,10 +93,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	// 起動時？　と refreshボタンで呼ばれる
 	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(ActivityBar.aTiRoot);
+		if (! t) return Promise.resolve(this.aTiRoot);
 
 		const ret: TreeItem[] = [];
-		if (t.label === 'Node.js') ActivityBar.aTiRoot[eTree.NODE].iconPath = (this.aReady[eTree.NODE]) ?'' :oIcon('error');
+		if (t.label === 'Node.js') this.aTiRoot[eTree.NODE].iconPath = oIcon((this.aReady[eTree.NODE]) ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
@@ -102,7 +106,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		this.cntErr = 0;
 
 		if (! this.aReady[eTree.NODE]) exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const node = ActivityBar.aTiRoot[eTree.NODE];
+			const node = this.aTiRoot[eTree.NODE];
 			if (err) {
 				this.aReady[eTree.NODE] = false;
 				node.description = `-- 見つかりません`;
@@ -113,12 +117,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}
 			this.aReady[eTree.NODE] = true;
 			node.description = `-- ${stdout}`;
-			node.iconPath = '';
+			node.iconPath = oIcon('node-js-brands');
 			node.contextValue = '';
 			this._onDidChangeTreeData.fire(node);
 		});
 
-		const wbt = ActivityBar.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
+		const wbt = this.aTiRoot[eTree.WINDOWS_BUILD_TOOLS];
 		const chkWbt = ()=> {
 			// （windowsのみ）管理者権限で PowerShell を起動し、【npm i -g windows-build-tools】を実行。「All done!」まで待つ。
 			if (! is_win) return;
@@ -134,13 +138,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}
 				this.aReady[eTree.WINDOWS_BUILD_TOOLS] = true;
 				wbt.description = `-- ${a[2]}`;
-				wbt.iconPath = '';
+				wbt.iconPath = oIcon('windows');
 				this._onDidChangeTreeData.fire(wbt);
 			});
 		};
 		if (this.aReady[eTree.NPM]) chkWbt();
 		else exec('npm -v', (err: Error, stdout: string|Buffer)=> {
-			const npm = ActivityBar.aTiRoot[eTree.NPM];
+			const npm = this.aTiRoot[eTree.NPM];
 			if (err) {
 				this.aReady[eTree.NPM] = false;
 				npm.description = `-- 見つかりません`;
@@ -151,15 +155,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}
 			this.aReady[eTree.NPM] = true;
 			npm.description = `-- ${stdout}`;
-			npm.iconPath = '';
+			npm.iconPath = oIcon('npm-brands');
 			this._onDidChangeTreeData.fire(npm);
 
 			chkWbt();
 		});
 
-		ActivityBar.chkLastVerSKYNovel();
+		this.chkLastVerSKYNovel();
 	}
-	private	static chkLastVerSKYNovel() {
+	private chkLastVerSKYNovel() {
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) return;
 
@@ -169,7 +173,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			res.on('data', (chunk: string)=> {body += chunk;});
 			res.on('end', ()=> {
 				const newVer = JSON.parse(body).version;
-				const node = ActivityBar.aTiRoot[eTree.SKYNOVEL_VER];
+				const node = this.aTiRoot[eTree.SKYNOVEL_VER];
 				node.description = '-- ' + newVer;
 				ActivityBar.actBar._onDidChangeTreeData.fire(node);
 				if (aFld.find(fld => {
