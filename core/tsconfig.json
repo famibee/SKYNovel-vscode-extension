@@ -4,7 +4,7 @@
 		"target": "es2019",
 		"module": "commonjs",
 		"sourceMap": true,
-		"outDir": "lib/",
+		"outDir": "lib",
 		"declaration": true,
 		"newLine": "LF",
 		"removeComments": true,
@@ -27,9 +27,13 @@
 		"incremental": true,		// 差分ビルド
 		"lib": [
 			"es2020"
-		],
+		]
 	},
 	"include": [
 		"src/**/*"
+	],
+	"exclude": [
+		"node_modules",
+		".vscode-test"
 	]
 }

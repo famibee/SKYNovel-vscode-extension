@@ -1,6 +1,11 @@
-.vscode/**
-core/**
-node_modules
-test/**
-.gitignore
 !file.ts
+/.gitignore
+/.vscode-test/**
+/.vscode/**
+/.yarnrc
+**/.eslintrc.json
+**/*.map
+**/*.ts
+**/tsconfig.json
+/core/**
+/test/**
