@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.8.1",
+	"version": "3.8.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -662,12 +662,14 @@
 	"dependencies": {
 		"archiver": "^5.2.0",
 		"await-notify": "^1.0.1",
+		"bufferutil": "^4.0.3",
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.1.0",
 		"image-size": "^0.9.3",
 		"png2icons": "^2.0.1",
 		"socket.io": "^3.1.1",
+		"utf-8-validate": "^5.0.4",
 		"uuid": "^8.3.2",
 		"vscode-debugadapter": "^1.44.0",
 		"vscode-debugprotocol": "^1.44.0"
@@ -694,6 +696,10 @@
 		"vscode-test": "^1.5.0",
 		"webpack": "^5.20.2",
 		"webpack-cli": "^4.5.0"
+	},
+	"optionalDependencies": {
+		"bufferutil": "^4.0.3",
+		"utf-8-validate": "^5.0.4"
 	},
 	"scripts": {
 		"build": "webpack --config ./core/webpack.config.js",

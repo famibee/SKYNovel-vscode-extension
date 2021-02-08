@@ -36,11 +36,7 @@ export class Debugger extends EventEmitter {
 	private	static	hcurPrj2Dbg: {[pathWs: string]: Debugger}	= {};
 
 	attach(args: DebugConfiguration) {	// セッションごとに呼ばれる
-		// デバッグ接続 シーケンス図
-		// https://www.websequencediagrams.com/files/render?link=3RmdEHPw6hsJH5dwB9dQZhaGRbsqYSwCzn6Q7dwWfUa0ZxMZPJvaYowSMpVutAV5
-		// シーケンス図(Sequence Diagram) - UML入門 - IT専科 https://www.itsenka.com/contents/development/uml/sequence.html
-		// 象と散歩: Markdown（Typora）でシーケンス図を描く！ https://walking-elephant.blogspot.com/2019/08/markdowntypora.html
-		this.hProcSnRes.hi = ()=> {
+		this.hProcSnRes.hi = ()=> {	// res/UML/DebuggerSD.pu
 			this.send2SN('auth', {t: PrjSetting.getDebugertoken(this.wsFld), ...args});
 			this.hookTag({タグ名: ':connect'});
 			return false;

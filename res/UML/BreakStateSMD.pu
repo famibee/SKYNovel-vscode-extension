@@ -1,0 +1,58 @@
+@startuml デバッグ時のSKYNovelステートマシン図
+title
+デバッグ時の
+SKYNovelステートマシン図
+end title
+
+hide empty description
+left to right direction
+
+[*] -> running
+running -> step群		: pause()
+note bottom on link		: 一時停止ボタン
+running -> break群		: ブレイクポイントや\ndata_brea()など
+
+state step群 {
+	[*] -> step
+
+	step -> step		: isBreak
+	note bottom on link	: stepボタン
+	step ----> stepping	: stepin()\nstepover()
+	note bottom on link	: stepin・\nstepoverボタン
+	step ---> stepout	: stepout()\n--idxToken_
+	note bottom on link	: stepoutボタン
+	step --> stepouting	: stepover()\nMacro/Call escape
+
+	stepping -> step	: isBreak
+
+	stepout -> step	: isBreak\n[lenCallStk ===\ncsDepth_macro_esc]
+
+	stepouting -> stepout	: isBreak
+}
+step群 --> running	: continue()
+note bottom on link		: 続行ボタン
+
+state break群 {
+	[*] --> wait		: data_brea()など
+	[*] --> break		: ブレイクポイント
+
+	wait --> break		: isBreak
+	wait --> breaking	: continue()
+	note bottom on link	: 続行ボタン
+	wait --> step		: stepin()
+	note bottom on link	: stepinボタン
+
+	break --> breaking	: continue()\n--idxToken_
+	note bottom on link	: 続行ボタン
+	break --> stepping	: stepin()\n--idxToken_
+	note bottom on link	: stepinボタン
+	break --> stepout	: stepout()\n--idxToken_
+	note bottom on link	: stepoutボタン
+	break --> stepouting	: stepover()\nMacro/Call escape
+	note bottom on link	: stepoverボタン\nまたは\nマクロやコール脱出の場合
+
+	breaking -> running	: isBreak
+	note bottom on link	: 続行ボタン？？
+}
+
+@enduml

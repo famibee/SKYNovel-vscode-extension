@@ -1,0 +1,35 @@
+@startuml
+skinparam {
+	monochrome true
+	padding 2
+}
+title デバッガー接続
+
+== connection ==
+Debugger ->> SKYNovel	: npm watch:wdsdbg
+note right	: SysBase\n.attach_debug()
+activate SKYNovel
+Debugger <<-- SKYNovel	: socket.io-client\nconnect
+
+Debugger <<- SKYNovel	: hi
+deactivate SKYNovel
+
+activate Debugger
+Debugger -->> SKYNovel	: auth (with token o.t)
+activate SKYNovel
+deactivate Debugger
+note right	: SysBase\nif (o.t ===\nprj.json debuger_token)\ndisconnect()
+deactivate SKYNovel
+
+== req & res ==
+Debugger ->> SKYNovel	: any request
+activate SKYNovel
+Debugger <<-- SKYNovel	: any response
+deactivate SKYNovel
+
+Debugger <<- SKYNovel	: any request
+activate Debugger
+Debugger -->> SKYNovel	: any response
+deactivate Debugger
+
+@enduml
