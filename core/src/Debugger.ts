@@ -141,6 +141,7 @@ export class Debugger extends EventEmitter {
 		const dbg = Debugger.hcurPrj2Dbg[curPrj];
 		if (! dbg) return;
 
+		const hRepTkn: {[id: string]: any} = {};
 		e.contentChanges.forEach(c=> {
 			for (const id in dbg.hDCId2DI) {
 				const di = dbg.hDCId2DI[id];
@@ -153,13 +154,10 @@ export class Debugger extends EventEmitter {
 				di[':token'] = n;
 
 				if (n.charAt(0) !== '[' || n.slice(-1) !== ']') continue;
-				dbg.send2SN('_replaceToken', {
-					':idx_tkn': di[':idx_tkn'],
-					':token': n,
-					':id': id,
-				});
+				hRepTkn[id] = {...di, ':id': id,};
 			}
 		});
+		for (const id in hRepTkn) dbg.send2SN('_replaceToken', hRepTkn[id]);
 	}
 
 

@@ -1,3 +1,7 @@
+## v3.8.3
+- fix: 全ライブラリ更新などを npm-check-updates v11 向けに更新
+- fix: デバッグ：デザインメッセージ _replaceToken が同じIDで重複するのを修正
+- fix: デバッグ：デザインメッセージ _replaceToken に情報増加
 ## v3.8.2
 - fix: シーケンス図やステートマシン図をPlantUML化
 ## v3.8.1

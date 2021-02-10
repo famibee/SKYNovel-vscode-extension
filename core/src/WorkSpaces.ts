@@ -34,8 +34,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			} npm i @famibee/skynovel@latest ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-			npm: `npm update ${statBreak()
-			} npm update --dev ${statBreak()
+			npm: `ncu -u --target minor ${statBreak()
+			} npm i ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
