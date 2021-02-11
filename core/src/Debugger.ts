@@ -79,11 +79,10 @@ export class Debugger extends EventEmitter {
 		stopOnBreakpoint: type=> {this.sendEvent2Adpt(type);	return false;},
 		stopOnDataBreakpoint: type=> {this.sendEvent2Adpt(type);return false;},
 		_recodeDesign: (_, o)=> {
-//console.log(`fn:Debugger.ts line:80 _recodeDesign o:${JSON.stringify(o)}`);
 			const ln = uint(o[':ln']) -1;
 			const col_s = uint(o[':col_s']);
 			const col_e = uint(o[':col_e']);
-			this.hDCId2DI[o[':id']] = {
+			this.hDCId2DI[o[':id_tag']] = {
 				...o,
 				uri: Uri.file(o[':path'].replace('${pathbase}', this.pathWs +'/doc')),
 				rng: new Range(ln, col_s, ln, col_e),
@@ -100,15 +99,15 @@ export class Debugger extends EventEmitter {
 			return false;
 		},
 		_changeCast: (_, o)=> {
-//console.log(`fn:Debugger.ts line:100 _changeCast o:${JSON.stringify(o)}`);
-			const {':id': id, ri, ...o2} = o;
-			const di = this.hDCId2DI[id];
+			const {':id_tag': id_tag, ri, ...o2} = o;
+			const di = this.hDCId2DI[id_tag];
 			if (! di) return false;
 
 			let token = String(di[':token']);
-//console.log(`fn:Debugger.ts line:106 id:(${id}) old token:(${token})`);
-			for (const key in o2) token = token.replace(new RegExp(`(\\s${key}=)(['"#]*)(\\S+)\\2`), `$1${o2[key]}`);
-//console.log(`fn:Debugger.ts line:108   new token:(${token})`);
+			for (const key in o2) token = token.replace(
+				new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
+				`$1${o2[key]}$3`
+			);
 
 			// upd text
 			const ed = new WorkspaceEdit();
@@ -129,7 +128,7 @@ export class Debugger extends EventEmitter {
 			return false;
 		},
 	};
-	private	hDCId2DI: {[id: string]: {
+	private	hDCId2DI: {[id_tag: string]: {
 		uri		: Uri,
 		rng		: Range,
 		':col_e'	: number,
@@ -141,10 +140,10 @@ export class Debugger extends EventEmitter {
 		const dbg = Debugger.hcurPrj2Dbg[curPrj];
 		if (! dbg) return;
 
-		const hRepTkn: {[id: string]: any} = {};
+		const hRepTkn: {[id_tag: string]: any} = {};
 		e.contentChanges.forEach(c=> {
-			for (const id in dbg.hDCId2DI) {
-				const di = dbg.hDCId2DI[id];
+			for (const id_tag in dbg.hDCId2DI) {
+				const di = dbg.hDCId2DI[id_tag];
 				if (! di.rng.contains(c.range)) continue;
 
 				const sa = c.text.length -c.rangeLength;
@@ -154,7 +153,7 @@ export class Debugger extends EventEmitter {
 				di[':token'] = n;
 
 				if (n.charAt(0) !== '[' || n.slice(-1) !== ']') continue;
-				hRepTkn[id] = {...di, ':id': id,};
+				hRepTkn[id_tag] = {...di, ':id_tag': id_tag,};
 			}
 		});
 		for (const id in hRepTkn) dbg.send2SN('_replaceToken', hRepTkn[id]);

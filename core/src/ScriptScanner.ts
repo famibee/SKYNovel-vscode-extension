@@ -545,7 +545,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 			}
 
 			// [ タグ開始
-			const a_tag: any = ScriptScanner.REG_TAG.exec(token);
+			const a_tag = ScriptScanner.REG_TAG.exec(token);
 			if (! a_tag) {	// []、[ ]など
 				diags.push(new Diagnostic(rng, `タグ記述【${token}】異常です`, DiagnosticSeverity.Error));
 				p.col += len;
@@ -566,7 +566,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 				), `改行タグが10行を超えています`, DiagnosticSeverity.Warning));
 			}
 
-			const use_nm = a_tag.groups.name;
+			const use_nm = a_tag.groups?.name ?? '';
 			this.hTagMacroUse[path].push({nm: use_nm, rng:
 				rng.with(undefined, new Position(p.line, p.col))
 			});
@@ -574,7 +574,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 
 			const rng_nm = new Range(
 				rng.start,
-				rng.end.translate(0, a_tag.groups.name.length -len)
+				rng.end.translate(0, use_nm.length -len)
 			);
 			const rngp1 = new Range(
 				rng_nm.start.translate(0, 1),
@@ -589,7 +589,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 
 			const fnc = this.hTagProc[use_nm];
 			if (fnc) {
-				this.alzTagArg.go(a_tag.groups.args);
+				this.alzTagArg.go(a_tag.groups?.args ?? '');
 				fnc(setKw, uri, token, rngp1, diags, p, lineTkn, rng_nm);
 			}
 		};

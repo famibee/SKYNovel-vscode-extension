@@ -167,7 +167,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) return;
 
-		https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', (res: any)=> {
+		https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', res=> {
 			let body = '';
 			res.setEncoding('utf8');
 			res.on('data', (chunk: string)=> {body += chunk;});

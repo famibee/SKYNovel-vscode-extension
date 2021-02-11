@@ -1,3 +1,6 @@
+## v3.8.4
+- fix: デバッグ：デザインメッセージ _replaceToken をやや変更（over SKYNovel 1.10.0）
+- fix: デバッグ：書き換え処理を修正（終端の`]`にくっついた属性値だと`]`を消してしまう件）
 ## v3.8.3
 - fix: 全ライブラリ更新などを npm-check-updates v11 向けに更新
 - fix: デバッグ：デザインメッセージ _replaceToken が同じIDで重複するのを修正

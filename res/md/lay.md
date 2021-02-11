@@ -27,6 +27,12 @@
 - ch_out_style		何もしない	文字消去演出名	[ch_out_style]で定義した文字消去演出名
 - fn	y	何もしない	画像ファイル名	基本画像ファイルを指定する
 - face		何もしない	差分名称	差分名称を指定する（半角カンマ区切りで複数可能）。[fg fn="a" face="b,c,d"]なら「基本a」の上に「差分b」を重ね、「差分c」を重ね、「差分d」を重ねる
+- width		何もしない	Number	style設定に上書きできる
+- height		何もしない	Number	style設定に上書きできる
+- pl		何もしない	Number	style設定（paddingLeft）に上書きできる
+- pr		何もしない	Number	style設定（paddingRight）に上書きできる
+- pt		何もしない	Number	style設定（paddingTop）に上書きできる
+- pb		何もしない	Number	style設定（paddingBottom）に上書きできる
 
 ***
 layer=${1{{レイヤ名}}} page=${2|fore,back|}

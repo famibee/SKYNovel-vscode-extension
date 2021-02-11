@@ -192,9 +192,11 @@ export class PrjSetting {
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 	}
 	private inputProc(id: string, val: string) {
-		const v: any = /^[-]?([1-9]\d*|0)$/.test(val)
-		? Number(val)
-		: /^(true|false)$/.test(val) ?val :String(val).replace(/"/g, '%22');
+		const v = /^[-]?([1-9]\d*|0)$/.test(val)
+			? val
+			: /^(true|false)$/.test(val)
+				? val
+				: String(val).replace(/"/g, '%22');
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);

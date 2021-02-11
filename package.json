@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.8.3",
+	"version": "3.8.4",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -688,8 +688,8 @@
 		"eslint": "^7.19.0",
 		"glob": "^7.1.6",
 		"mocha": "^8.2.1",
-		"ts-loader": "^8.0.16",
-		"typescript": "^4.1.4",
+		"ts-loader": "^8.0.17",
+		"typescript": "^4.1.5",
 		"vscode-debugadapter-testsupport": "^1.44.0",
 		"vscode-test": "^1.5.0",
 		"webpack": "^5.21.2",
