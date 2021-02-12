@@ -77,7 +77,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
-	constructor(private readonly ctx: ExtensionContext, private readonly chkLastVerSKYNovel: ()=> void) {
+	constructor(private readonly ctx: ExtensionContext, private readonly chkLastSNVer: ()=> void) {
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
@@ -290,7 +290,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			.replace(/\${prj.title}/g, prj.title)
 			.replace(/\${prj.version}/g, prj.version);
 		switch (btn_nm) {	// タスク前処理
-			case 'SnUpd':	this.chkLastVerSKYNovel();	break;
+			case 'SnUpd':	this.chkLastSNVer();	break;
 			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')

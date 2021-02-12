@@ -65,7 +65,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		this.refreshWork();
 
-		ActivityBar.workSps = new WorkSpaces(ctx, this.chkLastVerSKYNovel);
+		ActivityBar.workSps = new WorkSpaces(ctx, ()=> this.chkLastSNVer());
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
@@ -161,9 +161,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			chkWbt();
 		});
 
-		this.chkLastVerSKYNovel();
+		this.chkLastSNVer();
 	}
-	private chkLastVerSKYNovel() {
+	private chkLastSNVer() {
 		const aFld = workspace.workspaceFolders;
 		if (! aFld) return;
 
@@ -176,7 +176,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				const node = this.aTiRoot[eTree.SKYNOVEL_VER];
 				node.description = '-- ' + newVer;
 				ActivityBar.actBar._onDidChangeTreeData.fire(node);
-				if (aFld.find(fld => {
+				if (aFld.find(fld=> {
 					const fnLocal = fld.uri.fsPath + '/package.json';
 					if (! fs.existsSync(fnLocal)) return false;
 

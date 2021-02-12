@@ -18,7 +18,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;
     private cntErr;
     private refreshWork;
-    private chkLastVerSKYNovel;
+    private chkLastSNVer;
     private pnlWV;
     private activityBarBadge;
 }

@@ -1,14 +1,14 @@
 import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
 export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
-    private readonly chkLastVerSKYNovel;
+    private readonly chkLastSNVer;
     private readonly aTiRoot;
     private readonly oTiPrj;
     private readonly aTreeTmp;
     private readonly idxDevSnUpd;
     private readonly idxDevCrypto;
     private hPrj;
-    constructor(ctx: ExtensionContext, chkLastVerSKYNovel: () => void);
+    constructor(ctx: ExtensionContext, chkLastSNVer: () => void);
     private tiLayers;
     private tidDelay;
     private onUpdDoc;
