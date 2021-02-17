@@ -11,7 +11,7 @@ import {initDebug} from './DebugAdapter';
 import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, Event, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
 
 import {existsSync, readJsonSync, statSync, readFileSync, ensureDirSync, writeFileSync, createReadStream, createWriteStream} from 'fs-extra';
 import archiver = require('archiver');
@@ -93,7 +93,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}, null, ctx.subscriptions);
 
 		// デバッガ
-		const emDbgLayTd: EventEmitter<TreeItem | undefined> = new EventEmitter();
+		const emDbgLayTd = new EventEmitter<TreeItem | undefined>();
+//		const hLay2TI: {[layer: string]: TreeItem} = {};
 		initDebug(ctx, o=> {
 			switch (o.タグ名) {
 				case ':connect':
@@ -106,24 +107,53 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 
 				case 'add_lay':{
 					const t = new TreeItem(o.layer);
+//					hLay2TI[o.layer] = t;
 					if (o.class === 'txt') {
 						t.iconPath = oIcon('comment');
-						t.tooltip = `文字レイヤ ${o.layer}`;
+						t.tooltip = `文字レイヤ layer=${o.layer}`;
+//						t.tooltip = new MarkdownString(`文字レイヤ layer=${o.layer}`);
 						t.collapsibleState = TreeItemCollapsibleState.Expanded;
 					}
 					else {
 						t.iconPath = oIcon(o.layer === 'base' ?'image' :'user');
-						t.tooltip = `画像レイヤ ${o.layer}`;
+						t.tooltip = `画像レイヤ layer=${o.layer}`;
+//						t.tooltip = new MarkdownString(`画像レイヤ layer=${o.layer}`);
 					}
 	//				t.collapsibleState = TreeItemCollapsibleState.Expanded;
 					t.command = {
-						command: 'skynovel.tiLayers.selectNode',
-						title: 'Select Node',
-						arguments: [o.layer],
+						command		: 'skynovel.tiLayers.selectNode',
+						title		: 'Select Node',
+						arguments	: [o.layer],
 					};
 					this.tiLayers.push(t);
 					emDbgLayTd.fire(undefined);
 				}	break;
+
+/*
+				default:
+					if ('layer' in o && 'fn' in o) {
+						const t = hLay2TI[o.layer];
+						t.tooltip = new MarkdownString(
+`画像レイヤ layer=${o.layer}
+***
+| 属性名 | 属性説明 | 属性値 |
+|--|--|--|
+| layer | レイヤ名 | ${o.layer} |
+| fn | 画像ファイル名 | ${o.fn} $(pencil) |`,
+							true,
+						);
+
+
+	/* === OK、美しい or 役立つ
+- 列挙
+~~取り消し文字列~~
+$(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-codicons/dist/codicon.html
+
+> 引用文章
+> > 引用文章
+					}
+					break;
+*/
 			}
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('sn-layers', {
@@ -234,8 +264,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}
 		this.emPrjTD.fire(undefined);
 	}
-	private readonly emPrjTD: EventEmitter<TreeItem | undefined> = new EventEmitter();
-	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.emPrjTD.event;
+	private readonly emPrjTD = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData = this.emPrjTD.event;
 
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {

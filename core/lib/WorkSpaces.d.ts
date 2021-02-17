@@ -1,4 +1,4 @@
-import { TreeDataProvider, ExtensionContext, TreeItem, Event } from 'vscode';
+import { TreeDataProvider, ExtensionContext, TreeItem } from 'vscode';
 export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
     private readonly chkLastSNVer;
@@ -18,7 +18,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private updDeco;
     private refresh;
     private readonly emPrjTD;
-    readonly onDidChangeTreeData: Event<TreeItem | undefined>;
+    readonly onDidChangeTreeData: import("vscode").Event<TreeItem | undefined>;
     private makePrj;
     private updLocalSNVer;
     private dspCryptoMode;

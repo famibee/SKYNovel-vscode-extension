@@ -169,7 +169,7 @@ ${md.comment}`, true
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	private tidDelay	:  NodeJS.Timer | null	= null;
 	private	aChgTxt		: TextDocumentChangeEvent[]		= [];
-	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}			= {};
+	private	hRsvNm2Then	: {[rsv_nm: string]: ()=> void}	= {};
 	private delayedUpdate() {
 		const a = this.aChgTxt;	// Atomicにするため
 		this.aChgTxt = [];

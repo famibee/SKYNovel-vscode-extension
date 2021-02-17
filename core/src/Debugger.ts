@@ -13,6 +13,8 @@ import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
 import {EventEmitter} from 'events';
 import {Server, Socket} from 'socket.io';
+const {promisify} = require('util');
+const img_size = promisify(require('image-size'));
 
 export interface InfoBreakpoint {
 	id		: number;
@@ -107,7 +109,7 @@ export class Debugger extends EventEmitter {
 			for (const key in o2) token = token.replace(
 				new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 				`$1${o2[key]}$3`
-			);
+			)
 
 			// upd text
 			const ed = new WorkspaceEdit();
@@ -127,6 +129,37 @@ export class Debugger extends EventEmitter {
 			});
 			return false;
 		},
+		_dropFile: (_, o)=> {
+			const {':id_tag': id_tag, fn, url} = o;
+			const di = this.hDCId2DI[id_tag];
+			if (! di) return false;
+
+			let token = String(di[':token']);
+			const o2: {[nm: string]: any} = {fn, b_pic: fn, pic: fn};
+			const fnc = ()=> {
+				for (const key in o2) token = token.replace(
+					new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
+					`$1${o2[key]}$3`
+				)
+//console.log(`fn:Debugger.ts line:144 token=${token}=`);
+
+				// upd text
+				const ed = new WorkspaceEdit();
+				ed.replace(di.uri, di.rng, token);
+				workspace.applyEdit(ed);
+			};
+
+			img_size(url.replace('${pathbase}', this.pathWs +'/doc'))
+			.then((s: any)=> {
+				o2.width = s.width;
+				o2.height = s.height;
+//console.log(`fn:Debugger.ts line:156 id_tag:(${id_tag}) fn:${fn} w:${s.width} h:${s.height}`);
+				fnc();
+			})
+			.catch(()=> fnc());	// サイズが取れない場合
+
+			return false;
+		},
 	};
 	private	hDCId2DI: {[id_tag: string]: {
 		uri		: Uri,
@@ -142,11 +175,11 @@ export class Debugger extends EventEmitter {
 
 		const hRepTkn: {[id_tag: string]: any} = {};
 		e.contentChanges.forEach(c=> {
+			const sa = c.text.length -c.rangeLength;
 			for (const id_tag in dbg.hDCId2DI) {
 				const di = dbg.hDCId2DI[id_tag];
 				if (! di.rng.contains(c.range)) continue;
 
-				const sa = c.text.length -c.rangeLength;
 				di[':col_e'] += sa;
 				di.rng = di.rng.with(di.rng.start, di.rng.end.translate(0, sa))
 				const n = e.document.getText(di.rng);
