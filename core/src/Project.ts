@@ -450,11 +450,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	}
 
 
+	private	hPathFn2Exts	: IFn2Path		= {};
 	private	async updPathJson() {
 		try {
-			const hPath = this.get_hPathFn2Exts(this.curPrj);
-			await fs.outputJson(this.curPrj +'path.json', hPath);
-			this.codSpt.updPath(hPath);
+			this.hPathFn2Exts = this.get_hPathFn2Exts(this.curPrj);
+			await fs.outputJson(this.curPrj +'path.json', this.hPathFn2Exts);
+			this.codSpt.updPath(this.hPathFn2Exts);
 			if (this.$isCryptoMode) this.encrypter(this.curPrj +'path.json');
 		}
 		catch (err) {console.error(`Project updPathJson ${err}`);}
@@ -539,7 +540,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		const fn = p.name;
 		let hExts = hFn2Path[fn];
 		if (! hExts) {
-			hExts = hFn2Path[fn] = {':cnt': 1};
+			hExts = hFn2Path[fn] = {':cnt': '1'};
 		}
 		else if (ext in hExts) {
 			window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, {modal: true})
@@ -558,9 +559,74 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			return;
 		}
 		else {
-			hExts[':cnt'] = uint(hExts[':cnt']) +1;
+			hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
 		}
 		hExts[ext] = dir +'/'+ nm;
 	}
+/*
+	private	userFnTail	= '';
+	private	readonly	regPath = /([^\/\s]+)\.([^\d]\w+)/;
+			// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
+	private searchPath(path: string, extptn = ''): string {
+		if (! path) throw '[searchPath] fnが空です';
 
+		const a = path.match(this.regPath);
+		let fn = a ?a[1] :path;
+		const ext = a ?a[2] :'';
+		if (this.userFnTail) {
+			const utn = fn +'@@'+ this.userFnTail;
+			if (utn in this.hPathFn2Exts) {
+				if (extptn === '') fn = utn;
+				else for (let e3 in this.hPathFn2Exts[utn]) {
+					if (`|${extptn}|`.indexOf(`|${e3}|`) === -1) continue;
+
+					fn = utn;
+					break;
+				}
+			}
+		}
+		const h_exts = this.hPathFn2Exts[fn];
+		if (! h_exts) throw `サーチパスに存在しないファイル【${path}】です`;
+
+		let ret = '';
+		if (! ext) {	// fnに拡張子が含まれていない
+			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
+			const hcnt = int(h_exts[':cnt']);
+			if (extptn === '') {
+				if (hcnt > 1) throw `指定ファイル【${path}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
+
+				return path;
+			}
+
+			const search_exts = `|${extptn}|`;
+			if (hcnt > 1) {
+				let cnt = 0;
+				for (const e2 in h_exts) {
+					if (search_exts.indexOf(`|${e2}|`) === -1) continue;
+					if (++cnt > 1) throw `指定ファイル【${path}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
+				}
+			}
+			for (let e in h_exts) {
+				if (search_exts.indexOf(`|${e}|`) === -1) continue;
+
+				return h_exts[e];
+			}
+			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${path}】`;
+		}
+
+		// fnに拡張子xが含まれている
+		//	ファイル名サーチ→拡張子群にxが含まれるか
+		if (extptn !== '') {
+			const search_exts2 = `|${extptn}|`;
+			if (search_exts2.indexOf(`|${ext}|`) === -1) {
+				throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${path}】`;
+			}
+		}
+
+		ret = h_exts[ext];
+		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${path}】、サーチ対象拡張子群【${extptn}】`;
+
+		return ret;
+	}
+*/
 }

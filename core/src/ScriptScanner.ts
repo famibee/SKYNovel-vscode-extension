@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, CmnLib, IFn2Path, REG_SCRIPT, chkBoolean} from './CmnLib';
+import {treeProc, getFn, IFn2Path, REG_SCRIPT, chkBoolean} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
@@ -448,7 +448,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 	private	static	readonly	REG_HTML	= /\.(htm|html)$/;
 	private	scanFile(uri: Uri) {
 		const path = uri.path;
-		const fn = CmnLib.getFn(path);
+		const fn = getFn(path);
 		if (! REG_SCRIPT.test(path)) {
 			if (ScriptScanner.REG_SPRITE.test(path)) {
 				if (ScriptScanner.REG_NOSPR.test(path)) return;
@@ -520,7 +520,7 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 			if ((uc === 42) && (token.length > 1)) {	// * ラベル
 				p.col += len;
 
-				const kw = `fn=${CmnLib.getFn(path)} label=${token}`;
+				const kw = `fn=${getFn(path)} label=${token}`;
 				this.hSetWords['ジャンプ先'].add(kw);
 				setKw.add(`ジャンプ先\t${kw}`);
 				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));

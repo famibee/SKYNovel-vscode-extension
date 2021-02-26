@@ -47,6 +47,7 @@ export declare class Project {
     private readonly regPlgAddTag;
     private updPlugin;
     private rebuildTask;
+    private hPathFn2Exts;
     private updPathJson;
     private readonly regSprSheetImg;
     private get_hPathFn2Exts;

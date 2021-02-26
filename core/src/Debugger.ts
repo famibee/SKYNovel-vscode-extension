@@ -10,11 +10,12 @@ import {PrjSetting} from './PrjSetting';
 
 import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, commands} from 'vscode';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync} from 'fs';
+import {readFileSync, writeFileSync} from 'fs-extra';
 import {EventEmitter} from 'events';
 import {Server, Socket} from 'socket.io';
 const {promisify} = require('util');
 const img_size = promisify(require('image-size'));
+const path = require('path');
 
 export interface InfoBreakpoint {
 	id		: number;
@@ -110,6 +111,7 @@ export class Debugger extends EventEmitter {
 				new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 				`$1${o2[key]}$3`
 			)
+			di[':token'] = token;
 
 			// upd text
 			const ed = new WorkspaceEdit();
@@ -130,33 +132,67 @@ export class Debugger extends EventEmitter {
 			return false;
 		},
 		_dropFile: (_, o)=> {
-			const {':id_tag': id_tag, fn, url} = o;
+			const {':id_tag': id_tag, fn, ext, url, buf, old_fn, old_url} = o;
 			const di = this.hDCId2DI[id_tag];
 			if (! di) return false;
 
-			let token = String(di[':token']);
-			const o2: {[nm: string]: any} = {fn, b_pic: fn, pic: fn};
-			const fnc = ()=> {
-				for (const key in o2) token = token.replace(
-					new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
-					`$1${o2[key]}$3`
-				)
-//console.log(`fn:Debugger.ts line:144 token=${token}=`);
+//console.log(`fn:Debugger.ts line:139 id_tag:(${id_tag}) fn:${fn} ext:${ext} url:${url.slice(0, 32)} old_fn:${old_fn}`);
+			let urlWrite = '';
+			if (url) {	// プロジェクトに既存のファイル名
+				urlWrite = url.replace('${pathbase}', this.pathWs +'/doc');
+				// 同一ファイルでなければ上書き
+				if (fn === old_fn) {
+					let eq = true;
+					const bufFromPrj = readFileSync(urlWrite);
+					const len = bufFromPrj.length;
+					if (len !== buf.length) eq = false;
+					else for (let i=0; i<len; ++i) {
+						if (bufFromPrj[i] !== buf[i]) {eq = false; break;}
+					}
+					if (eq) return false;	// まったく同じなのでスクリプトもそのまま
+					// 違うなら上書きコピー
+				}
+			}
+			else {	// プロジェクトに存在しないファイルなのでコピー
+				// web old_url:prj/other/MnuUp_btnPage1.png
+				// app old_url:（略）sn_uc_score/doc/prj/other/MnuUp_btnPage1.png
+				const parent = path.basename(path.dirname(old_url));
+					// 変更前画像のフォルダ
+				urlWrite = this.pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
 
-				// upd text
-				const ed = new WorkspaceEdit();
-				ed.replace(di.uri, di.rng, token);
-				workspace.applyEdit(ed);
-			};
+				const oAP: {[nm: string]: string} = {':cnt': '1'};
+				oAP[ext] = `${parent}/${fn}.${ext}`;
+				this.send2SN('_addPath', {fn: fn, o: oAP});
+			}
 
-			img_size(url.replace('${pathbase}', this.pathWs +'/doc'))
-			.then((s: any)=> {
-				o2.width = s.width;
-				o2.height = s.height;
-//console.log(`fn:Debugger.ts line:156 id_tag:(${id_tag}) fn:${fn} w:${s.width} h:${s.height}`);
-				fnc();
-			})
-			.catch(()=> fnc());	// サイズが取れない場合
+			// ファイル生成、を検知しての prj.json 更新を待って次へ
+			const fwPathJs = workspace.createFileSystemWatcher(this.pathWs +`/doc/prj/path.json`);
+			fwPathJs.onDidChange(()=> {
+				fwPathJs.dispose();
+
+				// スクリプト更新
+				let token = String(di[':token']);
+				const o2: {[nm: string]: string} = {fn, b_pic: fn, pic: fn};
+				const fnc = ()=> {
+					for (const key in o2) token = token.replace(
+						new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
+						`$1${o2[key]}$3`
+					)
+					di[':token'] = token;
+
+					const ed = new WorkspaceEdit();
+					ed.replace(di.uri, di.rng, token);
+					workspace.applyEdit(ed);
+				};
+				img_size(urlWrite)
+				.then((s: any)=> {
+					o2.width = s.width;
+					o2.height = s.height;
+					fnc();
+				})
+				.catch(()=> fnc());	// サイズが取れない場合
+			});
+			writeFileSync(urlWrite, buf);
 
 			return false;
 		},

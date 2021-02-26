@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {CmnLib, IFn2Path, docsel} from './CmnLib';
+import {getFn, IFn2Path, docsel} from './CmnLib';
 import {ScriptScanner} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
 import {
@@ -402,7 +402,7 @@ ${md.detail}`
 			const sn = CodingSupporter.hSnippet[ci.label];
 			if (sn) ci.insertText = new SnippetString(this.scrScn.cnvSnippet(
 				sn,
-				CmnLib.getFn(window.activeTextEditor?.document.fileName ?? '')
+				getFn(window.activeTextEditor?.document.fileName ?? '')
 			));
 		}
 

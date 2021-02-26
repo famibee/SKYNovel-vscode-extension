@@ -8,6 +8,7 @@
 import {DocumentFilter, workspace, ExtensionContext} from 'vscode';
 
 // =============== Global
+export function int(o: any): number {return parseInt(String(o), 10)}
 export function uint(o: any): number {
 	const v = parseInt(String(o), 10);
 	return v < 0 ? -v : v;
@@ -19,7 +20,7 @@ export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
 
 // =============== Project
-export interface IExts { [ext: string]: string | number; };
+export interface IExts { [ext: string]: string; };
 export interface IFn2Path { [fn: string]: IExts; };
 
 
@@ -108,6 +109,4 @@ export	function chkBoolean(v: any): boolean {
 	return (v2 === 'false')? false : Boolean(v2);
 }
 
-export class CmnLib {
-	static	readonly 	getFn = (path: string)=> basename(path, extname(path));
-}
+export	function getFn(path: string) {return basename(path, extname(path))};
