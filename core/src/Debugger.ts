@@ -160,7 +160,7 @@ export class Debugger extends EventEmitter {
 					// 変更前画像のフォルダ
 				urlWrite = this.pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
 
-				const oAP: {[nm: string]: string} = {':cnt': '1'};
+				const oAP: {[nm: string]: string | number} = {':cnt': 1};
 				oAP[ext] = `${parent}/${fn}.${ext}`;
 				this.send2SN('_addPath', {fn: fn, o: oAP});
 			}

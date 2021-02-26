@@ -20,7 +20,7 @@ export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
 
 // =============== Project
-export interface IExts { [ext: string]: string; };
+export interface IExts { [ext: string]: string | number; };
 export interface IFn2Path { [fn: string]: IExts; };
 
 

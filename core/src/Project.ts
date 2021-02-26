@@ -540,7 +540,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		const fn = p.name;
 		let hExts = hFn2Path[fn];
 		if (! hExts) {
-			hExts = hFn2Path[fn] = {':cnt': '1'};
+			hExts = hFn2Path[fn] = {':cnt': 1};
 		}
 		else if (ext in hExts) {
 			window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, {modal: true})
@@ -559,7 +559,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			return;
 		}
 		else {
-			hExts[':cnt'] = String(uint(hExts[':cnt']) +1);
+			hExts[':cnt'] = uint(hExts[':cnt']) +1;
 		}
 		hExts[ext] = dir +'/'+ nm;
 	}
