@@ -77,7 +77,10 @@ export class Project {
 
 		this.curPlg = this.pathWs +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
-		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
+		if (fs.existsSync(this.pathWs +'/node_modules')) {
+			this.finInitTask = ()=> {};
+			this.updPlugin();
+		}
 		else {
 			this.initTask();
 			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
