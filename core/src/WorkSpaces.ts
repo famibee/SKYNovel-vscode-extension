@@ -171,17 +171,19 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 //					{label: '差分画像',		icon: 'images'},
 //					{label: 'トゥイーン',	icon: 'object-group'},
 				];
-				return a.map(v=> {
-					const ti = new TreeItem(v.label);
-					ti.iconPath = oIcon(v.icon);
-					ti.command = {
+				return a.map(v=> Object.assign(new TreeItem(v.label), {
+					iconPath: oIcon(v.icon),
+					command	: {
 						command: 'skynovel.tiLayers.selectNode',
 						title: 'Select Node',
-						arguments: [t.label +'/'+ ti.label],
-					};
-					return ti;
-				});
+						arguments: [t.label +'/'+ v.label],
+					},
+				}));
 			},
+			/*getTreeItem: t=> {
+				if (t.label === 'mes') treeView.reveal(t, {focus: true, select: true});
+				return t;
+			},*/
 			getTreeItem: t=> t,
 			onDidChangeTreeData: emDbgLayTd.event,
 		}));
@@ -308,7 +310,13 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		tc[this.idxDevCrypto].description = `-- ${fpf.isCryptoMode ?'する' :'しない'}`;
 	}
 
-	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {};
+	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
+		'テンプレ初期化': e=> {
+			const wsFld = <WorkspaceFolder>e.execution.task.scope;
+			const dir = wsFld.uri.fsPath;
+			this.hPrj[dir].finInitTask();
+		},
+	};
 	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
 		const pathWs = wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;

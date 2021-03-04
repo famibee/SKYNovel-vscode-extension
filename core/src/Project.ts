@@ -79,7 +79,7 @@ export class Project {
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
 		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
-			this.rebuildTask();
+			this.initTask();
 			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
@@ -431,22 +431,29 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.codSpt.setHDefPlg(hDefPlg);
 
 		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
-		.then(()=> this.rebuildTask())	// NOTE: 起動時にビルドが走るのはこれ
+		.then(()=> this.initTask())
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
-	private rebuildTask() {
+	private initTask() {
+		// 起動時にビルドが走るのはこれ
+		// 終了イベントは WorkSpaces.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
 		if (! fs.existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 		cmd += 'npm run webpack:dev';
 		const t = new Task(
 			{type: 'SKYNovel auto'},	// definition（タスクの一意性）
 			this.wsFld!,
-			'webpack:dev',				// name、UIに表示
+			'テンプレ初期化',				// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
 		tasks.executeTask(t)
-		.then(undefined, rj=> console.error(`TreeDPDev rebuildTask() rj:${rj.message}`));
+		.then(undefined, rj=> console.error(`Project rebuildTask() rj:${rj.message}`));
+	}
+	finInitTask() {
+		this.finInitTask = ()=> {};	// onceにする
+		this.updPlugin();
+		this.codSpt.finInitTask();
 	}
 
 

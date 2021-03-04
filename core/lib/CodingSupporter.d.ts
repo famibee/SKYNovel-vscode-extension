@@ -11,6 +11,7 @@ export declare class CodingSupporter implements HoverProvider, DefinitionProvide
     private static readonly CMD_SCANSCR_TRGPARAMHINTS;
     constructor(ctx: ExtensionContext, pathWs: string, curPrj: string);
     private static readonly REG_VAR;
+    finInitTask(): void;
     private tidDelay;
     private aChgTxt;
     private hRsvNm2Then;

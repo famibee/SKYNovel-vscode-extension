@@ -99,6 +99,9 @@ export class Debugger extends EventEmitter {
 		_enterDesign: _=> {
 //			o[':path'] = o[':path'].replace('${pathbase}', this.pathWs +'/doc');
 //console.log(`fn:Debugger.ts line:96 _enterDesign o:${JSON.stringify(o)}`);
+
+// 'mes/ボタン'
+
 			return false;
 		},
 		_changeCast: (_, o)=> {

@@ -5,11 +5,6 @@
 	"tasks": [
 		{
 			"type": "npm",
-			"script": "npm_check_updates_do",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
 			"script": "publish",
 			"problemMatcher": []
 		},
