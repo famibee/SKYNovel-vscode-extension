@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.10.3",
+	"version": "3.10.4",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.53.0"
+		"vscode": "^1.54.0"
 	},
 	"categories": [
 		"Programming Languages",
@@ -660,14 +660,14 @@
 		"onCustomEditor:SKYNovel.score"
 	],
 	"dependencies": {
-		"archiver": "^5.2.0",
+		"archiver": "^5.3.0",
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.0",
 		"crypto-js": "^4.0.0",
 		"fs-extra": "^9.1.0",
 		"image-size": "^0.9.4",
 		"png2icons": "^2.0.1",
-		"socket.io": "^3.1.2",
+		"socket.io": "^4.0.0",
 		"uuid": "^8.3.2",
 		"vscode-debugadapter": "^1.45.0",
 		"vscode-debugprotocol": "^1.45.0"
@@ -678,21 +678,21 @@
 		"@types/fs-extra": "^9.0.8",
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.2.1",
-		"@types/node": "^14.14.31",
+		"@types/node": "^14.14.33",
 		"@types/socket.io": "^2.1.13",
 		"@types/uuid": "^8.3.0",
-		"@types/vscode": "^1.53.0",
-		"@typescript-eslint/eslint-plugin": "^4.16.1",
-		"@typescript-eslint/parser": "^4.16.1",
+		"@types/vscode": "^1.54.0",
+		"@typescript-eslint/eslint-plugin": "^4.17.0",
+		"@typescript-eslint/parser": "^4.17.0",
 		"electron": "^12.0.0",
 		"eslint": "^7.21.0",
 		"glob": "^7.1.6",
-		"mocha": "^8.3.0",
+		"mocha": "^8.3.1",
 		"ts-loader": "^8.0.17",
-		"typescript": "^4.2.2",
+		"typescript": "^4.2.3",
 		"vscode-debugadapter-testsupport": "^1.45.0",
 		"vscode-test": "^1.5.1",
-		"webpack": "^5.24.3",
+		"webpack": "^5.24.4",
 		"webpack-cli": "^4.5.0"
 	},
 	"optionalDependencies": {
