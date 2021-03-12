@@ -9,7 +9,7 @@ import {replaceFile, foldProc, getNonce} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import fs = require('fs-extra');
+import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync} from 'fs-extra';
 import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
 
@@ -18,6 +18,7 @@ export class PrjSetting {
 	private	readonly	fnPrjJs	: string;
 	private	readonly	fnPkgJs	: string;
 	private	readonly	fnAppJs	: string;
+	private				fnSetting	: string;
 	private	readonly	fnInsNsh: string;
 	private	readonly	fnIcon	: string;
 	private	readonly	fnReadme4Freem	: string;
@@ -25,7 +26,7 @@ export class PrjSetting {
 
 	private				htmSrc	= '';
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string) {
 		const pathWs = wsFld.uri.fsPath;
 		this.fnPrj = pathWs +'/doc/prj/';
 		this.fnPrjJs = this.fnPrj +'prj.json';
@@ -36,36 +37,32 @@ export class PrjSetting {
 		let init_freem = false;
 		const path_ext = ctx.extensionPath;
 
-		if (! fs.existsSync(this.fnReadme4Freem)) {
+		if (! existsSync(this.fnReadme4Freem)) {
 			init_freem = true;
-			fs.ensureFileSync(this.fnReadme4Freem);
-			fs.copyFileSync(path_ext +'/res/readme.txt', this.fnReadme4Freem);
+			ensureFileSync(this.fnReadme4Freem);
+			copyFileSync(path_ext +'/res/readme.txt', this.fnReadme4Freem);
 
 			workspace.openTextDocument(this.fnReadme4Freem)
 			.then(doc=> window.showTextDocument(doc));
 		}
 
 		this.fnInsNsh = pathWs +'/build/installer.nsh';
-		if (! fs.existsSync(this.fnInsNsh)) fs.copyFile(
+		if (! existsSync(this.fnInsNsh)) copyFile(
 			path_ext +'/res/installer.nsh', this.fnInsNsh
 		);
 
 		this.fnIcon = pathWs +'/build/icon.png';
-		if (! fs.existsSync(this.fnIcon)) fs.copyFile(
+		if (! existsSync(this.fnIcon)) copyFile(
 			path_ext +'/res/icon.png', this.fnIcon
 		);
 
 		const fnLaunchJs = pathWs +'/.vscode/launch.json';
-		if (! fs.existsSync(fnLaunchJs)) fs.copyFile(
+		if (! existsSync(fnLaunchJs)) copyFile(
 			path_ext +'/res/launch.json', fnLaunchJs
 		);
 
-		this.oCfg = {...this.oCfg, ...fs.readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
-		// v0.15.1【「slideBaseSpan」廃止】
-		if ('slideBaseSpan' in this.oCfg.debug) {
-			delete this.oCfg.debug['slideBaseSpan'];
-			this.oCfg.debug['debugLog'] = false;
-		}
+		this.oCfg = {...this.oCfg, ...readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
+
 		chgTitle(this.oCfg.book.title);
 		codSpt.setEscape(this.oCfg?.init?.escape ?? '');
 		if (init_freem) {
@@ -77,15 +74,13 @@ export class PrjSetting {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 		const oCode: {[name: string]: string} = {};
-		for (const nm in this.oCfg.code) {
-			if (a.includes(nm)) oCode[nm] = this.oCfg[nm];
-		}
+		for (const nm in this.oCfg.code) if (a.includes(nm)) oCode[nm] = this.oCfg[nm];
 		this.oCfg.code = oCode;
-		fs.outputJson(this.fnPrjJs, this.oCfg);
+		outputJson(this.fnPrjJs, this.oCfg);
 
 		const path_ext_htm = path_ext +`/res/webview/`;
 		this.localExtensionResRoots = Uri.file(path_ext_htm);
-		fs.readFile(path_ext_htm +`setting.htm`, {encoding: 'utf8'})
+		readFile(path_ext_htm +`setting.htm`, {encoding: 'utf8'})
 		.then(htm=> {
 			this.htmSrc = htm
 			.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
@@ -105,7 +100,7 @@ export class PrjSetting {
 	}
 
 	noticeCreDir(path: string) {
-		if (! fs.statSync(path).isDirectory()) return;
+		if (! statSync(path).isDirectory()) return;
 
 		this.oCfg.code[m_path.basename(path)] = false;
 		//fs.outputJson(this.fnPrjJs, this.oCfg);
@@ -114,7 +109,7 @@ export class PrjSetting {
 	}
 	noticeDelDir(path: string) {
 		delete this.oCfg.code[m_path.basename(path)];
-		fs.outputJson(this.fnPrjJs, this.oCfg);
+		outputJson(this.fnPrjJs, this.oCfg);
 		this.openSub();	// 出来れば一部だけ更新したいが
 	}
 
@@ -181,22 +176,62 @@ export class PrjSetting {
 		}, false);
 		this.openSub();
 	}
+	private	readonly REG_SETTING = /^&(\S+)\s*=\s*((["'#])(.+?)\3|([^;\s]+))(?:[^;]*;(.*))$/gm;	// https://regex101.com/r/Yonyn3/1
 	private openSub() {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
 		const wv = this.pnlWV!.webview;
-		wv.html = this.htmSrc
+		let h = this.htmSrc
 		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
+
+		try {
+			this.fnSetting = this.fnPrj + this.searchPath('setting', 'sn');
+			let hs = '';
+			if (! existsSync(this.fnSetting)) throw '';
+
+			const src = readFileSync(this.fnSetting, {encoding: 'utf8'});
+			for (const m of src.matchAll(this.REG_SETTING)) {
+				const nm = m[1];
+				const v = m[4] ?? m[5];
+				const lbl = m[6].trim();
+				if (v === 'true' || v === 'false') hs += `
+	<div class="col-auto pe-1 mt-2 form-outline"><div class="form-check">
+		<input id="/setting.sn:${nm}" type="checkbox" class="form-check-input sn-chk" checked="${v}"/>
+		<label class="form-label" for="/setting.sn:${nm}">${lbl}</label>
+	</div></div>`;
+				else hs += `
+	<div class="col-auto px-1 mt-2"><div class="form-outline">
+		<input type="text" id="/setting.sn:${nm}" value="${v}" class="form-control sn-gray" placeholder="${lbl}"/>
+		<label class="form-label" for="/setting.sn:${nm}">${lbl}</label>
+	</div></div>`;
+			}
+			h = h.replace('<!-- 4replace_by_setting.sn -->', hs);
+		} catch {
+			h = h.replace(
+				'<!-- 4replace_by_setting.sn -->',
+				'<div class="col-12 px-1 pt-3"><h5>setting.sn が見つかりません</h5></div>'
+			);
+		}	// ない場合
+
+		wv.html = h;
 	}
 	private inputProc(id: string, val: string) {
 		const v = /^[-]?([1-9]\d*|0)$/.test(val)
 			? val
-			: /^(true|false)$/.test(val)
-				? val
-				: String(val).replace(/"/g, '%22');
+			: String(val).replace(/"/g, '%22');
+		if (id.charAt(0) === '/') {
+			const nm = id.split(':')[1];
+			replaceFile(
+				this.fnSetting,
+				new RegExp(`^(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`, 'm'),
+				`$1${ (v === 'true' || v === 'false') ?v :`#${v}#` }`
+			);
+			return;
+		}
+
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);
@@ -204,10 +239,8 @@ export class PrjSetting {
 			this.oCfg[id2][nm] = v;
 			if (id2 === 'init' && nm === 'escape') this.codSpt.setEscape(v);
 		}
-		else {
-			this.oCfg[id] = v;
-		}
-		fs.outputJson(this.fnPrjJs, this.oCfg);
+		else this.oCfg[id] = v;
+		outputJson(this.fnPrjJs, this.oCfg);
 
 		this.hRep[id]?.(v);
 	}
@@ -218,7 +251,7 @@ export class PrjSetting {
 
 			if (! this.oCfg.debuger_token) {
 				this.oCfg.debuger_token = uuidv4();
-				fs.outputJson(this.fnPrjJs, this.oCfg);
+				outputJson(this.fnPrjJs, this.oCfg);
 			}
 		},
 		'window.width'	: val=> replaceFile(this.fnAppJs,

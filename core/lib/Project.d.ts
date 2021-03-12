@@ -53,4 +53,7 @@ export declare class Project {
     private readonly regSprSheetImg;
     private get_hPathFn2Exts;
     private addPath;
+    private userFnTail;
+    private readonly regPath;
+    private searchPath;
 }

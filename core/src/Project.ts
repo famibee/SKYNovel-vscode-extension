@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
+import {statBreak, uint, int, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
 
@@ -160,7 +160,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.fnDiff = this.pathWs +'/core/diff.json';
 		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
-		this.ps = new PrjSetting(ctx, wsFld, chgTitle, this.codSpt);
+		this.ps = new PrjSetting(ctx, wsFld, chgTitle, this.codSpt, (path: string, extptn = '')=> this.searchPath(path, extptn));
 		this.initCrypto();
 	}
 
@@ -573,7 +573,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		}
 		hExts[ext] = dir +'/'+ nm;
 	}
-/*
+
 	private	userFnTail	= '';
 	private	readonly	regPath = /([^\/\s]+)\.([^\d]\w+)/;
 			// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
@@ -619,7 +619,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			for (let e in h_exts) {
 				if (search_exts.indexOf(`|${e}|`) === -1) continue;
 
-				return h_exts[e];
+				return String(h_exts[e]);
 			}
 			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${path}】`;
 		}
@@ -633,10 +633,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			}
 		}
 
-		ret = h_exts[ext];
+		ret = String(h_exts[ext]);
 		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${path}】、サーチ対象拡張子群【${extptn}】`;
 
 		return ret;
 	}
-*/
+
 }

@@ -5,16 +5,18 @@ export declare class PrjSetting {
     readonly wsFld: WorkspaceFolder;
     private readonly chgTitle;
     private readonly codSpt;
+    private readonly searchPath;
     private readonly fnPrj;
     private readonly fnPrjJs;
     private readonly fnPkgJs;
     private readonly fnAppJs;
+    private fnSetting;
     private readonly fnInsNsh;
     private readonly fnIcon;
     private readonly fnReadme4Freem;
     private readonly localExtensionResRoots;
     private htmSrc;
-    constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void, codSpt: CodingSupporter);
+    constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void, codSpt: CodingSupporter, searchPath: (path: string, extptn: string) => string);
     private static readonly hWsFld2token;
     static getDebugertoken(wsFld: WorkspaceFolder | undefined): string;
     noticeCreDir(path: string): void;
@@ -23,6 +25,7 @@ export declare class PrjSetting {
     get cfg(): any;
     private pnlWV;
     open(): void;
+    private readonly REG_SETTING;
     private openSub;
     private inputProc;
     private readonly hRep;
