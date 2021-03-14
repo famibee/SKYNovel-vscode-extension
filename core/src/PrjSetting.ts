@@ -176,7 +176,7 @@ export class PrjSetting {
 		}, false);
 		this.openSub();
 	}
-	private	readonly REG_SETTING = /^&(\S+)\s*=\s*((["'#])(.+?)\3|([^;\s]+))(?:[^;]*;(.*))$/gm;	// https://regex101.com/r/Yonyn3/1
+	private	readonly REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;]*;(.*))?/gm;	// https://regex101.com/r/90IOfX/1
 	private openSub() {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
@@ -189,14 +189,15 @@ export class PrjSetting {
 
 		try {
 			this.fnSetting = this.fnPrj + this.searchPath('setting', 'sn');
-			let hs = '';
 			if (! existsSync(this.fnSetting)) throw '';
 
+			let hs = '';
 			const src = readFileSync(this.fnSetting, {encoding: 'utf8'});
 			for (const m of src.matchAll(this.REG_SETTING)) {
-				const nm = m[1];
-				const v = m[4] ?? m[5];
-				const lbl = m[6].trim();
+				if (m[0].charAt(0) === ';') continue;
+				const nm = m[1] ?? m[2];
+				const v = m[4] ?m[3].slice(1, -1) :m[3];
+				const lbl = m[5].trim();
 				if (v === 'true' || v === 'false') hs += `
 	<div class="col-auto pe-1 mt-2 form-outline"><div class="form-check">
 		<input id="/setting.sn:${nm}" type="checkbox" class="form-check-input sn-chk" checked="${v}"/>

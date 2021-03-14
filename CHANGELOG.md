@@ -1,3 +1,6 @@
+## v3.11.1
+- fix: setting.sn 変更GUI：[let]対応。よってcondも使える
+- fix: setting.sn 変更GUI：行頭以外でも &変数設定文法をサポートするように
 ## v3.11.0
 - feat: setting.sn に書いた変数設定文を変更できるGUIを提供
 - fix: 拡張機能に余分なファイルを含んでサイズが不必要に大きかった件（6.3MB→4.5MB）

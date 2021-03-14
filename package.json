@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.11.0",
+	"version": "3.11.1",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -685,7 +685,7 @@
 		"@typescript-eslint/eslint-plugin": "^4.17.0",
 		"@typescript-eslint/parser": "^4.17.0",
 		"electron": "^12.0.1",
-		"eslint": "^7.21.0",
+		"eslint": "^7.22.0",
 		"glob": "^7.1.6",
 		"mocha": "^8.3.2",
 		"ts-loader": "^8.0.18",
