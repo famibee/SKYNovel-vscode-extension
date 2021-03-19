@@ -1,3 +1,5 @@
+## v3.11.2
+- fix: ライブラリ更新
 ## v3.11.1
 - fix: setting.sn 変更GUI：[let]対応。よってcondも使える
 - fix: setting.sn 変更GUI：行頭以外でも &変数設定文法をサポートするように

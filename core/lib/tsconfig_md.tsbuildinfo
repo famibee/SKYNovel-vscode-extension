@@ -167,8 +167,8 @@
         "affectsGlobalScope": true
       },
       "../../node_modules/@types/node/globals.d.ts": {
-        "version": "e9a43c3ee6fb8376bb9a4d318a660412c6abcfe5161c106e801e5431b41b7476",
-        "signature": "e9a43c3ee6fb8376bb9a4d318a660412c6abcfe5161c106e801e5431b41b7476",
+        "version": "25b4a0c4fab47c373ee49df4c239826ee3430019fc0c1b5e59edc3e398b7468d",
+        "signature": "25b4a0c4fab47c373ee49df4c239826ee3430019fc0c1b5e59edc3e398b7468d",
         "affectsGlobalScope": true
       },
       "../../node_modules/@types/node/async_hooks.d.ts": {
@@ -182,8 +182,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/child_process.d.ts": {
-        "version": "89a3409a743c2a408d02bd68255a61d8416225b76c2c66d8e2e74dad3e00bc5d",
-        "signature": "89a3409a743c2a408d02bd68255a61d8416225b76c2c66d8e2e74dad3e00bc5d",
+        "version": "674bedbfd2004e233e2a266a3d2286e524f0d58787a98522d834d6ccda1d215a",
+        "signature": "674bedbfd2004e233e2a266a3d2286e524f0d58787a98522d834d6ccda1d215a",
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/cluster.d.ts": {
@@ -242,8 +242,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/http2.d.ts": {
-        "version": "4c260129d649d69f0608cd123e7016e61364b553a5ca2de9b66b0398594959cf",
-        "signature": "4c260129d649d69f0608cd123e7016e61364b553a5ca2de9b66b0398594959cf",
+        "version": "9aff68f1b847b846d3d50a58c9f8f99389bedd0258d1b1c201f11b97ecfd36f8",
+        "signature": "9aff68f1b847b846d3d50a58c9f8f99389bedd0258d1b1c201f11b97ecfd36f8",
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/https.d.ts": {
@@ -366,11 +366,6 @@
         "signature": "515ef1d99036ff0dafa5bf738e02222edea94e0d97a0aa0ff277ac5e96b57977",
         "affectsGlobalScope": false
       },
-      "../../node_modules/@types/node/ts3.4/base.d.ts": {
-        "version": "d44028ae0127eb3e9fcfa5f55a8b81d64775ce15aca1020fe25c511bbb055834",
-        "signature": "d44028ae0127eb3e9fcfa5f55a8b81d64775ce15aca1020fe25c511bbb055834",
-        "affectsGlobalScope": false
-      },
       "../../node_modules/@types/node/globals.global.d.ts": {
         "version": "2708349d5a11a5c2e5f3a0765259ebe7ee00cdcc8161cb9990cb4910328442a1",
         "signature": "2708349d5a11a5c2e5f3a0765259ebe7ee00cdcc8161cb9990cb4910328442a1",
@@ -382,8 +377,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/ts3.6/base.d.ts": {
-        "version": "ad1ae5ae98eceb9af99061e83e867b9897d267aebc8f3b938c9424deabadf4bb",
-        "signature": "ad1ae5ae98eceb9af99061e83e867b9897d267aebc8f3b938c9424deabadf4bb",
+        "version": "ae68a04912ee5a0f589276f9ec60b095f8c40d48128a4575b3fdd7d93806931c",
+        "signature": "ae68a04912ee5a0f589276f9ec60b095f8c40d48128a4575b3fdd7d93806931c",
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/node/assert.d.ts": {
@@ -402,8 +397,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/fs-extra/index.d.ts": {
-        "version": "62b1766a5d23c43bb47b7f5c60410eff7af63ed9b9a09c67d55926ef69f6979b",
-        "signature": "62b1766a5d23c43bb47b7f5c60410eff7af63ed9b9a09c67d55926ef69f6979b",
+        "version": "9580f90a9e7a9ce62aaed6b3014d4436a2c2d78b618aeb5052366b90cdb4f4d5",
+        "signature": "9580f90a9e7a9ce62aaed6b3014d4436a2c2d78b618aeb5052366b90cdb4f4d5",
         "affectsGlobalScope": false
       },
       "../src/md2json.ts": {
@@ -467,8 +462,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/eslint/index.d.ts": {
-        "version": "edb3e2f61a2a6e29a5f9043f73adf65951d52b4c1f22e84050381f7ef0d77318",
-        "signature": "edb3e2f61a2a6e29a5f9043f73adf65951d52b4c1f22e84050381f7ef0d77318",
+        "version": "ffa048767a32a0f6354e611b15d8b53d882da1a9a35455c35c3f6811f2416d17",
+        "signature": "ffa048767a32a0f6354e611b15d8b53d882da1a9a35455c35c3f6811f2416d17",
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/eslint-scope/index.d.ts": {
@@ -502,8 +497,8 @@
         "affectsGlobalScope": false
       },
       "../../node_modules/@types/vscode/index.d.ts": {
-        "version": "0d2ae25abaa1163188d256f0c438a274459099c30c44aa3be144c9c1232f4081",
-        "signature": "0d2ae25abaa1163188d256f0c438a274459099c30c44aa3be144c9c1232f4081",
+        "version": "19e8e603cbf6a73486f00afc7277f66b852eac7cff894500c1c692de21ba5fb3",
+        "signature": "19e8e603cbf6a73486f00afc7277f66b852eac7cff894500c1c692de21ba5fb3",
         "affectsGlobalScope": true
       }
     },
@@ -723,7 +718,7 @@
       "../../node_modules/@types/node/trace_events.d.ts": [
         "../../node_modules/@types/node/trace_events.d.ts"
       ],
-      "../../node_modules/@types/node/ts3.4/base.d.ts": [
+      "../../node_modules/@types/node/ts3.6/base.d.ts": [
         "../../node_modules/@types/node/async_hooks.d.ts",
         "../../node_modules/@types/node/buffer.d.ts",
         "../../node_modules/@types/node/child_process.d.ts",
@@ -738,6 +733,7 @@
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/fs/promises.d.ts",
         "../../node_modules/@types/node/globals.d.ts",
+        "../../node_modules/@types/node/globals.global.d.ts",
         "../../node_modules/@types/node/http.d.ts",
         "../../node_modules/@types/node/http2.d.ts",
         "../../node_modules/@types/node/https.d.ts",
@@ -762,13 +758,9 @@
         "../../node_modules/@types/node/util.d.ts",
         "../../node_modules/@types/node/v8.d.ts",
         "../../node_modules/@types/node/vm.d.ts",
+        "../../node_modules/@types/node/wasi.d.ts",
         "../../node_modules/@types/node/worker_threads.d.ts",
         "../../node_modules/@types/node/zlib.d.ts"
-      ],
-      "../../node_modules/@types/node/ts3.6/base.d.ts": [
-        "../../node_modules/@types/node/globals.global.d.ts",
-        "../../node_modules/@types/node/ts3.4/base.d.ts",
-        "../../node_modules/@types/node/wasi.d.ts"
       ],
       "../../node_modules/@types/node/tty.d.ts": [
         "../../node_modules/@types/node/net.d.ts",
@@ -1002,7 +994,7 @@
       "../../node_modules/@types/node/trace_events.d.ts": [
         "../../node_modules/@types/node/trace_events.d.ts"
       ],
-      "../../node_modules/@types/node/ts3.4/base.d.ts": [
+      "../../node_modules/@types/node/ts3.6/base.d.ts": [
         "../../node_modules/@types/node/async_hooks.d.ts",
         "../../node_modules/@types/node/buffer.d.ts",
         "../../node_modules/@types/node/child_process.d.ts",
@@ -1017,6 +1009,7 @@
         "../../node_modules/@types/node/fs.d.ts",
         "../../node_modules/@types/node/fs/promises.d.ts",
         "../../node_modules/@types/node/globals.d.ts",
+        "../../node_modules/@types/node/globals.global.d.ts",
         "../../node_modules/@types/node/http.d.ts",
         "../../node_modules/@types/node/http2.d.ts",
         "../../node_modules/@types/node/https.d.ts",
@@ -1041,13 +1034,9 @@
         "../../node_modules/@types/node/util.d.ts",
         "../../node_modules/@types/node/v8.d.ts",
         "../../node_modules/@types/node/vm.d.ts",
+        "../../node_modules/@types/node/wasi.d.ts",
         "../../node_modules/@types/node/worker_threads.d.ts",
         "../../node_modules/@types/node/zlib.d.ts"
-      ],
-      "../../node_modules/@types/node/ts3.6/base.d.ts": [
-        "../../node_modules/@types/node/globals.global.d.ts",
-        "../../node_modules/@types/node/ts3.4/base.d.ts",
-        "../../node_modules/@types/node/wasi.d.ts"
       ],
       "../../node_modules/@types/node/tty.d.ts": [
         "../../node_modules/@types/node/net.d.ts",
@@ -1150,7 +1139,6 @@
       "../../node_modules/@types/node/timers.d.ts",
       "../../node_modules/@types/node/tls.d.ts",
       "../../node_modules/@types/node/trace_events.d.ts",
-      "../../node_modules/@types/node/ts3.4/base.d.ts",
       "../../node_modules/@types/node/ts3.6/base.d.ts",
       "../../node_modules/@types/node/tty.d.ts",
       "../../node_modules/@types/node/url.d.ts",
@@ -1200,5 +1188,5 @@
       "../../node_modules/typescript/lib/lib.esnext.intl.d.ts"
     ]
   },
-  "version": "4.2.2"
+  "version": "4.2.3"
 }
