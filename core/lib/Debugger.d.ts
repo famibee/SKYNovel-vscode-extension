@@ -21,19 +21,22 @@ export declare class Debugger extends EventEmitter {
     private hDCId2DI;
     static noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent): void;
     restart: (ri: number) => Promise<void>;
-    continue: (rev?: boolean) => void;
-    step: (rev?: boolean) => void;
+    continue: (reverse?: boolean) => void;
+    step: (reverse?: boolean) => void;
     stepin: () => void;
     stepout: () => void;
     pause: () => void;
-    var: (ri: number, scope: string) => Promise<any[]>;
+    var: (ri: number, scope: string) => Promise<{
+        [nm: string]: any;
+    }>;
     stack: (ri: number, start: number, end: number) => Promise<{
         nm: string;
         fn: string;
         ln: number;
         col: number;
+        ma: string;
     }[]>;
-    eval: (ri: number, txt: string) => Promise<any>;
+    eval: (ri: number, txt: string) => Promise<string>;
     private idBP;
     private fn2ABP;
     setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[];

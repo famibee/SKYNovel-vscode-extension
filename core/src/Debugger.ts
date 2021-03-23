@@ -237,15 +237,15 @@ export class Debugger extends EventEmitter {
 		this.hProcSnRes[ri] = ()=> {res(); return true;}	// response
 	});
 
-	continue = (rev = false)=> this.send2SN('continue', {reverse: rev});
+	continue = (reverse = false)=> this.send2SN('continue', {reverse});
 		// 次のブレークポイントまでプログラムを続行。ブレークポイントがなければ最後まで実行。
-	step = (rev = false)=> this.send2SN('stepover', {reverse: rev});
+	step = (reverse = false)=> this.send2SN('stepover', {reverse});
 	stepin = ()=> this.send2SN('stepin');
 	stepout = ()=> this.send2SN('stepout');
 	pause = ()=> this.send2SN('pause');
 
-	var = (ri: number, scope: string)=> new Promise<any[]>(res=> {
-		this.send2SN('var', {ri: ri, scope: scope});			// request
+	var = (ri: number, scope: string)=> new Promise<{[nm: string]: any}>(res=> {
+		this.send2SN('var', {ri, scope});						// request
 		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 	stack = (ri: number, start: number, end: number)=> new Promise<{
@@ -253,19 +253,27 @@ export class Debugger extends EventEmitter {
 		fn	: string,
 		ln	: number,
 		col	: number,
+		ma	: string,
 	}[]>(res=> {
-		this.send2SN('stack', {ri: ri});	// request
+		this.send2SN('stack', {ri});		// request
 		this.hProcSnRes[ri] = (_, o)=> {	// response
-			const a: any[] = Array.isArray(o.a) ?o.a.slice(start, end) :[];
-			res(a.map(v=> {
+			if (! Array.isArray(o.a)) {res([]); return true;}	// once
+
+			res((<any[]>o.a).slice(start, end)
+			.filter(v=> v.ma
+				? (JSON.parse(v.ma ?? '{}').stepin ?? 'true') === 'true'
+				: true
+			)
+			.map(v=> {
 				v.fn = v.fn.replace('${pathbase}', this.pathWs +'/doc');
 				return v;
 			}));
+
 			return true;	// once
 		};
 	});
-	eval = (ri: number, txt: string)=> new Promise<any>(res=> {
-		this.send2SN('eval', {ri: ri, txt: txt});				// request
+	eval = (ri: number, txt: string)=> new Promise<string>(res=> {
+		this.send2SN('eval', {ri, txt});						// request
 		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 

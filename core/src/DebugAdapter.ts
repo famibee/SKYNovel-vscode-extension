@@ -461,6 +461,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				new Scope('雑用変数 tmp:', this.hdlsVar.create('tmp'), false),
 				new Scope('雑用変数 tmp:（SKYNovel組み込み）', this.hdlsVar.create('tmp:sn'), false),
 				new Scope('マクロ変数 mp:', this.hdlsVar.create('mp'), false),
+				new Scope('マクロ変数 mp:（SKYNovel組み込み）', this.hdlsVar.create('mp:sn'), false),
 				new Scope('システム変数 sys:', this.hdlsVar.create('sys'), false),
 				new Scope('システム変数 sys:（SKYNovel組み込み）', this.hdlsVar.create('sys:sn'), false),
 				new Scope('セーブ変数 save:', this.hdlsVar.create('save'), false),
