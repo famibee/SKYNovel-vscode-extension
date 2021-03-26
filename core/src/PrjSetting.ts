@@ -222,7 +222,10 @@ export class PrjSetting {
 	private inputProc(id: string, val: string) {
 		const v = /^[-]?([1-9]\d*|0)$/.test(val)
 			? val
-			: String(val).replace(/"/g, '%22');
+		//x	: String(val).replace(/"/g, '%22');
+			: /^(true|false)$/.test(val)
+				? val
+				: String(val).replace(/"/g, '%22');
 		if (id.charAt(0) === '/') {
 			const nm = id.split(':')[1];
 			replaceFile(
