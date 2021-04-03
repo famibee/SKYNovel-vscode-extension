@@ -364,20 +364,16 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 		"sourceModified": false		// trueは、基礎となるソースが変更され、新しいブレークポイントの位置が変更されたことを示します。
 	}
 }*/
+		const a = args.breakpoints ?? [];
 		res.body = {
 			breakpoints: this.dbg.setBreakPoints(
 				args.source.path!,
-				(args.breakpoints ?? [])
-				.map(o=> <DebugProtocol.SourceBreakpoint>{
+				a.map(o=> <DebugProtocol.SourceBreakpoint>{
 					...o,
 					line: this.convertClientLineToDebugger(o.line),
 				}),
 			)
-			.map(o=> new Breakpoint(
-				o.verified,
-				this.convertDebuggerLineToClient(o.ln),
-				o.col
-			))
+			.map((o, i)=> new Breakpoint(o.verified, a[i].line, o.col,))
 		};
 		this.sendResponse(res);
 	}
@@ -387,9 +383,8 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		args.breakpoints.forEach(dbp=> {
-			if ((dbp as any).enabled) a.push({name: dbp.name});
-
-			res.body.breakpoints.push({verified: Boolean(dbp.name),});
+			a.push(dbp);
+			res.body.breakpoints.push({verified: true,});
 		});
 		await this.dbg.setFuncBreakpoint(res.request_seq, a);
 
@@ -822,7 +817,10 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 			if (v.exist) res.body = {
 				dataId: v.fullnm!,
 				description: `変数値変更：${v.fullnm}`,
-				accessTypes: ['write'],	// 'read'|'write'|'readWrite';
+			//	accessTypes: ['readWrite'],	// 'read'|'write'|'readWrite'
+					// readWriteは【値がアクセスされたときに中断】でしか設定できず、
+					// 【参照されたときに】という「read時のみ」なブレークができない。
+				accessTypes: ['write'],
 				canPersist: true,	// 潜在的なデータブレークポイントをセッション間保持
 			};
 		}
@@ -835,14 +833,16 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 	}
 
 	// データブレークポイントをデバッガーへ
+	// NOTE: これのみ、フォルダ開き時にブレークポイント情報再送が行われない挙動
 	protected async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		args.breakpoints.forEach(dbp=> {
-			if ((dbp as any).enabled) a.push({dataId: dbp.dataId});
-
-			res.body.breakpoints.push({verified: Boolean(dbp.dataId),});
+			a.push(dbp);
+			res.body.breakpoints.push({verified: true,});
 		});
+		// 現状設定されたすべてのデータブレークポイント群を渡す。削除時も同様
+		// チェックボックスOFFは削除扱い
 		await this.dbg.setDataBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);

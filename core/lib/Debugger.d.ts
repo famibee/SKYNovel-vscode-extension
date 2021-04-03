@@ -7,6 +7,8 @@ export interface InfoBreakpoint {
     ln: number;
     col: number;
     verified: boolean;
+    condition?: string;
+    hitCondition?: number;
 }
 export declare class Debugger extends EventEmitter {
     readonly wsFld: WorkspaceFolder | undefined;
@@ -38,11 +40,13 @@ export declare class Debugger extends EventEmitter {
     }[]>;
     eval: (ri: number, txt: string) => Promise<string>;
     private idBP;
-    private fn2ABP;
+    private hFn2hLineBP;
     setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[];
     private hScriptLines;
     private loadSource;
+    private aDataBreak;
     setDataBreakpoint: (ri: number, a: any[]) => Promise<void>;
+    private aFuncBreak;
     setFuncBreakpoint: (ri: number, a: any[]) => Promise<void>;
     setVariable: (ri: number, nm: string, val: string) => Promise<void>;
     private sendEvent2Adpt;

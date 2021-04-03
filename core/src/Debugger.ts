@@ -22,6 +22,8 @@ export interface InfoBreakpoint {
 	ln		: number;
 	col		: number;
 	verified: boolean;
+	condition?		: string;
+	hitCondition?	: number;
 }
 
 export class Debugger extends EventEmitter {
@@ -40,7 +42,17 @@ export class Debugger extends EventEmitter {
 
 	attach(args: DebugConfiguration) {	// セッションごとに呼ばれる
 		this.hProcSnRes.hi = ()=> {	// res/UML/DebuggerSD.pu
-			this.send2SN('auth', {t: PrjSetting.getDebugertoken(this.wsFld), ...args});
+			this.send2SN('auth', {
+				t			: PrjSetting.getDebugertoken(this.wsFld),
+				hBreakpoint	: {
+					hFn2hLineBP	: this.hFn2hLineBP,	// 行ブレークポイント
+													// 条件式ブレークポイント
+													// ヒットカウントブレークポイント
+					aData		: this.aDataBreak,	// データブレークポイント
+					aFunc		: this.aFuncBreak,	// 関数ブレークポイント
+				},
+				...args,
+			});
 			this.hookTag({タグ名: ':connect'});
 			return false;
 		};
@@ -81,6 +93,7 @@ export class Debugger extends EventEmitter {
 		stopOnStep: type=> {this.sendEvent2Adpt(type);	return false;},
 		stopOnBreakpoint: type=> {this.sendEvent2Adpt(type);	return false;},
 		stopOnDataBreakpoint: type=> {this.sendEvent2Adpt(type);return false;},
+
 		_recodeDesign: (_, o)=> {
 			const ln = uint(o[':ln']) -1;
 			const col_s = uint(o[':col_s']);
@@ -279,16 +292,18 @@ export class Debugger extends EventEmitter {
 
 
 	private idBP = 0;	// フロントエンドが管理するためのID
-	private	fn2ABP: {[fn: string]: InfoBreakpoint[]}	= {};
+	private	hFn2hLineBP: {[fn: string]: {[ln: number]: InfoBreakpoint}}	= {};
 	setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[] {
 		const aBp = a.map(o=> <InfoBreakpoint>{
 			id		: ++this.idBP,
 			ln		: o.line,
 			col		: o.column,
-			verified: true,
+			verified	: true,
+			condition	: o.condition,
+			hitCondition: o.hitCondition,
 		});
 
-		const o: {[ln: number]: object} = {};
+		const o: {[ln: number]: InfoBreakpoint} = {};
 		this.loadSource(fn);
 		const sl = this.hScriptLines[fn];
 		const len_sl = sl.length;
@@ -300,8 +315,9 @@ export class Debugger extends EventEmitter {
 			this.sendEvent2Adpt('breakpointValidated', v);
 		});
 		this.send2SN('add_break', {fn: fn, o: o});
+		this.hFn2hLineBP[fn] = o;
 
-		return this.fn2ABP[fn] = aBp;
+		return aBp;
 	}
 	private hScriptLines: {[fn: string]: string[]}	= {};
 	private loadSource(fn: string) {
@@ -311,12 +327,16 @@ export class Debugger extends EventEmitter {
 	}
 
 
+	private	aDataBreak: any[] = [];
 	setDataBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
+		this.aDataBreak = a;
 		this.send2SN('set_data_break', {ri: ri, a: a});			// request
 		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
+	private	aFuncBreak: any[] = [];
 	setFuncBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
+		this.aFuncBreak = a;
 		this.send2SN('set_func_break', {ri: ri, a: a});			// request
 		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
