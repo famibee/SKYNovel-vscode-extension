@@ -158,8 +158,13 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			},
 		);
 
-		this.fnDiff = this.pathWs +'/core/diff.json';
-		if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
+		try {
+			this.fnDiff = this.pathWs +'/core/diff.json';
+			if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
+		} catch (e) {
+			// diff破損対策
+			this.hDiff = Object.create(null);
+		}
 		this.ps = new PrjSetting(ctx, wsFld, chgTitle, this.codSpt, (path: string, extptn = '')=> this.searchPath(path, extptn));
 		this.initCrypto();
 	}

@@ -9,6 +9,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private readonly aDevEnv;
     private readonly aTiRoot;
     private aReady;
+    private verNode;
     private constructor();
     private dispose;
     private refresh;

@@ -56,6 +56,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 
+	private	verNode	= 'v14.16.1';
 	private constructor(private readonly ctx: ExtensionContext) {
 		this.aTiRoot = this.aDevEnv.map(v=> {
 			const ti = new TreeItem(v.label);
@@ -70,7 +71,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> env.openExternal(
-			Uri.parse('https://nodejs.org/dist/v14.16.0/node-v14.16.0'+ (
+			Uri.parse(`https://nodejs.org/dist/${this.verNode}/node-${this.verNode}`+ (
 				is_mac
 				? '.pkg'
 				: `${os.arch().slice(-2) === '64' ?'-x64' :'-x86'}.msi`
