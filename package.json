@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.12.3",
+	"version": "3.12.4",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
