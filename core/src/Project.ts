@@ -13,7 +13,7 @@ import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, wi
 import fs = require('fs-extra');
 import path = require('path');
 const img_size = require('image-size');
-import crypto = require('crypto-js');
+import {lib, enc, PBKDF2, AES, RIPEMD160} from 'crypto-js';
 import {v4 as uuidv4, v5 as uuidv5} from 'uuid';
 import crc32 = require('crc-32');
 import {Transform} from 'stream';
@@ -77,10 +77,7 @@ export class Project {
 
 		this.curPlg = this.pathWs +'/core/plugin/';
 		fs.ensureDirSync(this.curPlg);	// 無ければ作る
-		if (fs.existsSync(this.pathWs +'/node_modules')) {
-			this.finInitTask = ()=> {};
-			this.updPlugin();
-		}
+		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
 			this.initTask();
 			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
@@ -98,9 +95,12 @@ export class Project {
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.curPrj +'*');
 		this.aFSW = [
-			fwPlg.onDidCreate(()=> this.updPlugin()),
-			fwPlg.onDidChange(()=> this.updPlugin()),
-			fwPlg.onDidDelete(()=> this.updPlugin()),
+			fwPlg.onDidCreate(uri=> {
+				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
+			fwPlg.onDidChange(uri=> {
+				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
+			fwPlg.onDidDelete(uri=> {
+				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
 
 			fwPrj.onDidCreate(uri=> {
 				regNoUseSysPath.lastIndex = 0;
@@ -141,17 +141,17 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			? fs.readJsonSync(fnPass, {throws: false})
 			: {
 				pass: uuidv4(),
-				salt: String(crypto.lib.WordArray.random(128 / 8)),
-				iv	: String(crypto.lib.WordArray.random(128 / 8)),
+				salt: String(lib.WordArray.random(128 / 8)),
+				iv	: String(lib.WordArray.random(128 / 8)),
 				ite	: 500 + Math.floor(new Date().getTime() %300),
-				stk	: String(crypto.lib.WordArray.random(128 / 8)),
+				stk	: String(lib.WordArray.random(128 / 8)),
 			};
 		if (! exists_pass) fs.outputJsonSync(fnPass, this.hPass);
 
-		this.iv = crypto.enc.Hex.parse(this.hPass.iv);
-		this.pbkdf2 = crypto.PBKDF2(
-			crypto.enc.Utf8.parse(this.hPass.pass),
-			crypto.enc.Hex.parse(this.hPass.salt),
+		this.iv = enc.Hex.parse(this.hPass.iv);
+		this.pbkdf2 = PBKDF2(
+			enc.Utf8.parse(this.hPass.pass),
+			enc.Hex.parse(this.hPass.salt),
 			{
 				keySize: parseInt(this.hPass.keySize),
 				iterations: parseInt(this.hPass.ite),
@@ -327,7 +327,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					}
 					s = JSON.stringify(hPath);
 				}
-				const e = crypto.AES.encrypt(s, this.pbkdf2, {iv: this.iv});
+				const e = AES.encrypt(s, this.pbkdf2, {iv: this.iv});
 				await fs.outputFile(url_out, e.toString());
 				return;
 			}
@@ -339,9 +339,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				return;
 			}
 
-			let nokori = Project.LEN_ENC;
-			let i = 2;
-			const bh = new Uint8Array(i + nokori);
+			let cnt_code = Project.LEN_ENC;
+			let ite_buf = 2;
+			const bh = new Uint8Array(ite_buf + cnt_code);
 			bh[0] = 0;	// bin ver
 			bh[1] = this.hExt2N[path.extname(short_path).slice(1)] ?? 0;
 
@@ -354,20 +354,20 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
 
 			const tr = new Transform({transform: (chunk, _enc, cb)=> {
-				if (nokori === 0) {cb(null, chunk); return;}
+				if (cnt_code === 0) {cb(null, chunk); return;}
 
 				const len = chunk.length;
-				if (nokori > len) {
-					bh.set(chunk, i);
-					i += len;
-					nokori -= len;
+				if (cnt_code > len) {
+					bh.set(chunk, ite_buf);
+					ite_buf += len;
+					cnt_code -= len;
 					cb(null);
 					return;
 				}
 
-				bh.set(chunk.slice(0, nokori), i);
-				const e6 = crypto.AES.encrypt(
-					crypto.lib.WordArray.create(Array.from(bh)),
+				bh.set(chunk.slice(0, cnt_code), ite_buf);
+				const e6 = AES.encrypt(
+					lib.WordArray.create(Array.from(bh)),
 					this.pbkdf2,
 					{iv: this.iv},
 				);
@@ -379,14 +379,17 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 				tr.push(e);
 
-				cb(null, (nokori === len) ?null :chunk.slice(nokori));
-				nokori = 0;
+				cb(null, (cnt_code === len) ?null :chunk.slice(cnt_code));
+				cnt_code = 0;
 			}})
 			.on('end', ()=> {
-				if (nokori === 0) return;
+				if (cnt_code === 0) return;
 
-				const e6 = crypto.AES.encrypt(
-					crypto.lib.WordArray.create(Array.from(bh.slice(0, i))),
+					// 暗号化のたびに復号化テストする？
+					// 暗号化でレポートテキストを吐くようにする？
+						// （処理だけコメントアウトで残しても良さげ）
+				const e6 = AES.encrypt(
+					lib.WordArray.create(Array.from(bh.slice(0, ite_buf))),
 					this.pbkdf2,
 					{iv: this.iv},
 				);
@@ -443,6 +446,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
 	private initTask() {
+		this.initTask = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは WorkSpaces.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
@@ -459,7 +463,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		.then(undefined, rj=> console.error(`Project rebuildTask() rj:${rj.message}`));
 	}
 	finInitTask() {
-		this.finInitTask = ()=> {};	// onceにする
 		this.updPlugin();
 		this.codSpt.finInitTask();
 	}
@@ -496,7 +499,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				const a2 = nm.match(this.regNeedHash);
 				if (a2) {
 					const s = fs.readFileSync(url, {encoding: 'utf8'});
-					const h = crypto.RIPEMD160(s).toString(crypto.enc.Hex);
+					const h = RIPEMD160(s).toString(enc.Hex);
 					const snm = nm.slice(0, -a2[0].length);
 					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
 				}

@@ -2,38 +2,39 @@
 export function init(hSN) {
 	(async ()=> {
 		const p = {p:0};
-		const crypto = await import('crypto-js');
-		const iv = crypto.enc.Hex.parse(p.iv);
-		const pbkdf2 = crypto.PBKDF2(
-			crypto.enc.Utf8.parse(p.pass),
-			crypto.enc.Hex.parse(p.salt),
+		const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
+		const iv = enc.Hex.parse(p.iv);
+		const pbkdf2 = PBKDF2(
+			enc.Utf8.parse(p.pass),
+			enc.Hex.parse(p.salt),
 			{keySize: p.keySize, iterations: p.ite}
 		);
+		const {Buffer} = require('buffer');
 		hSN.setPre(async (ext, data)=> {
 			if (regFullCrypto.test(ext)) return Promise.resolve(
-				crypto.AES.decrypt(		//@ts-ignore
-					{ciphertext: crypto.enc.Base64.parse(data)},
+				AES.decrypt(		//@ts-ignore
+					{ciphertext: enc.Base64.parse(data)},
 					pbkdf2, {iv: iv},
-				).toString(crypto.enc.Utf8)
+				).toString(enc.Utf8)
 			);
 			if (ext != 'bin') return data;
 
 			const cl = Buffer.from(data.slice(0, 4)).readUInt32LE(0);
 			const e6 = Buffer.from(data.slice(4, 4+cl)).toString('hex');
-			const ct = crypto.enc.Hex.parse(e6);
+			const ct = enc.Hex.parse(e6);
 			//@ts-ignore
-			const e2 = crypto.AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
-			const b = Buffer.from(e2.toString(crypto.enc.Hex), 'hex');
+			const e2 = AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
+			const b = Buffer.from(e2.words);
 	//		const v = b.readUInt8(0);
 			const fm = hN2Ext[b.readUInt8(1)];
 			const ab = [Buffer.from(b.slice(2)), data.slice(4+cl)];
-			return fm.fnc
+			return fm?.fnc
 			? new Promise(fm.fnc(new Blob(ab, {type: fm.mime})))
 			: new Blob(ab).arrayBuffer();
 		});
-		hSN.setEnc(data=> crypto.AES.encrypt(data, pbkdf2, {iv: iv}));
+		hSN.setEnc(data=> AES.encrypt(data, pbkdf2, {iv: iv}));
 		hSN.getStK(()=> p.stk);
-		hSN.getHash(data=> crypto.RIPEMD160(data).toString(crypto.enc.Hex));
+		hSN.getHash(data=> RIPEMD160(data).toString(enc.Hex));
 	})();
 }
 
