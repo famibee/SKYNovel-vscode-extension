@@ -294,8 +294,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.initCrypto();
 	}
 
-	private	pbkdf2	: any;
-	private	iv		: any;
+	private	pbkdf2	: lib.WordArray;
+	private	iv		: lib.WordArray;
 	private	static	readonly LEN_ENC	= 1024 *10;
 	private			readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {

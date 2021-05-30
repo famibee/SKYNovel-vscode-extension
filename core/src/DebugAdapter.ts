@@ -98,7 +98,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 		},
 	};
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
-	if ('dispose' in dadf) ctx.subscriptions.push(dadf);
+//	if ('dispose' in dadf) ctx.subscriptions.push(dadf);
 }
 
 
