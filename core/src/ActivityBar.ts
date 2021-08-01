@@ -56,7 +56,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private aReady: (boolean | undefined)[] = [undefined, undefined, undefined, undefined];
 
 
-	private	verNode	= 'v14.17.0';
+	private	verNode	= 'v14.17.4';
 	private constructor(private readonly ctx: ExtensionContext) {
 		this.aTiRoot = this.aDevEnv.map(v=> {
 			const ti = new TreeItem(v.label);

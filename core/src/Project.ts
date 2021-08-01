@@ -5,16 +5,17 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, int, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
+import {Encryptor} from './Encryptor';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
 import path = require('path');
 const img_size = require('image-size');
-import {lib, enc, PBKDF2, AES, RIPEMD160} from 'crypto-js';
-import {v4 as uuidv4, v5 as uuidv5} from 'uuid';
+import {lib, enc, RIPEMD160} from 'crypto-js';
+import {v4 as uuidv4} from 'uuid';
 import crc32 = require('crc-32');
 import {Transform} from 'stream';
 
@@ -52,14 +53,7 @@ export class Project {
 	private	readonly	regNeedHash	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 
-	private	readonly	hPass: {
-		pass	: string,
-		salt	: string,
-		iv		: string,
-		keySize	: string,
-		ite		: string,
-		stk		: string,
-	};
+	private	readonly	encry	: Encryptor;
 
 	private	readonly	aFSW	: Disposable[];
 
@@ -137,26 +131,17 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.$isCryptoMode = fs.existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
 		const exists_pass = fs.existsSync(fnPass);
-		this.hPass = exists_pass
+		this.encry = new Encryptor(exists_pass
 			? fs.readJsonSync(fnPass, {throws: false})
 			: {
-				pass: uuidv4(),
-				salt: String(lib.WordArray.random(128 / 8)),
-				iv	: String(lib.WordArray.random(128 / 8)),
-				ite	: 500 + Math.floor(new Date().getTime() %300),
-				stk	: String(lib.WordArray.random(128 / 8)),
-			};
-		if (! exists_pass) fs.outputJsonSync(fnPass, this.hPass);
-
-		this.iv = enc.Hex.parse(this.hPass.iv);
-		this.pbkdf2 = PBKDF2(
-			enc.Utf8.parse(this.hPass.pass),
-			enc.Hex.parse(this.hPass.salt),
-			{
-				keySize: parseInt(this.hPass.keySize),
-				iterations: parseInt(this.hPass.ite),
-			},
-		);
+				pass	: uuidv4(),
+				salt	: String(lib.WordArray.random(128 / 8)),
+				iv		: String(lib.WordArray.random(128 / 8)),
+				keySize	: String(512 / 32),
+				ite		: 500 + Math.floor(new Date().getTime() %300),
+				stk		: String(lib.WordArray.random(128 / 8)),
+			});
+		if (! exists_pass) fs.outputFileSync(fnPass, this.encry.strHPass);
 
 		try {
 			this.fnDiff = this.pathWs +'/core/diff.json';
@@ -209,6 +194,13 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	private	readonly	LEN_CHKDIFF		= 1024;
 	private	isDiff(url: string): boolean {
 		const short_path = url.slice(this.lenCurPrj);
+		const diff = this.hDiff[short_path];
+		if (diff) {
+			const url_c = url
+			.replace(/\/prj\/.+$/, `/${Project.fld_crypto_prj}/${diff.cn}`)
+			if (! fs.existsSync(url_c)) return true;
+		}
+
 		let hash = 0;
 		if (this.regFullCrypto.test(url)) {
 			hash = crc32.str(fs.readFileSync(url, {encoding: 'utf8'}));
@@ -220,14 +212,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			fs.closeSync(fd);
 			hash = crc32.buf(b);
 		}
-		if (this.hDiff[short_path]?.hash === hash) return false;
+		if (diff?.hash === hash) return false;
 
 		this.hDiff[short_path] = {
 			hash: hash,
 			cn:	this.regNeedCrypto.test(short_path)
 				? short_path.replace(
 					this.REG_SPATH2HFN,
-					`$1/${uuidv5(short_path, this.hPass.pass)}$2`
+					`$1/${this.encry.uuidv5(short_path)}$2`
 				)
 				.replace(this.regRepPathJson, '.bin')
 				: short_path,
@@ -285,8 +277,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// プラグインソースに埋め込む
 		replaceFile(
 			this.ctx.extensionPath +`/res/snsys_pre/index.js`,
-			/{p:0}/,
-			JSON.stringify(this.hPass),
+			/{ite:0}/,
+			this.encry.strHPass,
 			pathPre +'/index.js',
 		);
 
@@ -294,8 +286,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.initCrypto();
 	}
 
-	private	pbkdf2	: lib.WordArray;
-	private	iv		: lib.WordArray;
 	private	static	readonly LEN_ENC	= 1024 *10;
 	private			readonly regDir = /(^.+)\//;
 	private	async encrypter(url: string) {
@@ -327,8 +317,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					}
 					s = JSON.stringify(hPath);
 				}
-				const e = AES.encrypt(s, this.pbkdf2, {iv: this.iv});
-				await fs.outputFile(url_out, e.toString());
+				await fs.outputFile(url_out, this.encry.enc(s));
 				return;
 			}
 
@@ -366,12 +355,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				}
 
 				bh.set(chunk.slice(0, cnt_code), ite_buf);
-				const e6 = AES.encrypt(
-					lib.WordArray.create(Array.from(bh)),
-					this.pbkdf2,
-					{iv: this.iv},
-				);
-				const e = Buffer.from(e6.toString(), 'base64'); // atob(e6)
+				const e = Buffer.from(
+					this.encry.enc(lib.WordArray.create(Array.from(bh))), 'base64'
+				); // atob(e6)
 
 				const bl = Buffer.alloc(4);
 				bl.writeUInt32LE(e.length, 0);	// cripted len
@@ -388,12 +374,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					// 暗号化のたびに復号化テストする？
 					// 暗号化でレポートテキストを吐くようにする？
 						// （処理だけコメントアウトで残しても良さげ）
-				const e6 = AES.encrypt(
-					lib.WordArray.create(Array.from(bh.slice(0, ite_buf))),
-					this.pbkdf2,
-					{iv: this.iv},
-				);
-				const e = Buffer.from(e6.toString(), 'base64'); // atob(e6)
+				const e = Buffer.from(
+					this.encry.enc(
+						lib.WordArray.create(Array.from(bh.slice(0, ite_buf)))
+					),
+					'base64'
+				); // atob(e6)
 
 				const bl = Buffer.alloc(4);
 				bl.writeUInt32LE(e.length, 0);	// cripted len
@@ -609,7 +595,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		let ret = '';
 		if (! ext) {	// fnに拡張子が含まれていない
 			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
-			const hcnt = int(h_exts[':cnt']);
+			const hcnt = h_exts[':cnt'];
 			if (extptn === '') {
 				if (hcnt > 1) throw `指定ファイル【${path}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
 

@@ -1,7 +1,23 @@
-//@ts-check
-export function init(hSN) {
+/* ***** BEGIN LICENSE BLOCK *****
+	Copyright (c) 2021-2021 Famibee (famibee.blog38.fc2.com)
+
+	This software is released under the MIT License.
+	http://opensource.org/licenses/mit-license.php
+** ***** END LICENSE BLOCK ***** */
+
+import {IPluginInitArg, IDecryptInfo} from '../../core/src/CmnLib';
+
+export function init(hSN: IPluginInitArg) {
 	(async ()=> {
-		const p = {ite:0};
+//		const p: any = {ite:0};
+		const p: IDecryptInfo = {
+			pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
+			salt	: '70a7c0b81cc31a8849cacdab8ed90163',
+			iv		: '493f19a60e5f03f55576a98bfc892a13',
+			keySize	: 16,
+			ite		: 513,
+			stk		: '3d01197ce022b188696791cf903cd197',
+		};
 		const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
 		const iv = enc.Hex.parse(p.iv);
 		const pbkdf2 = PBKDF2(
@@ -9,12 +25,12 @@ export function init(hSN) {
 			enc.Hex.parse(p.salt),
 			{keySize: p.keySize, iterations: p.ite}
 		);
+
 		const {Buffer} = require('buffer');
 		hSN.setPre(async (ext, data)=> {
 			if (regFullCrypto.test(ext)) return Promise.resolve(
-				AES.decrypt(		//@ts-ignore
-					{ciphertext: enc.Base64.parse(data)},
-					pbkdf2, {iv: iv},
+				AES.decrypt(	//@ts-ignore
+					{ciphertext: enc.Base64.parse(data)}, pbkdf2, {iv},
 				).toString(enc.Utf8)
 			);
 			if (ext != 'bin') return data;
@@ -23,30 +39,34 @@ export function init(hSN) {
 			const e6 = Buffer.from(data.slice(4, 4+cl)).toString('hex');
 			const ct = enc.Hex.parse(e6);
 			//@ts-ignore
-			const e2 = AES.decrypt({ciphertext: ct}, pbkdf2, {iv: iv});
+			const e2 = AES.decrypt({ciphertext: ct}, pbkdf2, {iv});
 			const b = Buffer.from(e2.words);
 	//		const v = b.readUInt8(0);
 			const fm = hN2Ext[b.readUInt8(1)];
 			const ab = [Buffer.from(b.slice(2)), data.slice(4+cl)];
 			return fm?.fnc
 			? new Promise(fm.fnc(new Blob(ab, {type: fm.mime})))
-			: new Blob(ab).arrayBuffer();
+			: String(new Blob(ab).arrayBuffer());
+//			: new Blob(ab).arrayBuffer();
 		});
-		hSN.setEnc(data=> AES.encrypt(data, pbkdf2, {iv: iv}));
+
+		hSN.setEnc(async data=> String(AES.encrypt(data, pbkdf2, {iv})));
 		hSN.getStK(()=> p.stk);
 		hSN.getHash(data=> RIPEMD160(data).toString(enc.Hex));
+console.log(`fn:index.ts line:57 `);
 	})();
 }
 
+
 const regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
 
-const fncImage = bl=> (rs, rj)=> {
+const fncImage = (bl: any)=> (rs: (arg0: HTMLImageElement)=> any, rj: (arg0: string | Event)=> any)=> {
 	const img = new Image();
 	img.onload = ()=> rs(img);
 	img.onerror = e=> rj(e);
 	img.src = URL.createObjectURL(bl);
 };
-const fncVideo = bl=> (rs, rj)=> {
+const fncVideo = (bl: any)=> (rs: (arg0: HTMLVideoElement)=> any, rj: (arg0: string)=> any)=> {
 	const v = document.createElement('video');
 //	v.addEventListener('loadedmetadata', ()=> console.log(`loadedmetadata duration:${v.duration}`));
 	v.addEventListener('error', ()=> rj(v.error.message));

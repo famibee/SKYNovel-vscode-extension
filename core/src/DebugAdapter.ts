@@ -102,7 +102,8 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 }
 
 
-function timeout(ms: number) {return new Promise(re=> setTimeout(re, ms));}
+function timeout(ms: number) {return new Promise(re=> setTimeout(()=> re(0), ms));}
+//function timeout(ms: number) {return new Promise(re=> setTimeout(re, ms));}
 
 class DebugAdapter extends LoggingDebugSession {
 	// 複数のスレッドをサポートしないので、デフォルトのスレッドにハードコードされたID
@@ -155,7 +156,7 @@ class DebugAdapter extends LoggingDebugSession {
 	}
 
 	// initialize ... デバッグアダプタが提供する機能を調べるためにフロントエンドから呼び出される最初のリクエスト
-	protected initializeRequest(res: DebugProtocol.InitializeResponse, _args: DebugProtocol.InitializeRequestArguments): void {
+	protected override initializeRequest(res: DebugProtocol.InitializeResponse, _args: DebugProtocol.InitializeRequestArguments): void {
 		// https://microsoft.github.io/debug-adapter-protocol/overview
 		// Specification https://microsoft.github.io/debug-adapter-protocol/specification#Types_InitializeRequestArguments
 //console.log(`"res":${JSON.stringify(res)}, "args":${JSON.stringify(_args, null, 2)}`);
@@ -307,11 +308,11 @@ class DebugAdapter extends LoggingDebugSession {
 	// 停止ボタンなど
 	//	ただしVSCode終了・フォルダを閉じるなどではコールされない場合あり
 	//	子プロセスなどは終了してくれるらしい
-	protected disconnectRequest(_res: DebugProtocol.DisconnectResponse, _args: DebugProtocol.DisconnectArguments, _req?: DebugProtocol.Request): void {this.dbg.end();}
+	protected override disconnectRequest(_res: DebugProtocol.DisconnectResponse, _args: DebugProtocol.DisconnectArguments, _req?: DebugProtocol.Request): void {this.dbg.end();}
 
 	// コンフィギュレーションシーケンスの最後にコールされる
 	// すべてのブレークポイントなどがDAに送信され、「起動」を開始できることを示す
-	protected configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.cfgDone.notify();}	// 設定が完了したことを VSCode に通知
+	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.cfgDone.notify();}	// 設定が完了したことを VSCode に通知
 	private	readonly	cfgDone = new Subject();	// 設定完了
 
 
@@ -321,7 +322,7 @@ class DebugAdapter extends LoggingDebugSession {
 
 
 //	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {}	// 現状使わない
-	protected attachRequest(res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
+	protected override attachRequest(res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
 		logger.setup(Logger.LogLevel.Stop, false);
 		this.dbg.attach(args as DebugConfiguration);
 //		res.body = {};
@@ -341,13 +342,13 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 */
 
 	// （エミュレートではない）再起動
-	protected async restartRequest(res: DebugProtocol.RestartResponse, _args: DebugProtocol.RestartArguments): Promise<void> {
+	protected override async restartRequest(res: DebugProtocol.RestartResponse, _args: DebugProtocol.RestartArguments): Promise<void> {
 		await this.dbg.restart(res.request_seq);
 //		res.body = {};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
 	}
 
-	protected setBreakPointsRequest(res: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
+	protected override setBreakPointsRequest(res: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
 		// スクリプト別に呼ばれる。後の追加・削除でもそのスクリプトだけ呼ばれる
 //console.log(`fn:DebugAdapter.ts setBreakPointsRequest() "res":${JSON.stringify(res)}, "args":${JSON.stringify(args, null, 2)}`);
 /*{
@@ -379,7 +380,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 	}
 
 	// 関数ブレークポイント
-	protected async setFunctionBreakPointsRequest(res: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments, _req?: DebugProtocol.Request): Promise<void> {
+	protected override async setFunctionBreakPointsRequest(res: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments, _req?: DebugProtocol.Request): Promise<void> {
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		args.breakpoints.forEach(dbp=> {
@@ -393,7 +394,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 
 //	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments, request?: DebugProtocol.Request): void {}
 
-	protected restartFrameRequest(res: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, req?: DebugProtocol.Request): void {
+	protected override restartFrameRequest(res: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, req?: DebugProtocol.Request): void {
 console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)})`);
 
 // args.frameId: number ... 0〜	SKYNovelでいうスタック深さ
@@ -404,7 +405,7 @@ console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringif
 
 //	protected gotoRequest(response: DebugProtocol.GotoResponse, args: DebugProtocol.GotoArguments, request?: DebugProtocol.Request): void {}
 
-	protected pauseRequest(_res: DebugProtocol.PauseResponse, _args: DebugProtocol.PauseArguments): void {this.dbg.pause();}
+	protected override pauseRequest(_res: DebugProtocol.PauseResponse, _args: DebugProtocol.PauseArguments): void {this.dbg.pause();}
 
 /*
 	protected sourceRequest(res: DebugProtocol.SourceResponse, _args: DebugProtocol.SourceArguments, req?: DebugProtocol.Request): void {
@@ -412,7 +413,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 	}
 */
 
-	protected threadsRequest(res: DebugProtocol.ThreadsResponse): void {
+	protected override threadsRequest(res: DebugProtocol.ThreadsResponse): void {
 		// ランタイムはスレッドをサポートしていないので、デフォルトのスレッドを返すだけ
 		res.body = {threads: [new Thread(DebugAdapter.THREAD_ID, 'thread 1')]};
 		this.sendResponse(res);
@@ -421,7 +422,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 
 	// スタックトレースビュー
-	protected async stackTraceRequest(res: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
+	protected override async stackTraceRequest(res: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
 		const start = typeof args.startFrame === 'number' ?args.startFrame :0;
 		const maxLevels = typeof args.levels === 'number' ?args.levels :1000;
 		const end = start + maxLevels;
@@ -443,7 +444,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 	// 変数ビュー
 	private	readonly	hdlsVar = new Handles<string>();
 	private	readonly	hNm2HdlNm: {[nm: string]: number}	= {};
-	protected scopesRequest(res: DebugProtocol.ScopesResponse, _args: DebugProtocol.ScopesArguments): void {
+	protected override scopesRequest(res: DebugProtocol.ScopesResponse, _args: DebugProtocol.ScopesArguments): void {
 		// fn:DebugAdapter.ts line:88 dbg -> stopOnStep のたびに呼ばれる
 		this.hScope = {
 			'tmp'	: {},
@@ -474,7 +475,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		'save'	: {},
 		'mp'	: {},
 	};
-	protected async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
+	protected override async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
 		const aVar: DebugProtocol.Variable[] = [];
 //console.log(`fn:DebugAdapter.ts line:325 variablesRequest(res=${JSON.stringify(res, null, 2)}= args=${JSON.stringify(args, null, 2)}= request:${JSON.stringify(request, null, 2)})`);
 		if (this.mapIsLongrunning.get(args.variablesReference)) {
@@ -602,7 +603,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 	}
 
 	// 変数値変更
-	protected async setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request): Promise<void> {
+	protected override async setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request): Promise<void> {
 		await this.dbg.setVariable(res.request_seq, args.name, args.value);
 		res.body = {value: args.value,};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
@@ -611,37 +612,37 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 //	protected setExpressionRequest(response: DebugProtocol.SetExpressionResponse, args: DebugProtocol.SetExpressionArguments, request?: DebugProtocol.Request): void;
 
 	// 続行
-	protected continueRequest(res: DebugProtocol.ContinueResponse, _args: DebugProtocol.ContinueArguments): void {
+	protected override continueRequest(res: DebugProtocol.ContinueResponse, _args: DebugProtocol.ContinueArguments): void {
 		this.dbg.continue();
 		this.sendResponse(res);
 	}
 	// 戻る
-	protected reverseContinueRequest(res: DebugProtocol.ReverseContinueResponse, _args: DebugProtocol.ReverseContinueArguments) : void {
+	protected override reverseContinueRequest(res: DebugProtocol.ReverseContinueResponse, _args: DebugProtocol.ReverseContinueArguments) : void {
 		this.dbg.continue(true);
 		this.sendResponse(res);
 	}
 	// ステップオーバー
-	protected nextRequest(res: DebugProtocol.NextResponse, _args: DebugProtocol.NextArguments): void {
+	protected override nextRequest(res: DebugProtocol.NextResponse, _args: DebugProtocol.NextArguments): void {
 		this.dbg.step();
 		this.sendResponse(res);
 	}
 	// ステップイン
-	stepInRequest(res: DebugProtocol.StepInResponse, _args: DebugProtocol.StepInArguments, _req?: DebugProtocol.Request): void {
+	override stepInRequest(res: DebugProtocol.StepInResponse, _args: DebugProtocol.StepInArguments, _req?: DebugProtocol.Request): void {
 		this.dbg.stepin();
 		this.sendResponse(res);
 	}
 	// ステップアウト
-	stepOutRequest(res: DebugProtocol.StepOutResponse, _args: DebugProtocol.StepOutArguments, _req?: DebugProtocol.Request): void {
+	override stepOutRequest(res: DebugProtocol.StepOutResponse, _args: DebugProtocol.StepOutArguments, _req?: DebugProtocol.Request): void {
 		this.dbg.stepout();
 		this.sendResponse(res);
 	}
 	// ステップバック
-	protected stepBackRequest(res: DebugProtocol.StepBackResponse, _args: DebugProtocol.StepBackArguments): void {
+	protected override stepBackRequest(res: DebugProtocol.StepBackResponse, _args: DebugProtocol.StepBackArguments): void {
 		this.dbg.step(true);
 		this.sendResponse(res);
 	}
 
-	protected async evaluateRequest(res: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
+	protected override async evaluateRequest(res: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
 		switch (args.context) {
 			case 'hover':
 				// 変数の値を表示
@@ -811,7 +812,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 */
 
 	// （変数を右クリックで）データブレークポイント設定ＵＩ
-	protected dataBreakpointInfoRequest(res: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
+	protected override dataBreakpointInfoRequest(res: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
 		if (args.variablesReference && args.name) {
 			const v = this.getVar(args.name);
 			if (v.exist) res.body = {
@@ -834,7 +835,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 
 	// データブレークポイントをデバッガーへ
 	// NOTE: これのみ、フォルダ開き時にブレークポイント情報再送が行われない挙動
-	protected async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
+	protected override async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		args.breakpoints.forEach(dbp=> {
@@ -848,7 +849,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 		this.sendResponse(res);
 	}
 
-	protected completionsRequest(res: DebugProtocol.CompletionsResponse, _args: DebugProtocol.CompletionsArguments): void {
+	protected override completionsRequest(res: DebugProtocol.CompletionsResponse, _args: DebugProtocol.CompletionsArguments): void {
 		res.body = {
 			targets: [
 				{
@@ -881,7 +882,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 
 //	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments, request?: DebugProtocol.Request): void;
 
-	protected loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
+	protected override loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
 console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
 
 
@@ -962,7 +963,7 @@ console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.strin
 //	protected disassembleRequest(response: DebugProtocol.DisassembleResponse, args: DebugProtocol.DisassembleArguments, request?: DebugProtocol.Request): void;
 
 
-	protected cancelRequest(_res: DebugProtocol.CancelResponse, args: DebugProtocol.CancelArguments) {
+	protected override cancelRequest(_res: DebugProtocol.CancelResponse, args: DebugProtocol.CancelArguments) {
 		if (args.requestId) this.mapCancelationTokens.set(args.requestId, true);
 //		if (args.progressId) this._cancelledProgressId= args.progressId;
 	}

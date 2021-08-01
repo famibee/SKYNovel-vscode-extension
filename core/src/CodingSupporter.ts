@@ -401,7 +401,7 @@ ${md.detail}`
 	resolveCompletionItem(ci: CompletionItem, _token: CancellationToken): ProviderResult<CompletionItem> {
 		// 遅延で各要素の詳細な情報(detail, documentationプロパティ)を
 		if (ci.kind === CompletionItemKind.Snippet) {
-			const sn = CodingSupporter.hSnippet[ci.label];
+			const sn = CodingSupporter.hSnippet[String(ci.label)];
 			if (sn) ci.insertText = new SnippetString(this.scrScn.cnvSnippet(
 				sn,
 				getFn(window.activeTextEditor?.document.fileName ?? '')

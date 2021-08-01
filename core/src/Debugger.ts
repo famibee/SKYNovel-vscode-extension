@@ -349,6 +349,6 @@ export class Debugger extends EventEmitter {
 
 	// vscodeへ通知
 	private sendEvent2Adpt(type: string, ... args: any[]) {
-		setImmediate(_=> this.emit(type, ...args));
+		setImmediate(()=> this.emit(type, ...args));
 	}
 }

@@ -1,7 +1,8 @@
 {
 	"compileOnSave": true,
 	"compilerOptions": {
-		"target": "es2020",
+		"target": "es2021",
+		"lib": ["es2020"],
 		"module": "commonjs",
 		"sourceMap": true,
 		"outDir": "lib",
@@ -24,10 +25,8 @@
 		// インデックスシグネチャが欠損したオブジェクトの noImplicitAny エラーを抑制しない
 		"suppressImplicitAnyIndexErrors": false,
 		"strictPropertyInitialization": false,	// クラス定義時、インスタンス変数の初期化が宣言時、もしくはコンストラクタのどちらでも行われていない場合にエラー
-		"incremental": true,		// 差分ビルド
-		"lib": [
-			"es2020"
-		]
+		"noImplicitOverride": true,	// overrideを使用しないオーバーライドをエラーに
+		"incremental": true		// 差分ビルド
 	},
 	"include": [
 		"src/**/*"

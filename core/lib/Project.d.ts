@@ -17,7 +17,7 @@ export declare class Project {
     private readonly regRepPathJson;
     private readonly hExt2N;
     private readonly regNeedHash;
-    private readonly hPass;
+    private readonly encry;
     private readonly aFSW;
     private readonly fnDiff;
     private hDiff;
@@ -39,8 +39,6 @@ export declare class Project {
     private readonly REG_SPATH2HFN;
     private readonly aRepl;
     tglCryptoMode(): void;
-    private pbkdf2;
-    private iv;
     private static readonly LEN_ENC;
     private readonly regDir;
     private encrypter;

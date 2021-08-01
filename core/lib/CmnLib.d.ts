@@ -26,3 +26,33 @@ export declare function foldProc(wd: string, fnc: (url: string, nm: string) => v
 export declare function replaceFile(src: string, r: RegExp, rep: string, dest?: string): void;
 export declare function chkBoolean(v: any): boolean;
 export declare function getFn(path: string): string;
+export declare type HArg = {
+    タグ名?: string;
+    layer?: string;
+};
+export interface ITag {
+    (hArg: HArg): boolean;
+}
+export interface ILayerFactory {
+    (): any;
+}
+export declare type IPluginInitArg = {
+    addTag(tag_name: string, tag_fnc: ITag): void;
+    addLayCls(cls: string, fnc: ILayerFactory): void;
+    searchPath(fn: string, extptn?: string): string;
+    getVal(arg_name: string, def?: number | string): object;
+    resume(fnc?: () => void): void;
+    render(dsp: any, renTx?: any, clear?: boolean): void;
+    setPre(fnc: (ext: string, data: string) => Promise<string>): void;
+    setEnc(fnc: (data: string) => Promise<string>): void;
+    getStK(fnc: () => string): void;
+    getHash(fnc: (data: string) => string): void;
+};
+export declare type IDecryptInfo = {
+    pass: string;
+    salt: string;
+    iv: string;
+    keySize: number;
+    ite: number;
+    stk: string;
+};
