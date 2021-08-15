@@ -19,6 +19,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private refresh;
     private readonly emPrjTD;
     readonly onDidChangeTreeData: import("vscode").Event<TreeItem | undefined>;
+    enableButton(enable: boolean): void;
     private makePrj;
     private updLocalSNVer;
     private dspCryptoMode;

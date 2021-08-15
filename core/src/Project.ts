@@ -9,6 +9,7 @@ import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2P
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
+import {ActivityBar, eTree} from './ActivityBar';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
@@ -74,7 +75,7 @@ export class Project {
 		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
 			this.initTask();
-			window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+			if (ActivityBar.aReady[eTree.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
 		this.lenCurPrj = this.curPrj.length;
@@ -293,8 +294,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			const short_path = url.slice(this.lenCurPrj);
 			const url_out = this.curCrypto + this.hDiff[short_path].cn;
 			if (! this.regNeedCrypto.test(url)) {
-				fs.ensureLink(url, url_out)
-				.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
+				fs.ensureLink(url, url_out);
+				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
+					// ファイル変更時に「Error: EEXIST: file already exists」エラー
+					// となるだけなので
 				return;
 			}
 
@@ -323,8 +326,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 			const dir = this.regDir.exec(short_path);
 			if (dir && this.ps.cfg.code[dir[1]]) {
-				fs.ensureLink(url, url_out)
-				.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
+				fs.ensureLink(url, url_out);
+				//.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
+					// ファイル変更時に「Error: EEXIST: file already exists」エラー
+					// となるだけなので
 				return;
 			}
 
@@ -432,6 +437,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
 	private initTask() {
+		if (! ActivityBar.aReady[eTree.NPM]) return;
+
 		this.initTask = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは WorkSpaces.ts の tasks.onDidEndTaskProcess で

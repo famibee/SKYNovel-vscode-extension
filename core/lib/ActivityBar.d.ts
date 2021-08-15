@@ -1,4 +1,9 @@
 import { TreeDataProvider, TreeItem, ExtensionContext, Event } from 'vscode';
+export declare enum eTree {
+    NODE = 0,
+    NPM = 1,
+    SKYNOVEL_VER = 2
+}
 export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private readonly ctx;
     static start(ctx: ExtensionContext): void;
@@ -8,8 +13,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     static stop(): void;
     private readonly aDevEnv;
     private readonly aTiRoot;
-    private aReady;
-    private verNode;
+    static aReady: boolean[];
     private constructor();
     private dispose;
     private refresh;
@@ -17,9 +21,8 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     readonly onDidChangeTreeData: Event<TreeItem | undefined>;
     readonly getTreeItem: (t: TreeItem) => TreeItem;
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;
-    private cntErr;
     private refreshWork;
     private chkLastSNVer;
     private pnlWV;
-    private activityBarBadge;
+    private openEnvInfo;
 }

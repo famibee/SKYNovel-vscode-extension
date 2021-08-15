@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.12.9",
+	"version": "3.12.10",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.58.1"
+		"vscode": "^1.59.0"
 	},
 	"categories": [
 		"Programming Languages",
@@ -109,15 +109,7 @@
 			},
 			{
 				"command": "skynovel.dlNode",
-				"title": "Download Node.js",
-				"icon": {
-					"light": "res/light/download.svg",
-					"dark": "res/dark/download.svg"
-				}
-			},
-			{
-				"command": "skynovel.opNodeSite",
-				"title": "Open Node.js Download WebPage",
+				"title": "Preferences guide",
 				"icon": {
 					"light": "res/light/openpage.svg",
 					"dark": "res/dark/openpage.svg"
@@ -425,11 +417,6 @@
 				},
 				{
 					"group": "inline",
-					"command": "skynovel.opNodeSite",
-					"when": "view == sn-setting && viewItem == 'Node.js サイト'"
-				},
-				{
-					"group": "inline",
 					"command": "skynovel.devPrjSet",
 					"when": "view == sn-ws && viewItem == 'skynovel.devPrjSet'"
 				},
@@ -678,22 +665,23 @@
 		"@types/fs-extra": "^9.0.12",
 		"@types/glob": "^7.1.4",
 		"@types/mocha": "^9.0.0",
-		"@types/node": "^16.4.9",
+		"@types/node": "^16.6.1",
+		"@types/power-assert": "^1.5.4",
 		"@types/uuid": "^8.3.1",
-		"@types/vscode": "^1.58.1",
-		"@typescript-eslint/eslint-plugin": "^4.28.5",
-		"@typescript-eslint/parser": "^4.28.5",
-		"electron": "^13.1.7",
+		"@types/vscode": "^1.59.0",
+		"@typescript-eslint/eslint-plugin": "^4.29.1",
+		"@typescript-eslint/parser": "^4.29.1",
+		"electron": "^13.1.9",
 		"eslint": "^7.32.0",
 		"glob": "^7.1.7",
 		"mocha": "^9.0.3",
 		"power-assert": "^1.6.1",
-		"ts-loader": "^9.2.4",
+		"ts-loader": "^9.2.5",
 		"ts-node": "^9.1.1",
 		"typescript": "^4.3.5",
 		"vscode-debugadapter-testsupport": "^1.48.0",
 		"vscode-test": "^1.6.1",
-		"webpack": "^5.47.1",
+		"webpack": "^5.50.0",
 		"webpack-cli": "^4.7.2"
 	},
 	"optionalDependencies": {

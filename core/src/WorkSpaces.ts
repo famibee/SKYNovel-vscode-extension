@@ -10,6 +10,7 @@ import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
+import {ActivityBar, eTree} from './ActivityBar';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
 
@@ -34,8 +35,8 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			} npm i @famibee/skynovel@latest ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-			npm: `ncu -u --target minor ${statBreak()
-			} npm i ${statBreak()
+			npm: `npm update ${statBreak()	// ncuはインストールされてないかもしれない
+			} npm update --dev ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
@@ -269,11 +270,33 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	private readonly emPrjTD = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData = this.emPrjTD.event;
 
+
+	enableButton(enable: boolean): void {
+		const aFld = workspace.workspaceFolders;
+		if (! aFld) return;	// undefinedだった場合はファイルを開いている
+
+		aFld.forEach(fld=> {
+			const dir = fld.uri.fsPath;
+			const tc = this.oTiPrj[dir];
+			const aC = (tc[tc.length -1] as MyTreeItem).children;
+			const a = [...tc.slice(0, -1), ...aC];
+			if (enable) a.forEach(it=> {
+				it.contextValue = it.contextValue?.trim();
+				this.emPrjTD.fire(it);
+			});	// 値を戻してボタン表示
+			else a.forEach(it=> {
+				it.contextValue += ' ';
+				this.emPrjTD.fire(it);
+			});	// 値を壊してボタン消去
+		});
+	}
+
+
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {
 		const dir = wsFld.uri.fsPath;
 		const existPkgJS = existsSync(dir +'/package.json');
-		const isPrjValid = existPkgJS && existsSync(dir+'/doc/prj/prj.json');
+		const isPrjValid = existPkgJS && existsSync(dir +'/doc/prj/prj.json');
 		const t = new MyTreeItem({
 			cmd		: '',
 			icon	: '',
@@ -318,6 +341,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		},
 	};
 	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
+		if (! ActivityBar.aReady[eTree.NPM]) return;
+
 		const pathWs = wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
 		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
