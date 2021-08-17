@@ -2,7 +2,13 @@ module.exports = {
 	entry: './core/src/extension',	// 「./」は必要
 	target: 'node',
 	resolve: {extensions: ['.ts', '.js'],},
-	module: {rules: [{test: /\.ts$/, loader: 'ts-loader'},],},
+	module: {
+		rules: [
+			{test: /\.ts$/, loader: 'ts-loader'},
+			{test: /\.cs$/, loader: 'file-loader'},
+		],
+		exprContextCritical: false,
+	},
 	mode: 'development',
 	output: {
 		path: process.cwd(),
@@ -18,4 +24,7 @@ module.exports = {
 	externals: {
 		vscode: 'umd vscode',	// the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
 	},
+	stats: {
+		errorDetails: true, // --display-error-details
+	}
 };

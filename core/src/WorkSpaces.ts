@@ -19,6 +19,7 @@ import archiver = require('archiver');
 import {basename, dirname} from 'path';
 import png2icons = require('png2icons');
 const {execSync} = require('child_process');
+import ncu = require('npm-check-updates');
 
 interface DecChars {
 	aRange		: Range[];
@@ -35,8 +36,16 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			} npm i @famibee/skynovel@latest ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-			npm: `npm update ${statBreak()	// ncuはインストールされてないかもしれない
-			} npm update --dev ${statBreak()
+
+			npm: `npm update ${statBreak()
+
+//			npm: `npx npm-check-updates -u --target minor ${statBreak()
+//			npm: `ncu -u --target minor ${statBreak()
+//			} npm update ${statBreak()
+
+//			npm: `npm update ${statBreak()	// ncuはインストールされてないかもしれない
+//			} npm update --dev ${statBreak()
+
 			} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
@@ -354,6 +363,21 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			.replace(/\${prj.version}/g, prj.version);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':	this.chkLastSNVer();	break;
+			case 'LibUpd':
+				(async ()=> {
+					await ncu.run({
+						packageFile: pathWs +'/package.json',
+						// Defaults:
+						// jsonUpgraded: true,
+						// silent: true,
+						upgrade: true,
+						target: 'minor',
+					});		// ncu -u --target minor
+					this.onClickTreeItemBtn(wsFld, ti, 'LibUpd_waited', cfg);
+				})();
+				return;
+			case 'LibUpd_waited':	break;	// Promise待ち後
+
 			case 'PrjSet':	prj.openPrjSetting();	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
@@ -449,7 +473,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		);
 		switch (btn_nm) {	// タスク後処理
 			case 'SnUpd':
-			case 'LibUpd':
+			//case 'LibUpd':	// ここには来ない
+			case 'LibUpd_waited':	// Promise待ち後
 				this.hOnEndTask[cfg.label] = e=> {
 					if (e.execution.task.definition.type !== t.definition.type) return;
 					if (e.execution.task.source !== t.source) return;
