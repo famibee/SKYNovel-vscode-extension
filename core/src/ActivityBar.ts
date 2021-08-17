@@ -15,7 +15,7 @@ const {exec} = require('child_process');
 import fs = require('fs-extra');
 import https = require('https');
 
-export enum eTree {
+export enum eTreeEnv {
 	NODE = 0,
 	NPM,
 	SKYNOVEL_VER,
@@ -26,35 +26,26 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		setCtx4(ctx);
 
 		ActivityBar.actBar = new ActivityBar(ctx);
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-setting', ActivityBar.actBar));
-
-		ActivityBar.tlBox = new ToolBox(ctx);
-		ctx.subscriptions.push(window.registerWebviewViewProvider('sn-tb', ActivityBar.tlBox));
-
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-doc', new TreeDPDoc(ctx)));
 	}
 	private static actBar: ActivityBar;
-	private static workSps: WorkSpaces;
-	private static tlBox: ToolBox;
-	static stop() {
-		ActivityBar.actBar.dispose();
-		ActivityBar.workSps.dispose();
-		ActivityBar.tlBox.dispose();
-	}
+	static stop() {ActivityBar.actBar.dispose();}
 
 
-	private readonly aDevEnv: {label: string, icon: string}[]
+	private readonly aEnv: {label: string, icon: string}[]
 	= [
 		{label: 'Node.js',	icon: 'node-js-brands'},
 		{label: 'npm',		icon: 'npm-brands'},
 		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
 	];
-	private readonly aTiRoot: TreeItem[] = [];
+	private readonly aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false];
+
+	private workSps	: WorkSpaces;
+	private tlBox	: ToolBox;
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		this.aTiRoot = this.aDevEnv.map(v=> {
+		this.aTiEnv = this.aEnv.map(v=> {
 			const ti = new TreeItem(v.label);
 			if (v.label) ti.iconPath = oIcon(v.icon);
 			ti.contextValue = v.label;
@@ -62,21 +53,37 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		this.chkLastSNVer();
 
-		ActivityBar.workSps = new WorkSpaces(ctx, ()=> this.chkLastSNVer());
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-ws', ActivityBar.workSps));
+		this.chkEnv(()=> {
+			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
+			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.openEnvInfo()));
 
-		ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
-		ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.openEnvInfo()));
+			this.workSps = new WorkSpaces(ctx, ()=> this.chkLastSNVer());
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.workSps));
 
-		this.refreshWork();
+			this.tlBox = new ToolBox(ctx);
+			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.tlBox));
+
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
+		});
+
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 	}
 
-	private dispose() {if (this.pnlWV) this.pnlWV.dispose();}
+	private dispose() {
+		if (this.pnlWV) this.pnlWV.dispose();
+		this.workSps.dispose();
+		this.tlBox.dispose();
+	}
 
 	// refreshボタン
 	private refresh(): void {
-		this.refreshWork();
-		this._onDidChangeTreeData.fire(undefined);
+		ActivityBar.aReady[eTreeEnv.NODE] = false;
+		ActivityBar.aReady[eTreeEnv.NPM] = false;
+		this.workSps.enableButton(false);
+		this.chkEnv(ok=> {
+			this.workSps.enableButton(ok);
+			if (! ok) this.openEnvInfo();
+		});
 	}
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
 	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -85,21 +92,18 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	// 起動時？　と refreshボタンで呼ばれる
 	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(this.aTiRoot);
+		if (! t) return Promise.resolve(this.aTiEnv);
 
 		const ret: TreeItem[] = [];
-		if (t.label === 'Node.js') this.aTiRoot[eTree.NODE].iconPath = oIcon((ActivityBar.aReady[eTree.NODE]) ?'node-js-brands' :'error');
+		if (t.label === 'Node.js') this.aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
 	// 環境チェック
-	private refreshWork(): void {
-		ActivityBar.aReady[eTree.NODE] = false;
-		ActivityBar.aReady[eTree.NPM] = false;
-		ActivityBar.workSps.enableButton(false);
+	private chkEnv(finish: (ok: boolean)=> void): void {
 		exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const tiNode = this.aTiRoot[eTree.NODE];
-			const tiNpm = this.aTiRoot[eTree.NPM];
+			const tiNode = this.aTiEnv[eTreeEnv.NODE];
+			const tiNpm = this.aTiEnv[eTreeEnv.NPM];
 			if (err) {
 				tiNode.description = `-- 見つかりません`;
 				tiNode.iconPath = oIcon('error');
@@ -108,10 +112,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				tiNpm.description = `-- （割愛）`;
 				tiNpm.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire(tiNpm);
-				this.openEnvInfo();
+				finish(false);
 				return;
 			}
-			ActivityBar.aReady[eTree.NODE] = true;
+			ActivityBar.aReady[eTreeEnv.NODE] = true;
 			tiNode.description = `-- ${stdout}`;
 			tiNode.iconPath = oIcon('node-js-brands');
 			this._onDidChangeTreeData.fire(tiNode);
@@ -121,14 +125,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					tiNpm.description = `-- 見つかりません`;
 					tiNpm.iconPath = oIcon('error');
 					this._onDidChangeTreeData.fire(tiNpm);
-					this.openEnvInfo();
+					finish(false);
 					return;
 				}
-				ActivityBar.aReady[eTree.NPM] = true;
+				ActivityBar.aReady[eTreeEnv.NPM] = true;
 				tiNpm.description = `-- ${stdout}`;
 				tiNpm.iconPath = oIcon('npm-brands');
 				this._onDidChangeTreeData.fire(tiNpm);
-				ActivityBar.workSps.enableButton(true);
+				finish(true);
 			});
 		});
 	}
@@ -142,7 +146,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			res.on('data', (chunk: string)=> body += chunk);
 			res.on('end', ()=> {
 				const newVer = JSON.parse(body).version;
-				const node = this.aTiRoot[eTree.SKYNOVEL_VER];
+				const node = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
 				node.description = '-- ' + newVer;
 				ActivityBar.actBar._onDidChangeTreeData.fire(node);
 				if (aFld.find(fld=> {

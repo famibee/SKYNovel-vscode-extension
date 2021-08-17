@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.12.11",
+	"version": "3.12.12",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -377,26 +377,26 @@
 		"views": {
 			"skynovel": [
 				{
-					"id": "sn-setting",
+					"id": "skynovel-dev",
 					"name": "開発環境"
 				},
 				{
-					"id": "sn-ws",
+					"id": "skynovel-ws",
 					"name": "ワークスペース"
 				},
 				{
-					"id": "sn-tb",
+					"id": "skynovel-tb",
 					"name": "ツールボックス",
 					"type": "webview"
 				},
 				{
-					"id": "sn-doc",
+					"id": "skynovel-doc",
 					"name": "ドキュメント・連絡先"
 				}
 			],
 			"debug": [
 				{
-					"id": "sn-layers",
+					"id": "skynovel-layers",
 					"name": "レイヤ構造（上が奥）"
 				}
 			]
@@ -405,7 +405,7 @@
 			"view/title": [
 				{
 					"command": "skynovel.refreshSetting",
-					"when": "view == sn-setting",
+					"when": "view == skynovel-dev",
 					"group": "navigation"
 				}
 			],
@@ -413,157 +413,157 @@
 				{
 					"group": "inline",
 					"command": "skynovel.dlNode",
-					"when": "view == sn-setting && viewItem == 'Node.js'"
+					"when": "view == skynovel-dev && viewItem == 'Node.js'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPrjSet",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPrjSet'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPrjSet'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devSnUpd",
-					"when": "view == sn-ws && viewItem == 'skynovel.devSnUpd'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devSnUpd'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devLibUpd",
-					"when": "view == sn-ws && viewItem == 'skynovel.devLibUpd'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devLibUpd'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devCrypto",
-					"when": "view == sn-ws && viewItem == 'skynovel.devCrypto'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devCrypto'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devReBuild",
-					"when": "view == sn-ws && viewItem == 'skynovel.devReBuild'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devReBuild'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskWeb",
-					"when": "view == sn-ws && viewItem == 'skynovel.devTaskWeb'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devTaskWeb'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskWebDbg",
-					"when": "view == sn-ws && viewItem == 'skynovel.devTaskWeb'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devTaskWeb'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskApp",
-					"when": "view == sn-ws && viewItem == 'skynovel.devTaskApp'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devTaskApp'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devTaskAppDbg",
-					"when": "view == sn-ws && viewItem == 'skynovel.devTaskApp'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devTaskApp'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackWin",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackWin'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackWin'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackWin32",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackWin32'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackWin32'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackMac",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackMac'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackMac'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackMacArm64",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackMacArm64'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackMacArm64'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackLinux",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackLinux'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackLinux'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.devPackFreem",
-					"when": "view == sn-ws && viewItem == 'skynovel.devPackFreem'"
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devPackFreem'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/0",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/0'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/0'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/1",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/1'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/1'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/2",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/2'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/2'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/3",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/3'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/3'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/4/0",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/4/0'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/4/0'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/4/1",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/4/1'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/4/1'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/5/0",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/5/0'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/5/0'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/5/1",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/5/1'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/5/1'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/5/2",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/5/2'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/5/2'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/0",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/0'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/0'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/1",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/1'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/1'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/2",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/2'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/2'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/3",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/3'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/3'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/4",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/4'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/4'"
 				},
 				{
 					"group": "inline",
 					"command": "skynovel.doc/6/5",
-					"when": "view == sn-doc && viewItem == 'skynovel.doc/6/5'"
+					"when": "view == skynovel-doc && viewItem == 'skynovel.doc/6/5'"
 				}
 			],
 			"explorer/context": [
@@ -639,12 +639,8 @@
 	},
 	"activationEvents": [
 		"onLanguage:skynovel",
-		"onCommand:skynovel.openReferencePallet",
 		"workspaceContains:doc/prj/prj.json",
-		"onDebug",
-		"onDebugInitialConfigurations",
-		"onDebugResolve",
-		"onCustomEditor:SKYNovel.score"
+		"onView:skynovel-dev"
 	],
 	"dependencies": {
 		"archiver": "^5.3.0",
@@ -672,7 +668,7 @@
 		"@types/vscode": "^1.59.0",
 		"@typescript-eslint/eslint-plugin": "^4.29.2",
 		"@typescript-eslint/parser": "^4.29.2",
-		"electron": "^13.1.9",
+		"electron": "^13.2.0",
 		"eslint": "^7.32.0",
 		"file-loader": "^6.2.0",
 		"glob": "^7.1.7",

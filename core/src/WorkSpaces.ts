@@ -10,7 +10,7 @@ import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
-import {ActivityBar, eTree} from './ActivityBar';
+import {ActivityBar, eTreeEnv} from './ActivityBar';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
 
@@ -36,16 +36,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			} npm i @famibee/skynovel@latest ${statBreak()
 			} npm run webpack:dev`},
 		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-
 			npm: `npm update ${statBreak()
-
-//			npm: `npx npm-check-updates -u --target minor ${statBreak()
-//			npm: `ncu -u --target minor ${statBreak()
-//			} npm update ${statBreak()
-
-//			npm: `npm update ${statBreak()	// ncuはインストールされてないかもしれない
-//			} npm update --dev ${statBreak()
-
 			} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
@@ -166,7 +157,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 */
 			}
 		});
-		ctx.subscriptions.push(window.registerTreeDataProvider('sn-layers', {
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
 			getChildren: (t?: TreeItem)=> {
 				if (! t) return this.tiLayers;
 
@@ -350,7 +341,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		},
 	};
 	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
-		if (! ActivityBar.aReady[eTree.NPM]) return;
+		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		const pathWs = wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;

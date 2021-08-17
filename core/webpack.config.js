@@ -24,7 +24,7 @@ module.exports = {
 	externals: {
 		vscode: 'umd vscode',	// the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
 	},
-	stats: {
-		errorDetails: true, // --display-error-details
-	}
+//	stats: {
+//		errorDetails: true, // --display-error-details
+//	}
 };

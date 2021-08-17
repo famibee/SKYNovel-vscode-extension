@@ -9,7 +9,7 @@ import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2P
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
-import {ActivityBar, eTree} from './ActivityBar';
+import {ActivityBar, eTreeEnv} from './ActivityBar';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
 import fs = require('fs-extra');
@@ -75,7 +75,7 @@ export class Project {
 		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
 			this.initTask();
-			if (ActivityBar.aReady[eTree.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
 		this.lenCurPrj = this.curPrj.length;
@@ -437,7 +437,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
 	private initTask() {
-		if (! ActivityBar.aReady[eTree.NPM]) return;
+		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		this.initTask = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ

@@ -7,7 +7,7 @@
 
 import {replaceFile, foldProc, getNonce} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
-import {ActivityBar, eTree} from './ActivityBar';
+import {ActivityBar, eTreeEnv} from './ActivityBar';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync} from 'fs-extra';
@@ -152,7 +152,7 @@ export class PrjSetting {
 	get cfg() {return this.oCfg}
 	private	pnlWV	: WebviewPanel | null = null;
 	open() {
-		if (! ActivityBar.aReady[eTree.NPM]) return;
+		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.pnlWV) {

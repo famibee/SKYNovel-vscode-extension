@@ -1,13 +1,19 @@
-## v3.12.11
-- fix: ncu・npm updateの代わりに、npm-check-updates を拡張機能内に組み込み
-	- sudo npm un -g npm-check-updates 状態でもちゃんと動作
-- fix: ライブラリ更新（ts-node を 10.2.0以上に更新）
+## v3.12.12
+- fix: 起動タイミングを以下の場合に変更
+	- 言語 skynovel のドキュメントが表示された
+	- 開いたフォルダに doc/prj/prj.json が存在する
+	- 開発環境ビューが表示された
+- fix: 自動 npm i が走らなくなっていた件を修正
 
 
 - memo: 既知の問題・作成中
 	- fix: 暗号化テスト追加
 	- ●●●　ファイル全体を処理しているか？
 
+## v3.12.11
+- fix: ncu・npm updateの代わりに、npm-check-updates を拡張機能内に組み込み
+	- sudo npm un -g npm-check-updates 状態でもちゃんと動作
+- fix: ライブラリ更新（ts-node を 10.2.0以上に更新）
 ## v3.12.10
 - fix: 環境チェック修正
 - fix: 開発環境　準備の手引きをブラッシュアップ

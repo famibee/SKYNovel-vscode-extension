@@ -37,12 +37,12 @@
 
 ---
 ## Startup timing / 起動タイミング
-- When you open a file under the doc/prj folder of a template.
-	- テンプレートのdoc/prjフォルダ下のファイルを開いたとき
-- During debugging (e.g., by pressing F5 key)
-	- デバッグ機能実行時（F5キー押下など）
-- When using the debugging function.
-	- デバッグ機能使用時
+- Documents in the language skynovel are now displayed.
+	- 言語 skynovel のドキュメントが表示された
+- doc/prj/prj.json exists in the opened folder.
+	- 開いたフォルダに doc/prj/prj.json が存在する
+- The development environment view is displayed.
+	- 開発環境ビューが表示された
 
 
 ---
