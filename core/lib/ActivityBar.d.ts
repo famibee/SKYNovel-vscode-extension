@@ -25,4 +25,7 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private chkLastSNVer;
     private pnlWV;
     private openEnvInfo;
+    private openTempWizard;
+    private save_ns;
+    private chkSave_ns;
 }

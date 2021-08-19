@@ -28,10 +28,6 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 			url: 'https://famibee.github.io/SKYNovel/macro_plg.htm'},
 		{label: '機能ギャラリー', icon: 'document',
 			url: 'https://famibee.github.io/SKYNovel_gallery/'},
-		{label: 'テンプレート プロジェクト', children: [
-			{label: '横書き「初音館にて」', icon: 'baggage', url: 'https://github.com/famibee/SKYNovel_hatsune/archive/master.zip'},
-			{label: '縦書き「桜の樹の下には」', icon: 'baggage', url: 'https://github.com/famibee/SKYNovel_uc/archive/master.zip'},
-		]},
 		{label: 'famibee  連絡先', children: [
 			{label: 'famibee blog', icon: 'document', url: 'https://famibee.blog.fc2.com/'},
 			{label: 'famibee Mail', icon: 'mail', url: 'mailto:famibee@gmail.com'},

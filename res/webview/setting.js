@@ -6,10 +6,10 @@ const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :null;
 window.addEventListener('message', e=> {
 //vscode.postMessage({cmd: 'info', text: 'setting.js'});	// デバッグ時はこう
 	if (! e.isTrusted) {
-		vscode.postMessage({cmd: 'warn', text: `(setting.js) isTrusted = false`});
+		vscode.postMessage({cmd: 'warn', text: `(setting.js) isTrusted=false`});
 		return;
 	}
-	if (e.data.cmd != 'res') return;
+	if (e.data.cmd !== 'res') return;
 
 	const o = e.data.o;
 
@@ -52,7 +52,7 @@ window.addEventListener('message', e=> {
 
 		const len = hTemp.length;
 		for (let j=0; j<len; ++j) {
-			if (hTemp[j][i.id] == i.value) {	// テンプレと同じ値は警告
+			if (hTemp[j][i.id] === i.value) {	// テンプレと同じ値は警告
 				cl.add('is-invalid');
 				cl.remove('is-valid');
 				break;

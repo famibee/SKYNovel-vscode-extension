@@ -9,11 +9,12 @@ import {oIcon, setCtx4} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
+import fetch from 'node-fetch';
+import AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
 const {exec} = require('child_process');
-import fs = require('fs-extra');
-import https = require('https');
+import {existsSync, readJsonSync, readFile, moveSync, remove, outputJsonSync} from 'fs-extra';
 
 export enum eTreeEnv {
 	NODE = 0,
@@ -51,11 +52,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			ti.contextValue = v.label;
 			return ti;
 		});
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 		this.chkLastSNVer();
 
 		this.chkEnv(()=> {
 			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.openEnvInfo()));
+			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.openTempWizard()));
 
 			this.workSps = new WorkSpaces(ctx, ()=> this.chkLastSNVer());
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.workSps));
@@ -65,8 +68,6 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
 		});
-
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 	}
 
 	private dispose() {
@@ -137,28 +138,23 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 	}
 	private chkLastSNVer() {
-		const aFld = workspace.workspaceFolders;
-		if (! aFld) return;
+		fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
+		.then(res=> res.json())
+		.then(json=> {
+			const newVer = json.version;
+			const tiSV = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
+			tiSV.description = '-- ' + newVer;
+			ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
 
-		https.get('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json', res=> {
-			let body = '';
-			res.setEncoding('utf8');
-			res.on('data', (chunk: string)=> body += chunk);
-			res.on('end', ()=> {
-				const newVer = JSON.parse(body).version;
-				const node = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
-				node.description = '-- ' + newVer;
-				ActivityBar.actBar._onDidChangeTreeData.fire(node);
-				if (aFld.find(fld=> {
-					const fnLocal = fld.uri.fsPath + '/package.json';
-					if (! fs.existsSync(fnLocal)) return false;
+			if (workspace.workspaceFolders?.find(fld=> {
+				const fnLocal = fld.uri.fsPath + '/package.json';
+				if (! existsSync(fnLocal)) return false;
 
-					const localVer = fs.readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1);
-					if (localVer.slice(0, 4) === 'ile:') return false;
-					return (newVer != localVer);
-				})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
-			});
-		}).on('error', (e: Error)=> console.error(e.message));
+				const localVer = readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1);
+				if (localVer.slice(0, 4) === 'ile:') return false;
+				return (newVer != localVer);
+			})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+		});
 	}
 
 	private pnlWV: WebviewPanel | null = null;
@@ -174,14 +170,149 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		this.pnlWV.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
 
-		fs.readFile(path_doc +`/envinfo.htm`, 'utf-8', (err, data)=> {
+		readFile(path_doc +`/envinfo.htm`, 'utf-8', (err, data)=> {
 			if (err) throw err;
 
 			const wv = this.pnlWV!.webview;
 			this.pnlWV!.webview.html = data
 			.replace(/\$\{webview.cspSource}/g, wv.cspSource)
-			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`)
+			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
+
+	private openTempWizard() {
+		const column = window.activeTextEditor?.viewColumn;
+		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
+
+		const path_doc = this.ctx.extensionPath +'/res/webview';
+		const uf_path_doc = Uri.file(path_doc);
+		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
+			enableScripts: true,
+			localResourceRoots: [uf_path_doc],
+		});
+		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
+
+		wv.webview.onDidReceiveMessage(m=> {
+//console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
+			switch (m.cmd) {
+			case 'get':	wv.webview.postMessage({cmd: 'res', o: {}});	break;
+			case 'info':	window.showInformationMessage(m.text); break;
+
+			case 'input':
+				if (m.id !== 'save_ns') break;
+
+				// プロジェクトフォルダ名（半角英数記号）を指定
+				this.save_ns = m.val;
+//console.log(`fn:ActivityBar.ts line:201 id:${m.id} v:${m.val}`);
+				wv.webview.postMessage({cmd: 'vld', o: {
+					id		: 'save_ns',
+					valid	: this.chkSave_ns(),
+				}});
+				break;
+
+			case 'tmp_hatsune':
+			case 'tmp_uc':
+			case 'tmp_sample':
+				if (! this.chkSave_ns()) break;
+
+				// プロジェクトフォルダを置くパスを選んでもらう
+				window.showOpenDialog({
+					title	: 'プロジェクトフォルダを置く場所を指定して下さい',
+					canSelectMany	: false,
+					openLabel		: 'フォルダを選択',
+					canSelectFiles	: false,
+					canSelectFolders: true,
+				}).then(fileUri=> {
+					const path_dl = fileUri?.[0]?.fsPath;
+					if (! path_dl) return;	// キャンセル
+
+					// 既存のフォルダがある際はエラー中断で検討させる
+					const fnTo = path_dl +'/'+ this.save_ns;
+					if (existsSync(fnTo)) {
+						window.showErrorMessage(`既存のフォルダ ${this.save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
+						return;
+					}
+
+					window.withProgress({
+						location	: ProgressLocation.Notification,
+						title		: 'テンプレートからプロジェクト作成',
+						cancellable	: true
+					}, (progress, tknCancel)=> {
+						//	tknCancel.onCancellationRequested(()=> {});
+						progress.report({
+							message		: 'ダウンロード中',
+							increment	: 10,
+						});
+
+						const nm = m.cmd.slice(4);
+						return new Promise(re=> {
+							// zipダウンロード＆解凍
+							fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
+							.then(res=> res.buffer())
+							.then(buf=> {
+								if (tknCancel.isCancellationRequested) return;
+
+								progress.report({
+									message		: 'ZIP解凍中',
+									increment	: 50,
+								});
+
+								new AdmZip(buf).extractAllTo(path_dl, true);
+									// overwrite
+							})
+							.then(()=> {
+								const fnFrom = path_dl +`/SKYNovel_${nm}-master`;
+								if (tknCancel.isCancellationRequested) {
+									remove(fnFrom);
+									return;
+								}
+
+								// フォルダ名変更
+								moveSync(fnFrom, fnTo);
+
+								// prj.json の置換
+								const fnPrj = fnTo +'/doc/prj/prj.json';
+								const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
+								oPrj.save_ns = this.save_ns;
+								outputJsonSync(fnPrj, oPrj);
+
+								progress.report({
+									message		: '完了。フォルダを開きます',
+									increment	: 40,
+								});
+								setTimeout(()=> {
+									re(0);
+									if (tknCancel.isCancellationRequested) {
+										remove(fnTo);
+										return;
+									}
+
+									// フォルダをワークスペースで開く
+									commands.executeCommand(
+										'vscode.openFolder',
+										Uri.file(fnTo),
+										false,
+									);
+								}, 4000);
+							});
+						});
+					});
+				})
+				break;
+			}
+		}, false);
+
+		readFile(path_doc +`/tmpwiz.htm`, 'utf-8', (err, data)=> {
+			if (err) throw err;
+
+			const wv = this.pnlWV!.webview;
+			this.pnlWV!.webview.html = data
+			.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
+		});
+	}
+	private	save_ns	= '';
+	private	chkSave_ns = ()=> /^([a-zA-Z0-9!-/:-@¥[-`{-~]{1,})$/.test(this.save_ns);	// https://regex101.com/r/JGxtnR/1
+		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
 
 }
