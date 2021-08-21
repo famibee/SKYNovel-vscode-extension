@@ -14,7 +14,7 @@ import AdmZip = require('adm-zip');
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
 const {exec} = require('child_process');
-import {existsSync, readJsonSync, readFile, moveSync, remove, outputJsonSync} from 'fs-extra';
+import {existsSync, readJsonSync, readFile, moveSync, remove, outputJsonSync, removeSync} from 'fs-extra';
 
 export enum eTreeEnv {
 	NODE = 0,
@@ -275,6 +275,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 								const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
 								oPrj.save_ns = this.save_ns;
 								outputJsonSync(fnPrj, oPrj);
+
+								// package-lock.json 削除
+								// 対策【'webpack' は、内部コマンドまたは外部コマンド、 操作可能なプログラムまたはバッチ ファイルとして認識されていません。】
+								removeSync(fnTo +'/package-lock.json');
 
 								progress.report({
 									message		: '完了。フォルダを開きます',
