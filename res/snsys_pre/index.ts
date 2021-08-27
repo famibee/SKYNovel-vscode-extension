@@ -7,8 +7,7 @@
 
 import {IPluginInitArg, IDecryptInfo} from '../../core/src/CmnLib';
 
-export function init(hSN: IPluginInitArg) {
-	(async ()=> {
+export async function init(hSN: IPluginInitArg): Promise<void> {
 //		const p: any = {ite:0};
 		const p: IDecryptInfo = {
 			pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
@@ -18,7 +17,7 @@ export function init(hSN: IPluginInitArg) {
 			ite		: 513,
 			stk		: '3d01197ce022b188696791cf903cd197',
 		};
-		const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
+		const {enc, AES, lib, PBKDF2, RIPEMD160} = await import('crypto-js');
 		const iv = enc.Hex.parse(p.iv);
 		const pbkdf2 = PBKDF2(
 			enc.Utf8.parse(p.pass),
@@ -27,34 +26,50 @@ export function init(hSN: IPluginInitArg) {
 		);
 
 		const {Buffer} = require('buffer');
-		hSN.setPre(async (ext, data)=> {
-			if (regFullCrypto.test(ext)) return Promise.resolve(
-				AES.decrypt(	//@ts-ignore
-					{ciphertext: enc.Base64.parse(data)}, pbkdf2, {iv},
-				).toString(enc.Utf8)
-			);
+		hSN.setPre(async (ext, data): Promise<string>=> {
+			if (regFullCrypto.test(ext)) return AES.decrypt(data, pbkdf2, {iv},).toString(enc.Utf8);
 			if (ext != 'bin') return data;
 
-			const cl = Buffer.from(data.slice(0, 4)).readUInt32LE(0);
-			const e6 = Buffer.from(data.slice(4, 4+cl)).toString('hex');
-			const ct = enc.Hex.parse(e6);
-			//@ts-ignore
-			const e2 = AES.decrypt({ciphertext: ct}, pbkdf2, {iv});
-			const b = Buffer.from(e2.words);
-	//		const v = b.readUInt8(0);
+			const bb = Buffer.from(data, 'binary');
+			const cl = bb.readUInt32LE(0);
+	//-		const cl = Buffer.from(data.slice(0, 4), 'binary').readUInt32LE(0);
+
+console.log(`fn:index.ts line:39 bb.enc_area: +:%o -:%o       cl:${cl}`, Buffer.from(bb.slice(4, 4+cl)).toString('hex').slice(0, 32), Buffer.from(bb.slice(4, 4+cl)).toString('hex').slice(-32));
+			const b6 = bb.slice(4, 4+cl).toString('base64');
+console.log(`fn:index.ts line:41 b6-32:%o`, b6.slice(-32));
+
+
+
+			const b = Buffer.from(AES.decrypt(
+				lib.CipherParams.create({ciphertext: b6}),
+				pbkdf2, {iv})
+				//.words
+			);
+//			const b = Buffer.from(AES.decrypt(b6, pbkdf2, {iv}).words);
+console.log(`fn:index.ts line:46 +++ b32:%o b-32:%o ext:${ext} id:${b.readUInt8(1)} b.len:${b.length}`, b.toString('hex').slice(0, 32), b.toString('hex').slice(-32));
+
+		//	const v = b.readUInt8(0);
 			const fm = hN2Ext[b.readUInt8(1)];
-			const ab = [Buffer.from(b.slice(2)), data.slice(4+cl)];
+console.log(`fn:index.ts line:52    b1.tail:%o`, b.slice(2).toString('hex').slice(-16));
+console.log(`fn:index.ts line:53    b1.tail:%o`, b.slice(2).toString('hex').replace(/(0c)+$/, '').slice(-16));
+//			const b1 = b.slice(2, -3);	// TODO: === 尻に 0c0c0c これをどうするか
+			const b1 = b.slice(2);
+console.log(`fn:index.ts line:56 -- b1:%o b1.len:${b1.length} b1.hex.len:${b1.toString('hex').length}`, b1.toString('hex').slice(0, 32));
+			const b2 = bb.slice(4+cl);
+			const ab = Buffer.concat([b1, b2], b1.length + b2.length);
+console.log(`fn:index.ts line:59 fm.ext:${fm.ext} fnc:${Boolean(fm?.fnc)} b1len:${b1.length} b2len:${b2.length}`);
+console.log(`fn:index.ts line:60 === b:%o len:${ab.length}`, Buffer.from(ab.slice(0, 16)).toString('hex').slice(0, 32));
+
 			return fm?.fnc
-			? new Promise(fm.fnc(new Blob(ab, {type: fm.mime})))
-			: String(new Blob(ab).arrayBuffer());
-//			: new Blob(ab).arrayBuffer();
+			? fm.fnc(new Buffer.Blob(ab, {type: fm.mime}))
+//			? fm.fnc(new Blob(ab, {type: fm.mime}))
+//			? new Promise(fm.fnc(new Blob(ab, {type: fm.mime})))
+			: ab;
 		});
 
 		hSN.setEnc(async data=> String(AES.encrypt(data, pbkdf2, {iv})));
 		hSN.getStK(()=> p.stk);
 		hSN.getHash(data=> RIPEMD160(data).toString(enc.Hex));
-console.log(`fn:index.ts line:57 `);
-	})();
 }
 
 

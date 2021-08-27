@@ -237,22 +237,22 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 						location	: ProgressLocation.Notification,
 						title		: 'テンプレートからプロジェクト作成',
 						cancellable	: true
-					}, (progress, tknCancel)=> {
+					}, (prg, tknCancel)=> {
 						//	tknCancel.onCancellationRequested(()=> {});
-						progress.report({
+						prg.report({
 							message		: 'ダウンロード中',
 							increment	: 10,
 						});
 
 						const nm = m.cmd.slice(4);
-						return new Promise(re=> {
+						return new Promise(done=> {
 							// zipダウンロード＆解凍
 							fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
 							.then(res=> res.buffer())
 							.then(buf=> {
 								if (tknCancel.isCancellationRequested) return;
 
-								progress.report({
+								prg.report({
 									message		: 'ZIP解凍中',
 									increment	: 50,
 								});
@@ -280,12 +280,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 								// 対策【'webpack' は、内部コマンドまたは外部コマンド、 操作可能なプログラムまたはバッチ ファイルとして認識されていません。】
 								removeSync(fnTo +'/package-lock.json');
 
-								progress.report({
+								prg.report({
 									message		: '完了。フォルダを開きます',
 									increment	: 40,
 								});
 								setTimeout(()=> {
-									re(0);
+									done(0);
 									if (tknCancel.isCancellationRequested) {
 										remove(fnTo);
 										return;

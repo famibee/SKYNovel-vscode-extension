@@ -33,7 +33,6 @@ export class Encryptor {
 	dec(data: string): string {		// テスト用復号
 		return AES.decrypt(
 			data,
-//			{ciphertext: enc.Base64.parse(data)},
 			this.pbkdf2, {iv: this.iv},
 		).toString(enc.Utf8);
 	}

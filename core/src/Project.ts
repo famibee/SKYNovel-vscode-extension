@@ -11,7 +11,7 @@ import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation} from 'vscode';
 import fs = require('fs-extra');
 import path = require('path');
 const img_size = require('image-size');
@@ -445,15 +445,31 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
 		if (! fs.existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 		cmd += 'npm run webpack:dev';
+		const type = 'SKYNovel auto';
+		const name = '起動時自動ビルド';
 		const t = new Task(
-			{type: 'SKYNovel auto'},	// definition（タスクの一意性）
+			{type},			// definition（タスクの一意性）
 			this.wsFld!,
-			'テンプレ初期化',				// name、UIに表示
-			'SKYNovel',					// source
+			name,			// name、UIに表示
+			'SKYNovel',		// source
 			new ShellExecution(cmd),
 		);
-		tasks.executeTask(t)
-		.then(undefined, rj=> console.error(`Project rebuildTask() rj:${rj.message}`));
+
+		window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: name,
+			cancellable	: false
+		}, _prg=> new Promise(async done=> {
+			tasks.executeTask(t)
+			.then(undefined, rj=> console.error(`Project rebuildTask() rj:${rj.message}`));
+
+			let fnc = (e: TaskProcessEndEvent)=> {
+				if (e.execution.task.definition.type !== type) return;
+				fnc = ()=> {};
+				done(0);
+			};
+			tasks.onDidEndTaskProcess(e=> fnc(e));
+		}));
 	}
 	finInitTask() {
 		this.updPlugin();

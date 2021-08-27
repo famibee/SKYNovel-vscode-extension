@@ -12,7 +12,7 @@ import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug, ProgressLocation} from 'vscode';
 
 import {existsSync, readJsonSync, statSync, readFileSync, ensureDirSync, writeFileSync, createReadStream, createWriteStream} from 'fs-extra';
 import archiver = require('archiver');
@@ -343,6 +343,21 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
+		window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: String(ti.label) ?? '',
+			cancellable	: false
+		}, prg=> new Promise(async done=>
+			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, ()=> {
+				prg.report({
+					message		: '完了',
+					increment	: 100,
+				});
+				setTimeout(done, 4000);
+			})
+		));
+	}
+	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: ()=> void) {
 		const pathWs = wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
 		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
@@ -355,21 +370,19 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':	this.chkLastSNVer();	break;
 			case 'LibUpd':
-				(async ()=> {
-					await ncu.run({
-						packageFile: pathWs +'/package.json',
-						// Defaults:
-						// jsonUpgraded: true,
-						// silent: true,
-						upgrade: true,
-						target: 'minor',
-					});		// ncu -u --target minor
-					this.onClickTreeItemBtn(wsFld, ti, 'LibUpd_waited', cfg);
-				})();
+				ncu.run({
+					packageFile: pathWs +'/package.json',
+					// Defaults:
+					// jsonUpgraded: true,
+					// silent: true,
+					upgrade: true,
+					target: 'minor',
+				})		// ncu -u --target minor
+				.then(()=> this.onClickTreeItemBtn_sub(wsFld, ti, 'LibUpd_waited', cfg, done));
 				return;
 			case 'LibUpd_waited':	break;	// Promise待ち後
 
-			case 'PrjSet':	prj.openPrjSetting();	return;
+			case 'PrjSet':	prj.openPrjSetting();	done();	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
@@ -379,13 +392,14 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 					this.dspCryptoMode(pathWs);
 					this.emPrjTD.fire(ti);
 				});
+				done();
 				return;
 
 			case 'TaskWebDbg':
-				debug.startDebugging(wsFld, 'webデバッグ');	return;
+				debug.startDebugging(wsFld, 'webデバッグ'); return;
 
 			case 'TaskAppDbg':
-				debug.startDebugging(wsFld, 'appデバッグ');	return;
+				debug.startDebugging(wsFld, 'appデバッグ'); return;
 
 			case 'PackFreem':
 				let find_ng = false;
@@ -404,7 +418,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 							break;
 					}});
 				});
-				if (find_ng) return;
+				if (find_ng) {done(); return;}
 				break;
 		}
 
@@ -450,6 +464,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 				if (! /(Restricted|AllSigned)/.test(
 					execSync('PowerShell Get-ExecutionPolicy'))) break;
 
+				done();
 				window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
 				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
 				return;
@@ -467,22 +482,31 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			//case 'LibUpd':	// ここには来ない
 			case 'LibUpd_waited':	// Promise待ち後
 				this.hOnEndTask[cfg.label] = e=> {
-					if (e.execution.task.definition.type !== t.definition.type) return;
-					if (e.execution.task.source !== t.source) return;
+					if (e.execution.task.definition.type !== t.definition.type) {done(); return;}
+					if (e.execution.task.source !== t.source) {done(); return;}
 
 					this.updLocalSNVer(pathWs);
 					this.emPrjTD.fire(undefined);
+					done();
 				};
 				break;
+
+			case 'TaskWeb':
+			case 'TaskWebDbg':
+			case 'TaskApp':
+			case 'TaskAppDbg':	this.hOnEndTask[cfg.label] = done; break;
 
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
 			case 'PackLinux':
-				this.hOnEndTask[cfg.label] = ()=> window.showInformationMessage(
-					`${cfg.label} パッケージを生成しました`,
-					'出力フォルダを開く',
-				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
+				this.hOnEndTask[cfg.label] = ()=> {
+					done();
+					window.showInformationMessage(
+						`${cfg.label} パッケージを生成しました`,
+						'出力フォルダを開く',
+					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
+				}
 				break;
 
 			case 'PackFreem':	this.hOnEndTask[cfg.label] = ()=> {
@@ -498,13 +522,16 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
 				const ws = createWriteStream(pathWs +`/build/package/${fn_out}`)
-				.on('close', ()=> window.showInformationMessage(
-					`ふりーむ！形式で出力（${fn_out}）しました`,
-					'出力フォルダを開く',
-				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))}));
+				.on('close', ()=> {
+					done();
+					window.showInformationMessage(
+						`ふりーむ！形式で出力（${fn_out}）しました`,
+						'出力フォルダを開く',
+					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))})
+				});
 				arc.pipe(ws);
 				arc.finalize();	// zip圧縮実行
-				};
+			};
 				break;
 		}
 		tasks.executeTask(t)

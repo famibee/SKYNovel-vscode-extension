@@ -60,7 +60,7 @@ function treeProc(wd, fnc) {
         var nm = String(d.name).normalize('NFC');
         if (regNoUseSysFile.test(nm))
             return;
-        var url = path_1.resolve(wd, nm);
+        var url = (0, path_1.resolve)(wd, nm);
         if (d.isDirectory()) {
             treeProc(url, fnc);
             return;
@@ -79,7 +79,7 @@ function foldProc(wd, fnc, fncFld) {
             fncFld(nm);
             return;
         }
-        var url = path_1.resolve(wd, nm);
+        var url = (0, path_1.resolve)(wd, nm);
         fnc(url, nm);
     });
 }
@@ -112,6 +112,6 @@ function chkBoolean(v) {
     return (v2 === 'false') ? false : Boolean(v2);
 }
 exports.chkBoolean = chkBoolean;
-function getFn(path) { return path_1.basename(path, path_1.extname(path)); }
+function getFn(path) { return (0, path_1.basename)(path, (0, path_1.extname)(path)); }
 exports.getFn = getFn;
 ;

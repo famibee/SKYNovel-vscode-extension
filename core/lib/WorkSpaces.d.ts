@@ -25,6 +25,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private dspCryptoMode;
     private hOnEndTask;
     private onClickTreeItemBtn;
+    private onClickTreeItemBtn_sub;
     getTreeItem: (t: TreeItem) => TreeItem;
     getChildren: (t?: TreeItem | undefined) => TreeItem[];
     dispose(): void;
