@@ -29,45 +29,37 @@ context('class Encryptor', ()=> {
 	describe('Tst', ()=> {
 		it('main_sn_full', ()=> {
 			const src = readFileSync('test/mat/main.sn', {encoding: 'utf8'});
-			const srcHex = Buffer.from(src.slice(0, 16)).toString('hex');
-//console.log(`fn:Encryptor.test.ts line:31 srcHex:%o`, srcHex);
-			assert.equal(srcHex, '095b6164645f6c6179206c617965723d');
+			const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
+			assert.equal(srcH, '095b6164645f6c6179206c617965723d');
 			const stt = statSync('test/mat/main.sn');
 			assert.equal(stt.size, 3031);	// ファイルサイズ
 
 			const enc = encry.enc(src);	// 暗号化
-//console.log(`fn:Encryptor.test.ts line:35 enc:%o`, enc.slice(0, 16));
 			assert.equal(enc.slice(0, 16), 'xoVYiz0bdPtPhkDA');
 
 			const dec = encry.dec(enc);	// 復号化
-			const decHex = Buffer.from(dec.slice(0, 16)).toString('hex');
-//console.log(`fn:Encryptor.test.ts line:40 decHex:%o`, decHex);
-			assert.equal(decHex, '095b6164645f6c6179206c617965723d');
+			const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
+			assert.equal(decH, '095b6164645f6c6179206c617965723d');
 		});
 
 		it('wood04_mp3_full_simple', ()=> {
 			const src0 = readFileSync('test/mat/wood04.mp3', {encoding: 'hex'});
-			const src0Hex = src0.slice(0, 32);
-//console.log(`fn:Encryptor.test.ts line:48 src0Hex:%o`, src0Hex);
-			assert.equal(src0Hex, '49443303000000000061434f4d4d0000');
+			const src0H = src0.slice(0, 32);
+			assert.equal(src0H, '49443303000000000061434f4d4d0000');
 			const stt = statSync('test/mat/wood04.mp3');
 			assert.equal(stt.size, 3995);	// ファイルサイズ
 
 			const src = readFileSync('test/mat/wood04.mp3', {encoding: 'utf8'});
-			const srcHex = Buffer.from(src.slice(0, 16)).toString('hex');
-//console.log(`fn:Encryptor.test.ts line:53 srcHex:%o`, srcHex);
-			assert.equal(srcHex, '49443303000000000061434f4d4d0000');
-	////console.log(`fn:Encryptor.test.ts line:55 len src0:${src0.length} src:${src.length}`);
+			const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
+			assert.equal(srcH, '49443303000000000061434f4d4d0000');
 
 			const enc = encry.enc(src);	// 暗号化
-			const encHex = enc.slice(0, 32);
-//console.log(`fn:Encryptor.test.ts line:59 encHex:%o`, encHex);
-			assert.equal(encHex, 'xq+5mAwQFuMUz5a4neR73Ya7RYEhGYdk');
+			const encH = enc.slice(0, 32);
+			assert.equal(encH, 'xq+5mAwQFuMUz5a4neR73Ya7RYEhGYdk');
 
 			const dec = encry.dec(enc);	// 復号化
-			const decHex = Buffer.from(dec.slice(0, 16)).toString('hex');
-//console.log(`fn:Encryptor.test.ts line:64 decHex:%o`, decHex);
-			assert.equal(decHex, '49443303000000000061434f4d4d0000');
+			const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
+			assert.equal(decH, '49443303000000000061434f4d4d0000');
 		});
 
 		it('prj_json_simple', done=> {
@@ -124,9 +116,9 @@ context('class Encryptor', ()=> {
 			const stt = statSync(path_src);
 			assert.equal(stt.size, 3995);	// ファイルサイズ
 
-			const srcHex = readFileSync(path_src, {encoding: 'hex'});
-			const srcHex32 = srcHex.slice(0, 32);
-			assert.equal(srcHex32, '49443303000000000061434f4d4d0000');
+			const srcH = readFileSync(path_src, {encoding: 'hex'});
+			const srcH32 = srcH.slice(0, 32);
+			assert.equal(srcH32, '49443303000000000061434f4d4d0000');
 
 			const rs = createReadStream(path_src)
 			.on('error', e=> console.error(`encrypter rs=%o`, e));
@@ -136,8 +128,8 @@ context('class Encryptor', ()=> {
 			const ws = createWriteStream(path_enc)
 			.on('close', async ()=> {
 				const ench = readFileSync(path_enc, {encoding: 'hex'});
-				const encHex = ench.slice(0, 32);
-				assert.equal(encHex, '803e00006e42cd2dca81253d95f72609');
+				const encH = ench.slice(0, 32);
+				assert.equal(encH, '803e00006e42cd2dca81253d95f72609');
 
 				const stt_bin = statSync(path_enc);
 				assert.equal(stt_bin.size, 16004);	// ファイルサイズ
@@ -161,19 +153,15 @@ context('class Encryptor', ()=> {
 				await init(hSN);
 
 				const enc = readFileSync(path_enc, {encoding: 'binary'});
-
-console.log(`fn:Encryptor.test.ts line:165 DEC`);
 				const pre = await fncDec('bin', enc);
-				const preHex = Buffer.from(pre).toString('hex');	//o
-				const preHex32 = preHex.slice(0, 32);
-console.log(`fn:Encryptor.test.ts line:169 preHex:%o`, preHex32);
+				const preH = Buffer.from(pre).toString('hex');
 	try {
-				assert.equal(preHex32, '49443303000000000061434f4d4d0000');
-				assert.equal(srcHex.length, preHex.length);
-				assert.equal(srcHex, preHex);
+				assert.equal(srcH.length, preH.length);
+				assert.equal(srcH, preH);
+				assert.equal(preH.slice(0, 32), '49443303000000000061434f4d4d0000');
+				assert.equal(preH.slice(-32), '62697320492032303034303632000094');
 
 	} catch (error) {console.error(`fn:Encryptor.test.ts line:146 %o`, error);}
-console.log(`fn:Encryptor.test.ts line:176 COMPED`);
 				done();
 			})
 			.on('error', e=> console.error(`encrypter ws=%o`, e));

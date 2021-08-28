@@ -12,7 +12,7 @@ import {CteScore} from './CteScore';
 import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug, ProgressLocation} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug, ProgressLocation, ThemeIcon} from 'vscode';
 
 import {existsSync, readJsonSync, statSync, readFileSync, ensureDirSync, writeFileSync, createReadStream, createWriteStream} from 'fs-extra';
 import archiver = require('archiver');
@@ -280,13 +280,13 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			const tc = this.oTiPrj[dir];
 			const aC = (tc[tc.length -1] as MyTreeItem).children;
 			const a = [...tc.slice(0, -1), ...aC];
-			if (enable) a.forEach(it=> {
-				it.contextValue = it.contextValue?.trim();
-				this.emPrjTD.fire(it);
+			if (enable) a.forEach(ti=> {
+				ti.contextValue = ti.contextValue?.trimEnd();
+				this.emPrjTD.fire(ti);
 			});	// 値を戻してボタン表示
-			else a.forEach(it=> {
-				it.contextValue += ' ';
-				this.emPrjTD.fire(it);
+			else a.forEach(ti=> {
+				ti.contextValue += ' ';
+				this.emPrjTD.fire(ti);
 			});	// 値を壊してボタン消去
 		});
 	}
@@ -347,17 +347,28 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			location	: ProgressLocation.Notification,
 			title		: String(ti.label) ?? '',
 			cancellable	: false
-		}, prg=> new Promise(async done=>
-			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, ()=> {
+		}, prg=> new Promise(async done=> {
+			const iconPath = ti.iconPath;
+			ti.iconPath = new ThemeIcon('sync~spin');
+			ti.contextValue += ' ';
+			this.emPrjTD.fire(ti);
+
+			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, (timeout = 4000)=> {
+				ti.iconPath = iconPath;
 				prg.report({
 					message		: '完了',
 					increment	: 100,
 				});
-				setTimeout(done, 4000);
+				setTimeout(()=> {
+					ti.contextValue = ti.contextValue?.trimEnd();
+					this.emPrjTD.fire(ti);
+
+					done(0);
+				}, timeout);
 			})
-		));
+		}));
 	}
-	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: ()=> void) {
+	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		const pathWs = wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
 		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
@@ -382,7 +393,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 				return;
 			case 'LibUpd_waited':	break;	// Promise待ち後
 
-			case 'PrjSet':	prj.openPrjSetting();	done();	return;
+			case 'PrjSet':	prj.openPrjSetting();	done(0);	return;
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
@@ -494,7 +505,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			case 'TaskWeb':
 			case 'TaskWebDbg':
 			case 'TaskApp':
-			case 'TaskAppDbg':	this.hOnEndTask[cfg.label] = done; break;
+			case 'TaskAppDbg':	this.hOnEndTask[cfg.label] = ()=> done(); break;
 
 			case 'PackWin':
 			case 'PackWin32':
