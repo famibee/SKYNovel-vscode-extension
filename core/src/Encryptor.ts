@@ -30,11 +30,8 @@ export class Encryptor {
 		return AES.encrypt(s, this.pbkdf2, {iv: this.iv}).toString();
 	}
 
-	dec(data: string): string {		// テスト用復号
-		return AES.decrypt(
-			data,
-			this.pbkdf2, {iv: this.iv},
-		).toString(enc.Utf8);
+	dec(s: string): string {	// テスト用復号
+		return AES.decrypt(s, this.pbkdf2, {iv: this.iv}).toString(enc.Utf8);
 	}
 
 }

@@ -30,57 +30,15 @@ export async function init(hSN: IPluginInitArg): Promise<void> {
 			if (regFullCrypto.test(ext)) return AES.decrypt(data, pbkdf2, {iv},).toString(enc.Utf8);
 			if (ext != 'bin') return data;
 
-			const bb = Buffer.from(data, 'binary');
-			const cl = bb.readUInt32LE(0);
+			const cl = Buffer.from(data.slice(0, 4), 'binary').readUInt32LE(0);
+			const b6 = data.slice(4, 4+cl);
+const code2hex = Buffer.from(b6, 'binary').toString('hex');
+console.log(`fn:index.ts line:36 bb.enc_area: +:%o -:%o       cl:${cl}`, code2hex.slice(0, 32), code2hex.slice(-32));
 
-const tst_bb_code2hex = Buffer.from(bb.slice(4, 4+cl)).toString('hex');
-console.log(`fn:index.ts line:37 bb.enc_area: +:%o -:%o       cl:${cl}`, tst_bb_code2hex.slice(0, 32), tst_bb_code2hex.slice(-32));
-			const b6 = bb.slice(4, 4+cl).toString('base64');
-//console.log(`fn:index.ts line:39 b6-32:%o`, b6.slice(-32));
-//console.log(`fn:index.ts line:40        FFd7g2D7ttAxrRnBrZvf1aGBeaJYOg==`);
-
-	// 分解しよう
-	const b_1 = AES.decrypt(b6, pbkdf2, {iv});
-/*
-	const bb2_ = Buffer.from(b_1.toString(enc.Hex), 'hex');
-//	const bb2_ = b_1.toString(enc.Hex);
-	const len_bb2 = bb2_.length /2;
-	const bb2 = Buffer.from(len_bb2);
-	for (let i=0; i<len_bb2; ++i) bb2[i] = bb2_.readUInt32BE(i);
-
-	const bb2_ = b_1.toString(enc.Hex);
-	const len_bb2 = bb2_.length /2;
-	const bb2 = Buffer.from(len_bb2);
-	for (let i=0; i<len_bb2; ++i) bb2[i] = bb2_[i *2];
-
-//	const bb2 = Buffer.from(Uint8Array.from(b_1.words).buffer);
-//	const bb2 = Uint8Array.from(b_1.words);
-
-//x	b_1.sigBytes /= 4;
-//console.log(`fn:index.ts line:45 b_1:%o`, b_1);
-console.log(`fn:index.ts line:49 bb2:%o`, bb2.slice(0, 32));
-*/
-
-	const bbb = Buffer.from(b_1.toString(enc.Hex), 'utf16le');
-//	const bbb = Buffer.from(b_1.toString(enc.Base64), 'base64');
-//x	console.log(`fn:index.ts line:51 @@:%o`, bbb.slice(0, 32));
-console.log(`fn:index.ts line:51 @@:%o`, enc.Hex.stringify(b_1).slice(0, 32));
-console.log(`fn:index.ts line:51 @@:%o`, b_1.toString(enc.Hex).slice(0, 32));
-console.log(`fn:index.ts line:51 ok:%o`, b_1.toString(enc.Hex).replace(/000000(..)/g, '$1').slice(0, 32));
-
-//x	const b = Buffer.from(Uint8Array.from(b_1.words).buffer);	// 末尾にゴミ
-	const b = Buffer.from(b_1.toString(enc.Hex).replace(/000000(..)/g, '$1'), 'hex');	// ok, だが力業 https://regex101.com/r/81zvFa/1
-
-//x console.log(`fn:index.ts line:51 @@:%o`, b_1.toString(enc.Utf8).slice(0, 32));
-//	const b = Buffer.from(b_1.toString(enc.Hex), 'hex');	// 進むがデータ異常
-//	const b = Buffer.from(b_1.words);	// 進むがデータ異常
-//x	const b = Buffer.from(b_1);		// x この後で硬直
-//	const b = Buffer.from(AES.decrypt(b6, pbkdf2, {iv}).words);	// 尻に 0c0c0c
-
-//			const b = Buffer.from(AES.decrypt(b6, pbkdf2, {iv}).words);
-console.log(`fn:index.ts line:46 +++ b32:%o b-32:%o ext:${ext} id:${b.readUInt8(1)} b.len:${b.length}`, b.toString('hex').slice(0, 32), b.toString('hex').slice(-32));
-
-console.log(`fn:index.ts line:66          000a49443303000000000061434f4d4d【${
+			const b = Buffer.from(AES.decrypt(b6, pbkdf2, {iv}).toString(enc.Utf8), 'base64');
+console.log(`fn:index.ts line:39                 d:%o`, b.slice(0, 32));
+console.log(`fn:index.ts line:40 +++ b32:%o b-32:%o ext:${ext} id:${b.readUInt8(1)} b.len:${b.length}`, b.toString('hex').slice(0, 32), b.toString('hex').slice(-32));
+console.log(`fn:index.ts line:41          000a49443303000000000061434f4d4d【${
 	b.toString('hex').slice(0, 32) === '000a49443303000000000061434f4d4d'
 	?'OK' :'NG'
 }】  62697320492032303034303632000094【${
@@ -92,7 +50,7 @@ console.log(`fn:index.ts line:66          000a49443303000000000061434f4d4d【${
 			const fm = hN2Ext[b.readUInt8(1)];
 			const b1 = b.slice(2);
 console.log(`fn:index.ts line:76 --- b1:%o b1.len:${b1.length} b1.hex.len:${b1.toString('hex').length}`, b1.toString('hex').slice(0, 32));
-			const b2 = bb.slice(4+cl);
+			const b2 = Buffer.from(data.slice(4+cl), 'binary');
 			const ab = Buffer.concat([b1, b2], b1.length + b2.length);
 console.log(`fn:index.ts line:79 === fm.ext:${fm.ext} fnc:${Boolean(fm?.fnc)} b1len:${b1.length} b2len:${b2.length} full_len:${ab.length}(3995)`);
 

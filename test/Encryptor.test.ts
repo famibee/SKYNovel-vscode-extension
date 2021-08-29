@@ -40,6 +40,7 @@ context('class Encryptor', ()=> {
 			const dec = encry.dec(enc);	// 復号化
 			const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
 			assert.equal(decH, '095b6164645f6c6179206c617965723d');
+			assert.equal(src, dec);
 		});
 
 		it('wood04_mp3_full_simple', ()=> {
@@ -60,6 +61,7 @@ context('class Encryptor', ()=> {
 			const dec = encry.dec(enc);	// 復号化
 			const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
 			assert.equal(decH, '49443303000000000061434f4d4d0000');
+			assert.equal(src, dec);
 		});
 
 		it('prj_json_simple', done=> {
@@ -68,13 +70,13 @@ context('class Encryptor', ()=> {
 			assert.equal(stt.size, 650);	// ファイルサイズ
 
 			// 暗号化
-			const srcUtf8 = readFileSync(path_src, {encoding: 'utf8'});
-			const enc = encry.enc(srcUtf8);
+			const src = readFileSync(path_src, {encoding: 'utf8'});
+			const enc = encry.enc(src);
 			assert.equal(enc, 'AxBoGNF1tJwzKdCZOXXGevZuuFmA1qrx/JA/f9mIb+MnzKKH70MzLwM+EDh/TeAeM8ggg/ONU7LgCl3jEfNTw/dsMBO1MfCsqFJiNWRTuB9khZXv2kp5tJclL6sZXYtAh9uPrPTXwCNIkmeKXmL5t0mzH+MwuXl88Ni9mt5Qlc3ir7YjgKSWqv2fmhAb74apsjc12DjxJSpJtZ6Q7E6Nuv/tFNo9lYPtoY3QLgHmdLHppHVIjUlMkGJ+M9mieyKBKZhiqmL+LZ6Vap6xs8vQFmpJsDGoWyFOtE/ph4K9x1xnpdDWR0YwUjSZ6RC3SX/faqVCAYJQn8/UsNHZa/O9ECHVNvPqgT+dZEuEG5OOt8q7Nfn+PzzJS/A9gaN+QkmVJmzwy8wtLK5UU1H11770Mp5Goln+dE8PeR7nliUp9R8P0zTgKW1gpXjwkB0qvyOf8Y+III5qsxTmUB94obSABeSFCcb98RJ72qKLUxOqTvElOMFkytsuyiBtDoR+Vce1BIjvhGGIu8uBlBVH+ySRzlwQqpB6mmZ4mkSqJwvNvW4lH77MtewkHNRpqv/xPerslc0788d24PEDuJ3NNoWi1QUKhNIdS141PMtTFCPMVNPeiQO6HFhXnRBDzxZ/R8qX0a0WF4Z+5+X8OhPsMUpRxeyvkgI5yKTRaCN9Y/kStNXY0dTIrly7QddXKfpAPvMNz3YINjJ0+sbXM0SS5q+fIpIkBAaaVxTM0TIlvBQVaMKcTfE0AytNgviXEVdAWh1zvx99euaa46k/btgKDH4fRv7wDaPks7+T8yKTml0ucMfZ7A8w/bl14YCTgwVfC9eYJpl5TZv831sZIh1/hAU5ZIWZk57B5Ps4d6dnG1nEPwU=');
 
 			// 復号化
 			const dec = encry.dec(enc);
-			assert.equal(dec, srcUtf8);
+			assert.equal(dec, src);
 			assert.equal(dec, `{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
 `);
 
@@ -100,11 +102,11 @@ context('class Encryptor', ()=> {
 				const pre = await fncDec('json', enc);
 				const preUtf8 = Buffer.from(pre).toString('utf8');
 	try {
-				assert.equal(srcUtf8.length, preUtf8.length);
-				assert.equal(srcUtf8, preUtf8);
+				assert.equal(src.length, preUtf8.length);
+				assert.equal(src, preUtf8);
 				assert.equal(preUtf8, `{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
 `);
-	} catch (error) {console.error(`fn:Encryptor.test.ts line:146 %o`, error);}
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 
 				done();
 			})();
@@ -127,12 +129,10 @@ context('class Encryptor', ()=> {
 			ensureFileSync(path_enc);	// touch
 			const ws = createWriteStream(path_enc)
 			.on('close', async ()=> {
-				const ench = readFileSync(path_enc, {encoding: 'hex'});
-				const encH = ench.slice(0, 32);
-				assert.equal(encH, '803e00006e42cd2dca81253d95f72609');
+				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), 'd81b00004f426a66395939456b654f59');
 
 				const stt_bin = statSync(path_enc);
-				assert.equal(stt_bin.size, 16004);	// ファイルサイズ
+				assert.equal(stt_bin.size, 7132);	// ファイルサイズ
 
 				// 復号化
 				let fncDec: (ext: string, data: string)=> Promise<string>
@@ -161,7 +161,7 @@ context('class Encryptor', ()=> {
 				assert.equal(preH.slice(0, 32), '49443303000000000061434f4d4d0000');
 				assert.equal(preH.slice(-32), '62697320492032303034303632000094');
 
-	} catch (error) {console.error(`fn:Encryptor.test.ts line:146 %o`, error);}
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 				done();
 			})
 			.on('error', e=> console.error(`encrypter ws=%o`, e));
@@ -172,14 +172,66 @@ context('class Encryptor', ()=> {
 
 /*
 		it('free0509_mp3_stream_transform', done=> {
+			// 暗号化
+			const path_src = 'test/mat/free0509.mp3';
+			const stt = statSync(path_src);
+			assert.equal(stt.size, 1796953);	// ファイルサイズ
+
+			const srcH = readFileSync(path_src, {encoding: 'hex'});
+			const srcH32 = srcH.slice(0, 32);
+			assert.equal(srcH32, '49443303000000001000544954320000');
+//			assert.equal(srcH32, '49443303000000000061434f4d4d0000');
+
+			const rs = createReadStream(path_src)
+			.on('error', e=> console.error(`encrypter rs=%o`, e));
+
+			const path_enc = 'test/mat/free0509.bin';
+			ensureFileSync(path_enc);	// touch
+			const ws = createWriteStream(path_enc)
+			.on('close', async ()=> {
+//				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '10a000006e42cd2dca81253d95f72609');
+
+//				const stt_bin = statSync(path_enc);
+//console.log(`fn:Encryptor.test.ts line:197 stt_bin:${stt_bin.size}`);
+//				assert.equal(stt_bin.size, 1837933);	// ファイルサイズ
+
+				// 復号化
+				let fncDec: (ext: string, data: string)=> Promise<string>
+					= (_, _2)=> Promise.resolve('');
+				const hSN: IPluginInitArg = {
+					addTag(_: string, _2: ITag) {},
+					addLayCls(_: string, _2: ILayerFactory) {},
+					searchPath(_: string, _2?: string): string {return ''},
+					getVal(_: string, _2?: number | string): object {return {}},
+					resume(_?: ()=> void) {},
+					render(_: any, _2?: any, _3?: boolean) {},
+					setPre(fnc: (ext: string, data: string)=> Promise<string>) {fncDec = fnc;},
+					setEnc(_: (data: string)=> Promise<string>) {},
+					getStK(_: ()=> string) {},
+					getHash(_: (data: string)=> string) {},
+				};
+				const {init} = await import('../res/snsys_pre');
+				await init(hSN);
+
+				const enc = readFileSync(path_enc, {encoding: 'binary'});
+console.log(`fn:Encryptor.test.ts line:218 PRE`);
+				const pre = await fncDec('bin', enc);
+				const preH = Buffer.from(pre).toString('hex');
+	try {
+				assert.equal(srcH.length, preH.length);
+				assert.equal(srcH, preH);
+				assert.equal(preH.slice(0, 32), '49443303000000001000544954320000');
+				assert.equal(preH.slice(-32), '766581408179687474703a2f2f777700');
+
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
+				done();
+			})
+			.on('error', e=> console.error(`encrypter ws=%o`, e));
+
+			const tr = new EncryptorTransform(encry, path_src);
+			rs.pipe(tr).pipe(ws);
 		});
 */
-
-		it('test_promise', ()=> {
-			return Promise.resolve(0);
-			// (done) => {		done();
-			// async () => {	await heavyJob();
-		});
 
 	});
 

@@ -9,7 +9,6 @@ import {Transform} from 'stream';
 import {Encryptor} from './Encryptor';
 import {Buffer} from 'buffer';
 import path = require('path');
-import {lib} from 'crypto-js';
 
 export class EncryptorTransform extends Transform {
 	private	static	readonly LEN_ENC	= 1024 *10;
@@ -47,7 +46,7 @@ export class EncryptorTransform extends Transform {
 	override _transform(chunk: any, _enc: BufferEncoding, cb: ()=> void) {
 		if (this.cnt_code === 0) {
 /**/console.log(`fn:EncryptorTransform.ts line:49 A enc:${_enc} len:${chunk.length}`);
-			this.push(chunk); return;}
+			this.push(chunk); cb(); return;}
 
 		const len = chunk.length;
 /**/console.log(`fn:EncryptorTransform.ts line:53 B enc:${_enc} len:${len}`);
@@ -84,17 +83,16 @@ console.log(`fn:EncryptorTransform.ts line:82   g1_32:%o g1.len:${g1.words.lengt
 const enc = this.encry.enc(g1);
 console.log(`fn:EncryptorTransform.ts line:84   enc:%o enc.len:${enc.length}`, enc.slice(0, 32));
 */
-		const e = Buffer.from(
-			this.encry.enc(lib.WordArray.create(Array.from(
-				this.bh.slice(0, this.ite_buf)
-			))),
-			'base64',
-		);
+		const e = this.encry.enc(this.bh.slice(0, this.ite_buf).toString('base64'));
+const d = Buffer.from(this.encry.dec(e), 'base64');
+console.log(`fn:EncryptorTransform.ts line:88 ++ d:%o`, d.slice(0, 32));
+
+const eb = Buffer.from(e, 'binary').toString('hex');
+console.log(`fn:EncryptorTransform.ts line:91 e:%o -:%o e.length:${e.length} ite_buf:${this.ite_buf}`, eb.slice(0, 32), eb.slice(-32));
 
 		const bl = Buffer.alloc(4);
 		bl.writeUInt32LE(e.length, 0);	// cripted len
 		this.push(bl);
-/**/console.log(`fn:EncryptorTransform.ts line:97 e:%o -:%o e.length:${e.length} ite_buf:${this.ite_buf}`, e.toString('hex').slice(0, 32), e.toString('hex').slice(-32));
 
 		this.push(e);
 	}
