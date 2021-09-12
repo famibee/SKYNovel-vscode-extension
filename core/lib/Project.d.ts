@@ -1,8 +1,11 @@
-import { ExtensionContext, WorkspaceFolder } from 'vscode';
+import { ExtensionContext, WorkspaceFolder, TaskProcessEndEvent, TreeItem, EventEmitter } from 'vscode';
 export declare class Project {
     private readonly ctx;
+    private readonly chkLastSNVer;
     private readonly wsFld;
-    readonly chgTitle: (title: string) => void;
+    readonly aTiRoot: TreeItem[];
+    private readonly emPrjTD;
+    private readonly hOnEndTask;
     private readonly codSpt;
     private readonly curPlg;
     private readonly curPrj;
@@ -10,8 +13,7 @@ export declare class Project {
     private readonly curCrypto;
     private static readonly fld_crypto_prj;
     static get fldnm_crypto_prj(): string;
-    private $isCryptoMode;
-    get isCryptoMode(): boolean;
+    private isCryptoMode;
     private readonly regNeedCrypto;
     private readonly regFullCrypto;
     private readonly regRepPathJson;
@@ -21,10 +23,23 @@ export declare class Project {
     private readonly aFSW;
     private readonly fnDiff;
     private hDiff;
+    private readonly aTreeTmp;
+    private static readonly idxDevSnUpd;
+    private updLocalSNVer;
+    private static readonly idxDevCrypto;
+    private dspCryptoMode;
+    private aTiFlat;
+    enableButton(enable: boolean): void;
     private readonly pathWs;
-    constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void);
+    constructor(ctx: ExtensionContext, chkLastSNVer: () => void, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: {
+        [nm: string]: (e: TaskProcessEndEvent) => void;
+    });
+    private readonly hPush2BtnEnable;
+    private onClickTreeItemBtn;
+    private onClickTreeItemBtn_sub;
+    private hTaskExecution;
     private readonly ps;
-    openPrjSetting(): void;
+    private openPrjSetting;
     get title(): any;
     get version(): any;
     dispose(): void;
@@ -38,7 +53,7 @@ export declare class Project {
     private isDiff;
     private readonly REG_SPATH2HFN;
     private readonly aRepl;
-    tglCryptoMode(): void;
+    private tglCryptoMode;
     private static readonly LEN_ENC;
     private readonly regDir;
     private encrypter;

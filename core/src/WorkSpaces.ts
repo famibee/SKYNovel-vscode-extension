@@ -5,21 +5,15 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, is_win, treeProc, oIcon} from './CmnLib';
+import {oIcon} from './CmnLib';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {CteScore} from './CteScore';
-import {MyTreeItem, TREEITEM_CFG} from './MyTreeItem';
-import {ActivityBar, eTreeEnv} from './ActivityBar';
+import {PrjTreeItem} from './PrjTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Task, ShellExecution, Range, TextEditorDecorationType, TextEditor, env, Uri, debug, ProgressLocation, ThemeIcon} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Range, TextEditorDecorationType, TextEditor} from 'vscode';
 
-import {existsSync, readJsonSync, statSync, readFileSync, ensureDirSync, writeFileSync, createReadStream, createWriteStream} from 'fs-extra';
-import archiver = require('archiver');
-import {basename, dirname} from 'path';
-import png2icons = require('png2icons');
-const {execSync} = require('child_process');
-import ncu = require('npm-check-updates');
+import {existsSync} from 'fs-extra';
 
 interface DecChars {
 	aRange		: Range[];
@@ -28,53 +22,6 @@ interface DecChars {
 
 export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
-	private readonly	oTiPrj		: {[name: string]: TreeItem[]} = {};
-
-	private	readonly aTreeTmp	: TREEITEM_CFG[] = [
-		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
-			npm: `npm un -S skynovel ${statBreak()
-			} npm i @famibee/skynovel@latest ${statBreak()
-			} npm run webpack:dev`},
-		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-			npm: `npm update ${statBreak()
-			} npm run webpack:dev`},
-		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
-			npm: 'npm run rebuild'},
-		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
-		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
-		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
-			npm: 'npm run web',		dbg: true,},
-		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-			npm: 'npm run start',	dbg: true,},
-		{cmd: '', icon: '',label: '生成', children: [
-			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
-			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
-					// 一パッケージに統合型、ファイルサイズ二倍になる
-			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
-			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`,
-				forMac: true,},
-			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`,
-				forMac: true,},
-				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
-					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
-			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -l`},
-				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
-			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
-				npm: 'npm run webpack:pro'},
-		]},
-	];
-	private	readonly idxDevSnUpd	= 0;
-	private	readonly idxDevCrypto	= 4;
 
 	private hPrj	: {[dir: string]: Project}	= {};
 
@@ -82,7 +29,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
-		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.name](e));
+		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.definition.type.slice(9)](e));
 
 		this.onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
@@ -261,7 +208,6 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			this.aTiRoot.splice(del, 1);
 
 			const dir = e.removed[0].uri.fsPath;
-			delete this.oTiPrj[dir];
 
 			this.hPrj[dir].dispose();
 		}
@@ -272,23 +218,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 
 	enableButton(enable: boolean): void {
-		const aFld = workspace.workspaceFolders;
-		if (! aFld) return;	// undefinedだった場合はファイルを開いている
-
-		aFld.forEach(fld=> {
-			const dir = fld.uri.fsPath;
-			const tc = this.oTiPrj[dir];
-			const aC = (tc[tc.length -1] as MyTreeItem).children;
-			const a = [...tc.slice(0, -1), ...aC];
-			if (enable) a.forEach(ti=> {
-				ti.contextValue = ti.contextValue?.trimEnd();
-				this.emPrjTD.fire(ti);
-			});	// 値を戻してボタン表示
-			else a.forEach(ti=> {
-				ti.contextValue += ' ';
-				this.emPrjTD.fire(ti);
-			});	// 値を壊してボタン消去
-		});
+		for (const dir in this.hPrj) this.hPrj[dir].enableButton(enable);
 	}
 
 
@@ -297,260 +227,21 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		const dir = wsFld.uri.fsPath;
 		const existPkgJS = existsSync(dir +'/package.json');
 		const isPrjValid = existPkgJS && existsSync(dir +'/doc/prj/prj.json');
-		const t = new MyTreeItem({
-			cmd		: '',
-			icon	: '',
-			label	: '',
-			desc	: wsFld.name,
-			children: isPrjValid ? this.aTreeTmp : [{
-				cmd		: '',
-				icon	: 'warn',
-				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
-			}],
-		}, dir, this.ctx, (ti, btn_nm, cfg)=> this.onClickTreeItemBtn(wsFld, ti, btn_nm, cfg))
-		t.collapsibleState = TreeItemCollapsibleState.Collapsed;
-		this.aTiRoot.push(t);
-		this.oTiPrj[dir] = t.children;	// プロジェクト追加
-
 		if (! isPrjValid) return;
 
-		this.updLocalSNVer(dir);
-		this.hPrj[dir] = new Project(this.ctx, wsFld, title=> {
-			t.label = title;
-			this.emPrjTD.fire(t);
-		});
-		this.dspCryptoMode(dir);
-	}
-	// ローカル SKYNovel バージョン調査
-	private updLocalSNVer(dir: string) {
-		const o = readJsonSync(dir +'/package.json');
-		const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
-		this.oTiPrj[dir][this.idxDevSnUpd].description = localVer ?`-- ${localVer}` :'取得できません';
-	}
-	private dspCryptoMode(dir: string) {
-		const tc = this.oTiPrj[dir];
-		const fpf = this.hPrj[dir];
-		tc[this.idxDevCrypto].description = `-- ${fpf.isCryptoMode ?'する' :'しない'}`;
+		this.hPrj[dir] = new Project(this.ctx, this.chkLastSNVer, wsFld, this.aTiRoot, this.emPrjTD, this.hOnEndTask);
 	}
 
 	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
-		'テンプレ初期化': e=> {
+		'テンプレ初期化': e=> {		// 本来のキーは Project.ts の btn_nm
 			const wsFld = <WorkspaceFolder>e.execution.task.scope;
 			const dir = wsFld.uri.fsPath;
 			this.hPrj[dir].finInitTask();
 		},
 	};
-	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
-		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
-
-		window.withProgress({
-			location	: ProgressLocation.Notification,
-			title		: String(ti.label) ?? '',
-			cancellable	: false
-		}, prg=> new Promise(async done=> {
-			const iconPath = ti.iconPath;
-			ti.iconPath = new ThemeIcon('sync~spin');
-			ti.contextValue += ' ';
-			this.emPrjTD.fire(ti);
-
-			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, (timeout = 4000)=> {
-				ti.iconPath = iconPath;
-				prg.report({
-					message		: '完了',
-					increment	: 100,
-				});
-				setTimeout(()=> {
-					ti.contextValue = ti.contextValue?.trimEnd();
-					this.emPrjTD.fire(ti);
-
-					done(0);
-				}, timeout);
-			})
-		}));
-	}
-	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
-		const pathWs = wsFld.uri.fsPath;
-		let cmd = `cd "${pathWs}" ${statBreak()} `;
-		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
-
-		// メイン処理
-		const prj = this.hPrj[pathWs];
-		if (cfg.npm) cmd += cfg.npm
-			.replace(/\${prj.title}/g, prj.title)
-			.replace(/\${prj.version}/g, prj.version);
-		switch (btn_nm) {	// タスク前処理
-			case 'SnUpd':	this.chkLastSNVer();	break;
-			case 'LibUpd':
-				ncu.run({
-					packageFile: pathWs +'/package.json',
-					// Defaults:
-					// jsonUpgraded: true,
-					// silent: true,
-					upgrade: true,
-					target: 'minor',
-				})		// ncu -u --target minor
-				.then(()=> this.onClickTreeItemBtn_sub(wsFld, ti, 'LibUpd_waited', cfg, done));
-				return;
-			case 'LibUpd_waited':	break;	// Promise待ち後
-
-			case 'PrjSet':	prj.openPrjSetting();	done(0);	return;
-			case 'Crypto':
-				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
-				.then(a=> {
-					if (a != 'はい') return;
-
-					prj.tglCryptoMode();
-					this.dspCryptoMode(pathWs);
-					this.emPrjTD.fire(ti);
-				});
-				done();
-				return;
-
-			case 'TaskWebDbg':
-				debug.startDebugging(wsFld, 'webデバッグ'); return;
-
-			case 'TaskAppDbg':
-				debug.startDebugging(wsFld, 'appデバッグ'); return;
-
-			case 'PackFreem':
-				let find_ng = false;
-				treeProc(pathWs +'/doc/prj', url=> {
-					if (find_ng || url.slice(-4) !== '.svg') return;
-
-					find_ng = true;
-					window.showErrorMessage(
-						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
-					)
-					.then(a=> {switch (a) {
-						case 'フォルダを開く':
-							env.openExternal(Uri.file(dirname(url)));	break;
-						case 'Online Converter':
-							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
-							break;
-					}});
-				});
-				if (find_ng) {done(); return;}
-				break;
-		}
-
-		// アイコン生成
-		switch (btn_nm) {
-			case 'TaskWeb':
-			case 'TaskApp':
-			case 'PackWin':
-			case 'PackWin32':
-			case 'PackMac':
-			case 'PackLinux':
-				const fnIcon = pathWs +'/build/icon.png';
-				if (! existsSync(fnIcon)) break;
-
-				const mtPng = statSync(fnIcon).mtimeMs;
-				const bIconPng = readFileSync(fnIcon);
-				ensureDirSync(pathWs +'/build/icon/');
-				//png2icons.setLogger(console.log);
-			{
-				const fn = pathWs +'/build/icon/icon.icns';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-			{
-				const fn = pathWs +'/build/icon/icon.ico';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-				break;
-		}
-
-		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
-		switch (btn_nm) {
-			case 'PackWin':
-			case 'PackWin32':
-				if (! is_win) break;
-				if (! /(Restricted|AllSigned)/.test(
-					execSync('PowerShell Get-ExecutionPolicy'))) break;
-
-				done();
-				window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
-				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
-				return;
-		}
-
-		const t = new Task(
-			{type: 'SKYNovel '+ btn_nm},	// definition（タスクの一意性）
-			wsFld,
-			cfg.label,					// name、UIに表示
-			'SKYNovel',					// source
-			new ShellExecution(cmd),
-		);
-		switch (btn_nm) {	// タスク後処理
-			case 'SnUpd':
-			//case 'LibUpd':	// ここには来ない
-			case 'LibUpd_waited':	// Promise待ち後
-				this.hOnEndTask[cfg.label] = e=> {
-					if (e.execution.task.definition.type !== t.definition.type) {done(); return;}
-					if (e.execution.task.source !== t.source) {done(); return;}
-
-					this.updLocalSNVer(pathWs);
-					this.emPrjTD.fire(undefined);
-					done();
-				};
-				break;
-
-			case 'TaskWeb':
-			case 'TaskWebDbg':
-			case 'TaskApp':
-			case 'TaskAppDbg':	this.hOnEndTask[cfg.label] = ()=> done(); break;
-
-			case 'PackWin':
-			case 'PackWin32':
-			case 'PackMac':
-			case 'PackLinux':
-				this.hOnEndTask[cfg.label] = ()=> {
-					done();
-					window.showInformationMessage(
-						`${cfg.label} パッケージを生成しました`,
-						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
-				}
-				break;
-
-			case 'PackFreem':	this.hOnEndTask[cfg.label] = ()=> {
-				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
-				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
-				.glob('web.js', {cwd: pathWs +'/doc/'})
-				.glob('web.*.js', {cwd: pathWs +'/doc/'})
-				.glob(`${
-					prj.isCryptoMode ?Project.fldnm_crypto_prj :'prj'
-				}/**/*`, {cwd: pathWs +'/doc/'})
-				.glob('favicon.ico', {cwd: pathWs +'/doc/'});
-
-				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
-				const ws = createWriteStream(pathWs +`/build/package/${fn_out}`)
-				.on('close', ()=> {
-					done();
-					window.showInformationMessage(
-						`ふりーむ！形式で出力（${fn_out}）しました`,
-						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))})
-				});
-				arc.pipe(ws);
-				arc.finalize();	// zip圧縮実行
-			};
-				break;
-		}
-		tasks.executeTask(t)
-		.then(undefined, rj=> console.error(`fn:WorkSpaces onClickTreeItemBtn() rj:${rj.message}`));
-	}
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren = (t?: TreeItem)=> t ?(t as MyTreeItem)?.children ?? [] :this.aTiRoot;
+	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.aTiRoot;
 
 	dispose() {
 		for (const dir in this.hPrj) this.hPrj[dir].dispose();

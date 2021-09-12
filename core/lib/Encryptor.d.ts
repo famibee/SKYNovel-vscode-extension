@@ -8,6 +8,5 @@ export declare class Encryptor {
     get strHPass(): string;
     uuidv5(short_path: string): string;
     enc(s: string | lib.WordArray): string;
-    dec(data: string): string;
-    dec_utf8(data: string): string;
+    dec(s: string): string;
 }

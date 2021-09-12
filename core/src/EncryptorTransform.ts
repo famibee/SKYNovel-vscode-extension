@@ -40,17 +40,18 @@ export class EncryptorTransform extends Transform {
 		this.bh = Buffer.alloc(this.ite_buf + this.cnt_code);
 		this.bh[0] = 0;	// bin ver
 		this.bh[1] = this.hExt2N[path.extname(short_path).slice(1)] ?? 0;
-//console.log(`fn:EncryptorTransform.ts line:43 short_path:${short_path} id:${path.extname(short_path).slice(1)} new_id:${this.bh[1]}`);
+//console.log(`fn:EncryptorTransform.ts short_path:${short_path} id:${path.extname(short_path).slice(1)} new_id:${this.bh[1]}`);
 	}
 
 	override _transform(chunk: any, _enc: BufferEncoding, cb: ()=> void) {
 		if (this.cnt_code === 0) {
-/**/console.log(`fn:EncryptorTransform.ts line:49 A enc:${_enc} len:${chunk.length}`);
+//console.log(`fn:EncryptorTransform.ts A len:${chunk.length}`);
 			this.push(chunk); cb(); return;}
 
 		const len = chunk.length;
-/**/console.log(`fn:EncryptorTransform.ts line:53 B enc:${_enc} len:${len}`);
-		if (this.cnt_code > len) {
+//console.log(`fn:EncryptorTransform.ts B len:${len} cnt_code:${this.cnt_code}`);
+		if (len < this.cnt_code) {
+//console.log(`fn:EncryptorTransform.ts C ite_buf:${this.ite_buf}`);
 			this.bh.set(chunk, this.ite_buf);
 			this.ite_buf += len;
 			this.cnt_code -= len;
@@ -59,39 +60,31 @@ export class EncryptorTransform extends Transform {
 		}
 
 		this.bh.set(chunk.slice(0, this.cnt_code), this.ite_buf);
-		this.ite_buf += len;
-/**/console.log(`fn:EncryptorTransform.ts line:64 C:${(this.cnt_code === len)}`);
-		const need_after = this.cnt_code < len;
+		this.ite_buf += this.cnt_code;
+		const cnt_code = this.cnt_code;
 		this.codeArea();
-		if (need_after) this.push(chunk.slice(this.cnt_code));
-			// len -this.cnt_code
+		if (len > cnt_code) {
+//console.log(`fn:EncryptorTransform.ts a len:${len - cnt_code}`);
+			this.push(chunk.slice(cnt_code));}
 		cb();
 	}
 	override _final(cb: ()=> void) {
-/**/console.log(`fn:EncryptorTransform.ts line:72 _final`);
+//console.log(`fn:EncryptorTransform.ts _final`);
 		this.codeArea(); cb();
 	}
 	private codeArea() {
 		if (this.cnt_code === 0) return;
 		this.cnt_code = 0;
-/*
-console.log(`fn:EncryptorTransform.ts line:78   codeArea:%o`, Buffer.from(this.bh).toString('hex').slice(0, 32));
-const g0 = Array.from(this.bh.slice(0, this.ite_buf));
-console.log(`fn:EncryptorTransform.ts line:80   ite_buf:${this.ite_buf} g0.len:${g0.length}`);
-const g1 = lib.WordArray.create(g0);
-console.log(`fn:EncryptorTransform.ts line:82   g1_32:%o g1.len:${g1.words.length}`, Buffer.from(g1.words).toString('hex').slice(0, 32));
-const enc = this.encry.enc(g1);
-console.log(`fn:EncryptorTransform.ts line:84   enc:%o enc.len:${enc.length}`, enc.slice(0, 32));
-*/
-		const e = this.encry.enc(this.bh.slice(0, this.ite_buf).toString('base64'));
-const d = Buffer.from(this.encry.dec(e), 'base64');
-console.log(`fn:EncryptorTransform.ts line:88 ++ d:%o`, d.slice(0, 32));
 
-const eb = Buffer.from(e, 'binary').toString('hex');
-console.log(`fn:EncryptorTransform.ts line:91 e:%o -:%o e.length:${e.length} ite_buf:${this.ite_buf}`, eb.slice(0, 32), eb.slice(-32));
+		const e = this.encry.enc(this.bh.slice(0, this.ite_buf).toString('base64'));
+//const d = Buffer.from(this.encry.dec(e), 'base64').toString('hex');
+//console.log(`fn:EncryptorTransform.ts line:88 ++%o --%o`, d.slice(0, 32), d.slice(-32));
+
+//const eb = Buffer.from(e, 'binary').toString('hex');
+//console.log(`fn:EncryptorTransform.ts line:91 e:%o -:%o e.length:${e.length} ite_buf:${this.ite_buf}`, eb.slice(0, 32), eb.slice(-32));
 
 		const bl = Buffer.alloc(4);
-		bl.writeUInt32LE(e.length, 0);	// cripted len
+		bl.writeUInt32LE(e.length, 0);
 		this.push(bl);
 
 		this.push(e);

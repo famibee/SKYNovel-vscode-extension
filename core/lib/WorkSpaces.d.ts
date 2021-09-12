@@ -3,10 +3,6 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
     private readonly chkLastSNVer;
     private readonly aTiRoot;
-    private readonly oTiPrj;
-    private readonly aTreeTmp;
-    private readonly idxDevSnUpd;
-    private readonly idxDevCrypto;
     private hPrj;
     constructor(ctx: ExtensionContext, chkLastSNVer: () => void);
     private tiLayers;
@@ -21,11 +17,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     readonly onDidChangeTreeData: import("vscode").Event<TreeItem | undefined>;
     enableButton(enable: boolean): void;
     private makePrj;
-    private updLocalSNVer;
-    private dspCryptoMode;
     private hOnEndTask;
-    private onClickTreeItemBtn;
-    private onClickTreeItemBtn_sub;
     getTreeItem: (t: TreeItem) => TreeItem;
     getChildren: (t?: TreeItem | undefined) => TreeItem[];
     dispose(): void;

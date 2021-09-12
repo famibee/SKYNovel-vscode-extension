@@ -5,20 +5,26 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, regNoUseSysPath, IFn2Path, REG_SCRIPT, is_win} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
+import {EncryptorTransform} from './EncryptorTransform';
+import {PrjTreeItem, TREEITEM_CFG} from './PrjTreeItem';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation} from 'vscode';
-import fs = require('fs-extra');
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, TreeItemCollapsibleState, ThemeIcon, debug, env, TaskExecution} from 'vscode';
+import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
 import {lib, enc, RIPEMD160} from 'crypto-js';
 import {v4 as uuidv4} from 'uuid';
 import crc32 = require('crc-32');
-import {Transform} from 'stream';
+import archiver = require('archiver');
+import {basename, dirname} from 'path';
+import png2icons = require('png2icons');
+const {execSync} = require('child_process');
+import ncu = require('npm-check-updates');
 
 export class Project {
 	private	readonly	codSpt		: CodingSupporter;
@@ -29,8 +35,7 @@ export class Project {
 	private	readonly	curCrypto	: string;
 	private	static readonly	fld_crypto_prj	= 'crypto_prj';
 	static get fldnm_crypto_prj() {return Project.fld_crypto_prj}
-	private		$isCryptoMode	= true;
-	get isCryptoMode() {return this.$isCryptoMode;}
+	private		isCryptoMode	= true;
 	private readonly	regNeedCrypto	= /\.(sn|ssn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 	private readonly	regFullCrypto	= /\.(sn|ssn|json|html?)$/;
 	private readonly	regRepPathJson	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
@@ -64,22 +69,97 @@ export class Project {
 		cn	: string,	// ファイル名匿名化辞書
 	}}	= Object.create(null);
 
+
+	private	readonly aTreeTmp	: TREEITEM_CFG[] = [
+		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
+			npm: `npm un -S skynovel ${statBreak()
+			} npm i @famibee/skynovel@latest ${statBreak()
+			} npm run webpack:dev`},
+		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
+			npm: `npm update ${statBreak()
+			} npm run webpack:dev`},
+		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
+			npm: 'npm run rebuild'},
+		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
+		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
+		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
+			npm: 'npm run web',		exe: true,},
+		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
+			npm: 'npm run start',	exe: true,},
+		{cmd: '', icon: '',label: '生成', children: [
+			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
+			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
+					// 一パッケージに統合型、ファイルサイズ二倍になる
+			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
+			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`,
+				forMac: true,},
+			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`,
+				forMac: true,},
+				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
+					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
+			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
+				npm: `npm run webpack:pro ${statBreak()
+				} ./node_modules/.bin/electron-builder -l`},
+				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
+			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
+				npm: 'npm run webpack:pro'},
+		]},
+	];
+	private	static	readonly idxDevSnUpd	= 0;
+	private	updLocalSNVer() {}		// ローカル SKYNovel バージョン
+	private	static	readonly idxDevCrypto	= 4;
+	private	dspCryptoMode() {}		// 暗号化状態
+
+	private aTiFlat: TreeItem[]	= [];
+	enableButton(enable: boolean): void {
+		if (enable) this.aTiFlat.forEach(ti=> {
+			ti.contextValue = ti.contextValue?.trimEnd();
+			this.emPrjTD.fire(ti);
+		});	// 値を戻してボタン表示
+		else this.aTiFlat.forEach(ti=> {
+			ti.contextValue += ' ';
+			this.emPrjTD.fire(ti);
+		});	// 値を壊してボタン消去
+	}
+
+
 	private readonly pathWs: string;
-	constructor(private readonly ctx: ExtensionContext, private readonly wsFld: WorkspaceFolder, readonly chgTitle: (title: string)=> void) {
+	constructor(private readonly ctx: ExtensionContext, private readonly chkLastSNVer: ()=> void, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}) {
 		this.pathWs = wsFld.uri.fsPath;
 		this.curPrj = this.pathWs +'/doc/prj/';
 		this.codSpt = new CodingSupporter(ctx, this.pathWs, this.curPrj);
 
 		this.curPlg = this.pathWs +'/core/plugin/';
-		fs.ensureDirSync(this.curPlg);	// 無ければ作る
-		if (fs.existsSync(this.pathWs +'/node_modules')) this.updPlugin();
+		ensureDirSync(this.curPlg);	// 無ければ作る
+		if (existsSync(this.pathWs +'/node_modules')) this.updPlugin();
 		else {
 			this.initTask();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
-		this.lenCurPrj = this.curPrj.length;
-		this.updPathJson();
+		const existPkgJS = existsSync(this.pathWs +'/package.json');
+		const isPrjValid = existPkgJS && existsSync(this.pathWs +'/doc/prj/prj.json');
+		const pti = new PrjTreeItem({
+			cmd		: '',
+			icon	: '',
+			label	: '',
+			desc	: wsFld.name,
+			children: isPrjValid ? this.aTreeTmp : [{
+				cmd		: '',
+				icon	: 'warn',
+				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
+			}],
+		}, this.pathWs, this.ctx, (ti, btn_nm, cfg)=> this.onClickTreeItemBtn(wsFld, ti, btn_nm, cfg));
+		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
+		aTiRoot.push(pti);
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
 		// というか core/plugin/plugin.js自動更新機能
@@ -104,9 +184,6 @@ export class Project {
 				if (REG_SCRIPT.test(uri.path)) this.codSpt.crePrj(uri);
 			}),
 			fwPrj.onDidChange(uri=> {
-				// エディタで開いたファイルは更新監視をしない。文字変更イベントで処理する
-				if (workspace.textDocuments.find(td=> td.uri.path === uri.path)) return;
-
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.chgPrj(uri);
@@ -129,11 +206,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		];
 
 		this.curCrypto = this.pathWs +`/doc/${Project.fld_crypto_prj}/`;
-		this.$isCryptoMode = fs.existsSync(this.curCrypto);
+		this.isCryptoMode = existsSync(this.curCrypto);
 		const fnPass = this.curPlg +'pass.json';
-		const exists_pass = fs.existsSync(fnPass);
+		const exists_pass = existsSync(fnPass);
 		this.encry = new Encryptor(exists_pass
-			? fs.readJsonSync(fnPass, {throws: false})
+			? readJsonSync(fnPass, {throws: false})
 			: {
 				pass	: uuidv4(),
 				salt	: String(lib.WordArray.random(128 / 8)),
@@ -142,21 +219,287 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				ite		: 500 + Math.floor(new Date().getTime() %300),
 				stk		: String(lib.WordArray.random(128 / 8)),
 			});
-		if (! exists_pass) fs.outputFileSync(fnPass, this.encry.strHPass);
+		if (! exists_pass) outputFileSync(fnPass, this.encry.strHPass);
 
 		try {
 			this.fnDiff = this.pathWs +'/core/diff.json';
-			if (fs.existsSync(this.fnDiff)) this.hDiff = fs.readJsonSync(this.fnDiff);
+			if (existsSync(this.fnDiff)) this.hDiff = readJsonSync(this.fnDiff);
 		} catch (e) {
 			// diff破損対策
 			this.hDiff = Object.create(null);
 		}
-		this.ps = new PrjSetting(ctx, wsFld, chgTitle, this.codSpt, (path: string, extptn = '')=> this.searchPath(path, extptn));
+		this.ps = new PrjSetting(ctx, wsFld, title=> {
+			pti.label = title;
+			this.emPrjTD.fire(pti);
+		}, this.codSpt, (path: string, extptn = '')=> this.searchPath(path, extptn));
 		this.initCrypto();
+
+		const aTi = pti.children;
+		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
+		this.aTiFlat = [...aTi.slice(0, -1), ...aC];
+		this.updLocalSNVer = ()=> {
+			const o = readJsonSync(this.pathWs +'/package.json');
+			const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
+			aTi[Project.idxDevSnUpd].description = localVer ?`-- ${localVer}` :'取得できません';
+	
+			this.emPrjTD.fire(pti);
+		};
+		this.updLocalSNVer();
+
+		this.dspCryptoMode = ()=> aTi[Project.idxDevCrypto].description = `-- ${this.isCryptoMode ?'する' :'しない'}`;
+		this.dspCryptoMode();
+
+		this.lenCurPrj = this.curPrj.length;
+		this.updPathJson();
 	}
 
+	private	readonly	hPush2BtnEnable	: {[btn_nm: string]: string[]}	= {
+	'TaskWeb'		: ['_off', '_off', '_off', '_off', '_off', 'Stop', '_off',
+						'_off', '_off', '_off', '_off', '_off', '_off'],
+	'TaskWebDbg'	: ['_off', '_off', '_off', '_off', '_off', 'Stop', '_off',
+						'_off', '_off', '_off', '_off', '_off', '_off'],
+	'TaskWebStop'	: ['', '', '', '', '', '', '',
+						'', '', '', '', '', ''],
+	'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+						'_off', '_off', '_off', '_off', '_off', '_off'],
+	'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+						'_off', '_off', '_off', '_off', '_off', '_off'],
+	'TaskAppDbgStop': ['', '', '', '', '', '', '',
+						'', '', '', '', '', ''],
+	};
+	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
+		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
+
+		// 値を壊してボタン消去など
+		const aBtnEnable = this.hPush2BtnEnable[btn_nm]
+		?? ['_off', '_off', '_off', '_off', '_off', '_off', '_off',
+			'_off', '_off', '_off', '_off', '_off', '_off'];
+		this.aTiFlat.forEach((ti, i)=> {
+			ti.contextValue += aBtnEnable[i];
+			this.emPrjTD.fire(ti);
+		});
+
+		window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: String(ti.label) ?? '',
+			cancellable	: false
+		}, prg=> new Promise(async done=> {
+			const iconPath = ti.iconPath;
+			ti.iconPath = new ThemeIcon('sync~spin');
+
+			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, (timeout = 4000)=> {
+				if (btn_nm.slice(-4) !== 'Stop') {
+					ti.iconPath = iconPath;
+
+					this.aTiFlat.forEach(ti=> {
+						ti.contextValue = ti.contextValue?.slice(0, -4);
+						this.emPrjTD.fire(ti);
+					});	// 値を戻してボタン表示
+				}
+
+				prg.report({message: '完了', increment: 100});
+				setTimeout(()=> done(0), timeout);
+			})
+		}));
+	}
+	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
+		const pathWs = wsFld.uri.fsPath;
+		let cmd = `cd "${pathWs}" ${statBreak()} `;
+		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
+
+		// メイン処理
+		if (cfg.npm) cmd += cfg.npm
+			.replace(/\${prj.title}/g, this.title)
+			.replace(/\${prj.version}/g, this.version);
+		switch (btn_nm) {	// タスク前処理
+			case 'SnUpd':	this.chkLastSNVer();	break;
+			case 'LibUpd':
+				ncu.run({
+					packageFile: pathWs +'/package.json',
+					// Defaults:
+					// jsonUpgraded: true,
+					// silent: true,
+					upgrade: true,
+					target: 'minor',
+				})		// ncu -u --target minor
+				.then(()=> this.onClickTreeItemBtn_sub(wsFld, ti, 'LibUpd_waited', cfg, done));
+				return;
+			case 'LibUpd_waited':	break;	// Promise待ち後
+
+			case 'PrjSet':	this.openPrjSetting();	done(0);	return;
+			case 'Crypto':
+				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
+				.then(a=> {
+					if (a !== 'はい') {done(0); return;}
+
+					this.tglCryptoMode();
+					this.dspCryptoMode();
+					this.emPrjTD.fire(ti);
+					done();
+				});
+				return;
+
+			case 'TaskWebDbg':
+				debug.startDebugging(wsFld, 'webデバッグ'); return;
+
+			case 'TaskWebStop':
+				this.hTaskExecution['TaskWeb']?.terminate();
+				delete this.hTaskExecution['TaskWeb'];
+				this.hTaskExecution['TaskWebDbg']?.terminate();
+				delete this.hTaskExecution['TaskWebDbg'];
+				done();
+				return;
+
+			case 'TaskAppDbg':
+				debug.startDebugging(wsFld, 'appデバッグ'); return;
+
+			case 'TaskAppStop':
+				this.hTaskExecution['TaskApp']?.terminate();
+				delete this.hTaskExecution['TaskApp'];
+				this.hTaskExecution['TaskAppDbg']?.terminate();
+				delete this.hTaskExecution['TaskAppDbg'];
+				done();
+				return;
+
+			case 'PackFreem':
+				let find_ng = false;
+				treeProc(pathWs +'/doc/prj', url=> {
+					if (find_ng || url.slice(-4) !== '.svg') return;
+
+					find_ng = true;
+					window.showErrorMessage(
+						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
+					)
+					.then(a=> {switch (a) {
+						case 'フォルダを開く':
+							env.openExternal(Uri.file(dirname(url)));	break;
+						case 'Online Converter':
+							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
+							break;
+					}});
+				});
+				if (find_ng) {done(); return;}
+				break;
+		}
+
+		// アイコン生成
+		switch (btn_nm) {
+			case 'TaskWeb':
+			case 'TaskApp':
+			case 'PackWin':
+			case 'PackWin32':
+			case 'PackMac':
+			case 'PackLinux':
+				const fnIcon = pathWs +'/build/icon.png';
+				if (! existsSync(fnIcon)) break;
+
+				const mtPng = statSync(fnIcon).mtimeMs;
+				const bIconPng = readFileSync(fnIcon);
+				ensureDirSync(pathWs +'/build/icon/');
+				//png2icons.setLogger(console.log);
+			{
+				const fn = pathWs +'/build/icon/icon.icns';
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
+					if (b) writeFileSync(fn, b);
+				}
+			}
+			{
+				const fn = pathWs +'/build/icon/icon.ico';
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
+					if (b) writeFileSync(fn, b);
+				}
+			}
+				break;
+		}
+
+		// Windowsでの PowerShell スクリプト実行ポリシーについて警告
+		switch (btn_nm) {
+			case 'PackWin':
+			case 'PackWin32':
+				if (! is_win) break;
+				if (! /(Restricted|AllSigned)/.test(
+					execSync('PowerShell Get-ExecutionPolicy'))) break;
+
+				done();
+				window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
+				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
+				return;
+		}
+
+		const t = new Task(
+			{type: 'SKYNovel '+ btn_nm},	// definition（タスクの一意性）
+			wsFld,
+			cfg.label,					// name、UIに表示
+			'SKYNovel',					// source
+			new ShellExecution(cmd),
+		);
+		this.hOnEndTask[btn_nm] = ()=> done();
+		switch (btn_nm) {	// タスク後処理
+			case 'SnUpd':
+			//case 'LibUpd':	// ここには来ない
+			case 'LibUpd_waited':	// Promise待ち後
+				this.hOnEndTask[btn_nm] = e=> {
+					if (e.execution.task.definition.type !== t.definition.type) {done(); return;}
+					if (e.execution.task.source !== t.source) {done(); return;}
+
+					this.updLocalSNVer();
+					this.emPrjTD.fire(undefined);
+					done();
+				};
+				break;
+
+			case 'PackWin':
+			case 'PackWin32':
+			case 'PackMac':
+			case 'PackLinux':	this.hOnEndTask[btn_nm] = ()=> {
+				done();
+				window.showInformationMessage(
+					`${cfg.label} パッケージを生成しました`,
+					'出力フォルダを開く',
+				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
+			};
+				break;
+
+			case 'PackFreem':	this.hOnEndTask[btn_nm] = ()=> {
+				const arc = archiver.create('zip', {zlib: {level: 9},})
+				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
+				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.glob('web.js', {cwd: pathWs +'/doc/'})
+				.glob('web.*.js', {cwd: pathWs +'/doc/'})
+				.glob(`${
+					this.isCryptoMode ?Project.fldnm_crypto_prj :'prj'
+				}/**/*`, {cwd: pathWs +'/doc/'})
+				.glob('favicon.ico', {cwd: pathWs +'/doc/'});
+
+				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
+				const ws = createWriteStream(pathWs +`/build/package/${fn_out}`)
+				.on('close', ()=> {
+					done();
+					window.showInformationMessage(
+						`ふりーむ！形式で出力（${fn_out}）しました`,
+						'出力フォルダを開く',
+					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))})
+				});
+				arc.pipe(ws);
+				arc.finalize();	// zip圧縮実行
+			};
+				break;
+		}
+		tasks.executeTask(t)
+		.then(
+			re=> this.hTaskExecution[btn_nm] = re,
+			rj=> console.error(`fn:WorkSpaces onClickTreeItemBtn() rj:${rj.message}`)
+		);
+	}
+	private	hTaskExecution: {[btn_nm: string]: TaskExecution}	= {};
+
+
 	private	readonly	ps: PrjSetting;
-	openPrjSetting() {this.ps.open();}
+	private	openPrjSetting() {this.ps.open();}
 	get title() {return this.ps.cfg.book.title}
 	get version() {return this.ps.cfg.book.version}
 
@@ -168,7 +511,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	private	delPrj(e: Uri) {
 		const short_path = e.path.slice(this.lenCurPrj);
 		this.regNeedCrypto.lastIndex = 0;
-		fs.removeSync(
+		removeSync(
 			this.curCrypto + short_path
 			.replace(this.regRepPathJson, '.bin')
 			.replace(/"/, '')
@@ -181,17 +524,17 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 	// プロジェクトフォルダ以下全走査で暗号化
 	private initCrypto() {
-		const fnc: (url: string)=> void = this.$isCryptoMode
+		const fnc: (url: string)=> void = this.isCryptoMode
 			? url=> {if (this.isDiff(url)) this.encrypter(url)}
 			: url=> this.isDiff(url);
 		treeProc(this.curPrj, fnc);
 		this.updDiffJson();
 	}
 	private	encIfNeeded(url: string) {
-		if (this.$isCryptoMode && this.isDiff(url)) this.encrypter(url);
+		if (this.isCryptoMode && this.isDiff(url)) this.encrypter(url);
 		this.updDiffJson();
 	}
-	private	updDiffJson() {fs.writeJsonSync(this.fnDiff, this.hDiff);}
+	private	updDiffJson() {writeJsonSync(this.fnDiff, this.hDiff);}
 	private	readonly	LEN_CHKDIFF		= 1024;
 	private	isDiff(url: string): boolean {
 		const short_path = url.slice(this.lenCurPrj);
@@ -199,18 +542,18 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		if (diff) {
 			const url_c = url
 			.replace(/\/prj\/.+$/, `/${Project.fld_crypto_prj}/${diff.cn}`)
-			if (! fs.existsSync(url_c)) return true;
+			if (! existsSync(url_c)) return true;
 		}
 
 		let hash = 0;
 		if (this.regFullCrypto.test(url)) {
-			hash = crc32.str(fs.readFileSync(url, {encoding: 'utf8'}));
+			hash = crc32.str(readFileSync(url, {encoding: 'utf8'}));
 		}
 		else {
 			const b = new Uint8Array(this.LEN_CHKDIFF);
-			const fd = fs.openSync(url, 'r');
-			fs.readSync(fd, b, 0, this.LEN_CHKDIFF, 0);
-			fs.closeSync(fd);
+			const fd = openSync(url, 'r');
+			readSync(fd, b, 0, this.LEN_CHKDIFF, 0);
+			closeSync(fd);
 			hash = crc32.buf(b);
 		}
 		if (diff?.hash === hash) return false;
@@ -234,13 +577,13 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		'core/app4webpack.js',
 		'core/web4webpack.js',
 	];
-	tglCryptoMode() {
+	private	tglCryptoMode() {
 		const pathPre = this.curPlg +'snsys_pre';
-		this.$isCryptoMode = ! this.$isCryptoMode;
-		if (! this.$isCryptoMode) {
-			fs.removeSync(this.curCrypto);
+		this.isCryptoMode = ! this.isCryptoMode;
+		if (! this.isCryptoMode) {
+			removeSync(this.curCrypto);
 
-			fs.removeSync(pathPre);
+			removeSync(pathPre);
 
 			// SKYNovelが見に行くプロジェクトフォルダ名変更
 			this.aRepl.forEach(url=> replaceFile(
@@ -259,7 +602,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			return;
 		}
 
-		fs.ensureDir(this.curCrypto);
+		ensureDir(this.curCrypto);
 
 		// SKYNovelが見に行くプロジェクトフォルダ名変更
 		this.aRepl.forEach(url=> replaceFile(
@@ -277,8 +620,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		// プラグインソースに埋め込む
 		replaceFile(
-			this.ctx.extensionPath +`/res/snsys_pre/index.js`,
-			/{ite:0}/,
+			this.ctx.extensionPath +`/core/lib/snsys_pre.js`,
+			/hSN\.tstDecryptInfo\(\)/,
 			this.encry.strHPass,
 			pathPre +'/index.js',
 		);
@@ -289,12 +632,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 	private	static	readonly LEN_ENC	= 1024 *10;
 	private			readonly regDir = /(^.+)\//;
-	private	async encrypter(url: string) {
+	private	async encrypter(path_src: string) {
 		try {
-			const short_path = url.slice(this.lenCurPrj);
-			const url_out = this.curCrypto + this.hDiff[short_path].cn;
-			if (! this.regNeedCrypto.test(url)) {
-				fs.ensureLink(url, url_out);
+			const short_path = path_src.slice(this.lenCurPrj);
+			const path_enc = this.curCrypto + this.hDiff[short_path].cn;
+			if (! this.regNeedCrypto.test(path_src)) {
+				ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
@@ -302,7 +645,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			}
 
 			if (this.regFullCrypto.test(short_path)) {
-				let s = await fs.readFile(url, {encoding: 'utf8'});
+				let s = await readFile(path_src, {encoding: 'utf8'});
 				if (short_path === 'path.json') {	// 内容も変更
 					// ファイル名匿名化
 					const hPath: IFn2Path = JSON.parse(s);
@@ -320,13 +663,13 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					}
 					s = JSON.stringify(hPath);
 				}
-				await fs.outputFile(url_out, this.encry.enc(s));
+				await outputFile(path_enc, this.encry.enc(s));
 				return;
 			}
 
 			const dir = this.regDir.exec(short_path);
 			if (dir && this.ps.cfg.code[dir[1]]) {
-				fs.ensureLink(url, url_out);
+				ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
@@ -339,60 +682,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			bh[0] = 0;	// bin ver
 			bh[1] = this.hExt2N[path.extname(short_path).slice(1)] ?? 0;
 
-			const rs = fs.createReadStream(url)
+			const rs = createReadStream(path_src)
 			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
 
-			const u2 = url_out.replace(/\.[^.]+$/, '.bin');
-			fs.ensureFileSync(u2);	// touch
-			const ws = fs.createWriteStream(u2)
+			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
+			ensureFileSync(u2);	// touch
+			const ws = createWriteStream(u2)
 			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
 
-			const tr = new Transform({transform: (chunk, _enc, cb)=> {
-				if (cnt_code === 0) {cb(null, chunk); return;}
-
-				const len = chunk.length;
-				if (cnt_code > len) {
-					bh.set(chunk, ite_buf);
-					ite_buf += len;
-					cnt_code -= len;
-					cb(null);
-					return;
-				}
-
-				bh.set(chunk.slice(0, cnt_code), ite_buf);
-				const e = Buffer.from(
-					this.encry.enc(lib.WordArray.create(Array.from(bh))), 'base64'
-				); // atob(e6)
-
-				const bl = Buffer.alloc(4);
-				bl.writeUInt32LE(e.length, 0);	// cripted len
-				tr.push(bl);
-
-				tr.push(e);
-
-				cb(null, (cnt_code === len) ?null :chunk.slice(cnt_code));
-				cnt_code = 0;
-			}})
-			.on('end', ()=> {
-				if (cnt_code === 0) return;
-
-					// 暗号化のたびに復号化テストする？
-					// 暗号化でレポートテキストを吐くようにする？
-						// （処理だけコメントアウトで残しても良さげ）
-				const e = Buffer.from(
-					this.encry.enc(
-						lib.WordArray.create(Array.from(bh.slice(0, ite_buf)))
-					),
-					'base64'
-				); // atob(e6)
-
-				const bl = Buffer.alloc(4);
-				bl.writeUInt32LE(e.length, 0);	// cripted len
-				ws.write(bl);
-
-				ws.write(e);
-			});
-
+			const tr = new EncryptorTransform(this.encry, path_src);
 			rs.pipe(tr).pipe(ws);
 		}
 		catch (e) {console.error(`encrypter other ${e.message}`);}
@@ -401,7 +699,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 	private	readonly	regPlgAddTag = /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	private	updPlugin() {
-		if (! fs.existsSync(this.curPlg)) return;
+		if (! existsSync(this.curPlg)) return;
 
 		const h4json: {[def_nm: string]: number} = {};
 		const hDefPlg: {[def_nm: string]: Location} = {};
@@ -409,9 +707,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			h4json[nm] = 0;
 
 			const path = `${this.curPlg}${nm}/index.js`;
-			if (! fs.existsSync(path)) return;
+			if (! existsSync(path)) return;
 
-			const txt = fs.readFileSync(path, 'utf8');
+			const txt = readFileSync(path, 'utf8');
 			let a;
 			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
 			while ((a = this.regPlgAddTag.exec(txt))) {
@@ -432,7 +730,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		});
 		this.codSpt.setHDefPlg(hDefPlg);
 
-		fs.outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
+		outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(()=> this.initTask())
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
@@ -443,7 +741,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは WorkSpaces.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
-		if (! fs.existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+		if (! existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 		cmd += 'npm run webpack:dev';
 		const type = 'SKYNovel auto';
 		const name = '起動時自動ビルド';
@@ -455,6 +753,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			new ShellExecution(cmd),
 		);
 
+		this.enableButton(false);
 		window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: name,
@@ -466,6 +765,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			let fnc = (e: TaskProcessEndEvent)=> {
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
+				this.enableButton(true);
 				done(0);
 			};
 			tasks.onDidEndTaskProcess(e=> fnc(e));
@@ -481,9 +781,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	private	async updPathJson() {
 		try {
 			this.hPathFn2Exts = this.get_hPathFn2Exts(this.curPrj);
-			await fs.outputJson(this.curPrj +'path.json', this.hPathFn2Exts);
+			await outputJson(this.curPrj +'path.json', this.hPathFn2Exts);
 			this.codSpt.updPath(this.hPathFn2Exts);
-			if (this.$isCryptoMode) this.encrypter(this.curPrj +'path.json');
+			if (this.isCryptoMode) this.encrypter(this.curPrj +'path.json');
 		}
 		catch (err) {console.error(`Project updPathJson ${err}`);}
 	}
@@ -507,7 +807,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 				const a2 = nm.match(this.regNeedHash);
 				if (a2) {
-					const s = fs.readFileSync(url, {encoding: 'utf8'});
+					const s = readFileSync(url, {encoding: 'utf8'});
 					const h = RIPEMD160(s).toString(enc.Hex);
 					const snm = nm.slice(0, -a2[0].length);
 					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
@@ -516,7 +816,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				if (! a) return;
 
 				const fnJs = path.resolve(wd, a[1] +'.json');
-				if (fs.existsSync(fnJs)) return;
+				if (existsSync(fnJs)) return;
 
 				const size = img_size(url);
 				const xLen = uint(a[2]);
@@ -552,7 +852,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						};
 					}
 				}
-				fs.writeFileSync(fnJs, JSON.stringify(oJs));
+				writeFileSync(fnJs, JSON.stringify(oJs));
 				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
 
 				this.addPath(hFn2Path, dir, `${a[1]}.json`);
@@ -581,7 +881,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				const id = Number(selected.label.slice(0, 1));
 				const fn = this.curPrj + (id === 1 ?hExts[ext] :dir +'/'+ nm);
 				window.showInformationMessage(`${fn} を削除しますか？`, {modal: true}, 'はい')
-				.then(a=> {if (a === 'はい') fs.removeSync(fn);});
+				.then(a=> {if (a === 'はい') removeSync(fn);});
 			});
 			return;
 		}

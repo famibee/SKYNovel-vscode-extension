@@ -140,7 +140,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private chkLastSNVer() {
 		fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
 		.then(res=> res.json())
-		.then(json=> {
+		.then((json: any)=> {
 			const newVer = json.version;
 			const tiSV = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
 			tiSV.description = '-- ' + newVer;

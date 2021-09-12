@@ -36,17 +36,16 @@ export interface ITag {
 export interface ILayerFactory {
     (): any;
 }
+export declare type PLUGIN_PRE_RET = {
+    ret: string;
+    ext_num: number;
+};
 export declare type IPluginInitArg = {
-    addTag(tag_name: string, tag_fnc: ITag): void;
-    addLayCls(cls: string, fnc: ILayerFactory): void;
-    searchPath(fn: string, extptn?: string): string;
-    getVal(arg_name: string, def?: number | string): object;
-    resume(fnc?: () => void): void;
-    render(dsp: any, renTx?: any, clear?: boolean): void;
-    setPre(fnc: (ext: string, data: string) => Promise<string>): void;
-    setEnc(fnc: (data: string) => Promise<string>): void;
+    setDec(fnc: (ext: string, d: string | ArrayBuffer) => PLUGIN_PRE_RET): void;
+    setEnc(fnc: (d: string) => string): void;
     getStK(fnc: () => string): void;
     getHash(fnc: (data: string) => string): void;
+    tstDecryptInfo(): IDecryptInfo;
 };
 export declare type IDecryptInfo = {
     pass: string;

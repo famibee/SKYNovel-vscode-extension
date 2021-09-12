@@ -9,11 +9,19 @@ import assert = require('power-assert');
 
 import {Encryptor} from '../core/src/Encryptor';
 import {EncryptorTransform} from '../core/src/EncryptorTransform';
-import {IPluginInitArg, ITag, ILayerFactory} from '../core/src/CmnLib';
+import {IPluginInitArg, PLUGIN_PRE_RET} from '../core/src/CmnLib';
 import {readFileSync, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
 
 context('class Encryptor', ()=> {
 	let	encry: Encryptor;
+	const infDecrypt = {
+		pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
+		salt	: '70a7c0b81cc31a8849cacdab8ed90163',
+		iv		: '493f19a60e5f03f55576a98bfc892a13',
+		keySize	: 16,
+		ite		: 513,
+		stk		: '3d01197ce022b188696791cf903cd197',
+	};
 
 	beforeEach(()=> {
 		encry = new Encryptor({
@@ -81,27 +89,23 @@ context('class Encryptor', ()=> {
 `);
 
 			(async ()=> {
+	try {
 				// 復号化（本番方式）
-				let fncDec: (ext: string, data: string)=> Promise<string>
-					= (_, _2)=> Promise.resolve('');
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
 				const hSN: IPluginInitArg = {
-					addTag(_: string, _2: ITag) {},
-					addLayCls(_: string, _2: ILayerFactory) {},
-					searchPath(_: string, _2?: string): string {return ''},
-					getVal(_: string, _2?: number | string): object {return {}},
-					resume(_?: ()=> void) {},
-					render(_: any, _2?: any, _3?: boolean) {},
-					setPre(fnc: (ext: string, data: string)=> Promise<string>) {fncDec = fnc;},
-					setEnc(_: (data: string)=> Promise<string>) {},
-					getStK(_: ()=> string) {},
-					getHash(_: (data: string)=> string) {},
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
 				};
-				const {init} = await import('../res/snsys_pre');
+				const {init} = await import('../core/src/snsys_pre');
 				await init(hSN);
 
-				const pre = await fncDec('json', enc);
-				const preUtf8 = Buffer.from(pre).toString('utf8');
-	try {
+				const {ret, ext_num} = fncDec('json', enc);
+				assert.equal(ext_num, 0);	// other
+				const preUtf8 = Buffer.from(ret).toString('utf8');
+
 				assert.equal(src.length, preUtf8.length);
 				assert.equal(src, preUtf8);
 				assert.equal(preUtf8, `{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
@@ -112,6 +116,7 @@ context('class Encryptor', ()=> {
 			})();
 		});
 
+		// B,C
 		it('wood04_mp3_stream_transform', done=> {
 			// 暗号化
 			const path_src = 'test/mat/wood04.mp3';
@@ -119,8 +124,6 @@ context('class Encryptor', ()=> {
 			assert.equal(stt.size, 3995);	// ファイルサイズ
 
 			const srcH = readFileSync(path_src, {encoding: 'hex'});
-			const srcH32 = srcH.slice(0, 32);
-			assert.equal(srcH32, '49443303000000000061434f4d4d0000');
 
 			const rs = createReadStream(path_src)
 			.on('error', e=> console.error(`encrypter rs=%o`, e));
@@ -134,28 +137,24 @@ context('class Encryptor', ()=> {
 				const stt_bin = statSync(path_enc);
 				assert.equal(stt_bin.size, 7132);	// ファイルサイズ
 
+	try {
 				// 復号化
-				let fncDec: (ext: string, data: string)=> Promise<string>
-					= (_, _2)=> Promise.resolve('');
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
 				const hSN: IPluginInitArg = {
-					addTag(_: string, _2: ITag) {},
-					addLayCls(_: string, _2: ILayerFactory) {},
-					searchPath(_: string, _2?: string): string {return ''},
-					getVal(_: string, _2?: number | string): object {return {}},
-					resume(_?: ()=> void) {},
-					render(_: any, _2?: any, _3?: boolean) {},
-					setPre(fnc: (ext: string, data: string)=> Promise<string>) {fncDec = fnc;},
-					setEnc(_: (data: string)=> Promise<string>) {},
-					getStK(_: ()=> string) {},
-					getHash(_: (data: string)=> string) {},
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
 				};
-				const {init} = await import('../res/snsys_pre');
+				const {init} = await import('../core/src/snsys_pre');
 				await init(hSN);
 
-				const enc = readFileSync(path_enc, {encoding: 'binary'});
-				const pre = await fncDec('bin', enc);
-				const preH = Buffer.from(pre).toString('hex');
-	try {
+				const encAB = readFileSync(path_enc).buffer;
+				const {ret, ext_num} = fncDec('bin', encAB);
+				assert.equal(ext_num, 10);	// mp3
+				const preH = Buffer.from(ret).toString('hex');
+
 				assert.equal(srcH.length, preH.length);
 				assert.equal(srcH, preH);
 				assert.equal(preH.slice(0, 32), '49443303000000000061434f4d4d0000');
@@ -170,7 +169,7 @@ context('class Encryptor', ()=> {
 			rs.pipe(tr).pipe(ws);
 		});
 
-/*
+		// B,a,A*n
 		it('free0509_mp3_stream_transform', done=> {
 			// 暗号化
 			const path_src = 'test/mat/free0509.mp3';
@@ -178,9 +177,6 @@ context('class Encryptor', ()=> {
 			assert.equal(stt.size, 1796953);	// ファイルサイズ
 
 			const srcH = readFileSync(path_src, {encoding: 'hex'});
-			const srcH32 = srcH.slice(0, 32);
-			assert.equal(srcH32, '49443303000000001000544954320000');
-//			assert.equal(srcH32, '49443303000000000061434f4d4d0000');
 
 			const rs = createReadStream(path_src)
 			.on('error', e=> console.error(`encrypter rs=%o`, e));
@@ -189,35 +185,29 @@ context('class Encryptor', ()=> {
 			ensureFileSync(path_enc);	// touch
 			const ws = createWriteStream(path_enc)
 			.on('close', async ()=> {
-//				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '10a000006e42cd2dca81253d95f72609');
+				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '2c4700005a2b6f2f6f6d34514f744832');
 
-//				const stt_bin = statSync(path_enc);
-//console.log(`fn:Encryptor.test.ts line:197 stt_bin:${stt_bin.size}`);
-//				assert.equal(stt_bin.size, 1837933);	// ファイルサイズ
+				const stt_bin = statSync(path_enc);
+				assert.equal(stt_bin.size, 1804937);	// ファイルサイズ
 
+	try {
 				// 復号化
-				let fncDec: (ext: string, data: string)=> Promise<string>
-					= (_, _2)=> Promise.resolve('');
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
 				const hSN: IPluginInitArg = {
-					addTag(_: string, _2: ITag) {},
-					addLayCls(_: string, _2: ILayerFactory) {},
-					searchPath(_: string, _2?: string): string {return ''},
-					getVal(_: string, _2?: number | string): object {return {}},
-					resume(_?: ()=> void) {},
-					render(_: any, _2?: any, _3?: boolean) {},
-					setPre(fnc: (ext: string, data: string)=> Promise<string>) {fncDec = fnc;},
-					setEnc(_: (data: string)=> Promise<string>) {},
-					getStK(_: ()=> string) {},
-					getHash(_: (data: string)=> string) {},
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
 				};
-				const {init} = await import('../res/snsys_pre');
+				const {init} = await import('../core/src/snsys_pre');
 				await init(hSN);
 
-				const enc = readFileSync(path_enc, {encoding: 'binary'});
-console.log(`fn:Encryptor.test.ts line:218 PRE`);
-				const pre = await fncDec('bin', enc);
-				const preH = Buffer.from(pre).toString('hex');
-	try {
+				const encAB = readFileSync(path_enc).buffer;
+				const {ret, ext_num} = fncDec('bin', encAB);
+				assert.equal(ext_num, 10);	// mp3
+				const preH = Buffer.from(ret).toString('hex');
+
 				assert.equal(srcH.length, preH.length);
 				assert.equal(srcH, preH);
 				assert.equal(preH.slice(0, 32), '49443303000000001000544954320000');
@@ -231,7 +221,165 @@ console.log(`fn:Encryptor.test.ts line:218 PRE`);
 			const tr = new EncryptorTransform(encry, path_src);
 			rs.pipe(tr).pipe(ws);
 		});
-*/
+
+		// B,a
+		it('_yesno_png_stream_transform', done=> {
+			// 暗号化
+			const path_src = 'test/mat/_yesno.png';
+			const stt = statSync(path_src);
+			assert.equal(stt.size, 18722);	// ファイルサイズ
+
+			const srcH = readFileSync(path_src, {encoding: 'hex'});
+
+			const rs = createReadStream(path_src)
+			.on('error', e=> console.error(`encrypter rs=%o`, e));
+
+			const path_enc = 'test/mat/_yesno.bin';
+			ensureFileSync(path_enc);	// touch
+			const ws = createWriteStream(path_enc)
+			.on('close', async ()=> {
+				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '2c47000043434a786f736c6d55644979');
+
+				const stt_bin = statSync(path_enc);
+				assert.equal(stt_bin.size, 26706);	// ファイルサイズ
+
+	try {
+				// 復号化
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+				const hSN: IPluginInitArg = {
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
+				};
+				const {init} = await import('../core/src/snsys_pre');
+				await init(hSN);
+
+				const encAB = readFileSync(path_enc).buffer;
+				const {ret, ext_num} = fncDec('bin', encAB);
+				assert.equal(ext_num, 2);	// png
+				const preH = Buffer.from(ret).toString('hex');
+
+				assert.equal(srcH.length, preH.length);
+				assert.equal(srcH, preH);
+				assert.equal(preH.slice(0, 32), '89504e470d0a1a0a0000000d49484452');
+				assert.equal(preH.slice(-32), '53f9df960000000049454e44ae426082');
+
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
+				done();
+			})
+			.on('error', e=> console.error(`encrypter ws=%o`, e));
+
+			const tr = new EncryptorTransform(encry, path_src);
+			rs.pipe(tr).pipe(ws);
+		});
+
+		// B,a,A*n
+		it('title_jpg_stream_transform', done=> {
+			// 暗号化
+			const path_src = 'test/mat/title.jpg';
+			const stt = statSync(path_src);
+			assert.equal(stt.size, 406121);	// ファイルサイズ
+
+			const srcH = readFileSync(path_src, {encoding: 'hex'});
+
+			const rs = createReadStream(path_src)
+			.on('error', e=> console.error(`encrypter rs=%o`, e));
+
+			const path_enc = 'test/mat/title.bin';
+			ensureFileSync(path_enc);	// touch
+			const ws = createWriteStream(path_enc)
+			.on('close', async ()=> {
+				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '2c4700006f5672344c6f6b36456b744f');
+
+				const stt_bin = statSync(path_enc);
+				assert.equal(stt_bin.size, 414105);	// ファイルサイズ
+
+	try {
+				// 復号化
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+				const hSN: IPluginInitArg = {
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
+				};
+				const {init} = await import('../core/src/snsys_pre');
+				await init(hSN);
+
+				const encAB = readFileSync(path_enc).buffer;
+				const {ret, ext_num} = fncDec('bin', encAB);
+				assert.equal(ext_num, 1);	// jpeg
+				const preH = Buffer.from(ret).toString('hex');
+
+				assert.equal(srcH.length, preH.length);
+				assert.equal(srcH, preH);
+				assert.equal(preH.slice(0, 32), 'ffd8ffe000104a464946000102010048');
+				assert.equal(preH.slice(-32), '211a108d084684234211a108d085ffd9');
+
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
+				done();
+			})
+			.on('error', e=> console.error(`encrypter ws=%o`, e));
+
+			const tr = new EncryptorTransform(encry, path_src);
+			rs.pipe(tr).pipe(ws);
+		});
+
+		// B,a,A*n
+		it('nc10889_mp4_stream_transform', done=> {
+			// 暗号化
+			const path_src = 'test/mat/nc10889.mp4';
+			const stt = statSync(path_src);
+			assert.equal(stt.size, 369411);	// ファイルサイズ
+
+			const srcH = readFileSync(path_src, {encoding: 'hex'});
+
+			const rs = createReadStream(path_src)
+			.on('error', e=> console.error(`encrypter rs=%o`, e));
+
+			const path_enc = 'test/mat/nc10889.bin';
+			ensureFileSync(path_enc);	// touch
+			const ws = createWriteStream(path_enc)
+			.on('close', async ()=> {
+				assert.equal(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32), '2c47000034456a2f6836367549685061');
+
+				const stt_bin = statSync(path_enc);
+				assert.equal(stt_bin.size, 377395);	// ファイルサイズ
+
+	try {
+				// 復号化
+				let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+				const hSN: IPluginInitArg = {
+					setDec	: fnc=> fncDec = fnc,
+					setEnc	: ()=> {},
+					getStK	: ()=> {},
+					getHash	: ()=> {},
+					tstDecryptInfo	: ()=> infDecrypt,
+				};
+				const {init} = await import('../core/src/snsys_pre');
+				await init(hSN);
+
+				const encAB = readFileSync(path_enc).buffer;
+				const {ret, ext_num} = fncDec('bin', encAB);
+				assert.equal(ext_num, 20);	// mp4
+				const preH = Buffer.from(ret).toString('hex');
+
+				assert.equal(srcH.length, preH.length);
+				assert.equal(srcH, preH);
+				assert.equal(preH.slice(0, 32), '00000018667479706d70343200000001');
+				assert.equal(preH.slice(-32), '7061636b657420656e643d2277223f3e');
+
+	} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
+				done();
+			})
+			.on('error', e=> console.error(`encrypter ws=%o`, e));
+
+			const tr = new EncryptorTransform(encry, path_src);
+			rs.pipe(tr).pipe(ws);
+		});
 
 	});
 
