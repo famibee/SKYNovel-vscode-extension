@@ -11,6 +11,7 @@ import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 import AdmZip = require('adm-zip');
+import compareVersions = require('compare-versions');
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
 const {exec} = require('child_process');
@@ -116,8 +117,21 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				finish(false);
 				return;
 			}
+
+			const vNode = String(stdout).slice(1, -1);
+			if (compareVersions.compare(vNode, '16.9.0', '<')) {
+				tiNode.description = `-- ${vNode} (16.9.0 以上必須)`;
+				tiNode.iconPath = oIcon('error');
+				this._onDidChangeTreeData.fire(tiNode);
+
+				tiNpm.description = `-- （割愛）`;
+				tiNpm.iconPath = oIcon('error');
+				this._onDidChangeTreeData.fire(tiNpm);
+				finish(false);
+				return;
+			}
 			ActivityBar.aReady[eTreeEnv.NODE] = true;
-			tiNode.description = `-- ${stdout}`;
+			tiNode.description = `-- ${vNode}`;
 			tiNode.iconPath = oIcon('node-js-brands');
 			this._onDidChangeTreeData.fire(tiNode);
 
@@ -175,7 +189,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			const wv = this.pnlWV!.webview;
 			this.pnlWV!.webview.html = data
-			.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+			.replaceAll('${webview.cspSource}', wv.cspSource)
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
@@ -311,7 +325,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			const wv = this.pnlWV!.webview;
 			this.pnlWV!.webview.html = data
-			.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+			.replaceAll('${webview.cspSource}', wv.cspSource)
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}

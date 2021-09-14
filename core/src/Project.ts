@@ -309,8 +309,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		// メイン処理
 		if (cfg.npm) cmd += cfg.npm
-			.replace(/\${prj.title}/g, this.title)
-			.replace(/\${prj.version}/g, this.version);
+			.replaceAll('${prj.title}', this.title)
+			.replaceAll('${prj.version}', this.version);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':	this.chkLastSNVer();	break;
 			case 'LibUpd':
@@ -347,7 +347,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				delete this.hTaskExecution['TaskWeb'];
 				this.hTaskExecution['TaskWebDbg']?.terminate();
 				delete this.hTaskExecution['TaskWebDbg'];
-				done();
+				done(0);
 				return;
 
 			case 'TaskAppDbg':
@@ -358,7 +358,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				delete this.hTaskExecution['TaskApp'];
 				this.hTaskExecution['TaskAppDbg']?.terminate();
 				delete this.hTaskExecution['TaskAppDbg'];
-				done();
+				done(0);
 				return;
 
 			case 'PackFreem':
@@ -588,8 +588,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			// SKYNovelが見に行くプロジェクトフォルダ名変更
 			this.aRepl.forEach(url=> replaceFile(
 				this.pathWs +'/'+ url,
-				new RegExp(`\\(hPlg, {.+?}\\);`),
-				`(hPlg);`,
+				/\(hPlg, {.+?}\);/,
+				`(hPlg, {cur: process.cwd() +'/doc/prj/'});`,
 			));
 
 			// ビルド情報：パッケージするフォルダ名変更
@@ -607,8 +607,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// SKYNovelが見に行くプロジェクトフォルダ名変更
 		this.aRepl.forEach(url=> replaceFile(
 			this.pathWs +'/'+ url,
-			/\(hPlg\);/,
-			`(hPlg, {cur: '${Project.fld_crypto_prj}/', crypto: true});`,
+			/\(hPlg, {.+?}\);/,
+			`(hPlg, {cur: process.cwd() +'/doc/${Project.fld_crypto_prj}/', crypto: true});`,
 		));
 
 		// ビルド情報：パッケージするフォルダ名変更

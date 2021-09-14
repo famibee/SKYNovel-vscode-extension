@@ -7,8 +7,8 @@
 
 import {IPluginInitArg} from './CmnLib';
 
-export async function init(hSN: IPluginInitArg): Promise<void> {
-	const p = hSN.tstDecryptInfo();
+export async function init(hIA: IPluginInitArg): Promise<void> {
+	const p = hIA.tstDecryptInfo();
 
 	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
 	const iv = enc.Hex.parse(p.iv);
@@ -20,7 +20,7 @@ export async function init(hSN: IPluginInitArg): Promise<void> {
 
 	const regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
 	const {Buffer} = require('buffer');
-	hSN.setDec((ext, d)=> {
+	hIA.setDec((ext, d)=> {
 		if (typeof d === 'string') return {
 			ret: regFullCrypto.test(ext)
 				? AES.decrypt(d, pbkdf2, {iv},).toString(enc.Utf8)
@@ -48,7 +48,7 @@ export async function init(hSN: IPluginInitArg): Promise<void> {
 		return {ret: ab, ext_num: b.readUInt8(1)};
 	});
 
-	hSN.setEnc(d=> String(AES.encrypt(d, pbkdf2, {iv})));
-	hSN.getStK(()=> p.stk);
-	hSN.getHash(d=> RIPEMD160(d).toString(enc.Hex));
+	hIA.setEnc(d=> String(AES.encrypt(d, pbkdf2, {iv})));
+	hIA.getStK(()=> p.stk);
+	hIA.getHash(d=> RIPEMD160(d).toString(enc.Hex));
 }

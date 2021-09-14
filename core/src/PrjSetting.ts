@@ -85,7 +85,7 @@ export class PrjSetting {
 		.then(htm=> {
 			this.htmSrc = htm
 			.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
-			.replace(/\$\{nonce}/g, getNonce());
+			.replaceAll('${nonce}', getNonce());
 
 			if (this.oCfg.save_ns === 'hatsune'
 			|| this.oCfg.save_ns === 'uc') this.open();
@@ -186,7 +186,7 @@ export class PrjSetting {
 
 		const wv = this.pnlWV!.webview;
 		let h = this.htmSrc
-		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+		.replaceAll('${webview.cspSource}', wv.cspSource)
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 
@@ -228,7 +228,7 @@ export class PrjSetting {
 		//x	: String(val).replace(/"/g, '%22');
 			: /^(true|false)$/.test(val)
 				? val
-				: String(val).replace(/"/g, '%22');
+				: String(val).replaceAll('"', '%22');
 		if (id.charAt(0) === '/') {
 			const nm = id.split(':')[1];
 			replaceFile(

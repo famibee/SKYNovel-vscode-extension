@@ -83,7 +83,7 @@ export class CteScore {
 	}
 	private	repWvUri(inp: string, wv: Webview): string {
 		return inp
-		.replace(/\$\{webview.cspSource}/g, wv.cspSource)
+		.replaceAll('${webview.cspSource}', wv.cspSource)
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
 	}
 

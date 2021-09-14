@@ -210,7 +210,7 @@ sys:sn.tagCh.doWait
 sys:sn.tagCh.doWait_Kidoku
 sys:sn.tagCh.msecWait
 sys:sn.tagCh.msecWait_Kidoku
-sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
+sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 
 	private	nm2Diag	: {[url: string]: Diagnostic[]}= {};
@@ -809,14 +809,14 @@ sys:TextLayer.Back.Alpha`.replace(/\n/g, ',');
 		text: string;
 		cast: string | null;
 	} {
-		const equa = token.replace(/==/g, '＝').replace(/!=/g, '≠').split('=');
+		const equa = token.replaceAll('==', '＝').replaceAll('!=', '≠').split('=');
 			// != を弾けないので中途半端ではある
 		const cnt_equa = equa.length;
 		if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
 		if (equa[1].charAt(0) === '&') throw '「&計算」書式では「&」指定が不要です';
 		return {
-			name: equa[0].replace(/＝/g, '==').replace(/≠/g, '!='),
-			text: equa[1].replace(/＝/g, '==').replace(/≠/g, '!='),
+			name: equa[0].replaceAll('＝', '==').replaceAll('≠', '!='),
+			text: equa[1].replaceAll('＝', '==').replaceAll('≠', '!='),
 			cast: ((cnt_equa === 3) ?equa[2].trim() :null)
 		};
 	}

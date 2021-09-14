@@ -1,2 +1,2 @@
 import { IPluginInitArg } from './CmnLib';
-export declare function init(hSN: IPluginInitArg): Promise<void>;
+export declare function init(hIA: IPluginInitArg): Promise<void>;

@@ -1,3 +1,8 @@
+## v3.14.1
+- fix: tsconfig.json 更新　target, lib を es2021 に
+	- replaceAll()の使用
+- fix: Node.js は 16.9.0 以上必須とし、未満はエラーとする表示を開発環境ビューなどに
+- upd: テンプレ 21/9/14 版対応（core/app4webpack.js 置換）
 ## v3.14.0
 - feat: BREAKING CHANGE: 復号化処理、SKYNovel 側でオブジェクト生成するように
 - fix: BREAKING CHANGE: プラグインインタフェイス変更
