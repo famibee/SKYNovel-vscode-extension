@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.14.2",
+	"version": "3.14.3",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -719,6 +719,7 @@
 		"glob": "^7.1.7",
 		"mocha": "^9.1.1",
 		"power-assert": "^1.6.1",
+		"rimraf": "^3.0.2",
 		"ts-loader": "^9.2.5",
 		"ts-node": "^10.2.1",
 		"typescript": "^4.4.3",
@@ -743,7 +744,7 @@
 		"wp:pro": "webpack --config ./core/webpack.config.js --mode production",
 		"md2json": "node core/lib/md2json.js",
 		"md2json_bld": "tsc -p core/tsconfig_md.json",
-		"rebuild": "rm -rf node_modules && rm package-lock.json && npm cache clear --force && npm i && npm run md2json_bld",
+		"rebuild": "rimraf package-lock.json && rimraf node_modules && npm cache clear --force && npm i && npm run md2json_bld",
 		"package": "webpack --mode production --devtool hidden-source-map",
 		"test": "tsc core/src/snsys_pre.ts --outDir core/lib && mocha --package package.json",
 		"test:w": "mocha --package package.json --watch"

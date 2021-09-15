@@ -1,3 +1,9 @@
+## v3.14.3
+- upd: テンプレ 21/9/15 版対応（core/app4webpack.js 置換）
+
+	- アプリ終了でプロセス？　が残る
+
+
 ## v3.14.2
 - fix: Windows10 で 拡張機能が動かない不具合（compare-versions不具合）
 ## v3.14.1

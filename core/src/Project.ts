@@ -589,7 +589,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			this.aRepl.forEach(url=> replaceFile(
 				this.pathWs +'/'+ url,
 				/\(hPlg, {.+?}\);/,
-				`(hPlg, {cur: process.cwd() +'/doc/prj/'});`,
+				`(hPlg);`,
 			));
 
 			// ビルド情報：パッケージするフォルダ名変更
@@ -607,8 +607,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// SKYNovelが見に行くプロジェクトフォルダ名変更
 		this.aRepl.forEach(url=> replaceFile(
 			this.pathWs +'/'+ url,
-			/\(hPlg, {.+?}\);/,
-			`(hPlg, {cur: process.cwd() +'/doc/${Project.fld_crypto_prj}/', crypto: true});`,
+			/\(hPlg\);/,
+			`(hPlg, {cur: '${Project.fld_crypto_prj}/', crypto: true});`,
 		));
 
 		// ビルド情報：パッケージするフォルダ名変更
