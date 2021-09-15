@@ -1,3 +1,5 @@
+## v3.14.2
+- fix: Windows10 で 拡張機能が動かない不具合（compare-versions不具合）
 ## v3.14.1
 - fix: tsconfig.json 更新　target, lib を es2021 に
 	- replaceAll()の使用

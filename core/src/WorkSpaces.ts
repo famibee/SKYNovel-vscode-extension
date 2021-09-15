@@ -194,6 +194,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		if (! e)  {
 			// 起動時
 			aFld.forEach(fld=> this.makePrj(fld));	// 生成
+			if (this.aTiRoot.length === 0) return;
 			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.emPrjTD.fire(undefined);
 			return;

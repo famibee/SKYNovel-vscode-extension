@@ -11,7 +11,6 @@ import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 import AdmZip = require('adm-zip');
-import compareVersions = require('compare-versions');
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
 const {exec} = require('child_process');
@@ -119,7 +118,11 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}
 
 			const vNode = String(stdout).slice(1, -1);
-			if (compareVersions.compare(vNode, '16.9.0', '<')) {
+			const splVNode = vNode.split('.');
+			const nVNode = Number(splVNode[0]) *1000000
+				+Number(splVNode[1]) *1000 +Number(splVNode[2]);
+				// compare-versions だと windows10 で不具合になるので手作りに
+			if (nVNode < 16009000) {
 				tiNode.description = `-- ${vNode} (16.9.0 以上必須)`;
 				tiNode.iconPath = oIcon('error');
 				this._onDidChangeTreeData.fire(tiNode);
@@ -164,8 +167,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				const fnLocal = fld.uri.fsPath + '/package.json';
 				if (! existsSync(fnLocal)) return false;
 
-				const localVer = readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1);
-				if (localVer.slice(0, 4) === 'ile:') return false;
+				const localVer = readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1) ?? '';
+				if (localVer === '' || localVer.slice(0, 4) === 'ile:') return false;
 				return (newVer != localVer);
 			})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
 		});
