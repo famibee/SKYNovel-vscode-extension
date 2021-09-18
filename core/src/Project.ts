@@ -260,10 +260,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						'_off', '_off', '_off', '_off', '_off', '_off'],
 	'TaskWebStop'	: ['', '', '', '', '', '', '',
 						'', '', '', '', '', ''],
-	'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
-						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
-						'_off', '_off', '_off', '_off', '_off', '_off'],
+// 'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+// 					'_off', '_off', '_off', '_off', '_off', '_off'],
+// 'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+// 					'_off', '_off', '_off', '_off', '_off', '_off'],
+		// NOTE: 無効化中
 	'TaskAppDbgStop': ['', '', '', '', '', '', '',
 						'', '', '', '', '', ''],
 	};
