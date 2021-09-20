@@ -8,7 +8,7 @@
 import {IPluginInitArg} from './CmnLib';
 
 export async function init(hIA: IPluginInitArg): Promise<void> {
-	const p = hIA.tstDecryptInfo();
+	const p = hIA.tstDecryptInfo();	// 変更したら生成ファイルを開いて要動作確認
 
 	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
 	const iv = enc.Hex.parse(p.iv);

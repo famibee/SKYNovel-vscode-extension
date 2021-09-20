@@ -81,7 +81,8 @@ export class Project {
 		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
 			npm: 'npm run rebuild'},
 		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
-		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化'},
+		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化',
+			npm: 'npm run webpack:dev'},
 		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
 			npm: 'npm run web',		exe: true,},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
@@ -207,7 +208,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.curCrypto = this.pathWs +`/doc/${Project.fld_crypto_prj}/`;
 		this.isCryptoMode = existsSync(this.curCrypto);
-		const fnPass = this.curPlg +'pass.json';
+		const fnPass = this.pathWs +'/pass.json';
 		const exists_pass = existsSync(fnPass);
 		this.encry = new Encryptor(exists_pass
 			? readJsonSync(fnPass, {throws: false})
@@ -237,16 +238,20 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
 		this.aTiFlat = [...aTi.slice(0, -1), ...aC];
+		const tiDevSnUpd = aTi[Project.idxDevSnUpd];
 		this.updLocalSNVer = ()=> {
 			const o = readJsonSync(this.pathWs +'/package.json');
 			const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
-			aTi[Project.idxDevSnUpd].description = localVer ?`-- ${localVer}` :'取得できません';
-	
-			this.emPrjTD.fire(pti);
+			tiDevSnUpd.description = localVer ?`-- ${localVer}` :'取得できません';
+				this.emPrjTD.fire(tiDevSnUpd);
 		};
 		this.updLocalSNVer();
 
-		this.dspCryptoMode = ()=> aTi[Project.idxDevCrypto].description = `-- ${this.isCryptoMode ?'する' :'しない'}`;
+		const tiDevCrypto = aTi[Project.idxDevCrypto];
+		this.dspCryptoMode = ()=> {
+			tiDevCrypto.description = `-- ${this.isCryptoMode ?'する' :'しない'}`
+			this.emPrjTD.fire(tiDevCrypto);
+		};
 		this.dspCryptoMode();
 
 		this.lenCurPrj = this.curPrj.length;
@@ -334,11 +339,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					if (a !== 'はい') {done(0); return;}
 
 					this.tglCryptoMode();
-					this.dspCryptoMode();
-					this.emPrjTD.fire(ti);
-					done();
+					this.onClickTreeItemBtn_sub(wsFld, ti, 'Crypto_waited', cfg, done);
 				});
 				return;
+			case 'Crypto_waited':	break;	// Promise待ち後
 
 			case 'TaskWebDbg':
 				debug.startDebugging(wsFld, 'webデバッグ'); return;
@@ -443,14 +447,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'SnUpd':
 			//case 'LibUpd':	// ここには来ない
 			case 'LibUpd_waited':	// Promise待ち後
-				this.hOnEndTask[btn_nm] = e=> {
-					if (e.execution.task.definition.type !== t.definition.type) {done(); return;}
-					if (e.execution.task.source !== t.source) {done(); return;}
+				this.hOnEndTask[btn_nm] = ()=> {this.updLocalSNVer(); done();};
+				break;
 
-					this.updLocalSNVer();
-					this.emPrjTD.fire(undefined);
-					done();
-				};
+			case 'Crypto_waited':
+				this.hOnEndTask[btn_nm] = ()=> {this.dspCryptoMode(); done();};
 				break;
 
 			case 'PackWin':
@@ -622,7 +623,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// プラグインソースに埋め込む
 		replaceFile(
 			this.ctx.extensionPath +`/core/lib/snsys_pre.js`,
-			/hSN\.tstDecryptInfo\(\)/,
+			/hIA\.tstDecryptInfo\(\)/,
 			this.encry.strHPass,
 			pathPre +'/index.js',
 		);
