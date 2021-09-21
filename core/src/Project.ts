@@ -285,6 +285,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			this.emPrjTD.fire(ti);
 		});
 
+		if (btn_nm.slice(-4) === 'Stop') {
+			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, ()=> {});
+			return;
+		}
 		window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: String(ti.label) ?? '',
@@ -294,14 +298,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			ti.iconPath = new ThemeIcon('sync~spin');
 
 			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, (timeout = 4000)=> {
-				if (btn_nm.slice(-4) !== 'Stop') {
-					ti.iconPath = iconPath;
+				ti.iconPath = iconPath;
 
-					this.aTiFlat.forEach(ti=> {
-						ti.contextValue = ti.contextValue?.slice(0, -4);
-						this.emPrjTD.fire(ti);
-					});	// 値を戻してボタン表示
-				}
+				this.aTiFlat.forEach(ti=> {
+					ti.contextValue = ti.contextValue?.slice(0, -4);
+					this.emPrjTD.fire(ti);
+				});	// 値を戻してボタン表示
 
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> done(0), timeout);

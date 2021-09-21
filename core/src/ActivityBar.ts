@@ -302,19 +302,22 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 									increment	: 40,
 								});
 								setTimeout(()=> {
-									done(0);
 									if (tknCancel.isCancellationRequested) {
 										remove(fnTo);
 										return;
 									}
 
 									// フォルダをワークスペースで開く
+									done(0);
 									commands.executeCommand(
 										'vscode.openFolder',
 										Uri.file(fnTo),
 										false,
 									);
 								}, 4000);
+							})
+							.catch(reason=> {
+								window.showErrorMessage(`エラーです:${reason}`);
 							});
 						});
 					});
