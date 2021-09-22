@@ -257,16 +257,16 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.lenCurPrj = this.curPrj.length;
 		this.updPathJson();
 
-		debug.onDidTerminateDebugSession(_=> this.onDidTerminateDebugSession());
+		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
 		debug.onDidStartDebugSession(ds=> this.aDbgSS.push(ds));
 	}
 	private	aDbgSS	: DebugSession[]	= [];
-	private	onDidTerminateDebugSession() {}
-	private	terminateDbgSS(): Promise<void[]> {
-		this.hTaskExecution['TaskWeb']?.terminate();
-		delete this.hTaskExecution['TaskWeb'];
-		this.hTaskExecution['TaskApp']?.terminate();
-		delete this.hTaskExecution['TaskApp'];
+	private	onDidTermDbgSS() {}
+	private	termDbgSS(): Promise<void[]> {
+		this.hTaskExe['TaskWeb']?.terminate();
+		delete this.hTaskExe['TaskWeb'];
+		this.hTaskExe['TaskApp']?.terminate();
+		delete this.hTaskExe['TaskApp'];
 
 		const a = this.aDbgSS.map(ds=> debug.stopDebugging(ds));
 		this.aDbgSS = [];
@@ -335,10 +335,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			.replaceAll('${prj.title}', this.title)
 			.replaceAll('${prj.version}', this.version);
 		switch (btn_nm) {	// タスク前処理
-			case 'SnUpd': this.terminateDbgSS(); this.chkLastSNVer(); break;
+			case 'SnUpd':	this.termDbgSS();	this.chkLastSNVer();	break;
 
 			case 'LibUpd':
-				this.terminateDbgSS();
+				this.termDbgSS();
 
 				ncu.run({
 					packageFile: pathWs +'/package.json',
@@ -368,9 +368,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 			case 'TaskWebDbg':
 			case 'TaskAppDbg':
-				this.terminateDbgSS().then(()=> {
-					this.onDidTerminateDebugSession = ()=> {
-						this.onDidTerminateDebugSession = ()=> {};
+				this.termDbgSS().then(()=> {
+					this.onDidTermDbgSS = ()=> {
+						this.onDidTermDbgSS = ()=> {};
 						done(0);
 					};
 					debug.startDebugging(
@@ -381,20 +381,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				return;
 
 			case 'TaskWebStop':
-			case 'TaskAppStop':
-				this.terminateDbgSS();
-				done(0);
-				return;
+			case 'TaskAppStop':	this.termDbgSS();	done(0);	return;
 
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
-			case 'PackLinux':
-				this.terminateDbgSS();
-				break;
+			case 'PackLinux':	this.termDbgSS();	break;
 
 			case 'PackFreem':
-				this.terminateDbgSS();
+				this.termDbgSS();
 
 				let find_ng = false;
 				treeProc(pathWs +'/doc/prj', url=> {
@@ -522,11 +517,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		}
 		tasks.executeTask(t)
 		.then(
-			re=> this.hTaskExecution[btn_nm] = re,
+			re=> this.hTaskExe[btn_nm] = re,
 			rj=> console.error(`fn:WorkSpaces onClickTreeItemBtn() rj:${rj.message}`)
 		);
 	}
-	private	hTaskExecution: {[btn_nm: string]: TaskExecution}	= {};
+	private	hTaskExe: {[btn_nm: string]: TaskExecution}	= {};
 
 
 	private	readonly	ps: PrjSetting;

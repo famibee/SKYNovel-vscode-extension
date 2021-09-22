@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.14.7",
+	"version": "3.14.8",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.60.0"
+		"vscode": "^1.60.1"
 	},
 	"categories": [
 		"Programming Languages",

@@ -35,12 +35,12 @@ export declare class Project {
         [nm: string]: (e: TaskProcessEndEvent) => void;
     });
     private aDbgSS;
-    private onDidTerminateDebugSession;
-    private terminateDbgSS;
+    private onDidTermDbgSS;
+    private termDbgSS;
     private readonly hPush2BtnEnable;
     private onClickTreeItemBtn;
     private onClickTreeItemBtn_sub;
-    private hTaskExecution;
+    private hTaskExe;
     private readonly ps;
     private openPrjSetting;
     get title(): any;

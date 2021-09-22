@@ -7,8 +7,7 @@
 
 import {
 	debug, WorkspaceFolder, DebugConfiguration,
-	DebugAdapterDescriptorFactory, DebugAdapterDescriptor,
-	DebugSession, ProviderResult, ExtensionContext,
+	DebugAdapterDescriptorFactory, ProviderResult, ExtensionContext,
 	DebugAdapterInlineImplementation,	// インライン型アダプタ
 } from 'vscode';
 import {
@@ -31,19 +30,14 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 	// デバッグ構成解決【.vscode/launch.json がない場合のデバッグ構成作成初期値】
 	const lng = docsel.language ?? '';
 	debug.registerDebugConfigurationProvider(lng, {
-		provideDebugConfigurations(_folder: WorkspaceFolder | undefined): ProviderResult<DebugConfiguration[]> {return [
+		provideDebugConfigurations: _=> [
 			{
 				name	: '10.ブラウザ版',
 				request	: 'launch',
 				type	: 'pwa-node',
 				runtimeExecutable	: 'npm',
-				runtimeArgs	: [
-					'run-script',
-					'watch:wdsdbg'
-				],
-				skipFiles	: [
-					'<node_internals>/**'
-				],
+				runtimeArgs	: ['run-script', 'watch:wdsdbg'],
+				skipFiles	: ['<node_internals>/**'],
 				console		: 'internalConsole',
 				internalConsoleOptions	: 'openOnSessionStart'
 			},
@@ -53,7 +47,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 				type	: 'node',
 				port	: 3776,
 				console	: 'internalConsole',
-				internalConsoleOptions: 'openOnSessionStart',
+				internalConsoleOptions	: 'openOnSessionStart',
 			},
 			{
 				name	: '2.デバッガ',
@@ -63,7 +57,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 				weburi	: 'http://localhost:8080',
 				stopOnEntry	: false,
 			},
-		];}
+		]
 	});
 
 	// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
@@ -93,9 +87,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 
 	// デバッグアダプタ工場（request は attach/launch どちらも）
 	const dadf: DebugAdapterDescriptorFactory = {
-		createDebugAdapterDescriptor(ss: DebugSession): ProviderResult<DebugAdapterDescriptor> {
-			return daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ss.workspaceFolder, hookTag)));
-		},
+		createDebugAdapterDescriptor: ds=> daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag))),
 	};
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
 //	if ('dispose' in dadf) ctx.subscriptions.push(dadf);
