@@ -13,7 +13,7 @@ import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG} from './PrjTreeItem';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, TreeItemCollapsibleState, ThemeIcon, debug, env, TaskExecution} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, TreeItemCollapsibleState, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
 import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
@@ -256,6 +256,21 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.lenCurPrj = this.curPrj.length;
 		this.updPathJson();
+
+		debug.onDidTerminateDebugSession(_=> this.onDidTerminateDebugSession());
+		debug.onDidStartDebugSession(ds=> this.aDbgSS.push(ds));
+	}
+	private	aDbgSS	: DebugSession[]	= [];
+	private	onDidTerminateDebugSession() {}
+	private	terminateDbgSS(): Promise<void[]> {
+		this.hTaskExecution['TaskWeb']?.terminate();
+		delete this.hTaskExecution['TaskWeb'];
+		this.hTaskExecution['TaskApp']?.terminate();
+		delete this.hTaskExecution['TaskApp'];
+
+		const a = this.aDbgSS.map(ds=> debug.stopDebugging(ds));
+		this.aDbgSS = [];
+		return Promise.all(a);
 	}
 
 	private	readonly	hPush2BtnEnable	: {[btn_nm: string]: string[]}	= {
@@ -320,8 +335,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			.replaceAll('${prj.title}', this.title)
 			.replaceAll('${prj.version}', this.version);
 		switch (btn_nm) {	// タスク前処理
-			case 'SnUpd':	this.chkLastSNVer();	break;
+			case 'SnUpd': this.terminateDbgSS(); this.chkLastSNVer(); break;
+
 			case 'LibUpd':
+				this.terminateDbgSS();
+
 				ncu.run({
 					packageFile: pathWs +'/package.json',
 					// Defaults:
@@ -336,6 +354,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 			case 'PrjSet':	this.openPrjSetting();	done(0);	return;
 			case 'Crypto':
+				this.openPrjSetting();
+
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a !== 'はい') {done(0); return;}
@@ -347,28 +367,35 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'Crypto_waited':	break;	// Promise待ち後
 
 			case 'TaskWebDbg':
-				debug.startDebugging(wsFld, 'webデバッグ'); return;
+			case 'TaskAppDbg':
+				this.terminateDbgSS().then(()=> {
+					this.onDidTerminateDebugSession = ()=> {
+						this.onDidTerminateDebugSession = ()=> {};
+						done(0);
+					};
+					debug.startDebugging(
+						wsFld,
+						btn_nm === 'TaskWebDbg' ?'webデバッグ' :'appデバッグ',
+					);
+				});
+				return;
 
 			case 'TaskWebStop':
-				this.hTaskExecution['TaskWeb']?.terminate();
-				delete this.hTaskExecution['TaskWeb'];
-				this.hTaskExecution['TaskWebDbg']?.terminate();
-				delete this.hTaskExecution['TaskWebDbg'];
-				done(0);
-				return;
-
-			case 'TaskAppDbg':
-				debug.startDebugging(wsFld, 'appデバッグ'); return;
-
 			case 'TaskAppStop':
-				this.hTaskExecution['TaskApp']?.terminate();
-				delete this.hTaskExecution['TaskApp'];
-				this.hTaskExecution['TaskAppDbg']?.terminate();
-				delete this.hTaskExecution['TaskAppDbg'];
+				this.terminateDbgSS();
 				done(0);
 				return;
+
+			case 'PackWin':
+			case 'PackWin32':
+			case 'PackMac':
+			case 'PackLinux':
+				this.terminateDbgSS();
+				break;
 
 			case 'PackFreem':
+				this.terminateDbgSS();
+
 				let find_ng = false;
 				treeProc(pathWs +'/doc/prj', url=> {
 					if (find_ng || url.slice(-4) !== '.svg') return;
@@ -625,7 +652,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// プラグインソースに埋め込む
 		replaceFile(
 			this.ctx.extensionPath +`/core/lib/snsys_pre.js`,
-			/hIA\.tstDecryptInfo\(\)/,
+			/pia\.tstDecryptInfo\(\)/,
 			this.encry.strHPass,
 			pathPre +'/index.js',
 		);

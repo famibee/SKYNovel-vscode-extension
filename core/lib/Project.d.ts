@@ -34,6 +34,9 @@ export declare class Project {
     constructor(ctx: ExtensionContext, chkLastSNVer: () => void, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: {
         [nm: string]: (e: TaskProcessEndEvent) => void;
     });
+    private aDbgSS;
+    private onDidTerminateDebugSession;
+    private terminateDbgSS;
     private readonly hPush2BtnEnable;
     private onClickTreeItemBtn;
     private onClickTreeItemBtn_sub;

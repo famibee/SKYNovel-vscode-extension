@@ -43,13 +43,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 exports.__esModule = true;
 exports.init = void 0;
-function init(hIA) {
+function init(pia) {
     return __awaiter(this, void 0, void 0, function () {
         var p, _a, enc, AES, PBKDF2, RIPEMD160, iv, pbkdf2, regFullCrypto, Buffer;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    p = hIA.tstDecryptInfo();
+                    p = pia.tstDecryptInfo();
                     return [4 /*yield*/, Promise.resolve().then(function () { return require('crypto-js'); })];
                 case 1:
                     _a = _b.sent(), enc = _a.enc, AES = _a.AES, PBKDF2 = _a.PBKDF2, RIPEMD160 = _a.RIPEMD160;
@@ -57,7 +57,7 @@ function init(hIA) {
                     pbkdf2 = PBKDF2(enc.Utf8.parse(p.pass), enc.Hex.parse(p.salt), { keySize: p.keySize, iterations: p.ite });
                     regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
                     Buffer = require('buffer').Buffer;
-                    hIA.setDec(function (ext, d) {
+                    pia.setDec(function (ext, d) {
                         if (typeof d === 'string')
                             return {
                                 ret: regFullCrypto.test(ext)
@@ -81,9 +81,9 @@ function init(hIA) {
                         //console.log(`fn:index.ts line:41 === b1len:${b1.length} + b2len:${b2.length} = full_len:${ab.length}`);
                         return { ret: ab, ext_num: b.readUInt8(1) };
                     });
-                    hIA.setEnc(function (d) { return String(AES.encrypt(d, pbkdf2, { iv: iv })); });
-                    hIA.getStK(function () { return p.stk; });
-                    hIA.getHash(function (d) { return RIPEMD160(d).toString(enc.Hex); });
+                    pia.setEnc(function (d) { return String(AES.encrypt(d, pbkdf2, { iv: iv })); });
+                    pia.getStK(function () { return p.stk; });
+                    pia.getHash(function (d) { return RIPEMD160(d).toString(enc.Hex); });
                     return [2 /*return*/];
             }
         });

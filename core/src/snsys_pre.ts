@@ -7,8 +7,8 @@
 
 import {IPluginInitArg} from './CmnLib';
 
-export async function init(hIA: IPluginInitArg): Promise<void> {
-	const p = hIA.tstDecryptInfo();	// 変更したら生成ファイルを開いて要動作確認
+export async function init(pia: IPluginInitArg): Promise<void> {
+	const p = pia.tstDecryptInfo();	// 変更したら生成ファイルを開いて要動作確認
 
 	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
 	const iv = enc.Hex.parse(p.iv);
@@ -20,7 +20,7 @@ export async function init(hIA: IPluginInitArg): Promise<void> {
 
 	const regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
 	const {Buffer} = require('buffer');
-	hIA.setDec((ext, d)=> {
+	pia.setDec((ext, d)=> {
 		if (typeof d === 'string') return {
 			ret: regFullCrypto.test(ext)
 				? AES.decrypt(d, pbkdf2, {iv},).toString(enc.Utf8)
@@ -48,7 +48,7 @@ export async function init(hIA: IPluginInitArg): Promise<void> {
 		return {ret: ab, ext_num: b.readUInt8(1)};
 	});
 
-	hIA.setEnc(d=> String(AES.encrypt(d, pbkdf2, {iv})));
-	hIA.getStK(()=> p.stk);
-	hIA.getHash(d=> RIPEMD160(d).toString(enc.Hex));
+	pia.setEnc(d=> String(AES.encrypt(d, pbkdf2, {iv})));
+	pia.getStK(()=> p.stk);
+	pia.getHash(d=> RIPEMD160(d).toString(enc.Hex));
 }
