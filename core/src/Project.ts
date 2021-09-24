@@ -13,7 +13,7 @@ import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG} from './PrjTreeItem';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, TreeItemCollapsibleState, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
 import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
@@ -70,58 +70,14 @@ export class Project {
 	}}	= Object.create(null);
 
 
-	private	readonly aTreeTmp	: TREEITEM_CFG[] = [
-		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'SKYNovel更新',
-			npm: `npm un -S skynovel ${statBreak()
-			} npm i @famibee/skynovel@latest ${statBreak()
-			} npm run webpack:dev`},
-		{cmd: 'LibUpd',		icon: 'plugin',		label: '全ライブラリ更新',
-			npm: `npm update ${statBreak()
-			} npm run webpack:dev`},
-		{cmd: 'ReBuild',	icon: 'gear',		label: 'リビルド',
-			npm: 'npm run rebuild'},
-		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
-		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化',
-			npm: 'npm run webpack:dev'},
-		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
-			npm: 'npm run web',		exe: true,},
-		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-			npm: 'npm run start',	exe: true,},
-		{cmd: '', icon: '',label: '生成', children: [
-			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
-			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
-					// 一パッケージに統合型、ファイルサイズ二倍になる
-			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
-			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`,
-				forMac: true,},
-			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`,
-				forMac: true,},
-				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
-					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
-			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
-				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -l`},
-				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
-			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
-				npm: 'npm run webpack:pro'},
-		]},
-	];
 	private	static	readonly idxDevSnUpd	= 0;
 	private	updLocalSNVer() {}		// ローカル SKYNovel バージョン
-	private	static	readonly idxDevCrypto	= 4;
+	private	static	readonly idxDevCrypto	= 3;
 	private	dspCryptoMode() {}		// 暗号化状態
 
 	private aTiFlat: TreeItem[]	= [];
-	enableButton(enable: boolean): void {
-		if (enable) this.aTiFlat.forEach(ti=> {
+	enableBtn(enabled: boolean): void {
+		if (enabled) this.aTiFlat.forEach(ti=> {
 			ti.contextValue = ti.contextValue?.trimEnd();
 			this.emPrjTD.fire(ti);
 		});	// 値を戻してボタン表示
@@ -133,7 +89,7 @@ export class Project {
 
 
 	private readonly pathWs: string;
-	constructor(private readonly ctx: ExtensionContext, private readonly chkLastSNVer: ()=> void, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}) {
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}) {
 		this.pathWs = wsFld.uri.fsPath;
 		this.curPrj = this.pathWs +'/doc/prj/';
 		this.codSpt = new CodingSupporter(ctx, this.pathWs, this.curPrj);
@@ -146,20 +102,10 @@ export class Project {
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
-		const existPkgJS = existsSync(this.pathWs +'/package.json');
-		const isPrjValid = existPkgJS && existsSync(this.pathWs +'/doc/prj/prj.json');
-		const pti = new PrjTreeItem({
-			cmd		: '',
-			icon	: '',
-			label	: '',
-			desc	: wsFld.name,
-			children: isPrjValid ? this.aTreeTmp : [{
-				cmd		: '',
-				icon	: 'warn',
-				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
-			}],
-		}, this.pathWs, this.ctx, (ti, btn_nm, cfg)=> this.onClickTreeItemBtn(wsFld, ti, btn_nm, cfg));
-		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
+		const pathWs = wsFld.uri.fsPath;
+		this.actBar.chkLastSNVer(pathWs);
+
+		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
 
 		// プラグインフォルダ増減でビルドフレームワークに反映する機能
@@ -240,10 +186,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.aTiFlat = [...aTi.slice(0, -1), ...aC];
 		const tiDevSnUpd = aTi[Project.idxDevSnUpd];
 		this.updLocalSNVer = ()=> {
-			const o = readJsonSync(this.pathWs +'/package.json');
-			const localVer = o?.dependencies['@famibee/skynovel']?.slice(1);
-			tiDevSnUpd.description = localVer ?`-- ${localVer}` :'取得できません';
-				this.emPrjTD.fire(tiDevSnUpd);
+			const o = this.actBar.getLocalSNVer(this.pathWs);
+			tiDevSnUpd.description = o.verSN
+			? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
+			: '取得できません';
+			this.emPrjTD.fire(tiDevSnUpd);
 		};
 		this.updLocalSNVer();
 
@@ -288,7 +235,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	'TaskAppDbgStop': ['', '', '', '', '', '', '',
 						'', '', '', '', '', ''],
 	};
-	private onClickTreeItemBtn(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
+	private onBtn(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		// 値を壊してボタン消去など
@@ -301,7 +248,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		});
 
 		if (btn_nm.slice(-4) === 'Stop') {
-			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, ()=> {});
+			this.onBtn_sub(ti, btn_nm, cfg, ()=> {});
 			return;
 		}
 		window.withProgress({
@@ -312,7 +259,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			const iconPath = ti.iconPath;
 			ti.iconPath = new ThemeIcon('sync~spin');
 
-			this.onClickTreeItemBtn_sub(wsFld, ti, btn_nm, cfg, (timeout = 4000)=> {
+			this.onBtn_sub(ti, btn_nm, cfg, (timeout = 4000)=> {
 				ti.iconPath = iconPath;
 
 				this.aTiFlat.forEach(ti=> {
@@ -325,8 +272,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			})
 		}));
 	}
-	private onClickTreeItemBtn_sub(wsFld: WorkspaceFolder, ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
-		const pathWs = wsFld.uri.fsPath;
+	private onBtn_sub(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
+		const pathWs = this.wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
 		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
 
@@ -335,33 +282,40 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			.replaceAll('${prj.title}', this.title)
 			.replaceAll('${prj.version}', this.version);
 		switch (btn_nm) {	// タスク前処理
-			case 'SnUpd':	this.termDbgSS();	this.chkLastSNVer();	break;
-
-			case 'LibUpd':
-				this.termDbgSS();
-
-				ncu.run({
-					packageFile: pathWs +'/package.json',
-					// Defaults:
-					// jsonUpgraded: true,
-					// silent: true,
-					upgrade: true,
-					target: 'minor',
-				})		// ncu -u --target minor
-				.then(()=> this.onClickTreeItemBtn_sub(wsFld, ti, 'LibUpd_waited', cfg, done));
+			case 'SnUpd':
+				this.termDbgSS()
+				.then(()=> {
+					if (! existsSync(pathWs + '/CHANGELOG.md')) return;
+					this.actBar.repPrjFromTmp('uc', this.wsFld.uri.fsPath);
+				})
+				.then(()=> {
+					ncu.run({
+						packageFile: pathWs +'/package.json',
+						// Defaults:
+						// jsonUpgraded: true,
+						// silent: true,
+						upgrade: true,
+						target: 'minor',
+					})		// ncu -u --target minor
+					.then(()=> {
+						this.updLocalSNVer();
+						this.onBtn_sub(ti, 'SnUpd_waited', cfg, done);
+					});
+				});
 				return;
-			case 'LibUpd_waited':	break;	// Promise待ち後
 
-			case 'PrjSet':	this.openPrjSetting();	done(0);	return;
+			case 'SnUpd_waited':	break;	// Promise待ち後
+
+			case 'PrjSet':	this.ps.open();	done(0);	return;
 			case 'Crypto':
-				this.openPrjSetting();
+				this.termDbgSS();
 
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a !== 'はい') {done(0); return;}
 
 					this.tglCryptoMode();
-					this.onClickTreeItemBtn_sub(wsFld, ti, 'Crypto_waited', cfg, done);
+					this.onBtn_sub(ti, 'Crypto_waited', cfg, done);
 				});
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
@@ -374,7 +328,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						done(0);
 					};
 					debug.startDebugging(
-						wsFld,
+						this.wsFld,
 						btn_nm === 'TaskWebDbg' ?'webデバッグ' :'appデバッグ',
 					);
 				});
@@ -461,16 +415,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		const t = new Task(
 			{type: 'SKYNovel '+ btn_nm},	// definition（タスクの一意性）
-			wsFld,
+			this.wsFld,
 			cfg.label,					// name、UIに表示
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
 		this.hOnEndTask[btn_nm] = ()=> done();
 		switch (btn_nm) {	// タスク後処理
-			case 'SnUpd':
-			//case 'LibUpd':	// ここには来ない
-			case 'LibUpd_waited':	// Promise待ち後
+			//case 'SnUpd':	// ここには来ない
+			case 'SnUpd_waited':	// Promise待ち後
 				this.hOnEndTask[btn_nm] = ()=> {this.updLocalSNVer(); done();};
 				break;
 
@@ -518,14 +471,13 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		tasks.executeTask(t)
 		.then(
 			re=> this.hTaskExe[btn_nm] = re,
-			rj=> console.error(`fn:WorkSpaces onClickTreeItemBtn() rj:${rj.message}`)
+			rj=> console.error(`fn:Project onBtn_sub() rj:${rj.message}`)
 		);
 	}
 	private	hTaskExe: {[btn_nm: string]: TaskExecution}	= {};
 
 
 	private	readonly	ps: PrjSetting;
-	private	openPrjSetting() {this.ps.open();}
 	get title() {return this.ps.cfg.book.title}
 	get version() {return this.ps.cfg.book.version}
 
@@ -765,7 +717,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		this.initTask = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
-		// 終了イベントは WorkSpaces.ts の tasks.onDidEndTaskProcess で
+		// 終了イベントは Project.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
 		if (! existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
 		cmd += 'npm run webpack:dev';
@@ -779,7 +731,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			new ShellExecution(cmd),
 		);
 
-		this.enableButton(false);
+		this.enableBtn(false);
 		window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: name,
@@ -791,7 +743,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			let fnc = (e: TaskProcessEndEvent)=> {
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
-				this.enableButton(true);
+				this.enableBtn(true);
 				done(0);
 			};
 			tasks.onDidEndTaskProcess(e=> fnc(e));

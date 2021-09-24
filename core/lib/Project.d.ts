@@ -1,7 +1,8 @@
+import { ActivityBar } from './ActivityBar';
 import { ExtensionContext, WorkspaceFolder, TaskProcessEndEvent, TreeItem, EventEmitter } from 'vscode';
 export declare class Project {
     private readonly ctx;
-    private readonly chkLastSNVer;
+    private readonly actBar;
     private readonly wsFld;
     readonly aTiRoot: TreeItem[];
     private readonly emPrjTD;
@@ -23,26 +24,24 @@ export declare class Project {
     private readonly aFSW;
     private readonly fnDiff;
     private hDiff;
-    private readonly aTreeTmp;
     private static readonly idxDevSnUpd;
     private updLocalSNVer;
     private static readonly idxDevCrypto;
     private dspCryptoMode;
     private aTiFlat;
-    enableButton(enable: boolean): void;
+    enableBtn(enabled: boolean): void;
     private readonly pathWs;
-    constructor(ctx: ExtensionContext, chkLastSNVer: () => void, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: {
+    constructor(ctx: ExtensionContext, actBar: ActivityBar, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: {
         [nm: string]: (e: TaskProcessEndEvent) => void;
     });
     private aDbgSS;
     private onDidTermDbgSS;
     private termDbgSS;
     private readonly hPush2BtnEnable;
-    private onClickTreeItemBtn;
-    private onClickTreeItemBtn_sub;
+    private onBtn;
+    private onBtn_sub;
     private hTaskExe;
     private readonly ps;
-    private openPrjSetting;
     get title(): any;
     get version(): any;
     dispose(): void;

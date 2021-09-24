@@ -86,6 +86,12 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 	}));
 
 	// デバッグアダプタ工場（request は attach/launch どちらも）
+	/* この形（function）は動かない。現行の形( ()=> {} )にする
+	const dadf: DebugAdapterDescriptorFactory = {
+		createDebugAdapterDescriptor(ss: DebugSession): ProviderResult<DebugAdapterDescriptor> {
+			return daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ss.workspaceFolder, hookTag)));
+		},
+	};	*/
 	const dadf: DebugAdapterDescriptorFactory = {
 		createDebugAdapterDescriptor: ds=> daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag))),
 	};

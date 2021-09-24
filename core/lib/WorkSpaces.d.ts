@@ -1,10 +1,11 @@
+import { ActivityBar } from './ActivityBar';
 import { TreeDataProvider, ExtensionContext, TreeItem } from 'vscode';
 export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private readonly ctx;
-    private readonly chkLastSNVer;
+    private readonly actBar;
     private readonly aTiRoot;
     private hPrj;
-    constructor(ctx: ExtensionContext, chkLastSNVer: () => void);
+    constructor(ctx: ExtensionContext, actBar: ActivityBar);
     private tiLayers;
     private tidDelay;
     private onUpdDoc;
@@ -15,7 +16,7 @@ export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     private refresh;
     private readonly emPrjTD;
     readonly onDidChangeTreeData: import("vscode").Event<TreeItem | undefined>;
-    enableButton(enable: boolean): void;
+    enableBtn(enable: boolean): void;
     private makePrj;
     private hOnEndTask;
     getTreeItem: (t: TreeItem) => TreeItem;

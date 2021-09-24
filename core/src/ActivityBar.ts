@@ -12,14 +12,16 @@ import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 import AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, workspace, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation, workspace} from 'vscode';
 const {exec} = require('child_process');
-import {existsSync, readJsonSync, readFile, moveSync, remove, outputJsonSync, removeSync} from 'fs-extra';
+const os = require('os');
+import {existsSync, readJsonSync, readFile, moveSync, outputJsonSync, removeSync, readFileSync, copyFileSync} from 'fs-extra';
 
 export enum eTreeEnv {
 	NODE = 0,
 	NPM,
 	SKYNOVEL_VER,
+	TEMP_VER,
 };
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
@@ -37,6 +39,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		{label: 'Node.js',	icon: 'node-js-brands'},
 		{label: 'npm',		icon: 'npm-brands'},
 		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
+		{label: 'テンプレ（最新）',		icon: 'skynovel'},
 	];
 	private readonly aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false];
@@ -53,14 +56,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
-		this.chkLastSNVer();
 
 		this.chkEnv(()=> {
 			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
 			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.openEnvInfo()));
 			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.openTempWizard()));
 
-			this.workSps = new WorkSpaces(ctx, ()=> this.chkLastSNVer());
+			this.workSps = new WorkSpaces(ctx, this);
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.workSps));
 
 			this.tlBox = new ToolBox(ctx);
@@ -80,10 +82,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	private refresh(): void {
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
-		this.workSps.enableButton(false);
+		this.workSps.enableBtn(false);
 		this.chkEnv(ok=> {
-			this.workSps.enableButton(ok);
-			if (! ok) this.openEnvInfo();
+			this.workSps.enableBtn(ok);
+			if (ok) {
+				(workspace.workspaceFolders ?? []).forEach(wsFld=> this.chkLastSNVer(wsFld.uri.fsPath));
+			}
+			else this.openEnvInfo();
 		});
 	}
 	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
@@ -154,24 +159,50 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			});
 		});
 	}
-	private chkLastSNVer() {
-		fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
-		.then(res=> res.json())
-		.then((json: any)=> {
-			const newVer = json.version;
-			const tiSV = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
-			tiSV.description = '-- ' + newVer;
-			ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
 
-			if (workspace.workspaceFolders?.find(fld=> {
-				const fnLocal = fld.uri.fsPath + '/package.json';
-				if (! existsSync(fnLocal)) return false;
+	chkLastSNVer(pathWs: string) {
+		let newVerSN = '';
+		let newVerTemp = '';
+		Promise.all([
+			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
+			.then(res=> res.json())
+			.then((json: any)=> {
+				newVerSN = json.version;
+				const tiSV = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
+				tiSV.description = '-- ' + newVerSN;
+				ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
+			}),
+			fetch('https://raw.githubusercontent.com/famibee/SKYNovel_uc/master/CHANGELOG.md')
+			.then(res=> res.text())
+			.then((txt: string)=> {
+				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
+				const tiSV = this.aTiEnv[eTreeEnv.TEMP_VER];
+				tiSV.description = '-- ' + newVerTemp;
+				ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
+			}),
+		])
+		.then(()=> {
+			const o = this.getLocalSNVer(pathWs);
+			if (o.verTemp && newVerTemp !== o.verTemp) {
+				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
+				return;
+			}
 
-				const localVer = readJsonSync(fnLocal).dependencies['@famibee/skynovel']?.slice(1) ?? '';
-				if (localVer === '' || localVer.slice(0, 4) === 'ile:') return false;
-				return (newVer != localVer);
-			})) window.showInformationMessage(`SKYNovelに更新（${newVer}）があります。【開発ツール】-【SKYNovel更新】のボタンを押してください`);
+			if (o.verSN === '' || o.verSN.slice(0, 4) === 'ile:') return;
+			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
 		});
+	}
+	getLocalSNVer(pathWs: string): {verSN: string, verTemp: string} {
+		const fnPkgJSON = pathWs + '/package.json';
+		if (! existsSync(fnPkgJSON)) return {verSN: '' ,verTemp: '',};
+
+		const fnCngLog = pathWs + '/CHANGELOG.md';
+		return {
+			verSN	: readJsonSync(fnPkgJSON, {encoding: 'utf8'})?.dependencies['@famibee/skynovel']?.slice(1) ?? '',
+			verTemp	: existsSync(fnCngLog)
+				? readFileSync(fnCngLog, {encoding: 'utf8'}).match(/## v(.+)\s/)?.[1] ?? ''
+				: '',
+		};
 	}
 
 	private pnlWV: WebviewPanel | null = null;
@@ -250,77 +281,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 						return;
 					}
 
-					window.withProgress({
-						location	: ProgressLocation.Notification,
-						title		: 'テンプレートからプロジェクト作成',
-						cancellable	: true
-					}, (prg, tknCancel)=> {
-						//	tknCancel.onCancellationRequested(()=> {});
-						prg.report({
-							message		: 'ダウンロード中',
-							increment	: 10,
-						});
-
-						const nm = m.cmd.slice(4);
-						return new Promise(done=> {
-							// zipダウンロード＆解凍
-							fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
-							.then(res=> res.buffer())
-							.then(buf=> {
-								if (tknCancel.isCancellationRequested) return;
-
-								prg.report({
-									message		: 'ZIP解凍中',
-									increment	: 50,
-								});
-
-								new AdmZip(buf).extractAllTo(path_dl, true);
-									// overwrite
-							})
-							.then(()=> {
-								const fnFrom = path_dl +`/SKYNovel_${nm}-master`;
-								if (tknCancel.isCancellationRequested) {
-									remove(fnFrom);
-									return;
-								}
-
-								// フォルダ名変更
-								moveSync(fnFrom, fnTo);
-
-								// prj.json の置換
-								const fnPrj = fnTo +'/doc/prj/prj.json';
-								const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
-								oPrj.save_ns = this.save_ns;
-								outputJsonSync(fnPrj, oPrj);
-
-								// package-lock.json 削除
-								// 対策【'webpack' は、内部コマンドまたは外部コマンド、 操作可能なプログラムまたはバッチ ファイルとして認識されていません。】
-								removeSync(fnTo +'/package-lock.json');
-
-								prg.report({
-									message		: '完了。フォルダを開きます',
-									increment	: 40,
-								});
-								setTimeout(()=> {
-									if (tknCancel.isCancellationRequested) {
-										remove(fnTo);
-										return;
-									}
-
-									// フォルダをワークスペースで開く
-									done(0);
-									commands.executeCommand(
-										'vscode.openFolder',
-										Uri.file(fnTo),
-										false,
-									);
-								}, 4000);
-							})
-							.catch(reason=> {
-								window.showErrorMessage(`エラーです:${reason}`);
-							});
-						});
-					});
+					// テンプレートからプロジェクト作成
+					this.createPrjFromTmp(m.cmd.slice(4), fnTo);
 				})
 				break;
 			}
@@ -335,8 +297,142 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
+	private	readonly	createPrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
+		location	: ProgressLocation.Notification,
+		title		: 'テンプレートからプロジェクト作成',
+		cancellable	: true,
+	}, (prg, tknCancel)=> {
+		const tmpdir = os.tmpdir();
+		removeSync(tmpdir +'.zip');
+		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
+		removeSync(fnFrom);
+
+		//	tknCancel.onCancellationRequested(()=> {});
+		prg.report({
+			message		: 'ダウンロード中',
+			increment	: 10,
+		});
+
+		return new Promise(done=> {
+			// zipダウンロード＆解凍
+			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
+			.then(res=> res.buffer())
+			.then(buf=> {
+				if (tknCancel.isCancellationRequested) return;
+
+				prg.report({
+					message		: 'ZIP解凍中',
+					increment	: 50,
+				});
+
+				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
+			})
+			.then(()=> {
+				if (tknCancel.isCancellationRequested) {removeSync(fnFrom); return;}
+
+				// package-lock.json 削除
+				// 対策【'webpack' は、内部コマンドまたは外部コマンド、 操作可能なプログラムまたはバッチ ファイルとして認識されていません。】
+				removeSync(fnFrom +'/package-lock.json');
+
+				// prj.json の置換
+				const fnPrj = fnFrom +'/doc/prj/prj.json';
+				const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
+				oPrj.save_ns = this.save_ns;
+				outputJsonSync(fnPrj, oPrj, {spaces: '\t'});
+
+				// フォルダ名変更
+				moveSync(fnFrom, fnTo);
+
+				prg.report({
+					message		: '完了。フォルダを開きます',
+					increment	: 40,
+				});
+				setTimeout(()=> {
+					if (tknCancel.isCancellationRequested) {removeSync(fnTo); return;}
+
+					// フォルダをワークスペースで開く
+					commands.executeCommand('vscode.openFolder', Uri.file(fnTo), false);
+					done(0);
+				}, 4000);
+			})
+			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
+		});
+	});
 	private	save_ns	= '';
 	private	chkSave_ns = ()=> /^([a-zA-Z0-9!-/:-@¥[-`{-~]{1,})$/.test(this.save_ns);	// https://regex101.com/r/JGxtnR/1
 		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
+
+
+	readonly repPrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
+		location	: ProgressLocation.Notification,
+		title		: 'テンプレートからプロジェクト更新',
+		cancellable	: true,
+	}, (prg, tknCancel)=> {
+		const tmpdir = os.tmpdir();
+		removeSync(tmpdir +'.zip');
+		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
+		removeSync(fnFrom);
+
+		//	tknCancel.onCancellationRequested(()=> {});
+		prg.report({
+			message		: 'ダウンロード中',
+			increment	: 10,
+		});
+
+		return new Promise(done=> {
+			// zipダウンロード＆解凍
+			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
+			.then(res=> res.buffer())
+			.then(buf=> {
+				if (tknCancel.isCancellationRequested) return;
+
+				prg.report({
+					message		: 'ZIP解凍中',
+					increment	: 50,
+				});
+
+				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
+			})
+			.then(()=> {
+				if (tknCancel.isCancellationRequested) {removeSync(fnFrom); return;}
+
+				const copy = (fn: string)=> copyFileSync(fnFrom +'/'+ fn, fnTo +'/'+ fn);
+				// build/		// しばしノータッチ
+
+				copy('core/plugin/humane/index.js');
+				// core/app4webpack.js	やや難
+				copy('core/wds.config.js');
+				// core/web4webpack.js	やや難
+				copy('core/webpack.config.js');
+
+				// doc/prj/		// しばしノータッチ
+				// doc/app.js
+				// doc/favicon.ico
+				// doc/web.htm
+
+				copy('CHANGELOG.md');
+
+				// package.json
+				const oNewPkgJS = readJsonSync(fnFrom +'/package.json', {encoding: 'utf8'});
+				outputJsonSync(fnTo +'/package.json', {
+					...readJsonSync(fnTo +'/package.json', {encoding: 'utf8'}),
+					dependencies	: oNewPkgJS.dependencies,
+					devDependencies	: oNewPkgJS.devDependencies,
+					scripts			: oNewPkgJS.scripts,
+				}, {spaces: '\t'});
+
+				prg.report({
+					message		: 'ファイル更新完了',
+					increment	: 40,
+				});
+				setTimeout(()=> {
+					if (tknCancel.isCancellationRequested) return;
+
+					done(0);
+				}, 4000);
+			})
+			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
+		});
+	});
 
 }

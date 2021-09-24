@@ -1,4 +1,4 @@
-import { TreeItem, ExtensionContext } from 'vscode';
+import { TreeItem, ExtensionContext, WorkspaceFolder } from 'vscode';
 export interface TREEITEM_CFG {
     cmd: string;
     exe?: boolean;
@@ -9,13 +9,18 @@ export interface TREEITEM_CFG {
     children?: TREEITEM_CFG[];
     forMac?: boolean;
 }
+declare type ON_BTN = (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) => void;
 export declare class PrjTreeItem extends TreeItem {
     readonly cfg: TREEITEM_CFG;
-    readonly dir: string;
+    private readonly pathWs;
     readonly ctx: ExtensionContext;
-    readonly onClickTreeItemBtn: (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) => void;
+    private static readonly aTreeTmp;
+    static create(ctx: ExtensionContext, wsFld: WorkspaceFolder, onBtn: ON_BTN): PrjTreeItem;
+    private static hPathWs2onBtn;
     private _children;
-    readonly exe: boolean;
-    constructor(cfg: TREEITEM_CFG, dir: string, ctx: ExtensionContext, onClickTreeItemBtn: (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) => void);
+    private constructor();
+    private static regCmds;
+    private static regCmd;
     get children(): TreeItem[];
 }
+export {};

@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.14.8",
+	"version": "3.15.0",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.60.1"
+		"vscode": "^1.60.2"
 	},
 	"categories": [
 		"Programming Languages",
@@ -131,14 +131,6 @@
 			{
 				"command": "skynovel.devSnUpd",
 				"title": "Update SKYNovel",
-				"icon": {
-					"light": "res/light/download.svg",
-					"dark": "res/dark/download.svg"
-				}
-			},
-			{
-				"command": "skynovel.devLibUpd",
-				"title": "Update Library",
 				"icon": {
 					"light": "res/light/download.svg",
 					"dark": "res/dark/download.svg"
@@ -405,6 +397,10 @@
 					"name": "ワークスペース"
 				},
 				{
+					"id": "skynovel-layers",
+					"name": "レイヤ構造（上が奥、下が手前）"
+				},
+				{
 					"id": "skynovel-tb",
 					"name": "ツールボックス",
 					"type": "webview"
@@ -412,12 +408,6 @@
 				{
 					"id": "skynovel-doc",
 					"name": "ドキュメント・連絡先"
-				}
-			],
-			"debug": [
-				{
-					"id": "skynovel-layers",
-					"name": "レイヤ構造（上が奥）"
 				}
 			]
 		},
@@ -444,11 +434,6 @@
 					"group": "inline",
 					"command": "skynovel.devSnUpd",
 					"when": "view == skynovel-ws && viewItem == 'skynovel.devSnUpd'"
-				},
-				{
-					"group": "inline",
-					"command": "skynovel.devLibUpd",
-					"when": "view == skynovel-ws && viewItem == 'skynovel.devLibUpd'"
 				},
 				{
 					"group": "inline",
@@ -716,7 +701,7 @@
 		"electron": "^15.0.0",
 		"eslint": "^7.32.0",
 		"file-loader": "^6.2.0",
-		"glob": "^7.1.7",
+		"glob": "^7.2.0",
 		"mocha": "^9.1.1",
 		"power-assert": "^1.6.1",
 		"rimraf": "^3.0.2",

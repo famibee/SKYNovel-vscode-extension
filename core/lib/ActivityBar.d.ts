@@ -2,7 +2,8 @@ import { TreeDataProvider, TreeItem, ExtensionContext, Event } from 'vscode';
 export declare enum eTreeEnv {
     NODE = 0,
     NPM = 1,
-    SKYNOVEL_VER = 2
+    SKYNOVEL_VER = 2,
+    TEMP_VER = 3
 }
 export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private readonly ctx;
@@ -22,10 +23,16 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     readonly getTreeItem: (t: TreeItem) => TreeItem;
     getChildren(t?: TreeItem): Thenable<TreeItem[]>;
     private chkEnv;
-    private chkLastSNVer;
+    chkLastSNVer(pathWs: string): void;
+    getLocalSNVer(pathWs: string): {
+        verSN: string;
+        verTemp: string;
+    };
     private pnlWV;
     private openEnvInfo;
     private openTempWizard;
+    private readonly createPrjFromTmp;
     private save_ns;
     private chkSave_ns;
+    readonly repPrjFromTmp: (nm: string, fnTo: string) => Thenable<unknown>;
 }

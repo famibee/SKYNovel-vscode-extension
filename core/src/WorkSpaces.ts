@@ -6,12 +6,14 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {oIcon} from './CmnLib';
+import {ActivityBar} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
+import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 import {PrjTreeItem} from './PrjTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Range, TextEditorDecorationType, TextEditor} from 'vscode';
+import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Range, TextEditorDecorationType, TextEditor, commands} from 'vscode';
 
 import {existsSync} from 'fs-extra';
 
@@ -23,9 +25,9 @@ interface DecChars {
 export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	private readonly	aTiRoot		: TreeItem[] = [];
 
-	private hPrj	: {[dir: string]: Project}	= {};
+	private hPrj	: {[pathWs: string]: Project}	= {};
 
-	constructor(private readonly ctx: ExtensionContext, private readonly chkLastSNVer: ()=> void) {
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
@@ -104,8 +106,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 */
 			}
 		});
+
+		commands.registerCommand('skynovel.tiLayers.selectNode', node=> Debugger.send2SN('_selectNode', {node}));
+
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
-			getChildren: (t?: TreeItem)=> {
+			getChildren: t=> {
 				if (! t) return this.tiLayers;
 
 				const icon: any = t.iconPath;
@@ -122,9 +127,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 				return a.map(v=> Object.assign(new TreeItem(v.label), {
 					iconPath: oIcon(v.icon),
 					command	: {
-						command: 'skynovel.tiLayers.selectNode',
-						title: 'Select Node',
-						arguments: [t.label +'/'+ v.label],
+						command		: 'skynovel.tiLayers.selectNode',
+						title		: 'Select Node',
+						arguments	: [t.label +'/'+ v.label],
 					},
 				}));
 			},
@@ -187,13 +192,12 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	}
 
 	private refresh(e?: WorkspaceFoldersChangeEvent): void {
-		const aFld = workspace.workspaceFolders;
-		if (! aFld) return;	// undefinedだった場合はファイルを開いている
+		const aWsFld = workspace.workspaceFolders;
+		if (! aWsFld) return;	// undefinedだった場合はファイルを開いている
 
 		// フォルダーを開いている（len>1 ならワークスペース）
-		if (! e)  {
-			// 起動時
-			aFld.forEach(fld=> this.makePrj(fld));	// 生成
+		if (! e)  {		// 起動時
+			aWsFld.forEach(fld=> this.makePrj(fld));
 			if (this.aTiRoot.length === 0) return;
 			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.emPrjTD.fire(undefined);
@@ -201,16 +205,16 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		}
 
 		// フォルダ増減時
-		if (e.added.length > 0) this.makePrj(aFld.slice(-1)[0]);
+		if (e.added.length > 0) this.makePrj(aWsFld.slice(-1)[0]);
 			// 最後の一つと思われる
 		else {
 			const nm = e.removed[0].name;	// 一つだけ対応
 			const del = this.aTiRoot.findIndex(v=> v.label === nm);
 			this.aTiRoot.splice(del, 1);
 
-			const dir = e.removed[0].uri.fsPath;
+			const pathWs = e.removed[0].uri.fsPath;
 
-			this.hPrj[dir].dispose();
+			this.hPrj[pathWs].dispose();
 		}
 		this.emPrjTD.fire(undefined);
 	}
@@ -218,26 +222,26 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	readonly onDidChangeTreeData = this.emPrjTD.event;
 
 
-	enableButton(enable: boolean): void {
-		for (const dir in this.hPrj) this.hPrj[dir].enableButton(enable);
+	enableBtn(enable: boolean): void {
+		for (const pathWs in this.hPrj) this.hPrj[pathWs].enableBtn(enable);
 	}
 
 
 	// WorkspaceFolder を TreeItem に反映
 	private makePrj(wsFld: WorkspaceFolder) {
-		const dir = wsFld.uri.fsPath;
-		const existPkgJS = existsSync(dir +'/package.json');
-		const isPrjValid = existPkgJS && existsSync(dir +'/doc/prj/prj.json');
+		const pathWs = wsFld.uri.fsPath;
+		const existPkgJS = existsSync(pathWs +'/package.json');
+		const isPrjValid = existPkgJS && existsSync(pathWs +'/doc/prj/prj.json');
 		if (! isPrjValid) return;
 
-		this.hPrj[dir] = new Project(this.ctx, this.chkLastSNVer, wsFld, this.aTiRoot, this.emPrjTD, this.hOnEndTask);
+		this.hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.aTiRoot, this.emPrjTD, this.hOnEndTask);
 	}
 
 	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
 		'テンプレ初期化': e=> {		// 本来のキーは Project.ts の btn_nm
 			const wsFld = <WorkspaceFolder>e.execution.task.scope;
-			const dir = wsFld.uri.fsPath;
-			this.hPrj[dir].finInitTask();
+			const pathWs = wsFld.uri.fsPath;
+			this.hPrj[pathWs].finInitTask();
 		},
 	};
 
@@ -245,7 +249,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.aTiRoot;
 
 	dispose() {
-		for (const dir in this.hPrj) this.hPrj[dir].dispose();
+		for (const pathWs in this.hPrj) this.hPrj[pathWs].dispose();
 		this.hPrj = {};
 	}
 

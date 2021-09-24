@@ -278,13 +278,13 @@
 	![](res/img/activity_bar.png)
 
 ---
-- Library update check
+- Check for library and template updates
 	- Pop-up announcement at the bottom right (if there is an update).
-	- Display in Activity Bar, update with one button.
+	- Various version display, automatic update with one [Base update] button.
 	- Various functions such as "Launch browser version" can be performed with a single button.
-- ライブラリ更新チェック
+- ライブラリやテンプレートの更新チェック
 	- （更新があれば）右下にポップアップ告知
-	- Activity Barにも表示、ボタン一つで更新
+	- 各種バージョン表示、【ベース更新】ボタン一つで自動更新
 	- 「ブラウザ版を起動」など、各種機能もボタン一つで
 
 ![](res/img/updchk0.jpg)

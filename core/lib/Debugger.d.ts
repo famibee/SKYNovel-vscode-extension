@@ -16,8 +16,9 @@ export declare class Debugger extends EventEmitter {
     private pathWs;
     constructor(wsFld: WorkspaceFolder | undefined, hookTag: (o: any) => void);
     private static hcurPrj2Dbg;
+    static send2SN(type: string, o?: object): void;
     attach(args: DebugConfiguration): void;
-    private send2SN;
+    private $send2SN;
     end(): void;
     private readonly hProcSnRes;
     private hDCId2DI;
