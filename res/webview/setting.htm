@@ -3,165 +3,184 @@
 <title>・</title>
 <link rel="canonical" href="index.htm">
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
-<link rel="stylesheet" href="./lib/mdb.min.css">
-<script defer nonce="${nonce}" src="./lib/mdb.min.js"></script>
+<meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
+<link rel="stylesheet" href="./lib/bootstrap.min.css">
+<link rel="stylesheet" href="./lib/bootstrap2vscode.css">
+<link rel="stylesheet" href="./lib/fontawesome/all.min.css">
+<script defer nonce="${nonce}" src="./lib/bootstrap.min.js"></script>
+<script defer nonce="${nonce}" src="./lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="./setting.js"></script>
 </head>
-<body class="white black-text">
+<body>
 
-<!-- Tabs navs -->
-<ul class="nav nav-tabs mb-3" role="tablist">
-	<li class="nav-item" role="presentation">
-		<a class="nav-link active" id="tab-1" data-mdb-toggle="tab" href="#tabs-1" role="tab" aria-controls="tabs-1" aria-selected="true">基本情報</a>
-	</li>
-	<li class="nav-item" role="presentation">
-		<a class="nav-link" id="tab-2" data-mdb-toggle="tab" href="#tabs-2" role="tab" aria-controls="tabs-2" aria-selected="false">アプリ設定</a>
-	</li>
-	<li class="nav-item" role="presentation">
-		<a class="nav-link" id="tab-3" data-mdb-toggle="tab" href="#tabs-3" role="tab" aria-controls="tabs-3" aria-selected="false">デバッグスイッチ</a>
-	</li>
-	<li class="nav-item" role="presentation">
-		<a class="nav-link" id="tab-4" data-mdb-toggle="tab" href="#tabs-4" role="tab" aria-controls="tabs-4" aria-selected="false" style="text-transform: none;">setting.sn 設定</a>
-	</li>
-</ul>
-<!-- Tabs navs -->
+<nav><div class="nav nav-tabs" id="nav-tab" role="tablist">
+	<a class="nav-link active" id="nav-basic-tab" data-bs-toggle="tab" href="#nav-basic" role="tab" aria-controls="nav-basic" aria-selected="true">
+		基本情報
+	</a>
 
-<!-- Tabs content -->
-<div class="tab-content">
-<div class="tab-pane fade show active" id="tabs-1" role="tabpanel" aria-labelledby="tab-1">
-<div class="container-fluid"><div class="row">
+	<a class="nav-link" id="nav-app-tab" data-bs-toggle="tab" href="#nav-app" role="tab" aria-controls="nav-app" aria-selected="false">
+		アプリ設定
+	</a>
 
-	<div class="col-12 col-sm-6 px-1 pb-2"><div class="form-outline">
-		<input type="text" id="book.title" value="" class="form-control sn-vld is-invalid" placeholder="（日本語名でＯＫ）"/>
-		<label class="form-label" for="book.title">作品タイトル名</label>
-		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
-	<div class="col-12 col-sm-6 px-1 pb-2"><div class="form-outline">
-		<input type="text" id="save_ns" value="" class="form-control sn-vld is-invalid" placeholder="com.fc2.blog.famibee 的な出版者ＵＲＬの逆順ドメイン推奨"/>
-		<label class="form-label" for="save_ns">プロジェクト名（英数字）</label>
-		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
+	<a class="nav-link" id="nav-debug-tab" data-bs-toggle="tab" href="#nav-debug" role="tab" aria-controls="nav-debug" aria-selected="false">
+		デバッグスイッチ
+	</a>
 
-	<div class="col-12 col-sm-6 px-1 py-2"><div class="form-outline">
-		<input type="text" id="book.creator" value="" class="form-control sn-vld is-invalid" placeholder="ペンネーム、ハンドル名など"/>
-		<label class="form-label" for="book.creator">著作者</label>
-		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
-	<div class="col-12 col-sm-6 px-1 py-2"><div class="input-group">
-		<div class="form-outline">
-			<input type="url" id="book.cre_url" value="" class="form-control sn-vld is-invalid" placeholder="メアド、SNSなど"/>
-			<label class="form-label" for="book.cre_url">連絡先ＵＲＬ</label>
-		</div>
+	<a class="nav-link" id="nav-setting_sn-tab" data-bs-toggle="tab" href="#nav-setting_sn" role="tab" aria-controls="nav-setting_sn" aria-selected="true">
+		setting.sn 設定（作成中）
+	</a>
+</div></nav>
+<div class="tab-content mt-2" id="nav-tabContent">
+	<!-- 基本情報 -->
+	<div class="tab-pane fade show active" id="nav-basic" role="tabpanel" aria-labelledby="nav-basic-tab">
+		<div class="container-fluid"><div class="row">
+
+<div class="col-12 col-sm-6 px-1 pb-2"><div class="form-outline">
+	<label class="form-label" for="book.title">作品タイトル名</label>
+	<input type="text" id="book.title" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="（日本語名でＯＫ）"/>
+	<div class="invalid-feedback">あなたの作品情報に変更してください</div>
+</div></div>
+<div class="col-12 col-sm-6 px-1 pb-2"><div class="form-outline">
+	<label class="form-label" for="save_ns">プロジェクト名（英数字）</label>
+	<input type="text" id="save_ns" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="com.fc2.blog.famibee 的な出版者ＵＲＬの逆順ドメイン推奨"/>
+	<div class="invalid-feedback">あなたの作品情報に変更してください</div>
+</div></div>
+
+<div class="col-12 col-sm-6 px-1 py-2"><div class="form-outline">
+	<label class="form-label" for="book.creator">著作者</label>
+	<input type="text" id="book.creator" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="ペンネーム、ハンドル名など"/>
+	<div class="invalid-feedback">あなたの作品情報に変更してください</div>
+</div></div>
+<div class="col-12 col-sm-6 px-1 py-2"><div class="input-group input-group-sm">
+	<label class="form-label" for="book.cre_url">連絡先ＵＲＬ</label>
+	<div class="input-group input-group-sm">
+		<input type="url" id="book.cre_url" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="メアド、SNSなど's username" aria-label="Recipient's username" aria-describedby="button-addon2">
 		<button class="btn btn-info" type="button" id="open.cre_url">Open</button>
 		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
+	</div>
+</div></div>
 
-	<div class="col-12 col-sm-6 px-1 py-2"><div class="form-outline">
-		<input type="text" id="book.publisher" value="" class="form-control sn-vld is-invalid" placeholder="サークル名、団体名など"/>
-		<label class="form-label" for="book.publisher">出版者</label>
-		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
-	<div class="col-12 col-sm-6 px-1 py-2"><div class="input-group">
-		<div class="form-outline">
-			<input type="url" id="book.pub_url" value="" class="form-control sn-vld is-invalid" placeholder="ご自身の公式サイトなど"/>
-			<label class="form-label" for="book.pub_url">出版者ＵＲＬ</label>
-		</div>
+<div class="col-12 col-sm-6 px-1 py-2"><div class="form-outline">
+	<label class="form-label" for="book.publisher">出版者</label>
+	<input type="text" id="book.publisher" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="サークル名、団体名など"/>
+	<div class="invalid-feedback">あなたの作品情報に変更してください</div>
+</div></div>
+<div class="col-12 col-sm-6 px-1 py-2"><div class="input-group input-group-sm">
+	<label class="form-label" for="book.pub_url">出版者ＵＲＬ</label>
+	<div class="input-group input-group-sm">
+		<input type="url" id="book.pub_url" value="" class="form-control form-control-sm sn-vld is-invalid" placeholder="ご自身の公式サイトなど"/>
 		<button class="btn btn-info" type="button" id="open.pub_url">Open</button>
 		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
-
-	<div class="col-12 px-1 py-3"><div class="form-outline">
-		<textarea id="book.detail" class="form-control sn-vld is-invalid" placeholder="インストーラーに表示する内容説明">%book.detail%</textarea>
-		<label class="form-label" for="book.detail">内容：プロジェクトの説明</label>
-		<div class="invalid-feedback">あなたの作品情報に変更してください</div>
-	</div></div>
-
+	</div>
 </div></div>
+
+<div class="col-12 px-1 py-3"><div class="form-outline">
+	<label class="form-label" for="book.detail">内容：プロジェクトの説明</label>
+	<textarea id="book.detail" class="form-control form-control-sm sn-vld is-invalid" placeholder="インストーラーに表示する内容説明">%book.detail%</textarea>
+	<div class="invalid-feedback">あなたの作品情報に変更してください</div>
+</div></div>
+
+		</div></div>
+	</div>
+
+	<!-- アプリ設定 -->
+	<div class="tab-pane fade" id="nav-app" role="tabpanel" aria-labelledby="nav-app-tab">
+		<div class="container-fluid"><div class="row">
+
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="window.width">アプリの横幅</label>
+	<input type="number" id="window.width" value="" class="form-control form-control-sm" placeholder="横幅ドット数"/>
 </div>
-<div class="tab-pane fade" id="tabs-2" role="tabpanel" aria-labelledby="tab-2">
-	<div class="container-fluid"><div class="row">
-
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="number" id="window.width" value="" class="form-control sn-gray" placeholder="横幅ドット数"/>
-		<label class="form-label" for="window.width">アプリの横幅</label>
-	</div></div>
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="number" id="window.height" value="" class="form-control sn-gray" placeholder="縦幅ドット数"/>
-		<label class="form-label" for="window.height">アプリの縦幅</label>
-	</div></div>
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="text" id="book.version" value="" class="form-control sn-gray" placeholder="1.0.0 など"/>
-		<label class="form-label" for="book.version">バージョン</label>
-	</div></div>
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="number" id="log.max_len" value="" class="form-control sn-gray" placeholder="何ページ分保存するか"/>
-		<label class="form-label" for="log.max_len">ログ保存長</label>
-	</div></div>
-
-	<div class="col-12 px-1 pt-3"><h5>初期値</h5></div>
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="number" id="init.tagch_msecwait" value="" class="form-control sn-gray" placeholder="ミリ秒単位で指定"/>
-		<label class="form-label" for="init.tagch_msecwait">文字表示待ち時間</label>
-	</div></div>
-	<div class="col-8 col-sm-4 px-1 py-2"><div class="form-outline">
-		<input type="number" id="init.auto_msecpagewait" value="" class="form-control sn-gray" placeholder="ミリ秒単位で指定"/>
-		<label class="form-label" for="init.auto_msecpagewait">自動読み時文字表示待ち時間</label>
-	</div></div>
-
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="text" id="init.escape" value="" class="form-control sn-gray" placeholder="半角記号推奨"/>
-		<label class="form-label" for="init.escape">エスケープ文字</label>
-	</div></div>
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-outline">
-		<input type="color" id="init.bg_color" value="#000000" class="form-control sn-gray"/>
-		<label class="form-label" for="init.bg_color">背景色</label>
-	</div></div>
-
-	</div></div>
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="window.height">アプリの縦幅</label>
+	<input type="number" id="window.height" value="" class="form-control form-control-sm" placeholder="縦幅ドット数"/>
 </div>
-<div class="tab-pane fade" id="tabs-3" role="tabpanel" aria-labelledby="tab-3">
-	<div class="container-fluid"><div class="row px-3">
-
-	<div class="col-12 px-1 pt-3"><h5>暗号化しないフォルダ</h5></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check"><input id="code.script" type="checkbox" class="form-check-input sn-chk"/><label class="form-label"><span>script</span></label></div>
-		<!-- これのみテンプレ。内部置換のため spanは必須、改行も禁止 -->
-
-	<div class="col-12 px-1 pt-3"><h5>デバッグスイッチ</h5></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.devtool" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">devtool</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.token" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">token</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.tag" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">tag</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.putCh" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">putCh</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.debugLog" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">debugLog</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.baseTx" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">baseTx</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.masume" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">masume</label></div>
-	<div class="col-4 col-sm-3 col-lg-2 col-xxl-1 form-check">
-		<input id="debug.variable" type="checkbox" class="form-check-input sn-chk"/>
-		<label class="form-label">variable</label></div>
-
-	</div></div>
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="book.version">バージョン</label>
+	<input type="text" id="book.version" value="" class="form-control form-control-sm" placeholder="1.0.0 など"/>
 </div>
-<div class="tab-pane fade" id="tabs-4" role="tabpanel" aria-labelledby="tab-4">
-	<div class="container-fluid"><div class="row px-3">
-	<!-- 4replace_by_setting.sn -->
-	</div></div>
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="log.max_len">ログ保存長</label>
+	<input type="number" id="log.max_len" value="" class="form-control form-control-sm" placeholder="何ページ分保存するか"/>
 </div>
+
+<div class="col-12 px-1 pt-3"><h5>初期値</h5></div>
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="init.tagch_msecwait">文字表示待ち時間</label>
+	<input type="number" id="init.tagch_msecwait" value="" class="form-control form-control-sm" placeholder="ミリ秒単位で指定"/>
 </div>
-<!-- Tabs content -->
+<div class="col-8 col-sm-4 px-1 py-2">
+	<label class="form-label" for="init.auto_msecpagewait">自動読み時文字表示待ち時間</label>
+	<input type="number" id="init.auto_msecpagewait" value="" class="form-control form-control-sm" placeholder="ミリ秒単位で指定"/>
+</div>
+
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="init.escape">エスケープ文字</label>
+	<input type="text" id="init.escape" value="" class="form-control form-control-sm" placeholder="半角記号推奨"/>
+</div>
+<div class="col-6 col-md-3 px-1 py-2">
+	<label class="form-label" for="init.bg_color">背景色</label>
+	<input type="color" id="init.bg_color" value="#000000" class="form-control form-control-sm form-control-color"/>
+</div>
+
+		</div></div>
+	</div>
+
+	<!-- デバッグスイッチ -->
+	<div class="tab-pane fade" id="nav-debug" role="tabpanel" aria-labelledby="nav-debug-tab">
+		<div class="container-fluid"><div class="row">
+
+<div class="col-12 px-1 pt-3"><h5>暗号化しないフォルダ</h5></div>
+
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check"><input id="code.script" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value=""><label class="form-check-label"><span>script</span></label></div></div>
+	<!-- これのみテンプレ。内部置換のため spanは必須、改行も禁止 -->
+
+<div class="col-12 px-1 pt-3"><h5>デバッグスイッチ</h5></div>
+
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.devtool" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.devtool">devtool</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.token" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.token">token</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.tag" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.tag">tag</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.putCh" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.putCh">putCh</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.debugLog" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.debugLog">debugLog</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.baseTx" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.baseTx">baseTx</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.masume" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.masume">masume</label>
+</div></div>
+<div class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
+	<input id="debug.variable" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
+	<label class="form-check-label" for="debug.variable">variable</label>
+</div></div>
+
+		</div></div>
+	</div>
+
+	<!-- setting.sn 設定（作成中） -->
+	<div class="tab-pane fade show" id="nav-setting_sn" role="tabpanel" aria-labelledby="nav-setting_sn-tab">
+		<div class="container-fluid"><div class="row">
+<!-- 4replace_by_setting.sn -->
+		</div></div>
+	</div>
+</div>
+
 
 </body>
 </html>

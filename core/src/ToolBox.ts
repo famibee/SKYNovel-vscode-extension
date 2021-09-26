@@ -80,7 +80,7 @@ export class ToolBox implements WebviewViewProvider {
 <head><meta charset="utf-8"/>
 <title>スコア ツールボックス</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${wv.cspSource} https:; script-src 'nonce-${nonce}' ${wv.cspSource}; style-src ${wv.cspSource} 'unsafe-inline'; font-src ${wv.cspSource};"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${wv.cspSource} https:; script-src 'nonce-${nonce}' ${wv.cspSource}; style-src ${wv.cspSource} 'unsafe-inline'; font-src ${wv.cspSource};"/>
 <link rel="stylesheet" href="${uri}/lib/mdb.min.css">
 <link rel="stylesheet" href="${uri}/lib/fontawesome/all.min.css">
 <style>

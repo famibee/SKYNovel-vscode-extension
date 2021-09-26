@@ -1,3 +1,5 @@
+## v3.15.2
+- fix: 【設定】【SKYNovel開発環境　準備の手引き】も純粋bootstrap・VSCodeカラー対応
 ## v3.15.1
 - fix: ベース更新：基本テンプレは package.json から調べるように
 	- プラグインはまた別個

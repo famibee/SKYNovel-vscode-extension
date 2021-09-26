@@ -202,15 +202,15 @@ export class PrjSetting {
 				const v = m[4] ?m[3].slice(1, -1) :m[3];
 				const lbl = m[5].trim();
 				if (v === 'true' || v === 'false') hs += `
-	<div class="col-auto pe-1 mt-2 form-outline"><div class="form-check">
-		<input id="/setting.sn:${nm}" type="checkbox" class="form-check-input sn-chk" checked="${v}"/>
-		<label class="form-label" for="/setting.sn:${nm}">${lbl}</label>
+	<div class="col-6 col-md-3 px-1 py-2"><div class="form-check">
+		<input class="form-check-input mb-3 sn_checkbox" type="checkbox" id="/setting.sn:${nm}" checked="${v}">
+		<label class="form-check-label" for="/setting.sn:${nm}">${lbl}</label>
 	</div></div>`;
 				else hs += `
-	<div class="col-auto px-1 mt-2"><div class="form-outline">
-		<input type="text" id="/setting.sn:${nm}" value="${v}" class="form-control sn-gray" placeholder="${lbl}"/>
-		<label class="form-label" for="/setting.sn:${nm}">${lbl}</label>
-	</div></div>`;
+	<div class="col-6 col-md-3 px-1 py-2">
+		<label for="/setting.sn:${nm}" class="form-label">${lbl}</label>
+		<input type="text" class="form-control form-control-sm" id="/setting.sn:${nm}" value="${v}" placeholder="${lbl}">
+	</div>`;
 			}
 			h = h.replace('<!-- 4replace_by_setting.sn -->', hs);
 		} catch {

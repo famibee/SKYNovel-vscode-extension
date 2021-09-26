@@ -31,7 +31,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
 
-		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.definition.type.slice(9)](e));
+		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.definition.type.slice(9)]?.(e));
 
 		this.onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
