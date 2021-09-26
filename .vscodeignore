@@ -1,9 +1,12 @@
 !file.ts
-/.gitignore
-/.vscode/**
+.vscode/
 **/.eslintrc.json
 **/*.map
 **/*.ts
-**/tsconfig.json
-/core/**
+
+core/
 node_modules/
+test/
+
+*.cs
+tsconfig.json

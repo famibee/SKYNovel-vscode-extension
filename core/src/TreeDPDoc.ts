@@ -12,7 +12,6 @@ import {TreeDataProvider, TreeItem, ExtensionContext, commands, env, Uri, TreeIt
 interface	TTmpTI {
 	label		: string;
 	icon?		: string;
-	cmd?		: string;
 	url?		: string;
 	children?	: TTmpTI[];
 }

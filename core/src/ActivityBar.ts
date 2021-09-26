@@ -34,8 +34,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static stop() {ActivityBar.actBar.dispose();}
 
 
-	private readonly aEnv: {label: string, icon: string}[]
-	= [
+	private readonly aEnv: {label: string, icon: string}[]	= [
 		{label: 'Node.js',	icon: 'node-js-brands'},
 		{label: 'npm',		icon: 'npm-brands'},
 		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
@@ -363,11 +362,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
 
 
-	readonly repPrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
+	readonly repPrjFromTmp = (fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト更新',
 		cancellable	: true,
 	}, (prg, tknCancel)=> {
+		const oOldPkgJS = readJsonSync(fnTo +'/package.json', {encoding: 'utf8'});
+		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
+
 		const tmpdir = os.tmpdir();
 		removeSync(tmpdir +'.zip');
 		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
@@ -396,10 +398,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.then(()=> {
 				if (tknCancel.isCancellationRequested) {removeSync(fnFrom); return;}
 
-				const copy = (fn: string)=> copyFileSync(fnFrom +'/'+ fn, fnTo +'/'+ fn);
+				const copy = (fn: string, chkExists = false)=> {
+					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
+					copyFileSync(fnFrom +'/'+ fn, fnTo +'/'+ fn)
+				};
+
 				// build/		// しばしノータッチ
 
-				copy('core/plugin/humane/index.js');
+				// 例 copy('core/plugin/humane/index.js', true);
 				// core/app4webpack.js	やや難
 				copy('core/wds.config.js');
 				// core/web4webpack.js	やや難
@@ -415,11 +421,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// package.json
 				const oNewPkgJS = readJsonSync(fnFrom +'/package.json', {encoding: 'utf8'});
 				outputJsonSync(fnTo +'/package.json', {
-					...readJsonSync(fnTo +'/package.json', {encoding: 'utf8'}),
+					...oOldPkgJS,
 					dependencies	: oNewPkgJS.dependencies,
 					devDependencies	: oNewPkgJS.devDependencies,
 					scripts			: oNewPkgJS.scripts,
 				}, {spaces: '\t'});
+					// TODO: プラグインはまた別個にライブラリを考慮し更新
 
 				prg.report({
 					message		: 'ファイル更新完了',

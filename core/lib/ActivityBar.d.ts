@@ -34,5 +34,5 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
     private readonly createPrjFromTmp;
     private save_ns;
     private chkSave_ns;
-    readonly repPrjFromTmp: (nm: string, fnTo: string) => Thenable<unknown>;
+    readonly repPrjFromTmp: (fnTo: string) => Thenable<unknown>;
 }

@@ -221,18 +221,18 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	}
 
 	private	readonly	hPush2BtnEnable	: {[btn_nm: string]: string[]}	= {
-	'TaskWeb'		: ['_off', '_off', '_off', '_off', '_off', 'Stop', '_off',
+	'TaskWeb'		: ['_off', '_off', '_off', '_off', 'Stop', '_off',
 						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskWebDbg'	: ['_off', '_off', '_off', '_off', '_off', 'Stop', '_off',
+	'TaskWebDbg'	: ['_off', '_off', '_off', '_off', 'Stop', '_off',
 						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskWebStop'	: ['', '', '', '', '', '', '',
+	'TaskWebStop'	: ['', '', '', '', '', '',
 						'', '', '', '', '', ''],
-// 'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+// 'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', 'Stop',
 // 					'_off', '_off', '_off', '_off', '_off', '_off'],
-// 'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', '_off', 'Stop',
+// 'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', 'Stop',
 // 					'_off', '_off', '_off', '_off', '_off', '_off'],
 		// NOTE: 無効化中
-	'TaskAppDbgStop': ['', '', '', '', '', '', '',
+	'TaskAppDbgStop': ['', '', '', '', '', '',
 						'', '', '', '', '', ''],
 	};
 	private onBtn(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
@@ -240,7 +240,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		// 値を壊してボタン消去など
 		const aBtnEnable = this.hPush2BtnEnable[btn_nm]
-		?? ['_off', '_off', '_off', '_off', '_off', '_off', '_off',
+		?? ['_off', '_off', '_off', '_off', '_off', '_off',
 			'_off', '_off', '_off', '_off', '_off', '_off'];
 		this.aTiFlat.forEach((ti, i)=> {
 			ti.contextValue += aBtnEnable[i];
@@ -286,7 +286,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				this.termDbgSS()
 				.then(()=> {
 					if (! existsSync(pathWs + '/CHANGELOG.md')) return;
-					this.actBar.repPrjFromTmp('uc', this.wsFld.uri.fsPath);
+					this.actBar.repPrjFromTmp(this.wsFld.uri.fsPath);
 				})
 				.then(()=> {
 					ncu.run({

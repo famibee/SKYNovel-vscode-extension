@@ -1,0 +1,187 @@
+/* Theme Color | Visual Studio Code Extension API https://code.visualstudio.com/api/references/theme-color */
+body {
+	padding: 0 var(--container-paddding);
+	color: var(--vscode-editor-foreground);
+	background-color: var(--vscode-editor-background);
+	font-size: var(--vscode-editor-font-size);
+	font-weight: var(--vscode-editor-font-weight);
+	font-family: var(--vscode-editor-font-family);
+}
+
+/* tab */
+.nav-tabs {
+	border: none;
+}
+.nav-tabs > .nav-link {
+	color: var(--vscode-tab-inactive-foreground);
+	background-color: var(--vscode-tab-inactive-background);
+	border: none;
+	border-bottom: 1px solid var(--vscode-tab-border);
+}
+.nav-tabs > .nav-link:focus {
+	color: var(--vscode-tab-hover-foreground);
+	background-color: var(--vscode-tab-hover-background);
+	border-color: var(--vscode-tab-hover-border);
+}
+.nav-tabs > .nav-link.active {
+	color: var(--vscode-tab-active-foreground);
+	background-color: var(--vscode-tab-active-background);
+	border-color: var(--vscode-tab-active-border);
+}
+
+
+/* list */
+.list-group {
+	border: solid var(--vscode-dropdown-border);
+}
+.list-group-item {
+	color: var(--vscode-list-inactive-selection-foreground);
+	background-color: var(--vscode-list-inactive-selection-background);
+/* 	border-color: var(--vscode-list-inactive-focus-outline); */
+	border: none;
+	padding: 0.2em .5em;
+}
+.list-group-item:hover {
+	color: var(--vscode-list-hover-background);
+	background-color: var(--vscode-list-hover-foreground);
+}
+.list-group-item:focus {
+	background-color: var(--vscode-list-inactive-focus-background);
+	border-color: var(--vscode-list-inactive-focus-outline);
+}
+.list-group-item.active {
+/* 	color: var(--vscode-list-active-selection-foreground); */
+/* 	background-color: var(--vscode-list-active-selection-background); */
+	border-color: var(--vscode-list-active-focus-outline);
+}
+.list-group-item.active:focus {
+	color: var(--vscode-list-focus-foreground);
+	background-color: var(--vscode-list-focus-background);
+	border-color: var(--vscode-list-focus-outline);
+}
+
+/*	未使用
+--vscode-list-error-foreground
+--vscode-list-warning-foreground
+
+
+--vscode-tab-unfocused-inactive-background
+--vscode-tab-unfocused-active-foreground
+--vscode-tab-unfocused-hover-background
+--vscode-tab-unfocused-hover-foreground
+
+
+.tab-content {
+	background-color: red;
+	background-color: var(--vscode-panel-background);
+}
+*/
+
+/* input, textarea */
+input.form-control, textarea.form-control,
+input.form-control:focus, textarea.form-control:focus {
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: solid var(--vscode-input-border);
+}
+
+/* select */
+.sn_select {
+	position: relative;
+}
+.sn_select_v {
+	position: absolute;
+	right: 9px;
+	top: 30%;
+}
+select.form-select {
+	background-image: none;
+	color: var(--vscode-dropdown-foreground);
+	background-color: var(--vscode-dropdown-background);
+	border: solid var(--vscode-input-border);
+}
+
+/* button */
+button.btn {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border: solid var(--vscode-button-border);
+}
+button.btn:hover {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-hover-background);
+}
+button.btn-secondary {
+	color: var(--vscode-button-secondary-foreground);
+	background-color: var(--vscode-button-secondary-background);
+}
+button.btn-secondary:hover {
+	background-color: var(--vscode-button-secondary-hover-background);
+}
+
+/* input file */
+.sn_file > input {
+	display: none;
+}
+.sn_file > label {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border: solid var(--vscode-button-border);
+}
+
+/* checkbox */
+.sn_checkbox {
+	color: var(--vscode-checkbox-foreground);
+	background-color: var(--vscode-checkbox-background);
+	width: 1.3rem;
+	height: 1.3rem;
+	margin-right: 0.6rem;
+}
+.sn_checkbox + label {
+	padding-top: 0.3rem;
+}
+.sn_checkbox:checked {
+	background-color: var(--vscode-checkbox-background);
+	border-color: var(--vscode-checkbox-border);
+}
+
+/* input radio */
+input[type="radio"] {
+	background-color: var(--vscode-checkbox-background);
+	width: 1.3rem;
+	height: 1.3rem;
+	margin-right: 0.6rem;
+}
+input[type="radio"]:checked {
+	background-color: var(--vscode-checkbox-background);
+	border-color: var(--vscode-checkbox-border);
+}
+input[type="radio"] + label {
+	padding-top: 0.3rem;
+}
+
+/* input switch */
+.form-switch .form-check-input {
+	height: 1.3rem;
+	width: 2.75rem;
+	margin-right: 0.6rem;
+	border-radius: 3rem;
+	background-color: var(--vscode-checkbox-background);
+	border-color: var(--vscode-checkbox-border);
+}
+.form-switch .form-check-input:checked {
+	background-color: var(--vscode-button-background);
+}
+.form-switch label {
+	padding-top: 0.3rem;
+}
+
+/* input range */
+input[type="range"]::-webkit-slider-thumb {
+	width: 1.3rem;
+	height: 1.3rem;
+	margin-top: -0.4rem;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+	background-color: var(--vscode-checkbox-background);
+}
