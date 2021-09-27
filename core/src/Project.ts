@@ -284,24 +284,19 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.termDbgSS()
-				.then(()=> {
-					if (! existsSync(pathWs + '/CHANGELOG.md')) return;
-					this.actBar.repPrjFromTmp(this.wsFld.uri.fsPath);
+				.then(()=> this.actBar.repPrjFromTmp(this.wsFld.uri.fsPath))
+				.then(()=> ncu.run({	// ncu -u --target minor
+					packageFile: pathWs +'/package.json',
+					// Defaults:
+					// jsonUpgraded: true,
+					// silent: true,
+					upgrade: true,
+					target: 'minor',
 				})
 				.then(()=> {
-					ncu.run({
-						packageFile: pathWs +'/package.json',
-						// Defaults:
-						// jsonUpgraded: true,
-						// silent: true,
-						upgrade: true,
-						target: 'minor',
-					})		// ncu -u --target minor
-					.then(()=> {
-						this.updLocalSNVer();
-						this.onBtn_sub(ti, 'SnUpd_waited', cfg, done);
-					});
-				});
+					this.updLocalSNVer();
+					this.onBtn_sub(ti, 'SnUpd_waited', cfg, done);
+				}));
 				return;
 
 			case 'SnUpd_waited':	break;	// Promise待ち後

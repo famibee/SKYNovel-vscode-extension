@@ -367,6 +367,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		title		: 'テンプレートからプロジェクト更新',
 		cancellable	: true,
 	}, (prg, tknCancel)=> {
+		if (! existsSync(fnTo + '/CHANGELOG.md')) return Promise.reject();
+
 		const oOldPkgJS = readJsonSync(fnTo +'/package.json', {encoding: 'utf8'});
 		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
 
@@ -405,7 +407,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// build/		// しばしノータッチ
 
-				// 例 copy('core/plugin/humane/index.js', true);
+				copy('core/plugin/humane/index.js', true);
 				// core/app4webpack.js	やや難
 				copy('core/wds.config.js');
 				// core/web4webpack.js	やや難

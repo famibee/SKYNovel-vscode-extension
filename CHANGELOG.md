@@ -1,3 +1,5 @@
+## v3.15.3
+- fix: ベース更新：dependencies、devDependencies で古い新しいを振り子する件
 ## v3.15.2
 - fix: 【設定】【SKYNovel開発環境　準備の手引き】も純粋bootstrap・VSCodeカラー対応
 ## v3.15.1
