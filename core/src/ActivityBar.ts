@@ -306,33 +306,21 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
 		removeSync(fnFrom);
 
-		//	tknCancel.onCancellationRequested(()=> {});
-		prg.report({
-			message		: 'ダウンロード中',
-			increment	: 10,
-		});
+		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
 
-		return new Promise(done=> {
+		return new Promise<void>((re, rj)=> {
 			// zipダウンロード＆解凍
+			prg.report({increment: 10, message: 'ダウンロード中',});
 			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
-			.then(res=> res.buffer())
-			.then(buf=> {
-				if (tknCancel.isCancellationRequested) return;
+			.then(async res=> {
+				const buf = await res.buffer();
+				if (tknCancel.isCancellationRequested) {rj(); return;}
 
-				prg.report({
-					message		: 'ZIP解凍中',
-					increment	: 50,
-				});
-
+				prg.report({increment: 50, message: 'ZIP解凍中',});
 				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
-			})
-			.then(()=> {
-				if (tknCancel.isCancellationRequested) {removeSync(fnFrom); return;}
+				if (tknCancel.isCancellationRequested) {rj(); return;}
 
-				// package-lock.json 削除
-				// 対策【'webpack' は、内部コマンドまたは外部コマンド、 操作可能なプログラムまたはバッチ ファイルとして認識されていません。】
-				removeSync(fnFrom +'/package-lock.json');
-
+				prg.report({increment: 10, message: 'ファイル調整',});
 				// prj.json の置換
 				const fnPrj = fnFrom +'/doc/prj/prj.json';
 				const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
@@ -342,16 +330,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// フォルダ名変更
 				moveSync(fnFrom, fnTo);
 
-				prg.report({
-					message		: '完了。フォルダを開きます',
-					increment	: 40,
-				});
+				prg.report({increment: 30, message: '完了。フォルダを開きます',});
 				setTimeout(()=> {
-					if (tknCancel.isCancellationRequested) {removeSync(fnTo); return;}
+					if (tknCancel.isCancellationRequested) {rj(); return;}
 
 					// フォルダをワークスペースで開く
 					commands.executeCommand('vscode.openFolder', Uri.file(fnTo), false);
-					done(0);
+					re();
 				}, 4000);
 			})
 			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
@@ -377,34 +362,25 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
 		removeSync(fnFrom);
 
-		//	tknCancel.onCancellationRequested(()=> {});
-		prg.report({
-			message		: 'ダウンロード中',
-			increment	: 10,
-		});
+		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
 
-		return new Promise(done=> {
+		return new Promise<void>((re, rj)=> {
 			// zipダウンロード＆解凍
+			prg.report({increment: 10, message: 'ダウンロード中',});
 			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
-			.then(res=> res.buffer())
-			.then(buf=> {
-				if (tknCancel.isCancellationRequested) return;
+			.then(async res=> {
+				const buf = await res.buffer();
+				if (tknCancel.isCancellationRequested) {rj(); return;}
 
-				prg.report({
-					message		: 'ZIP解凍中',
-					increment	: 50,
-				});
-
+				prg.report({increment: 50, message: 'ZIP解凍中',});
 				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
-			})
-			.then(()=> {
-				if (tknCancel.isCancellationRequested) {removeSync(fnFrom); return;}
+				if (tknCancel.isCancellationRequested) {rj(); return;}
 
+				prg.report({increment: 10, message: 'ファイル調整',});
 				const copy = (fn: string, chkExists = false)=> {
 					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
 					copyFileSync(fnFrom +'/'+ fn, fnTo +'/'+ fn)
 				};
-
 				// build/		// しばしノータッチ
 
 				copy('core/plugin/humane/index.js', true);
@@ -430,15 +406,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}, {spaces: '\t'});
 					// TODO: プラグインはまた別個にライブラリを考慮し更新
 
-				prg.report({
-					message		: 'ファイル更新完了',
-					increment	: 40,
-				});
-				setTimeout(()=> {
-					if (tknCancel.isCancellationRequested) return;
-
-					done(0);
-				}, 4000);
+				prg.report({increment: 30, message: 'ファイル準備完了',});
+				setTimeout(re, 4000);
 			})
 			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
 		});

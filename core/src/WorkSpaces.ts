@@ -241,7 +241,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		'テンプレ初期化': e=> {		// 本来のキーは Project.ts の btn_nm
 			const wsFld = <WorkspaceFolder>e.execution.task.scope;
 			const pathWs = wsFld.uri.fsPath;
-			this.hPrj[pathWs].finInitTask();
+			this.hPrj[pathWs].finBuild();
 		},
 	};
 

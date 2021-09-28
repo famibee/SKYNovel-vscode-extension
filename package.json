@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.15.3",
+	"version": "3.15.4",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -696,8 +696,8 @@
 		"@types/power-assert": "^1.5.4",
 		"@types/uuid": "^8.3.1",
 		"@types/vscode": "^1.60.0",
-		"@typescript-eslint/eslint-plugin": "^4.31.2",
-		"@typescript-eslint/parser": "^4.31.2",
+		"@typescript-eslint/eslint-plugin": "^4.32.0",
+		"@typescript-eslint/parser": "^4.32.0",
 		"electron": "^15.0.0",
 		"eslint": "^7.32.0",
 		"file-loader": "^6.2.0",

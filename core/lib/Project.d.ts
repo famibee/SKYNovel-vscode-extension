@@ -61,8 +61,8 @@ export declare class Project {
     private encrypter;
     private readonly regPlgAddTag;
     private updPlugin;
-    private initTask;
-    finInitTask(): void;
+    private build;
+    finBuild(): void;
     private hPathFn2Exts;
     private updPathJson;
     private readonly regSprSheetImg;

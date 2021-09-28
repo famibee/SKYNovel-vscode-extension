@@ -96,9 +96,9 @@ export class Project {
 
 		this.curPlg = this.pathWs +'/core/plugin/';
 		ensureDirSync(this.curPlg);	// 無ければ作る
-		if (existsSync(this.pathWs +'/node_modules')) this.updPlugin();
+		if (existsSync(this.pathWs +'/node_modules')) this.updPlugin(false);
 		else {
-			this.initTask();
+			this.build();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
@@ -108,22 +108,12 @@ export class Project {
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
 
-		// プラグインフォルダ増減でビルドフレームワークに反映する機能
-		// というか core/plugin/plugin.js自動更新機能
-		const fwPlg = workspace.createFileSystemWatcher(this.curPlg +'**/*');
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.curPrj +'*/*');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.curPrj +'prj.json');
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.curPrj +'*');
 		this.aFSW = [
-			fwPlg.onDidCreate(uri=> {
-				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
-			fwPlg.onDidChange(uri=> {
-				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
-			fwPlg.onDidDelete(uri=> {
-				if (uri.path.slice(-4) !== '.git') this.updPlugin()}),
-
 			fwPrj.onDidCreate(uri=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
@@ -254,8 +244,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: String(ti.label) ?? '',
-			cancellable	: false
-		}, prg=> new Promise(async done=> {
+			cancellable	: false,
+		}, prg=> new Promise(done=> {
 			const iconPath = ti.iconPath;
 			ti.iconPath = new ThemeIcon('sync~spin');
 
@@ -275,7 +265,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	private onBtn_sub(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		const pathWs = this.wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
-		if (! existsSync(pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
+		if (! existsSync(pathWs +'/node_modules')) {
+			cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
+			removeSync(pathWs +'/package-lock.json');
+		}
 
 		// メイン処理
 		if (cfg.npm) cmd += cfg.npm
@@ -296,21 +289,22 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				.then(()=> {
 					this.updLocalSNVer();
 					this.onBtn_sub(ti, 'SnUpd_waited', cfg, done);
-				}));
+				}))
+				.catch(()=> done(0));
 				return;
 
 			case 'SnUpd_waited':	break;	// Promise待ち後
 
 			case 'PrjSet':	this.ps.open();	done(0);	return;
 			case 'Crypto':
-				this.termDbgSS();
-
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
 					if (a !== 'はい') {done(0); return;}
 
-					this.tglCryptoMode();
-					this.onBtn_sub(ti, 'Crypto_waited', cfg, done);
+					this.termDbgSS().then(()=> {
+						this.tglCryptoMode();
+						this.onBtn_sub(ti, 'Crypto_waited', cfg, done);
+					});
 				});
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
@@ -671,7 +665,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 
 	private	readonly	regPlgAddTag = /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
-	private	updPlugin() {
+	private	updPlugin(build = true) {
 		if (! existsSync(this.curPlg)) return;
 
 		const h4json: {[def_nm: string]: number} = {};
@@ -704,20 +698,23 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.codSpt.setHDefPlg(hDefPlg);
 
 		outputFile(this.curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
-		.then(()=> this.initTask())
+		.then(build ?()=> this.build() :()=> {})
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
-	private initTask() {
+	private build() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
-		this.initTask = ()=> {};	// onceにする
+		this.build = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは Project.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.pathWs}" ${statBreak()} `;
-		if (! existsSync(this.pathWs +'/node_modules')) cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+		if (! existsSync(this.pathWs +'/node_modules')) {
+			cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
+			removeSync(this.pathWs +'/package-lock.json');
+		}
 		cmd += 'npm run webpack:dev';
 		const type = 'SKYNovel auto';
-		const name = '起動時自動ビルド';
+		const name = '自動ビルド';
 		const t = new Task(
 			{type},			// definition（タスクの一意性）
 			this.wsFld!,
@@ -731,22 +728,24 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			location	: ProgressLocation.Notification,
 			title		: name,
 			cancellable	: false
-		}, _prg=> new Promise(async done=> {
-			tasks.executeTask(t)
-			.then(undefined, rj=> console.error(`Project rebuildTask() rj:${rj.message}`));
-
+		}, _prg=> new Promise<void>(done=> {
 			let fnc = (e: TaskProcessEndEvent)=> {
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
 				this.enableBtn(true);
-				done(0);
+				done();
 			};
-			tasks.onDidEndTaskProcess(e=> fnc(e));
+			tasks.onDidEndTaskProcess(fnc);
+
+			tasks.executeTask(t)
+			.then(undefined, rj=> console.error(`Project build() rj:${rj.message}`));
+				// この resolve は「executeTask()できたかどうか」だけで、
+				// Task終了を待って呼んでくれるわけではない
 		}));
 	}
-	finInitTask() {
+	finBuild() {
 		this.updPlugin();
-		this.codSpt.finInitTask();
+		this.codSpt.goAll();
 	}
 
 

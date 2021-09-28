@@ -166,7 +166,7 @@ ${md.comment}`, true
 	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
 	private	static	readonly	REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
-	finInitTask() {this.scrScn.goAll();}
+	goAll() {this.scrScn.goAll();}
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	private tidDelay	:  NodeJS.Timer | null	= null;
