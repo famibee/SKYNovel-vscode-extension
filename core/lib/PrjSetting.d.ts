@@ -25,8 +25,9 @@ export declare class PrjSetting {
     get cfg(): any;
     private pnlWV;
     open(): void;
-    private readonly REG_SETTING;
+    private static readonly REG_SETTING;
     private openSub;
+    private static readonly REG_BOL_OR_NUM;
     private inputProc;
     private readonly hRep;
 }

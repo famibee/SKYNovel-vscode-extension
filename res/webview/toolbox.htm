@@ -59,14 +59,21 @@
 
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label for="validationServer01" class="form-label">First name</label>
-	<input type="text" class="form-control form-control-sm is-valid" id="validationServer01" value="Mark" required>
+	<input type="text" class="form-control form-control-sm is-valid" id="validationServer01" value="Mark" required/>
 	<div class="valid-feedback">
 		Looks good!
 	</div>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
+	<label for="validationServer02" class="form-label">Last name</label>
+	<input type="text" class="form-control is-invalid" id="validationServer02" value="Otto" required/>
+	<div class="invalid-feedback">
+		Looks good!
+	</div>
+</div>
+<div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label for="exampleFormControlInput1" class="form-label">Email address</label>
-	<input type="email" class="form-control form-control-sm" id="exampleFormControlInput1" placeholder="name@example.com">
+	<input type="email" class="form-control form-control-sm" id="exampleFormControlInput1" placeholder="name@example.com"/>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label for="exampleFormControlTextarea1" class="form-label">Example textarea</label>
@@ -74,7 +81,7 @@
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<div class="form-check">
-		<input class="form-check-input mb-3 sn_checkbox" type="checkbox" value="" id="flexCheckDefault" checked>
+		<input class="form-check-input mb-3 sn_checkbox" type="checkbox" value="" id="flexCheckDefault" checked/>
 		<label class="form-check-label" for="flexCheckDefault">
 			Default checkbox
 		</label>
@@ -88,7 +95,7 @@
 		</label>
 	</div>
 	<div class="form-check">
-		<input class="form-check-input" type="radio" name="flexRadioDefault" id="flexRadioDefault2" checked>
+		<input class="form-check-input" type="radio" name="flexRadioDefault" id="flexRadioDefault2" checked/>
 		<label class="form-check-label" for="flexRadioDefault2">
 			Default checked radio
 		</label>
@@ -107,26 +114,33 @@
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<div class="form-check form-switch mb-1">
-		<input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" checked>
+		<input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" checked/>
 		<label class="form-check-label" for="flexSwitchCheckChecked">Checked switch checkbox</label>
 	</div>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
+<div class="range-wrap">
+	<div class="range-badge range-badge-down"><span>10%</span></div>
+	<label for="customRange2" class="form-label">Example range 2</label>
+	<input type="range" class="form-range my-1" min="0" max="5" step="0.5" id="customRange2"/>
+</div>
+</div>
+<div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label for="customRange3" class="form-label">Example range</label>
-	<input type="range" class="form-range mb-3" min="0" max="5" step="0.5" id="customRange3">
+	<input type="range" class="form-range my-1" min="0" max="5" step="0.5" id="customRange3"/>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label for="exampleColorInput" class="form-label">Color picker</label>
-	<input type="color" class="form-control form-control-sm form-control-color" id="exampleColorInput" value="#563d7c" title="Choose your color">
+	<input type="color" class="form-control form-control-sm form-control-color" id="exampleColorInput" value="#563d7c" title="Choose your color"/>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2 sn_file">
 	<label for="formFile" class="form-label btn btn-info btn-sm">file choice</label>
-	<input class="form-control form-control-sm" type="file" id="formFile">
+	<input class="form-control form-control-sm" type="file" id="formFile"/>
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<label class="form-label" for="book.cre_url">連絡先ＵＲＬ</label>
 	<div class="input-group input-group-sm">
-		<input type="text" class="form-control" placeholder="Recipient's username" aria-label="Recipient's username" aria-describedby="button-addon2">
+		<input type="text" class="form-control" placeholder="Recipient's username" aria-label="Recipient's username" aria-describedby="button-addon2"/>
 		<button class="btn btn-info" type="button" id="button-addon2">Button</button>
 	</div>
 </div>

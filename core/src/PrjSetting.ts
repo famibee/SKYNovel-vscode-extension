@@ -161,7 +161,7 @@ export class PrjSetting {
 			return;
 		}
 
-		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定・基本情報', column || ViewColumn.One, {
+		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [this.localExtensionResRoots],
 		});
@@ -179,66 +179,97 @@ export class PrjSetting {
 		}, false);
 		this.openSub();
 	}
-	private	readonly REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;]*;(.*))?/gm;	// https://regex101.com/r/90IOfX/1
+	private	static	readonly REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;
+		// https://regex101.com/r/FpmGwf/1
 	private openSub() {
 		const a: string[] = [];
 		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
 
 		const wv = this.pnlWV!.webview;
-		let h = this.htmSrc
+		const h = this.htmSrc
 		.replaceAll('${webview.cspSource}', wv.cspSource)
 		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 
 		try {
 			this.fnSetting = this.fnPrj + this.searchPath('setting', 'sn');
-			if (! existsSync(this.fnSetting)) throw '';
-
 			let hs = '';
 			const src = readFileSync(this.fnSetting, {encoding: 'utf8'});
-			for (const m of src.matchAll(this.REG_SETTING)) {
+			for (const m of src.matchAll(PrjSetting.REG_SETTING)) {
 				if (m[0].charAt(0) === ';') continue;
-				const nm = m[1] ?? m[2];
-				const v = m[4] ?m[3].slice(1, -1) :m[3];
-				const lbl = m[5].trim();
-				if (v === 'true' || v === 'false') hs += `
-	<div class="col-6 col-md-3 px-1 py-2"><div class="form-check">
-		<input class="form-check-input mb-3 sn_checkbox" type="checkbox" id="/setting.sn:${nm}" checked="${v}">
-		<label class="form-check-label" for="/setting.sn:${nm}">${lbl}</label>
-	</div></div>`;
-				else hs += `
-	<div class="col-6 col-md-3 px-1 py-2">
-		<label for="/setting.sn:${nm}" class="form-label">${lbl}</label>
-		<input type="text" class="form-control form-control-sm" id="/setting.sn:${nm}" value="${v}" placeholder="${lbl}">
-	</div>`;
-			}
-			h = h.replace('<!-- 4replace_by_setting.sn -->', hs);
-		} catch {
-			h = h.replace(
-				'<!-- 4replace_by_setting.sn -->',
-				'<div class="col-12 px-1 pt-3"><h5>setting.sn が見つかりません</h5></div>'
-			);
-		}	// ない場合
+				const m5 = (m[5] ?? '').trim();
+				if (m5 === '' || m5.slice(0, 10) === '(HIDE GUI)') continue;
 
-		wv.html = h;
+				const idv = m[1] ?? m[2];
+				const v = m[4] ?m[3].slice(1, -1) :m[3];
+				const o: {
+					lbl		: string,
+					type?	: string,
+					max?	: string | number,
+					min?	: string | number,
+					step?	: number,
+				} = m5.charAt(0) === '{' ?JSON.parse(m5) :{lbl: m5};
+				const id = `/setting.sn:${idv}`;
+				let c = '';
+				if (v === 'true' || v === 'false') c = `
+	<div class="form-check">
+		<input class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" id="${id}" checked="${v}"/>
+		<label class="form-check-label" for="${id}">${o.lbl}</label>
+	</div>`;
+				else if (o.type === 'rng') c = `
+	<div class="form-check range-wrap">
+		<div class="range-badge range-badge-down"></div>
+		<label for="${id}" class="form-label">${o.lbl}</label>
+		<input type="range" class="form-range my-1 sn-vld" id="${id}" value="${v}" max="${o.max}" min="${o.min}" step="${o.step}"/>
+	</div>`;
+				else {
+					let type = 'text';
+					let ptn = '';
+					let inv_mes = '';
+					switch (o.type) {	// 型チェック
+						case 'fn':
+						case 'fn_grp':
+						case 'fn_snd':	// [¥\/:*?"<>|]
+							ptn = '[^&yen;\\\\/:*?&quot;&lt;&gt;|]+';
+							inv_mes = 'ファイル名で許されない文字です';
+							break;
+						case 'num':
+							type = 'number';
+							inv_mes = `${o.type} 型違反です`;
+							break;
+						default:
+							ptn = '.*';
+					}
+					c = `
+	<form class="form-check was-validated">
+		<label for="${id}" class="form-label">${o.lbl}</label>
+		<input type="${type}" class="form-control form-control-sm sn-vld" id="${id}" value="${v}" pattern="${ptn}" placeholder="${o.lbl}"/>
+		<div class="invalid-feedback">${inv_mes}</div>
+	</form>`;	// required
+				}
+				hs += `
+	<div class="col-6 col-md-3 px-1 py-2">${c}</div>`;
+			}
+			wv.html = h.replace('<!-- 4replace_by_setting.sn -->', hs);
+		}
+		catch (e) {wv.html = h.replace(
+			'<!-- 4replace_by_setting.sn -->',
+			`<div class="col-12 px-1 pt-3"><h5>${e}</h5></div>`
+		);}
 	}
+	private	static	readonly REG_BOL_OR_NUM = /^(?:true|false|[-+]?(?:[1-9]\d*|0)(?:\.\d+)?|0x[0-9a-fA-F]+)$/;	// https://regex101.com/r/NPNbRk/1
 	private inputProc(id: string, val: string) {
-		const v = /^[-]?([1-9]\d*|0)$/.test(val)
-			? val
-		//x	: String(val).replace(/"/g, '%22');
-			: /^(true|false)$/.test(val)
-				? val
-				: String(val).replaceAll('"', '%22');
 		if (id.charAt(0) === '/') {
-			const nm = id.split(':')[1];
+			const nm = id.split(':').slice(1).join(':');
 			replaceFile(
 				this.fnSetting,
-				new RegExp(`^(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`, 'm'),
-				`$1${ (v === 'true' || v === 'false') ?v :`#${v}#` }`
+				new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
+				`$1$3${val}$3`	// https://regex101.com/r/jD2znK/1
 			);
 			return;
 		}
 
+		const v = PrjSetting.REG_BOL_OR_NUM.test(val) ?val :val.replaceAll('"', '%22');
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);
@@ -251,7 +282,7 @@ export class PrjSetting {
 
 		this.hRep[id]?.(v);
 	}
-	private	readonly	hRep	: {[name: string]: (val: string)=> void} = {
+	private	readonly	hRep	: {[id: string]: (val: string)=> void} = {
 		"save_ns"	: val=> {
 			replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
 			replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);

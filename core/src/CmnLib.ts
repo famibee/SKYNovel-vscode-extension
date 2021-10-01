@@ -54,13 +54,13 @@ export const statBreak: {(): string} =
 
 
 // 階層フォルダ逐次処理
-import m_fs = require('fs-extra');
+import {readdirSync, existsSync, readFileSync, ensureFileSync, writeFileSync} from 'fs-extra';
 import {resolve, basename, extname} from 'path';
 const regNoUseSysFile = /^(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 export const regNoUseSysPath = /\/(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 
 export function treeProc(wd: string, fnc: (url: string)=> void) {
-	m_fs.readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
+	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
 		regNoUseSysFile.lastIndex = 0;
 		const nm = String(d.name).normalize('NFC');
 		if (regNoUseSysFile.test(nm)) return;
@@ -72,7 +72,7 @@ export function treeProc(wd: string, fnc: (url: string)=> void) {
 }
 
 export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
-	m_fs.readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
+	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
 		regNoUseSysFile.lastIndex = 0;
 		const nm = String(d.name).normalize('NFC');
 		if (regNoUseSysFile.test(nm)) return;
@@ -85,12 +85,12 @@ export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncF
 
 export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 	try {
-		if (! m_fs.existsSync(src)) return;
+		if (! existsSync(src)) return;
 
-		const txt = m_fs.readFileSync(src, {encoding: 'utf8'});
+		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
-		m_fs.ensureFileSync(dest);
-		if (txt !== ret) m_fs.writeFileSync(dest, ret);
+		ensureFileSync(dest);
+		if (txt !== ret) writeFileSync(dest, ret);
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);

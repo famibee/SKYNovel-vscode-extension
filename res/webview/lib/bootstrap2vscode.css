@@ -130,6 +130,12 @@ button.btn-secondary:hover {
 }
 
 /* checkbox */
+.form-check {
+	padding-left: 0;
+}
+.form-check .form-check-input {
+	margin-left: 0;
+}
 .sn_checkbox {
 	color: var(--vscode-checkbox-foreground);
 	background-color: var(--vscode-checkbox-background);
@@ -139,6 +145,7 @@ button.btn-secondary:hover {
 }
 .sn_checkbox + label {
 	padding-top: 0.3rem;
+	display: block;		/* ないと横幅狭い画面でチェックボックスラベルが下にずれる */
 }
 .sn_checkbox:checked {
 	background-color: var(--vscode-checkbox-background);
@@ -161,6 +168,9 @@ input[type="radio"] + label {
 }
 
 /* input switch */
+.form-switch {
+	padding-left: 0;
+}
 .form-switch .form-check-input {
 	height: 1.3rem;
 	width: 2.75rem;
@@ -184,4 +194,52 @@ input[type="range"]::-webkit-slider-thumb {
 }
 input[type="range"]::-webkit-slider-runnable-track {
 	background-color: var(--vscode-checkbox-background);
+}
+
+.range-wrap {
+	position: relative;
+}
+.range-wrap .form-label {
+	margin-bottom: 0;
+}
+
+.range-badge {
+	position: absolute;
+	left: 50%;
+	top: -5%;
+}
+.range-badge span {
+	width: 40px;
+	height: 18px;
+	line-height: 1.6;
+	text-align: center;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 12px;
+	display: block;
+	position: absolute;
+	transform: translate(-50%, 0);
+	border-radius: 6px;
+}
+.range-badge span:before {
+	content: "";
+	position: absolute;
+	width: 0;
+	height: 0;
+	border-top: 10px solid var(--vscode-badge-background);
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	top: 100%;
+	left: 50%;
+	margin-left: -5px;
+	margin-top: -1px;
+}
+
+.range-badge.range-badge-down {
+	top: 104%;
+}
+.range-badge.range-badge-down span:before {
+	border-top: none;
+	border-bottom: 10px solid var(--vscode-badge-background);
+	top: -46%;
 }

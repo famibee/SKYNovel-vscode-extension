@@ -1,10 +1,10 @@
 // 別のタブにフォーカスして戻るたびに発生（丸ごと再生成？）するので、このような
 // リクエストして最新情報をホストにもらう、サーバー・クライアント方式になっている。
 // この事実を、createWebviewPanel()したホストは知りもしないので。
-// オブジェクト指向、メッセージドリブンと云えばそうなもかもしれんけど、さ。
 const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :null;
-window.addEventListener('message', e=> {
 //vscode.postMessage({cmd: 'info', text: 'tmpwiz.js'});	// デバッグ時はこう
+
+window.addEventListener('message', e=> {
 	if (! e.isTrusted) {
 		vscode.postMessage({cmd: 'warn', text: `(tmpwiz.js) isTrusted=false`});
 		return;

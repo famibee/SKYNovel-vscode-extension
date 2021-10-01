@@ -1,3 +1,6 @@
+// 別のタブにフォーカスして戻るたびに発生（丸ごと再生成？）するので、このような
+// リクエストして最新情報をホストにもらう、サーバー・クライアント方式になっている。
+// この事実を、createWebviewPanel()したホストは知りもしないので。
 const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :null;
 document.addEventListener('DOMContentLoaded', ()=> {
 	document.getElementById('tglEdit')
