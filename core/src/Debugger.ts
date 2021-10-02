@@ -27,33 +27,33 @@ export interface InfoBreakpoint {
 }
 
 export class Debugger extends EventEmitter {
-	private	pathWs	= '';
+	#pathWs	= '';
 	constructor(readonly wsFld: WorkspaceFolder | undefined, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
 		super();
 		if (wsFld) {
-			this.pathWs = wsFld.uri.path;
-			Debugger.hcurPrj2Dbg[this.pathWs +'/doc/prj/'] = this;
+			this.#pathWs = wsFld.uri.path;
+			Debugger.#hcurPrj2Dbg[this.#pathWs +'/doc/prj/'] = this;
 		}
 	}
-	private	static	hcurPrj2Dbg: {[curPrj: string]: Debugger}	= {};
+	static	#hcurPrj2Dbg: {[curPrj: string]: Debugger}	= {};
 	static	send2SN(type: string, o: object = {}) {
 		const pathWs = debug.activeDebugSession?.workspaceFolder?.uri.fsPath;
 		if (! pathWs) return;
 
-		const dbg = Debugger.hcurPrj2Dbg[pathWs +'/doc/prj/'];
-		dbg?.$send2SN(type, o);
+		const dbg = Debugger.#hcurPrj2Dbg[pathWs +'/doc/prj/'];
+		dbg.send2SN(type, o);
 	}
 
 	attach(args: DebugConfiguration) {	// セッションごとに呼ばれる
-		this.hProcSnRes.hi = ()=> {	// res/UML/DebuggerSD.pu
-			this.$send2SN('auth', {
+		this.#hProcSnRes.hi = ()=> {	// res/UML/DebuggerSD.pu
+			this.send2SN('auth', {
 				t			: PrjSetting.getDebugertoken(this.wsFld),
 				hBreakpoint	: {
-					hFn2hLineBP	: this.hFn2hLineBP,	// 行ブレークポイント
+					hFn2hLineBP	: this.#hFn2hLineBP,	// 行ブレークポイント
 													// 条件式ブレークポイント
 													// ヒットカウントブレークポイント
-					aData		: this.aDataBreak,	// データブレークポイント
-					aFunc		: this.aFuncBreak,	// 関数ブレークポイント
+					aData		: this.#aDataBreak,	// データブレークポイント
+					aFunc		: this.#aFuncBreak,	// 関数ブレークポイント
 				},
 				...args,
 			});
@@ -65,11 +65,11 @@ export class Debugger extends EventEmitter {
 		.on('connection', (sk: Socket)=> {
 			sk.on('data', (type: string, o: any)=> {
 //console.log(`fn:Debugger.ts 新RSV sn -> dbgs id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
-				if (! this.hProcSnRes[type](type, o)) return;
-				this.hProcSnRes[type] = ()=> false;
+				if (! this.#hProcSnRes[type](type, o)) return;
+				this.#hProcSnRes[type] = ()=> false;
 			});
 
-			this.$send2SN = (type: string, o: any = {})=> {
+			this.send2SN = (type: string, o: any = {})=> {
 //console.log(`fn:Debugger.ts 新SND dbg -> sns id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
 				sk.emit('data', type, o);
 			};
@@ -77,34 +77,34 @@ export class Debugger extends EventEmitter {
 			this.end = ()=> {
 				this.end = fncEnd;
 				this.end();
-				this.$send2SN('disconnect', {});
-				this.$send2SN = ()=> {};
+				this.send2SN('disconnect', {});
+				this.send2SN = ()=> {};
 				sk.disconnect();
 			};
 		});
 	}
 
-	private	$send2SN(_type: string, _o: object = {}) {}
+	private	send2SN(_type: string, _o: object = {}) {}
 
 	end() {
-		delete Debugger.hcurPrj2Dbg[this.pathWs];
+		delete Debugger.#hcurPrj2Dbg[this.#pathWs];
 		this.hookTag({タグ名: ':disconnect'});
 	}
 
-	private	readonly	hProcSnRes
+	readonly	#hProcSnRes
 	: {[type: string]: (type: string, o: any)=> boolean}	= {
-		stopOnEntry: type=> {this.sendEvent2Adpt(type);	return false;},
-		stopOnStep: type=> {this.sendEvent2Adpt(type);	return false;},
-		stopOnBreakpoint: type=> {this.sendEvent2Adpt(type);	return false;},
-		stopOnDataBreakpoint: type=> {this.sendEvent2Adpt(type);return false;},
+		stopOnEntry: type=> {this.#sendEvent2Adpt(type);	return false;},
+		stopOnStep: type=> {this.#sendEvent2Adpt(type);	return false;},
+		stopOnBreakpoint: type=> {this.#sendEvent2Adpt(type);	return false;},
+		stopOnDataBreakpoint: type=> {this.#sendEvent2Adpt(type);return false;},
 
 		_recodeDesign: (_, o)=> {
 			const ln = uint(o[':ln']) -1;
 			const col_s = uint(o[':col_s']);
 			const col_e = uint(o[':col_e']);
-			this.hDCId2DI[o[':id_tag']] = {
+			this.#hDCId2DI[o[':id_tag']] = {
 				...o,
-				uri: Uri.file(o[':path'].replace('${pathbase}', this.pathWs +'/doc')),
+				uri: Uri.file(o[':path'].replace('${pathbase}', this.#pathWs +'/doc')),
 				rng: new Range(ln, col_s, ln, col_e),
 			};
 				// TODO: スクリプト編集とこの辞書の更新は？　:lnとか変わる
@@ -123,7 +123,7 @@ export class Debugger extends EventEmitter {
 		},
 		_changeCast: (_, o)=> {
 			const {':id_tag': id_tag, ri, ...o2} = o;
-			const di = this.hDCId2DI[id_tag];
+			const di = this.#hDCId2DI[id_tag];
 			if (! di) return false;
 
 			let token = String(di[':token']);
@@ -141,7 +141,7 @@ export class Debugger extends EventEmitter {
 			return false;
 		},
 		_focusScript: (_, o)=> {
-			o[':path'] = o[':path'].replace('${pathbase}', this.pathWs +'/doc');
+			o[':path'] = o[':path'].replace('${pathbase}', this.#pathWs +'/doc');
 			const ln = o[':ln'] -1;
 			window.showTextDocument(Uri.file(o[':path']), {
 				selection: new Range(
@@ -153,13 +153,13 @@ export class Debugger extends EventEmitter {
 		},
 		_dropFile: (_, o)=> {
 			const {':id_tag': id_tag, fn, ext, url, buf, old_fn, old_url} = o;
-			const di = this.hDCId2DI[id_tag];
+			const di = this.#hDCId2DI[id_tag];
 			if (! di) return false;
 
 //console.log(`fn:Debugger.ts line:139 id_tag:(${id_tag}) fn:${fn} ext:${ext} url:${url.slice(0, 32)} old_fn:${old_fn}`);
 			let urlWrite = '';
 			if (url) {	// プロジェクトに既存のファイル名
-				urlWrite = url.replace('${pathbase}', this.pathWs +'/doc');
+				urlWrite = url.replace('${pathbase}', this.#pathWs +'/doc');
 				// 同一ファイルでなければ上書き
 				if (fn === old_fn) {
 					let eq = true;
@@ -178,15 +178,15 @@ export class Debugger extends EventEmitter {
 				// app old_url:（略）sn_uc_score/doc/prj/other/MnuUp_btnPage1.png
 				const parent = path.basename(path.dirname(old_url));
 					// 変更前画像のフォルダ
-				urlWrite = this.pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
+				urlWrite = this.#pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
 
 				const oAP: {[nm: string]: string | number} = {':cnt': 1};
 				oAP[ext] = `${parent}/${fn}.${ext}`;
-				this.$send2SN('_addPath', {fn: fn, o: oAP});
+				this.send2SN('_addPath', {fn: fn, o: oAP});
 			}
 
 			// ファイル生成、を検知しての prj.json 更新を待って次へ
-			const fwPathJs = workspace.createFileSystemWatcher(this.pathWs +`/doc/prj/path.json`);
+			const fwPathJs = workspace.createFileSystemWatcher(this.#pathWs +`/doc/prj/path.json`);
 			fwPathJs.onDidChange(()=> {
 				fwPathJs.dispose();
 
@@ -217,7 +217,7 @@ export class Debugger extends EventEmitter {
 			return false;
 		},
 	};
-	private	hDCId2DI: {[id_tag: string]: {
+	#hDCId2DI: {[id_tag: string]: {
 		uri		: Uri,
 		rng		: Range,
 		':col_e'	: number,
@@ -226,14 +226,14 @@ export class Debugger extends EventEmitter {
 	}}	= {};
 
 	static	noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent) {
-		const dbg = Debugger.hcurPrj2Dbg[curPrj];
+		const dbg = Debugger.#hcurPrj2Dbg[curPrj];
 		if (! dbg) return;
 
 		const hRepTkn: {[id_tag: string]: any} = {};
 		e.contentChanges.forEach(c=> {
 			const sa = c.text.length -c.rangeLength;
-			for (const id_tag in dbg.hDCId2DI) {
-				const di = dbg.hDCId2DI[id_tag];
+			for (const id_tag in dbg.#hDCId2DI) {
+				const di = dbg.#hDCId2DI[id_tag];
 				if (! di.rng.contains(c.range)) continue;
 
 				di[':col_e'] += sa;
@@ -245,25 +245,25 @@ export class Debugger extends EventEmitter {
 				hRepTkn[id_tag] = {...di, ':id_tag': id_tag,};
 			}
 		});
-		for (const id in hRepTkn) dbg.$send2SN('_replaceToken', hRepTkn[id]);
+		for (const id in hRepTkn) dbg.send2SN('_replaceToken', hRepTkn[id]);
 	}
 
 
 	restart = (ri: number)=> new Promise<void>(res=> {
-		this.$send2SN('restart', {ri: ri});					// request
-		this.hProcSnRes[ri] = ()=> {res(); return true;}	// response
+		this.send2SN('restart', {ri: ri});					// request
+		this.#hProcSnRes[ri] = ()=> {res(); return true;}	// response
 	});
 
-	continue = (reverse = false)=> this.$send2SN('continue', {reverse});
+	continue = (reverse = false)=> this.send2SN('continue', {reverse});
 		// 次のブレークポイントまでプログラムを続行。ブレークポイントがなければ最後まで実行。
-	step = (reverse = false)=> this.$send2SN('stepover', {reverse});
-	stepin = ()=> this.$send2SN('stepin');
-	stepout = ()=> this.$send2SN('stepout');
-	pause = ()=> this.$send2SN('pause');
+	step = (reverse = false)=> this.send2SN('stepover', {reverse});
+	stepin = ()=> this.send2SN('stepin');
+	stepout = ()=> this.send2SN('stepout');
+	pause = ()=> this.send2SN('pause');
 
 	var = (ri: number, scope: string)=> new Promise<{[nm: string]: any}>(res=> {
-		this.$send2SN('var', {ri, scope});						// request
-		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
+		this.send2SN('var', {ri, scope});						// request
+		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 	stack = (ri: number, start: number, end: number)=> new Promise<{
 		nm	: string,
@@ -272,8 +272,8 @@ export class Debugger extends EventEmitter {
 		col	: number,
 		ma	: string,
 	}[]>(res=> {
-		this.$send2SN('stack', {ri});		// request
-		this.hProcSnRes[ri] = (_, o)=> {	// response
+		this.send2SN('stack', {ri});		// request
+		this.#hProcSnRes[ri] = (_, o)=> {	// response
 			if (! Array.isArray(o.a)) {res([]); return true;}	// once
 
 			res((<any[]>o.a).slice(start, end)
@@ -282,7 +282,7 @@ export class Debugger extends EventEmitter {
 				: true
 			)
 			.map(v=> {
-				v.fn = v.fn.replace('${pathbase}', this.pathWs +'/doc');
+				v.fn = v.fn.replace('${pathbase}', this.#pathWs +'/doc');
 				return v;
 			}));
 
@@ -290,16 +290,16 @@ export class Debugger extends EventEmitter {
 		};
 	});
 	eval = (ri: number, txt: string)=> new Promise<string>(res=> {
-		this.$send2SN('eval', {ri, txt});						// request
-		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
+		this.send2SN('eval', {ri, txt});						// request
+		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
 
-	private idBP = 0;	// フロントエンドが管理するためのID
-	private	hFn2hLineBP: {[fn: string]: {[ln: number]: InfoBreakpoint}}	= {};
+	#idBP = 0;	// フロントエンドが管理するためのID
+	#hFn2hLineBP: {[fn: string]: {[ln: number]: InfoBreakpoint}}	= {};
 	setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[] {
 		const aBp = a.map(o=> <InfoBreakpoint>{
-			id		: ++this.idBP,
+			id		: ++this.#idBP,
 			ln		: o.line,
 			col		: o.column,
 			verified	: true,
@@ -308,51 +308,51 @@ export class Debugger extends EventEmitter {
 		});
 
 		const o: {[ln: number]: InfoBreakpoint} = {};
-		this.loadSource(fn);
-		const sl = this.hScriptLines[fn];
+		this.#loadSource(fn);
+		const sl = this.#hScriptLines[fn];
 		const len_sl = sl.length;
 		aBp.forEach(v=> {
 			while (sl[v.ln -1].replace(/;.*$/, '').trim() === '') {
 				if (v.ln++ === len_sl) {v.verified = false; break;}
 			}
 			o[v.ln] = v;
-			this.sendEvent2Adpt('breakpointValidated', v);
+			this.#sendEvent2Adpt('breakpointValidated', v);
 		});
-		this.$send2SN('add_break', {fn: fn, o: o});
-		this.hFn2hLineBP[fn] = o;
+		this.send2SN('add_break', {fn: fn, o: o});
+		this.#hFn2hLineBP[fn] = o;
 
 		return aBp;
 	}
-	private hScriptLines: {[fn: string]: string[]}	= {};
-	private loadSource(fn: string) {
-		if (fn in this.hScriptLines) return;
+	#hScriptLines: {[fn: string]: string[]}	= {};
+	#loadSource(fn: string) {
+		if (fn in this.#hScriptLines) return;
 
-		this.hScriptLines[fn] = readFileSync(fn).toString().split('\n');
+		this.#hScriptLines[fn] = readFileSync(fn).toString().split('\n');
 	}
 
 
-	private	aDataBreak: any[] = [];
+	#aDataBreak: any[] = [];
 	setDataBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
-		this.aDataBreak = a;
-		this.$send2SN('set_data_break', {ri: ri, a: a});			// request
-		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
+		this.#aDataBreak = a;
+		this.send2SN('set_data_break', {ri: ri, a: a});			// request
+		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
-	private	aFuncBreak: any[] = [];
+	#aFuncBreak: any[] = [];
 	setFuncBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
-		this.aFuncBreak = a;
-		this.$send2SN('set_func_break', {ri: ri, a: a});			// request
-		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
+		this.#aFuncBreak = a;
+		this.send2SN('set_func_break', {ri: ri, a: a});			// request
+		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
 	setVariable = (ri: number, nm: string, val: string)=> new Promise<void>(res=> {
-		this.$send2SN('set_var', {ri: ri, nm: nm, val: val});	// request
-		this.hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
+		this.send2SN('set_var', {ri: ri, nm: nm, val: val});	// request
+		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
 
 	// vscodeへ通知
-	private sendEvent2Adpt(type: string, ... args: any[]) {
+	#sendEvent2Adpt(type: string, ... args: any[]) {
 		setImmediate(()=> this.emit(type, ...args));
 	}
 }

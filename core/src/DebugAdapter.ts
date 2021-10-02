@@ -105,9 +105,9 @@ function timeout(ms: number) {return new Promise(re=> setTimeout(()=> re(0), ms)
 
 class DebugAdapter extends LoggingDebugSession {
 	// 複数のスレッドをサポートしないので、デフォルトのスレッドにハードコードされたID
-	private static	readonly	THREAD_ID	= 1;
+	static	readonly	#THREAD_ID	= 1;
 
-	private	readonly	dbg		: Debugger;	// runtime (or debugger)
+	readonly	#dbg		: Debugger;	// runtime (or debugger)
 
 	// セッションごと【▶（デバッグの開始）や⟲（再起動ボタン）】に生成する
 	constructor(readonly wsFld: WorkspaceFolder | undefined, hookTag: (o: any)=> void) {
@@ -116,27 +116,27 @@ class DebugAdapter extends LoggingDebugSession {
 		this.setDebuggerLinesStartAt1(true);
 		this.setDebuggerColumnsStartAt1(true);
 
-		this.dbg = new Debugger(wsFld, hookTag);
-		this.dbg.on('stopOnEntry', ()=> {
-			this.sendEvent(new StoppedEvent('entry', DebugAdapter.THREAD_ID));
+		this.#dbg = new Debugger(wsFld, hookTag);
+		this.#dbg.on('stopOnEntry', ()=> {
+			this.sendEvent(new StoppedEvent('entry', DebugAdapter.#THREAD_ID));
 		});
-		this.dbg.on('stopOnStep', ()=> {		// F10
-			this.sendEvent(new StoppedEvent('step', DebugAdapter.THREAD_ID));
+		this.#dbg.on('stopOnStep', ()=> {		// F10
+			this.sendEvent(new StoppedEvent('step', DebugAdapter.#THREAD_ID));
 		});
-		this.dbg.on('stopOnBreakpoint', ()=> {
-			this.sendEvent(new StoppedEvent('breakpoint', DebugAdapter.THREAD_ID));
+		this.#dbg.on('stopOnBreakpoint', ()=> {
+			this.sendEvent(new StoppedEvent('breakpoint', DebugAdapter.#THREAD_ID));
 		});
-		this.dbg.on('stopOnDataBreakpoint', ()=> {
-			this.sendEvent(new StoppedEvent('data breakpoint', DebugAdapter.THREAD_ID));
+		this.#dbg.on('stopOnDataBreakpoint', ()=> {
+			this.sendEvent(new StoppedEvent('data breakpoint', DebugAdapter.#THREAD_ID));
 		});
-		this.dbg.on('stopOnException', ()=> {
+		this.#dbg.on('stopOnException', ()=> {
 //console.log(`fn:DebugAdapter.ts line:122 dbg -> exception`);
-			this.sendEvent(new StoppedEvent('exception', DebugAdapter.THREAD_ID));
+			this.sendEvent(new StoppedEvent('exception', DebugAdapter.#THREAD_ID));
 		});
-		this.dbg.on('breakpointValidated', (bp: DebugProtocol.Breakpoint)=> {
+		this.#dbg.on('breakpointValidated', (bp: DebugProtocol.Breakpoint)=> {
 			this.sendEvent(new BreakpointEvent('changed', bp));
 		});
-		this.dbg.on('output', (text, filePath, line, column)=> {
+		this.#dbg.on('output', (text, filePath, line, column)=> {
 //console.log(`fn:DebugAdapter.ts line:129 dbg -> output`);
 			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
 
@@ -145,12 +145,12 @@ class DebugAdapter extends LoggingDebugSession {
 				e.body.output = `group-${text}\n`;
 			}
 
-			e.body.source = this.createSource(filePath);
+			e.body.source = this.#createSource(filePath);
 			e.body.line = this.convertDebuggerLineToClient(line);
 			e.body.column = this.convertDebuggerColumnToClient(column);
 			this.sendEvent(e);
 		});
-		this.dbg.on('end', ()=> this.sendEvent(new TerminatedEvent()));
+		this.#dbg.on('end', ()=> this.sendEvent(new TerminatedEvent()));
 	}
 
 	// initialize ... デバッグアダプタが提供する機能を調べるためにフロントエンドから呼び出される最初のリクエスト
@@ -306,12 +306,12 @@ class DebugAdapter extends LoggingDebugSession {
 	// 停止ボタンなど
 	//	ただしVSCode終了・フォルダを閉じるなどではコールされない場合あり
 	//	子プロセスなどは終了してくれるらしい
-	protected override disconnectRequest(_res: DebugProtocol.DisconnectResponse, _args: DebugProtocol.DisconnectArguments, _req?: DebugProtocol.Request): void {this.dbg.end();}
+	protected override disconnectRequest(_res: DebugProtocol.DisconnectResponse, _args: DebugProtocol.DisconnectArguments, _req?: DebugProtocol.Request): void {this.#dbg.end();}
 
 	// コンフィギュレーションシーケンスの最後にコールされる
 	// すべてのブレークポイントなどがDAに送信され、「起動」を開始できることを示す
-	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.cfgDone.notify();}	// 設定が完了したことを VSCode に通知
-	private	readonly	cfgDone = new Subject();	// 設定完了
+	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.#cfgDone.notify();}	// 設定が完了したことを VSCode に通知
+	readonly	#cfgDone = new Subject();	// 設定完了
 
 
 //	protected sendErrorResponse(response: DebugProtocol.Response, codeOrMessage: number | DebugProtocol.Message, format?: string, variables?: any, dest?: ErrorDestination): void;
@@ -322,7 +322,7 @@ class DebugAdapter extends LoggingDebugSession {
 //	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {}	// 現状使わない
 	protected override attachRequest(res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
 		logger.setup(Logger.LogLevel.Stop, false);
-		this.dbg.attach(args as DebugConfiguration);
+		this.#dbg.attach(args as DebugConfiguration);
 //		res.body = {};
 		this.sendResponse(res);
 	}
@@ -341,7 +341,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 
 	// （エミュレートではない）再起動
 	protected override async restartRequest(res: DebugProtocol.RestartResponse, _args: DebugProtocol.RestartArguments): Promise<void> {
-		await this.dbg.restart(res.request_seq);
+		await this.#dbg.restart(res.request_seq);
 //		res.body = {};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
 	}
@@ -365,7 +365,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 }*/
 		const a = args.breakpoints ?? [];
 		res.body = {
-			breakpoints: this.dbg.setBreakPoints(
+			breakpoints: this.#dbg.setBreakPoints(
 				args.source.path!,
 				a.map(o=> <DebugProtocol.SourceBreakpoint>{
 					...o,
@@ -385,7 +385,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 			a.push(dbp);
 			res.body.breakpoints.push({verified: true,});
 		});
-		await this.dbg.setFuncBreakpoint(res.request_seq, a);
+		await this.#dbg.setFuncBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);
 	}
@@ -403,7 +403,7 @@ console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringif
 
 //	protected gotoRequest(response: DebugProtocol.GotoResponse, args: DebugProtocol.GotoArguments, request?: DebugProtocol.Request): void {}
 
-	protected override pauseRequest(_res: DebugProtocol.PauseResponse, _args: DebugProtocol.PauseArguments): void {this.dbg.pause();}
+	protected override pauseRequest(_res: DebugProtocol.PauseResponse, _args: DebugProtocol.PauseArguments): void {this.#dbg.pause();}
 
 /*
 	protected sourceRequest(res: DebugProtocol.SourceResponse, _args: DebugProtocol.SourceArguments, req?: DebugProtocol.Request): void {
@@ -413,7 +413,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 	protected override threadsRequest(res: DebugProtocol.ThreadsResponse): void {
 		// ランタイムはスレッドをサポートしていないので、デフォルトのスレッドを返すだけ
-		res.body = {threads: [new Thread(DebugAdapter.THREAD_ID, 'thread 1')]};
+		res.body = {threads: [new Thread(DebugAdapter.#THREAD_ID, 'thread 1')]};
 		this.sendResponse(res);
 	}
 //	protected terminateThreadsRequest(response: DebugProtocol.TerminateThreadsResponse, args: DebugProtocol.TerminateThreadsArguments, request?: DebugProtocol.Request): void;
@@ -424,12 +424,12 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		const start = typeof args.startFrame === 'number' ?args.startFrame :0;
 		const maxLevels = typeof args.levels === 'number' ?args.levels :1000;
 		const end = start + maxLevels;
-		const stk = await this.dbg.stack(res.request_seq, start, end);
+		const stk = await this.#dbg.stack(res.request_seq, start, end);
 		res.body = {	// これによりVSCodeは現在地を知る
 			stackFrames: stk.map((f, i)=> new StackFrame(
 				i,
 				f.nm,
-				this.createSource(f.fn),
+				this.#createSource(f.fn),
 				this.convertDebuggerLineToClient(f.ln),
 				this.convertDebuggerColumnToClient(f.col),
 			)),
@@ -440,11 +440,11 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 
 	// 変数ビュー
-	private	readonly	hdlsVar = new Handles<string>();
-	private	readonly	hNm2HdlNm: {[nm: string]: number}	= {};
+	readonly	#hdlsVar = new Handles<string>();
+	readonly	#hNm2HdlNm: {[nm: string]: number}	= {};
 	protected override scopesRequest(res: DebugProtocol.ScopesResponse, _args: DebugProtocol.ScopesArguments): void {
 		// fn:DebugAdapter.ts line:88 dbg -> stopOnStep のたびに呼ばれる
-		this.hScope = {
+		this.#hScope = {
 			'tmp'	: {},
 			'sys'	: {},
 			'save'	: {},
@@ -452,22 +452,22 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		};
 		res.body = {
 			scopes: [
-				new Scope('雑用変数 tmp:', this.hdlsVar.create('tmp'), false),
-				new Scope('雑用変数 tmp:（SKYNovel組み込み）', this.hdlsVar.create('tmp:sn'), false),
-				new Scope('マクロ変数 mp:', this.hdlsVar.create('mp'), false),
-				new Scope('マクロ変数 mp:（SKYNovel組み込み）', this.hdlsVar.create('mp:sn'), false),
-				new Scope('システム変数 sys:', this.hdlsVar.create('sys'), false),
-				new Scope('システム変数 sys:（SKYNovel組み込み）', this.hdlsVar.create('sys:sn'), false),
-				new Scope('セーブ変数 save:', this.hdlsVar.create('save'), false),
-				new Scope('セーブ変数 save:（SKYNovel組み込み）', this.hdlsVar.create('save:sn'), false),
+				new Scope('雑用変数 tmp:', this.#hdlsVar.create('tmp'), false),
+				new Scope('雑用変数 tmp:（SKYNovel組み込み）', this.#hdlsVar.create('tmp:sn'), false),
+				new Scope('マクロ変数 mp:', this.#hdlsVar.create('mp'), false),
+				new Scope('マクロ変数 mp:（SKYNovel組み込み）', this.#hdlsVar.create('mp:sn'), false),
+				new Scope('システム変数 sys:', this.#hdlsVar.create('sys'), false),
+				new Scope('システム変数 sys:（SKYNovel組み込み）', this.#hdlsVar.create('sys:sn'), false),
+				new Scope('セーブ変数 save:', this.#hdlsVar.create('save'), false),
+				new Scope('セーブ変数 save:（SKYNovel組み込み）', this.#hdlsVar.create('save:sn'), false),
 			]
 		};
 		this.sendResponse(res);
 	}
-	private	readonly	mapCancelationTokens = new Map<number, boolean>();
-	private	readonly	mapIsLongrunning	= new Map<number, boolean>();
-	private	static	readonly	REG_SN_VAR	= /^(?:const\.)?sn\./;
-	private	hScope	: {[scope: string]: {[nm: string]: any}}	= {
+	readonly	#mapCancelationTokens = new Map<number, boolean>();
+	readonly	#mapIsLongrunning	= new Map<number, boolean>();
+	static	readonly	#REG_SN_VAR	= /^(?:const\.)?sn\./;
+	#hScope	: {[scope: string]: {[nm: string]: any}}	= {
 		'tmp'	: {},
 		'sys'	: {},
 		'save'	: {},
@@ -476,9 +476,9 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 	protected override async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
 		const aVar: DebugProtocol.Variable[] = [];
 //console.log(`fn:DebugAdapter.ts line:325 variablesRequest(res=${JSON.stringify(res, null, 2)}= args=${JSON.stringify(args, null, 2)}= request:${JSON.stringify(request, null, 2)})`);
-		if (this.mapIsLongrunning.get(args.variablesReference)) {
+		if (this.#mapIsLongrunning.get(args.variablesReference)) {
 			// long running
-			if (request) this.mapCancelationTokens.set(request.seq, false);
+			if (request) this.#mapCancelationTokens.set(request.seq, false);
 
 			for (let i=0; i<100; ++i) {
 				await timeout(1000);
@@ -488,15 +488,15 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 					value: `${i}`,
 					variablesReference: 0
 				});
-				if (request && this.mapCancelationTokens.get(request.seq)) {
+				if (request && this.#mapCancelationTokens.get(request.seq)) {
 					break;
 				}
 			}
 
-			if (request) this.mapCancelationTokens.delete(request.seq);
+			if (request) this.#mapCancelationTokens.delete(request.seq);
 		}
 		else {
-			let id = this.hdlsVar.get(args.variablesReference);
+			let id = this.#hdlsVar.get(args.variablesReference);
 			// 一度の stopOnStep 中には同じ ID が二度と呼ばれない。VSCodeがキャッシュか
 			if (id) {
 				let tst_sn = true;
@@ -506,25 +506,25 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				}
 
 				let h: {[nm: string]: any} = {};
-				if (id in this.hScope) {
-					this.hScope[id] = h
-					= await this.dbg.var(res.request_seq, id);
+				if (id in this.#hScope) {
+					this.#hScope[id] = h
+					= await this.#dbg.var(res.request_seq, id);
 				}
 				else {	// 構造化された変数（子要素）
 					const a = `${id}:`.split(':', 2);
-					const h2 = this.hScope[a[0]];
+					const h2 = this.#hScope[a[0]];
 					if (h2) {
 						const v2 = h2[a[1]];
 						if (v2) h = JSON.parse(String(v2));
 					}
 				}
 				for (const key in h) {
-					if (DebugAdapter.REG_SN_VAR.test(key) === tst_sn) continue;
+					if (DebugAdapter.#REG_SN_VAR.test(key) === tst_sn) continue;
 
 					const v = String(h[key]);
 					const o: DebugProtocol.Variable = {
 						name: key,
-						type: this.getType(v),
+						type: this.#getType(v),
 						value: v as any,
 						presentationHint: {
 							kind: 'property',
@@ -535,8 +535,8 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 					if (key.slice(0, 6) === 'const.') o.presentationHint!.attributes = ['readOnly'];
 					if (v === '[object Object]') o.value = JSON.stringify(h[key]);
 					else if (o.type === 'object' || o.type === 'array')
-					this.hNm2HdlNm[`${id}:${key}`] = o.variablesReference
-					= this.hdlsVar.create(`${id}:${key}`);
+					this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
+					= this.#hdlsVar.create(`${id}:${key}`);
 
 					aVar.push(o);
 				}
@@ -587,7 +587,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		})};
 		this.sendResponse(res);
 	}
-	private	getType(v: string): string {
+	#getType(v: string): string {
 		let type = 'string';
 		if (v === 'true' || v === 'false') type = 'boolean';
 		else if (v === '[object Object]') type = 'object';
@@ -602,7 +602,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 	// 変数値変更
 	protected override async setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request): Promise<void> {
-		await this.dbg.setVariable(res.request_seq, args.name, args.value);
+		await this.#dbg.setVariable(res.request_seq, args.name, args.value);
 		res.body = {value: args.value,};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
 	}
@@ -611,32 +611,32 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 	// 続行
 	protected override continueRequest(res: DebugProtocol.ContinueResponse, _args: DebugProtocol.ContinueArguments): void {
-		this.dbg.continue();
+		this.#dbg.continue();
 		this.sendResponse(res);
 	}
 	// 戻る
 	protected override reverseContinueRequest(res: DebugProtocol.ReverseContinueResponse, _args: DebugProtocol.ReverseContinueArguments) : void {
-		this.dbg.continue(true);
+		this.#dbg.continue(true);
 		this.sendResponse(res);
 	}
 	// ステップオーバー
 	protected override nextRequest(res: DebugProtocol.NextResponse, _args: DebugProtocol.NextArguments): void {
-		this.dbg.step();
+		this.#dbg.step();
 		this.sendResponse(res);
 	}
 	// ステップイン
 	override stepInRequest(res: DebugProtocol.StepInResponse, _args: DebugProtocol.StepInArguments, _req?: DebugProtocol.Request): void {
-		this.dbg.stepin();
+		this.#dbg.stepin();
 		this.sendResponse(res);
 	}
 	// ステップアウト
 	override stepOutRequest(res: DebugProtocol.StepOutResponse, _args: DebugProtocol.StepOutArguments, _req?: DebugProtocol.Request): void {
-		this.dbg.stepout();
+		this.#dbg.stepout();
 		this.sendResponse(res);
 	}
 	// ステップバック
 	protected override stepBackRequest(res: DebugProtocol.StepBackResponse, _args: DebugProtocol.StepBackArguments): void {
-		this.dbg.step(true);
+		this.#dbg.step(true);
 		this.sendResponse(res);
 	}
 
@@ -644,7 +644,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		switch (args.context) {
 			case 'hover':
 				// 変数の値を表示
-				const v = this.getVar(args.expression);	// 評価する式
+				const v = this.#getVar(args.expression);	// 評価する式
 				if (! v.exist) {
 					res.body = {
 						result: `変数 ${v.fullnm} はありません`,
@@ -653,7 +653,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 					break;
 				}
 
-				const hdlnm = this.hNm2HdlNm[v.fullnm ?? ''];
+				const hdlnm = this.#hNm2HdlNm[v.fullnm ?? ''];
 				res.body = {
 					result: `変数（${v.fullnm}）の値${
 						hdlnm ?'' :`【${ v.ret }】`
@@ -667,7 +667,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				break;
 
 			case 'watch':{
-				const v = await this.dbg.eval(res.request_seq, args.expression);
+				const v = await this.#dbg.eval(res.request_seq, args.expression);
 				if (v) res.body = {
 					result: v,
 					presentationHint: {kind: 'formula', visibility: 'public',},
@@ -677,7 +677,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 			}	break;
 
 			case 'repl':{
-				const v = await this.dbg.eval(res.request_seq, args.expression);
+				const v = await this.#dbg.eval(res.request_seq, args.expression);
 				res.body = {
 					result: v ?`=${v}` :`【null】`,
 					variablesReference: 0,
@@ -735,7 +735,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 		this.sendResponse(res);
 	}
-	private getVar(txt: string): {exist: boolean, ret?: any, fullnm?: string, const?: boolean,} {
+	#getVar(txt: string): {exist: boolean, ret?: any, fullnm?: string, const?: boolean,} {
 		const a = `${txt}:`.split(':', 2);
 		const scope = (a[1] === '') ?'tmp' :a[0];
 		const nm = (a[1] === '') ?a[0] :a[1];
@@ -748,7 +748,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		}
 
 		const ro = nm.slice(0, 6) === 'const.';
-		const h = this.hScope[scope];
+		const h = this.#hScope[scope];
 		return (nm in h)
 			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: ro}
 			: {exist: false,fullnm: `${scope}:${nm}`};
@@ -812,7 +812,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 	// （変数を右クリックで）データブレークポイント設定ＵＩ
 	protected override dataBreakpointInfoRequest(res: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
 		if (args.variablesReference && args.name) {
-			const v = this.getVar(args.name);
+			const v = this.#getVar(args.name);
 			if (v.exist) res.body = {
 				dataId: v.fullnm!,
 				description: `変数値変更：${v.fullnm}`,
@@ -842,7 +842,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 		});
 		// 現状設定されたすべてのデータブレークポイント群を渡す。削除時も同様
 		// チェックボックスOFFは削除扱い
-		await this.dbg.setDataBreakpoint(res.request_seq, a);
+		await this.#dbg.setDataBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);
 	}
@@ -962,7 +962,7 @@ console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.strin
 
 
 	protected override cancelRequest(_res: DebugProtocol.CancelResponse, args: DebugProtocol.CancelArguments) {
-		if (args.requestId) this.mapCancelationTokens.set(args.requestId, true);
+		if (args.requestId) this.#mapCancelationTokens.set(args.requestId, true);
 //		if (args.progressId) this._cancelledProgressId= args.progressId;
 	}
 
@@ -981,7 +981,7 @@ console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.strin
 
 	//---- helpers
 
-	private createSource(filePath: string): Source {
+	#createSource(filePath: string): Source {
 		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
 	}
 }

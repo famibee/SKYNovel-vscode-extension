@@ -1,33 +1,16 @@
 import { CodingSupporter } from './CodingSupporter';
 import { WorkspaceFolder, ExtensionContext } from 'vscode';
 export declare class PrjSetting {
+    #private;
     readonly ctx: ExtensionContext;
     readonly wsFld: WorkspaceFolder;
     private readonly chgTitle;
     private readonly codSpt;
     private readonly searchPath;
-    private readonly fnPrj;
-    private readonly fnPrjJs;
-    private readonly fnPkgJs;
-    private readonly fnAppJs;
-    private fnSetting;
-    private readonly fnInsNsh;
-    private readonly fnIcon;
-    private readonly fnReadme4Freem;
-    private readonly localExtensionResRoots;
-    private htmSrc;
     constructor(ctx: ExtensionContext, wsFld: WorkspaceFolder, chgTitle: (title: string) => void, codSpt: CodingSupporter, searchPath: (path: string, extptn: string) => string);
-    private static readonly hWsFld2token;
     static getDebugertoken(wsFld: WorkspaceFolder | undefined): string;
     noticeCreDir(path: string): void;
     noticeDelDir(path: string): void;
-    private oCfg;
     get cfg(): any;
-    private pnlWV;
     open(): void;
-    private static readonly REG_SETTING;
-    private openSub;
-    private static readonly REG_BOL_OR_NUM;
-    private inputProc;
-    private readonly hRep;
 }

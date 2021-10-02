@@ -11,17 +11,14 @@ export interface InfoBreakpoint {
     hitCondition?: number;
 }
 export declare class Debugger extends EventEmitter {
+    #private;
     readonly wsFld: WorkspaceFolder | undefined;
     private readonly hookTag;
-    private pathWs;
     constructor(wsFld: WorkspaceFolder | undefined, hookTag: (o: any) => void);
-    private static hcurPrj2Dbg;
     static send2SN(type: string, o?: object): void;
     attach(args: DebugConfiguration): void;
-    private $send2SN;
+    private send2SN;
     end(): void;
-    private readonly hProcSnRes;
-    private hDCId2DI;
     static noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent): void;
     restart: (ri: number) => Promise<void>;
     continue: (reverse?: boolean) => void;
@@ -40,15 +37,8 @@ export declare class Debugger extends EventEmitter {
         ma: string;
     }[]>;
     eval: (ri: number, txt: string) => Promise<string>;
-    private idBP;
-    private hFn2hLineBP;
     setBreakPoints(fn: string, a: DebugProtocol.SourceBreakpoint[]): InfoBreakpoint[];
-    private hScriptLines;
-    private loadSource;
-    private aDataBreak;
     setDataBreakpoint: (ri: number, a: any[]) => Promise<void>;
-    private aFuncBreak;
     setFuncBreakpoint: (ri: number, a: any[]) => Promise<void>;
     setVariable: (ri: number, nm: string, val: string) => Promise<void>;
-    private sendEvent2Adpt;
 }

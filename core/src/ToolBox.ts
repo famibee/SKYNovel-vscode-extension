@@ -20,14 +20,14 @@ interface CTG_ACMD {
 }
 
 export class ToolBox implements WebviewViewProvider {
-	private	readonly	localExtensionResRoots: Uri;
+	readonly	#localExtensionResRoots: Uri;
 	constructor(readonly ctx: ExtensionContext) {
-		this.localExtensionResRoots = Uri.file(ctx.extensionPath +'/res/webview');
-/**/	this.aCtgACmd0 = this.aCtgACmd0 ?? [];
+		this.#localExtensionResRoots = Uri.file(ctx.extensionPath +'/res/webview');
+/**/	this.#aCtgACmd0 = this.#aCtgACmd0 ?? [];
 	}
 
-	private	readonly aCtgACmd : CTG_ACMD[]= [
-/**/	];private	readonly aCtgACmd0 : CTG_ACMD[]= [
+	readonly #aCtgACmd	: CTG_ACMD[]= [
+/**/	];readonly #aCtgACmd0 : CTG_ACMD[]= [
 		// Solid Icons | Font Awesome https://fontawesome.com/icons?d=gallery&s=solid&m=free
 		{カテゴリ: 'テキスト系', 要素: [
 			{icon: 'fa-align-left', name: 'テキスト', style: 'btn-primary', scr: '[ch text=##]'},
@@ -72,10 +72,10 @@ export class ToolBox implements WebviewViewProvider {
 		const wv = wvv.webview;
 		wv.options = {
 			enableScripts: true,
-			localResourceRoots: [this.localExtensionResRoots],
+			localResourceRoots: [this.#localExtensionResRoots],
 		};
 		const nonce = getNonce();
-		const uri = wv.asWebviewUri(this.localExtensionResRoots);
+		const uri = wv.asWebviewUri(this.#localExtensionResRoots);
 		wv.html = `<!doctype html><html>
 <head><meta charset="utf-8"/>
 <title>スコア ツールボックス</title>
@@ -99,7 +99,7 @@ export class ToolBox implements WebviewViewProvider {
 </head>
 <body>
 
-`+ this.aCtgACmd.map(v=> {
+`+ this.#aCtgACmd.map(v=> {
 	return v.カテゴリ +`
 <div class="d-flex flex-wrap">`
 	+ v.要素.map(vv=> `

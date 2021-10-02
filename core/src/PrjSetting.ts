@@ -15,46 +15,46 @@ import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
 
 export class PrjSetting {
-	private	readonly	fnPrj	: string;
-	private	readonly	fnPrjJs	: string;
-	private	readonly	fnPkgJs	: string;
-	private	readonly	fnAppJs	: string;
-	private				fnSetting	: string;
-	private	readonly	fnInsNsh: string;
-	private	readonly	fnIcon	: string;
-	private	readonly	fnReadme4Freem	: string;
-	private	readonly	localExtensionResRoots: Uri;
+	readonly	#fnPrj	: string;
+	readonly	#fnPrjJs	: string;
+	readonly	#fnPkgJs	: string;
+	readonly	#fnAppJs	: string;
+				#fnSetting	: string;
+	readonly	#fnInsNsh: string;
+	readonly	#fnIcon	: string;
+	readonly	#fnReadme4Freem	: string;
+	readonly	#localExtensionResRoots: Uri;
 
-	private				htmSrc	= '';
+				#htmSrc	= '';
 
 	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string) {
 		const pathWs = wsFld.uri.fsPath;
-		this.fnPrj = pathWs +'/doc/prj/';
-		this.fnPrjJs = this.fnPrj +'prj.json';
-		this.fnAppJs = pathWs +'/doc/app.js';
-		this.fnPkgJs = pathWs +'/package.json';
+		this.#fnPrj = pathWs +'/doc/prj/';
+		this.#fnPrjJs = this.#fnPrj +'prj.json';
+		this.#fnAppJs = pathWs +'/doc/app.js';
+		this.#fnPkgJs = pathWs +'/package.json';
 
-		this.fnReadme4Freem = pathWs +'/build/include/readme.txt';
+		this.#fnReadme4Freem = pathWs +'/build/include/readme.txt';
 		let init_freem = false;
 		const path_ext = ctx.extensionPath;
 
-		if (! existsSync(this.fnReadme4Freem)) {
+		if (! existsSync(this.#fnReadme4Freem)) {
 			init_freem = true;
-			ensureFileSync(this.fnReadme4Freem);
-			copyFileSync(path_ext +'/res/readme.txt', this.fnReadme4Freem);
+			ensureFileSync(this.#fnReadme4Freem);
+			copyFileSync(path_ext +'/res/readme.txt', this.#fnReadme4Freem);
 
-			workspace.openTextDocument(this.fnReadme4Freem)
+			workspace.openTextDocument(this.#fnReadme4Freem)
 			.then(doc=> window.showTextDocument(doc));
 		}
 
-		this.fnInsNsh = pathWs +'/build/installer.nsh';
-		if (! existsSync(this.fnInsNsh)) copyFile(
-			path_ext +'/res/installer.nsh', this.fnInsNsh
+		this.#fnInsNsh = pathWs +'/build/installer.nsh';
+		if (! existsSync(this.#fnInsNsh)) copyFile(
+			path_ext +'/res/installer.nsh', this.#fnInsNsh
 		);
 
-		this.fnIcon = pathWs +'/build/icon.png';
-		if (! existsSync(this.fnIcon)) copyFile(
-			path_ext +'/res/icon.png', this.fnIcon
+		this.#fnIcon = pathWs +'/build/icon.png';
+		if (! existsSync(this.#fnIcon)) copyFile(
+			path_ext +'/res/icon.png', this.#fnIcon
 		);
 
 		const fnLaunchJs = pathWs +'/.vscode/launch.json';
@@ -62,59 +62,59 @@ export class PrjSetting {
 			path_ext +'/res/launch.json', fnLaunchJs
 		);
 
-		this.oCfg = {...this.oCfg, ...readJsonSync(this.fnPrjJs, {encoding: 'utf8'})};
+		this.#oCfg = {...this.#oCfg, ...readJsonSync(this.#fnPrjJs, {encoding: 'utf8'})};
 
-		chgTitle(this.oCfg.book.title);
-		codSpt.setEscape(this.oCfg?.init?.escape ?? '');
+		chgTitle(this.#oCfg.book.title);
+		codSpt.setEscape(this.#oCfg?.init?.escape ?? '');
 		if (init_freem) {
 			['title','version','creator','cre_url','publisher','pub_url',]
-			.forEach(nm=> this.hRep['book.'+ nm](this.oCfg.book[nm]));
+			.forEach(nm=> this.#hRep['book.'+ nm](this.#oCfg.book[nm]));
 		}
 
 		// prj.json に既にないディレクトリのcodeがあれば削除
 		const a: string[] = [];
-		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
+		foldProc(this.#fnPrj, ()=> {}, nm=> a.push(nm));
 		const oCode: {[name: string]: string} = {};
-		for (const nm in this.oCfg.code) if (a.includes(nm)) oCode[nm] = this.oCfg[nm];
-		this.oCfg.code = oCode;
-		outputJson(this.fnPrjJs, this.oCfg);
+		for (const nm in this.#oCfg.code) if (a.includes(nm)) oCode[nm] = this.#oCfg[nm];
+		this.#oCfg.code = oCode;
+		outputJson(this.#fnPrjJs, this.#oCfg);
 
 		const path_ext_htm = path_ext +`/res/webview/`;
-		this.localExtensionResRoots = Uri.file(path_ext_htm);
+		this.#localExtensionResRoots = Uri.file(path_ext_htm);
 		readFile(path_ext_htm +`setting.htm`, {encoding: 'utf8'})
 		.then(htm=> {
-			this.htmSrc = htm
+			this.#htmSrc = htm
 			.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 			.replaceAll('${nonce}', getNonce());
 
-			if (this.oCfg.save_ns === 'hatsune'
-			|| this.oCfg.save_ns === 'uc') this.open();
+			if (this.#oCfg.save_ns === 'hatsune'
+			|| this.#oCfg.save_ns === 'uc') this.open();
 		})
 
-		PrjSetting.hWsFld2token[wsFld.uri.path] = ()=> this.oCfg.debuger_token;
+		PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.#oCfg.debuger_token;
 	}
 
-	private	static	readonly	hWsFld2token: {[path: string]: ()=> string}= {};
+	static	readonly	#hWsFld2token: {[path: string]: ()=> string}= {};
 	static	getDebugertoken(wsFld: WorkspaceFolder | undefined) {
 		if (! wsFld) return '';
-		return PrjSetting.hWsFld2token[wsFld.uri.path]() ?? '';
+		return PrjSetting.#hWsFld2token[wsFld.uri.path]() ?? '';
 	}
 
 	noticeCreDir(path: string) {
 		if (! statSync(path).isDirectory()) return;
 
-		this.oCfg.code[m_path.basename(path)] = false;
+		this.#oCfg.code[m_path.basename(path)] = false;
 		//fs.outputJson(this.fnPrjJs, this.oCfg);
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
-		this.openSub();	// 出来れば一部だけ更新したいが
+		this.#openSub();	// 出来れば一部だけ更新したいが
 	}
 	noticeDelDir(path: string) {
-		delete this.oCfg.code[m_path.basename(path)];
-		outputJson(this.fnPrjJs, this.oCfg);
-		this.openSub();	// 出来れば一部だけ更新したいが
+		delete this.#oCfg.code[m_path.basename(path)];
+		outputJson(this.#fnPrjJs, this.#oCfg);
+		this.#openSub();	// 出来れば一部だけ更新したいが
 	}
 
-	private oCfg	: any = {
+	#oCfg	: any = {
 		book	: {
 			title		: '',	//作品タイトル
 			creator		: '',	//著作者。同人ならペンネーム
@@ -149,53 +149,53 @@ export class PrjSetting {
 		code	: {},	// 暗号化しないフォルダ
 		debuger_token	: '',		// デバッガとの接続トークン
 	};
-	get cfg() {return this.oCfg}
-	private	pnlWV	: WebviewPanel | null = null;
+	get cfg() {return this.#oCfg}
+	#pnlWV	: WebviewPanel | null = null;
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		const column = window.activeTextEditor?.viewColumn;
-		if (this.pnlWV) {
-			this.pnlWV.reveal(column);
-			this.openSub();
+		if (this.#pnlWV) {
+			this.#pnlWV.reveal(column);
+			this.#openSub();
 			return;
 		}
 
-		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
+		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
 			enableScripts: true,
-			localResourceRoots: [this.localExtensionResRoots],
+			localResourceRoots: [this.#localExtensionResRoots],
 		});
 
-		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
+		wv.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
 		wv.webview.onDidReceiveMessage(m=> {
 			switch (m.cmd) {
-			case 'get':		wv.webview.postMessage({cmd: 'res', o: this.oCfg});	break;
+			case 'get':		wv.webview.postMessage({cmd: 'res', o: this.#oCfg});	break;
 			case 'info':	window.showInformationMessage(m.text); break;
 			case 'warn':	window.showWarningMessage(m.text); break;
 			case 'openURL':	env.openExternal(Uri.parse(m.url)); break;
-			case 'input':	this.inputProc(m.id, m.val);	break;
+			case 'input':	this.#inputProc(m.id, m.val);	break;
 			}
 		}, false);
-		this.openSub();
+		this.#openSub();
 	}
-	private	static	readonly REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;
+	static	readonly #REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;
 		// https://regex101.com/r/FpmGwf/1
-	private openSub() {
+	#openSub() {
 		const a: string[] = [];
-		foldProc(this.fnPrj, ()=> {}, nm=> a.push(nm));
+		foldProc(this.#fnPrj, ()=> {}, nm=> a.push(nm));
 
-		const wv = this.pnlWV!.webview;
-		const h = this.htmSrc
+		const wv = this.#pnlWV!.webview;
+		const h = this.#htmSrc
 		.replaceAll('${webview.cspSource}', wv.cspSource)
-		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.localExtensionResRoots)}/`)
+		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
 		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
 
 		try {
-			this.fnSetting = this.fnPrj + this.searchPath('setting', 'sn');
+			this.#fnSetting = this.#fnPrj + this.searchPath('setting', 'sn');
 			let hs = '';
-			const src = readFileSync(this.fnSetting, {encoding: 'utf8'});
-			for (const m of src.matchAll(PrjSetting.REG_SETTING)) {
+			const src = readFileSync(this.#fnSetting, {encoding: 'utf8'});
+			for (const m of src.matchAll(PrjSetting.#REG_SETTING)) {
 				if (m[0].charAt(0) === ';') continue;
 				const m5 = (m[5] ?? '').trim();
 				if (m5 === '' || m5.slice(0, 10) === '(HIDE GUI)') continue;
@@ -257,77 +257,77 @@ export class PrjSetting {
 			`<div class="col-12 px-1 pt-3"><h5>${e}</h5></div>`
 		);}
 	}
-	private	static	readonly REG_BOL_OR_NUM = /^(?:true|false|[-+]?(?:[1-9]\d*|0)(?:\.\d+)?|0x[0-9a-fA-F]+)$/;	// https://regex101.com/r/NPNbRk/1
-	private inputProc(id: string, val: string) {
+	static	readonly #REG_BOL_OR_NUM = /^(?:true|false|[-+]?(?:[1-9]\d*|0)(?:\.\d+)?|0x[0-9a-fA-F]+)$/;	// https://regex101.com/r/NPNbRk/1
+	#inputProc(id: string, val: string) {
 		if (id.charAt(0) === '/') {
 			const nm = id.split(':').slice(1).join(':');
 			replaceFile(
-				this.fnSetting,
+				this.#fnSetting,
 				new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 				`$1$3${val}$3`	// https://regex101.com/r/jD2znK/1
 			);
 			return;
 		}
 
-		const v = PrjSetting.REG_BOL_OR_NUM.test(val) ?val :val.replaceAll('"', '%22');
+		const v = PrjSetting.#REG_BOL_OR_NUM.test(val) ?val :val.replaceAll('"', '%22');
 		const iP = id.indexOf('.');
 		if (iP >= 0) {
 			const nm = id.slice(iP +1);
 			const id2 = id.slice(0, iP);
-			this.oCfg[id2][nm] = v;
+			this.#oCfg[id2][nm] = v;
 			if (id2 === 'init' && nm === 'escape') this.codSpt.setEscape(v);
 		}
-		else this.oCfg[id] = v;
-		outputJson(this.fnPrjJs, this.oCfg);
+		else this.#oCfg[id] = v;
+		outputJson(this.#fnPrjJs, this.#oCfg);
 
-		this.hRep[id]?.(v);
+		this.#hRep[id]?.(v);
 	}
-	private	readonly	hRep	: {[id: string]: (val: string)=> void} = {
+	readonly	#hRep	: {[id: string]: (val: string)=> void} = {
 		"save_ns"	: val=> {
-			replaceFile(this.fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
-			replaceFile(this.fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+			replaceFile(this.#fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
 
-			if (! this.oCfg.debuger_token) {
-				this.oCfg.debuger_token = uuidv4();
-				outputJson(this.fnPrjJs, this.oCfg);
+			if (! this.#oCfg.debuger_token) {
+				this.#oCfg.debuger_token = uuidv4();
+				outputJson(this.#fnPrjJs, this.#oCfg);
 			}
 		},
-		'window.width'	: val=> replaceFile(this.fnAppJs,
+		'window.width'	: val=> replaceFile(this.#fnAppJs,
 			/(width\s*: ).*(,)/, `$1${val}$2`),
-		'window.height'	: val=> replaceFile(this.fnAppJs,
+		'window.height'	: val=> replaceFile(this.#fnAppJs,
 			/(height\s*: ).*(,)/, `$1${val}$2`),
 		'book.version'	: val=> {
-			replaceFile(this.fnPkgJs, /("version"\s*:\s*").*(")/, `$1${val}$2`);
-			replaceFile(this.fnReadme4Freem, /(【Version】)\S+/g, `$1${val}`);
+			replaceFile(this.#fnPkgJs, /("version"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnReadme4Freem, /(【Version】)\S+/g, `$1${val}`);
 		},
 		'book.title'	: val=> {
 			this.chgTitle(val);
-			replaceFile(this.fnPkgJs, /("productName"\s*:\s*").*(")/, `$1${val}$2`);
-			replaceFile(this.fnReadme4Freem, /(【タイトル】)\S+/g, `$1${val}`);
+			replaceFile(this.#fnPkgJs, /("productName"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnReadme4Freem, /(【タイトル】)\S+/g, `$1${val}`);
 		},
 		"book.creator"	: val=> {
-			replaceFile(this.fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
-			replaceFile(this.fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
-			replaceFile(this.fnReadme4Freem, /(【著 作 者】)\S+/g, `$1${val}`);
+			replaceFile(this.#fnPkgJs, /("author"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnPkgJs, /("appCopyright"\s*:\s*").*(")/, `$1(c)${val}$2`);
+			replaceFile(this.#fnReadme4Freem, /(【著 作 者】)\S+/g, `$1${val}`);
 		},
 		'book.cre_url'	: val=> {
-			replaceFile(this.fnReadme4Freem, /(【連 絡 先】メール： )\S+/, `$1${val}`);
+			replaceFile(this.#fnReadme4Freem, /(【連 絡 先】メール： )\S+/, `$1${val}`);
 		},
 		'book.publisher': val=> {
-			replaceFile(this.fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
-			replaceFile(this.fnInsNsh, /(!define PUBLISHER ").+"/, `$1${val}"`);
+			replaceFile(this.#fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
+			replaceFile(this.#fnInsNsh, /(!define PUBLISHER ").+"/, `$1${val}"`);
 
 			// ついでに発表年を
-			replaceFile(this.fnReadme4Freem, /(Copyright \(C\) )\d+ "([^"]+)"/g, `$1${(new Date()).getFullYear()} "${val}"`);
+			replaceFile(this.#fnReadme4Freem, /(Copyright \(C\) )\d+ "([^"]+)"/g, `$1${(new Date()).getFullYear()} "${val}"`);
 		},
 		'book.pub_url'	: val=> {
-			replaceFile(this.fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
-			replaceFile(this.fnReadme4Freem, /(　　　　　　ＷＥＢ： )\S+/g, `$1${val}`);
+			replaceFile(this.#fnPkgJs, /("homepage"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnReadme4Freem, /(　　　　　　ＷＥＢ： )\S+/g, `$1${val}`);
 
 			// ついでに発表年を
-			replaceFile(this.fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`);
+			replaceFile(this.#fnAppJs, /(npm_package_appCopyright \+' )\d+/, `$1${(new Date()).getFullYear()}`);
 		},
-		'book.detail'	: val=> replaceFile(this.fnPkgJs,
+		'book.detail'	: val=> replaceFile(this.#fnPkgJs,
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
 	}
 

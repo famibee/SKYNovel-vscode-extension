@@ -17,7 +17,7 @@ interface	TTmpTI {
 }
 
 export class TreeDPDoc implements TreeDataProvider<TreeItem> {
-	private	readonly	aTreeTmp: TTmpTI[]	= [
+	readonly	#aTreeTmp: TTmpTI[]	= [
 		{label: '開発者向け情報', icon: 'document',
 			url: 'https://famibee.github.io/SKYNovel/dev.htm'},
 		{label: 'タグリファレンス', icon: 'document',
@@ -42,11 +42,11 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 			{label: 'glTF Tools', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'},
 		]},
 	];
-	private readonly	aTiRoot	= this.generate('doc', this.aTreeTmp);
+	readonly	#aTiRoot	= this.#generate('doc', this.#aTreeTmp);
 
 	constructor(private readonly ctx: ExtensionContext) {}
 
-	private	generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
+	#generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
 		return aTi.map((o, idx)=> {
 			const id = (parent === 'doc' ?`skynovel.` :'') +`${parent}/${idx}`;
 			const t = new TreeItem(o.label);
@@ -67,8 +67,8 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 
 	readonly getTreeItem = (t: TreeItem)=> t;
 	getChildren(t?: TreeItem): TreeItem[] {	// 下に子が居ると何度も呼ばれる
-		if (! t) return this.aTiRoot;
-		const aTi = this.aTreeTmp.find(v=> v.label === t.label);
-		return aTi?.children ?this.generate(t.contextValue!, aTi.children) :[];
+		if (! t) return this.#aTiRoot;
+		const aTi = this.#aTreeTmp.find(v=> v.label === t.label);
+		return aTi?.children ?this.#generate(t.contextValue!, aTi.children) :[];
 	}
 }

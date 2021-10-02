@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.16.0",
+	"version": "3.16.1",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -668,7 +668,7 @@
 		"onView:skynovel-dev"
 	],
 	"dependencies": {
-		"adm-zip": "^0.5.6",
+		"adm-zip": "^0.5.7",
 		"archiver": "^5.3.0",
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.0",
@@ -698,7 +698,7 @@
 		"@types/vscode": "^1.60.0",
 		"@typescript-eslint/eslint-plugin": "^4.32.0",
 		"@typescript-eslint/parser": "^4.32.0",
-		"electron": "^15.0.0",
+		"electron": "^15.1.0",
 		"eslint": "^7.32.0",
 		"file-loader": "^6.2.0",
 		"glob": "^7.2.0",
@@ -710,7 +710,7 @@
 		"typescript": "^4.4.3",
 		"vscode-debugadapter-testsupport": "^1.49.0",
 		"vscode-test": "^1.6.1",
-		"webpack": "^5.55.1",
+		"webpack": "^5.56.0",
 		"webpack-cli": "^4.8.0"
 	},
 	"optionalDependencies": {

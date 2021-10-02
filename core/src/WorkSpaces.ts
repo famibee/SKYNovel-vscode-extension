@@ -23,23 +23,23 @@ interface DecChars {
 }
 
 export class WorkSpaces implements TreeDataProvider<TreeItem> {
-	private readonly	aTiRoot		: TreeItem[] = [];
+	readonly	#aTiRoot		: TreeItem[] = [];
 
-	private hPrj	: {[pathWs: string]: Project}	= {};
+	#hPrj	: {[pathWs: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
-		this.refresh();
-		workspace.onDidChangeWorkspaceFolders(e=> this.refresh(e));
+		this.#refresh();
+		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
-		tasks.onDidEndTaskProcess(e=> this.hOnEndTask?.[e.execution.task.definition.type.slice(9)]?.(e));
+		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask?.[e.execution.task.definition.type.slice(9)]?.(e));
 
-		this.onUpdDoc(window.activeTextEditor);
-		window.onDidChangeActiveTextEditor(te=> this.onUpdDoc(te), null, ctx.subscriptions);
+		this.#onUpdDoc(window.activeTextEditor);
+		window.onDidChangeActiveTextEditor(te=> this.#onUpdDoc(te), null, ctx.subscriptions);
 		workspace.onDidCloseTextDocument(td=> {
-			if (this.teActive?.document === td) this.teActive = undefined;
+			if (this.#teActive?.document === td) this.#teActive = undefined;
 		});
 		workspace.onDidChangeTextDocument(e=> {
-			if (e.document === this.teActive?.document) this.onUpdDoc(this.teActive);
+			if (e.document === this.#teActive?.document) this.#onUpdDoc(this.#teActive);
 		}, null, ctx.subscriptions);
 
 		// デバッガ
@@ -48,10 +48,10 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		initDebug(ctx, o=> {
 			switch (o.タグ名) {
 				case ':connect':
-					this.tiLayers = [];
+					this.#tiLayers = [];
 					break;
 				case ':disconnect':
-					this.tiLayers = [];
+					this.#tiLayers = [];
 					emDbgLayTd.fire(undefined);
 					break;
 
@@ -75,7 +75,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 						title		: 'Select Node',
 						arguments	: [o.layer],
 					};
-					this.tiLayers.push(t);
+					this.#tiLayers.push(t);
 					emDbgLayTd.fire(undefined);
 				}	break;
 
@@ -111,7 +111,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
 			getChildren: t=> {
-				if (! t) return this.tiLayers;
+				if (! t) return this.#tiLayers;
 
 				const icon: any = t.iconPath;
 				const a: {label: string, icon: string}[]
@@ -143,35 +143,35 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		CteScore.init(ctx);
 	}
-	private	tiLayers	: TreeItem[]	= [];
+	#tiLayers	: TreeItem[]	= [];
 
-	private tidDelay: NodeJS.Timer | null = null;
-	private onUpdDoc(te: TextEditor | undefined) {
+	#tidDelay: NodeJS.Timer | null = null;
+	#onUpdDoc(te: TextEditor | undefined) {
 		if (! te) return;
 		if (te.document.languageId !== 'skynovel') return;
 
-		this.teActive = te;
+		this.#teActive = te;
 
 		// 遅延
-		if (this.tidDelay) clearTimeout(this.tidDelay);
-		this.tidDelay = setTimeout(()=> this.updDeco(), 500);
+		if (this.#tidDelay) clearTimeout(this.#tidDelay);
+		this.#tidDelay = setTimeout(()=> this.#updDeco(), 500);
 	}
 
-	private teActive: TextEditor | undefined;
-	private decChars: DecChars = {
+	#teActive: TextEditor | undefined;
+	#decChars: DecChars = {
 		aRange: [],
 		decorator: window.createTextEditorDecorationType({})
 	};
-	private	static	readonly REG_FN_OR_LABEL = /(?<=\s)(?:fn|label)\s*=\s*([^\]\s]+)/g;
-	private	updDeco() {
-		if (! this.teActive) return;
+	static	readonly #REG_FN_OR_LABEL = /(?<=\s)(?:fn|label)\s*=\s*([^\]\s]+)/g;
+	#updDeco() {
+		if (! this.#teActive) return;
 
-		const doc = this.teActive.document;
+		const doc = this.#teActive.document;
 		const src = doc.getText();
 
 		window.setStatusBarMessage('');
-		this.decChars.decorator.dispose();
-		this.decChars = {
+		this.#decChars.decorator.dispose();
+		this.#decChars = {
 			aRange: [],
 			decorator: window.createTextEditorDecorationType({
 				'light': {'textDecoration': 'underline',},
@@ -182,75 +182,75 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		// fn属性やlabel属性の値に下線を引くように
 		let m;
 		// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
-		while (m = WorkSpaces.REG_FN_OR_LABEL.exec(src)) {
-			this.decChars.aRange.push(new Range(
+		while (m = WorkSpaces.#REG_FN_OR_LABEL.exec(src)) {
+			this.#decChars.aRange.push(new Range(
 				doc.positionAt(m.index +m[0].length -m[1].length),
 				doc.positionAt(m.index +m[0].length)
 			));
 		}
-		this.teActive.setDecorations(this.decChars.decorator, this.decChars.aRange);
+		this.#teActive.setDecorations(this.#decChars.decorator, this.#decChars.aRange);
 	}
 
-	private refresh(e?: WorkspaceFoldersChangeEvent): void {
+	#refresh(e?: WorkspaceFoldersChangeEvent): void {
 		const aWsFld = workspace.workspaceFolders;
 		if (! aWsFld) return;	// undefinedだった場合はファイルを開いている
 
 		// フォルダーを開いている（len>1 ならワークスペース）
 		if (! e)  {		// 起動時
-			aWsFld.forEach(fld=> this.makePrj(fld));
-			if (this.aTiRoot.length === 0) return;
-			this.aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
-			this.emPrjTD.fire(undefined);
+			aWsFld.forEach(fld=> this.#makePrj(fld));
+			if (this.#aTiRoot.length === 0) return;
+			this.#aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
+			this.#emPrjTD.fire(undefined);
 			return;
 		}
 
 		// フォルダ増減時
-		if (e.added.length > 0) this.makePrj(aWsFld.slice(-1)[0]);
+		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]);
 			// 最後の一つと思われる
 		else {
 			const nm = e.removed[0].name;	// 一つだけ対応
-			const del = this.aTiRoot.findIndex(v=> v.label === nm);
-			this.aTiRoot.splice(del, 1);
+			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
+			this.#aTiRoot.splice(del, 1);
 
 			const pathWs = e.removed[0].uri.fsPath;
 
-			this.hPrj[pathWs].dispose();
+			this.#hPrj[pathWs].dispose();
 		}
-		this.emPrjTD.fire(undefined);
+		this.#emPrjTD.fire(undefined);
 	}
-	private readonly emPrjTD = new EventEmitter<TreeItem | undefined>();
-	readonly onDidChangeTreeData = this.emPrjTD.event;
+	readonly #emPrjTD = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData = this.#emPrjTD.event;
 
 
 	enableBtn(enable: boolean): void {
-		for (const pathWs in this.hPrj) this.hPrj[pathWs].enableBtn(enable);
+		for (const pathWs in this.#hPrj) this.#hPrj[pathWs].enableBtn(enable);
 	}
 
 
 	// WorkspaceFolder を TreeItem に反映
-	private makePrj(wsFld: WorkspaceFolder) {
+	#makePrj(wsFld: WorkspaceFolder) {
 		const pathWs = wsFld.uri.fsPath;
 		const existPkgJS = existsSync(pathWs +'/package.json');
 		const isPrjValid = existPkgJS && existsSync(pathWs +'/doc/prj/prj.json');
 		if (! isPrjValid) return;
 
-		this.hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.aTiRoot, this.emPrjTD, this.hOnEndTask);
+		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask);
 	}
 
-	private	hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
+	#hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
 		'テンプレ初期化': e=> {		// 本来のキーは Project.ts の btn_nm
 			const wsFld = <WorkspaceFolder>e.execution.task.scope;
 			const pathWs = wsFld.uri.fsPath;
-			this.hPrj[pathWs].finBuild();
+			this.#hPrj[pathWs].finBuild();
 		},
 	};
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.aTiRoot;
+	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;
 
 	dispose() {
-		for (const pathWs in this.hPrj) this.hPrj[pathWs].dispose();
-		this.hPrj = {};
+		for (const pathWs in this.#hPrj) this.#hPrj[pathWs].dispose();
+		this.#hPrj = {};
 	}
 
 }

@@ -32,24 +32,24 @@ interface MacDef {
 
 export class ScriptScanner {
 	constructor(private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}) {
-		this.hTagProc['let_abs'] =
-		this.hTagProc['let_char_at'] =
-		this.hTagProc['let_index_of'] =
-		this.hTagProc['let_length'] =
-		this.hTagProc['let_replace'] =
-		this.hTagProc['let_round'] =
-		this.hTagProc['let_search'] =
-		this.hTagProc['let_substr'] = this.hTagProc['let'];
-		this.hTagProc['set_frame'] = this.hTagProc['let_frame'];
-		this.hTagProc['jump'] =
-		this.hTagProc['call'] =
-		this.hTagProc['event'] =
-		this.hTagProc['button'] =
-		this.hTagProc['link'] =
-		this.hTagProc['return'] = this.hTagProc['s'];
-		this.hTagProc['else'] = this.hTagProc['elsif'];
+		this.#hTagProc['let_abs'] =
+		this.#hTagProc['let_char_at'] =
+		this.#hTagProc['let_index_of'] =
+		this.#hTagProc['let_length'] =
+		this.#hTagProc['let_replace'] =
+		this.#hTagProc['let_round'] =
+		this.#hTagProc['let_search'] =
+		this.#hTagProc['let_substr'] = this.#hTagProc['let'];
+		this.#hTagProc['set_frame'] = this.#hTagProc['let_frame'];
+		this.#hTagProc['jump'] =
+		this.#hTagProc['call'] =
+		this.#hTagProc['event'] =
+		this.#hTagProc['button'] =
+		this.#hTagProc['link'] =
+		this.#hTagProc['return'] = this.#hTagProc['s'];
+		this.#hTagProc['else'] = this.#hTagProc['elsif'];
 
-		this.cteScore = new CteScore(curPrj);
+		this.#cteScore = new CteScore(curPrj);
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
@@ -58,7 +58,7 @@ export class ScriptScanner {
 	hMacroUse4NoWarm	: {[nm: string]: Location[]}	= {};
 	hTagMacroUse: {[fn: string]: {nm: string, rng: Range}[]}	= {};
 	// 新キーワード選択値はここに追加する
-	private readonly	hSetWords	: {[key: string]: Set<string>}	= {
+	readonly	#hSetWords	: {[key: string]: Set<string>}	= {
 		'代入変数名'	: new Set,
 		'ジャンプ先'	: new Set,
 		'レイヤ名'		: new Set,
@@ -84,34 +84,34 @@ export class ScriptScanner {
 		'イージング名': '|Back.In,Back.InOut,Back.Out,Bounce.In,Bounce.InOut,Bounce.Out,Circular.In,Circular.InOut,Circular.Out,Cubic.In,Cubic.InOut,Cubic.Out,Elastic.In,Elastic.InOut,Elastic.Out,Exponential.In,Exponential.InOut,Exponential.Out,Linear.None,Quadratic.In,Quadratic.InOut,Quadratic.Out,Quartic.In,Quartic.InOut,Quartic.Out,Quintic.In,Quintic.InOut,Quintic.Out,Sinusoidal.In,Sinusoidal.InOut,Sinusoidal.Out|',
 		'ブレンドモード名': '|normal,add,multiply,screen|',
 	};
-	private		hFn2JumpSnippet	: {[fn: string]: string}	= {};
-	private	bldCnvSnippet() {
+	#hFn2JumpSnippet	: {[fn: string]: string}	= {};
+	#bldCnvSnippet() {
 		let eq = true;
 
-		const mn = this.hSetWords['マクロ名'];
+		const mn = this.#hSetWords['マクロ名'];
 		mn.clear();
 		for (const mm in this.hMacro) mn.add(mm);
 
-		this.hSetWords['代入変数名'].add(ScriptScanner.sPredefWrtVar);
-		this.hSetWords['文字出現演出名'].add('default');
-		this.hSetWords['文字消去演出名'].add('default');
-		for (const key in this.hSetWords) {
-			const set = this.hSetWords[key];
+		this.#hSetWords['代入変数名'].add(ScriptScanner.#sPredefWrtVar);
+		this.#hSetWords['文字出現演出名'].add('default');
+		this.#hSetWords['文字消去演出名'].add('default');
+		for (const key in this.#hSetWords) {
+			const set = this.#hSetWords[key];
 			const str = `|${[...set.values()].sort().join(',')}|`;
 			if (this.hPreWords[key] !== str) {
 				eq = false;
-				this.cteScore.updWords(key, set);
+				this.#cteScore.updWords(key, set);
 					// この中は参照渡しとReq/Res型なので、更新確認は別にいらない
 			}
 			this.hPreWords[key] = (str === '||') ?`:${key}` :str;
 		}
 		if (eq) return;
 
-		this.hFn2JumpSnippet = {};
+		this.#hFn2JumpSnippet = {};
 		this.cnvSnippet = (s, cur_fn)=> {
 			const bk = this.hPreWords['ジャンプ先'];
 
-			const jsn = this.hFn2JumpSnippet[cur_fn];
+			const jsn = this.#hFn2JumpSnippet[cur_fn];
 			this.hPreWords['ジャンプ先'] = jsn ?? (()=> {
 				if (typeof bk !== 'string') return 'ジャンプ先';
 				let cur_sn = '';
@@ -119,7 +119,7 @@ export class ScriptScanner {
 					new RegExp(`fn=${cur_fn},(?:fn=${cur_fn} [^,|]+,)*`),
 					m=> {cur_sn = m; return '';}
 				)
-				return this.hFn2JumpSnippet[cur_fn]
+				return this.#hFn2JumpSnippet[cur_fn]
 					= `|${(cur_sn + sn).slice(0, -1)}|`;
 			})();
 
@@ -130,7 +130,7 @@ export class ScriptScanner {
 			return ret;
 		};
 	}
-	private	static readonly	sPredefWrtVar	=
+	static readonly	#sPredefWrtVar	=
 `const.Date.getDateStr
 const.Date.getTime
 const.sn.bookmark.json
@@ -213,31 +213,31 @@ sys:sn.tagCh.msecWait_Kidoku
 sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 
-	private	nm2Diag	: {[url: string]: Diagnostic[]}= {};
-	private	isDuplicateMacroDef		= false;
-	private	wasDuplicateMacroDef	= false;
+	#nm2Diag	: {[url: string]: Diagnostic[]}= {};
+	#isDuplicateMacroDef		= false;
+	#wasDuplicateMacroDef	= false;
 	hSn2aDsOutline	: {[sn: string]: DocumentSymbol[]}	= {};
 	aDsOutline		: DocumentSymbol[];
 	goAll() {
-		this.isDuplicateMacroDef = false;
+		this.#isDuplicateMacroDef = false;
 		this.hMacro = {};
 		this.hMacroUse = {};
 		this.hMacroUse4NoWarm = {};
 		this.hTagMacroUse = {};
-		for (const key in this.hSetWords) this.hSetWords[key] = new Set;
+		for (const key in this.#hSetWords) this.#hSetWords[key] = new Set;
 		this.clDiag.clear();
-		this.nm2Diag = {};
-		this.hScr2KeyWord = {};
+		this.#nm2Diag = {};
+		this.#hScr2KeyWord = {};
 		this.hSn2aDsOutline = {};
 
-		treeProc(this.curPrj, url=> this.scanFile(Uri.file(url)));
+		treeProc(this.curPrj, url=> this.#scanFile(Uri.file(url)));
 
 		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
 		for (const def_nm in this.hMacro) {
 			if (def_nm in mu) continue;
 
 			const m = this.hMacro[def_nm];
-			this.nm2Diag[m.loc.uri.path].push(new Diagnostic(
+			this.#nm2Diag[m.loc.uri.path].push(new Diagnostic(
 				m.loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
 				DiagnosticSeverity.Information
@@ -249,29 +249,29 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (use_nm in this.hPlugin) continue;
 
 			const aLoc = this.hMacroUse[use_nm];
-			aLoc.forEach(loc=> this.nm2Diag[loc.uri.path].push(new Diagnostic(
+			aLoc.forEach(loc=> this.#nm2Diag[loc.uri.path].push(new Diagnostic(
 				loc.range,
 				`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
 				DiagnosticSeverity.Warning
 			)));
 		}
 
-		for (const path in this.nm2Diag) {
-			this.clDiag.set(Uri.file(path), this.nm2Diag[path]);
+		for (const path in this.#nm2Diag) {
+			this.clDiag.set(Uri.file(path), this.#nm2Diag[path]);
 		}
 
-		if (this.isDuplicateMacroDef && ! this.wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
-		this.wasDuplicateMacroDef = this.isDuplicateMacroDef;
+		if (this.#isDuplicateMacroDef && ! this.#wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
+		this.#wasDuplicateMacroDef = this.#isDuplicateMacroDef;
 
-		this.bldCnvSnippet();
+		this.#bldCnvSnippet();
 	}
 
 	goFile(uri: Uri): void {
-		this.goInitFile(uri);
-		this.scanFile(uri);
-		this.goFinishFile(uri);
+		this.#goInitFile(uri);
+		this.#scanFile(uri);
+		this.#goFinishFile(uri);
 	}
-	private	hScr2KeyWord	: {[path: string]: Set<string>}	= {};
+	#hScr2KeyWord	: {[path: string]: Set<string>}	= {};
 	goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void {
 		const hDoc: {[path: string]: TextDocument} = {};
 		const hUpdScore: {[path: string]: boolean} = {};
@@ -287,7 +287,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (! isSsn) return;
 
 //console.log(`fn:ScriptScanner.ts line:289 goScriptSrc fn:${path}`);
-			this.cteScore.separation(path);
+			this.#cteScore.separation(path);
 			e.contentChanges.forEach(c=> {
 				const sl = c.range.start.line;
 				const el = c.range.end.line;
@@ -295,43 +295,43 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				const text = (sl === el && c.text.slice(-1) !== '\n')
 					? doc.lineAt(sl).text
 					: c.text;
-				hUpdScore[path] ||= this.cteScore.updLine(doc, c.range, text, this.resolveScript(text).aToken);
+				hUpdScore[path] ||= this.#cteScore.updLine(doc, c.range, text, this.#resolveScript(text).aToken);
 			});
-			this.cteScore.combining(path);
+			this.#cteScore.combining(path);
 		});
 
 		for (const path in hDoc) {
 			const doc = hDoc[path];
 			const uri = doc.uri;
-			this.goInitFile(uri);
-			const old = this.hScr2KeyWord[path];
-			this.hScr2KeyWord[path] = new Set;
+			this.#goInitFile(uri);
+			const old = this.#hScr2KeyWord[path];
+			this.#hScr2KeyWord[path] = new Set;
 
 			// TODO: （.snのみ）できれば差分更新したい
 				// 内部辞書変更
 				// 行増減考慮
-			this.scanScriptSrc(uri, doc.getText(), hUpdScore[path]);
+			this.#scanScriptSrc(uri, doc.getText(), hUpdScore[path]);
 
-			this.goFinishFile(uri);
+			this.#goFinishFile(uri);
 			// キーワード削除対応
-			const now = this.hScr2KeyWord[path];
+			const now = this.#hScr2KeyWord[path];
 			for (const s of old) {
 				if (now.has(s)) continue;
 				let findOther = false;
-				for (const path_other in this.hScr2KeyWord) {
+				for (const path_other in this.#hScr2KeyWord) {
 					if (path_other === path) continue;
-					if (findOther = this.hScr2KeyWord[path_other].has(s)) break;
+					if (findOther = this.#hScr2KeyWord[path_other].has(s)) break;
 				}
 				if (findOther) continue;
 
 				const a = s.split('\t');
-				this.hSetWords[a[0]].delete(a[1]);
+				this.#hSetWords[a[0]].delete(a[1]);
 			}
 		}
 	}
-	private goInitFile(uri: Uri) {
+	#goInitFile(uri: Uri) {
 		// pathが同じ情報をクリア
-		this.isDuplicateMacroDef = false;
+		this.#isDuplicateMacroDef = false;
 
 		const path = uri.path;
 		const hMD: {[nm: string]: MacDef} = {};
@@ -339,11 +339,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		for (const nm in this.hMacro) {
 			const m = this.hMacro[nm];
 			if (m.loc.uri.path !== path) hMD[nm] = m;
-			else {hMacroOld[nm] = m; this.cteScore.undefMacro(nm);}
+			else {hMacroOld[nm] = m; this.#cteScore.undefMacro(nm);}
 		}
 		this.hMacro = hMD;
-		this.hMacroOld = hMacroOld;
-		this.aMacroAdd = [];
+		this.#hMacroOld = hMacroOld;
+		this.#aMacroAdd = [];
 
 		const hMU: {[nm: string]: Location[]} = {};
 		for (const nm in this.hMacroUse) this.hMacroUse[nm].forEach(loc=> {
@@ -360,11 +360,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 		this.hTagMacroUse[path] = [];
 		this.clDiag.delete(uri);
-		this.nm2Diag[path] = [];
+		this.#nm2Diag[path] = [];
 	}
-	private	hMacroOld	: {[nm: string]: MacDef}	= {};
-	private	aMacroAdd	: string[]	= [];
-	private	goFinishFile(uri: Uri) {
+	#hMacroOld	: {[nm: string]: MacDef}	= {};
+	#aMacroAdd	: string[]	= [];
+	#goFinishFile(uri: Uri) {
 		const path = uri.path;
 		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
 		for (const def_nm in this.hMacro) {
@@ -372,7 +372,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 			const m = this.hMacro[def_nm];
 			if (m.loc.uri.path !== path) continue;	// 更新分のみ
-			this.nm2Diag[path].push(new Diagnostic(
+			this.#nm2Diag[path].push(new Diagnostic(
 				m.loc.range,
 				`未使用のマクロ[${def_nm}]があります`,
 				DiagnosticSeverity.Information
@@ -386,7 +386,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const aLoc = this.hMacroUse[use_nm];
 			aLoc.forEach(loc=> {
 				if (loc.uri.path !== path) return;	// 更新分のみ
-				this.nm2Diag[path].push(new Diagnostic(
+				this.#nm2Diag[path].push(new Diagnostic(
 					loc.range,
 					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
 					DiagnosticSeverity.Warning
@@ -397,7 +397,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		if (path.slice(-4) === '.ssn') {
 			const doc = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
 			if (doc) {
-				const hMacroOld = this.hMacroOld;
+				const hMacroOld = this.#hMacroOld;
 				for (const nm in hMacroOld) {
 					if (! (nm in this.hMacro)	// マクロ定義が削除された
 					||	Object.entries(this.hMacro[nm].hPrm).sort().join()
@@ -405,95 +405,95 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 					// マクロ定義の引数が更新された
 					this.hMacroUse[nm]?.forEach(loc=> {
 						const txt =doc.lineAt(loc.range.start.line).text.trim();
-						this.cteScore.updLine(
+						this.#cteScore.updLine(
 							doc,
 							loc.range,
 							txt,
-							this.resolveScript(txt).aToken
+							this.#resolveScript(txt).aToken
 						);	// 最新ssn定義で更新
 					});
 				}
 
 				// 追加されたマクロ定義
-				this.aMacroAdd.forEach(nm=> this.hMacroUse[nm]?.forEach(loc=> {
+				this.#aMacroAdd.forEach(nm=> this.hMacroUse[nm]?.forEach(loc=> {
 					const txt = doc.lineAt(loc.range.start.line).text.trim();
-					this.cteScore.updLine(
+					this.#cteScore.updLine(
 						doc,
 						loc.range,
 						txt,
-						this.resolveScript(txt).aToken,
+						this.#resolveScript(txt).aToken,
 					);
 				}));
 			}
 		}
 
-		this.clDiag.set(uri, this.nm2Diag[path]);	// 更新分のみ
+		this.clDiag.set(uri, this.#nm2Diag[path]);	// 更新分のみ
 
-		if (this.isDuplicateMacroDef && ! this.wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
-		this.wasDuplicateMacroDef = this.isDuplicateMacroDef;
+		if (this.#isDuplicateMacroDef && ! this.#wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
+		this.#wasDuplicateMacroDef = this.#isDuplicateMacroDef;
 
-		this.bldCnvSnippet();
+		this.#bldCnvSnippet();
 	}
 
 	isSkipUpd(path: string): boolean {
 		if (path.slice(-4) !== '.ssn') return false;
-		return this.cteScore.isSkipUpd(path);
+		return this.#cteScore.isSkipUpd(path);
 	}
 
-	private	static	readonly	REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;	// https://regex101.com/r/DPaLv3/1
-	private	static	readonly	REG_NOSPR	= /\/(path|prj)\.json$/;
+	static	readonly	#REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;	// https://regex101.com/r/DPaLv3/1
+	static	readonly	#REG_NOSPR	= /\/(path|prj)\.json$/;
 		// https://regex101.com/r/DPaLv3/2
-//	private	static	readonly	REG_FONT	= /\.(woff2|otf|ttf)$/;
-	private	static	readonly	REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
-	private	static	readonly	REG_HTML	= /\.(htm|html)$/;
-	private	scanFile(uri: Uri) {
+//	static	readonly	#REG_FONT	= /\.(woff2|otf|ttf)$/;
+	static	readonly	#REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
+	static	readonly	#REG_HTML	= /\.(htm|html)$/;
+	#scanFile(uri: Uri) {
 		const path = uri.path;
 		const fn = getFn(path);
 		if (! REG_SCRIPT.test(path)) {
-			if (ScriptScanner.REG_SPRITE.test(path)) {
-				if (ScriptScanner.REG_NOSPR.test(path)) return;
-				this.hSetWords['画像ファイル名'].add(fn);
+			if (ScriptScanner.#REG_SPRITE.test(path)) {
+				if (ScriptScanner.#REG_NOSPR.test(path)) return;
+				this.#hSetWords['画像ファイル名'].add(fn);
 			}
-			else if (ScriptScanner.REG_SOUND.test(path)) {
-				this.hSetWords['音声ファイル名'].add(fn);
+			else if (ScriptScanner.#REG_SOUND.test(path)) {
+				this.#hSetWords['音声ファイル名'].add(fn);
 			}
-			else if (ScriptScanner.REG_HTML.test(path)) {
-				this.hSetWords['HTMLファイル名'].add(fn);
+			else if (ScriptScanner.#REG_HTML.test(path)) {
+				this.#hSetWords['HTMLファイル名'].add(fn);
 			}
 			return;
 		}
-		this.hSetWords['スクリプトファイル名'].add(fn);
+		this.#hSetWords['スクリプトファイル名'].add(fn);
 
 		// goAll()で真っ先に通るので、goScriptSrc()では割愛
-		this.nm2Diag[path] ??= [];
-		this.hSetWords['ジャンプ先'].add(`fn=${fn}`);
+		this.#nm2Diag[path] ??= [];
+		this.#hSetWords['ジャンプ先'].add(`fn=${fn}`);
 		this.hTagMacroUse[path] ??= [];
-		this.hScr2KeyWord[path] ??= new Set();
+		this.#hScr2KeyWord[path] ??= new Set();
 
 		const td = workspace.textDocuments.find(td=> td.fileName ===uri.fsPath);
-		this.scanScriptSrc(
+		this.#scanScriptSrc(
 			uri,
 			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'}),
 			true,
 		);
 	}
 
-	private	readonly	cteScore	: CteScore;
-	updPath(hPath: IFn2Path) {this.cteScore.updPath(hPath);}
+	readonly	#cteScore	: CteScore;
+	updPath(hPath: IFn2Path) {this.#cteScore.updPath(hPath);}
 
-	private			readonly	alzTagArg	= new AnalyzeTagArg;
-	private	static	readonly	regValName
+			readonly	#alzTagArg	= new AnalyzeTagArg;
+	static	readonly	#regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
-	private	scanScriptSrc(uri: Uri, src: string, isUpdScore: boolean) {
+	#scanScriptSrc(uri: Uri, src: string, isUpdScore: boolean) {
 		const path = uri.path;
-		const diags = this.nm2Diag[path];
+		const diags = this.#nm2Diag[path];
 
 		const hLabel: {[label_nm: string]: Range | null} = {};
 			// ラベル重複チェック用
-		const setKw = this.hScr2KeyWord[path];
+		const setKw = this.#hScr2KeyWord[path];
 			// キーワード削除チェック用
 		this.aDsOutline = this.hSn2aDsOutline[path] = [];
-		this.fncToken = this.procToken = (p: Pos, token: string)=> {
+		this.#fncToken = this.procToken = (p: Pos, token: string)=> {
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
 			const len = token.length;
 			if (uc === 9) {p.col += len; return;}	// \t タブ
@@ -503,10 +503,10 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				if (token.substr(-1) === '&') return;
 				//変数操作
 				try {
-					const o = ScriptScanner.splitAmpersand(token.slice(1));
+					const o = ScriptScanner.#splitAmpersand(token.slice(1));
 					if (o.name.charAt(0) !== '&') {
 						const kw = o.name.trimEnd();
-						this.hSetWords['代入変数名'].add(kw);
+						this.#hSetWords['代入変数名'].add(kw);
 						setKw.add(`代入変数名\t${kw}`);
 					}
 				} catch {}
@@ -521,7 +521,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				p.col += len;
 
 				const kw = `fn=${getFn(path)} label=${token}`;
-				this.hSetWords['ジャンプ先'].add(kw);
+				this.#hSetWords['ジャンプ先'].add(kw);
 				setKw.add(`ジャンプ先\t${kw}`);
 				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
 				if (token.charAt(1) === '*') return;	// 無名ラベルは除外
@@ -587,23 +587,23 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				return;
 			}
 
-			const fnc = this.hTagProc[use_nm];
+			const fnc = this.#hTagProc[use_nm];
 			if (fnc) {
-				this.alzTagArg.go(a_tag.groups?.args ?? '');
+				this.#alzTagArg.go(a_tag.groups?.args ?? '');
 				fnc(setKw, uri, token, rngp1, diags, p, lineTkn, rng_nm);
 			}
 		};
 
 		const p = {line: 0, col: 0};
-		const a = this.resolveScript(src.trim()).aToken;
-		a.forEach(token=> {if (token) this.fncToken(p, token)});
-		if (isUpdScore && path.slice(-4) === '.ssn') this.cteScore.updScore(path, this.curPrj, a);
+		const a = this.#resolveScript(src.trim()).aToken;
+		a.forEach(token=> {if (token) this.#fncToken(p, token)});
+		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);
 	}
-	private fncToken = this.procToken;
-	private procToken(_p: Pos, _token: string) {}
-	private	readonly	hTagProc: {[nm: string]: FncTagProc}	= {
+	#fncToken = this.procToken;
+	private	procToken(_p: Pos, _token: string) {}
+	readonly	#hTagProc: {[nm: string]: FncTagProc}	= {
 		'let_ml': (setKw: Set<string>)=> {
-			this.fncToken = (p, token)=> {
+			this.#fncToken = (p, token)=> {
 				const len2 = token.length;
 				let lineTkn = 0;
 				let j = -1;
@@ -612,18 +612,18 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 					p.line += lineTkn;
 					p.col = len2 -token.lastIndexOf('\n') -1;
 				}
-				this.fncToken = this.procToken;
+				this.#fncToken = this.procToken;
 			};
 
-			const v = this.alzTagArg.hPrm.name?.val;
+			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') {
 				setKw.add(`代入変数名\t${v}`);
-				this.hSetWords['代入変数名'].add(v);
+				this.#hSetWords['代入変数名'].add(v);
 			}
 		},
 
 		'macro': (_setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
-			const hPrm = this.alzTagArg.hPrm;
+			const hPrm = this.#alzTagArg.hPrm;
 			const def_nm = hPrm.name?.val;
 			if (! def_nm) {	// [macro name=]など
 				diags.push(new Diagnostic(rngp1, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
@@ -641,7 +641,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 			const m = this.hMacro[def_nm];
 			if (! m) {	// 新規マクロ定義を登録
-				const m2 = token.match(ScriptScanner.regValName);
+				const m2 = token.match(ScriptScanner.#regValName);
 				if (! m2) {	// 失敗ケースが思い当たらない
 					diags.push(new Diagnostic(rngp1, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
 					return;
@@ -662,11 +662,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 					loc: new Location(uri, rng2),
 					hPrm: hPrm,
 				};
-				this.aMacroAdd.push(def_nm);
+				this.#aMacroAdd.push(def_nm);
 
 				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
 				this.aDsOutline.push(ds);
-				this.aDsOutlineStack.push(this.aDsOutline);
+				this.#aDsOutlineStack.push(this.aDsOutline);
 				this.aDsOutline = ds.children;
 
 				if ('nowarn_unused' in hPrm) {
@@ -676,14 +676,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				if (uri.path.slice(-4) === '.ssn') {
 					const o: {[k: string]: string} = {};
 					for (const k in hPrm) o[k] = String(hPrm[k].val);
-					this.cteScore.defMacro(def_nm, o);
+					this.#cteScore.defMacro(def_nm, o);
 				}
 
 				return;
 			}
 
 			// すでに定義済みのマクロ
-			this.isDuplicateMacroDef = true;
+			this.#isDuplicateMacroDef = true;
 			if (! diags.find(d=> d.range === m.loc.range)) {
 				// （走査上たまたまの）一つめ
 				const dia = new Diagnostic(m.loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
@@ -696,115 +696,115 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				DiagnosticSeverity.Error
 			));
 		},
-		'endmacro': ()=> this.aDsOutline = this.aDsOutlineStack.pop() ?? [],
+		'endmacro': ()=> this.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
 		'if': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
 			const ds = new DocumentSymbol(token, '', SymbolKind.Function, rng, rng);
 			this.aDsOutline.push(ds);
-			this.aDsOutlineStack.push(this.aDsOutline);
+			this.#aDsOutlineStack.push(this.aDsOutline);
 			this.aDsOutline = ds.children;
 		},
 		'elsif': (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
-			this.hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+			this.#hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
 
-			this.aDsOutline = this.aDsOutlineStack.pop() ?? [];
+			this.aDsOutline = this.#aDsOutlineStack.pop() ?? [];
 		},
 		//'else':  === elsif
-		'endif': ()=> this.aDsOutline = this.aDsOutlineStack.pop() ?? [],
+		'endif': ()=> this.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
 		's': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
 			this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Function, rng, rng));
 		},
 
 		'let': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.name?.val;
+			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['代入変数名'].add(v);
+				this.#hSetWords['代入変数名'].add(v);
 				setKw.add(`代入変数名\t${v}`);
 			}
 		},
 		'add_frame': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.id?.val;
+			const v = this.#alzTagArg.hPrm.id?.val;
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['フレーム名'].add(v);
+				this.#hSetWords['フレーム名'].add(v);
 				setKw.add(`フレーム名\t${v}`);
 			}
 		},
 		'playbgm': (setKw: Set<string>)=> {
-			this.hSetWords['サウンドバッファ'].add('BGM');
+			this.#hSetWords['サウンドバッファ'].add('BGM');
 			setKw.add(`サウンドバッファ\tBGM`);
 		},
 		'playse': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.buf?.val ?? 'SE';
+			const v = this.#alzTagArg.hPrm.buf?.val ?? 'SE';
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(v)};
+				this.#hSetWords['サウンドバッファ'].add(v)};
 				setKw.add(`サウンドバッファ\t${v}`);
 		},
 		'button': (setKw: Set<string>)=> {
-			const c = this.alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
+			const c = this.#alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
 			if (c && c.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(c)};
+				this.#hSetWords['サウンドバッファ'].add(c)};
 				setKw.add(`サウンドバッファ\t${c}`);
-			const e = this.alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
+			const e = this.#alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
 			if (e && e.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(e)};
+				this.#hSetWords['サウンドバッファ'].add(e)};
 				setKw.add(`サウンドバッファ\t${e}`);
-			const l = this.alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
+			const l = this.#alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
 			if (l && l.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(l)};
+				this.#hSetWords['サウンドバッファ'].add(l)};
 				setKw.add(`サウンドバッファ\t${l}`);
 		},
 		'link': (setKw: Set<string>)=> {
-			const c = this.alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
+			const c = this.#alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
 			if (c && c.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(c)};
+				this.#hSetWords['サウンドバッファ'].add(c)};
 				setKw.add(`サウンドバッファ\t${c}`);
-			const e = this.alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
+			const e = this.#alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
 			if (e && e.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(e)};
+				this.#hSetWords['サウンドバッファ'].add(e)};
 				setKw.add(`サウンドバッファ\t${e}`);
-			const l = this.alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
+			const l = this.#alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
 			if (l && l.charAt(0) !== '&') {
-				this.hSetWords['サウンドバッファ'].add(l)};
+				this.#hSetWords['サウンドバッファ'].add(l)};
 				setKw.add(`サウンドバッファ\t${l}`);
 		},
 		'ch_in_style': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.name?.val;
+			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['文字出現演出名'].add(v);
+				this.#hSetWords['文字出現演出名'].add(v);
 				setKw.add(`文字出現演出名\t${v}`);
 			}
 		},
 		'ch_out_style': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.name?.val;
+			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['文字消去演出名'].add(v);
+				this.#hSetWords['文字消去演出名'].add(v);
 				setKw.add(`文字消去演出名\t${v}`);
 			}
 		},
 		'add_lay': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.layer?.val;
+			const v = this.#alzTagArg.hPrm.layer?.val;
 			if (! v) return;
 
-			this.hSetWords['レイヤ名'].add(v);
+			this.#hSetWords['レイヤ名'].add(v);
 			setKw.add(`レイヤ名\t${v}`);
-			const cls = this.alzTagArg.hPrm.class?.val;
+			const cls = this.#alzTagArg.hPrm.class?.val;
 			const kwn = `${cls === 'grp' ?'画像' :'文字'}レイヤ名`;
-			this.hSetWords[kwn].add(v);
+			this.#hSetWords[kwn].add(v);
 			setKw.add(`${kwn}\t${v}`);
 		},
 		'add_face': (setKw: Set<string>)=> {
-			const v = this.alzTagArg.hPrm.name?.val;
+			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') {
-				this.hSetWords['差分名称'].add(v);
+				this.#hSetWords['差分名称'].add(v);
 				setKw.add(`差分名称\t${v}`);
 			}
 		},
 	};
-	private	readonly	aDsOutlineStack		: DocumentSymbol[][]	= [];
+	readonly	#aDsOutlineStack		: DocumentSymbol[][]	= [];
 
 
-	private	static	splitAmpersand(token: string): {
+	static	#splitAmpersand(token: string): {
 		name: string;
 		text: string;
 		cast: string | null;
@@ -821,14 +821,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		};
 	}
 
-	private	static	readonly REG_TAG_LET_ML	= /^\[let_ml\s/g;
-	private resolveScript(txt: string): Script {
+	static	readonly #REG_TAG_LET_ML	= /^\[let_ml\s/g;
+	#resolveScript(txt: string): Script {
 		const a = txt
 			.replace(/(\r\n|\r)/g, '\n')
-			.match(this.REG_TOKEN) ?? [];
+			.match(this.#REG_TOKEN) ?? [];
 		for (let i=a.length -1; i>=0; --i) {
 			const t = a[i];
-			if (ScriptScanner.REG_TAG_LET_ML.test(t)) {
+			if (ScriptScanner.#REG_TAG_LET_ML.test(t)) {
 				const idx = t.indexOf(']') +1;
 				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';
 				const s = t.slice(0, idx);
@@ -837,14 +837,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			}
 		}
 		const scr = {aToken :a, len :a.length, aLNum :[]};
-		this.replaceScript_let_ml(scr);
+		this.#replaceScript_let_ml(scr);
 
 		return scr;
 	}
-	private replaceScript_let_ml(scr: Script, start_idx = 0) {
+	#replaceScript_let_ml(scr: Script, start_idx = 0) {
 		for (let i=scr.len- 1; i >= start_idx; --i) {
 			const token = scr.aToken[i];
-			if (ScriptScanner.REG_TAG_LET_ML.test(token)) {
+			if (ScriptScanner.#REG_TAG_LET_ML.test(token)) {
 				const idxSpl = token.indexOf(']') +1;
 				const ml = token.slice(idxSpl);
 				const cnt = (ml.match(/\n/g) ?? []).length;
@@ -862,17 +862,17 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 	static	analyzTagArg = (token: string)=> ScriptScanner.REG_TAG.exec(token);
 	analyzToken(token: string): RegExpExecArray | null {
-		this.REG_TOKEN.lastIndex = 0;	// /gなので必要
-		return this.REG_TOKEN.exec(token);
+		this.#REG_TOKEN.lastIndex = 0;	// /gなので必要
+		return this.#REG_TOKEN.exec(token);
 	}
 
 	// =============== Grammar
-	private	REG_TOKEN	: RegExp;
+	#REG_TOKEN	: RegExp;
 	setEscape(ce: string) {
 	//	if (this.hC2M && (ce in this.hC2M)) throw '[エスケープ文字] char【'+ ce +'】が登録済みの括弧マクロまたは一文字マクロです';
 
 		// 1059 match 13935 step (8ms) https://regex101.com/r/ygXx16/6
-		this.REG_TOKEN = new RegExp(
+		this.#REG_TOKEN = new RegExp(
 		(ce	?`\\${ce}\\S|`:'')+	// エスケープシーケンス
 		'\\n+'+				// 改行
 		'|\\t+'+			// タブ

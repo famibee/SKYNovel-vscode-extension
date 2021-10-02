@@ -35,24 +35,24 @@ interface HTDS {
 }
 
 export class CteScore {
-	private	static	localExtensionResRoots: Uri;
-	private	static	htmBaseSrc	= '';
+	static	#localExtensionResRoots: Uri;
+	static	#htmBaseSrc	= '';
 	static	init(ctx: ExtensionContext): void {
 		window.registerCustomEditorProvider('SKYNovel.score', {
 			async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
 				const path = doc.fileName;
-				for (const cur in CteScore.hCur2Me) {
+				for (const cur in CteScore.#hCur2Me) {
 					if (cur !== path.slice(0, cur.length)) continue;
 
-					CteScore.hCur2Me[cur].resolveCustomTextEditor(doc, webviewPanel);
+					CteScore.#hCur2Me[cur].#resolveCustomTextEditor(doc, webviewPanel);
 					break;
 				}
 			}
 		});
 
 		const path_ext_htm = ctx.extensionPath +`/res/webview/`;
-		CteScore.localExtensionResRoots = Uri.file(path_ext_htm);
-		CteScore.htmBaseSrc =
+		CteScore.#localExtensionResRoots = Uri.file(path_ext_htm);
+		CteScore.#htmBaseSrc =
 		fs.readFileSync(path_ext_htm +`score.htm`, {encoding: 'utf8'})
 		.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 		.replace(/\$\{nonce}/g, getNonce())
@@ -60,31 +60,31 @@ export class CteScore {
 		.replace(/(<div class="card-group">)[\s\S]+(<\/div><!-- card-group  -->)/, '$1 $2');
 	}
 
-	private	static	hCur2Me		: {[path: string]: CteScore}	= {};
-	constructor(readonly curPrj: string) {CteScore.hCur2Me[curPrj] = this;}
+	static	#hCur2Me		: {[path: string]: CteScore}	= {};
+	constructor(readonly curPrj: string) {CteScore.#hCur2Me[curPrj] = this;}
 
-	private	hPath2Tokens	: {[path: string]: {
+	#hPath2Tokens	: {[path: string]: {
 		uriPrj	: Uri;
 		htm		: string;
 		skipupd	: boolean;
 	}}	= {};
 	updScore(path: string, curPrj: string, aToken: string[]) {
 		const s = {line: 1};
-		this.hPath2Tokens[path] = {
+		this.#hPath2Tokens[path] = {
 			uriPrj	: Uri.parse(curPrj),
-			htm		: CteScore.htmBaseSrc.replace('<tbody/>', `<tbody>${
-				aToken.map((token, i)=> this.token2html(s, token, i)).join('')
+			htm		: CteScore.#htmBaseSrc.replace('<tbody/>', `<tbody>${
+				aToken.map((token, i)=> this.#token2html(s, token, i)).join('')
 			}</tbody>`),
 			skipupd	: false,
 		};
 
-		const wv = this.hPath2Wv[path];
-		if (wv) wv.html = this.repWvUri(this.hPath2Tokens[path].htm, wv);
+		const wv = this.#hPath2Wv[path];
+		if (wv) wv.html = this.#repWvUri(this.#hPath2Tokens[path].htm, wv);
 	}
-	private	repWvUri(inp: string, wv: Webview): string {
+	#repWvUri(inp: string, wv: Webview): string {
 		return inp
 		.replaceAll('${webview.cspSource}', wv.cspSource)
-		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
+		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.#localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
 	}
 
 	add_lay(_o: any) {
@@ -92,20 +92,20 @@ export class CteScore {
 	}
 
 	isSkipUpd(path: string): boolean {
-		const t = this.hPath2Tokens[path];
+		const t = this.#hPath2Tokens[path];
 		if (t?.skipupd) {t.skipupd = false; return true;}
 		return false;
 	}
 
 
 	separation(path: string) {	// 分離
-		this.hPath2Wv[path]?.postMessage({cmd: 'separation'});
+		this.#hPath2Wv[path]?.postMessage({cmd: 'separation'});
 	}
 	combining(path: string) {	// 結合
-		this.hPath2Wv[path]?.postMessage({cmd: 'combining'});
+		this.#hPath2Wv[path]?.postMessage({cmd: 'combining'});
 	}
 	updLine(doc: TextDocument, rng: Range, txt: string, aToken: string[]): boolean {	// 分離状態でコールすること
-		const wv = this.hPath2Wv[doc.fileName];
+		const wv = this.#hPath2Wv[doc.fileName];
 		if (! wv) return false;
 
 		const sl = rng.start.line;
@@ -120,10 +120,10 @@ export class CteScore {
 			cmd	: (sl === el && txt.slice(-1) === '\n') ?'ins' :'rep',
 			ln	: sl,
 			htm	: (txt === '\n'
-				? this.token2html({line: sl +1}, '\n\n', -1)
-				: this.repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
+				? this.#token2html({line: sl +1}, '\n\n', -1)
+				: this.#repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
 					? ''	// \t(9) タブ、\n(10) 改行
-					: this.token2html({line: sl +1}, t, 0)
+					: this.#token2html({line: sl +1}, t, 0)
 				).join(''), wv))
 				.replace(/<tr .+>|<\/tr>/g, ''),
 		});
@@ -131,14 +131,14 @@ export class CteScore {
 	}
 
 
-	private	hPath2Wv	: {[path: string]: Webview}	= {};
-	private	resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel) {
+	#hPath2Wv	: {[path: string]: Webview}	= {};
+	#resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel) {
 		const path = doc.fileName;
-		const t = this.hPath2Tokens[path];
-		const wv = this.hPath2Wv[path] = webviewPanel.webview;
+		const t = this.#hPath2Tokens[path];
+		const wv = this.#hPath2Wv[path] = webviewPanel.webview;
 		wv.options = {
 			enableScripts: true,
-			localResourceRoots: [CteScore.localExtensionResRoots, t.uriPrj],
+			localResourceRoots: [CteScore.#localExtensionResRoots, t.uriPrj],
 		};
 		wv.onDidReceiveMessage(o=> {
 			switch (o.cmd) {
@@ -146,9 +146,9 @@ export class CteScore {
 			case 'warn':	window.showWarningMessage(o.text); break;
 			case 'err':		window.showErrorMessage(o.text); break;
 
-			case 'loaded':	this.updWv_db(path); this.combining(path);	break;
+			case 'loaded':	this.#updWv_db(path); this.combining(path);	break;
 			case 'save_tbody':
-				this.hPath2Tokens[path].htm = wv.html
+				this.#hPath2Tokens[path].htm = wv.html
 				.replace(/<tbody>[\s\S]+<\/tbody>/,`<tbody>${o.tbody}</tbody>`);
 				break;
 
@@ -176,14 +176,14 @@ export class CteScore {
 				const scr = String(o.scr)
 				.replace(/\$\{(.+)\}/g, (_, p1)=> {
 					let ret = '';
-					for (const i of this.hBufWords[p1]) {ret = `#${i}#`; break;}
+					for (const i of this.#hBufWords[p1]) {ret = `#${i}#`; break;}
 					return ret;
 				});
 /**/console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
 				wv.postMessage({
 					cmd	: 'tool_res',
 					row	: o.row,
-					htm	: this.repWvUri(this.token2html({line: o.row}, scr, o.row), wv),
+					htm	: this.#repWvUri(this.#token2html({line: o.row}, scr, o.row), wv),
 				});
 
 				t.skipupd = true;
@@ -228,22 +228,22 @@ export class CteScore {
 				const a_tag: any = ScriptScanner.analyzTagArg(txt);
 				const g = a_tag?.groups;
 				if (! g) break;
-				const t2t = this.hTag2Tds[g.name];
+				const t2t = this.#hTag2Tds[g.name];
 				if (! t2t) break;
-				CteScore.alzTagArg.go(g.args);
-				const oTds = t2t(CteScore.alzTagArg.hPrm);
+				CteScore.#alzTagArg.go(g.args);
+				const oTds = t2t(CteScore.#alzTagArg.hPrm);
 				wv.postMessage({cmd: 'upd_btn_face', ln: o.ln, htm: `
 <i class="fas ${oTds.icon}" aria-hidden="true"></i>
 ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val});
 			}	break;
 
 			case 'req_wds':
-				wv.postMessage({cmd: 'res_wds', key: o.key, aWd: [...this.hBufWords[o.key].values()]});
+				wv.postMessage({cmd: 'res_wds', key: o.key, aWd: [...this.#hBufWords[o.key].values()]});
 				break;
 			}
 		}, false);
 
-		wv.html = this.repWvUri(this.hPath2Tokens[doc.uri.path].htm, wv);
+		wv.html = this.#repWvUri(this.#hPath2Tokens[doc.uri.path].htm, wv);
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
@@ -253,22 +253,22 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		}
 		// NOTE: sn→ssnらしきものに強制改行を入れるのならここでか
 	}
-	private	static	regFld	= /\w+/;
-	private	updWv_db(path: string) {
+	static	#regFld	= /\w+/;
+	#updWv_db(path: string) {
 		const hFld2: {[fld: string]: {
 			ext		: string;
 			path	: string;
 			fn		: string;
 		}[]} =	{};
-		const t = this.hPath2Tokens[path];
-		const hPath = this.hPrj2hPath;
+		const t = this.#hPath2Tokens[path];
+		const hPath = this.#hPrj2hPath;
 		for (const fn in hPath) {
 			const p = hPath[fn];
 			for (const ext in p) {
 				if (ext === ':cnt') continue;
 
 				const path = String(p[ext]);
-				const fld = String(path.match(CteScore.regFld));
+				const fld = String(path.match(CteScore.#regFld));
 				hFld2[fld] ??= [];
 				hFld2[fld].push({
 					ext		: ext,
@@ -278,7 +278,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			}
 		}
 
-		const wv = this.hPath2Wv[path];
+		const wv = this.#hPath2Wv[path];
 		wv.postMessage({
 			cmd			: 'upd_db',
 			pathPrj		: String(wv.asWebviewUri(t.uriPrj)),	// 最後に「/」必要
@@ -287,24 +287,24 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		});
 	}
 
-	private	hBufWords	: {[key: string]: Set<string>}	= {};
+	#hBufWords	: {[key: string]: Set<string>}	= {};
 	updWords(key: string, Words: Set<string>) {
-		this.hBufWords[key] = Words;
-		for (const path in this.hPath2Wv) {
-			this.hPath2Wv[path].postMessage({cmd: 'del_wds', key: key});
+		this.#hBufWords[key] = Words;
+		for (const path in this.#hPath2Wv) {
+			this.#hPath2Wv[path].postMessage({cmd: 'del_wds', key: key});
 		}
 	}
 
-	private	hPrj2hPath	: IFn2Path	= {};
+	#hPrj2hPath	: IFn2Path	= {};
 	updPath(hPath: IFn2Path) {
-		this.hPrj2hPath = hPath;
-		for (const path_doc in this.hPath2Tokens) {
-			if (path_doc in this.hPath2Wv) this.updWv_db(path_doc);
+		this.#hPrj2hPath = hPath;
+		for (const path_doc in this.#hPath2Tokens) {
+			if (path_doc in this.#hPath2Wv) this.#updWv_db(path_doc);
 		}
 	}
 
 
-	private	token2html(stt: {line: number}, token: string, idx: number): string {
+	#token2html(stt: {line: number}, token: string, idx: number): string {
 		let tds = '';
 		switch (token.charCodeAt(0)) {	// TokenTopUnicode
 			case 9: return '';	// \t タブ
@@ -315,14 +315,14 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 				if (len === 1) return '';
 				let str_r = '';
 				for (let i=stt.line -len +1; i<stt.line; ++i) {
-					str_r += this.make_tr(i, this.make_tds(0, i, 'btn-rounded', 'fa-expand', '（空行）'));
+					str_r += this.#make_tr(i, this.#make_tds(0, i, 'btn-rounded', 'fa-expand', '（空行）'));
 				}
 				return str_r;
 
 			case 38:	// & 変数操作・変数表示
 				// NOTE: [let]があるので不要かも
 				const is_dsp = (token.slice(-1) === '&');
-				tds = this.make_tds(
+				tds = this.#make_tds(
 					0, stt.line, 'btn-secondary dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-calculator',
 					is_dsp
@@ -340,7 +340,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 				break;
 
 			case 59:	// ; コメント
-				tds = this.make_tds(
+				tds = this.#make_tds(
 					0, stt.line, 'btn-outline-light btn-rounded dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-comment-dots', token.slice(1, 11)+'…', token.slice(1), `
 	<div class="form-outline col-12">
@@ -350,7 +350,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 				break;
 
 			case 42:	// * ラベル
-				tds = this.make_tds(
+				tds = this.#make_tds(
 					0, stt.line, 'btn-outline-light dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false" data-face="true',
 					'fa-tag', token.slice(1), token.slice(1), `
 	<div class="form-outline col-12">
@@ -365,11 +365,11 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 				while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
 				if (lineTkn > 0) stt.line += lineTkn;
 
-				if (tds = this.make_tds_tag(token, stt.line, idx)) break;
+				if (tds = this.#make_tds_tag(token, stt.line, idx)) break;
 				return '';
 
 			default:	// 文字表示
-				tds = this.make_tds(
+				tds = this.#make_tds(
 					5, stt.line, 'btn-outline-primary text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-align-left', '', '', `
 	<div class="form-outline col-12">
@@ -378,9 +378,9 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 	</div>`		);
 		}
 
-		return this.make_tr(stt.line, tds);
+		return this.#make_tr(stt.line, tds);
 	}
-	private	make_tr(line: number, tds: string): string {
+	#make_tr(line: number, tds: string): string {
 		return `
 <tr data-row="${line}">
 	${tds}
@@ -392,26 +392,26 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 </tr>`;
 	}
 
-	private	make_tds_tag(token: string, line: number, row: number): string {
+	#make_tds_tag(token: string, line: number, row: number): string {
 		const a_tag: any = ScriptScanner.analyzTagArg(token);
 		const g = a_tag?.groups;
 		if (! g) return '';
 
-		const t2t = this.hTag2Tds[g.name];
-		if (! t2t) return this.make_tds(
+		const t2t = this.#hTag2Tds[g.name];
+		if (! t2t) return this.#make_tds(
 			0, line, 'btn-light',
 			'fa-code', g.name, g.args,
 		);
 
-		CteScore.alzTagArg.go(g.args);
-		const oTds = t2t(CteScore.alzTagArg.hPrm);
+		CteScore.#alzTagArg.go(g.args);
+		const oTds = t2t(CteScore.#alzTagArg.hPrm);
 		const len = oTds.args ?oTds.args.length : 0;
 		const frm_style =
 			len === 1 ?'col-12 col-sm-3 col-md-2'
 		:	len === 2 ?'col-2'
 		:	'';
-		return this.make_tds(
-			oTds.col ?this.hCn2Col[oTds.col] :0, line,
+		return this.#make_tds(
+			oTds.col ?this.#hCn2Col[oTds.col] :0, line,
 			(oTds.btn_style ?? 'btn-secondary')
 			+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
 			oTds.icon, oTds.btn_face,
@@ -482,16 +482,16 @@ v.type === 'bool' ?' pt-2' :''
 	}
 
 
-	undefMacro(def_nm: string) {delete this.hTag2Tds[def_nm];}
+	undefMacro(def_nm: string) {delete this.#hTag2Tds[def_nm];}
 	defMacro(def_nm: string, hPrm: any) {
-		this.hTag2Tds[def_nm] = ()=> {return {...{
+		this.#hTag2Tds[def_nm] = ()=> {return {...{
 			icon		: 'icon未指定',
 			btn_face	: 'btn_face未指定',
 		}, ...hPrm}};
 	}
-	private	static	readonly	alzTagArg	= new AnalyzeTagArg;
-	private	static	readonly	EXTS_PIC	= 'jpg|jpeg|png';
-	private	hTag2Tds	: {[tag_nm: string]: (hPrm: HPRM)=> HTDS}	= {
+	static	readonly	#alzTagArg	= new AnalyzeTagArg;
+	static	readonly	#EXTS_PIC	= 'jpg|jpeg|png';
+	#hTag2Tds	: {[tag_nm: string]: (hPrm: HPRM)=> HTDS}	= {
 		ch			: hPrm=> {return {
 			col			: 'mes',
 			btn_style	: 'btn-outline-primary text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
@@ -574,9 +574,9 @@ v.type === 'bool' ?' pt-2' :''
 				+ (hPrm.time?.val ?` ${hPrm.time.val}msで` :'')
 				+ (` ${hPrm.bg?.val}へ変更` ?? '(消去)'),
 			args		: [
-				{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.EXTS_PIC, filter: 'bg\/'},
+				{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg\/'},
 				{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},
-				{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.EXTS_PIC, filter: 'rule\/'},
+				{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule\/'},
 			],
 		};},
 		scene_reserve	: hPrm=> {return {
@@ -606,9 +606,9 @@ v.type === 'bool' ?' pt-2' :''
 					+ (hPrm.rule?.val ?` ${hPrm.rule?.val}ルールで` :'')
 					+ (hPrm.time?.val ?` へ変更 ${hPrm.time.val}msで` :''),
 				args		: [
-					{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.EXTS_PIC, filter: 'bg\/'},
+					{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg\/'},
 					{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},
-					{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.EXTS_PIC, filter: 'rule\/'},
+					{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule\/'},
 
 					{name: 'l0', type: 'select', val: hPrm.l0?.val ?? '(消去)', hint: 'レイヤ0の画像名', key: '画像ファイル名'},
 					{name: 'f0', type: 'str', val: hPrm.f0?.val ?? '', hint: 'レイヤ0のface属性'},
@@ -742,19 +742,19 @@ v.type === 'bool' ?' pt-2' :''
 		}},
 
 		macro	: hPrm=> {
-			this.macro_nm = hPrm.name?.val ?? '';
+			this.#macro_nm = hPrm.name?.val ?? '';
 			return {
 				btn_style	: 'btn-outline-secondary text-white',
 				icon		: 'fa-box-open',
-				btn_face	: `マクロ定義の開始 ${this.macro_nm}`,
+				btn_face	: `マクロ定義の開始 ${this.#macro_nm}`,
 				args		: [
 					{name: 'name', type: 'str', val: hPrm.name.val ?? '', hint: 'マクロ名'},
 				],
 			}
 		},
 		endmacro		: _=> {
-			const nm = this.macro_nm;
-			this.macro_nm = '';
+			const nm = this.#macro_nm;
+			this.#macro_nm = '';
 			return {
 				btn_style	: 'btn-outline-secondary text-white',
 				icon		: 'fa-box',
@@ -770,9 +770,9 @@ v.type === 'bool' ?' pt-2' :''
 			],
 		}},
 	};
-	private	macro_nm	= '';
-	private	MAX_COL		= 7;
-	private	hCn2Col	: {[nm: string]: number}	= {
+	#macro_nm	= '';
+	#MAX_COL		= 7;
+	#hCn2Col	: {[nm: string]: number}	= {
 		'命令'	: 0,
 		'base'	: 1,
 		'0'		: 2,
@@ -784,7 +784,7 @@ v.type === 'bool' ?' pt-2' :''
 		'詳細'	: 8,
 	
 	};
-	private	make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = '', detail = ''): string {
+	#make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = '', detail = ''): string {
 		return '<td></td>'.repeat(col) +`
 	<td class="p-0 ${td_style}">
 		<button type="button" class="btn btn-block btn-sm ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${line}btn" draggable="true"${
@@ -796,7 +796,7 @@ v.type === 'bool' ?' pt-2' :''
 		</button>
 		${aft ?`<div class="dropdown-menu col-xxl-4 col-sm-6 col-12"><form class="p-1 d-flex flex-wrap">${aft}</form></div>` :''}
 	</td>`.replace(' dropdown-toggle', '')+
-	'<td></td>'.repeat(this.MAX_COL -col) +`
+	'<td></td>'.repeat(this.#MAX_COL -col) +`
 	<td class="p-0">${
 		detail || `
 		<button type="button" class="btn btn-block btn-sm px-2 text-start text-lowercase ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${line}detail" draggable="true"${

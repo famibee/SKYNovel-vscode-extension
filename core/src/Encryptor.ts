@@ -10,11 +10,11 @@ import {v5} from 'uuid';
 import {IDecryptInfo} from './CmnLib';
 
 export class Encryptor {
-	private readonly	pbkdf2	: lib.WordArray;
-	private readonly	iv		: lib.WordArray;
+	readonly	#pbkdf2	: lib.WordArray;
+	readonly	#iv		: lib.WordArray;
 	constructor(private readonly hPass: IDecryptInfo) {
-		this.iv = enc.Hex.parse(hPass.iv);
-		this.pbkdf2 = PBKDF2(
+		this.#iv = enc.Hex.parse(hPass.iv);
+		this.#pbkdf2 = PBKDF2(
 			enc.Utf8.parse(hPass.pass),
 			enc.Hex.parse(hPass.salt),
 			{
@@ -27,11 +27,11 @@ export class Encryptor {
 	uuidv5(short_path: string): string {return v5(short_path, this.hPass.pass);}
 
 	enc(s: string | lib.WordArray): string {
-		return AES.encrypt(s, this.pbkdf2, {iv: this.iv}).toString();
+		return AES.encrypt(s, this.#pbkdf2, {iv: this.#iv}).toString();
 	}
 
 	dec(s: string): string {	// テスト用復号
-		return AES.decrypt(s, this.pbkdf2, {iv: this.iv}).toString(enc.Utf8);
+		return AES.decrypt(s, this.#pbkdf2, {iv: this.#iv}).toString(enc.Utf8);
 	}
 
 }

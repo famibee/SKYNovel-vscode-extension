@@ -28,27 +28,27 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
 		setCtx4(ctx);
 
-		ActivityBar.actBar = new ActivityBar(ctx);
+		ActivityBar.#actBar = new ActivityBar(ctx);
 	}
-	private static actBar: ActivityBar;
-	static stop() {ActivityBar.actBar.dispose();}
+	static #actBar: ActivityBar;
+	static stop() {ActivityBar.#actBar.#dispose();}
 
 
-	private readonly aEnv: {label: string, icon: string}[]	= [
+	readonly #aEnv: {label: string, icon: string}[]	= [
 		{label: 'Node.js',	icon: 'node-js-brands'},
 		{label: 'npm',		icon: 'npm-brands'},
 		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
 		{label: 'テンプレ（最新）',		icon: 'skynovel'},
 	];
-	private readonly aTiEnv: TreeItem[] = [];
+	readonly #aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false];
 
-	private workSps	: WorkSpaces;
-	private tlBox	: ToolBox;
+	#workSps	: WorkSpaces;
+	#tlBox	: ToolBox;
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		this.aTiEnv = this.aEnv.map(v=> {
+		this.#aTiEnv = this.#aEnv.map(v=> {
 			const ti = new TreeItem(v.label);
 			if (v.label) ti.iconPath = oIcon(v.icon);
 			ti.contextValue = v.label;
@@ -56,67 +56,67 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 
-		this.chkEnv(()=> {
-			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.refresh()));	// refreshボタン
-			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.openEnvInfo()));
-			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.openTempWizard()));
+		this.#chkEnv(()=> {
+			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.#refresh()));	// refreshボタン
+			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
+			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
-			this.workSps = new WorkSpaces(ctx, this);
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.workSps));
+			this.#workSps = new WorkSpaces(ctx, this);
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
 
-			this.tlBox = new ToolBox(ctx);
-			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.tlBox));
+			this.#tlBox = new ToolBox(ctx);
+			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
 
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
 		});
 	}
 
-	private dispose() {
-		if (this.pnlWV) this.pnlWV.dispose();
-		this.workSps.dispose();
-		this.tlBox.dispose();
+	#dispose() {
+		if (this.#pnlWV) this.#pnlWV.dispose();
+		this.#workSps.dispose();
+		this.#tlBox.dispose();
 	}
 
 	// refreshボタン
-	private refresh(): void {
+	#refresh(): void {
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
-		this.workSps.enableBtn(false);
-		this.chkEnv(ok=> {
-			this.workSps.enableBtn(ok);
+		this.#workSps.enableBtn(false);
+		this.#chkEnv(ok=> {
+			this.#workSps.enableBtn(ok);
 			if (ok) {
 				(workspace.workspaceFolders ?? []).forEach(wsFld=> this.chkLastSNVer(wsFld.uri.fsPath));
 			}
-			else this.openEnvInfo();
+			else this.#openEnvInfo();
 		});
 	}
-	private readonly _onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
-	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this._onDidChangeTreeData.event;
+	readonly #onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.#onDidChangeTreeData.event;
 
 	readonly getTreeItem = (t: TreeItem)=> t;
 
 	// 起動時？　と refreshボタンで呼ばれる
 	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(this.aTiEnv);
+		if (! t) return Promise.resolve(this.#aTiEnv);
 
 		const ret: TreeItem[] = [];
-		if (t.label === 'Node.js') this.aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
+		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
 	// 環境チェック
-	private chkEnv(finish: (ok: boolean)=> void): void {
+	#chkEnv(finish: (ok: boolean)=> void): void {
 		exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const tiNode = this.aTiEnv[eTreeEnv.NODE];
-			const tiNpm = this.aTiEnv[eTreeEnv.NPM];
+			const tiNode = this.#aTiEnv[eTreeEnv.NODE];
+			const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
 			if (err) {
 				tiNode.description = `-- 見つかりません`;
 				tiNode.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire(tiNode);
+				this.#onDidChangeTreeData.fire(tiNode);
 
 				tiNpm.description = `-- （割愛）`;
 				tiNpm.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire(tiNpm);
+				this.#onDidChangeTreeData.fire(tiNpm);
 				finish(false);
 				return;
 			}
@@ -129,31 +129,31 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			if (nVNode < 16009000) {
 				tiNode.description = `-- ${vNode} (16.9.0 以上必須)`;
 				tiNode.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire(tiNode);
+				this.#onDidChangeTreeData.fire(tiNode);
 
 				tiNpm.description = `-- （割愛）`;
 				tiNpm.iconPath = oIcon('error');
-				this._onDidChangeTreeData.fire(tiNpm);
+				this.#onDidChangeTreeData.fire(tiNpm);
 				finish(false);
 				return;
 			}
 			ActivityBar.aReady[eTreeEnv.NODE] = true;
 			tiNode.description = `-- ${vNode}`;
 			tiNode.iconPath = oIcon('node-js-brands');
-			this._onDidChangeTreeData.fire(tiNode);
+			this.#onDidChangeTreeData.fire(tiNode);
 
 			exec('npm -v', (err: Error, stdout: string|Buffer)=> {
 				if (err) {
 					tiNpm.description = `-- 見つかりません`;
 					tiNpm.iconPath = oIcon('error');
-					this._onDidChangeTreeData.fire(tiNpm);
+					this.#onDidChangeTreeData.fire(tiNpm);
 					finish(false);
 					return;
 				}
 				ActivityBar.aReady[eTreeEnv.NPM] = true;
 				tiNpm.description = `-- ${stdout}`;
 				tiNpm.iconPath = oIcon('npm-brands');
-				this._onDidChangeTreeData.fire(tiNpm);
+				this.#onDidChangeTreeData.fire(tiNpm);
 				finish(true);
 			});
 		});
@@ -167,17 +167,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.then(res=> res.json())
 			.then((json: any)=> {
 				newVerSN = json.version;
-				const tiSV = this.aTiEnv[eTreeEnv.SKYNOVEL_VER];
+				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER];
 				tiSV.description = '-- ' + newVerSN;
-				ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
+				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel_uc/master/CHANGELOG.md')
 			.then(res=> res.text())
 			.then((txt: string)=> {
 				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
-				const tiSV = this.aTiEnv[eTreeEnv.TEMP_VER];
+				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER];
 				tiSV.description = '-- ' + newVerTemp;
-				ActivityBar.actBar._onDidChangeTreeData.fire(tiSV);
+				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 		])
 		.then(()=> {
@@ -204,40 +204,40 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		};
 	}
 
-	private pnlWV: WebviewPanel | null = null;
-	private openEnvInfo() {
+	#pnlWV: WebviewPanel | null = null;
+	#openEnvInfo() {
 		const column = window.activeTextEditor?.viewColumn;
-		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
+		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
 
 		const path_doc = this.ctx.extensionPath +'/res/webview';
 		const uf_path_doc = Uri.file(path_doc);
-		this.pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
+		this.#pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
 			enableScripts: false,
 			localResourceRoots: [uf_path_doc],
 		});
-		this.pnlWV.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
+		this.#pnlWV.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
 		readFile(path_doc +`/envinfo.htm`, 'utf-8', (err, data)=> {
 			if (err) throw err;
 
-			const wv = this.pnlWV!.webview;
-			this.pnlWV!.webview.html = data
+			const wv = this.#pnlWV!.webview;
+			this.#pnlWV!.webview.html = data
 			.replaceAll('${webview.cspSource}', wv.cspSource)
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
 
-	private openTempWizard() {
+	#openTempWizard() {
 		const column = window.activeTextEditor?.viewColumn;
-		if (this.pnlWV) {this.pnlWV.reveal(column); return;}
+		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
 
 		const path_doc = this.ctx.extensionPath +'/res/webview';
 		const uf_path_doc = Uri.file(path_doc);
-		const wv = this.pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
+		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [uf_path_doc],
 		});
-		wv.onDidDispose(()=> this.pnlWV = null);	// 閉じられたとき
+		wv.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
 		wv.webview.onDidReceiveMessage(m=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
@@ -249,18 +249,18 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				if (m.id !== 'save_ns') break;
 
 				// プロジェクトフォルダ名（半角英数記号）を指定
-				this.save_ns = m.val;
+				this.#save_ns = m.val;
 //console.log(`fn:ActivityBar.ts line:201 id:${m.id} v:${m.val}`);
 				wv.webview.postMessage({cmd: 'vld', o: {
 					id		: 'save_ns',
-					valid	: this.chkSave_ns(),
+					valid	: this.#chkSave_ns(),
 				}});
 				break;
 
 			case 'tmp_hatsune':
 			case 'tmp_uc':
 			case 'tmp_sample':
-				if (! this.chkSave_ns()) break;
+				if (! this.#chkSave_ns()) break;
 
 				// プロジェクトフォルダを置くパスを選んでもらう
 				window.showOpenDialog({
@@ -274,14 +274,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					if (! path_dl) return;	// キャンセル
 
 					// 既存のフォルダがある際はエラー中断で検討させる
-					const fnTo = path_dl +'/'+ this.save_ns;
+					const fnTo = path_dl +'/'+ this.#save_ns;
 					if (existsSync(fnTo)) {
-						window.showErrorMessage(`既存のフォルダ ${this.save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
+						window.showErrorMessage(`既存のフォルダ ${this.#save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
 						return;
 					}
 
 					// テンプレートからプロジェクト作成
-					this.createPrjFromTmp(m.cmd.slice(4), fnTo);
+					this.#crePrjFromTmp(m.cmd.slice(4), fnTo);
 				})
 				break;
 			}
@@ -290,13 +290,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		readFile(path_doc +`/tmpwiz.htm`, 'utf-8', (err, data)=> {
 			if (err) throw err;
 
-			const wv = this.pnlWV!.webview;
-			this.pnlWV!.webview.html = data
+			const wv = this.#pnlWV!.webview;
+			this.#pnlWV!.webview.html = data
 			.replaceAll('${webview.cspSource}', wv.cspSource)
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
-	private	readonly	createPrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
+	readonly	#crePrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト作成',
 		cancellable	: true,
@@ -324,7 +324,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// prj.json の置換
 				const fnPrj = fnFrom +'/doc/prj/prj.json';
 				const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
-				oPrj.save_ns = this.save_ns;
+				oPrj.save_ns = this.#save_ns;
 				outputJsonSync(fnPrj, oPrj, {spaces: '\t'});
 
 				// フォルダ名変更
@@ -342,8 +342,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
 		});
 	});
-	private	save_ns	= '';
-	private	chkSave_ns = ()=> /^([a-zA-Z0-9!-/:-@¥[-`{-~]{1,})$/.test(this.save_ns);	// https://regex101.com/r/JGxtnR/1
+	#save_ns	= '';
+	#chkSave_ns = ()=> /^([a-zA-Z0-9!-/:-@¥[-`{-~]{1,})$/.test(this.#save_ns);	// https://regex101.com/r/JGxtnR/1
 		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
 
 

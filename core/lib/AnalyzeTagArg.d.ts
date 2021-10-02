@@ -6,10 +6,8 @@ export interface HPRM {
     [name: string]: PRM;
 }
 export declare class AnalyzeTagArg {
-    private readonly REG_TAGARG;
+    #private;
     go(args: string): void;
-    private $hPrm;
     get hPrm(): HPRM;
-    private $isKomeParam;
     get isKomeParam(): boolean;
 }

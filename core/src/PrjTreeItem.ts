@@ -24,7 +24,7 @@ export interface TREEITEM_CFG {
 type ON_BTN = (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG)=> void;
 
 export class PrjTreeItem extends TreeItem {
-	private	static	readonly aTreeTmp	: TREEITEM_CFG[] = [
+	static	readonly #aTreeTmp	: TREEITEM_CFG[] = [
 		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
 			npm: `npm update ${statBreak()} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
@@ -73,7 +73,7 @@ export class PrjTreeItem extends TreeItem {
 			icon	: '',
 			label	: '',
 			desc	: wsFld.name,
-			children: isPrjValid ?PrjTreeItem.aTreeTmp :[{
+			children: isPrjValid ?PrjTreeItem.#aTreeTmp :[{
 				cmd		: '',
 				icon	: 'warn',
 				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
@@ -83,13 +83,13 @@ export class PrjTreeItem extends TreeItem {
 
 		// registerCommand()の登録が複数プロジェクトで重複しないよう
 		PrjTreeItem.regCmds = ()=> {};
-		PrjTreeItem.hPathWs2onBtn[pathWs] = onBtn;
+		PrjTreeItem.#hPathWs2onBtn[pathWs] = onBtn;
 
 		return pti;
 	}
-	private	static	hPathWs2onBtn	: {[pathWs: string]: ON_BTN}	= {};
+	static	#hPathWs2onBtn	: {[pathWs: string]: ON_BTN}	= {};
 
-	private		_children	: TreeItem[]	= [];
+	#children	: TreeItem[]	= [];
 	private	constructor(readonly cfg: TREEITEM_CFG, private	readonly pathWs: string, readonly ctx: ExtensionContext) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
@@ -105,7 +105,7 @@ export class PrjTreeItem extends TreeItem {
 		if (cfg.children) {
 			this.iconPath = ThemeIcon.Folder;
 			this.collapsibleState = TreeItemCollapsibleState.Collapsed;
-			this._children = cfg.children.map(c=> new PrjTreeItem(c, pathWs, ctx));
+			this.#children = cfg.children.map(c=> new PrjTreeItem(c, pathWs, ctx));
 		}
 		else {
 			this.iconPath = oIcon(cfg.icon);
@@ -113,18 +113,18 @@ export class PrjTreeItem extends TreeItem {
 		}
 	}
 	private	static	regCmds(ctx: ExtensionContext, btn_nm: string, cfg: TREEITEM_CFG) {
-		PrjTreeItem.regCmd(ctx, btn_nm, cfg.cmd, cfg);
+		PrjTreeItem.#regCmd(ctx, btn_nm, cfg.cmd, cfg);
 		if (cfg.exe) {
-			PrjTreeItem.regCmd(ctx, btn_nm +'Dbg', cfg.cmd +'Dbg', cfg);
-			PrjTreeItem.regCmd(ctx, btn_nm +'Stop',cfg.cmd +'Stop',cfg);
+			PrjTreeItem.#regCmd(ctx, btn_nm +'Dbg', cfg.cmd +'Dbg', cfg);
+			PrjTreeItem.#regCmd(ctx, btn_nm +'Stop',cfg.cmd +'Stop',cfg);
 		}
 	}
-	private	static	regCmd(ctx: ExtensionContext, btn_nm: string, btn_nm2: string, cfg: TREEITEM_CFG) {
+	static	#regCmd(ctx: ExtensionContext, btn_nm: string, btn_nm2: string, cfg: TREEITEM_CFG) {
 		ctx.subscriptions.push(commands.registerCommand(
 			btn_nm,
-			(ti: PrjTreeItem)=> PrjTreeItem.hPathWs2onBtn[ti.pathWs]?.(ti, btn_nm2, cfg),
+			(ti: PrjTreeItem)=> PrjTreeItem.#hPathWs2onBtn[ti.pathWs]?.(ti, btn_nm2, cfg),
 		));
 	}
 
-	get children() {return this._children;}
+	get children() {return this.#children;}
 }
