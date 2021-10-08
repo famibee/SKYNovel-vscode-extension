@@ -211,15 +211,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	}
 
 	readonly	#hPush2BtnEnable	: {[btn_nm: string]: string[]}	= {
-	'TaskWeb'		: ['_off', '_off', '_off', '_off', 'Stop', '_off',
+	'TaskWeb'		: ['_off', '_off', '', '_off', 'Stop', '_off',
 						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskWebDbg'	: ['_off', '_off', '_off', '_off', 'Stop', '_off',
+	'TaskWebDbg'	: ['_off', '_off', '', '_off', 'Stop', '_off',
 						'_off', '_off', '_off', '_off', '_off', '_off'],
 	'TaskWebStop'	: ['', '', '', '', '', '',
 						'', '', '', '', '', ''],
-// 'TaskApp'		: ['_off', '_off', '_off', '_off', '_off', 'Stop',
+// 'TaskApp'		: ['_off', '_off', '', '_off', '_off', 'Stop',
 // 					'_off', '_off', '_off', '_off', '_off', '_off'],
-// 'TaskAppDbg'	: ['_off', '_off', '_off', '_off', '_off', 'Stop',
+// 'TaskAppDbg'	: ['_off', '_off', '', '_off', '_off', 'Stop',
 // 					'_off', '_off', '_off', '_off', '_off', '_off'],
 		// NOTE: 無効化中
 	'TaskAppDbgStop': ['', '', '', '', '', '',
