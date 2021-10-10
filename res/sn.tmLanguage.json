@@ -82,88 +82,99 @@
 				{"include": "#constant_number"},
 				{"include": "#constant_operator"},
 				{"include": "#constant_string"}
-			],
-			"repository": {
-				"constant_literal": {"patterns": [
+			]
+		},
+			"constant_literal": {"patterns": [
+				{
+					"match": "([\"'#])(.*?)(\\1)",
+					"captures": {
+						"1": {"name": "keyword.string.quoted.skynovel"},
+						"2": {"patterns": [{"include": "#constant_text"}]},
+						"3": {"name": "keyword.string.quoted.skynovel"}
+					}
+				}
+			]},
+				"constant_text": {"patterns": [
 					{
-						"match": "([\"'#])(.*?)(\\1)",
+						"match": "(#\\{)([^}]*)(})|[^#]+",
 						"captures": {
+							"0": {"name": "string.interpolated.skynovel"},
 							"1": {"name": "keyword.string.quoted.skynovel"},
-							"2": {"patterns": [{"include": "#constant_text"}]},
+							"2": {"patterns": [{"include": "#constant"}]},
 							"3": {"name": "keyword.string.quoted.skynovel"}
 						}
 					}
 				]},
-					"constant_text": {"patterns": [
-						{
-							"match": "(#\\{)([^}]*)(})|[^#]+",
-							"captures": {
-								"0": {"name": "string.interpolated.skynovel"},
-								"1": {"name": "keyword.string.quoted.skynovel"},
-								"2": {"patterns": [{"include": "#constant"}]},
-								"3": {"name": "keyword.string.quoted.skynovel"}
-							}
-						}
-					]},
-				"constant_variable_language": {"patterns": [
-					{
-						"name": "constant.language.skynovel",
-						"match": "true|false|null"
-					}
-				]},
-				"constant_label": {"patterns": [
-					{
-						"name": "constant.language.label.skynovel",
-						"match": "\\*+\\w+"
-					}
-				]},
-				"constant_ampersand_formula": {"patterns": [
-					{
-						"name": "string.interpolated.skynovel",
-						"match": "&[^\\s|;\\]]+"
-					}
-				]},
-				"constant_number": {"patterns": [
-					{
-						"name": "constant.numeric.skynovel",
-						"match": "0x[0-9a-fA-F]+|-?[0-9\\.]+"
-					}
-				]},
-				"constant_operator": {"patterns": [
-					{
-						"name": "keyword.operator.skynovel",
-						"match": "[\\*\\/¥%+-]|>>>|<<|>>|<=|<|>=|>|===|!==|==|!=|\\^|&&|\\|\\||\\|"
-					}
-				]},
-				"constant_string": {"patterns": [
-					{
-						"name": "string.interpolated.skynovel",
-						"match": "[^\\s|\\]]+"
-					}
-				]}
-			}
-		},
+			"constant_variable_language": {"patterns": [
+				{
+					"name": "constant.language.skynovel",
+					"match": "true|false|null"
+				}
+			]},
+			"constant_label": {"patterns": [
+				{
+					"name": "constant.language.label.skynovel",
+					"match": "\\*+\\w+"
+				}
+			]},
+			"constant_ampersand_formula": {"patterns": [
+				{
+					"name": "string.interpolated.skynovel",
+					"match": "&[^\\s|;\\]]+"
+				}
+			]},
+			"constant_number": {"patterns": [
+				{
+					"name": "constant.numeric.skynovel",
+					"match": "0x[0-9a-fA-F]+|-?[0-9\\.]+"
+				}
+			]},
+			"constant_operator": {"patterns": [
+				{
+					"name": "keyword.operator.skynovel",
+					"match": "[\\*\\/¥%+-]|>>>|<<|>>|<=|<|>=|>|===|!==|==|!=|\\^|&&|\\|\\||\\|"
+				}
+			]},
+			"constant_string": {"patterns": [
+				{
+					"name": "string.interpolated.skynovel",
+					"match": "[^\\s|\\]]+"
+				}
+			]},
 		"ampersand_puts": {"patterns": [
 			{
 				"match": "&([^&\\n]+)&",
 				"captures": {
-					"0": {"name": "entity.name.tag.skynovel"},
+					"0": {"name": "entity.name.function.skynovel"},
 					"1": {"patterns": [{"include": "#constant"}]}
 				}
 			}
 		]},
 		"ampersand_let": {"patterns": [
 			{
-				"match": "&(?:&([^=]+)|([^=]+))\\s*(=)([^;\\n]+)",
+				"match": "&(?:&([^=\\n]+)|([^=\\n]+))(=)([^;\\n]+)",
 				"captures": {
-					"0": {"name": "entity.name.tag.skynovel"},
+					"0": {"name": "entity.name.function.skynovel"},
 
 					"1": {"patterns": [{"include": "#constant"}]},
 					"2": {"name": "variable.parameter.skynovel"},
 
 					"3": {"name": "keyword.operator.skynovel"},
 
-					"4": {"patterns": [{"include": "#constant"}]}
+					"4": {"patterns": [
+						{"include": "#constant_literal"},
+						{"include": "#constant_variable_language"},
+						{"include": "#constant_label"},
+						{"include": "#constant_ampersand_formula"},
+						{"include": "#constant_number"},
+						{"include": "#constant_operator"},
+						{"patterns": [
+							{
+								"name": "string.interpolated.skynovel",
+								"match": "[^\\s|]+"
+							}
+						]}
+					]}
 				}
 			}
 		]}
