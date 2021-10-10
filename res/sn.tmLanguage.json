@@ -119,8 +119,13 @@
 			]},
 			"constant_ampersand_formula": {"patterns": [
 				{
-					"name": "string.interpolated.skynovel",
-					"match": "&[^\\s|;\\]]+"
+					"name": "keyword.operator.skynovel",
+					"match": "&((?:tmp|sys|save|mp):)?([^\\s|;\\]@]+)(@str)?",
+					"captures": {
+						"1": {"name": "variable.language.skynovel"},
+						"2": {"name": "string.interpolated.skynovel"},
+						"3": {"name": "keyword.other.skynovel"}
+					}				
 				}
 			]},
 			"constant_number": {"patterns": [
@@ -170,8 +175,12 @@
 						{"include": "#constant_operator"},
 						{"patterns": [
 							{
-								"name": "string.interpolated.skynovel",
-								"match": "[^\\s|]+"
+								"match": "((?:tmp|sys|save|mp):)?([^\\s|@]+)(@str)?",
+								"captures": {
+									"1": {"name": "variable.language.skynovel"},
+									"2": {"name": "string.interpolated.skynovel"},
+									"3": {"name": "keyword.other.skynovel"}
+								}
 							}
 						]}
 					]},
