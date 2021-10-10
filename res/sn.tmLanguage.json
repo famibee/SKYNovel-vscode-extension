@@ -152,7 +152,7 @@
 		]},
 		"ampersand_let": {"patterns": [
 			{
-				"match": "&(?:&([^=\\n]+)|([^=\\n]+))(=)([^;=\\n]+)(?:(=)[^;=\\n]*(num|int|uint|bool|str))?",
+				"match": "&(?:&([^=\\n]+)|([^=\\n]+))(=)([^;=\\n]+)(?:(=)\\s*(num|u?int|bool|str))?",
 				"captures": {
 					"0": {"name": "entity.name.function.skynovel"},
 
