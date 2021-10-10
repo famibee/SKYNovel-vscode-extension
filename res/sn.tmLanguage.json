@@ -152,7 +152,7 @@
 		]},
 		"ampersand_let": {"patterns": [
 			{
-				"match": "&(?:&([^=\\n]+)|([^=\\n]+))(=)([^;\\n]+)",
+				"match": "&(?:&([^=\\n]+)|([^=\\n]+))(=)([^;=\\n]+)(?:(=)[^;=\\n]*(num|int|uint|bool|str))?",
 				"captures": {
 					"0": {"name": "entity.name.function.skynovel"},
 
@@ -174,7 +174,10 @@
 								"match": "[^\\s|]+"
 							}
 						]}
-					]}
+					]},
+
+					"5": {"name": "keyword.operator.skynovel"},
+					"6": {"name": "constant.language.skynovel"}
 				}
 			}
 		]}
