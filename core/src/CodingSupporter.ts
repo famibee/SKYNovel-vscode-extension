@@ -68,17 +68,14 @@ export class CodingSupporter implements
 		const cmdScanScr_trgPrm = {title: '「スクリプト再捜査」「引数の説明」', command: CodingSupporter.#CMD_SCANSCR_TRGPARAMHINTS};
 		for (const tag_nm in hMd) {
 			const md = hMd[tag_nm];
-			const ci = new CompletionItem(tag_nm, CompletionItemKind.Snippet);
-			ci.detail = md.detail;
-			ci.command = cmdScanScr_trgPrm;
-			if (md.comment) ci.documentation = new MarkdownString(
+			const docu: string | MarkdownString = md.comment
+				? new MarkdownString(
 `$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.htm#${tag_nm
 })
 
 ---
-${md.comment}`, true
-			);
-			this.#aCITagMacro.push(ci);
+${md.comment}`, true)
+				:'';
 		//	-	ci.documentation.isTrusted = true;
 
 		//	-	ci.additionalTextEdits? = TextEdit[]
@@ -98,8 +95,8 @@ ${md.comment}`, true
 				const ci2 = new CompletionItem(v.nm,CompletionItemKind.Snippet);
 				ci2.detail = md.detail;
 				ci2.command = cmdScanScr_trgPrm;
-				ci2.documentation = ci.documentation;
-				this.#aCITagMacro.push(ci2);
+				ci2.documentation = docu;
+				this.#aCITagMacro.push(ci2);	// 最低ひとつはある
 			});
 		}
 

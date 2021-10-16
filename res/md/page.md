@@ -11,4 +11,4 @@ to=${1|prev,next|}
 ***
 [p]などの停止位置を「ページ」とみなし、戻ったり進んだりできる。
 ページを進めても一度読んだ位置を再現できる。
-save:sn.doRecLog が true の状態で[p][s]など（[l][waitclick]は対象外）で停止した際にそのページ状態の記録を行う。
+save:sn.doRecLog が true の状態で[p][s]など。（[l][waitclick][wait][wv][wait_tsy][wf][ws]は対象外）で停止した際にそのページ状態の記録を行う。

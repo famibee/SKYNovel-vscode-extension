@@ -217,11 +217,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						'_off', '_off', '_off', '_off', '_off', '_off'],
 	'TaskWebStop'	: ['', '', '', '', '', '',
 						'', '', '', '', '', ''],
-// 'TaskApp'		: ['_off', '_off', '', '_off', '_off', 'Stop',
-// 					'_off', '_off', '_off', '_off', '_off', '_off'],
-// 'TaskAppDbg'	: ['_off', '_off', '', '_off', '_off', 'Stop',
-// 					'_off', '_off', '_off', '_off', '_off', '_off'],
-		// NOTE: 無効化中
+//	'TaskApp'		: ['_off', '_off', '', '_off', '_off', 'Stop',
+//						'_off', '_off', '_off', '_off', '_off', '_off'],
+//	'TaskAppDbg'	: ['_off', '_off', '', '_off', '_off', 'Stop',
+//						'_off', '_off', '_off', '_off', '_off', '_off'],
+		// NOTE: Stop 実装方法策定中につき無効化中
 	'TaskAppDbgStop': ['', '', '', '', '', '',
 						'', '', '', '', '', ''],
 	};
@@ -271,9 +271,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		}
 
 		// メイン処理
-		if (cfg.npm) cmd += cfg.npm
-			.replaceAll('${prj.title}', this.title)
-			.replaceAll('${prj.version}', this.version);
+		if (cfg.npm) cmd += cfg.npm;
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.#termDbgSS()
@@ -397,7 +395,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					execSync('PowerShell Get-ExecutionPolicy'))) break;
 
 				done();
-				window.showErrorMessage(`管理者権限つきのPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例、管理者コマンドプロンプトで）PowerShell Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
+				window.showErrorMessage(`管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
 				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
 				return;
 		}

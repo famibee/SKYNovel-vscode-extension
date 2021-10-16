@@ -39,19 +39,19 @@ export class PrjTreeItem extends TreeItem {
 		{cmd: '', icon: '',label: '生成', children: [
 			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
 				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.exe"`},
+				} ./node_modules/.bin/electron-builder -w --x64`},
 			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
 					// 一パッケージに統合型、ファイルサイズ二倍になる
 			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
 				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -w --ia32 -c.artifactName="\${prj.title}-\${prj.version}-ia32.exe"`},
+				} ./node_modules/.bin/electron-builder -w --ia32`},
 			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
 				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:x64 -c.artifactName="\${prj.title}-\${prj.version}-x64.dmg"`,
+				} ./node_modules/.bin/electron-builder -m --x64`,
 				forMac: true,},
 			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
 				npm: `npm run webpack:pro ${statBreak()
-				} ./node_modules/.bin/electron-builder -m dmg:arm64 -c.artifactName="\${prj.title}-\${prj.version}-arm64.dmg"`,
+				} ./node_modules/.bin/electron-builder -m --arm64`,
 				forMac: true,},
 				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
 					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
