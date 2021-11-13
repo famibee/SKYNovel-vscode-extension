@@ -1,3 +1,8 @@
+## v3.16.10
+- fix: ライブラリ更新（node-fetch不具合【Cannot find module 'node:http'】につきバージョン下げ対応）
+	- "node-fetch": "^2.6.2",
+	- "@types/node-fetch": "^2.5.12",
+	- Cannot find module 'node:http` on AWS Lambda v14 · Issue #1367 · node-fetch/node-fetch https://github.com/node-fetch/node-fetch/issues/1367
 ## v3.16.9
 - fix: ライブラリ更新
 ## v3.16.8
