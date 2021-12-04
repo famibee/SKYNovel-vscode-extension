@@ -1,5 +1,5 @@
 ## v3.16.11
-- add: [button][link]に hintの幅を指定できる hint_width 属性追加
+- add: 【コードヒント】[button][link]に hintの幅を指定できる hint_width 属性追加
 - fix: ライブラリ更新
 ## v3.16.10
 - fix: ライブラリ更新（node-fetch不具合【Cannot find module 'node:http'】につきバージョン下げ対応）
