@@ -253,7 +253,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				ti.iconPath = iconPath;
 
 				this.#aTiFlat.forEach(ti=> {
-					ti.contextValue = ti.contextValue?.slice(0, -4);
+					switch (ti.contextValue?.slice(-4)) {
+						case '_off':
+						case 'Stop':
+							ti.contextValue = ti.contextValue?.slice(0, -4);
+							break;
+					}
 					this.emPrjTD.fire(ti);
 				});	// 値を戻してボタン表示
 

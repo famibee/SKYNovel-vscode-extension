@@ -11,4 +11,4 @@ layer=${1{{レイヤ名}}} page=${2|fore,back|}
 
 ***
 alpha、blendMode、rotation、scaleX、scaleYを初期値にする
-※背景や背景画像はクリアしません（b_left、b_top、b_width、b_height、b_color、b_alpha） 　クリアしたい場合は、[lay back_clear=true]
+※背景や背景画像はクリアしません（b_color、b_alpha） 　クリアしたい場合は、[lay back_clear=true]

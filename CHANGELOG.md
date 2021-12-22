@@ -1,3 +1,7 @@
+## v3.16.12
+- fix: 起動系ボタンの停止時にボタン押下可否状態が正しく戻らない件
+- fix: ライブラリ更新（res/webview/lib/bootstrap.min.css, *.js も v5.1.1→v5.1.3）
+- docs: [clear_lay]解説更新
 ## v3.16.11
 - add: 【コードヒント】[button][link]に hintの幅を指定できる hint_width 属性追加
 - fix: ライブラリ更新
