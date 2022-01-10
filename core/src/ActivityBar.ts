@@ -1,11 +1,11 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2022 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, setCtx4} from './CmnLib';
+import {oIcon, replaceFile, setCtx4} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
@@ -322,10 +322,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				prg.report({increment: 10, message: 'ファイル調整',});
 				// prj.json の置換
-				const fnPrj = fnFrom +'/doc/prj/prj.json';
-				const oPrj = readJsonSync(fnPrj, {encoding: 'utf8'});
+				const pathWs = fnFrom;
+				const fnPrj = pathWs +'/doc/prj/';
+				const fnPrjJs = fnPrj +'/prj.json';
+				const oPrj = readJsonSync(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
-				outputJsonSync(fnPrj, oPrj, {spaces: '\t'});
+				outputJsonSync(fnPrjJs, oPrj, {spaces: '\t'});
+				// package.json の置換
+				const fnPkgJs = pathWs +'/package.json';
+				replaceFile(fnPkgJs, /("name"\s*:\s*").*(")/, `$1${this.#save_ns}$2`);
+				replaceFile(fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${this.#save_ns}$2`);
+				replaceFile(fnPkgJs, /("artifactName"\s*:\s*").*(")/, `$1${this.#save_ns}-\${version}-\${arch}.\${ext}$2`);
 
 				// フォルダ名変更
 				moveSync(fnFrom, fnTo);

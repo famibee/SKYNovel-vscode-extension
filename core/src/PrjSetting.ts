@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2021 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2022 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -286,6 +286,7 @@ export class PrjSetting {
 		"save_ns"	: val=> {
 			replaceFile(this.#fnPkgJs, /("name"\s*:\s*").*(")/, `$1${val}$2`);
 			replaceFile(this.#fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${val}$2`);
+			replaceFile(this.#fnPkgJs, /("artifactName"\s*:\s*").*(")/, `$1${val}-\${version}-\${arch}.\${ext}$2`);
 
 			if (! this.#oCfg.debuger_token) {
 				this.#oCfg.debuger_token = uuidv4();

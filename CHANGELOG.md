@@ -1,3 +1,9 @@
+## v3.16.13
+- fix: package.json：アプリ生成物のファイル名（build.artifactName）を「プロジェクト名-${version}-${arch}.${ext}」に変更
+	- [update_check]の扱いやすさの観点から ymlに合わせる
+- fix: package.json：テンプレからの流れで name, appBundleId, build.appId を更新していなかった件
+- docs: [event]にcall属性記述が抜けていたのを修正
+- docs: [tsy]にrender属性記述を追加
 ## v3.16.12
 - fix: 起動系ボタンの停止時にボタン押下可否状態が正しく戻らない件
 - fix: ライブラリ更新（res/webview/lib/bootstrap.min.css, *.js も v5.1.1→v5.1.3）
