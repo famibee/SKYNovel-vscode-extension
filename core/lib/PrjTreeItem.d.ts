@@ -1,6 +1,8 @@
 import { TreeItem, ExtensionContext, WorkspaceFolder } from 'vscode';
+declare const PrjBtnName_s: readonly ["SnUpd", "SnUpd_waited", "ReBuild", "PrjSet", "Crypto", "Crypto_waited", "TaskWeb", "TaskWebDbg", "TaskWebStop", "TaskApp", "TaskAppStop", "TaskAppDbg", "TaskAppDbgStop", "PackWin", "PackWin32", "PackMac", "PackMacArm64", "PackLinux", "PackFreem"];
+export declare type PrjBtnName = typeof PrjBtnName_s[keyof typeof PrjBtnName_s];
 export interface TREEITEM_CFG {
-    cmd: string;
+    cmd: PrjBtnName | '';
     exe?: boolean;
     icon: string;
     label: string;
@@ -9,7 +11,7 @@ export interface TREEITEM_CFG {
     children?: TREEITEM_CFG[];
     forMac?: boolean;
 }
-declare type ON_BTN = (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) => void;
+declare type ON_BTN = (ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG) => void;
 export declare class PrjTreeItem extends TreeItem {
     #private;
     readonly cfg: TREEITEM_CFG;

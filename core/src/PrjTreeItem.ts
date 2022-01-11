@@ -10,8 +10,31 @@ import {oIcon, is_win, statBreak} from './CmnLib';
 import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIcon, WorkspaceFolder} from 'vscode';
 import {existsSync} from 'fs-extra';
 
+const PrjBtnName_s = [
+	'SnUpd',
+	'SnUpd_waited',
+	'ReBuild',
+	'PrjSet',
+	'Crypto',
+	'Crypto_waited',
+	'TaskWeb',
+	'TaskWebDbg',
+	'TaskWebStop',
+	'TaskApp',
+	'TaskAppStop',
+	'TaskAppDbg',
+	'TaskAppDbgStop',
+	'PackWin',
+	'PackWin32',
+	'PackMac',
+	'PackMacArm64',
+	'PackLinux',
+	'PackFreem',
+] as const;
+export type PrjBtnName = typeof PrjBtnName_s[keyof typeof PrjBtnName_s];
+
 export interface TREEITEM_CFG {
-	cmd		: string,
+	cmd		: PrjBtnName|'',
 	exe?	: boolean,
 	icon	: string,
 	label	: string,
@@ -21,7 +44,7 @@ export interface TREEITEM_CFG {
 	forMac?		: boolean,
 }
 
-type ON_BTN = (ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG)=> void;
+type ON_BTN = (ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG)=> void;
 
 export class PrjTreeItem extends TreeItem {
 	static	readonly #aTreeTmp	: TREEITEM_CFG[] = [
@@ -97,8 +120,8 @@ export class PrjTreeItem extends TreeItem {
 		else {
 			this.description = cfg.desc ?? '';
 			if (cfg.cmd) {
-				const btn_nm = this.contextValue = 'skynovel.dev'+ cfg.cmd;
-				PrjTreeItem.regCmds(ctx, btn_nm, cfg);
+				const cntVal = this.contextValue = 'skynovel.dev'+ cfg.cmd;
+				PrjTreeItem.regCmds(ctx, cntVal, cfg);
 			}
 		}
 
@@ -112,16 +135,17 @@ export class PrjTreeItem extends TreeItem {
 			this.collapsibleState = TreeItemCollapsibleState.None;
 		}
 	}
-	private	static	regCmds(ctx: ExtensionContext, btn_nm: string, cfg: TREEITEM_CFG) {
-		PrjTreeItem.#regCmd(ctx, btn_nm, cfg.cmd, cfg);
+	private	static	regCmds(ctx: ExtensionContext, cntVal: string, cfg: TREEITEM_CFG) {
+		if (cfg.cmd === '') return;
+		PrjTreeItem.#regCmd(ctx, cntVal, cfg.cmd, cfg);
 		if (cfg.exe) {
-			PrjTreeItem.#regCmd(ctx, btn_nm +'Dbg', cfg.cmd +'Dbg', cfg);
-			PrjTreeItem.#regCmd(ctx, btn_nm +'Stop',cfg.cmd +'Stop',cfg);
+			PrjTreeItem.#regCmd(ctx, cntVal +'Dbg', <PrjBtnName>(cfg.cmd +'Dbg'), cfg);
+			PrjTreeItem.#regCmd(ctx, cntVal +'Stop',<PrjBtnName>(cfg.cmd +'Stop'),cfg);
 		}
 	}
-	static	#regCmd(ctx: ExtensionContext, btn_nm: string, btn_nm2: string, cfg: TREEITEM_CFG) {
+	static	#regCmd(ctx: ExtensionContext, cntVal: string, btn_nm2: PrjBtnName, cfg: TREEITEM_CFG) {
 		ctx.subscriptions.push(commands.registerCommand(
-			btn_nm,
+			cntVal,
 			(ti: PrjTreeItem)=> PrjTreeItem.#hPathWs2onBtn[ti.pathWs]?.(ti, btn_nm2, cfg),
 		));
 	}

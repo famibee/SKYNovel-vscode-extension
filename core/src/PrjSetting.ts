@@ -15,13 +15,13 @@ import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
 
 export class PrjSetting {
-	readonly	#fnPrj	: string;
+	readonly	#fnPrj		: string;
 	readonly	#fnPrjJs	: string;
 	readonly	#fnPkgJs	: string;
 	readonly	#fnAppJs	: string;
 				#fnSetting	: string;
-	readonly	#fnInsNsh: string;
-	readonly	#fnIcon	: string;
+	readonly	#fnInsNsh	: string;
+	readonly	#fnIcon		: string;
 	readonly	#fnReadme4Freem	: string;
 	readonly	#localExtensionResRoots: Uri;
 
@@ -298,7 +298,7 @@ export class PrjSetting {
 		'window.height'	: val=> replaceFile(this.#fnAppJs,
 			/(height\s*: ).*(,)/, `$1${val}$2`),
 		'book.version'	: val=> {
-			replaceFile(this.#fnPkgJs, /("version"\s*:\s*").*(")/, `$1${val}$2`);
+			replaceFile(this.#fnPkgJs, /("version"\s*:\s*").*(")/,`$1${val}$2`);
 			replaceFile(this.#fnReadme4Freem, /(【Version】)\S+/g, `$1${val}`);
 		},
 		'book.title'	: val=> {
@@ -316,7 +316,7 @@ export class PrjSetting {
 		},
 		'book.publisher': val=> {
 			replaceFile(this.#fnAppJs, /(companyName\s*:\s*)(['"]).*\2/, `$1"${val}"`);
-			replaceFile(this.#fnInsNsh, /(!define PUBLISHER ").+"/, `$1${val}"`);
+			replaceFile(this.#fnInsNsh, /(!define PUBLISHER ").+"/,`$1${val}"`);
 
 			// ついでに発表年を
 			replaceFile(this.#fnReadme4Freem, /(Copyright \(C\) )\d+ "([^"]+)"/g, `$1${(new Date()).getFullYear()} "${val}"`);

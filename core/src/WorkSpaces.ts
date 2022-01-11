@@ -11,7 +11,7 @@ import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
-import {PrjTreeItem} from './PrjTreeItem';
+import {PrjTreeItem, PrjBtnName} from './PrjTreeItem';
 
 import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Range, TextEditorDecorationType, TextEditor, commands} from 'vscode';
 
@@ -31,7 +31,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.#refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
-		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask?.[e.execution.task.definition.type.slice(9)]?.(e));
+		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
+			<PrjBtnName>(e.execution.task.definition.type.slice(9))
+		)?.(e));
 
 		this.#onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.#onUpdDoc(te), null, ctx.subscriptions);
@@ -237,13 +239,13 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask);
 	}
 
-	#hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}	= {
-		'テンプレ初期化': e=> {		// 本来のキーは Project.ts の btn_nm
+	#hOnEndTask = new Map<PrjBtnName|'テンプレ初期化', (e: TaskProcessEndEvent)=> void>([
+		['テンプレ初期化', (e: TaskProcessEndEvent)=> {
 			const wsFld = <WorkspaceFolder>e.execution.task.scope;
 			const pathWs = wsFld.uri.fsPath;
 			this.#hPrj[pathWs].finBuild();
-		},
-	};
+		}],
+	]);
 
 	getTreeItem = (t: TreeItem)=> t;
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;

@@ -1,4 +1,5 @@
 import { ActivityBar } from './ActivityBar';
+import { PrjBtnName } from './PrjTreeItem';
 import { ExtensionContext, WorkspaceFolder, TaskProcessEndEvent, TreeItem, EventEmitter } from 'vscode';
 export declare class Project {
     #private;
@@ -12,9 +13,7 @@ export declare class Project {
     private updLocalSNVer;
     private dspCryptoMode;
     enableBtn(enabled: boolean): void;
-    constructor(ctx: ExtensionContext, actBar: ActivityBar, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: {
-        [nm: string]: (e: TaskProcessEndEvent) => void;
-    });
+    constructor(ctx: ExtensionContext, actBar: ActivityBar, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: Map<PrjBtnName | 'テンプレ初期化', (e: TaskProcessEndEvent) => void>);
     private onDidTermDbgSS;
     get title(): any;
     get version(): any;

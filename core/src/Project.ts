@@ -11,10 +11,10 @@ import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
-import {PrjTreeItem, TREEITEM_CFG} from './PrjTreeItem';
+import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync} from 'fs-extra';
+import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync, outputJsonSync} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -25,6 +25,8 @@ import {basename, dirname} from 'path';
 import png2icons = require('png2icons');
 const {execSync} = require('child_process');
 import ncu = require('npm-check-updates');
+
+type BtnEnable = '_off'|'Stop'|'';
 
 export class Project {
 	readonly	#codSpt		: CodingSupporter;
@@ -89,7 +91,7 @@ export class Project {
 
 
 	readonly #pathWs: string;
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: {[nm: string]: (e: TaskProcessEndEvent)=> void}) {
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName|'テンプレ初期化', (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
@@ -200,36 +202,37 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	#aDbgSS	: DebugSession[]	= [];
 	private	onDidTermDbgSS() {}
 	#termDbgSS(): Promise<void[]> {
-		this.#hTaskExe['TaskWeb']?.terminate();
-		delete this.#hTaskExe['TaskWeb'];
-		this.#hTaskExe['TaskApp']?.terminate();
-		delete this.#hTaskExe['TaskApp'];
+		this.#hTaskExe.get('TaskWeb')?.terminate();
+		this.#hTaskExe.delete('TaskWeb');
+		this.#hTaskExe.get('TaskApp')?.terminate();
+		this.#hTaskExe.delete('TaskApp');
 
 		const a = this.#aDbgSS.map(ds=> debug.stopDebugging(ds));
 		this.#aDbgSS = [];
 		return Promise.all(a);
 	}
 
-	readonly	#hPush2BtnEnable	: {[btn_nm: string]: string[]}	= {
-	'TaskWeb'		: ['_off', '_off', '', '_off', 'Stop', '_off',
-						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskWebDbg'	: ['_off', '_off', '', '_off', 'Stop', '_off',
-						'_off', '_off', '_off', '_off', '_off', '_off'],
-	'TaskWebStop'	: ['', '', '', '', '', '',
-						'', '', '', '', '', ''],
-//	'TaskApp'		: ['_off', '_off', '', '_off', '_off', 'Stop',
-//						'_off', '_off', '_off', '_off', '_off', '_off'],
-//	'TaskAppDbg'	: ['_off', '_off', '', '_off', '_off', 'Stop',
-//						'_off', '_off', '_off', '_off', '_off', '_off'],
+	readonly	#hPush2BtnEnable = new Map<PrjBtnName, BtnEnable[]>([
+	['TaskWeb',		['_off', '_off', '', '_off', 'Stop', '_off',
+					'_off', '_off', '_off', '_off', '_off', '_off']],
+	['TaskWebDbg',	['_off', '_off', '', '_off', 'Stop', '_off',
+					'_off', '_off', '_off', '_off', '_off', '_off']],
+	['TaskWebStop'	, ['', '', '', '', '', '',
+						'', '', '', '', '', '']],
+//	['TaskApp'		, ['_off', '_off', '', '_off', '_off', 'Stop',
+//						'_off', '_off', '_off', '_off', '_off', '_off']],
+//	['TaskAppDbg'	, ['_off', '_off', '', '_off', '_off', 'Stop',
+//						'_off', '_off', '_off', '_off', '_off', '_off']],
 		// NOTE: Stop 実装方法策定中につき無効化中
-	'TaskAppDbgStop': ['', '', '', '', '', '',
-						'', '', '', '', '', ''],
-	};
-	#onBtn(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG) {
+	['TaskAppDbgStop', ['', '', '', '', '', '',
+						'', '', '', '', '', '']],
+
+	]);
+	#onBtn(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG) {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		// 値を壊してボタン消去など
-		const aBtnEnable = this.#hPush2BtnEnable[btn_nm]
+		const aBtnEnable = this.#hPush2BtnEnable.get(btn_nm)
 		?? ['_off', '_off', '_off', '_off', '_off', '_off',
 			'_off', '_off', '_off', '_off', '_off', '_off'];
 		this.#aTiFlat.forEach((ti, i)=> {
@@ -237,7 +240,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			this.emPrjTD.fire(ti);
 		});
 
-		if (btn_nm.slice(-4) === 'Stop') {
+		if (btn_nm === 'TaskWebStop' || btn_nm === 'TaskAppStop') {
 			this.#onBtn_sub(ti, btn_nm, cfg, ()=> {});
 			return;
 		}
@@ -267,7 +270,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			})
 		}));
 	}
-	#onBtn_sub(ti: TreeItem, btn_nm: string, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
+	#onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		const pathWs = this.wsFld.uri.fsPath;
 		let cmd = `cd "${pathWs}" ${statBreak()} `;
 		if (! existsSync(pathWs +'/node_modules')) {
@@ -332,6 +335,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
+			case 'PackMacArm64':
 			case 'PackLinux':	this.#termDbgSS();	break;
 
 			case 'PackFreem':
@@ -364,6 +368,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
+			case 'PackMacArm64':
 			case 'PackLinux':
 				const fnIcon = pathWs +'/build/icon.png';
 				if (! existsSync(fnIcon)) break;
@@ -412,30 +417,94 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			'SKYNovel',					// source
 			new ShellExecution(cmd),
 		);
-		this.hOnEndTask[btn_nm] = ()=> done();
+		this.hOnEndTask.set(btn_nm, ()=> done());
 		switch (btn_nm) {	// タスク後処理
 			//case 'SnUpd':	// ここには来ない
 			case 'SnUpd_waited':	// Promise待ち後
-				this.hOnEndTask[btn_nm] = ()=> {this.updLocalSNVer(); done();};
+				this.hOnEndTask.set(btn_nm, ()=> {this.updLocalSNVer(); done();});
 				break;
 
 			case 'Crypto_waited':
-				this.hOnEndTask[btn_nm] = ()=> {this.dspCryptoMode(); done();};
+				this.hOnEndTask.set(btn_nm, ()=> {this.dspCryptoMode(); done();});
 				break;
 
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
-			case 'PackLinux':	this.hOnEndTask[btn_nm] = ()=> {
+			case 'PackMacArm64':
+			case 'PackLinux':	this.hOnEndTask.set(btn_nm, ()=> {
+				// アップデート用ファイル作成
+				const oPkg = readJsonSync(pathWs +'/package.json', {encoding: 'utf8'});
+
+				const pathPkg = pathWs +'/build/package';
+				const pathUpd = pathPkg +'/update';
+				const fnUcJs = pathUpd +'/_index.json';
+				let oUc = existsSync(fnUcJs)
+					? readJsonSync(fnUcJs, {encoding: 'utf8'})
+					: {};
+
+//console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
+				const isMacBld = btn_nm.slice(4, 7) === 'Mac';
+				const isLinBld = btn_nm.slice(4, 7) === 'Lin';
+				const fnYml = pathPkg +`/latest${
+					isMacBld ?'-mac' :isLinBld ?'-linux' :''
+				}.yml`;
+				const sYml = readFileSync(fnYml, {encoding: 'utf8'});
+				const mv = /version: (.+)/.exec(sYml);
+				if (! mv) throw `[Pack...] .yml に version が見つかりません`;
+				const ver = mv[1];
+//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
+				if (oUc.version != ver || oUc.name != oPkg.name) {
+					oUc = {};
+					removeSync(pathUpd);
+					ensureDirSync(pathUpd);
+				}
+				oUc.version = oPkg.version;
+				oUc.name = oPkg.name;
+
+				const mp = /path: (.+)/.exec(sYml);
+				if (! mp) throw `[Pack...] .yml に path が見つかりません`;
+				const path = mp[1];
+
+				const ms = /size: (.+)/.exec(sYml);
+				if (! ms) throw `[Pack...] .yml に size が見つかりません`;
+				const size = Number(ms[1] ?? NaN);
+
+				const mc = /sha512: (.+)/.exec(sYml);
+				if (! mc) throw `[Pack...] .yml に sha512 が見つかりません`;
+				const sha512 = mc[1] ?? '';
+				const cn = this.#encry.uuidv5(sha512);
+
+				const ma = /-(\w+)\.\D/.exec(path);
+					// https://regex101.com/r/yH7nLk/1	13 steps, 0.0ms
+				if (! ma) throw `path に arch が見つかりません`;
+				const arch = ma[1];
+
+				const key = (isMacBld ?'darwin' :isLinBld ?'linux' :'win32') +'_'+ arch;
+				oUc[key] = {path, size, sha512, cn,};
+				outputJsonSync(fnUcJs, oUc, {spaces: '\t'});
+
+				// 古い（暗号化ファイル名）更新ファイルを削除
+				const regOldSameKey = new RegExp('^'+ key +'-');
+				foldProc(pathUpd, (url, nm)=> {
+					if (regOldSameKey.test(nm)) removeSync(url);
+				}, ()=> {});
+
+				// （暗号化ファイル名）更新ファイルをコピー
+				ensureLink(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
+					// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
+					// という相反する要望を充たすような
+					// 既存ファイル削除にも便利
+
 				done();
 				window.showInformationMessage(
 					`${cfg.label} パッケージを生成しました`,
 					'出力フォルダを開く',
-				).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))});
-			};
+				).then(a=> {if (a) env.openExternal(Uri.file(pathPkg))});
+			});
 				break;
 
-			case 'PackFreem':	this.hOnEndTask[btn_nm] = ()=> {
+			case 'PackFreem':	this.hOnEndTask.set(btn_nm, ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
 				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
 				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
@@ -457,16 +526,16 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				});
 				arc.pipe(ws);
 				arc.finalize();	// zip圧縮実行
-			};
+			});
 				break;
 		}
 		tasks.executeTask(t)
 		.then(
-			re=> this.#hTaskExe[btn_nm] = re,
+			re=> this.#hTaskExe.set(btn_nm, re),
 			rj=> console.error(`fn:Project onBtn_sub() rj:${rj.message}`)
 		);
 	}
-	#hTaskExe: {[btn_nm: string]: TaskExecution}	= {};
+	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
 
 
 	readonly	#ps: PrjSetting;

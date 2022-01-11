@@ -321,13 +321,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 10, message: 'ファイル調整',});
+
 				// prj.json の置換
 				const pathWs = fnFrom;
 				const fnPrj = pathWs +'/doc/prj/';
 				const fnPrjJs = fnPrj +'/prj.json';
 				const oPrj = readJsonSync(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
+				oPrj.debuger_token = '';
 				outputJsonSync(fnPrjJs, oPrj, {spaces: '\t'});
+
 				// package.json の置換
 				const fnPkgJs = pathWs +'/package.json';
 				replaceFile(fnPkgJs, /("name"\s*:\s*").*(")/, `$1${this.#save_ns}$2`);

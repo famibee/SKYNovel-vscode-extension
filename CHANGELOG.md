@@ -1,7 +1,15 @@
+## v3.17.0
+- feat: パッケージ生成時に、新[update_check]用 _index.json などを生成するように
+	- すべて build/package/update フォルダに生成する
+		- version・App ID変更時はフォルダごと削除し再作成する
+	- _index.json は OS 違いや CPU アーキテクチャ違いでも一つのファイルに追記し、集約する
+	- ファイル名を暗号化したアプリファイル（OS + Arch + 乱数名）を生成する
+	- 一通り生成したら、update フォルダごとWebサーバーにアップすれば[update_check]が使えるようになる
+- fix: テンプレートから始める：doc/prj/prj.json の debuger_token をクリア
 ## v3.16.13
 - fix: package.json：アプリ生成物のファイル名（build.artifactName）を「プロジェクト名-${version}-${arch}.${ext}」に変更
 	- [update_check]の扱いやすさの観点から ymlに合わせる
-- fix: package.json：テンプレからの流れで name, appBundleId, build.appId を更新していなかった件
+- fix: テンプレートから始める：package.json の name, appBundleId, build.appId を更新していなかった件
 - docs: [event]にcall属性記述が抜けていたのを修正
 - docs: [tsy]にrender属性記述を追加
 ## v3.16.12
