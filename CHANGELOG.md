@@ -1,3 +1,5 @@
+## v3.17.1
+- fix: ライブラリ更新
 ## v3.17.0
 - feat: パッケージ生成時に、新[update_check]用 _index.json などを生成するように
 	- すべて build/package/update フォルダに生成する
