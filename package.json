@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.17.1",
+	"version": "3.17.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -108,25 +108,9 @@
 				}
 			},
 			{
-				"command": "skynovel.dlNode",
-				"title": "Preferences guide",
-				"icon": {
-					"light": "res/light/openpage.svg",
-					"dark": "res/dark/openpage.svg"
-				}
-			},
-			{
 				"command": "skynovel.openReferencePallet",
 				"title": "%skynovel.openReferencePallet.title%",
 				"category": "SKYNovel"
-			},
-			{
-				"command": "skynovel.devPrjSet",
-				"title": "Project Setting",
-				"icon": {
-					"light": "res/light/gear.svg",
-					"dark": "res/dark/gear.svg"
-				}
 			},
 			{
 				"command": "skynovel.devSnUpd",
@@ -137,16 +121,24 @@
 				}
 			},
 			{
-				"command": "skynovel.devCrypto",
-				"title": "Encryption switching",
+				"command": "skynovel.devReBuild",
+				"title": "ReBuild",
 				"icon": {
 					"light": "res/light/gear.svg",
 					"dark": "res/dark/gear.svg"
 				}
 			},
 			{
-				"command": "skynovel.devReBuild",
-				"title": "ReBuild",
+				"command": "skynovel.devPrjSet",
+				"title": "Project Setting",
+				"icon": {
+					"light": "res/light/gear.svg",
+					"dark": "res/dark/gear.svg"
+				}
+			},
+			{
+				"command": "skynovel.devCrypto",
+				"title": "Encryption switching",
 				"icon": {
 					"light": "res/light/gear.svg",
 					"dark": "res/dark/gear.svg"
@@ -422,8 +414,13 @@
 			"view/item/context": [
 				{
 					"group": "inline",
-					"command": "skynovel.dlNode",
-					"when": "view == skynovel-dev && viewItem == 'Node.js'"
+					"command": "skynovel.devSnUpd",
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devSnUpd'"
+				},
+				{
+					"group": "inline",
+					"command": "skynovel.devReBuild",
+					"when": "view == skynovel-ws && viewItem == 'skynovel.devReBuild'"
 				},
 				{
 					"group": "inline",
@@ -432,18 +429,8 @@
 				},
 				{
 					"group": "inline",
-					"command": "skynovel.devSnUpd",
-					"when": "view == skynovel-ws && viewItem == 'skynovel.devSnUpd'"
-				},
-				{
-					"group": "inline",
 					"command": "skynovel.devCrypto",
 					"when": "view == skynovel-ws && viewItem == 'skynovel.devCrypto'"
-				},
-				{
-					"group": "inline",
-					"command": "skynovel.devReBuild",
-					"when": "view == skynovel-ws && viewItem == 'skynovel.devReBuild'"
 				},
 				{
 					"group": "inline",
@@ -668,6 +655,9 @@
 		"onView:skynovel-dev"
 	],
 	"dependencies": {
+		"@vscode/debugadapter": "^1.51.1",
+		"@vscode/debugadapter-testsupport": "^1.51.0",
+		"@vscode/debugprotocol": "^1.51.0",
 		"adm-zip": "^0.5.9",
 		"archiver": "^5.3.0",
 		"await-notify": "^1.0.1",
@@ -680,9 +670,7 @@
 		"original-fs": "^1.1.0",
 		"png2icons": "^2.0.1",
 		"socket.io": "^4.4.1",
-		"uuid": "^8.3.2",
-		"vscode-debugadapter": "^1.51.0",
-		"vscode-debugprotocol": "^1.51.0"
+		"uuid": "^8.3.2"
 	},
 	"devDependencies": {
 		"@types/adm-zip": "^0.4.34",
@@ -696,22 +684,21 @@
 		"@types/power-assert": "^1.5.8",
 		"@types/uuid": "^8.3.4",
 		"@types/vscode": "^1.63.1",
-		"@typescript-eslint/eslint-plugin": "^5.10.0",
-		"@typescript-eslint/parser": "^5.10.0",
+		"@typescript-eslint/eslint-plugin": "^5.10.1",
+		"@typescript-eslint/parser": "^5.10.1",
 		"electron": "^16.0.7",
 		"eslint": "^8.7.0",
 		"file-loader": "^6.2.0",
 		"glob": "^7.2.0",
-		"mocha": "^9.1.4",
+		"mocha": "^9.2.0",
 		"power-assert": "^1.6.1",
 		"rimraf": "^3.0.2",
 		"ts-loader": "^9.2.6",
 		"ts-node": "^10.4.0",
 		"typescript": "^4.5.5",
-		"vscode-debugadapter-testsupport": "^1.51.0",
 		"vscode-test": "^1.6.1",
 		"webpack": "^5.67.0",
-		"webpack-cli": "^4.9.1"
+		"webpack-cli": "^4.9.2"
 	},
 	"optionalDependencies": {
 		"bufferutil": "^4.0.6",

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { DebugConfiguration, WorkspaceFolder, TextDocumentChangeEvent } from 'vscode';
-import { DebugProtocol } from 'vscode-debugprotocol';
+import { DebugProtocol } from '@vscode/debugprotocol';
 import { EventEmitter } from 'events';
 export interface InfoBreakpoint {
     id: number;

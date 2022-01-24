@@ -43,7 +43,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	readonly #aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false];
 
-	#workSps	: WorkSpaces;
+	#workSps: WorkSpaces;
 	#tlBox	: ToolBox;
 
 
@@ -78,15 +78,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 	// refreshボタン
-	#refresh(): void {
+	#refresh() {
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
 		this.#workSps.enableBtn(false);
 		this.#chkEnv(ok=> {
 			this.#workSps.enableBtn(ok);
-			if (ok) {
-				(workspace.workspaceFolders ?? []).forEach(wsFld=> this.chkLastSNVer(wsFld.uri.fsPath));
-			}
+			if (ok) (workspace.workspaceFolders ?? []).forEach(wsFld=> this.chkLastSNVer(wsFld.uri.fsPath));
 			else this.#openEnvInfo();
 		});
 	}
@@ -105,7 +103,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 	// 環境チェック
-	#chkEnv(finish: (ok: boolean)=> void): void {
+	#chkEnv(finish: (ok: boolean)=> void) {
 		exec('node -v', (err: Error, stdout: string|Buffer)=> {
 			const tiNode = this.#aTiEnv[eTreeEnv.NODE];
 			const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
@@ -165,7 +163,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		Promise.all([
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
 			.then(res=> res.json())
-			.then((json: any)=> {
+			.then(json=> {
 				newVerSN = json.version;
 				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER];
 				tiSV.description = '-- ' + newVerSN;
@@ -173,7 +171,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}),
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel_uc/master/CHANGELOG.md')
 			.then(res=> res.text())
-			.then((txt: string)=> {
+			.then(txt=> {
 				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
 				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER];
 				tiSV.description = '-- ' + newVerTemp;
@@ -192,10 +190,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 	}
 	getLocalSNVer(pathWs: string): {verSN: string, verTemp: string} {
-		const fnPkgJSON = pathWs + '/package.json';
+		const fnPkgJSON = pathWs +'/package.json';
 		if (! existsSync(fnPkgJSON)) return {verSN: '' ,verTemp: '',};
 
-		const fnCngLog = pathWs + '/CHANGELOG.md';
+		const fnCngLog = pathWs +'/CHANGELOG.md';
 		return {
 			verSN	: readJsonSync(fnPkgJSON, {encoding: 'utf8'})?.dependencies['@famibee/skynovel']?.slice(1) ?? '',
 			verTemp	: existsSync(fnCngLog)

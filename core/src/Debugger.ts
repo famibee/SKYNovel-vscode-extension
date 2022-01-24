@@ -9,7 +9,7 @@ import {uint} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
 import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, debug} from 'vscode';
-import {DebugProtocol} from 'vscode-debugprotocol';
+import {DebugProtocol} from '@vscode/debugprotocol';
 import {readFileSync, writeFileSync} from 'fs-extra';
 import {EventEmitter} from 'events';
 import {Server, Socket} from 'socket.io';

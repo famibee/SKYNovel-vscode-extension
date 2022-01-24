@@ -20,5 +20,4 @@ export declare class Project {
     dispose(): void;
     private build;
     finBuild(): void;
-    readonly REGPATH: RegExp;
 }
