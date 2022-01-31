@@ -14,7 +14,7 @@ import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync, outputJsonSync} from 'fs-extra';
+import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync, outputJsonSync, copy} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -91,7 +91,7 @@ export class Project {
 
 
 	readonly	#pathWs;
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName|'テンプレ初期化', (e: TaskProcessEndEvent)=> void>) {
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
@@ -361,7 +361,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		// アイコン生成
 		switch (btn_nm) {
-			case 'TaskWeb':
 			case 'TaskApp':
 			case 'PackWin':
 			case 'PackWin32':
@@ -391,6 +390,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					if (b) writeFileSync(fn, b);
 				}
 			}
+				// 「このアプリについて」用
+				copy(fnIcon, pathWs +'/doc/app/icon.png');
 				break;
 		}
 
@@ -802,6 +803,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
 				this.enableBtn(true);
+				this.#updPlugin();
 				done();
 			};
 			tasks.onDidEndTaskProcess(fnc);
@@ -811,10 +813,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				// この resolve は「executeTask()できたかどうか」だけで、
 				// Task終了を待って呼んでくれるわけではない
 		}));
-	}
-	finBuild() {
-		this.#updPlugin();
-		this.#codSpt.goAll();
 	}
 
 

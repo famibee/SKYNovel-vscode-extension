@@ -889,7 +889,5 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	//	RubySpliter.setEscape(ce);
 	//	this.REG_CANTC2M = new RegExp(`[\w\s;[\]*=&｜《》${ce}]`);
 	//	this.REG_TOKEN_NOTXT = new RegExp(`[\n\t;\[*&${ce ?`\\${ce}` :''}]`);
-
-		this.goAll();
 	}
 }

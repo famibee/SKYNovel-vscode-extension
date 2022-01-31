@@ -13,11 +13,10 @@ export declare class Project {
     private updLocalSNVer;
     private dspCryptoMode;
     enableBtn(enabled: boolean): void;
-    constructor(ctx: ExtensionContext, actBar: ActivityBar, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: Map<PrjBtnName | 'テンプレ初期化', (e: TaskProcessEndEvent) => void>);
+    constructor(ctx: ExtensionContext, actBar: ActivityBar, wsFld: WorkspaceFolder, aTiRoot: TreeItem[], emPrjTD: EventEmitter<TreeItem | undefined>, hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent) => void>);
     private onDidTermDbgSS;
     get title(): any;
     get version(): any;
     dispose(): void;
     private build;
-    finBuild(): void;
 }

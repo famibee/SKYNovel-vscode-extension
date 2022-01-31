@@ -275,7 +275,10 @@ export class PrjSetting {
 			const nm = id.slice(iP +1);
 			const id2 = id.slice(0, iP);
 			this.#oCfg[id2][nm] = v;
-			if (id2 === 'init' && nm === 'escape') this.codSpt.setEscape(v);
+			if (id2 === 'init' && nm === 'escape') {
+				this.codSpt.setEscape(v);
+				this.codSpt.goAll();
+			}
 		}
 		else this.#oCfg[id] = v;
 		outputJson(this.#fnPrjJs, this.#oCfg);

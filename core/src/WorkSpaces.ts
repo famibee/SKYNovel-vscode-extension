@@ -239,13 +239,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask);
 	}
 
-	#hOnEndTask = new Map<PrjBtnName|'テンプレ初期化', (e: TaskProcessEndEvent)=> void>([
-		['テンプレ初期化', (e: TaskProcessEndEvent)=> {
-			const wsFld = <WorkspaceFolder>e.execution.task.scope;
-			const pathWs = wsFld.uri.fsPath;
-			this.#hPrj[pathWs].finBuild();
-		}],
-	]);
+	#hOnEndTask = new Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>([]);
 
 	getTreeItem = (t: TreeItem)=> t;
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;

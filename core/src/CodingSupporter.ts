@@ -323,6 +323,7 @@ ${md.detail}`
 			if (mp) {
 				this.#scrScn.hPlugin[newName] = mp;
 				delete this.#scrScn.hPlugin[this.#nm4rename];
+				this.#scrScn.goAll();
 
 				we.replace(mp.uri, mp.range, newName);
 				return re(we);
@@ -511,7 +512,10 @@ ${md.detail}`
 	}
 
 
-	setHDefPlg(hDefPlg: {[def_nm: string]: Location}) {this.#scrScn.hPlugin = hDefPlg}
+	setHDefPlg(hDefPlg: {[def_nm: string]: Location}) {
+		this.#scrScn.hPlugin = hDefPlg;
+		this.#scrScn.goAll();
+	}
 
 	setEscape(ce: string) {this.#scrScn.setEscape(ce);}
 
