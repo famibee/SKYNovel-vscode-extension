@@ -13,6 +13,7 @@ import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri
 import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync} from 'fs-extra';
 import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
+import os = require('os');
 
 export class PrjSetting {
 	readonly	#fnPrj		: string;
@@ -27,14 +28,15 @@ export class PrjSetting {
 
 				#htmSrc	= '';
 
+	readonly	#pathWs: string;
 	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string) {
-		const pathWs = wsFld.uri.fsPath;
-		this.#fnPrj = pathWs +'/doc/prj/';
+		this.#pathWs = wsFld.uri.fsPath;
+		this.#fnPrj = this.#pathWs +'/doc/prj/';
 		this.#fnPrjJs = this.#fnPrj +'prj.json';
-		this.#fnAppJs = pathWs +'/doc/app.js';
-		this.#fnPkgJs = pathWs +'/package.json';
+		this.#fnAppJs = this.#pathWs +'/doc/app.js';
+		this.#fnPkgJs = this.#pathWs +'/package.json';
 
-		this.#fnReadme4Freem = pathWs +'/build/include/readme.txt';
+		this.#fnReadme4Freem = this.#pathWs +'/build/include/readme.txt';
 		let init_freem = false;
 		const path_ext = ctx.extensionPath;
 
@@ -47,17 +49,17 @@ export class PrjSetting {
 			.then(doc=> window.showTextDocument(doc));
 		}
 
-		this.#fnInsNsh = pathWs +'/build/installer.nsh';
+		this.#fnInsNsh = this.#pathWs +'/build/installer.nsh';
 		if (! existsSync(this.#fnInsNsh)) copyFile(
 			path_ext +'/res/installer.nsh', this.#fnInsNsh
 		);
 
-		this.#fnIcon = pathWs +'/build/icon.png';
+		this.#fnIcon = this.#pathWs +'/build/icon.png';
 		if (! existsSync(this.#fnIcon)) copyFile(
 			path_ext +'/res/icon.png', this.#fnIcon
 		);
 
-		const fnLaunchJs = pathWs +'/.vscode/launch.json';
+		const fnLaunchJs = this.#pathWs +'/.vscode/launch.json';
 		if (! existsSync(fnLaunchJs)) copyFile(
 			path_ext +'/res/launch.json', fnLaunchJs
 		);
@@ -162,12 +164,13 @@ export class PrjSetting {
 		}
 
 		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
-			enableScripts: true,
-			localResourceRoots: [this.#localExtensionResRoots],
+			enableScripts		: true,
+			localResourceRoots	: [this.#localExtensionResRoots],
 		});
 
 		wv.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
+		const {username} = os.userInfo();
 		wv.webview.onDidReceiveMessage(m=> {
 			switch (m.cmd) {
 			case 'get':		wv.webview.postMessage({cmd: 'res', o: this.#oCfg});	break;
@@ -175,6 +178,25 @@ export class PrjSetting {
 			case 'warn':	window.showWarningMessage(m.text); break;
 			case 'openURL':	env.openExternal(Uri.parse(m.url)); break;
 			case 'input':	this.#inputProc(m.id, m.val);	break;
+			case 'copyText':
+				if (m.id !== 'folder_save_app') break;
+
+				switch (process.platform) {
+				case 'win32':
+					env.clipboard.writeText(`C:\\Users\\${username}\\AppData\\Roaming\\${this.#oCfg.save_ns}\\storage\\`);
+					break;
+				case 'darwin':
+					env.clipboard.writeText(`/Users/${username}/Library/Application Support/${this.#oCfg.save_ns}/storage/`);
+					break;
+				case 'linux':
+					env.clipboard.writeText(`~/.config/${this.#oCfg.save_ns}/storage/`);
+					break;
+				}
+				window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
+				break;
+			case 'openFolder':
+				if (m.id == 'save_dbg') env.openExternal(Uri.parse(`${this.#pathWs}/.vscode/storage/`));
+				break;
 			}
 		}, false);
 		this.#openSub();

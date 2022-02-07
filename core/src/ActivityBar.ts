@@ -240,7 +240,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		wv.webview.onDidReceiveMessage(m=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
 			switch (m.cmd) {
-			case 'get':	wv.webview.postMessage({cmd: 'res', o: {}});	break;
+			case 'get':		wv.webview.postMessage({cmd: 'res', o: {}});	break;
 			case 'info':	window.showInformationMessage(m.text); break;
 
 			case 'input':

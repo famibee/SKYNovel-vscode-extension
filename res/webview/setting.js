@@ -69,17 +69,32 @@ window.addEventListener('message', e=> {
 	['cre_url', 'pub_url'].forEach(id=> {
 		document.getElementById(`open.${id}`).addEventListener('click', ()=> {
 			vscode.postMessage({
-				cmd: 'openURL',
-				url: document.getElementById(`book.${id}`).value,
+				cmd	: 'openURL',
+				url	: document.getElementById(`book.${id}`).value,
 			});
 		}, {passive: true});
+	});
+
+	['save_path'].forEach(id=> {
+		document.getElementById(`open.dev.${id}`).addEventListener('click', ()=> {
+			vscode.postMessage({
+				cmd	: 'openURL',
+				url	: `https://famibee.github.io/SKYNovel/dev.htm#${id}`,
+			});
+		}, {passive: true});
+	});
+	['folder_save_app'].forEach(id=> {
+		document.getElementById(`copy.${id}`).addEventListener('click', ()=> vscode.postMessage({cmd: 'copyText', id: id,}), {passive: true});
+	});
+	['save_dbg'].forEach(id=> {
+		document.getElementById(`open.folder_${id}`).addEventListener('click', ()=> vscode.postMessage({cmd: 'openFolder', id: id,}), {passive: true});
 	});
 
 	document.querySelectorAll('.form-range').forEach(c=> {
 		const rngV = c.closest('.range-wrap').querySelector('.range-badge');
 		const setValue = ()=> {
-			const	val = Number( (c.value - c.min) * 100 / (c.max - c.min) ),
-					pos = 10 - (val * 0.2);
+			const	val = Number( (c.value - c.min) *100 /(c.max - c.min) ),
+					pos = 10 -(val *0.2);
 			rngV.innerHTML = `<span>${c.value}</span>`;
 			rngV.style.left = `calc(${val}% + (${pos}px))`;
 		};

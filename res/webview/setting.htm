@@ -22,7 +22,7 @@
 		アプリ
 	</a>
 
-	<a class="nav-link" id="nav-setting_sn-tab" data-bs-toggle="tab" href="#nav-setting_sn" role="tab" aria-controls="nav-setting_sn" aria-selected="true">
+	<a class="nav-link" id="nav-setting_sn-tab" data-bs-toggle="tab" href="#nav-setting_sn" role="tab" aria-controls="nav-setting_sn" aria-selected="false">
 		テンプレ
 	</a>
 
@@ -176,6 +176,39 @@
 	<input id="debug.variable" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
 	<label class="form-check-label" for="debug.variable">variable</label>
 </div></div>
+
+<div class="col-12 px-1 pt-3"><h5>セーブデータ保存先を開く</h5></div>
+
+<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check">
+	<label class="form-label" for="book.pub_url">参考資料：開発者向け情報</label>
+	<div class="input-group input-group-sm">
+		<span class="input-group-text">【セーブデータの保存場所】</span>
+		<button class="btn btn-info btn-lg" type="button" id="open.dev.save_path" data-url="https://famibee.github.io/SKYNovel/dev.htm#save_path">Open</button>
+	</div>
+</form></div>
+
+<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check">
+	<label class="form-label" for="book.pub_url">ブラウザ版（通常実行）</label>
+	<div class="input-group input-group-sm">
+		<span class="input-group-text">ブラウザのローカルストレージに保存されます</span>
+	</div>
+</form></div>
+
+<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check">
+	<label class="form-label" for="book.pub_url">アプリ版（通常実行）</label>
+	<div class="input-group input-group-sm">
+		<span class="input-group-text">手動で開いて下さい</span>
+		<button class="btn btn-info" type="button" id="copy.folder_save_app">Copy Path</button>
+	</div>
+</form></div>
+
+<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check">
+	<label class="form-label" for="book.pub_url">ブラウザ版・アプリ版（デバッグ実行）</label>
+	<div class="input-group input-group-sm">
+		<span class="input-group-text">【プロジェクト】/.vscode/storage/</span>
+		<button class="btn btn-info" type="button" id="open.folder_save_dbg">Open</button>
+	</div>
+</form></div>
 
 		</div></div>
 	</div>
