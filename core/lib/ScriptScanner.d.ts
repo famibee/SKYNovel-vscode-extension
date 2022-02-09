@@ -37,13 +37,11 @@ export declare class ScriptScanner {
     hSn2aDsOutline: {
         [sn: string]: DocumentSymbol[];
     };
-    aDsOutline: DocumentSymbol[];
     goAll(): void;
     goFile(uri: Uri): void;
-    goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void;
+    chgTxtDoc(aChgTxt: TextDocumentChangeEvent[]): void;
     isSkipUpd(path: string): boolean;
     updPath(hPath: IFn2Path): void;
-    private procToken;
     static readonly REG_TAG: RegExp;
     static analyzTagArg: (token: string) => RegExpExecArray | null;
     analyzToken(token: string): RegExpExecArray | null;

@@ -154,8 +154,10 @@ ${md.comment}`, true)
 			if (this.#scrScn.isSkipUpd(doc.fileName)) return;
 
 			this.#aChgTxt.push(e);
-			if (this.#tidDelay) clearTimeout(this.#tidDelay);
-			this.#tidDelay = setTimeout(()=> this.#delayedUpdate(), 500);
+			if (this.#tid) return;
+			this.#tid = setTimeout(()=> {
+				this.#tid = undefined; this.#delayedUpdate();
+			}, 1000 /60 *10);
 		}, null, ctx.subscriptions);
 
 		this.#scrScn = new ScriptScanner(curPrj, this.#clDiag, CodingSupporter.#hTag);
@@ -166,13 +168,13 @@ ${md.comment}`, true)
 	goAll() {this.#scrScn.goAll();}
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
-	#tidDelay	:  NodeJS.Timer | null	= null;
+	#tid	:  NodeJS.Timer | undefined	= undefined;
 	#aChgTxt		: TextDocumentChangeEvent[]		= [];
 	#hRsvNm2Then	: {[rsv_nm: string]: ()=> void}	= {};
 	#delayedUpdate() {
 		const a = this.#aChgTxt;	// Atomicにするため
 		this.#aChgTxt = [];
-		this.#scrScn.goScriptSrc(a);
+		this.#scrScn.chgTxtDoc(a);
 
 		// アウトライン
 		for (const rsv_nm in this.#hRsvNm2Then) this.#hRsvNm2Then[rsv_nm]();

@@ -49,6 +49,9 @@ export class ScriptScanner {
 		this.#hTagProc['return'] = this.#hTagProc['s'];
 		this.#hTagProc['else'] = this.#hTagProc['elsif'];
 
+		this.#procToken = this.#procTokenBase;
+		this.setEscape('');
+
 		this.#cteScore = new CteScore(curPrj);
 	}
 
@@ -78,7 +81,7 @@ export class ScriptScanner {
 
 	cnvSnippet	= (s: string, _cur_fn: string)=>s;
 	// 変化が無い固定選択値はこちらに
-	readonly	hPreWords		: {[key: string]: string}	= {
+	readonly	hPreWords	: {[key: string]: string}	= {
 		'イベント名': `|Click,RightClick,MiddleClick,UpWheel,DownWheel,Control,Alt,Meta,Backspace,Enter,=,A,alt+A,ctrl+A,shift+A,alt+ctrl+A,ctrl+shift+A,alt+shift+A,alt+ctrl+shift+A,' ',ArrowLeft,ArrowRight,ArrowUp,ArrowDown,Tab,Delete,Home,End,PageUp,PageDown|`,
 		'animation-timing-function': '|ease,ease-in,ease-out,ease-in-out,linear,step-start,step-end,cubic-bezier(...)|',
 		'イージング名': '|Back.In,Back.InOut,Back.Out,Bounce.In,Bounce.InOut,Bounce.Out,Circular.In,Circular.InOut,Circular.Out,Cubic.In,Cubic.InOut,Cubic.Out,Elastic.In,Elastic.InOut,Elastic.Out,Exponential.In,Exponential.InOut,Exponential.Out,Linear.None,Quadratic.In,Quadratic.InOut,Quadratic.Out,Quartic.In,Quartic.InOut,Quartic.Out,Quintic.In,Quintic.InOut,Quintic.Out,Sinusoidal.In,Sinusoidal.InOut,Sinusoidal.Out|',
@@ -213,11 +216,11 @@ sys:sn.tagCh.msecWait_Kidoku
 sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 
-	#nm2Diag	: {[url: string]: Diagnostic[]}= {};
-	#isDuplicateMacroDef		= false;
+	#nm2Diag	: {[url: string]: Diagnostic[]}	= {};
+	#isDuplicateMacroDef	= false;
 	#wasDuplicateMacroDef	= false;
 	hSn2aDsOutline	: {[sn: string]: DocumentSymbol[]}	= {};
-	aDsOutline		: DocumentSymbol[];
+	#aDsOutline		: DocumentSymbol[];
 	goAll() {
 		this.#isDuplicateMacroDef = false;
 		this.hMacro = {};
@@ -266,13 +269,13 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#bldCnvSnippet();
 	}
 
-	goFile(uri: Uri): void {
+	goFile(uri: Uri) {
 		this.#goInitFile(uri);
 		this.#scanFile(uri);
 		this.#goFinishFile(uri);
 	}
 	#hScr2KeyWord	: {[path: string]: Set<string>}	= {};
-	goScriptSrc(aChgTxt: TextDocumentChangeEvent[]): void {
+	chgTxtDoc(aChgTxt: TextDocumentChangeEvent[]) {
 		const hDoc: {[path: string]: TextDocument} = {};
 		const hUpdScore: {[path: string]: boolean} = {};
 		aChgTxt.forEach(e=> {
@@ -388,9 +391,9 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				if (loc.uri.path !== path) return;	// 更新分のみ
 				this.#nm2Diag[path].push(new Diagnostic(
 					loc.range,
-					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
-					DiagnosticSeverity.Warning
-				))
+					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです.`,
+					DiagnosticSeverity.Warning	// 「.」はわざと。同じ警告と区別用
+				));
 			});
 		}
 
@@ -445,7 +448,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		// https://regex101.com/r/DPaLv3/2
 //	static	readonly	#REG_FONT	= /\.(woff2|otf|ttf)$/;
 	static	readonly	#REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
-	static	readonly	#REG_HTML	= /\.(htm|html)$/;
+	static	readonly	#REG_HTML	= /\.html?$/;
 	#scanFile(uri: Uri) {
 		const path = uri.path;
 		const fn = getFn(path);
@@ -470,7 +473,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.hTagMacroUse[path] ??= [];
 		this.#hScr2KeyWord[path] ??= new Set();
 
-		const td = workspace.textDocuments.find(td=> td.fileName ===uri.fsPath);
+		const td = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
 		this.#scanScriptSrc(
 			uri,
 			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'}),
@@ -488,19 +491,20 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const path = uri.path;
 		const diags = this.#nm2Diag[path];
 
-		const hLabel: {[label_nm: string]: Range | null} = {};
+		const hLabel: {[label_nm: string]: Range | undefined} = {};
 			// ラベル重複チェック用
 		const setKw = this.#hScr2KeyWord[path];
 			// キーワード削除チェック用
-		this.aDsOutline = this.hSn2aDsOutline[path] = [];
-		this.#fncToken = this.procToken = (p: Pos, token: string)=> {
+		this.#aDsOutline = this.hSn2aDsOutline[path] = [];
+		// procTokenBase を定義、procToken も同値で始める
+		this.#procToken = this.#procTokenBase = (p: Pos, token: string)=> {
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
 			const len = token.length;
 			if (uc === 9) {p.col += len; return;}	// \t タブ
 			if (uc === 10) {p.line += len; p.col = 0; return;}	// \n 改行
 			if (uc === 38) {	// & 変数操作・変数表示
 				p.col += len;
-				if (token.substr(-1) === '&') return;
+				if (token.slice(-1) === '&') return;
 				//変数操作
 				try {
 					const o = ScriptScanner.#splitAmpersand(token.slice(1));
@@ -512,7 +516,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				} catch {}
 				return;
 			}
-			if (uc === 59) {p.col += len;	return;}	// ; コメント
+			if (uc === 59) {p.col += len; return;}	// ; コメント
 			const rng = new Range(
 				p.line, p.col,
 				p.line, p.col +len
@@ -523,14 +527,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				const kw = `fn=${getFn(path)} label=${token}`;
 				this.#hSetWords['ジャンプ先'].add(kw);
 				setKw.add(`ジャンプ先\t${kw}`);
-				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
+				this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
 				if (token.charAt(1) === '*') return;	// 無名ラベルは除外
 
 				if (token in hLabel) {
 					const rng0 = hLabel[token];
 					if (rng0) {
 						diags.push(new Diagnostic(rng0, `同一スクリプトにラベル【${token}】が重複しています`, DiagnosticSeverity.Error));
-						hLabel[token] = null;
+						hLabel[token] = undefined;
 					}
 					diags.push(new Diagnostic(rng, `同一スクリプトにラベル【${token}】が重複しています`, DiagnosticSeverity.Error));
 				}
@@ -540,7 +544,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (uc !== 91) {	// 文字表示
 				p.col += len;
 
-				this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.String, rng, rng));
+				this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.String, rng, rng));
 				return;
 			}
 
@@ -596,14 +600,16 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 		const p = {line: 0, col: 0};
 		const a = this.#resolveScript(src.trim()).aToken;
-		a.forEach(token=> {if (token) this.#fncToken(p, token)});
+		a.forEach(token=> {if (token) this.#procToken(p, token)});
 		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);
 	}
-	#fncToken = this.procToken;
-	private	procToken(_p: Pos, _token: string) {}
+	#procToken:  (p: Pos, token: string)=> void;
+		// トークン解析実行するのはこのメソッド
+		// [let_ml]処理中は一時差し替え → procToken に復帰
+	#procTokenBase = (_p: Pos, _token: string)=> {}
 	readonly	#hTagProc: {[nm: string]: FncTagProc}	= {
 		'let_ml': (setKw: Set<string>)=> {
-			this.#fncToken = (p, token)=> {
+			this.#procToken = (p, token)=> {
 				const len2 = token.length;
 				let lineTkn = 0;
 				let j = -1;
@@ -612,7 +618,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 					p.line += lineTkn;
 					p.col = len2 -token.lastIndexOf('\n') -1;
 				}
-				this.#fncToken = this.procToken;
+				this.#procToken = this.#procTokenBase;
 			};
 
 			const v = this.#alzTagArg.hPrm.name?.val;
@@ -659,15 +665,15 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 					line2, col2 +def_nm.length,
 				);
 				this.hMacro[def_nm] = {
-					loc: new Location(uri, rng2),
+					loc	: new Location(uri, rng2),
 					hPrm: hPrm,
 				};
 				this.#aMacroAdd.push(def_nm);
 
 				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
-				this.aDsOutline.push(ds);
-				this.#aDsOutlineStack.push(this.aDsOutline);
-				this.aDsOutline = ds.children;
+				this.#aDsOutline.push(ds);
+				this.#aDsOutlineStack.push(this.#aDsOutline);
+				this.#aDsOutline = ds.children;
 
 				if ('nowarn_unused' in hPrm) {
 					if (chkBoolean(hPrm.nowarn_unused.val)) this.hMacroUse4NoWarm[def_nm] = [new Location(uri, rng2)];
@@ -696,24 +702,38 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				DiagnosticSeverity.Error
 			));
 		},
-		'endmacro': ()=> this.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		'endmacro': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+
+		'char2macro': (_setKw: Set<string>, uri: Uri, _token: string, rngp1: Range, diags: Diagnostic[])=> {
+			const hPrm = this.#alzTagArg.hPrm;
+			const char = hPrm.char?.val ?? '';
+			const use_nm = hPrm.name?.val ?? '';
+			if (! char || ! use_nm) {	// [macro name=]など
+				diags.push(new Diagnostic(rngp1, `一文字マクロ定義[${use_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+				return;
+			}
+
+			const mu = this.hMacroUse4NoWarm[use_nm] ?? [];	// 使用箇所更新
+			mu.push(new Location(uri, rngp1));
+			this.hMacroUse4NoWarm[use_nm] = mu;
+		},
 
 		'if': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
 			const ds = new DocumentSymbol(token, '', SymbolKind.Function, rng, rng);
-			this.aDsOutline.push(ds);
-			this.#aDsOutlineStack.push(this.aDsOutline);
-			this.aDsOutline = ds.children;
+			this.#aDsOutline.push(ds);
+			this.#aDsOutlineStack.push(this.#aDsOutline);
+			this.#aDsOutline = ds.children;
 		},
 		'elsif': (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
 			this.#hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
 
-			this.aDsOutline = this.#aDsOutlineStack.pop() ?? [];
+			this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [];
 		},
 		//'else':  === elsif
-		'endif': ()=> this.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		'endif': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
 		's': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
-			this.aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Function, rng, rng));
+			this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Function, rng, rng));
 		},
 
 		'let': (setKw: Set<string>)=> {
@@ -801,7 +821,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			}
 		},
 	};
-	readonly	#aDsOutlineStack		: DocumentSymbol[][]	= [];
+	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];
 
 
 	static	#splitAmpersand(token: string): {

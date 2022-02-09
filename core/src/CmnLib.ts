@@ -14,7 +14,7 @@ export function uint(o: any): number {
 	return v < 0 ? -v : v;
 }
 
-export	const	REG_SCRIPT	= /\.(sn|ssn)$/;
+export	const	REG_SCRIPT	= /\.ss?n$/;
 
 export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
