@@ -96,14 +96,6 @@ export class Project {
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
 
-		this.#curPlg = this.#pathWs +'/core/plugin/';
-		ensureDirSync(this.#curPlg);	// 無ければ作る
-		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
-		else {
-			this.build();
-			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
-		}
-
 		const pathWs = wsFld.uri.fsPath;
 		this.actBar.chkLastSNVer(pathWs);
 
@@ -172,6 +164,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			this.emPrjTD.fire(pti);
 		}, this.#codSpt, (path: string, extptn = '')=> this.#searchPath(path, extptn));
 		this.#initCrypto();
+
+		this.#curPlg = this.#pathWs +'/core/plugin/';
+		ensureDirSync(this.#curPlg);	// 無ければ作る
+		// updPlugin で goAll() が走る
+		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
+		else {
+			this.build();
+			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+		}
 
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;

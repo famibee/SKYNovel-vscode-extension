@@ -50,7 +50,6 @@ export class ScriptScanner {
 		this.#hTagProc['else'] = this.#hTagProc['elsif'];
 
 		this.#procToken = this.#procTokenBase;
-		this.setEscape('');
 
 		this.#cteScore = new CteScore(curPrj);
 	}
