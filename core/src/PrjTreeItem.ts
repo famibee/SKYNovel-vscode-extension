@@ -10,7 +10,7 @@ import {oIcon, is_win, statBreak} from './CmnLib';
 import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIcon, WorkspaceFolder} from 'vscode';
 import {existsSync} from 'fs-extra';
 
-const PrjBtnName_s = [
+const aPrjBtnName = [
 	'SnUpd',
 	'SnUpd_waited',
 	'ReBuild',
@@ -31,7 +31,7 @@ const PrjBtnName_s = [
 	'PackLinux',
 	'PackFreem',
 ] as const;
-export type PrjBtnName = typeof PrjBtnName_s[keyof typeof PrjBtnName_s];
+export type PrjBtnName = typeof aPrjBtnName[keyof typeof aPrjBtnName];
 
 export interface TREEITEM_CFG {
 	cmd		: PrjBtnName|'',

@@ -48,6 +48,14 @@ export class CteScore {
 					break;
 				}
 			}
+/*
+		},{	// TODO: 要検討
+			webviewOptions: {
+				enableFindWidget: false,
+				retainContextWhenHidden: false,
+			},
+			supportsMultipleEditorsPerDocument: true,
+*/
 		});
 
 		const path_ext_htm = ctx.extensionPath +`/res/webview/`;

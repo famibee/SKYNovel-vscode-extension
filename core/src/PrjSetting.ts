@@ -10,12 +10,18 @@ import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync} from 'fs-extra';
+import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync, ensureDirSync, writeFileSync, copy} from 'fs-extra';
 import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
 import os = require('os');
 
+const img_size = require('image-size');
+//import sharp = require('sharp');
+import png2icons = require('png2icons');
+
 export class PrjSetting {
+	readonly	#wss;
+	readonly	#pathWs		: string;
 	readonly	#fnPrj		: string;
 	readonly	#fnPrjJs	: string;
 	readonly	#fnPkgJs	: string;
@@ -28,8 +34,9 @@ export class PrjSetting {
 
 				#htmSrc	= '';
 
-	readonly	#pathWs: string;
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string, private cmd: (nm: string, val: string)=> Promise<boolean>) {
+		this.#wss = ctx.workspaceState;
+		this.#wss.update('cnv.mat.webp_quality', this.#wss.get('cnv.mat.webp_quality') ?? 90);
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#fnPrj = this.#pathWs +'/doc/prj/';
 		this.#fnPrjJs = this.#fnPrj +'prj.json';
@@ -44,9 +51,6 @@ export class PrjSetting {
 			init_freem = true;
 			ensureFileSync(this.#fnReadme4Freem);
 			copyFileSync(path_ext +'/res/readme.txt', this.#fnReadme4Freem);
-
-			workspace.openTextDocument(this.#fnReadme4Freem)
-			.then(doc=> window.showTextDocument(doc));
 		}
 
 		this.#fnInsNsh = this.#pathWs +'/build/installer.nsh';
@@ -152,7 +156,7 @@ export class PrjSetting {
 		debuger_token	: '',		// デバッガとの接続トークン
 	};
 	get cfg() {return this.#oCfg}
-	#pnlWV	: WebviewPanel | null = null;
+	#pnlWV	: WebviewPanel | undefined = undefined;
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
@@ -163,23 +167,37 @@ export class PrjSetting {
 			return;
 		}
 
-		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
+		const p = this.#pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
 			enableScripts		: true,
-			localResourceRoots	: [this.#localExtensionResRoots],
+			localResourceRoots	: [
+				this.#localExtensionResRoots,
+				Uri.file(this.#pathWs),
+			],
 		});
-
-		wv.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
+		p.onDidDispose(()=> this.#pnlWV = undefined);	// 閉じられたとき
 
 		const {username} = os.userInfo();
-		wv.webview.onDidReceiveMessage(m=> {
+		p.webview.onDidReceiveMessage(m=> {
 			switch (m.cmd) {
-			case 'get':		wv.webview.postMessage({cmd: 'res', o: this.#oCfg});	break;
+			case 'get':		p.webview.postMessage({cmd: 'res', o: this.#oCfg});	break;
 			case 'info':	window.showInformationMessage(m.text); break;
 			case 'warn':	window.showWarningMessage(m.text); break;
-			case 'openURL':	env.openExternal(Uri.parse(m.url)); break;
+
+			case 'openURL':	
+				const url = m.dataset.url;
+				if (url.slice(0, 7) === 'wsf:///') {
+					workspace.openTextDocument(
+						url.replace('wsf://', this.#pathWs)
+					)
+					.then(doc=> window.showTextDocument(doc));
+				}
+				else env.openExternal(Uri.parse(url));
+				break;
+
 			case 'input':	this.#inputProc(m.id, m.val);	break;
+
 			case 'copyText':
-				if (m.id !== 'folder_save_app') break;
+				if (m.id !== 'copy.folder_save_app') break;
 
 				switch (process.platform) {
 				case 'win32':
@@ -194,15 +212,130 @@ export class PrjSetting {
 				}
 				window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
 				break;
-			case 'openFolder':
-				if (m.id == 'save_dbg') env.openExternal(Uri.parse(`${this.#pathWs}/.vscode/storage/`));
+
+			case 'selectFile':
+				const {title, openlabel, id, path} = m.dataset;
+				window.showOpenDialog({
+					title	: `${title}を選択して下さい`,
+					openLabel		: openlabel ?? 'ファイルを選択',
+//					openLabel: localize('init repo', "Initialize Repository")
+					canSelectMany	: false,
+					canSelectFiles	: false,
+					canSelectFolders: false,
+				}).then(fileUri=> {
+					const src = fileUri?.[0]?.fsPath;
+					if (! src) return;	// キャンセル
+
+					if (id === 'icon') this.selectFile_icon(src, id, path, p);
+				})
 				break;
 			}
 		}, false);
 		this.#openSub();
 	}
-	static	readonly #REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;
-		// https://regex101.com/r/FpmGwf/1
+	static	readonly #REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;	// https://regex101.com/r/FpmGwf/1
+
+	private async selectFile_icon(src: string, id: string, path: string, p: WebviewPanel) {
+		const {width, height} = img_size(src);
+		if (width < 1024 || height < 1024) {
+			window.showInformationMessage(`元画像のサイズは 1024 x 1024 以上にして下さい。（${id} width:${width} height:${height}）`);
+			return;
+		}
+
+		copy(src, this.#pathWs +'/'+ path)
+		.then(()=> {
+			p.webview.postMessage({cmd: 'updimg', id: 'img.'+ id});
+			
+			const fnIcon = this.#pathWs +'/build/icon.png';
+			if (! existsSync(fnIcon)) return;
+
+			const mtPng = statSync(fnIcon).mtimeMs;
+			const bIconPng = readFileSync(fnIcon);
+			ensureDirSync(this.#pathWs +'/build/icon/');
+			//png2icons.setLogger(console.log);
+		{
+			const fn = this.#pathWs +'/build/icon/icon.icns';
+			const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+			if (mtPng > mt) {
+				const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
+				if (b) writeFileSync(fn, b);
+			}
+		}
+		{
+			const fn = this.#pathWs +'/build/icon/icon.ico';
+			const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+			if (mtPng > mt) {
+				const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
+				if (b) writeFileSync(fn, b);
+			}
+		}
+			// 「このアプリについて」用
+			copy(fnIcon, this.#pathWs +'/doc/app/icon.png');
+		}) // サムネイル更新
+		.catch((err: Error) => console.error(err));
+
+/*
+console.log(`fn:PrjSetting.ts line:247 id:${id} src:${src}`);
+		sharp(src).metadata().then((info: any)=> {
+console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
+		});
+*/
+
+/*
+		sharp(src).metadata().then((info: any)=> {
+			if (info.width < 1024 || info.height < 1024) {
+				window.showInformationMessage(`元画像のサイズは 1024 x 1024 以上にして下さい。（${id} width:${info.width} height:${info.height}）`);
+				return;
+			}
+
+			const s = sharp(src).png().resize({
+				width	: 1024,
+				height	: 1024,
+				fit		: 'cover',
+				background	: {r: 0, g: 0, b: 0, alpha: 0},
+			});
+			if (this.#wss.get('cnv.icon.cut_round')) {
+				const r = 1024 /2;
+				s.composite([{
+					input	: Buffer.from(`<svg><circle cx="${r}" cy="${r}" r="${r}"/></svg>`),
+					blend	: 'dest-in',
+				}]);
+			}
+			s.toFile(this.#pathWs +'/'+ path)
+			.then(()=> {
+				p.webview.postMessage({cmd: 'updimg', id: 'img.'+ id});
+				
+				const fnIcon = this.#pathWs +'/build/icon.png';
+				if (! existsSync(fnIcon)) return;
+
+				const mtPng = statSync(fnIcon).mtimeMs;
+				const bIconPng = readFileSync(fnIcon);
+				ensureDirSync(this.#pathWs +'/build/icon/');
+				//png2icons.setLogger(console.log);
+			{
+				const fn = this.#pathWs +'/build/icon/icon.icns';
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
+					if (b) writeFileSync(fn, b);
+				}
+			}
+			{
+				const fn = this.#pathWs +'/build/icon/icon.ico';
+				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
+				if (mtPng > mt) {
+					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
+					if (b) writeFileSync(fn, b);
+				}
+			}
+				// 「このアプリについて」用
+				copy(fnIcon, this.#pathWs +'/doc/app/icon.png');
+			}) // サムネイル更新
+			.catch((err: Error) => console.error(err));
+		});
+*/
+	}
+
 	#openSub() {
 		const a: string[] = [];
 		foldProc(this.#fnPrj, ()=> {}, nm=> a.push(nm));
@@ -210,10 +343,14 @@ export class PrjSetting {
 		const wv = this.#pnlWV!.webview;
 		const h = this.#htmSrc
 		.replaceAll('${webview.cspSource}', wv.cspSource)
-		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
-		.replace(/(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加
+		.replaceAll('"../icon.png" data-src=', '')	// プレビューテスト用コード削除
+		.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}`)
+		.replaceAll(/ws_res:\/\/\//g, `${Uri.file(this.#pathWs).with({scheme: 'vscode-resource'})}/`)
+		.replaceAll(/ws:\/\/\//g, `${this.#pathWs}/`)
+		.replace(/<!-- 注意）以下は置換部分につき変更不可：暗号化しないフォルダ -->\n(.+"code\.)\w+(.+span>)\w+(<.+\n)/, a.map(fld=> `$1${fld}$2${fld}$3`).join(''));	// codeチェックボックスを追加 https://regex101.com/r/UXq1sM/1
 
 		try {
+			// setting.sn
 			this.#fnSetting = this.#fnPrj + this.searchPath('setting', 'sn');
 			let hs = '';
 			const src = readFileSync(this.#fnSetting, {encoding: 'utf8'});
@@ -272,40 +409,62 @@ export class PrjSetting {
 				hs += `
 	<div class="col-6 col-md-3 px-1 py-2">${c}</div>`;
 			}
-			wv.html = h.replace('<!-- 4replace_by_setting.sn -->', hs);
+			wv.html = h.replace('<!-- 注意）置換ワードにつき変更不可：doc/prj/script/setting.sn -->', hs)
+
+			// workspaceState
+			.replaceAll(	// https://regex101.com/r/aZjQXi/1
+				/type="checkbox" id="\/workspaceState:([^"]+)"/g,
+				(m, p1)=> m +(this.#wss.get(p1) ?' checked' :'')
+			)
+			.replaceAll(
+				/(type="range" id="\/workspaceState:([^"]+)" value=")[^"]+/g,
+				(_m, p1, p2)=> p1 + this.#wss.get(p2)
+			);
 		}
 		catch (e) {wv.html = h.replace(
-			'<!-- 4replace_by_setting.sn -->',
+			'<!-- 注意）置換ワードにつき変更不可：doc/prj/script/setting.sn -->',
 			`<div class="col-12 px-1 pt-3"><h5>${e}</h5></div>`
 		);}
 	}
 	static	readonly #REG_BOL_OR_NUM = /^(?:true|false|[-+]?(?:[1-9]\d*|0)(?:\.\d+)?|0x[0-9a-fA-F]+)$/;	// https://regex101.com/r/NPNbRk/1
 	#inputProc(id: string, val: string) {
-		if (id.charAt(0) === '/') {
-			const nm = id.split(':').slice(1).join(':');
+		const [media, a_nm] = id.split(':');
+		const nm = a_nm;
+//console.log(`fn:PrjSetting.ts line:340 media:${media}: nm:${nm}:`);
+		switch (media) {
+		case '/setting.sn':
 			replaceFile(
 				this.#fnSetting,
 				new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 				`$1$3${val}$3`	// https://regex101.com/r/jD2znK/1
 			);
-			return;
-		}
+			break;
 
-		const v = PrjSetting.#REG_BOL_OR_NUM.test(val) ?val :val.replaceAll('"', '%22');
-		const iP = id.indexOf('.');
-		if (iP >= 0) {
-			const nm = id.slice(iP +1);
-			const id2 = id.slice(0, iP);
-			this.#oCfg[id2][nm] = v;
-			if (id2 === 'init' && nm === 'escape') {
-				this.codSpt.setEscape(v);
-				this.codSpt.goAll();
+		case '/workspaceState':
+			this.cmd(nm, val).then(go=> {
+				if (go) this.#wss.update(nm, val);
+				else this.#pnlWV?.webview.postMessage({cmd: 'cancel', id});
+			});
+			break;
+
+		default:
+			PrjSetting.#REG_BOL_OR_NUM.lastIndex = 0;
+			const v = PrjSetting.#REG_BOL_OR_NUM.test(val) ?val :val.replaceAll('"', '%22');
+			const iP = id.indexOf('.');
+			if (iP >= 0) {
+				const nm = id.slice(iP +1);
+				const id2 = id.slice(0, iP);
+				this.#oCfg[id2][nm] = v;
+				if (id2 === 'init' && nm === 'escape') {
+					this.codSpt.setEscape(v);
+					this.codSpt.goAll();
+				}
 			}
-		}
-		else this.#oCfg[id] = v;
-		outputJson(this.#fnPrjJs, this.#oCfg);
+			else this.#oCfg[id] = v;
+			outputJson(this.#fnPrjJs, this.#oCfg);
 
-		this.#hRep[id]?.(v);
+			this.#hRep[id]?.(v);
+		}
 	}
 	readonly	#hRep	: {[id: string]: (val: string)=> void} = {
 		"save_ns"	: val=> {

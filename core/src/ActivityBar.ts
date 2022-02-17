@@ -160,7 +160,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	chkLastSNVer(pathWs: string) {
 		let newVerSN = '';
 		let newVerTemp = '';
-		Promise.all([
+		Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
 			.then(res=> res.json())
 			.then(json=> {

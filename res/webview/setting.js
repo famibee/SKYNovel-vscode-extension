@@ -34,10 +34,23 @@ window.addEventListener('message', e=> {
 		vscode.postMessage({cmd: 'warn', text: `(setting.js) isTrusted=false`});
 		return;
 	}
-	if (e.data.cmd !== 'res') return;
+
+	switch (e.data.cmd) {
+		case 'res'		:	break;
+		case 'updimg'	:{
+			const m = document.getElementById(e.data.id);
+			m.src = m.src.replace(/(\.png).*$/, '$1?'+ (new Date()).getTime());
+		}	return;
+
+		case 'cancel'	:{
+			const m = document.getElementById(e.data.id);
+			m.checked = ! m.checked;
+		}	return;
+
+		default:	return;
+	}
 
 	const o = e.data.o;
-
 	for (const n in o) {
 		if (n === 'save_ns' || n === 'debuger_token') continue;
 		const en = o[n];
@@ -62,33 +75,18 @@ window.addEventListener('message', e=> {
 		}, {passive: true});
 	});
 
-	document.querySelectorAll('.sn-chk').forEach(c=> c.addEventListener('input', ()=> {
-		vscode.postMessage({cmd: 'input', id: c.id, val: c.checked});
-	}, {passive: true}));
+	document.querySelectorAll('.sn-chk')
+	.forEach(c=> c.addEventListener('input', ()=> vscode.postMessage({
+		cmd		: 'input',
+		id		: c.id,
+		val		: c.checked,
+	}), {passive: true}));
 
-	['cre_url', 'pub_url'].forEach(id=> {
-		document.getElementById(`open.${id}`).addEventListener('click', ()=> {
-			vscode.postMessage({
-				cmd	: 'openURL',
-				url	: document.getElementById(`book.${id}`).value,
-			});
-		}, {passive: true});
-	});
-
-	['save_path'].forEach(id=> {
-		document.getElementById(`open.dev.${id}`).addEventListener('click', ()=> {
-			vscode.postMessage({
-				cmd	: 'openURL',
-				url	: `https://famibee.github.io/SKYNovel/dev.htm#${id}`,
-			});
-		}, {passive: true});
-	});
-	['folder_save_app'].forEach(id=> {
-		document.getElementById(`copy.${id}`).addEventListener('click', ()=> vscode.postMessage({cmd: 'copyText', id: id,}), {passive: true});
-	});
-	['save_dbg'].forEach(id=> {
-		document.getElementById(`open.folder_${id}`).addEventListener('click', ()=> vscode.postMessage({cmd: 'openFolder', id: id,}), {passive: true});
-	});
+	['cre_url', 'pub_url'].forEach(id=> document.getElementById(`open.${id}`)
+	.addEventListener('click', ()=> vscode.postMessage({
+		cmd		: 'openURL',
+		dataset	: {url: document.getElementById(`book.${id}`).value,},
+	}), {passive: true}));
 
 	document.querySelectorAll('.form-range').forEach(c=> {
 		const rngV = c.closest('.range-wrap').querySelector('.range-badge');
@@ -100,6 +98,48 @@ window.addEventListener('message', e=> {
 		};
 		setValue();
 		c.addEventListener('input', setValue, {passive: true});
+	});
+
+	document.querySelectorAll('[data-cmd]')
+	.forEach(c=> {
+		c.addEventListener('click', ()=> vscode.postMessage({
+			cmd		: c.dataset.cmd,
+			id		: c.id,
+			dataset	: {...c.dataset},
+		}), {passive: true});
+/*
+		if (c.dataset.cmd !== 'selectFile') return;
+
+		// ファイルパスや内容を取得できないため、凍結
+
+		// ドロップゾーンの設定
+		c.addEventListener('dragenter', e=> {	// 入った
+			e.dataTransfer.dropEffect = 'copy';
+		//-	e.dataTransfer.effectAllowed = 'copy';
+			if (e.dataTransfer.types[0] !== 'Files') e.preventDefault();
+		});
+		c.addEventListener('dragover', e=> e.preventDefault());	// 領域上空
+		c.addEventListener('dragleave', e=> e.preventDefault());// 出た
+		c.addEventListener('drop', e=> {	//ドロップされた
+			Array.from(e.dataTransfer.files).forEach(f=> {
+console.log(`fn:setting.js drop   name:${f.name}`);
+//f.text().then(buf=> {
+//f.arrayBuffer().then(buf=> {
+
+				vscode.postMessage({
+					cmd		: c.dataset.cmd,
+					id		: c.id,
+					dataset	: {...c.dataset},
+//x					stream	: URL.createObjectURL(f),	// undefined
+//x					stream	: buf,	// f.arrayBuffer().then(buf=>	undefined
+//x					stream	: buf,	// f.text().then(buf=>	undefined
+//-					stream	: f.arrayBuffer(),			// undefined
+//x					stream	: f.stream(),				// error
+				});
+//});
+			});
+		}, {passive: true});
+*/
 	});
 
 }, {passive: true});

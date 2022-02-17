@@ -519,6 +519,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 					}
 				}
 				for (const key in h) {
+					DebugAdapter.#REG_SN_VAR.lastIndex = 0;
 					if (DebugAdapter.#REG_SN_VAR.test(key) === tst_sn) continue;
 
 					const v = String(h[key]);

@@ -14,7 +14,7 @@ import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, statSync, outputJsonSync, copy} from 'fs-extra';
+import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, outputJsonSync, move, remove} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -22,7 +22,6 @@ import {v4 as uuidv4} from 'uuid';
 import crc32 = require('crc-32');
 import archiver = require('archiver');
 import {basename, dirname} from 'path';
-import png2icons = require('png2icons');
 const {execSync} = require('child_process');
 import ncu = require('npm-check-updates');
 
@@ -34,14 +33,18 @@ export class Project {
 	readonly	#curPlg;
 	readonly	#curPrj;
 	readonly	#lenCurPrj;
+
+	#isCnvFileMode	= false;
+	readonly	#curCnvFile;
+	static readonly	#fld_prj_base		= 'prj_base';
+
 	readonly	#curCrypto;
-	static readonly	#fld_crypto_prj	= 'crypto_prj';
+	static readonly	#fld_crypto_prj		= 'crypto_prj';
 	static get fldnm_crypto_prj() {return Project.#fld_crypto_prj}
-	#isCryptoMode	= true;
-	readonly	#REGNEEDCRYPTO	= /\.(sn|ssn|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
-	readonly	#REGFULLCRYPTO	= /\.(sn|ssn|json|html?)$/;
-	readonly	#REGREPPATHJSOn	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
-		// この末端の「"」は必須。変更時は delPrj_sub() 内も
+	#isCryptoMode	= false;
+	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
+	readonly	#REG_FULLCRYPTO		= /\.(sn|ssn|json|html?)$/;
+	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 	readonly	#hExt2N: {[name: string]: number} = {
 		'jpg'	: 1,
 		'jpeg'	: 1,
@@ -58,7 +61,7 @@ export class Project {
 		'webm'	: 21,
 		'ogv'	: 22,
 	};
-	readonly	#REGNEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
+	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 
 	readonly	#encry;
@@ -112,18 +115,21 @@ export class Project {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.#crePrj(uri);
+				REG_SCRIPT.lastIndex = 0;
 				if (REG_SCRIPT.test(uri.path)) this.#codSpt.crePrj(uri);
 			}),
 			fwPrj.onDidChange(uri=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.#chgPrj(uri);
+				REG_SCRIPT.lastIndex = 0;
 				if (REG_SCRIPT.test(uri.path)) this.#codSpt.chgPrj(uri);
 			}),
 			fwPrj.onDidDelete(uri=> {
 				regNoUseSysPath.lastIndex = 0;
 				if (regNoUseSysPath.test(uri.path)) return;
 				this.#delPrj(uri);
+				REG_SCRIPT.lastIndex = 0;
 				if (REG_SCRIPT.test(uri.path)) this.#codSpt.delPrj(uri);
 			}),
 			fwPrjJs.onDidChange(e=> this.#chgPrj(e)),
@@ -135,6 +141,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			}),*/
 			fwFld.onDidDelete(uri=> this.#ps.noticeDelDir(uri.path)),
 		];
+
+		this.#curCnvFile = this.#pathWs +`/doc/${Project.#fld_prj_base}/`;
+		this.#isCnvFileMode = existsSync(this.#curCnvFile);
 
 		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
 		this.#isCryptoMode = existsSync(this.#curCrypto);
@@ -162,7 +171,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.#ps = new PrjSetting(ctx, wsFld, title=> {
 			pti.label = title;
 			this.emPrjTD.fire(pti);
-		}, this.#codSpt, (path: string, extptn = '')=> this.#searchPath(path, extptn));
+		}, this.#codSpt, (path: string, extptn = '')=> this.#searchPath(path, extptn), (nm, val)=> this.#cmd(nm, val));
 		this.#initCrypto();
 
 		this.#curPlg = this.#pathWs +'/core/plugin/';
@@ -202,7 +211,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	}
 	#aDbgSS	: DebugSession[]	= [];
 	private	onDidTermDbgSS() {}
-	#termDbgSS(): Promise<void[]> {
+	#termDbgSS(): Promise<PromiseSettledResult<void>[]> {
 		this.#hTaskExe.get('TaskWeb')?.terminate();
 		this.#hTaskExe.delete('TaskWeb');
 		this.#hTaskExe.get('TaskApp')?.terminate();
@@ -210,7 +219,20 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		const a = this.#aDbgSS.map(ds=> debug.stopDebugging(ds));
 		this.#aDbgSS = [];
-		return Promise.all(a);
+		return Promise.allSettled(a);
+	}
+
+	async #cmd(nm: string, _val: string): Promise<boolean> {
+		switch (nm) {
+		case 'cnv.mat.pic':
+			if (await window.showInformationMessage('ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+
+			this.#tglCnvFileMode()
+			.catch(err=> console.error(err));
+			break;
+		}
+
+		return true;
 	}
 
 	readonly	#hPush2BtnEnable = new Map<PrjBtnName, BtnEnable[]>([
@@ -301,6 +323,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'SnUpd_waited':	break;	// Promise待ち後
 
 			case 'PrjSet':	this.#ps.open();	done(0);	return;
+
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
 				.then(a=> {
@@ -309,7 +332,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					this.#termDbgSS().then(()=> {
 						this.#tglCryptoMode();
 						this.#onBtn_sub(ti, 'Crypto_waited', cfg, done);
-					});
+					})
+					.catch(err=> console.error(err));
 				});
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
@@ -357,42 +381,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					}});
 				});
 				if (find_ng) {done(); return;}
-				break;
-		}
-
-		// アイコン生成
-		switch (btn_nm) {
-			case 'TaskApp':
-			case 'PackWin':
-			case 'PackWin32':
-			case 'PackMac':
-			case 'PackMacArm64':
-			case 'PackLinux':
-				const fnIcon = pathWs +'/build/icon.png';
-				if (! existsSync(fnIcon)) break;
-
-				const mtPng = statSync(fnIcon).mtimeMs;
-				const bIconPng = readFileSync(fnIcon);
-				ensureDirSync(pathWs +'/build/icon/');
-				//png2icons.setLogger(console.log);
-			{
-				const fn = pathWs +'/build/icon/icon.icns';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = png2icons.createICNS(bIconPng, png2icons.BILINEAR, 0);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-			{
-				const fn = pathWs +'/build/icon/icon.ico';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = png2icons.createICO(bIconPng, png2icons.BICUBIC2, 0, false, true);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-				// 「このアプリについて」用
-				copy(fnIcon, pathWs +'/doc/app/icon.png');
 				break;
 		}
 
@@ -487,6 +475,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				// 古い（暗号化ファイル名）更新ファイルを削除
 				const regOldSameKey = new RegExp('^'+ key +'-');
 				foldProc(pathUpd, (url, nm)=> {
+					regOldSameKey.lastIndex = 0;
 					if (regOldSameKey.test(nm)) removeSync(url);
 				}, ()=> {});
 
@@ -549,10 +538,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	#chgPrj(e: Uri) {this.#encIfNeeded(e.path);}
 	#delPrj(e: Uri) {
 		const short_path = e.path.slice(this.#lenCurPrj);
-		this.#REGNEEDCRYPTO.lastIndex = 0;
+		this.#REG_NEEDCRYPTO.lastIndex = 0;
 		removeSync(
 			this.#curCrypto + short_path
-			.replace(this.#REGREPPATHJSOn, '.bin')
+			.replace(this.#REG_REPPATHJSON, '.bin')
 			.replace(/"/, '')
 		);
 		this.#updPathJson();
@@ -585,7 +574,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		}
 
 		let hash = 0;
-		if (this.#REGFULLCRYPTO.test(url)) {
+		this.#REG_FULLCRYPTO.lastIndex = 0;
+		if (this.#REG_FULLCRYPTO.test(url)) {
 			hash = crc32.str(readFileSync(url, {encoding: 'utf8'}));
 		}
 		else {
@@ -597,19 +587,130 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		}
 		if (diff?.hash === hash) return false;
 
+		this.#REG_NEEDCRYPTO.lastIndex = 0;
 		this.#hDiff[short_path] = {
 			hash: hash,
-			cn:	this.#REGNEEDCRYPTO.test(short_path)
+			cn:	this.#REG_NEEDCRYPTO.test(short_path)
 				? short_path.replace(
 					this.#REG_SPATH2HFN,
 					`$1/${this.#encry.uuidv5(short_path)}$2`
 				)
-				.replace(this.#REGREPPATHJSOn, '.bin')
+				.replace(this.#REG_REPPATHJSON, '.bin')
 				: short_path,
 		};
 		return true;
 	}
 	readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
+
+
+	readonly	#REG_CNV_WEBP	= /\.(jpe?g|png)$/;
+	// (jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)
+	readonly	#REG_OPTITMD	= /\.webp$/;	// 最適化中間ファイル
+	readonly	#REG_CNV_HTML	= /\.(htm|html)$/;
+	readonly	#REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
+	readonly	#REG_CNV_JSON	= /\.json$/;
+	readonly	#REG_REP_JSON	= /("image"\s*:\s*")(.+)\.(jpe?g|png)"/;
+	readonly	#REG_REP_JSON2	= /webp","image_bkup":".+(jpe?g|png)"/;
+	async	#tglCnvFileMode() {
+		const a: Promise<void>[] = [];
+		this.#isCnvFileMode = ! this.#isCnvFileMode;
+
+		// ファイル最適化 解除
+		if (! this.#isCnvFileMode) {
+			foldProc(this.#curPrj, ()=> {}, dir=> {
+				foldProc(path.resolve(this.#curPrj, dir), (url, nm)=> {
+					// 最適化中間ファイルの削除
+					this.#REG_OPTITMD.lastIndex = 0;
+					if (this.#REG_OPTITMD.test(nm)) {
+						a.push(remove(url));
+						return;
+					}
+
+					// htm置換・(true/*WEBP*/)
+					this.#REG_CNV_HTML.lastIndex = 0;
+					if (this.#REG_CNV_HTML.test(nm)) replaceFile(
+						url,
+						this.#REG_REP_WEBPFLAG,
+						'false/*WEBP*/',
+					);
+
+					// json置換（アニメpng）
+					this.#REG_CNV_JSON.lastIndex = 0;
+					if (this.#REG_CNV_JSON.test(nm)) replaceFile(
+						url,
+						this.#REG_REP_JSON2,
+						'$1"',
+					);
+				}, ()=> {});
+			});
+
+			// 退避素材戻し
+			foldProc(this.#curCnvFile, ()=> {}, dir=> {
+				const urlCurPrj = path.resolve(this.#curPrj, dir);
+				foldProc(path.resolve(this.#curCnvFile, dir), (url, nm)=> {
+					a.push(move(url, path.resolve(urlCurPrj, nm)));
+				}, ()=> {});
+			});
+
+			return Promise.allSettled(a)
+			.then(()=> removeSync(this.#curCnvFile));	// 退避素材フォルダ削除
+		}
+
+		// ファイル最適化
+		ensureDir(this.#curCnvFile);
+		foldProc(this.#curPrj, ()=> {}, dir=> {
+			const wdWrt = path.resolve(this.#curCnvFile, dir);
+			ensureDir(wdWrt);
+
+			foldProc(path.resolve(this.#curPrj, dir), (url, nm)=> {
+				// 退避素材フォルダに元素材を移動
+				this.#REG_CNV_WEBP.lastIndex = 0;
+				if (this.#REG_CNV_WEBP.test(nm)) {
+					const urlRead = path.resolve(wdWrt, nm);
+					a.push(
+						move(url, urlRead)
+						.then(async ()=> {
+
+						})
+/*
+						.then(()=> {
+							// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+							const rs = createReadStream(urlRead)
+							.on('error', e=> console.error(`cnvWebp rs=%o`,e));
+							const ws = createWriteStream(
+								url.replace(/\.[^.]+$/, '.webp')
+							)
+							.on('error', e=> console.error(`cnvWebp ws=%o`,e));
+							const tr = sharp().webp({
+								quality: this.ctx.workspaceState.get('cnv.mat.webp_quality'),
+							});	// 毎回必要
+							rs.pipe(tr).pipe(ws);
+						})
+*/
+					);
+					return;
+				}
+
+				// htm置換・(true/*WEBP*/)
+				this.#REG_CNV_HTML.lastIndex = 0;
+				if (this.#REG_CNV_HTML.test(nm)) replaceFile(
+					url,
+					this.#REG_REP_WEBPFLAG,
+					'true/*WEBP*/',
+				);
+
+				// json置換（アニメpng）
+				this.#REG_CNV_JSON.lastIndex = 0;
+				if (this.#REG_CNV_JSON.test(nm)) replaceFile(
+					url,
+					this.#REG_REP_JSON,
+					'$1$2.webp","image_bkup":"$2.$3"',
+				);
+			}, ()=> {});
+		});
+
+		return Promise.allSettled(a).then(()=> {});
+	}
 
 
 	readonly	#aRepl = [
@@ -674,7 +775,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		try {
 			const short_path = path_src.slice(this.#lenCurPrj);
 			const path_enc = this.#curCrypto + this.#hDiff[short_path].cn;
-			if (! this.#REGNEEDCRYPTO.test(path_src)) {
+			this.#REG_NEEDCRYPTO.lastIndex = 0;
+			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
 				ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
@@ -682,7 +784,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				return;
 			}
 
-			if (this.#REGFULLCRYPTO.test(short_path)) {
+			this.#REG_FULLCRYPTO.lastIndex = 0;
+			if (this.#REG_FULLCRYPTO.test(short_path)) {
 				let s = await readFile(path_src, {encoding: 'utf8'});
 				if (short_path === 'path.json') {	// 内容も変更
 					// ファイル名匿名化
@@ -721,12 +824,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			bh[1] = this.#hExt2N[path.extname(short_path).slice(1)] ?? 0;
 
 			const rs = createReadStream(path_src)
-			.on('error', (e :any)=> console.error(`encrypter rs=%o`, e));
+			.on('error', e=> console.error(`encrypter rs=%o`, e));
 
 			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
 			ensureFileSync(u2);	// touch
 			const ws = createWriteStream(u2)
-			.on('error', (e :any)=> console.error(`encrypter ws=%o`, e));
+			.on('error', e=> console.error(`encrypter ws=%o`, e));
 
 			const tr = new EncryptorTransform(this.#encry, path_src);
 			rs.pipe(tr).pipe(ws);
@@ -838,14 +941,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		//		URLエンコードされていない物を想定。
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
-		foldProc($cur, ()=> {}, (dir: string)=> {
+		foldProc($cur, ()=> {}, dir=> {
 			const wd = path.resolve($cur, dir);
 			foldProc(wd, (url, nm)=> {
 				// スプライトシート用json自動生成機能
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				this.#addPath(hFn2Path, dir, nm);
 
-				const a2 = nm.match(this.#REGNEEDHASH);
+				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
 					const s = readFileSync(url, {encoding: 'utf8'});
 					const h = RIPEMD160(s).toString(enc.Hex);

@@ -78,7 +78,7 @@ export class ScriptScanner {
 		'文字消去演出名': new Set,
 	};
 
-	cnvSnippet	= (s: string, _cur_fn: string)=>s;
+	cnvSnippet	= (s: string, _cur_fn: string)=> s;
 	// 変化が無い固定選択値はこちらに
 	readonly	hPreWords	: {[key: string]: string}	= {
 		'イベント名': `|Click,RightClick,MiddleClick,UpWheel,DownWheel,Control,Alt,Meta,Backspace,Enter,=,A,alt+A,ctrl+A,shift+A,alt+ctrl+A,ctrl+shift+A,alt+shift+A,alt+ctrl+shift+A,' ',ArrowLeft,ArrowRight,ArrowUp,ArrowDown,Tab,Delete,Home,End,PageUp,PageDown|`,
@@ -451,7 +451,12 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#scanFile(uri: Uri) {
 		const path = uri.path;
 		const fn = getFn(path);
+		REG_SCRIPT.lastIndex = 0;
 		if (! REG_SCRIPT.test(path)) {
+			ScriptScanner.#REG_SPRITE.lastIndex = 0;
+			ScriptScanner.#REG_NOSPR.lastIndex = 0;
+			ScriptScanner.#REG_SOUND.lastIndex = 0;
+			ScriptScanner.#REG_HTML.lastIndex = 0;
 			if (ScriptScanner.#REG_SPRITE.test(path)) {
 				if (ScriptScanner.#REG_NOSPR.test(path)) return;
 				this.#hSetWords['画像ファイル名'].add(fn);
@@ -847,6 +852,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			.match(this.#REG_TOKEN) ?? [];
 		for (let i=a.length -1; i>=0; --i) {
 			const t = a[i];
+			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;
 			if (ScriptScanner.#REG_TAG_LET_ML.test(t)) {
 				const idx = t.indexOf(']') +1;
 				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';
@@ -863,6 +869,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#replaceScript_let_ml(scr: Script, start_idx = 0) {
 		for (let i=scr.len- 1; i >= start_idx; --i) {
 			const token = scr.aToken[i];
+			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;
 			if (ScriptScanner.#REG_TAG_LET_ML.test(token)) {
 				const idxSpl = token.indexOf(']') +1;
 				const ml = token.slice(idxSpl);

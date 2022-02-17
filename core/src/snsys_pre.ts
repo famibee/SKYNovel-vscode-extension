@@ -21,6 +21,7 @@ export async function init(pia: IPluginInitArg): Promise<void> {
 	const regFullCrypto = /(^|\.)(sn|ssn|json|html?)$/;
 	const {Buffer} = require('buffer');
 	pia.setDec((ext, d)=> {
+		regFullCrypto.lastIndex = 0;
 		if (typeof d === 'string') return {
 			ret: regFullCrypto.test(ext)
 				? AES.decrypt(d, pbkdf2, {iv},).toString(enc.Utf8)
