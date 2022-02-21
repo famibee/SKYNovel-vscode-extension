@@ -1,3 +1,5 @@
+## v3.19.3
+- chore: ビルドツールを戻す（js 単品類は esbuild で）
 ## v3.19.2
 - chore: ビルドツールを esbuild に（開発中は webpack + esbuild-loader）
 ## v3.19.1
