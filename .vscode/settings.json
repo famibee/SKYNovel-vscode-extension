@@ -12,5 +12,6 @@
 	"workbench.colorCustomizations": {
 		"titleBar.activeBackground": "#8b590d",
 		"activityBar.background": "#8b590d",
-	}
+	},
+	"jest.jestCommandLine": "npm run test --",
 }

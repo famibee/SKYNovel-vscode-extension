@@ -1,6 +1,6 @@
 "use strict";
 /* ***** BEGIN LICENSE BLOCK *****
-    Copyright (c) 2018-2021 Famibee (famibee.blog38.fc2.com)
+    Copyright (c) 2018-2022 Famibee (famibee.blog38.fc2.com)
 
     This software is released under the MIT License.
     http://opensource.org/licenses/mit-license.php
@@ -16,7 +16,7 @@ function uint(o) {
     return v < 0 ? -v : v;
 }
 exports.uint = uint;
-exports.REG_SCRIPT = /\.(sn|ssn)$/;
+exports.REG_SCRIPT = /\.ss?n$/;
 exports.docsel = { scheme: 'file', language: 'skynovel' };
 ;
 ;
@@ -34,8 +34,8 @@ exports.setCtx4 = setCtx4;
 var extPath = '';
 function oIcon(name) {
     return {
-        light: extPath + "/res/light/" + name + ".svg",
-        dark: extPath + "/res/dark/" + name + ".svg"
+        light: "".concat(extPath, "/res/light/").concat(name, ".svg"),
+        dark: "".concat(extPath, "/res/dark/").concat(name, ".svg")
     };
 }
 exports.oIcon = oIcon;
@@ -50,12 +50,12 @@ exports.statBreak = exports.is_mac ? function () { return '&&'; }
     }
         : function () { return ';'; };
 // 階層フォルダ逐次処理
-var m_fs = require("fs-extra");
+var fs_extra_1 = require("fs-extra");
 var path_1 = require("path");
 var regNoUseSysFile = /^(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 exports.regNoUseSysPath = /\/(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 function treeProc(wd, fnc) {
-    m_fs.readdirSync(wd, { withFileTypes: true }).forEach(function (d) {
+    (0, fs_extra_1.readdirSync)(wd, { withFileTypes: true }).forEach(function (d) {
         regNoUseSysFile.lastIndex = 0;
         var nm = String(d.name).normalize('NFC');
         if (regNoUseSysFile.test(nm))
@@ -70,7 +70,7 @@ function treeProc(wd, fnc) {
 }
 exports.treeProc = treeProc;
 function foldProc(wd, fnc, fncFld) {
-    m_fs.readdirSync(wd, { withFileTypes: true }).forEach(function (d) {
+    (0, fs_extra_1.readdirSync)(wd, { withFileTypes: true }).forEach(function (d) {
         regNoUseSysFile.lastIndex = 0;
         var nm = String(d.name).normalize('NFC');
         if (regNoUseSysFile.test(nm))
@@ -87,16 +87,16 @@ exports.foldProc = foldProc;
 function replaceFile(src, r, rep, dest) {
     if (dest === void 0) { dest = src; }
     try {
-        if (!m_fs.existsSync(src))
+        if (!(0, fs_extra_1.existsSync)(src))
             return;
-        var txt = m_fs.readFileSync(src, { encoding: 'utf8' });
+        var txt = (0, fs_extra_1.readFileSync)(src, { encoding: 'utf8' });
         var ret = String(txt.replace(r, rep));
-        m_fs.ensureFileSync(dest);
+        (0, fs_extra_1.ensureFileSync)(dest);
         if (txt !== ret)
-            m_fs.writeFileSync(dest, ret);
+            (0, fs_extra_1.writeFileSync)(dest, ret);
     }
     catch (err) {
-        console.error("replaceFile src:" + src + " " + err);
+        console.error("replaceFile src:".concat(src, " ").concat(err));
     }
 }
 exports.replaceFile = replaceFile;

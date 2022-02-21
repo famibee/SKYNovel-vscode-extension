@@ -10,7 +10,9 @@ import {IPluginInitArg} from './CmnLib';
 export async function init(pia: IPluginInitArg): Promise<void> {
 	const p = pia.tstDecryptInfo();	// 変更したら生成ファイルを開いて要動作確認
 
-	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
+	const {enc, AES, PBKDF2, RIPEMD160} = require('crypto-js');
+//	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
+		// jestがESM対応できてないので
 	const iv = enc.Hex.parse(p.iv);
 	const pbkdf2 = PBKDF2(
 		enc.Utf8.parse(p.pass),
