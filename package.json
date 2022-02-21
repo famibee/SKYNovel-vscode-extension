@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.19.1",
+	"version": "3.19.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -673,13 +673,14 @@
 		"electron": "^17.0.1",
 		"esbuild": "^0.14.23",
 		"esbuild-jest": "^0.5.0",
+		"esbuild-loader": "^2.18.0",
+		"esbuild-register": "^3.3.2",
 		"eslint": "^8.9.0",
 		"file-loader": "^6.2.0",
 		"glob": "^7.2.0",
 		"jest": "^27.5.1",
 		"rimraf": "^3.0.2",
-		"ts-loader": "^9.2.6",
-		"ts-node": "^10.5.0",
+		"thread-loader": "^3.0.4",
 		"typescript": "^4.5.5",
 		"vscode-test": "^1.6.1",
 		"webpack": "^5.69.1",
@@ -690,21 +691,20 @@
 		"utf-8-validate": "^5.0.8"
 	},
 	"scripts": {
-		"build": "webpack --config ./core/webpack.config.js",
+		"build": "npm run -S esbuild-base -- --sourcemap",
 		"watch": "webpack --config ./core/webpack.config.js --watch",
+		"esbuild-base": "esbuild ./core/src/extension.ts --bundle --outfile=extension.js --external:vscode --format=cjs --platform=node",
 		"npm_check_updates": "ncu -u --target minor && npm update && npm run build && ncu -g",
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
 		"publish": "vsce package",
-		"vscode:prepublish": "npm run md2json && npm run wp:pro",
-		"wp:pro": "webpack --config ./core/webpack.config.js --mode production",
-		"md2json": "node core/lib/md2json.js",
-		"md2json_bld": "tsc -p core/tsconfig_md.json",
-		"rebuild": "rimraf package-lock.json && rimraf node_modules && npm cache clear --force && npm i && npm run md2json_bld",
+		"vscode:prepublish": "npm run md2json && npm run -S esbuild-base -- --minify",
+		"md2json": "node -r esbuild-register core/src/md2json.ts",
+		"rebuild": "rimraf package-lock.json && rimraf node_modules && npm cache clear --force && npm i",
 		"package": "webpack --mode production --devtool hidden-source-map",
 		"test": "jest",
-		"snsys_pre": "tsc core/src/snsys_pre.ts --outDir core/lib"
+		"snsys_pre": "esbuild core/src/snsys_pre.ts --outfile=core/lib/snsys_pre.js"
 	},
 	"jest": {
 		"transform": {

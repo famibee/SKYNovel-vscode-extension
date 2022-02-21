@@ -117,6 +117,16 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 		// この形式でないと jest拡張機能が成功扱いしてくれない
 	// 暗号化
 	const path_src = 'test/mat/wood04.mp3';
+	/*	cfg.cnv_path = (path: string): string => {
+			return path.replace(
+				/^app-storage:/
+			,	'app-storage')
+		};*/
+		/*	保留
+		expect(cfg.searchPath('app-storage:/aaa.jpg')).toBe('app-storage:/aaa.jpg');
+		expect(cfg.searchPath('app-storage:/aaa.sn')).toBe('app-storage:/aaa.sn');
+		expect(cfg.searchPath('app-storage:/update0.png')).toBe('app-storage:/update0%40%40ex.png');*/
+			// /Users/[user]/Library/Application Support/com.fc2.blog38.famibee.ANTest/に本当にファイルを置くこと
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(3995);	// ファイルサイズ
 

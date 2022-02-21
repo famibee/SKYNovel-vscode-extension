@@ -4,7 +4,24 @@ module.exports = {
 	resolve: {extensions: ['.ts', '.js'],},
 	module: {
 		rules: [
-			{test: /\.ts$/, loader: 'ts-loader'},
+			{test: /\.ts$/,
+				exclude: /node_modules/,
+				use: [{
+					loader: 'thread-loader',
+					options: {
+						workers: 2,
+						workerParallelJobs: 80,
+						workerNodeArgs: ['--max-old-space-size=512'],
+						name: 'ts-loader-pool',
+					},
+				}, {
+					loader: 'esbuild-loader',
+					options: {
+						loader: 'ts',
+						target: 'es2021',
+					},
+				}],
+			},
 			{test: /\.cs$/, loader: 'file-loader'},
 		],
 		exprContextCritical: false,

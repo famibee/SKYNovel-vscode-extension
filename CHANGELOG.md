@@ -1,3 +1,5 @@
+## v3.19.2
+- chore: ビルドツールを esbuild に（開発中は webpack + esbuild-loader）
 ## v3.19.1
 - chore: テストツールを esbuild-jest（と vscode Jest 拡張機能）に変更
 ## v3.19.0

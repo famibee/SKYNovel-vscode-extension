@@ -17,19 +17,6 @@
 			"postDebugTask": "dbg stop"
 		},
 		{
-			"name": "Extension Tests",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-			],
-			"outFiles": [
-				"${workspaceFolder}/out/test/**/*.js"
-			],
-			"preLaunchTask": "npm: test-watch"
-		},
-		{
 			"type": "node",
 			"name": "vscode-jest-tests",
 			"request": "launch",
