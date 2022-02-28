@@ -1,3 +1,7 @@
+## v3.19.4
+- fix: 暗号化処理：package.json 内 build/files/"doc/prj/" の置換に失敗してた件
+- fix: 暗号化処理：core/lib/snsys_pre.js コピーに失敗してた件
+- docs: タグリファレンスなどの URL を.htm から .html に変更
 ## v3.19.3
 - chore: ビルドツールを戻す（js 単品類は esbuild で）
 ## v3.19.2

@@ -734,8 +734,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			// ビルド関連：パッケージするフォルダ名変更
 			replaceFile(
 				this.#pathWs +'/package.json',
-				new RegExp(`"${Project.#fld_crypto_prj}\\/",`),
-				`"prj/",`,
+				new RegExp(`"doc/${Project.#fld_crypto_prj}\\/",`),
+				`"doc/prj/",`,
 			);
 			this.#updPlugin();	// doc/prj/prj.json 更新＆ビルド
 
@@ -753,12 +753,12 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// ビルド関連：パッケージするフォルダ名変更
 		replaceFile(
 			this.#pathWs +'/package.json',
-			/"prj\/",/,
-			`"${Project.#fld_crypto_prj}/",`,
+			/"doc\/prj\/",/,
+			`"doc/${Project.#fld_crypto_prj}/",`,
 		);
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
-			this.ctx.extensionPath +`/core/lib/snsys_pre.js`,
+			this.ctx.extensionPath +`/res/snsys_pre.js`,
 			/pia\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			pathPre +'/index.js',

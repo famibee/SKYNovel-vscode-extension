@@ -33,7 +33,7 @@ export function getNonce() {
 	return text;
 }
 
-export function setCtx4(ctx0: ExtensionContext) {extPath = ctx0.extensionPath;}
+export function setCtx4(ctx: ExtensionContext) {extPath = ctx.extensionPath;}
 let extPath = '';
 export function oIcon(name: string) {return {
 	light: `${extPath}/res/light/${name}.svg`,

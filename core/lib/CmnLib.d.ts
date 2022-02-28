@@ -10,7 +10,7 @@ export interface IFn2Path {
     [fn: string]: IExts;
 }
 export declare function getNonce(): string;
-export declare function setCtx4(ctx0: ExtensionContext): void;
+export declare function setCtx4(ctx: ExtensionContext): void;
 export declare function oIcon(name: string): {
     light: string;
     dark: string;

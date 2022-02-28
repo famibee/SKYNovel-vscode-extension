@@ -19,12 +19,12 @@ interface	TTmpTI {
 export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 	readonly	#aTreeTmp: TTmpTI[]	= [
 		{label: '開発者向け情報', icon: 'document',
-			url: 'https://famibee.github.io/SKYNovel/dev.htm'},
+			url: 'https://famibee.github.io/SKYNovel/dev.html'},
 		{label: 'タグリファレンス', icon: 'document',
-			url: 'https://famibee.github.io/SKYNovel/tag.htm'},
+			url: 'https://famibee.github.io/SKYNovel/tag.html'},
 		{label: 'マクロ・プラグインリファレンス', icon: 'document',
 			cmd: 'opMacroPlg',
-			url: 'https://famibee.github.io/SKYNovel/macro_plg.htm'},
+			url: 'https://famibee.github.io/SKYNovel/macro_plg.html'},
 		{label: '機能ギャラリー', icon: 'document',
 			url: 'https://famibee.github.io/SKYNovel_gallery/'},
 		{label: 'famibee  連絡先', children: [
