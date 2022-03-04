@@ -33,6 +33,9 @@
 - pr		何もしない	Number	style設定（paddingRight）に上書きできる
 - pt		何もしない	Number	style設定（paddingTop）に上書きできる
 - pb		何もしない	Number	style設定（paddingBottom）に上書きできる
+- kinsoku_sol		何もしない	String	行頭禁則の禁則処理文字を変更できる。対象文字を列挙した文字列を指定。<br/>デフォルト値は以下の通り。<br/>、。，．）］｝〉」』】〕”〟ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ！？!?‼⁉・ーゝゞヽヾ々
+- kinsoku_eol		何もしない	String	行末禁則の禁則処理文字を変更できる。対象文字を列挙した文字列を指定。<br/>デフォルト値は以下の通り。<br/>［（｛〈「『【〔“〝
+- kinsoku_dns		何もしない	String	分割禁止の禁則処理文字を変更できる。対象文字を列挙した文字列を指定。<br/>デフォルト値は以下の通り。<br/>─‥…
 
 ***
 layer=${1{{レイヤ名}}} page=${2|fore,back|}

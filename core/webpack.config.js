@@ -1,7 +1,7 @@
 module.exports = {
 	entry: './core/src/extension',	// 「./」は必要
 	target: 'node',
-	resolve: {extensions: ['.ts', '.js'],},
+	resolve: {extensions: ['.ts', '...'],},
 	module: {
 		rules: [
 			{test: /\.ts$/, loader: 'ts-loader'},
@@ -11,7 +11,6 @@ module.exports = {
 	},
 	mode: 'development',
 	output: {
-		path: process.cwd(),
 		filename: 'extension.js',
 		libraryTarget: 'umd',
 		devtoolModuleFilenameTemplate: '../[resource-path]',

@@ -1,3 +1,7 @@
+## v3.19.5
+- chore: 開発中ビルドツールを esbuild に（リリース版は webpack + esbuild-loader）
+- docs: [lay]に kinsoku_sol、kinsoku_eol、kinsoku_dns 属性記述を追加
+- fix: npm i -D npm-check-updates@12.3.0 以上への更新でビルドエラーになっていた件
 ## v3.19.4
 - fix: 暗号化処理：package.json 内 build/files/"doc/prj/" の置換に失敗してた件
 - fix: 暗号化処理：core/lib/snsys_pre.js コピーに失敗してた件

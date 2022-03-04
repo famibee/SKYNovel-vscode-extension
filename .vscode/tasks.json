@@ -39,7 +39,7 @@
 				"background": {
 					"activeOnStart": true,
 					"beginsPattern": "^.*",
-					"endsPattern": "^.*compiled.*",
+					"endsPattern": "build finished",
 				}
 			},
 			"presentation": {

@@ -1,12 +1,10 @@
-!file.ts
 .vscode/
-**/.eslintrc.json
-**/*.map
-**/*.ts
-
 core/
 node_modules/
 test/
 
-*.cs
+**/*.cs
+**/*.map
+
+.eslintrc.json
 tsconfig.json
