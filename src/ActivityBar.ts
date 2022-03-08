@@ -15,7 +15,7 @@ import AdmZip = require('adm-zip');
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation, workspace} from 'vscode';
 const {exec} = require('child_process');
 const os = require('os');
-import {existsSync, readJsonSync, readFile, moveSync, outputJsonSync, removeSync, readFileSync, copyFileSync} from 'fs-extra';
+import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readFileSync, readJsonSync, removeSync} from 'fs-extra';
 
 export enum eTreeEnv {
 	NODE = 0,
@@ -355,7 +355,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
 
 
-	readonly repPrjFromTmp = (fnTo: string)=> window.withProgress({
+	// テンプレートからプロジェクト更新
+	readonly updPrjFromTmp = (fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト更新',
 		cancellable	: true,

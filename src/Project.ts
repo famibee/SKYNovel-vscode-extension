@@ -12,9 +12,10 @@ import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
+import {ScriptScanner} from './ScriptScanner';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {ensureDirSync, existsSync, readJsonSync, outputFileSync, removeSync, writeJsonSync, readFileSync, openSync, readSync, closeSync, ensureDir, ensureLink, readFile, outputFile, createReadStream, ensureFileSync, createWriteStream, outputJson, writeFileSync, outputJsonSync, move, remove} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, ensureFileSync, existsSync, move, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFile, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy} from 'fs-extra';
 import path = require('path');
 const img_size = require('image-size');
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -45,7 +46,7 @@ export class Project {
 	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 	readonly	#REG_FULLCRYPTO		= /\.(sn|ssn|json|html?)$/;
 	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
-	readonly	#hExt2N: {[name: string]: number} = {
+	readonly	#hExt2N: {[ext: string]: number} = {
 		'jpg'	: 1,
 		'jpeg'	: 1,
 		'png'	: 2,
@@ -97,7 +98,7 @@ export class Project {
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
-		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
+		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj, (nm, val)=> this.#cmd(nm, val));
 
 		const pathWs = wsFld.uri.fsPath;
 		this.actBar.chkLastSNVer(pathWs);
@@ -222,18 +223,115 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		return Promise.allSettled(a);
 	}
 
-	async #cmd(nm: string, _val: string): Promise<boolean> {
+
+	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
+	async #cmd(nm: string, val: string): Promise<boolean> {
+//console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
+		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
 		switch (nm) {
+		case 'cnv.font.subset':
+//			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+
+			await this.#subsetFont(Boolean(val));
+			break;
+
 		case 'cnv.mat.pic':
 			if (await window.showInformationMessage('ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			this.#tglCnvFileMode()
+			await this.#tglCnvFileMode()
 			.catch(err=> console.error(err));
 			break;
+
+		case 'updValid':{
+			const [id, v] = val.split('=');
+			this.#ps.updValid(id, v);
+			}	break;
 		}
 
 		return true;
 	}
+
+	#exeTask(tsk_id: string, title: string, aNeedLib: string[], node: string): Promise<void> {
+		const oPkg = readJsonSync(this.#pathWs +'/package.json', {encoding: 'utf8'});
+		const sNeedInst = aNeedLib
+		.filter(nm=> ! oPkg.devDependencies[nm])
+		.join(' ');
+
+		return new Promise<void>(fin=> window.withProgress({
+			location	: ProgressLocation.Notification,
+			title,
+			cancellable	: false,
+		}, prg=> new Promise<void>(async donePrg=> {
+			tasks.executeTask(new Task(
+				{type: 'SKYNovel '+ tsk_id},// definition（タスクの一意性）
+				this.wsFld,
+				title,		// name、UIに表示
+				'SKYNovel',	// source
+				new ShellExecution(
+					`cd "${this.#pathWs}"${
+						sNeedInst ?`${statBreak()} npm i -D ${sNeedInst} ` :''
+					} ${statBreak()} ${node}`
+				),
+			))
+			.then(
+				re=> this.#hTaskExe.set(<any>tsk_id, re),
+				rj=> console.error(`fn:Project #exeTask() rj:${rj.message}`)
+			);
+			this.hOnEndTask.set(<any>tsk_id, ()=> {
+				fin();
+				prg.report({message: '完了', increment: 100});
+				setTimeout(()=> donePrg(), 4000);
+			});
+		})));
+	}
+	readonly	#REG_FONT	= /\.(woff2|otf|ttf)$/;
+	async	#subsetFont(minify: boolean) {
+		// フォント出現箇所から生成すべき最小限のフォント情報についてまとめる
+		const oFont: {[font_nm: string]: {
+			inp	: string;
+			txt	: string;
+		}} = {};
+		const o = this.#codSpt.getInfFont2Str();
+		for (const sn in o.hSn2Font2Str) {
+			const f2s = o.hSn2Font2Str[sn];
+			for (const font_nm in f2s) {
+				if (! (font_nm in oFont)) {
+					oFont[font_nm] = {
+						inp: o.hFontNm2Path[font_nm],
+						txt: '',
+					};
+				}
+				oFont[font_nm].txt += f2s[font_nm];
+			}
+		}
+		oFont[o.defaultFontName].txt += oFont[ScriptScanner.DEF_FONT].txt;
+		delete oFont[ScriptScanner.DEF_FONT];
+		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
+
+		// 旧フォントファイルはすべて一度削除
+		foldProc(
+			this.#pathWs +'/doc/prj/script/',
+			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
+			_=> {},
+		);
+
+		await copy(
+			this.ctx.extensionPath +'/dist/subset_font.js',
+			this.#pathWs +'/core/font/subset_font.js'
+		);
+
+		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
+		await this.#exeTask(
+			'subsetFont',
+			'フォントサイズ最適化',
+			minify ?['subset-font'] :[],
+			'node ./core/font/subset_font.js' +(minify ?' --minify' :''),
+		);
+
+		// フォント情報更新
+		this.#ps.updFontInfo();
+	}
+
 
 	readonly	#hPush2BtnEnable = new Map<PrjBtnName, BtnEnable[]>([
 		['Crypto',		['','','','','','','','','','','','']],
@@ -304,7 +402,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.#termDbgSS()
-				.then(()=> this.actBar.repPrjFromTmp(this.wsFld.uri.fsPath))
+				.then(()=> this.actBar.updPrjFromTmp(this.wsFld.uri.fsPath))
 				.then(()=> ncu.run({	// ncu -u --target minor
 					packageFile: pathWs +'/package.json',
 					// Defaults:
@@ -758,7 +856,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		);
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
-			this.ctx.extensionPath +`/res/snsys_pre.js`,
+			this.ctx.extensionPath +`/dist/snsys_pre.js`,
 			/pia\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			pathPre +'/index.js',
@@ -777,6 +875,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			const path_enc = this.#curCrypto + this.#hDiff[short_path].cn;
 			this.#REG_NEEDCRYPTO.lastIndex = 0;
 			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
+				removeSync(path_enc);	// これがないとエラーが出るみたい
 				ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
@@ -810,6 +909,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 			const dir = this.#REG_DIR.exec(short_path);
 			if (dir && this.#ps.cfg.code[dir[1]]) {
+				removeSync(path_enc);	// これがないとエラーが出るみたい
 				ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
@@ -944,10 +1044,10 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		foldProc($cur, ()=> {}, dir=> {
 			const wd = path.resolve($cur, dir);
 			foldProc(wd, (url, nm)=> {
-				// スプライトシート用json自動生成機能
-				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				this.#addPath(hFn2Path, dir, nm);
 
+				// スプライトシート用json自動生成機能
+				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
 					const s = readFileSync(url, {encoding: 'utf8'});
@@ -995,7 +1095,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						};
 					}
 				}
-				writeFileSync(fnJs, JSON.stringify(oJs));
+				writeJsonSync(fnJs, oJs);
 				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
 
 				this.#addPath(hFn2Path, dir, `${a[1]}.json`);

@@ -15,4 +15,6 @@ export declare class PrjSetting {
     get cfg(): any;
     open(): void;
     private selectFile_icon;
+    updFontInfo(): void;
+    updValid(id: string, mes: string): void;
 }

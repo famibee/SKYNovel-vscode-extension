@@ -689,7 +689,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				let reply: string | undefined = undefined;
 				// 'evaluate' は 'repl' からのブレークポイントの作成と削除をサポート
 				const matches = /new +([0-9]+)/.exec(args.expression);
-				if (matches && matches.length === 2) {
+				if (matches?.length === 2) {
 					const mbp = this.dbg.setBreakPoint(this.dbg.scriptFn, this.convertClientLineToDebugger(parseInt(matches[1])));
 					const bp = <DebugProtocol.Breakpoint> new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.ln), undefined, this.createSource(this.dbg.scriptFn));
 					bp.id = mbp.id;
@@ -698,7 +698,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				}
 				else {
 					const matches = /del +([0-9]+)/.exec(args.expression);
-					if (matches && matches.length === 2) {
+					if (matches?.length === 2) {
 						const mbp = this.dbg.delBreakPoint(this.dbg.scriptFn, this.convertClientLineToDebugger(parseInt(matches[1])));
 						if (mbp) {
 							const bp = <DebugProtocol.Breakpoint> new Breakpoint(false);
@@ -709,7 +709,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 					}
 					else {
 						const matches = /progress/.exec(args.expression);
-						if (matches && matches.length === 1) {
+						if (matches?.length === 1) {
 							if (this._reportProgress) {
 								reply = 'progress started';
 								this.progressSequence();

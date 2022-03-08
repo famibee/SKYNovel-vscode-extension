@@ -1,5 +1,5 @@
 module.exports = {
-	entry: './core/src/extension',	// 「./」は必要
+	entry: './src/extension',	// 「./」は必要
 	target: 'node',
 	resolve: {extensions: ['.ts', '...'],},
 	module: {
@@ -22,7 +22,6 @@ module.exports = {
 	devtool: 'nosources-source-map',
 	externals: {
 		vscode: 'umd vscode',	// the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
-//		sharp: 'commonjs sharp',
 	},
 //	stats: {
 //		errorDetails: true, // --display-error-details

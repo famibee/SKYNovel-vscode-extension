@@ -5,9 +5,9 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {Encryptor} from '../core/src/Encryptor';
-import {EncryptorTransform} from '../core/src/EncryptorTransform';
-import {IPluginInitArg, PLUGIN_PRE_RET} from '../core/src/CmnLib';
+import {Encryptor} from '../src/Encryptor';
+import {EncryptorTransform} from '../src/EncryptorTransform';
+import {IPluginInitArg, PLUGIN_PRE_RET} from '../src/CmnLib';
 import {readFileSync, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
 
 let	encry: Encryptor;

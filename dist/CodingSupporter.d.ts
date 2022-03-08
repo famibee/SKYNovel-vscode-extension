@@ -1,9 +1,12 @@
 import { IFn2Path } from './CmnLib';
+import { TINF_FONT2STR } from './ScriptScanner';
 import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, DocumentSymbolProvider, SymbolInformation, DocumentSymbol } from 'vscode';
 export declare class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
     #private;
-    constructor(ctx: ExtensionContext, pathWs: string, curPrj: string);
+    readonly pathWs: string;
+    constructor(ctx: ExtensionContext, pathWs: string, curPrj: string, cmd: (nm: string, val: string) => Promise<boolean>);
     goAll(): void;
+    getInfFont2Str(): TINF_FONT2STR;
     private static initClass;
     provideHover(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Hover>;
     provideDefinition(doc: TextDocument, pos: Position, _token: CancellationToken): ProviderResult<Definition | DefinitionLink[]>;

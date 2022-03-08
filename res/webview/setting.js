@@ -21,30 +21,45 @@ const hTemp = [{
 	'book.pub_url'	: 'https://famibee.blog.fc2.com/',
 	'book.detail'	: '梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。',
 }];
-const chkVld = i=> {
-	if (! i.classList.contains('sn-vld')) return;
+const chkVld = m=> {
+	if (! m.classList.contains('sn-vld')) return;
 
-	i.setCustomValidity('');
-	hTemp.forEach(v=> {if (v[i.id] === i.value) i.setCustomValidity('x');});
-	i.closest('form')?.checkValidity();
+	m.setCustomValidity('');
+	hTemp.forEach(v=> {if (v[m.id] === m.value) m.setCustomValidity('x');});
+	m.closest('form')?.checkValidity();
 };
 
 window.addEventListener('message', e=> {
 	if (! e.isTrusted) {
-		vscode.postMessage({cmd: 'warn', text: `(setting.js) isTrusted=false`});
+		vscode.postMessage({cmd: 'warn', text:`(setting.js) isTrusted=false`});
 		return;
 	}
 
 	switch (e.data.cmd) {
 		case 'res'		:	break;
+		case 'updFontInfo'	:{
+			document.getElementById('font.info').innerHTML = e.data.htm;
+		}	return;
+
 		case 'updimg'	:{
 			const m = document.getElementById(e.data.id);
 			m.src = m.src.replace(/(\.png).*$/, '$1?'+ (new Date()).getTime());
 		}	return;
 
+		case 'disable'	:{
+			const m = document.getElementById(e.data.id);
+			m.disabled = ! m.disabled;
+		}	return;
+
 		case 'cancel'	:{
 			const m = document.getElementById(e.data.id);
 			m.checked = ! m.checked;
+		}	return;
+
+		case 'updValid'	:{
+			const m = document.getElementById(e.data.id);
+			m.parentElement.querySelector('div.invalid-feedback').textContent = e.data.mes;
+			m.setCustomValidity(e.data.mes);
 		}	return;
 
 		default:	return;

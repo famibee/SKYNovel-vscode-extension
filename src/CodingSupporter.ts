@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {getFn, IFn2Path, docsel} from './CmnLib';
-import {ScriptScanner} from './ScriptScanner';
+import {ScriptScanner, TINF_FONT2STR} from './ScriptScanner';
 import {MD_PARAM_DETAILS, MD_STRUCT} from './md2json';
 import {
 	QuickPickItem,		// クイックピック
@@ -25,7 +25,7 @@ import {
 	TextDocumentChangeEvent,
 } from 'vscode';
 
-const hMd: {[tag_nm: string]: MD_STRUCT} = require('../md.json');
+const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 
 
 export class CodingSupporter implements
@@ -52,7 +52,7 @@ export class CodingSupporter implements
 	}}	= {};
 
 	static	readonly #CMD_SCANSCR_TRGPARAMHINTS = 'extension.skynovel.scanScr_trgParamHints';
-	constructor(ctx: ExtensionContext, pathWs: string, curPrj: string) {
+	constructor(ctx: ExtensionContext, readonly pathWs: string, curPrj: string, cmd: (nm: string, val: string)=> Promise<boolean>) {
 		this.#lenRootPath = pathWs.length +1;
 		CodingSupporter.initClass(ctx);
 		CodingSupporter.#pickItems.forEach(q=> this.#hArgDesc[q.label] = {
@@ -160,12 +160,13 @@ ${md.comment}`, true)
 			}, 1000 /60 *10);
 		}, null, ctx.subscriptions);
 
-		this.#scrScn = new ScriptScanner(curPrj, this.#clDiag, CodingSupporter.#hTag);
+		this.#scrScn = new ScriptScanner(pathWs, curPrj, this.#clDiag, CodingSupporter.#hTag, cmd);
 	}
 	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 
 	goAll() {this.#scrScn.goAll();}
+	getInfFont2Str(): TINF_FONT2STR {return this.#scrScn.getInfFont2Str();}
 
 	// テキストエディタ変化イベント・遅延で遊びを作る
 	#tid	:  NodeJS.Timer | undefined	= undefined;

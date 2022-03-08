@@ -5,13 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, getFn, IFn2Path, REG_SCRIPT, chkBoolean} from './CmnLib';
+import {treeProc, getFn, IFn2Path, REG_SCRIPT, chkBoolean, is_win} from './CmnLib';
 import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 
 import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument} from 'vscode';
-import fs = require('fs-extra');
+import {existsSync, readFileSync} from 'fs-extra';
+import os = require('os');
 
 interface Script {
 	aToken	: string[];		// トークン群
@@ -23,15 +24,34 @@ interface Pos {
 	col		: number;
 }
 interface FncTagProc {
-	(setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range): void;
+	(setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range): void;
 }
 interface MacDef {
 	loc		: Location;
 	hPrm	: any;
 }
 
+// フォントと使用文字情報
+export type TFONT2STR = {
+	[font_nm: string]: string;
+};
+
+export type TINF_FONT2STR = {
+	defaultFontName	: string;
+	hSn2Font2Str	: {[sn: string]: {[font_nm: string]: string}};
+	hFontNm2Path	: {[font_nm: string]: string};
+};
+
+export type TINF_FONT_CHK = {
+	font_nm	: string;
+	err	: string;
+};
+
 export class ScriptScanner {
-	constructor(private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}) {
+	readonly	#aPlaceFont;
+	readonly	#aPlaceFontNm = ['PRJ','USER','OS'];
+
+	constructor(readonly pathWs: string, private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}, private cmd: (nm: string, val: string)=> Promise<boolean>) {
 		this.#hTagProc['let_abs'] =
 		this.#hTagProc['let_char_at'] =
 		this.#hTagProc['let_index_of'] =
@@ -52,6 +72,17 @@ export class ScriptScanner {
 		this.#procToken = this.#procTokenBase;
 
 		this.#cteScore = new CteScore(curPrj);
+
+		const username = os.userInfo().username;
+		this.#aPlaceFont	= [
+			`${pathWs}/core/font`,
+			is_win
+				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
+				: `/Users/${username}/Library/Fonts`,
+			is_win
+				? `C:/Windows/Fonts`
+				: `/Library/Fonts`,
+		];
 	}
 
 	hPlugin		: {[tm: string]: Location}		= {};
@@ -231,6 +262,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#nm2Diag = {};
 		this.#hScr2KeyWord = {};
 		this.hSn2aDsOutline = {};
+		this.#hInfFont2Str = {defaultFontName: '', hSn2Font2Str: {}, hFontNm2Path: {},};
 
 		treeProc(this.curPrj, url=> this.#scanFile(Uri.file(url)));
 
@@ -480,7 +512,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const td = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
 		this.#scanScriptSrc(
 			uri,
-			td?.getText() ?? fs.readFileSync(uri.fsPath, {encoding: 'utf8'}),
+			td?.getText() ?? readFileSync(uri.fsPath, {encoding: 'utf8'}),
 			true,
 		);
 	}
@@ -488,12 +520,67 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	readonly	#cteScore	: CteScore;
 	updPath(hPath: IFn2Path) {this.#cteScore.updPath(hPath);}
 
+	// フォントと使用文字情報
+	#hInfFont2Str	: TINF_FONT2STR	= {
+		defaultFontName: '',
+		hSn2Font2Str: {},
+		hFontNm2Path: {},
+	};
+	getInfFont2Str(): TINF_FONT2STR {
+/*
+		// テスト用に空オブジェクト削除
+		const o: {[sn: string]: {[fn: string]: string}} = {};
+		for (const sn in this.#hInfFont2Str.hSn2Font2Str) {
+			const f2s = this.#hInfFont2Str.hSn2Font2Str[sn];
+			if (Object.keys(f2s).length > 0) o[sn] = f2s;
+		}
+		this.#hInfFont2Str.hSn2Font2Str = o;
+*/
+
+		return this.#hInfFont2Str;
+	}
+
+	#Fonts2ANm(fonts: string, diags: Diagnostic[], rng: Range): TINF_FONT_CHK[] {
+		return fonts.split(',')
+		.map(nm=> /^["'\s]*(?<text>[^,;"']+)/.exec(nm)?.groups?.text ?? '')
+			// https://regex101.com/r/TA5y7N/1
+		.map(nm=> {
+			// 存在チェック
+			const f: TINF_FONT_CHK = {font_nm: nm, err: ''};
+			if (nm in this.#hInfFont2Str.hFontNm2Path) return f;
+
+			f.err = `フォントファイル ${nm} が見つかりません`;
+			this.#aPlaceFont
+			.some((base, i)=> ['woff2','otf','ttf']
+			.some(ext=> {
+				const ret = existsSync(`${base}/${nm}.${ext}`);
+				if (ret) {
+					f.err = '';
+					this.#hInfFont2Str.hFontNm2Path[nm] = `::PATH_${
+						this.#aPlaceFontNm[i]
+					}_FONTS::/${nm}.${ext}`;
+				}
+				return ret;
+			}));
+
+			if (f.err) diags.push(new Diagnostic(rng, f.err, DiagnosticSeverity.Error));
+
+			return f;
+		});
+	}
+
+
 			readonly	#alzTagArg	= new AnalyzeTagArg;
 	static	readonly	#regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
+	static	readonly	DEF_FONT = ':DEF_FONT:';
+	#nowFontNm = ScriptScanner.DEF_FONT;
 	#scanScriptSrc(uri: Uri, src: string, isUpdScore: boolean) {
 		const path = uri.path;
 		const diags = this.#nm2Diag[path];
+
+		const f2s: TFONT2STR = this.#hInfFont2Str.hSn2Font2Str[path] = {};
+		this.#nowFontNm = ScriptScanner.DEF_FONT;
 
 		const hLabel: {[label_nm: string]: Range | undefined} = {};
 			// ラベル重複チェック用
@@ -506,6 +593,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const len = token.length;
 			if (uc === 9) {p.col += len; return;}	// \t タブ
 			if (uc === 10) {p.line += len; p.col = 0; return;}	// \n 改行
+			if (uc === 59) {p.col += len; return;}	// ; コメント
+			const rng = new Range(
+				p.line, p.col,
+				p.line, p.col +len
+			);
 			if (uc === 38) {	// & 変数操作・変数表示
 				p.col += len;
 				if (token.slice(-1) === '&') return;
@@ -516,15 +608,22 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 						const kw = o.name.trimEnd();
 						this.#hSetWords['代入変数名'].add(kw);
 						setKw.add(`代入変数名\t${kw}`);
+
+						// doc/prj/script/setting.sn の デフォルトフォント
+						if (kw === 'def_fonts') {
+							const a = this.#Fonts2ANm(o.text, diags, rng);
+							this.#hInfFont2Str.defaultFontName = a[0].font_nm;
+
+							this.cmd('updValid', '/setting.sn:def_fonts=');
+							a.some(({err})=> {
+								if (err) this.cmd('updValid', '/setting.sn:def_fonts='+ err);
+								return err;
+							});
+						}
 					}
-				} catch {}
+				} catch (e) {console.error(`fn:ScriptScanner.ts #scanScriptSrc & %o`, e);}
 				return;
 			}
-			if (uc === 59) {p.col += len; return;}	// ; コメント
-			const rng = new Range(
-				p.line, p.col,
-				p.line, p.col +len
-			);
 			if ((uc === 42) && (token.length > 1)) {	// * ラベル
 				p.col += len;
 
@@ -549,6 +648,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				p.col += len;
 
 				this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.String, rng, rng));
+
+				f2s[this.#nowFontNm] = (f2s[this.#nowFontNm] ?? '') + token;
 				return;
 			}
 
@@ -632,20 +733,20 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			}
 		},
 
-		'macro': (_setKw: Set<string>, uri: Uri, token: string, rngp1: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+		'macro': (_setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
 			const hPrm = this.#alzTagArg.hPrm;
 			const def_nm = hPrm.name?.val;
 			if (! def_nm) {	// [macro name=]など
-				diags.push(new Diagnostic(rngp1, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rng, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
 				return;
 			}
 
 			if (this.hTag[def_nm]) {
-				diags.push(new Diagnostic(rngp1, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rng, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
 				return;
 			}
 			if (this.hPlugin[def_nm]) {
-				diags.push(new Diagnostic(rngp1, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rng, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
 				return;
 			}
 
@@ -653,7 +754,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (! m) {	// 新規マクロ定義を登録
 				const m2 = token.match(ScriptScanner.#regValName);
 				if (! m2) {	// 失敗ケースが思い当たらない
-					diags.push(new Diagnostic(rngp1, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
+					diags.push(new Diagnostic(rng, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
 					return;
 				}
 
@@ -708,17 +809,17 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		},
 		'endmacro': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
-		'char2macro': (_setKw: Set<string>, uri: Uri, _token: string, rngp1: Range, diags: Diagnostic[])=> {
+		'char2macro': (_setKw: Set<string>, uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
 			const hPrm = this.#alzTagArg.hPrm;
 			const char = hPrm.char?.val ?? '';
 			const use_nm = hPrm.name?.val ?? '';
 			if (! char || ! use_nm) {	// [macro name=]など
-				diags.push(new Diagnostic(rngp1, `一文字マクロ定義[${use_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+				diags.push(new Diagnostic(rng, `一文字マクロ定義[${use_nm}]の属性が異常です`, DiagnosticSeverity.Error));
 				return;
 			}
 
 			const mu = this.hMacroUse4NoWarm[use_nm] ?? [];	// 使用箇所更新
-			mu.push(new Location(uri, rngp1));
+			mu.push(new Location(uri, rng));
 			this.hMacroUse4NoWarm[use_nm] = mu;
 		},
 
@@ -823,6 +924,18 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				this.#hSetWords['差分名称'].add(v);
 				setKw.add(`差分名称\t${v}`);
 			}
+		},
+		'span': (_setKw: Set<string>, _uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
+			const v = this.#alzTagArg.hPrm.style?.val;
+			if (! v) {this.#nowFontNm = ScriptScanner.DEF_FONT; return;}
+
+			// [span style='font-family: my_himajihoso; color: skyblue;']
+			const fonts = /font-family\s*:\s+(?<fonts>[^;]+)/.exec(v)
+			?.groups?.fonts ?? '';	// https://regex101.com/r/b93jbp/1
+			if (! fonts) {this.#nowFontNm = ScriptScanner.DEF_FONT; return;}
+
+			const a = this.#Fonts2ANm(fonts, diags, rng);
+			if (! a[0].err) this.#nowFontNm = a[0].font_nm;
 		},
 	};
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];

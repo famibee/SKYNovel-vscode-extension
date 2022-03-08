@@ -20,5 +20,5 @@ export declare class ActivityBar implements TreeDataProvider<TreeItem> {
         verSN: string;
         verTemp: string;
     };
-    readonly repPrjFromTmp: (fnTo: string) => Thenable<void>;
+    readonly updPrjFromTmp: (fnTo: string) => Thenable<void>;
 }

@@ -1,9 +1,10 @@
 .vscode/
-core/
+src/
 node_modules/
 test/
 
 **/*.cs
+**/*.d.ts
 **/*.map
 
 .eslintrc.json

@@ -10,7 +10,7 @@ import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {existsSync, ensureFileSync, copyFileSync, copyFile, readJsonSync, outputJson, readFile, statSync, readFileSync, ensureDirSync, writeFileSync, copy} from 'fs-extra';
+import {copy, copyFile, copyFileSync, ensureDirSync, ensureFileSync, existsSync, outputJson, readFile, readFileSync, readJsonSync, statSync, writeFileSync} from 'fs-extra';
 import m_path = require('path');
 import {v4 as uuidv4} from 'uuid';
 import os = require('os');
@@ -36,6 +36,7 @@ export class PrjSetting {
 
 	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private readonly searchPath: (path: string, extptn: string)=> string, private cmd: (nm: string, val: string)=> Promise<boolean>) {
 		this.#wss = ctx.workspaceState;
+		this.#wss.update('cnv.font.subset', this.#wss.get('cnv.font.subset') ?? false);
 		this.#wss.update('cnv.mat.webp_quality', this.#wss.get('cnv.mat.webp_quality') ?? 90);
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#fnPrj = this.#pathWs +'/doc/prj/';
@@ -179,7 +180,10 @@ export class PrjSetting {
 		const {username} = os.userInfo();
 		p.webview.onDidReceiveMessage(m=> {
 			switch (m.cmd) {
-			case 'get':		p.webview.postMessage({cmd: 'res', o: this.#oCfg});	break;
+			case 'get':
+				p.webview.postMessage({cmd: 'res', o: this.#oCfg});
+				this.updFontInfo();
+				break;
 			case 'info':	window.showInformationMessage(m.text); break;
 			case 'warn':	window.showWarningMessage(m.text); break;
 
@@ -428,9 +432,8 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 	}
 	static	readonly #REG_BOL_OR_NUM = /^(?:true|false|[-+]?(?:[1-9]\d*|0)(?:\.\d+)?|0x[0-9a-fA-F]+)$/;	// https://regex101.com/r/NPNbRk/1
 	#inputProc(id: string, val: string) {
-		const [media, a_nm] = id.split(':');
-		const nm = a_nm;
-//console.log(`fn:PrjSetting.ts line:340 media:${media}: nm:${nm}:`);
+		const [media, nm] = id.split(':');
+//console.log(`fn:PrjSetting.ts #inputProc media:${media}: nm:${nm}: val:${val}:`);
 		switch (media) {
 		case '/setting.sn':
 			replaceFile(
@@ -441,9 +444,12 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 			break;
 
 		case '/workspaceState':
-			this.cmd(nm, val).then(go=> {
-				if (go) this.#wss.update(nm, val);
+			// 処理中はトグルスイッチを無効にする
+			this.#pnlWV?.webview.postMessage({cmd: 'disable', id});
+			this.cmd(nm, val).then(async go=> {
+				if (go) await this.#wss.update(nm, val);
 				else this.#pnlWV?.webview.postMessage({cmd: 'cancel', id});
+				this.#pnlWV?.webview.postMessage({cmd: 'disable', id});
 			});
 			break;
 
@@ -515,5 +521,39 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 		'book.detail'	: val=> replaceFile(this.#fnPkgJs,
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
 	}
+
+	readonly	#hID2Mes: {[nm: string]: string}	= {
+		'::PATH_PRJ_F'	: 'プロジェクト内（core/font/ 下）',
+		'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
+		'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
+	};
+	updFontInfo() {
+		if (! this.#pnlWV) return;
+
+		const oInf = readJsonSync(this.#pathWs +'/core/font/info.json');
+		const a = Object.entries(oInf).map(([k,v])=> {return {
+			fn		: k,
+			base	: this.#hID2Mes[(<any>v).inp.slice(0, 12)],
+			iSize	: (<any>v).iSize,
+			oSize	: (<any>v).oSize,
+		}});
+		a.sort();
+
+		const htm = a.map((e, i)=> {return `
+<tr>
+	<th scope="row">${i}</th>
+	<td>${e.fn}</td>
+	<td>${e.base}</td>
+	<td style="text-align: right;">${e.iSize.toLocaleString('ja-JP')} byte</td>
+	<td style="text-align: right;">${e.oSize.toLocaleString('ja-JP')} byte</td>
+	<td>${(e.oSize / e.iSize).toLocaleString('ja-JP')}</td>
+</tr>`
+		}).join('');
+		this.#pnlWV.webview.postMessage({cmd: 'updFontInfo', htm});
+	}
+	updValid(id: string, mes: string) {
+		this.#pnlWV?.webview.postMessage({cmd: 'updValid', id, mes});
+	}
+
 
 }
