@@ -522,7 +522,7 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
 	}
 
-	readonly	#hID2Mes: {[nm: string]: string}	= {
+	readonly	#hHead2Mes: {[head: string]: string}	= {
 		'::PATH_PRJ_F'	: 'プロジェクト内（core/font/ 下）',
 		'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
 		'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
@@ -530,10 +530,10 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 	updFontInfo() {
 		if (! this.#pnlWV) return;
 
-		const oInf = readJsonSync(this.#pathWs +'/core/font/info.json');
-		const a = Object.entries(oInf).map(([k,v])=> {return {
-			fn		: k,
-			base	: this.#hID2Mes[(<any>v).inp.slice(0, 12)],
+		const o = readJsonSync(this.#pathWs +'/core/font/info.json');
+		const a = Object.entries(o).map(([nm, v])=> {return {
+			nm,
+			mes		: this.#hHead2Mes[(<any>v).inp.slice(0, 12)],
 			iSize	: (<any>v).iSize,
 			oSize	: (<any>v).oSize,
 		}});
@@ -541,9 +541,9 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 
 		const htm = a.map((e, i)=> {return `
 <tr>
-	<th scope="row">${i}</th>
-	<td>${e.fn}</td>
-	<td>${e.base}</td>
+	<th scope="row">${i +1}</th>
+	<td>${e.nm}</td>
+	<td>${e.mes}</td>
 	<td style="text-align: right;">${e.iSize.toLocaleString('ja-JP')} byte</td>
 	<td style="text-align: right;">${e.oSize.toLocaleString('ja-JP')} byte</td>
 	<td>${(e.oSize / e.iSize).toLocaleString('ja-JP')}</td>

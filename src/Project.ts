@@ -291,19 +291,22 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			inp	: string;
 			txt	: string;
 		}} = {};
+		oFont[ScriptScanner.DEF_FONT] = {inp: '', txt: ''};
+
 		const o = this.#codSpt.getInfFont2Str();
+		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
+			inp: o.hFontNm2Path[font_nm],
+			txt: '',
+		};
 		for (const sn in o.hSn2Font2Str) {
 			const f2s = o.hSn2Font2Str[sn];
 			for (const font_nm in f2s) {
-				if (! (font_nm in oFont)) {
-					oFont[font_nm] = {
-						inp: o.hFontNm2Path[font_nm],
-						txt: '',
-					};
-				}
+				ensureFont2Str(font_nm);
 				oFont[font_nm].txt += f2s[font_nm];
 			}
 		}
+		ensureFont2Str(o.defaultFontName);
+			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
 		oFont[o.defaultFontName].txt += oFont[ScriptScanner.DEF_FONT].txt;
 		delete oFont[ScriptScanner.DEF_FONT];
 		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
