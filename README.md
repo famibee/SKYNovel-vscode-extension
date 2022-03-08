@@ -20,15 +20,15 @@
 - [simple sample project](https://github.com/famibee/SKYNovel_sample)
 
 # List of Functions / 機能一覧
-- [Startup timing / 起動タイミング](#Startup-timing--起動タイミング)
+- [Startup timing / 起動タイミング](#startup-timing--起動タイミング)
 - [shortcut key / ショートカットキー](#shortcut-key--ショートカットキー)
-- [Syntax Highlight / シンタックスハイライト](#Syntax-Highlight--シンタックスハイライト)
-- [Diagnostic function](#Diagnostic-function) / [診断機能](#診断機能)
-- [Coding assistance](#Coding-assistance) / [コーディング補助](#コーディング補助)
-- [Font size optimization](#Font-size-optimization) / [フォントサイズ最適化](#フォントサイズ最適化)
-- [Automatic icon creation](#Automatic-icon-creation) / [アイコン自動作成](#アイコン自動作成)
-- [Outline view and symbol search](#Outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
-- [Activity Bar / アクティビティバー](#Activity-Bar--アクティビティバー)
+- [Syntax Highlight / シンタックスハイライト](#syntax-Highlight--シンタックスハイライト)
+- [Diagnostic function](#diagnostic-function) / [診断機能](#診断機能)
+- [Coding assistance](#coding-assistance) / [コーディング補助](#コーディング補助)
+- [Font size optimization / フォントサイズ最適化](#font-size-optimization--フォントサイズ最適化)
+- [Automatic icon creation / アイコン自動作成](#automatic-icon-creation--アイコン自動作成)
+- [Outline view and symbol search](#outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
+- [Activity Bar / アクティビティバー](#activity-bar--アクティビティバー)
 - [Debugger](#Debugger) / [デバッガー](#デバッガー)
 - [Reference search palette / リファレンス検索パレット](#Reference-search-palette--リファレンス検索パレット)
 
