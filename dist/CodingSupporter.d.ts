@@ -1,6 +1,6 @@
 import { IFn2Path } from './CmnLib';
 import { TINF_FONT2STR } from './ScriptScanner';
-import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, ExtensionContext, Uri, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, DocumentSymbolProvider, SymbolInformation, DocumentSymbol } from 'vscode';
+import { HoverProvider, DefinitionProvider, ReferenceProvider, ReferenceContext, RenameProvider, CompletionItemProvider, CancellationToken, CompletionContext, CompletionItem, CompletionList, Definition, DefinitionLink, ExtensionContext, Hover, Location, Position, ProviderResult, Range, TextDocument, Uri, WorkspaceEdit, SignatureHelpProvider, SignatureHelpContext, SignatureHelp, DocumentSymbolProvider, SymbolInformation, DocumentSymbol } from 'vscode';
 export declare class CodingSupporter implements HoverProvider, DefinitionProvider, ReferenceProvider, RenameProvider, CompletionItemProvider, SignatureHelpProvider, DocumentSymbolProvider {
     #private;
     readonly pathWs: string;

@@ -80,8 +80,8 @@ export class ScriptScanner {
 				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
 				: `/Users/${username}/Library/Fonts`,
 			is_win
-				? `C:/Windows/Fonts`
-				: `/Library/Fonts`,
+				? 'C:/Windows/Fonts'
+				: '/Library/Fonts',
 		];
 	}
 
@@ -536,7 +536,6 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		}
 		this.#hInfFont2Str.hSn2Font2Str = o;
 */
-
 		return this.#hInfFont2Str;
 	}
 

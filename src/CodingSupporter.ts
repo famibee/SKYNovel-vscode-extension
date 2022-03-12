@@ -16,7 +16,11 @@ import {
 	ReferenceContext,
 	RenameProvider,		// 「シンボルの名前変更」
 	CompletionItemProvider,	// コード補完機能
-	DiagnosticCollection, ExtensionContext, commands, workspace, window, Uri, languages, Location, Position, Range, Hover, TextDocument, CancellationToken, WorkspaceEdit, ProviderResult, Definition, DefinitionLink, CompletionContext, CompletionItem, CompletionList, CompletionItemKind, MarkdownString, SnippetString,
+	CancellationToken, commands, CompletionContext, CompletionItem,
+	CompletionItemKind, CompletionList, Definition, DefinitionLink,
+	DiagnosticCollection, ExtensionContext, Hover, languages, Location,
+	MarkdownString, Position, ProviderResult, Range, SnippetString,
+	TextDocument, Uri, window, workspace, WorkspaceEdit,
 	SignatureHelpProvider,	// 引数の説明
 	SignatureHelpContext, SignatureHelp, SignatureInformation, ParameterInformation,
 	DocumentSymbolProvider,	// アウトライン
@@ -92,7 +96,7 @@ ${md.comment}`, true)
 		//	ci.textEdit? = TextEdit
 
 			md.snippet.forEach(v=> {
-				const ci2 = new CompletionItem(v.nm,CompletionItemKind.Snippet);
+				const ci2 = new CompletionItem(v.nm, CompletionItemKind.Snippet);
 				ci2.detail = md.detail;
 				ci2.command = cmdScanScr_trgPrm;
 				ci2.documentation = docu;
@@ -122,7 +126,7 @@ ${md.comment}`, true)
 		ctx.subscriptions.push(languages.registerDocumentSymbolProvider(docsel, this));
 
 		// デバッグ中のみ有効なホバー
-		languages.registerEvaluatableExpressionProvider(docsel, {
+		ctx.subscriptions.push(languages.registerEvaluatableExpressionProvider(docsel, {
 			provideEvaluatableExpression(doc: TextDocument, pos: Position): ProviderResult<EvaluatableExpression> {
 				const r = doc.getWordRangeAtPosition(pos, CodingSupporter.#REG_VAR);
 				if (! r) return Promise.reject('No word here.');
@@ -132,8 +136,8 @@ ${md.comment}`, true)
 				if (hc === '[' || hc === '*' || hc === ';'
 				|| txt.slice(-1)=== '=') return Promise.reject('No word here.');
 				return new EvaluatableExpression(r, txt);
-			}
-		});
+			},
+		}));
 
 
 		// TODO: ラベルジャンプ
@@ -141,8 +145,15 @@ ${md.comment}`, true)
 		// languages.registerHoverProvider
 		// languages.registerDocumentLinkProvider
 
-		// コードアクション（電球マーク）
+		// TODO: コードアクション（電球マーク）
 		// languages.registerCodeActionsProvider
+
+		// TODO: インレイヒント
+		// languages.registerInlayHintsProvider
+		// https://github.com/microsoft/vscode/blob/1.64.0/src/vscode-dts/vscode.proposed.inlayHints.d.ts
+			// → 1.64のリンクなので、最新を参照
+
+		// TODO: インライン値
 
 		// テキストエディタ変化イベント
 		workspace.onDidChangeTextDocument(e=> {
@@ -351,7 +362,7 @@ ${md.detail}`
 			const t = line.text.slice(pos.character -1, pos.character +1);
 			// res/language-configuration.json の autoClosingPairs で自動に閉じる、
 			// またはそのような状況で発火させる
-			return (t === '[]') ?this.#aCITagMacro :[];
+			return t === '[]' ?this.#aCITagMacro :[];
 		}
 
 		const aUse = this.#scrScn.hTagMacroUse[doc.uri.path];
@@ -374,7 +385,7 @@ ${md.detail}`
 		const idxParam = this.#searchArgName(doc.getText(r), md);
 		if (idxParam === -1) return [];
 		const prm_details = md.param[idxParam];
-		let rangetype = prm_details?.rangetype;
+		let {rangetype} = prm_details;
 		if (! rangetype) return [];
 		switch (rangetype) {
 			case 'Boolean':	rangetype = 'true、false'; break;
@@ -395,7 +406,7 @@ ${md.detail}`
 			default:	kind = CompletionItemKind.EnumMember;	break;
 		}
 		return words.slice(1, -1).split(',').map(v=> new CompletionItem(
-			v, (v.slice(0, 6) === 'const.') ?CompletionItemKind.Constant :kind
+			v, v.slice(0, 6) === 'const.' ?CompletionItemKind.Constant :kind
 		));
 	}
 	// 遅延でコード補完処理

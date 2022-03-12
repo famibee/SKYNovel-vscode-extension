@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "3.20.1",
+	"version": "3.20.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -44,7 +44,11 @@
 					".an",
 					".ks"
 				],
-				"configuration": "res/language-configuration.json"
+				"configuration": "res/language-configuration.json",
+				"icon": {
+					"light": "./res/file_icon.png",
+					"dark": "./res/file_icon.png"
+				}
 			}
 		],
 		"grammars": [
@@ -650,7 +654,7 @@
 		"fs-extra": "^10.0.1",
 		"image-size": "^1.0.1",
 		"node-fetch": "^2.6.7",
-		"npm-check-updates": "^12.5.2",
+		"npm-check-updates": "^12.5.3",
 		"original-fs": "^1.1.0",
 		"png2icons": "^2.0.1",
 		"socket.io": "^4.4.1",
@@ -668,27 +672,28 @@
 		"@types/power-assert": "^1.5.8",
 		"@types/uuid": "^8.3.4",
 		"@types/vscode": "^1.65.0",
+		"@types/vscode-webview": "^1.57.0",
 		"@typescript-eslint/eslint-plugin": "^5.14.0",
 		"@typescript-eslint/parser": "^5.14.0",
-		"electron": "^17.1.1",
+		"@vscode/test-electron": "^2.1.3",
+		"electron": "^17.1.2",
 		"esbuild": "^0.14.25",
 		"esbuild-jest": "^0.5.0",
 		"esbuild-plugin-d.ts": "^1.1.0",
 		"esbuild-register": "^3.3.2",
-		"eslint": "^8.10.0",
+		"eslint": "^8.11.0",
 		"file-loader": "^6.2.0",
 		"glob": "^7.2.0",
 		"jest": "^27.5.1",
 		"rimraf": "^3.0.2",
-		"ts-loader": "^9.2.7",
+		"ts-loader": "^9.2.8",
 		"typescript": "^4.6.2",
-		"vscode-test": "^1.6.1",
 		"webpack": "^5.70.0",
 		"webpack-cli": "^4.9.2"
 	},
 	"optionalDependencies": {
 		"bufferutil": "^4.0.6",
-		"utf-8-validate": "^5.0.8"
+		"utf-8-validate": "^5.0.9"
 	},
 	"scripts": {
 		"build": "node ./src/build.js",

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon} from './CmnLib';
+import {oIcon, docsel} from './CmnLib';
 import {ActivityBar} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -13,7 +13,7 @@ import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 import {PrjTreeItem, PrjBtnName} from './PrjTreeItem';
 
-import {TreeDataProvider, ExtensionContext, TreeItem, tasks, TreeItemCollapsibleState, workspace, TaskProcessEndEvent, WorkspaceFoldersChangeEvent, EventEmitter, WorkspaceFolder, window, Range, TextEditorDecorationType, TextEditor, commands} from 'vscode';
+import {commands, EventEmitter, ExtensionContext, Range, TaskProcessEndEvent, tasks, TextEditor, TextEditorDecorationType, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem} from 'vscode';
 
 import {existsSync} from 'fs-extra';
 
@@ -28,6 +28,11 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	#hPrj	: {[pathWs: string]: Project}	= {};
 
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
+		const itmStt = this.#addStatusItem('init');
+		itmStt.text = '初期化中...';	// $(icon-name)使用可能
+		itmStt.busy = true;	// ピン留めしてなくてもアイコン回転で表示してくれる
+		itmStt.detail = 'refresh';	// text - detail と表示される
+
 		this.#refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
@@ -35,6 +40,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 			<PrjBtnName>(e.execution.task.definition.type.slice(9))
 		)?.(e));
 
+		itmStt.detail = 'onUpdDoc';	// text - detail と表示される
 		this.#onUpdDoc(window.activeTextEditor);
 		window.onDidChangeActiveTextEditor(te=> this.#onUpdDoc(te), null, ctx.subscriptions);
 		workspace.onDidCloseTextDocument(td=> {
@@ -45,6 +51,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		}, null, ctx.subscriptions);
 
 		// デバッガ
+		itmStt.detail = 'initDebug';	// text - detail と表示される
 		const emDbgLayTd = new EventEmitter<TreeItem | undefined>();
 //		const hLay2TI: {[layer: string]: TreeItem} = {};
 		initDebug(ctx, o=> {
@@ -111,6 +118,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		commands.registerCommand('skynovel.tiLayers.selectNode', node=> Debugger.send2SN('_selectNode', {node}));
 
+		itmStt.detail = 'layers';	// text - detail と表示される
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
 			getChildren: t=> {
 				if (! t) return this.#tiLayers;
@@ -144,8 +152,32 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		}));
 
 		CteScore.init(ctx);
+
+		this.#removeStatusItem('init');
 	}
 	#tiLayers	: TreeItem[]	= [];
+
+/*
+		itm.accessibilityInformation = {
+			label: 'label',
+			role: 'checkbox',	// https://w3c.github.io/aria/#widget_roles
+		};
+		// itm.name = 'name';	// どこにも表示されない、なにに使う？？
+		itmStt.severity = LanguageStatusSeverity.Error;
+			// Information, Error, Warning
+		itmStt.text = '初期化中...$(loading~spin)';	// $(icon-name)使用可能
+		itmStt.detail = 'detail';	// text - detail と表示される
+		itmStt.busy = true;	// ピン留めしてなくてもアイコン回転で表示してくれる
+	//	itm.command: Command | undefined
+*/
+	readonly	#hItmLangStt	: {[id: string]: LanguageStatusItem} = {};
+	#addStatusItem(id: string): LanguageStatusItem {
+		return this.#hItmLangStt[id] = languages.createLanguageStatusItem(id, docsel);
+	}
+	#removeStatusItem(id: string) {
+		this.#hItmLangStt[id]?.dispose();
+		delete this.#hItmLangStt[id];
+	}
 
 	#tidDelay: NodeJS.Timer | null = null;
 	#onUpdDoc(te: TextEditor | undefined) {
@@ -247,6 +279,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	dispose() {
 		for (const pathWs in this.#hPrj) this.#hPrj[pathWs].dispose();
 		this.#hPrj = {};
+		for (const itm in this.#hItmLangStt) {
+			if (Object.prototype.hasOwnProperty.call(this.#hItmLangStt, itm)) {
+				this.#hItmLangStt[itm].dispose();
+			}
+		}
 	}
 
 }

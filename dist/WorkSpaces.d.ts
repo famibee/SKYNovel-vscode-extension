@@ -1,5 +1,5 @@
 import { ActivityBar } from './ActivityBar';
-import { TreeDataProvider, ExtensionContext, TreeItem } from 'vscode';
+import { ExtensionContext, TreeDataProvider, TreeItem } from 'vscode';
 export declare class WorkSpaces implements TreeDataProvider<TreeItem> {
     #private;
     private readonly ctx;

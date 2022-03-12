@@ -170,18 +170,18 @@ export class PrjSetting {
 
 		const p = this.#pnlWV = window.createWebviewPanel('SKYNovel-prj_setting', '設定', column || ViewColumn.One, {
 			enableScripts		: true,
+		//	retainContextWhenHidden: true,	// 楽だがメモリオーバーヘッド高らしい
 			localResourceRoots	: [
 				this.#localExtensionResRoots,
 				Uri.file(this.#pathWs),
 			],
 		});
-		p.onDidDispose(()=> this.#pnlWV = undefined);	// 閉じられたとき
+		p.onDidDispose(()=> this.#pnlWV = undefined, undefined, this.ctx.subscriptions);
 
 		const {username} = os.userInfo();
-		p.webview.onDidReceiveMessage(m=> {
-			switch (m.cmd) {
-			case 'get':
-				p.webview.postMessage({cmd: 'res', o: this.#oCfg});
+		p.webview.onDidReceiveMessage(m=> {switch (m.cmd) {
+			case '?':
+				p.webview.postMessage({cmd: '!', o: this.#oCfg});
 				this.updFontInfo();
 				break;
 			case 'info':	window.showInformationMessage(m.text); break;
@@ -233,8 +233,8 @@ export class PrjSetting {
 					if (id === 'icon') this.selectFile_icon(src, id, path, p);
 				})
 				break;
-			}
-		}, false);
+			}}, undefined, this.ctx.subscriptions
+		);
 		this.#openSub();
 	}
 	static	readonly #REG_SETTING = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;	// https://regex101.com/r/FpmGwf/1
@@ -520,6 +520,10 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 		},
 		'book.detail'	: val=> replaceFile(this.#fnPkgJs,
 			/("description"\s*:\s*").*(")/, `$1${val}$2`),
+	}
+
+	refreshFont(minify: boolean) {
+		this.#inputProc('/workspaceState:cnv.font.subset', String(minify));
 	}
 
 	readonly	#hHead2Mes: {[head: string]: string}	= {

@@ -15,6 +15,7 @@ export declare class PrjSetting {
     get cfg(): any;
     open(): void;
     private selectFile_icon;
+    refreshFont(minify: boolean): void;
     updFontInfo(): void;
     updValid(id: string, mes: string): void;
 }

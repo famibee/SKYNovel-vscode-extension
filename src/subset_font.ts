@@ -26,7 +26,7 @@ const o = require('./font.json');
 const a = [];
 const oInf: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number}} = {};
 
-const username = os.userInfo().username;
+const {username} = os.userInfo();
 const PATH_PRJ_FONTS = 'core/font';
 const PATH_USER_FONTS = is_win
 	? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`

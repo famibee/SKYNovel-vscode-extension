@@ -56,6 +56,19 @@ export class CteScore {
 			},
 			supportsMultipleEditorsPerDocument: true,
 */
+
+/*
+	https://code.visualstudio.com/updates/v1_44
+	> カスタムエディターの場合
+"workbench.editorAssociations": [
+	{
+		"viewType": "catCustoms.catScratch",
+		"filenamePattern": "*.catScratch"
+	}
+]
+*/
+
+
 		});
 
 		const path_ext_htm = ctx.extensionPath +`/res/webview/`;

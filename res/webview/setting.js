@@ -1,8 +1,59 @@
-// 別のタブにフォーカスして戻るたびに発生（丸ごと再生成？）するので、このような
-// リクエストして最新情報をホストにもらう、サーバー・クライアント方式になっている。
-// この事実を、createWebviewPanel()したホストは知りもしないので。
-const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :null;
-//vscode.postMessage({cmd: 'info', text: 'setting.js'});	// デバッグ時はこう
+/* ***** BEGIN LICENSE BLOCK *****
+	Copyright (c) 2019-2022 Famibee (famibee.blog38.fc2.com)
+
+	This software is released under the MIT License.
+	http://opensource.org/licenses/mit-license.php
+** ***** END LICENSE BLOCK ***** */
+
+const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :undefined;
+
+// 永続性回復
+const stt = vscode.getState() ?? {
+	active_tab: 'nav-basic',
+};
+/**/console.log(`fn:setting.js line:14 stt:%o`, stt);
+
+// タブ選択
+const th = document.getElementById(`${stt.active_tab}-tab`);
+th.classList.add('active');
+th.setAttribute('aria-selected', true);
+document.getElementById(stt.active_tab).classList.add('show', 'active');
+
+document.querySelectorAll('#nav-tab a').forEach(m=> {
+	const nm = m.getAttribute('aria-controls');
+	m.addEventListener('show.bs.tab', e=> {
+//console.log(`fn:setting.js line:22 === A:${nm} <= B:${e.relatedTarget.getAttribute('aria-controls')}`);
+		//	e.target //新しくアクティブ化されたタブ
+		//	e.relatedTarget //前のアクティブなタブ
+
+		stt.active_tab = nm;
+		vscode.setState(stt);
+	});
+});
+
+/*
+import('doc/prj/script/setting.sn').then(sn=> {
+console.log(`fn:setting.js setting.sn ${sn}`);
+
+});
+
+async function loadFile(file) {
+	const text = await file.text();
+console.log(`fn:setting.js setting.sn ${text}`);
+}
+loadFile('doc/prj/script/setting.sn');
+*/
+
+const file = new FileReader();
+file.onload = ()=> {
+console.log(`fn:setting.js setting.sn ${file.result}`);
+}
+file.readAsText('doc/prj/script/setting.sn');
+
+
+//globalThis.onload = ()=> {};
+
+
 
 const hTemp = [{
 	'save_ns'		: 'hatsune',
@@ -31,12 +82,12 @@ const chkVld = m=> {
 
 window.addEventListener('message', e=> {
 	if (! e.isTrusted) {
-		vscode.postMessage({cmd: 'warn', text:`(setting.js) isTrusted=false`});
+		vscode.postMessage({cmd: 'warn', text:'(setting.js) isTrusted=false'});
 		return;
 	}
 
 	switch (e.data.cmd) {
-		case 'res'		:	break;
+		case '!'		:	break;
 		case 'updFontInfo'	:{
 			document.getElementById('font.info').innerHTML = e.data.htm;
 		}	return;
@@ -60,6 +111,12 @@ window.addEventListener('message', e=> {
 			const m = document.getElementById(e.data.id);
 			m.parentElement.querySelector('div.invalid-feedback').textContent = e.data.mes;
 			m.setCustomValidity(e.data.mes);
+		}	return;
+
+		case 'visible'	:{
+console.log(`fn:setting.js line:79 v:${e.data.v}`);
+//console.log(`fn:setting.js line:79 v:${e.data.v} stt:%o`, vscode.getState());
+
 		}	return;
 
 		default:	return;
@@ -158,4 +215,4 @@ console.log(`fn:setting.js drop   name:${f.name}`);
 	});
 
 }, {passive: true});
-vscode?.postMessage({cmd: 'get'});
+vscode?.postMessage({cmd: '?'});

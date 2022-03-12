@@ -473,27 +473,25 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 		'save'	: {},
 		'mp'	: {},
 	};
-	protected override async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request): Promise<void> {
+	protected override async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, req?: DebugProtocol.Request): Promise<void> {
 		const aVar: DebugProtocol.Variable[] = [];
 //console.log(`fn:DebugAdapter.ts line:325 variablesRequest(res=${JSON.stringify(res, null, 2)}= args=${JSON.stringify(args, null, 2)}= request:${JSON.stringify(request, null, 2)})`);
 		if (this.#mapIsLongrunning.get(args.variablesReference)) {
 			// long running
-			if (request) this.#mapCancelationTokens.set(request.seq, false);
+			if (req) this.#mapCancelationTokens.set(req.seq, false);
 
 			for (let i=0; i<100; ++i) {
 				await timeout(1000);
 				aVar.push({
-					name: `i_${i}`,
-					type: 'integer',
-					value: `${i}`,
-					variablesReference: 0
+					name	: `i_${i}`,
+					type	: 'integer',
+					value	: `${i}`,
+					variablesReference	: 0,
 				});
-				if (request && this.#mapCancelationTokens.get(request.seq)) {
-					break;
-				}
+				if (req && this.#mapCancelationTokens.get(req.seq)) break;
 			}
 
-			if (request) this.#mapCancelationTokens.delete(request.seq);
+			if (req) this.#mapCancelationTokens.delete(req.seq);
 		}
 		else {
 			let id = this.#hdlsVar.get(args.variablesReference);
@@ -524,16 +522,17 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 
 					const v = String(h[key]);
 					const o: DebugProtocol.Variable = {
-						name: key,
-						type: this.#getType(v),
-						value: v as any,
+						name	: key,
+						type	: this.#getType(v),
+						value	: v,
 						presentationHint: {
-							kind: 'property',
-							visibility: 'public',
+							kind	: 'property',
+							visibility	: 'public',
+						//	lazy	: true,		// NOTE: 使えるとこで使うべし
 						},
 						variablesReference: 0,	// > 0の場合、変数は構造化されている
 					};
-					if (key.slice(0, 6) === 'const.') o.presentationHint!.attributes = ['readOnly'];
+					if (key.slice(0, 6) === 'const.') o.presentationHint!.attributes = ['constant'];
 					if (v === '[object Object]') o.value = JSON.stringify(h[key]);
 					else if (o.type === 'object' || o.type === 'array')
 					this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
@@ -546,10 +545,10 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 				const nm = id + '_long_running';
 				const ref = this.hdlsVar.create(id + '_lr');
 				aVar.push({
-					name: nm,
-					type: 'object',
-					value: 'Object',
-					variablesReference: ref
+					name	: nm,
+					type	: 'object',
+					value	: 'Object',
+					variablesReference	: ref,
 				});
 				this.mapIsLongrunning.set(ref, true);
 */
