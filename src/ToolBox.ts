@@ -22,7 +22,7 @@ interface CTG_ACMD {
 export class ToolBox implements WebviewViewProvider {
 	readonly	#localExtensionResRoots: Uri;
 	constructor(readonly ctx: ExtensionContext) {
-		this.#localExtensionResRoots = Uri.file(ctx.extensionPath +'/res/webview');
+		this.#localExtensionResRoots = Uri.file(ctx.extensionPath +'/views');
 /**/	this.#aCtgACmd0 = this.#aCtgACmd0 ?? [];
 	}
 
@@ -81,7 +81,8 @@ export class ToolBox implements WebviewViewProvider {
 <title>スコア ツールボックス</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${wv.cspSource} https:; script-src 'nonce-${nonce}' ${wv.cspSource}; style-src ${wv.cspSource} 'unsafe-inline'; font-src ${wv.cspSource};"/>
-<link rel="stylesheet" href="${uri}/lib/mdb.min.css">
+<link rel="stylesheet" href="${uri}/lib/bootstrap.min.css">
+<link rel="stylesheet" href="${uri}/lib/bootstrap2vscode.css">
 <link rel="stylesheet" href="${uri}/lib/fontawesome/all.min.css">
 <style>
 	body {
@@ -94,7 +95,8 @@ export class ToolBox implements WebviewViewProvider {
 	}
 	.btn {text-transform: none; font-size: 14px;}
 </style>
-<script defer nonce="${nonce}" src="${uri}/lib/mdb.min.js"></script>
+<script defer nonce="${nonce}" src="${uri}/lib/bootstrap.min.js"></script>
+<script defer nonce="${nonce}" src="${uri}/lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="${uri}/toolbox.js"></script>
 </head>
 <body>

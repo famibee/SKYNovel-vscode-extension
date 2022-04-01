@@ -10,7 +10,7 @@ import {ScriptScanner} from './ScriptScanner';
 import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
 
 import {TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position} from 'vscode';
-import fs = require('fs-extra');
+import {readFileSync} from 'fs-extra';
 
 interface HTDS {
 	col?		: string,
@@ -71,10 +71,10 @@ export class CteScore {
 
 		});
 
-		const path_ext_htm = ctx.extensionPath +`/res/webview/`;
+		const path_ext_htm = ctx.extensionPath +`/views/`;
 		CteScore.#localExtensionResRoots = Uri.file(path_ext_htm);
 		CteScore.#htmBaseSrc =
-		fs.readFileSync(path_ext_htm +`score.htm`, {encoding: 'utf8'})
+		readFileSync(path_ext_htm +'score.htm', {encoding: 'utf8'})
 		.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 		.replace(/\$\{nonce}/g, getNonce())
 		.replace(/<tbody>[\s\S]+<\/tbody>/, '<tbody/>')

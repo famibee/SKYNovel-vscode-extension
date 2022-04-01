@@ -157,6 +157,10 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	}
 	#tiLayers	: TreeItem[]	= [];
 
+	refreshEnv() {
+		this.actBar.chkLastSNVer(Object.entries(this.#hPrj).map(([,v])=> v.getLocalSNVer()));
+	}
+
 /*
 		itm.accessibilityInformation = {
 			label: 'label',
@@ -231,7 +235,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		// フォルダーを開いている（len>1 ならワークスペース）
 		if (! e)  {		// 起動時
-			aWsFld.forEach(fld=> this.#makePrj(fld));
+			aWsFld.forEach(wsFld=> this.#makePrj(wsFld));
 			if (this.#aTiRoot.length === 0) return;
 			this.#aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.#emPrjTD.fire(undefined);

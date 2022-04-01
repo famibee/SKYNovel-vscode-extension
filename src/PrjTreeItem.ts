@@ -8,7 +8,6 @@
 import {oIcon, is_win, statBreak} from './CmnLib';
 
 import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIcon, WorkspaceFolder} from 'vscode';
-import {existsSync} from 'fs-extra';
 
 const aPrjBtnName = [
 	'SnUpd',
@@ -89,18 +88,12 @@ export class PrjTreeItem extends TreeItem {
 
 	static	create(ctx: ExtensionContext, wsFld: WorkspaceFolder, onBtn: ON_BTN): PrjTreeItem {
 		const pathWs = wsFld.uri.fsPath;
-		const existPkgJS = existsSync(pathWs +'/package.json');
-		const isPrjValid = existPkgJS && existsSync(pathWs+'/doc/prj/prj.json');
 		const pti = new PrjTreeItem({
 			cmd		: '',
 			icon	: '',
 			label	: '',
 			desc	: wsFld.name,
-			children: isPrjValid ?PrjTreeItem.#aTreeTmp :[{
-				cmd		: '',
-				icon	: 'warn',
-				label	: `${existPkgJS ?'prj' :'package'}.json がありません`,
-			}],
+			children: PrjTreeItem.#aTreeTmp,
 		}, pathWs, ctx);
 		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
 

@@ -8,6 +8,6 @@ ifブロックの開始
 exp=${1:Boolean式}][endif
 
 ***
-詳細は【[開発者向け情報：式の評価と条件分岐](https://famibee.github.io/SKYNovel/dev.htm#cond)】をご覧下さい。
+詳細は【[開発者向け情報：式の評価と条件分岐](https://famibee.github.io/SKYNovel/dev.html#cond)】をご覧下さい。
 
 機能ギャラリーにサンプルがあります。$(play)[直感的なルビ文法](https://famibee.github.io/SKYNovel_gallery/?cur=ruby)

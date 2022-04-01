@@ -31,18 +31,18 @@ const repTag2MB = (md: string)=> md
 	.replace(REG_TAG2MB, (a, p1, p2)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.html#${p2})`)
 	.replace(/<br\/?>/g, '  \n');
 
-import fs = require('fs-extra');
+import {readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 
 const path = './src/md/';
-fs.readdirSync(path, {withFileTypes: true})
+readdirSync(path, {withFileTypes: true})
 .filter((d: any)=> d.isFile())
 .forEach(({name}: any)=> {
 	const nm = name.slice(0, -3);
-	const txt = fs.readFileSync(path + name, {encoding: 'utf8'});
+	const txt = readFileSync(path + name, {encoding: 'utf8'});
 	const a = txt.split(/\*{3}\n*/);
 	const len0 = a.length;
 	if (len0 > 4) a.splice(3, len0, a.slice(3).join('***'));
-	const prm = (a[1] ?? '').trim();
+	const prm = String(a[1] ?? '').trim();
 	const aPrm = (prm === '') ?[] :prm.split('\n').map(line=> {
 		const o: any = {};
 		line.slice(2).split('\t')
@@ -61,7 +61,7 @@ fs.readdirSync(path, {withFileTypes: true})
 	};
 });
 
-fs.writeFileSync('./src/md.json', JSON.stringify(hMd));
+writeFileSync('./src/md.json', JSON.stringify(hMd));
 
 	/* === OK、美しい or 役立つ
 - 列挙

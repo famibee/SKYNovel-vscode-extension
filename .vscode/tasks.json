@@ -4,21 +4,6 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "npm",
-			"script": "publish",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "version:patch",
-			"problemMatcher": []
-		},
-		{
-			"type": "npm",
-			"script": "version:minor",
-			"problemMatcher": []
-		},
-		{
 			"label": "dbg start",
 			"type": "npm",
 			"script": "watch",
@@ -39,7 +24,7 @@
 				"background": {
 					"activeOnStart": true,
 					"beginsPattern": "^.*",
-					"endsPattern": "build finished",
+					"endsPattern": "build finished"
 				}
 			},
 			"presentation": {

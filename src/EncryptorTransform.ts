@@ -8,7 +8,7 @@
 import {Transform} from 'stream';
 import {Encryptor} from './Encryptor';
 import {Buffer} from 'buffer';
-import path = require('path');
+import {extname} from 'path';
 
 export class EncryptorTransform extends Transform {
 	static	readonly #LEN_ENC	= 1024 *10;
@@ -39,7 +39,7 @@ export class EncryptorTransform extends Transform {
 
 		this.#bh = Buffer.alloc(this.#ite_buf + this.#cnt_code);
 		this.#bh[0] = 0;	// bin ver
-		this.#bh[1] = this.#hExt2N[path.extname(short_path).slice(1)] ?? 0;
+		this.#bh[1] = this.#hExt2N[extname(short_path).slice(1)] ?? 0;
 //console.log(`fn:EncryptorTransform.ts short_path:${short_path} id:${path.extname(short_path).slice(1)} new_id:${this.bh[1]}`);
 	}
 

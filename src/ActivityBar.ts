@@ -10,12 +10,12 @@ import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
-import AdmZip = require('adm-zip');
+const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation, workspace} from 'vscode';
-const {exec} = require('child_process');
-const os = require('os');
-import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readFileSync, readJsonSync, removeSync} from 'fs-extra';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
+import {exec} from 'child_process';
+import {tmpdir} from 'os';
+import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
 
 export enum eTreeEnv {
 	NODE = 0,
@@ -57,7 +57,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 
 		this.#chkEnv(()=> {
-			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshSetting', ()=> this.#refresh()));	// refreshボタン
+			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
 			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
 			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
@@ -77,36 +77,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		this.#tlBox.dispose();
 	}
 
-	// refreshボタン
-	#refresh() {
+	// 環境チェック
+	async #chkEnv(finish: (ok: boolean)=> void) {
+		const tiNode = this.#aTiEnv[eTreeEnv.NODE];
+		const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
-		this.#workSps.enableBtn(false);
-		this.#chkEnv(ok=> {
-			this.#workSps.enableBtn(ok);
-			if (ok) (workspace.workspaceFolders ?? []).forEach(wsFld=> this.chkLastSNVer(wsFld.uri.fsPath));
-			else this.#openEnvInfo();
-		});
-	}
-	readonly #onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
-	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.#onDidChangeTreeData.event;
-
-	readonly getTreeItem = (t: TreeItem)=> t;
-
-	// 起動時？　と refreshボタンで呼ばれる
-	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
-		if (! t) return Promise.resolve(this.#aTiEnv);
-
-		const ret: TreeItem[] = [];
-		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
-		return Promise.resolve(ret);
-	}
-
-	// 環境チェック
-	#chkEnv(finish: (ok: boolean)=> void) {
-		exec('node -v', (err: Error, stdout: string|Buffer)=> {
-			const tiNode = this.#aTiEnv[eTreeEnv.NODE];
-			const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
+		await new Promise<void>(re=> exec('node -v', (err, stdout)=> {
 			if (err) {
 				tiNode.description = `-- 見つかりません`;
 				tiNode.iconPath = oIcon('error');
@@ -139,28 +116,52 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			tiNode.description = `-- ${vNode}`;
 			tiNode.iconPath = oIcon('node-js-brands');
 			this.#onDidChangeTreeData.fire(tiNode);
-
-			exec('npm -v', (err: Error, stdout: string|Buffer)=> {
-				if (err) {
-					tiNpm.description = `-- 見つかりません`;
-					tiNpm.iconPath = oIcon('error');
-					this.#onDidChangeTreeData.fire(tiNpm);
-					finish(false);
-					return;
-				}
-				ActivityBar.aReady[eTreeEnv.NPM] = true;
-				tiNpm.description = `-- ${stdout}`;
-				tiNpm.iconPath = oIcon('npm-brands');
+			re();
+		}));
+		await new Promise<void>(re=> exec('npm -v', (err, stdout)=> {
+			if (err) {
+				tiNpm.description = `-- 見つかりません`;
+				tiNpm.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNpm);
-				finish(true);
-			});
-		});
+				finish(false);
+				return;
+			}
+			ActivityBar.aReady[eTreeEnv.NPM] = true;
+			tiNpm.description = `-- ${stdout}`;
+			tiNpm.iconPath = oIcon('npm-brands');
+			this.#onDidChangeTreeData.fire(tiNpm);
+			re();
+		}));
+		finish(true);
 	}
 
-	chkLastSNVer(pathWs: string) {
+	// refreshEnvボタン
+	#refreshEnv() {
+		this.#workSps.enableBtn(false);
+		this.#chkEnv(ok=> {
+			this.#workSps.enableBtn(ok);
+			if (ok) this.#workSps.refreshEnv();
+			else this.#openEnvInfo();
+		});
+	}
+	readonly #onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.#onDidChangeTreeData.event;
+
+	readonly getTreeItem = (t: TreeItem)=> t;
+
+	// 起動時？　と refreshボタンで呼ばれる
+	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
+		if (! t) return Promise.resolve(this.#aTiEnv);
+
+		const ret: TreeItem[] = [];
+		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
+		return Promise.resolve(ret);
+	}
+
+	async chkLastSNVer(aLocalSNVer: {verSN: string, verTemp: string}[]) {
 		let newVerSN = '';
 		let newVerTemp = '';
-		Promise.allSettled([
+		await Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
 			.then(res=> res.json())
 			.then(json=> {
@@ -177,9 +178,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				tiSV.description = '-- ' + newVerTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
-		])
-		.then(()=> {
-			const o = this.getLocalSNVer(pathWs);
+		]);
+		aLocalSNVer.forEach(async o=> {
 			if (o.verTemp && newVerTemp !== o.verTemp) {
 				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
 				return;
@@ -189,25 +189,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
 		});
 	}
-	getLocalSNVer(pathWs: string): {verSN: string, verTemp: string} {
-		const fnPkgJSON = pathWs +'/package.json';
-		if (! existsSync(fnPkgJSON)) return {verSN: '' ,verTemp: '',};
-
-		const fnCngLog = pathWs +'/CHANGELOG.md';
-		return {
-			verSN	: readJsonSync(fnPkgJSON, {encoding: 'utf8'})?.dependencies['@famibee/skynovel']?.slice(1) ?? '',
-			verTemp	: existsSync(fnCngLog)
-				? readFileSync(fnCngLog, {encoding: 'utf8'}).match(/## v(.+)\s/)?.[1] ?? ''
-				: '',
-		};
-	}
 
 	#pnlWV: WebviewPanel | null = null;
 	#openEnvInfo() {
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
 
-		const path_doc = this.ctx.extensionPath +'/res/webview';
+		const path_doc = this.ctx.extensionPath +'/views';
 		const uf_path_doc = Uri.file(path_doc);
 		this.#pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
 			enableScripts: false,
@@ -215,7 +203,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		this.#pnlWV.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
-		readFile(path_doc +`/envinfo.htm`, 'utf-8', (err, data)=> {
+		readFile(path_doc +'/envinfo.htm', 'utf-8', (err, data)=> {
 			if (err) throw err;
 
 			const wv = this.#pnlWV!.webview;
@@ -229,7 +217,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
 
-		const path_doc = this.ctx.extensionPath +'/res/webview';
+		const path_doc = this.ctx.extensionPath +'/views';
 		const uf_path_doc = Uri.file(path_doc);
 		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
 			enableScripts: true,
@@ -285,7 +273,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}
 		}, false);
 
-		readFile(path_doc +`/tmpwiz.htm`, 'utf-8', (err, data)=> {
+		readFile(path_doc +'/tmpwiz.htm', 'utf-8', (err, data)=> {
 			if (err) throw err;
 
 			const wv = this.#pnlWV!.webview;
@@ -299,9 +287,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		title		: 'テンプレートからプロジェクト作成',
 		cancellable	: true,
 	}, (prg, tknCancel)=> {
-		const tmpdir = os.tmpdir();
-		removeSync(tmpdir +'.zip');
-		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
+		const td = tmpdir();
+		removeSync(td +'.zip');
+		const fnFrom = td +`/SKYNovel_${nm}-master`;
 		removeSync(fnFrom);
 
 		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
@@ -315,7 +303,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 50, message: 'ZIP解凍中',});
-				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
+				new AdmZip(buf).extractAllTo(td, true);	// overwrite
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 10, message: 'ファイル調整',});
@@ -366,9 +354,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const oOldPkgJS = readJsonSync(fnTo +'/package.json', {encoding: 'utf8'});
 		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
 
-		const tmpdir = os.tmpdir();
-		removeSync(tmpdir +'.zip');
-		const fnFrom = tmpdir +`/SKYNovel_${nm}-master`;
+		const td = tmpdir();
+		removeSync(td +'.zip');
+		const fnFrom = td +`/SKYNovel_${nm}-master`;
 		removeSync(fnFrom);
 
 		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
@@ -382,7 +370,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 50, message: 'ZIP解凍中',});
-				new AdmZip(buf).extractAllTo(tmpdir, true);	// overwrite
+				new AdmZip(buf).extractAllTo(td, true);	// overwrite
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 10, message: 'ファイル調整',});

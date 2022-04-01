@@ -12,7 +12,7 @@ import {CteScore} from './CteScore';
 
 import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument} from 'vscode';
 import {existsSync, readFileSync} from 'fs-extra';
-import os = require('os');
+import {userInfo} from 'os';
 
 interface Script {
 	aToken	: string[];		// トークン群
@@ -51,7 +51,7 @@ export class ScriptScanner {
 	readonly	#aPlaceFont;
 	readonly	#aPlaceFontNm = ['PRJ','USER','OS'];
 
-	constructor(readonly pathWs: string, private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}, private cmd: (nm: string, val: string)=> Promise<boolean>) {
+	constructor(readonly pathWs: string, private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}) {
 		this.#hTagProc['let_abs'] =
 		this.#hTagProc['let_char_at'] =
 		this.#hTagProc['let_index_of'] =
@@ -73,7 +73,7 @@ export class ScriptScanner {
 
 		this.#cteScore = new CteScore(curPrj);
 
-		const username = os.userInfo().username;
+		const {username} = userInfo();
 		this.#aPlaceFont	= [
 			`${pathWs}/core/font`,
 			is_win
@@ -607,6 +607,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 						const kw = o.name.trimEnd();
 						this.#hSetWords['代入変数名'].add(kw);
 						setKw.add(`代入変数名\t${kw}`);
+/*
+	// TODO: インストール済みフォント名から選択できればよいので、凍結
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') {
@@ -619,6 +621,13 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 								return err;
 							});
 						}
+// js/Vue
+		case 'updValid'	:{
+			const m = document.getElementById(e.data.id);
+			m.parentElement.querySelector('div.invalid-feedback').textContent = e.data.mes;
+			m.setCustomValidity(e.data.mes);
+		}	return;
+*/
 					}
 				} catch (e) {console.error(`fn:ScriptScanner.ts #scanScriptSrc & %o`, e);}
 				return;

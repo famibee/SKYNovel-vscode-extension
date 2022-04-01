@@ -9,10 +9,10 @@ const [, , ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
 const subsetFont = require('subset-font');
-const {outputFile, readFile, ensureLink, statSync, outputJsonSync} = require('fs-extra');
+import {outputFile, readFile, ensureLink, statSync, outputJsonSync} from 'fs-extra';
 const is_win = process.platform === 'win32';
-import os = require('os');
-const {extname} = require('path');
+import {userInfo} from 'os';
+import {extname} from 'path';
 
 const fnc: (inp: string, out: string, str?: string)=> Promise<void> = minify
 	? async (inp, out, str)=> {
@@ -26,7 +26,7 @@ const o = require('./font.json');
 const a = [];
 const oInf: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number}} = {};
 
-const {username} = os.userInfo();
+const {username} = userInfo();
 const PATH_PRJ_FONTS = 'core/font';
 const PATH_USER_FONTS = is_win
 	? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`

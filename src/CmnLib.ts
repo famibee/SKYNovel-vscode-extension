@@ -54,7 +54,7 @@ export const statBreak: {(): string} =
 
 
 // 階層フォルダ逐次処理
-import {readdirSync, existsSync, readFileSync, ensureFileSync, writeFileSync} from 'fs-extra';
+import {readdirSync, existsSync, readFileSync, writeFileSync} from 'fs-extra';
 import {resolve, basename, extname} from 'path';
 const regNoUseSysFile = /^(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
 export const regNoUseSysPath = /\/(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
@@ -85,11 +85,30 @@ export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncF
 
 export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 	try {
-		if (! existsSync(src)) return;
+		if (! existsSync(src)) {
+			console.error(`replaceFile no exists src:${src}`);
+			return;
+		}
 
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
-		ensureFileSync(dest);
+		if (txt !== ret) writeFileSync(dest, ret);
+	}
+	catch (err) {
+		console.error(`replaceFile src:${src} ${err}`);
+	}
+}
+
+export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], dest = src) {
+	try {
+		if (! existsSync(src)) {
+			console.error(`replaceFile no exists src:${src}`);
+			return;
+		}
+
+		const txt = readFileSync(src, {encoding: 'utf8'});
+		let ret = txt;
+		a.forEach(([r, rep])=> ret = ret.replace(r, rep));
 		if (txt !== ret) writeFileSync(dest, ret);
 	}
 	catch (err) {

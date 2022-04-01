@@ -4,7 +4,8 @@
 <link rel="canonical" href="index.htm">
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
-<link rel="stylesheet" href="./lib/mdb.min.css">
+<link rel="stylesheet" href="./lib/bootstrap.min.css">
+<link rel="stylesheet" href="./lib/bootstrap2vscode.css">
 <link rel="stylesheet" href="./lib/fontawesome/all.min.css">
 <style>
 .btn {text-transform: none; font-size: 14px;}
@@ -22,7 +23,8 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	z-index: 1;
 }
 </style>
-<script defer nonce="${nonce}" src="./lib/mdb.min.js"></script>
+<script defer nonce="${nonce}" src="./lib/bootstrap.min.js"></script>
+<script defer nonce="${nonce}" src="./lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="./score.js"></script>
 </head>
 <body class="p-0 bg-dark bg-gradient black-text">
@@ -228,7 +230,7 @@ console.log(`fn:score.htm line:186 click`);
 <tr data-row="4">
 	<td></td>
 	<td></td>
-	<td class="p-0 sn-cmb-start" data-fn="../../img/icon_skynovel.png">
+	<td class="p-0 sn-cmb-start" data-fn="../res/img/icon_skynovel.png">
 		<button type="button" class="btn btn-secondary btn-block btn-sm">
 			<i class="fas fa-user"></i>
 		</button>

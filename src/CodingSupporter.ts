@@ -74,7 +74,7 @@ export class CodingSupporter implements
 			const md = hMd[tag_nm];
 			const docu: string | MarkdownString = md.comment
 				? new MarkdownString(
-`$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.htm#${tag_nm
+`$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm
 })
 
 ---
@@ -171,7 +171,7 @@ ${md.comment}`, true)
 			}, 1000 /60 *10);
 		}, null, ctx.subscriptions);
 
-		this.#scrScn = new ScriptScanner(pathWs, curPrj, this.#clDiag, CodingSupporter.#hTag, cmd);
+		this.#scrScn = new ScriptScanner(pathWs, curPrj, this.#clDiag, CodingSupporter.#hTag);
 	}
 	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
@@ -218,7 +218,7 @@ ${md.comment}`, true)
 
 	// クイックピック
 	static #openTagRef(v: QuickPickItem) {
-		commands.executeCommand('open', Uri.parse('https://famibee.github.io/SKYNovel/tag.htm#'+ v.label));
+		commands.executeCommand('open', Uri.parse('https://famibee.github.io/SKYNovel/tag.html#'+ v.label));
 	}
 
 	// 識別子の上にマウスカーソルを載せたとき
@@ -255,7 +255,7 @@ ${md.comment}`, true)
 
 		let label = `[${nm}`;
 		const md = hMd[nm];
-		if (! md) return Promise.reject('Nothing md file.');	// 前に警告出してる
+		if (! md) return Promise.reject(`Nothing md file. nm:${nm}`);	// 前に警告出してる
 		(md.param as MD_PARAM_DETAILS[]).forEach(prm=> label += ` ${prm.name}=${
 			prm.default ?`%${prm.name}|${prm.default}` :'【必須】'
 		}`);
@@ -468,7 +468,7 @@ ${md.detail}`
 		}
 
 		const md = hMd[nm];
-		if (! md) return Promise.reject('Nothing md file.');	// 前に警告出してる
+		if (! md) return Promise.reject(`Nothing md file.(2) nm:${nm}`);	// 前に警告出してる
 		if (! shc.isRetrigger) {
 			const sh = new SignatureHelp();
 			const ad = this.#hArgDesc[nm];	// NOTE: マクロ定義で増減

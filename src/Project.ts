@@ -15,16 +15,16 @@ import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
 import {ScriptScanner} from './ScriptScanner';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, ensureFileSync, existsSync, move, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFile, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy} from 'fs-extra';
-import path = require('path');
-const img_size = require('image-size');
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, ensureFileSync, existsSync, move, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFile, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson} from 'fs-extra';
+import {resolve, extname, parse} from 'path';
+import img_size from 'image-size';
 import {lib, enc, RIPEMD160} from 'crypto-js';
 import {v4 as uuidv4} from 'uuid';
-import crc32 = require('crc-32');
-import archiver = require('archiver');
+import * as crc32 from 'crc-32';
+import * as archiver from 'archiver';
 import {basename, dirname} from 'path';
-const {execSync} = require('child_process');
-import ncu = require('npm-check-updates');
+import {execSync} from 'child_process';
+import * as ncu from 'npm-check-updates';
 
 type BtnEnable = '_off'|'Stop'|'';
 
@@ -77,7 +77,6 @@ export class Project {
 
 
 	static	readonly #idxDevSnUpd	= 0;
-	private	updLocalSNVer() {}		// ローカル SKYNovel バージョン
 	static	readonly #idxDevCrypto	= 3;
 	private	dspCryptoMode() {}		// 暗号化状態
 
@@ -100,9 +99,6 @@ export class Project {
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj, (nm, val)=> this.#cmd(nm, val));
 
-		const pathWs = wsFld.uri.fsPath;
-		this.actBar.chkLastSNVer(pathWs);
-
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
 
@@ -111,6 +107,7 @@ export class Project {
 		const fwPrjJs = workspace.createFileSystemWatcher(this.#curPrj +'prj.json');
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.#curPrj +'*');
+		const fwStgSn = workspace.createFileSystemWatcher(this.#curPrj +'**/setting.sn');
 		this.#aFSW = [
 			fwPrj.onDidCreate(uri=> {
 				regNoUseSysPath.lastIndex = 0;
@@ -141,6 +138,9 @@ export class Project {
 console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			}),*/
 			fwFld.onDidDelete(uri=> this.#ps.noticeDelDir(uri.path)),
+
+			fwStgSn.onDidCreate(uri=> this.#ps.noticeCreSettingSn(uri.path)),
+			fwStgSn.onDidDelete(uri=> this.#ps.noticeDelSettingSn(uri.path)),
 		];
 
 		this.#curCnvFile = this.#pathWs +`/doc/${Project.#fld_prj_base}/`;
@@ -172,7 +172,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		this.#ps = new PrjSetting(ctx, wsFld, title=> {
 			pti.label = title;
 			this.emPrjTD.fire(pti);
-		}, this.#codSpt, (path: string, extptn = '')=> this.#searchPath(path, extptn), (nm, val)=> this.#cmd(nm, val));
+		}, this.#codSpt, (nm, val)=> this.#cmd(nm, val));
 		this.#initCrypto();
 
 		this.#curPlg = this.#pathWs +'/core/plugin/';
@@ -188,14 +188,15 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
 		const tiDevSnUpd = aTi[Project.#idxDevSnUpd];
-		this.updLocalSNVer = ()=> {
-			const o = this.actBar.getLocalSNVer(this.#pathWs);
+		this.getLocalSNVer = ()=> {
+			const o = this.#ps.getLocalSNVer();
 			tiDevSnUpd.description = o.verSN
 			? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
 			: '取得できません';
 			this.emPrjTD.fire(tiDevSnUpd);
+			return o;
 		};
-		this.updLocalSNVer();
+		this.actBar.chkLastSNVer([this.getLocalSNVer()]);
 
 		const tiDevCrypto = aTi[Project.#idxDevCrypto];
 		this.dspCryptoMode = ()=> {
@@ -210,6 +211,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
 		debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
 	}
+	readonly	getLocalSNVer: ()=> {verSN: string, verTemp: string};
 	#aDbgSS	: DebugSession[]	= [];
 	private	onDidTermDbgSS() {}
 	#termDbgSS(): Promise<PromiseSettledResult<void>[]> {
@@ -230,7 +232,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
 		switch (nm) {
 		case 'cnv.font.subset':
-//			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
 			await this.#subsetFont(Boolean(val));
 			break;
@@ -241,27 +243,22 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			await this.#tglCnvFileMode()
 			.catch(err=> console.error(err));
 			break;
-
-		case 'updValid':{
-			const [id, v] = val.split('=');
-			this.#ps.updValid(id, v);
-			}	break;
 		}
 
 		return true;
 	}
 
 	#exeTask(tsk_id: string, title: string, aNeedLib: string[], node: string): Promise<void> {
-		const oPkg = readJsonSync(this.#pathWs +'/package.json', {encoding: 'utf8'});
-		const sNeedInst = aNeedLib
-		.filter(nm=> ! oPkg.devDependencies[nm])
-		.join(' ');
-
 		return new Promise<void>(fin=> window.withProgress({
 			location	: ProgressLocation.Notification,
 			title,
 			cancellable	: false,
 		}, prg=> new Promise<void>(async donePrg=> {
+			const oPkg = await readJson(this.#pathWs +'/package.json', {encoding: 'utf8'});
+			const sNeedInst = aNeedLib
+			.filter(nm=> ! oPkg.devDependencies[nm])
+			.join(' ');
+
 			tasks.executeTask(new Task(
 				{type: 'SKYNovel '+ tsk_id},// definition（タスクの一意性）
 				this.wsFld,
@@ -405,7 +402,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.#termDbgSS()
-				.then(()=> this.actBar.updPrjFromTmp(this.wsFld.uri.fsPath))
+				.then(()=> this.actBar.updPrjFromTmp(pathWs))
 				.then(()=> ncu.run({	// ncu -u --target minor
 					packageFile: pathWs +'/package.json',
 					// Defaults:
@@ -415,7 +412,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 					target: 'minor',
 				})
 				.then(()=> {
-					this.updLocalSNVer();
+					this.getLocalSNVer();
 					this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
 				}))
 				.catch(()=> done(0));
@@ -491,7 +488,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			case 'PackWin32':
 				if (! is_win) break;
 				if (! /(Restricted|AllSigned)/.test(
-					execSync('PowerShell Get-ExecutionPolicy'))) break;
+					execSync('PowerShell Get-ExecutionPolicy').toString()
+				)) break;
 
 				done();
 				window.showErrorMessage(`管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
@@ -510,7 +508,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		switch (btn_nm) {	// タスク後処理
 			//case 'SnUpd':	// ここには来ない
 			case 'SnUpd_waited':	// Promise待ち後
-				this.hOnEndTask.set(btn_nm, ()=> {this.updLocalSNVer(); done();});
+				this.hOnEndTask.set(btn_nm, ()=> {this.getLocalSNVer(); done();});
 				break;
 
 			case 'Crypto_waited':
@@ -719,7 +717,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// ファイル最適化 解除
 		if (! this.#isCnvFileMode) {
 			foldProc(this.#curPrj, ()=> {}, dir=> {
-				foldProc(path.resolve(this.#curPrj, dir), (url, nm)=> {
+				foldProc(resolve(this.#curPrj, dir), (url, nm)=> {
 					// 最適化中間ファイルの削除
 					this.#REG_OPTITMD.lastIndex = 0;
 					if (this.#REG_OPTITMD.test(nm)) {
@@ -747,9 +745,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 			// 退避素材戻し
 			foldProc(this.#curCnvFile, ()=> {}, dir=> {
-				const urlCurPrj = path.resolve(this.#curPrj, dir);
-				foldProc(path.resolve(this.#curCnvFile, dir), (url, nm)=> {
-					a.push(move(url, path.resolve(urlCurPrj, nm)));
+				const urlCurPrj = resolve(this.#curPrj, dir);
+				foldProc(resolve(this.#curCnvFile, dir), (url, nm)=> {
+					a.push(move(url, resolve(urlCurPrj, nm)));
 				}, ()=> {});
 			});
 
@@ -760,14 +758,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		// ファイル最適化
 		ensureDir(this.#curCnvFile);
 		foldProc(this.#curPrj, ()=> {}, dir=> {
-			const wdWrt = path.resolve(this.#curCnvFile, dir);
+			const wdWrt = resolve(this.#curCnvFile, dir);
 			ensureDir(wdWrt);
 
-			foldProc(path.resolve(this.#curPrj, dir), (url, nm)=> {
+			foldProc(resolve(this.#curPrj, dir), (url, nm)=> {
 				// 退避素材フォルダに元素材を移動
 				this.#REG_CNV_WEBP.lastIndex = 0;
 				if (this.#REG_CNV_WEBP.test(nm)) {
-					const urlRead = path.resolve(wdWrt, nm);
+					const urlRead = resolve(wdWrt, nm);
 					a.push(
 						move(url, urlRead)
 						.then(async ()=> {
@@ -924,7 +922,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			let ite_buf = 2;
 			const bh = new Uint8Array(ite_buf + cnt_code);
 			bh[0] = 0;	// bin ver
-			bh[1] = this.#hExt2N[path.extname(short_path).slice(1)] ?? 0;
+			bh[1] = this.#hExt2N[extname(short_path).slice(1)] ?? 0;
 
 			const rs = createReadStream(path_src)
 			.on('error', e=> console.error(`encrypter rs=%o`, e));
@@ -1045,7 +1043,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
 		foldProc($cur, ()=> {}, dir=> {
-			const wd = path.resolve($cur, dir);
+			const wd = resolve($cur, dir);
 			foldProc(wd, (url, nm)=> {
 				this.#addPath(hFn2Path, dir, nm);
 
@@ -1061,14 +1059,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				const a = nm.match(this.#REG_SPRSHEETIMG);
 				if (! a) return;
 
-				const fnJs = path.resolve(wd, a[1] +'.json');
+				const fnJs = resolve(wd, a[1] +'.json');
 				if (existsSync(fnJs)) return;
 
-				const size = img_size(url);
+				const {width = 0, height = 0} = img_size(url);
 				const xLen = uint(a[2]);
 				const yLen = uint(a[3]);
-				const w = size.width /xLen;
-				const h = size.height /yLen;
+				const w = width /xLen;
+				const h = height /yLen;
 				const basename = a[1];
 				const ext = a[4];
 
@@ -1079,7 +1077,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 						version: '1.0',
 						image: a[0],
 						format: 'RGBA8888',
-						size: {w: size.width, h :size.height},
+						size: {w: width, h :height},
 						scale: 1,
 						animationSpeed: 1,	// 0.01~1.00
 					},
@@ -1092,7 +1090,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 							rotated	: false,
 							trimmed	: false,
 							spriteSourceSize
-								: {x: 0, y: 0, w: size.width, h :size.height},
+								: {x: 0, y: 0, w: width, h :height},
 							sourceSize	: {w: w, h :h},
 							pivot		: {x: 0.5, y: 0.5},
 						};
@@ -1108,7 +1106,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		return hFn2Path;
 	}
 	#addPath(hFn2Path: IFn2Path, dir: string, nm: string) {
-		const p = path.parse(nm);
+		const p = parse(nm);
 		const ext = p.ext.slice(1);
 		const fn = p.name;
 		let hExts = hFn2Path[fn];
@@ -1137,6 +1135,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		hExts[ext] = dir +'/'+ nm;
 	}
 
+/*
 	#userFnTail	= '';
 	readonly	#REG_PATH	= /([^\/\s]+)\.([^\d]\w+)/;
 		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
@@ -1201,5 +1200,6 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 
 		return ret;
 	}
+*/
 
 }

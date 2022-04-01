@@ -6,6 +6,9 @@ test/
 **/*.cs
 **/*.d.ts
 **/*.map
+**/*.ts
+**/*.vue
+src/webpack.config.js
 
 .eslintrc.json
 tsconfig.json
