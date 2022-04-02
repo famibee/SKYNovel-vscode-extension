@@ -7,11 +7,13 @@
 
 export type T_WSS = {
 	'cnv.font.subset'		: boolean,
+	'cnv.icon.cut_round'	: boolean,
 	'cnv.mat.webp_quality'	: number,
 };
 
 export const DEF_WSS: T_WSS = {
 	'cnv.font.subset'		: false,
+	'cnv.icon.cut_round'	: false,
 	'cnv.mat.webp_quality'	: 90,
 };
 
@@ -205,10 +207,15 @@ export type T_V2E_TEMP = {
 	}[]
 };
 
-export type T_V2E_SELECT_FILE = {
-	cmd		: 'selectFile',
+export type T_V2E_SELECT_ICON_FILE = {
+	cmd			: 'selectFile',
 	title		: 'アプリアイコン',
 	openlabel	: '素材画像を選択',
-	id		: 'icon',
-	path	: 'build/icon.png',
+	path		: 'build/icon.png',
+};
+
+export type T_E2V_SELECT_ICON_INFO = {
+	cmd			: 'updimg';
+	pathIcon	: string;
+	err_mes	: string;
 };

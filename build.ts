@@ -60,9 +60,9 @@ build({
 	watch,
 });
 
-// === subset_font ===
+// === subset_font, cut_round ===
 build({
-	entryPoints	: ['./src/subset_font'],
+	entryPoints	: ['./src/subset_font','./src/cut_round'],
 	outdir		: 'dist',
 	minify		: true,
 //x	format		: 'iife',

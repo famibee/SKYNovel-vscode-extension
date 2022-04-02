@@ -6324,6 +6324,48 @@ function getCheckboxValue(el, checked) {
     return key in el ? el[key] : checked;
 }
 
+const vShow = {
+    beforeMount(el, { value }, { transition }) {
+        el._vod = el.style.display === 'none' ? '' : el.style.display;
+        if (transition && value) {
+            transition.beforeEnter(el);
+        }
+        else {
+            setDisplay(el, value);
+        }
+    },
+    mounted(el, { value }, { transition }) {
+        if (transition && value) {
+            transition.enter(el);
+        }
+    },
+    updated(el, { value, oldValue }, { transition }) {
+        if (!value === !oldValue)
+            return;
+        if (transition) {
+            if (value) {
+                transition.beforeEnter(el);
+                setDisplay(el, true);
+                transition.enter(el);
+            }
+            else {
+                transition.leave(el, () => {
+                    setDisplay(el, false);
+                });
+            }
+        }
+        else {
+            setDisplay(el, value);
+        }
+    },
+    beforeUnmount(el, { value }) {
+        setDisplay(el, value);
+    }
+};
+function setDisplay(el, value) {
+    el.style.display = value ? el._vod : 'none';
+}
+
 const rendererOptions = extend({ patchProp }, nodeOps);
 // lazy create the renderer - this makes core renderer logic tree-shakable
 // in case the user only imports reactivity utilities from Vue.
@@ -6854,6 +6896,7 @@ function storeToRefs(store) {
 
 const DEF_WSS = {
   "cnv.font.subset": false,
+  "cnv.icon.cut_round": false,
   "cnv.mat.webp_quality": 90
 };
 const DEF_CFG = {
@@ -15070,14 +15113,25 @@ const _hoisted_22$1 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px
 ], -1);
 const _hoisted_23$1 = { class: "container" };
 const _hoisted_24$1 = { class: "row" };
-const _hoisted_25$1 = { class: "col-8 col-lg-2 col-xxl-1" };
+const _hoisted_25$1 = { class: "col-6 col-lg-2 col-xxl-1" };
 const _hoisted_26$1 = ["src"];
-const _hoisted_27$1 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
+const _hoisted_27$1 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_28$1 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
   /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-    /* @__PURE__ */ createBaseVNode("h6", null, "\u753B\u50CF\u3092\u5DEE\u3057\u66FF\u3048")
+    /* @__PURE__ */ createBaseVNode("h6", null, "\u753B\u50CF\u304B\u3089\u81EA\u52D5\u4F5C\u6210")
   ])
 ], -1);
-const _hoisted_28$1 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, null, -1);
+const _hoisted_29 = { class: "row" };
+const _hoisted_30 = { class: "col form-check mb-3" };
+const _hoisted_31 = { class: "input-group input-group-sm" };
+const _hoisted_32 = ["textContent"];
+const _hoisted_33 = { class: "row" };
+const _hoisted_34 = { class: "col form-check" };
+const _hoisted_35 = { class: "input-group input-group-sm" };
+const _hoisted_36 = /* @__PURE__ */ createBaseVNode("label", {
+  for: "/workspaceState:cnv.icon.cut_round",
+  class: "form-check-label"
+}, "\u4E38\u304F\u5207\u308A\u629C\u304F\u304B", -1);
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   setup(__props) {
     const stFontInfo = useFontInfo();
@@ -15102,16 +15156,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       cmd: "selectFile",
       title: "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3",
       openlabel: "\u7D20\u6750\u753B\u50CF\u3092\u9078\u629E",
-      id: "icon",
       path: "build/icon.png"
     });
     const srcIcon = ref("data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==");
     const updImg = (src) => srcIcon.value = src + "?" + new Date().getTime();
     on("!", (data) => updImg(data.pathIcon));
+    const select_icon_err = ref("");
     on("updimg", (data) => {
-      if (data.id !== "img.icon")
-        return;
-      updImg(data.src);
+      updImg(data.pathIcon);
+      select_icon_err.value = data.err_mes;
     });
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock(Fragment, null, [
@@ -15187,22 +15240,41 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 class: "img-fluid sn-dragdrop"
               }, null, 8, _hoisted_26$1)
             ]),
-            createBaseVNode("div", { class: "col-4 col-lg-2 col-xxl-1" }, [
-              _hoisted_27$1,
-              createBaseVNode("div", { class: "row" }, [
-                createBaseVNode("div", { class: "col" }, [
-                  createBaseVNode("form", { class: "form-check mb-3" }, [
-                    createBaseVNode("div", { class: "input-group input-group-sm" }, [
-                      createBaseVNode("button", {
-                        type: "button",
-                        onClick: selectIcon,
-                        class: "btn btn-info btn-lg"
-                      }, "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E")
+            createBaseVNode("div", _hoisted_27$1, [
+              _hoisted_28$1,
+              createBaseVNode("div", _hoisted_29, [
+                createBaseVNode("div", _hoisted_30, [
+                  createBaseVNode("div", _hoisted_31, [
+                    createBaseVNode("button", {
+                      type: "button",
+                      onClick: selectIcon,
+                      class: "btn btn-info btn-lg"
+                    }, "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E"),
+                    withDirectives(createBaseVNode("span", {
+                      class: "alert alert-danger",
+                      role: "alert",
+                      textContent: toDisplayString(select_icon_err.value)
+                    }, null, 8, _hoisted_32), [
+                      [vShow, select_icon_err.value !== ""]
                     ])
                   ])
                 ])
               ]),
-              _hoisted_28$1
+              createBaseVNode("div", _hoisted_33, [
+                createBaseVNode("div", _hoisted_34, [
+                  createBaseVNode("div", _hoisted_35, [
+                    withDirectives(createBaseVNode("input", {
+                      type: "checkbox",
+                      id: "/workspaceState:cnv.icon.cut_round",
+                      "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => unref(oWss)["cnv.icon.cut_round"] = $event),
+                      class: "form-check-input mb-3 sn_checkbox sn-chk"
+                    }, null, 512), [
+                      [vModelCheckbox, unref(oWss)["cnv.icon.cut_round"]]
+                    ]),
+                    _hoisted_36
+                  ])
+                ])
+              ])
             ])
           ])
         ])

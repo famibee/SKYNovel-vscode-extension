@@ -57,32 +57,28 @@
 <div class="col-12 px-1 pt-3"><h5>アプリアイコン</h5></div>
 
 <div class="container"><div class="row">
-	<div class="col-8 col-lg-2 col-xxl-1">
+	<div class="col-6 col-lg-2 col-xxl-1">
 		<img :src="srcIcon" @click="selectIcon" class="img-fluid sn-dragdrop"/>
 	</div>
 
-	<div class="col-4 col-lg-2 col-xxl-1"><div class="row">
-		<div class="col-12 px-1 pt-3"><h6>画像を差し替え</h6></div>
-<!--
+	<div class="col-6 col-lg-2 col-xxl-1"><div class="row">
 		<div class="col-12 px-1 pt-3"><h6>画像から自動作成</h6></div>
--->
 
 	</div><div class="row">
-		<div class="col"><form class="form-check mb-3">
+		<div class="col form-check mb-3">
 			<div class="input-group input-group-sm">
 				<button type="button" @click="selectIcon" class="btn btn-info btn-lg">ファイルを選択</button>
+				<span class="alert alert-danger" role="alert" v-text="select_icon_err" v-show="select_icon_err !== ''"></span>
 			</div>
-		</form></div>
+		</div>
 
 	</div><div class="row">
-<!--
-		<div class="col"><form class="form-check">
+		<div class="col form-check">
 			<div class="input-group input-group-sm">
-				<input id="/workspaceState:cnv.icon.cut_round" class="form-check-input mb-3 sn_checkbox sn-chk" type="checkbox" value="">
-				<label class="form-check-label" for="ext.icon_round">丸く切り抜くか</label>
+				<input type="checkbox" id="/workspaceState:cnv.icon.cut_round" v-model="oWss['cnv.icon.cut_round']" class="form-check-input mb-3 sn_checkbox sn-chk">
+				<label for="/workspaceState:cnv.icon.cut_round" class="form-check-label">丸く切り抜くか</label>
 			</div>
-		</form></div>
--->
+		</div>
 
 	</div></div>
 </div></div>
@@ -97,7 +93,7 @@ import {disabled, useWss} from "../store/stWSS";
 import {storeToRefs} from 'pinia';
 import {useFontInfo} from '../store/stFontInfo';
 import {ref} from 'vue';
-import {T_V2E_SELECT_FILE} from '../types';
+import {T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../types';
 
 const stFontInfo = useFontInfo();
 const {aFontInfo} = storeToRefs(stFontInfo);	// 分割代入
@@ -115,20 +111,22 @@ on('cnv.font.subset', data=> {switch (data.val) {
 	case 'comp':	disabled.value = false;	break;
 }});
 
-const selectIcon = ()=> cmd2Ex(<T_V2E_SELECT_FILE>{
-	cmd		: 'selectFile',
+const selectIcon = ()=> cmd2Ex(<T_V2E_SELECT_ICON_FILE>{
+	cmd			: 'selectFile',
 	title		: 'アプリアイコン',
 	openlabel	: '素材画像を選択',
-	id		: 'icon',
-	path	: 'build/icon.png',
+	path		: 'build/icon.png',
 });
 
 const srcIcon = ref('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==');
 const updImg = (src: string)=> srcIcon.value = src +'?'+ (new Date()).getTime();
 on('!', data=> updImg(data.pathIcon));
-on('updimg', data=> {
-	if (data.id !== 'img.icon') return;
-	updImg(data.src);
+
+
+const select_icon_err = ref('');
+on('updimg', (data: T_E2V_SELECT_ICON_INFO)=> {
+	updImg(data.pathIcon);
+	select_icon_err.value = data.err_mes;
 });
 
 </script>

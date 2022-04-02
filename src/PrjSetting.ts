@@ -8,17 +8,13 @@
 import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG} from "../views/types";
+import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {copy, copyFile, ensureDirSync, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, statSync, writeFile, writeFileSync} from 'fs-extra';
+import {copy, copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, statSync, writeFile} from 'fs-extra';
 import {basename} from 'path';
 import {v4 as uuidv4} from 'uuid';
 import {userInfo} from 'os';
-
-import img_size from 'image-size';
-//import sharp = require('sharp');
-import {BICUBIC2, BILINEAR, createICNS, createICO} from 'png2icons';
 
 export class PrjSetting {
 	readonly	#wss;
@@ -37,7 +33,7 @@ export class PrjSetting {
 				#htmSrc	= '';
 	readonly	#pathIcon	: string;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: string, title: string, aNeedLib: string[], node: string)=> Promise<number>) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
 		for (const nm in oWss) {
@@ -154,12 +150,12 @@ export class PrjSetting {
 		this.#oCfg.code[basename(path)] = false;
 		//fs.outputJson(this.fnPrjJs, this.oCfg);
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
-		this.cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
+		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
 	}
 	noticeDelDir(path: string) {
 		delete this.#oCfg.code[basename(path)];
 		this.#writePrjJs();
-		this.cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
+		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
 	}
 	#writePrjJs() {
 		const o = {...this.#oCfg};
@@ -184,7 +180,7 @@ export class PrjSetting {
 		const cntSn = this.#aPathSettingSn.length;
 		if (cntSn !== 1) {
 			this.#fnSetting = '';
-			this.cmd2Vue(<T_E2V_TEMP>{
+			this.#cmd2Vue(<T_E2V_TEMP>{
 				cmd		: 'update.aTemp',
 				err		: (cntSn < 1
 							? 'setting.sn がありません'
@@ -239,7 +235,7 @@ export class PrjSetting {
 			this.#aTemp.push(o);
 		}
 //console.log(`fn:PrjSetting.ts line:237 this.#aTemp:%o`, this.#aTemp);
-		this.cmd2Vue(<T_E2V_TEMP>{
+		this.#cmd2Vue(<T_E2V_TEMP>{
 			cmd		: 'update.aTemp',
 			err		: '',
 			aTemp	: this.#aTemp,
@@ -251,7 +247,7 @@ export class PrjSetting {
 	#oCfg	= DEF_CFG;
 	get cfg() {return this.#oCfg}
 	#pnlWV	: WebviewPanel | undefined = undefined;
-	cmd2Vue = (mes: any)=> {};
+	#cmd2Vue = (mes: any)=> {};
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
@@ -273,10 +269,10 @@ export class PrjSetting {
 		p.onDidDispose(()=> this.#pnlWV = undefined, undefined, this.ctx.subscriptions);
 
 		const {username} = userInfo();
-		this.cmd2Vue = (mes: any)=> p.webview.postMessage(mes);
+		this.#cmd2Vue = (mes: any)=> p.webview.postMessage(mes);
 		p.webview.onDidReceiveMessage(m=> {switch (m.cmd) {
 		case '?':
-			this.cmd2Vue(<T_E2V_INIT>{
+			this.#cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
 				oCfg	: this.#oCfg,
 				oWss	: this.#oWss,
@@ -354,16 +350,16 @@ export class PrjSetting {
 			for (const nm in m.oWss) this.#wss.update(nm, m.oWss[nm]);
 
 			if (chg) {// 処理中はトグルスイッチを無効にする
-				this.cmd2Vue({cmd: nm, val: 'wait'});
+				this.#cmd2Vue({cmd: nm, val: 'wait'});
 				this.cmd(nm, val).then(async go=> {
 					if (go) {
 						await this.#wss.update(nm, val);
-						this.cmd2Vue({cmd: nm, val: 'comp'});
+						this.#cmd2Vue({cmd: nm, val: 'comp'});
 						return;
 					}
 
 					this.#wss.update(nm, this.#oWss[nm] = ! val);
-					this.cmd2Vue({cmd: nm, val: 'cancel'});
+					this.#cmd2Vue({cmd: nm, val: 'cancel'});
 				});
 			}
 		}	break;
@@ -409,126 +405,10 @@ export class PrjSetting {
 			window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
 			break;
 
-		case 'selectFile':
-			const {title, openlabel, id, path} = <T_V2E_SELECT_FILE>m;
-			window.showOpenDialog({
-				title	: `${title}を選択して下さい`,
-				openLabel		: openlabel ?? 'ファイルを選択',
-				canSelectMany	: false,
-				canSelectFiles	: false,
-				canSelectFolders: false,
-			}).then(fileUri=> {
-				const src = fileUri?.[0]?.fsPath;
-				if (! src) return;	// キャンセル
-
-				if (id === 'icon') this.selectFile_icon(src, id, path, p);
-			})
-			break;
+		case 'selectFile':	this.selectFile_icon(m);	break;
 		}}, undefined, this.ctx.subscriptions);
 		this.#openSub();
 	}
-
-	private async selectFile_icon(src: string, id: string, path: string, p: WebviewPanel) {
-		const {width = 0, height = 0} = img_size(src);
-		if (width < 1024 || height < 1024) {
-			window.showInformationMessage(`元画像のサイズは 1024 x 1024 以上にして下さい。（${id} width:${width} height:${height}）`);
-			return;
-		}
-
-		copy(src, this.#pathWs +'/'+ path)
-		.then(()=> {
-			p.webview.postMessage({cmd: 'updimg', id: 'img.'+ id, src: this.#pathIcon,});
-			
-			const fnIcon = this.#pathWs +'/build/icon.png';
-			if (! existsSync(fnIcon)) return;
-
-			const mtPng = statSync(fnIcon).mtimeMs;
-			const bIconPng = readFileSync(fnIcon);
-			ensureDirSync(this.#pathWs +'/build/icon/');
-			//setLogger(console.log);
-		{
-			const fn = this.#pathWs +'/build/icon/icon.icns';
-			const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-			if (mtPng > mt) {
-				const b = createICNS(bIconPng, BILINEAR, 0);
-				if (b) writeFileSync(fn, b);
-			}
-		}
-		{
-			const fn = this.#pathWs +'/build/icon/icon.ico';
-			const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-			if (mtPng > mt) {
-				const b = createICO(bIconPng, BICUBIC2, 0, false, true);
-				if (b) writeFileSync(fn, b);
-			}
-		}
-			// 「このアプリについて」用
-			copy(fnIcon, this.#pathWs +'/doc/app/icon.png');
-		}) // サムネイル更新
-		.catch((err: Error) => console.error(err));
-
-/*
-console.log(`fn:PrjSetting.ts line:247 id:${id} src:${src}`);
-		sharp(src).metadata().then((info: any)=> {
-console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
-		});
-*/
-
-/*
-		sharp(src).metadata().then((info: any)=> {
-			if (info.width < 1024 || info.height < 1024) {
-				window.showInformationMessage(`元画像のサイズは 1024 x 1024 以上にして下さい。（${id} width:${info.width} height:${info.height}）`);
-				return;
-			}
-
-			const s = sharp(src).png().resize({
-				width	: 1024,
-				height	: 1024,
-				fit		: 'cover',
-				background	: {r: 0, g: 0, b: 0, alpha: 0},
-			});
-			if (this.#oWss['cnv.icon.cut_round']) {
-				const r = 1024 /2;
-				s.composite([{
-					input	: Buffer.from(`<svg><circle cx="${r}" cy="${r}" r="${r}"/></svg>`),
-					blend	: 'dest-in',
-				}]);
-			}
-			s.toFile(this.#pathWs +'/'+ path)
-			.then(()=> {
-				p.webview.postMessage({cmd: 'updimg', id: 'img.'+ id});
-				
-				const fnIcon = this.#pathWs +'/build/icon.png';
-				if (! existsSync(fnIcon)) return;
-
-				const mtPng = statSync(fnIcon).mtimeMs;
-				const bIconPng = readFileSync(fnIcon);
-				ensureDirSync(this.#pathWs +'/build/icon/');
-				//setLogger(console.log);
-			{
-				const fn = this.#pathWs +'/build/icon/icon.icns';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = createICNS(bIconPng, BILINEAR, 0);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-			{
-				const fn = this.#pathWs +'/build/icon/icon.ico';
-				const mt = existsSync(fn) ?statSync(fn).mtimeMs :0;
-				if (mtPng > mt) {
-					const b = createICO(bIconPng, BICUBIC2, 0, false, true);
-					if (b) writeFileSync(fn, b);
-				}
-			}
-				// 「このアプリについて」用
-				copy(fnIcon, this.#pathWs +'/doc/app/icon.png');
-			}) // サムネイル更新
-			.catch((err: Error) => console.error(err));
-		});
-*/
-	}
-
 	#openSub() {
 		const a: string[] = [];
 		foldProc(this.#fnPrj, ()=> {}, nm=> a.push(nm));
@@ -537,6 +417,40 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 		wv.html = this.#htmSrc
 		.replaceAll('${webview.cspSource}', wv.cspSource)
 		.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}`);
+	}
+
+	selectFile_icon({title, openlabel, path}: T_V2E_SELECT_ICON_FILE) {
+		//if (id !== 'icon') return;
+		window.showOpenDialog({
+			title	: `${title}を選択して下さい`,
+			openLabel		: openlabel ?? 'ファイルを選択',
+			canSelectMany	: false,
+			canSelectFiles	: false,
+			canSelectFolders: false,
+		}).then(async fileUri=> {
+			const src = fileUri?.[0]?.fsPath;
+			if (! src) return;	// キャンセル
+
+			const pathJs = this.#pathWs +'/build/cut_round.js';
+			await copy(this.ctx.extensionPath +'/dist/cut_round.js', pathJs);
+
+			const exit_code = await this.exeTask(
+				'cut_round',
+				'アイコン生成・丸く切り抜く',
+				['sharp', 'png2icons'],
+				`node ./build/cut_round.js "${src}" ${this.#oWss['cnv.icon.cut_round']} "${path}"`,
+			);
+			this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
+				cmd		: 'updimg',
+				pathIcon: this.#pathIcon,
+				err_mes	: exit_code === 0
+					? ''
+					: (()=> {
+						const o = readJsonSync(pathJs +'on',{encoding:'utf8'});
+						return o.err;
+					})()
+			});
+		})
 	}
 
 	readonly	#hHead2Mes: {[head: string]: string}	= {
@@ -549,7 +463,7 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 
 		const fn = this.#pathWs +'/core/font/info.json';
 		if (! existsSync(fn)) {
-			this.cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo: []});
+			this.#cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo: []});
 			return;
 		}
 
@@ -561,7 +475,7 @@ console.log(`fn:PrjSetting.ts line:242 w:${info.width} h:${info.height}`);
 			oSize	: (<any>v).oSize,
 		}));
 		aFontInfo.sort();
-		this.cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo});
+		this.#cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo});
 	}
 
 }

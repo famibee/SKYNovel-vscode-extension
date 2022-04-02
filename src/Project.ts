@@ -169,10 +169,17 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			// diff破損対策
 			this.#hDiff = Object.create(null);
 		}
-		this.#ps = new PrjSetting(ctx, wsFld, title=> {
-			pti.label = title;
-			this.emPrjTD.fire(pti);
-		}, this.#codSpt, (nm, val)=> this.#cmd(nm, val));
+		this.#ps = new PrjSetting(
+			ctx,
+			wsFld,
+			title=> {
+				pti.label = title;
+				this.emPrjTD.fire(pti);
+			},
+			this.#codSpt,
+			(nm, val)=> this.#cmd(nm, val),
+			(nm, title, aNeedLib, node)=> this.#exeTask(nm, title, aNeedLib, node),
+		);
 		this.#initCrypto();
 
 		this.#curPlg = this.#pathWs +'/core/plugin/';
@@ -248,8 +255,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		return true;
 	}
 
-	#exeTask(tsk_id: string, title: string, aNeedLib: string[], node: string): Promise<void> {
-		return new Promise<void>(fin=> window.withProgress({
+	#exeTask(nm: string, title: string, aNeedLib: string[], node: string): Promise<number> {
+		return new Promise(fin=> window.withProgress({
 			location	: ProgressLocation.Notification,
 			title,
 			cancellable	: false,
@@ -260,7 +267,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			.join(' ');
 
 			tasks.executeTask(new Task(
-				{type: 'SKYNovel '+ tsk_id},// definition（タスクの一意性）
+				{type: 'SKYNovel '+ nm},// definition（タスクの一意性）
 				this.wsFld,
 				title,		// name、UIに表示
 				'SKYNovel',	// source
@@ -271,11 +278,11 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 				),
 			))
 			.then(
-				re=> this.#hTaskExe.set(<any>tsk_id, re),
+				re=> this.#hTaskExe.set(<any>nm, re),
 				rj=> console.error(`fn:Project #exeTask() rj:${rj.message}`)
 			);
-			this.hOnEndTask.set(<any>tsk_id, ()=> {
-				fin();
+			this.hOnEndTask.set(<any>nm, e=> {
+				fin(e.exitCode ?? 0);
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);
 			});
