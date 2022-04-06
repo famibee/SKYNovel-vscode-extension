@@ -533,7 +533,10 @@ export class PrjSetting {
 
 	updCnvMatInfo() {
 		const fn = this.#pathWs +'/build/cnv_mat_pic.json';
-		const o = existsSync(fn) ?readJsonSync(fn, {encoding: 'utf8'}) :{};
+		const o = existsSync(fn) ?readJsonSync(fn, {encoding: 'utf8'}) :{
+			sum: {baseSize: 0, webpSize: 0,},
+			hSize: {},
+		};
 		this.#cmd2Vue(<T_E2V_CNVMATINFO>{cmd: 'update.cnvMatInfo', oCnvMatInfo: o});
 	}
 
