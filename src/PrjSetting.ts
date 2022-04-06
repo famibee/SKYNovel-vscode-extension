@@ -8,11 +8,11 @@
 import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO} from '../views/types';
+import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO, T_CNVMATINFO} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {copy, copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile} from 'fs-extra';
-import {basename, extname} from 'path';
+import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJsonSync} from 'fs-extra';
+import {basename, parse} from 'path';
 import {v4 as uuidv4} from 'uuid';
 import {userInfo} from 'os';
 
@@ -33,7 +33,7 @@ export class PrjSetting {
 				#htmSrc	= '';
 	readonly	#pathIcon	: string;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: string, title: string, aNeedLib: string[], node: string)=> Promise<number>, curCnvFile: string) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subsetFont'|'cut_round'|'cnv_mat_pic', arg: string)=> Promise<number>, curCnvFile: string) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
 		for (const nm in oWss) {
@@ -44,7 +44,7 @@ export class PrjSetting {
 		oWss['cnv.mat.pic'] = existsSync(curCnvFile);
 		this.#wss.update('cnv.mat.pic', oWss['cnv.mat.pic']);
 		this.#oWss = oWss as any;
-		this.#setNoticeCreChgDel();
+		this.#setOnMatCnv();
 
 		const a: (()=> Promise<void>)[] = [];
 
@@ -53,9 +53,9 @@ export class PrjSetting {
 		this.#fnPrjJs = this.#fnPrj +'prj.json';
 		this.#fnAppJs = this.#pathWs +'/doc/app.js';
 		this.#fnPkgJs = this.#pathWs +'/package.json';
-		this.#lenPrj = this.#fnPrj.length;
 		this.#fnPrjBase = this.#pathWs +'/doc/'+ PrjSetting.fld_prj_base
 		+'/';
+		this.#lenPrjBase = this.#fnPrjBase.length;
 
 		this.#pathIcon = 'https://file+.vscode-resource.vscode-webview.net'+ this.#pathWs +'/build/icon.png';
 		this.#fnReadme4Freem = this.#pathWs +'/build/include/readme.txt';
@@ -149,7 +149,7 @@ export class PrjSetting {
 		return PrjSetting.#hWsFld2token[wsFld.uri.path]() ?? '';
 	}
 
-	noticeCreDir(path: string) {
+	onCreDir(path: string) {
 		if (! statSync(path).isDirectory()) return;
 
 		this.#oCfg.code[basename(path)] = false;
@@ -157,7 +157,7 @@ export class PrjSetting {
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
 		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
 	}
-	noticeDelDir(path: string) {
+	onDelDir(path: string) {
 		delete this.#oCfg.code[basename(path)];
 		this.#writePrjJs();
 		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
@@ -173,11 +173,11 @@ export class PrjSetting {
 
 	// 複数マッチチェック用
 	#aPathSettingSn		: string[] = [];
-	noticeCreSettingSn(path: string) {
+	onCreSettingSn(path: string) {
 		this.#aPathSettingSn.push(path);
 		this.#chkMultiMatch_SettingSn();
 	}
-	noticeDelSettingSn(path: string) {
+	onDelSettingSn(path: string) {
 		this.#aPathSettingSn = this.#aPathSettingSn.filter(v=> v !== path);
 	}
 	#chkMultiMatch_SettingSn() {
@@ -249,46 +249,64 @@ export class PrjSetting {
 	#aTemp	: T_TEMP[]	= [];
 
 
-	readonly	#REG_CNV_MAT_PIC	= /\.(jpe?g|png)$/;
-	readonly	#REG_CNV_MAT_WEBP	= /\.webp$/;
-	noticeCreChg(_url: string) {}
-	noticeDel(_url: string) {}
-	#setNoticeCreChgDel() {
-		this.noticeCreChg = this.#oWss['cnv.mat.pic']
-		? async url=> {
-			if (! this.#REG_CNV_MAT_PIC.test(url)) return;
+	onCreChgMatCnv(_url: string) {}
+	onDelMatCnv(_url: string) {}
+	#disableOnMatCnv() {
+		this.onCreChgMatCnv = ()=> {};
+		this.onDelMatCnv = ()=> {};
+	}
+	#setOnMatCnv() {
+		if (! this.#oWss['cnv.mat.pic']) {this.#disableOnMatCnv(); return;}
 
+		this.onCreChgMatCnv = async url=> {
+			// prj（変換後フォルダ）への drop か prj_base（退避素材ファイル）操作か判定
+			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
 			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
-			const pathJs = this.#pathWs +'/build/cnv_mat_pic.js';
-			await copy(this.ctx.extensionPath +'/dist/cnv_mat_pic.js', pathJs);
-
-			const ext = extname(url);
-			const urlRead = this.#fnPrjBase + url.slice(this.#lenPrj, -4) +ext;
+			if (! isBase) this.#disableOnMatCnv();
 			await this.exeTask(
 				'cnv_mat_pic',
-				'画像ファイル最適化',
-				['sharp'],
-				`node ./build/cnv_mat_pic.js "${url
-				}" ${this.oWss['cnv.mat.webp_quality']
-				} "${urlRead}"`,
+				`"${isBase
+					? url.replace(this.#fnPrjBase, this.#fnPrj)
+					: url
+				}" ${this.oWss['cnv.mat.webp_quality']} "${
+					isBase
+					? url
+					: url.replace(this.#fnPrj, this.#fnPrjBase)
+				}" ${isBase ?'no_move' :''}`,
 			);
+			if (! isBase) this.#setOnMatCnv();
 			this.updCnvMatInfo();
-		}
-		: ()=> {};
+		};
+		this.onDelMatCnv = url=> {
+			// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
+			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
+			if (! isBase) return;
 
-		this.noticeDel = this.#oWss['cnv.mat.pic']
-		? url=> {
-			if (! this.#REG_CNV_MAT_WEBP.test(url)) return;
+			// 退避素材ファイルを削除時、変換後 WebP ファイルも削除
+			remove(
+				url.replace(this.#fnPrjBase, this.#fnPrj)
+				.replace(this.#REG_CNV_WEBP, '.webp')
+			)
+			.then(()=> {
+				const fn = this.#pathWs +'/build/cnv_mat_pic.json';
+				if (! existsSync(fn)) return;
+				const o: T_CNVMATINFO = readJsonSync(fn, {encoding: 'utf8'});
 
-			// webpファイルを削除時、退避していたjpg・pngファイルも削除
-			const base = this.#fnPrjBase + url.slice(this.#lenPrj, -4);
-			['jpg','jpeg','png'].forEach(ext=> remove(base + ext));
-		}
-		: ()=> {};
+				const {name} = parse(url);
+				const {baseSize, webpSize} = o.hSize[name];
+				o.sum.baseSize -= baseSize;
+				o.sum.webpSize -= webpSize;
+				delete o.hSize[name];
+				writeJsonSync(fn, o, {encoding: 'utf8'});
+
+				this.updCnvMatInfo();
+			});
+		};
 	}
-	readonly	#lenPrj;
+	readonly	#lenPrjBase;
 	readonly	#fnPrjBase;
 	static readonly	fld_prj_base	= 'prj_base';
+	readonly #REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 
 
 	#oCfg	= DEF_CFG;
@@ -392,6 +410,7 @@ export class PrjSetting {
 			break;
 
 		case 'update.oWss':{
+			this.#disableOnMatCnv();
 			for (const id in m.oWss) {
 				const val = m.oWss[id];
 				this.#wss.update(id, val);
@@ -411,10 +430,11 @@ export class PrjSetting {
 						o.mode = 'cancel';
 					}
 					this.#cmd2Vue(o);
+
+					if (id === 'cnv.mat.pic') this.#setOnMatCnv();
 				});
 			}
 			this.#oWss = m.oWss;
-			this.#setNoticeCreChgDel();
 		}	break;
 
 		case 'update.aTemp':
@@ -484,24 +504,16 @@ export class PrjSetting {
 			const src = fileUri?.[0]?.fsPath;
 			if (! src) return;	// キャンセル
 
-			const pathJs = this.#pathWs +'/build/cut_round.js';
-			await copy(this.ctx.extensionPath +'/dist/cut_round.js', pathJs);
-
 			const exit_code = await this.exeTask(
 				'cut_round',
-				'アイコン生成・丸く切り抜く',
-				['sharp', 'png2icons'],
-				`node ./build/cut_round.js "${src}" ${this.#oWss['cnv.icon.cut_round']} "${path}"`,
+				`"${src}" ${this.#oWss['cnv.icon.cut_round']} "${path}"`,
 			);
 			this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
 				cmd		: 'updimg',
 				pathIcon: this.#pathIcon,
 				err_mes	: exit_code === 0
 					? ''
-					: (()=> {
-						const o = readJsonSync(pathJs +'on',{encoding:'utf8'});
-						return o.err;
-					})()
+					: (()=> readJsonSync(this.#pathWs +'/build/cut_round.json', {encoding: 'utf8'}).err)()
 			});
 		})
 	}

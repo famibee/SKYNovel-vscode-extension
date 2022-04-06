@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, REG_SCRIPT, is_win} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
@@ -92,6 +92,7 @@ export class Project {
 
 
 	readonly	#pathWs;
+	readonly	#fwPrjMatCnv;
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
@@ -103,38 +104,47 @@ export class Project {
 
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.#curPrj +'*/*');
+		const fwPrjSn = workspace.createFileSystemWatcher(this.#curPrj +'*/*.{sn,ssn}');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.#curPrj +'prj.json');
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.#curPrj +'*');
 		const fwStgSn = workspace.createFileSystemWatcher(this.#curPrj +'**/setting.sn');
+		this.#fwPrjMatCnv = workspace.createFileSystemWatcher(
+			this.#pathWs +`/doc/{prj,${PrjSetting.fld_prj_base}}/**/*.{jpg,jpeg,png}`
+		);
 		this.#aFSW = [
 			fwPrj.onDidCreate(uri=> {
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
 				this.#crePrj(uri);
-				if (REG_SCRIPT.test(uri.path)) this.#codSpt.crePrj(uri);
 			}),
 			fwPrj.onDidChange(uri=> {
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
 				this.#chgPrj(uri);
-				if (REG_SCRIPT.test(uri.path)) this.#codSpt.chgPrj(uri);
 			}),
 			fwPrj.onDidDelete(uri=> {
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
 				this.#delPrj(uri);
-				if (REG_SCRIPT.test(uri.path)) this.#codSpt.delPrj(uri);
-				this.#ps.noticeDel(uri.path);
 			}),
+			
+			fwPrjSn.onDidCreate(uri=> this.#codSpt.crePrj(uri)),
+			fwPrjSn.onDidChange(uri=> this.#codSpt.chgPrj(uri)),
+			fwPrjSn.onDidDelete(uri=> this.#codSpt.delPrj(uri)),
+
 			fwPrjJs.onDidChange(e=> this.#chgPrj(e)),
 
-			fwFld.onDidCreate(uri=> this.#ps.noticeCreDir(uri.path)),
+			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri.path)),
 			/*fwFld.onDidChange(uri=> {	// フォルダ名ではこれが発生せず、Cre & Del
 				if (uri.path.slice(-5) === '.json') return;
-console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
+console.log(`fn:Project.ts Cha path:${uri.path}`);
 			}),*/
-			fwFld.onDidDelete(uri=> this.#ps.noticeDelDir(uri.path)),
+			fwFld.onDidDelete(uri=> this.#ps.onDelDir(uri.path)),
 
-			fwStgSn.onDidCreate(uri=> this.#ps.noticeCreSettingSn(uri.path)),
-			fwStgSn.onDidDelete(uri=> this.#ps.noticeDelSettingSn(uri.path)),
+			fwStgSn.onDidCreate(uri=> this.#ps.onCreSettingSn(uri.path)),
+			fwStgSn.onDidDelete(uri=> this.#ps.onDelSettingSn(uri.path)),
+
+			this.#fwPrjMatCnv.onDidCreate(uri=> this.#ps.onCreChgMatCnv(uri.path)),
+			this.#fwPrjMatCnv.onDidChange(uri=> this.#ps.onCreChgMatCnv(uri.path)),
+			this.#fwPrjMatCnv.onDidDelete(uri=> this.#ps.onDelMatCnv(uri.path)),
 		];
 
 		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
@@ -169,7 +179,7 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			},
 			this.#codSpt,
 			(nm, val)=> this.#cmd(nm, val),
-			(nm, title, aNeedLib, node)=> this.#exeTask(nm, title, aNeedLib, node),
+			(nm, arg)=> this.#exeTask(nm, arg),
 			this.#curPrjBase,
 		);
 		this.#initCrypto();
@@ -240,15 +250,9 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		case 'cnv.mat.pic':
 			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			const pathJs = this.#pathWs +'/build/cnv_mat_pic.js';
-			await copy(this.ctx.extensionPath +'/dist/cnv_mat_pic.js', pathJs);
-
 			await this.#exeTask(
 				'cnv_mat_pic',
-				'画像ファイル最適化',
-				['sharp'],
-				`node ./build/cnv_mat_pic.js ${
-					Boolean(val) ?'all' :'restore'
+				`${Boolean(val) ?'all' :'restore'
 				} ${this.#ps.oWss['cnv.mat.webp_quality']
 				} "${this.#curPrj}" "${this.#curPrjBase}"`,
 			);
@@ -259,26 +263,48 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 		return true;
 	}
 
-	#exeTask(nm: string, title: string, aNeedLib: string[], node: string): Promise<number> {
+	readonly	#hTask2Inf = {
+		'cut_round': {
+			title		: 'アイコン生成・丸く切り抜く',
+			pathCpyTo	: 'build',
+			aNeedLib	: ['sharp', 'png2icons'],
+		},
+		'subsetFont': {
+			title		: 'フォントサイズ最適化',
+			pathCpyTo	: 'core/font',
+			aNeedLib	: ['subset-font'],
+		},
+		'cnv_mat_pic': {
+			title		: '画像ファイル最適化',
+			pathCpyTo	: 'build',
+			aNeedLib	: ['sharp'],
+		},
+	};
+	#exeTask(nm: 'subsetFont'|'cut_round'|'cnv_mat_pic', arg: string): Promise<number> {
+		const inf = this.#hTask2Inf[nm];
+
 		return new Promise(fin=> window.withProgress({
 			location	: ProgressLocation.Notification,
-			title,
+			title		: inf.title,
 			cancellable	: false,
 		}, prg=> new Promise<void>(async donePrg=> {
+			const pathJs = this.#pathWs +`/${inf.pathCpyTo}/${nm}.js`;
+			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
+
 			const oPkg = await readJson(this.#pathWs +'/package.json', {encoding: 'utf8'});
-			const sNeedInst = aNeedLib
+			const sNeedInst = inf.aNeedLib
 			.filter(nm=> ! oPkg.devDependencies[nm])
 			.join(' ');
 
 			tasks.executeTask(new Task(
-				{type: 'SKYNovel '+ nm},// definition（タスクの一意性）
+				{type: 'SKYNovel '+ nm},	// definition（タスクの一意性）
 				this.wsFld,
-				title,		// name、UIに表示
-				'SKYNovel',	// source
+				inf.title,		// name、UIに表示
+				'SKYNovel',		// source
 				new ShellExecution(
-					`cd "${this.#pathWs}"${
-						sNeedInst ?`${statBreak()} npm i -D ${sNeedInst} ` :''
-					} ${statBreak()} ${node}`
+					`cd "${this.#pathWs}" ${statBreak()} ${
+						sNeedInst ?`npm i -D ${sNeedInst} ${statBreak()} ` :''
+					}node ./${inf.pathCpyTo}/${nm}.js ${arg}`
 				),
 			))
 			.then(
@@ -326,18 +352,8 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 			_=> {},
 		);
 
-		await copy(
-			this.ctx.extensionPath +'/dist/subset_font.js',
-			this.#pathWs +'/core/font/subset_font.js'
-		);
-
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-		await this.#exeTask(
-			'subsetFont',
-			'フォントサイズ最適化',
-			minify ?['subset-font'] :[],
-			'node ./core/font/subset_font.js' +(minify ?' --minify' :''),
-		);
+		await this.#exeTask('subsetFont', (minify ?'--minify' :''),);
 
 		// フォント情報更新
 		this.#ps.updFontInfo();
@@ -661,18 +677,14 @@ console.log(`fn:Project.ts line:128 Cha path:${uri.path}`);
 	// プロジェクトフォルダ以下全走査で暗号化
 	#initCrypto() {
 		const fnc: (url: string)=> void = this.#isCryptoMode
-			? url=> {
-				if (this.#isDiff(url)) this.#encFile(url);
-				this.#ps.noticeCreChg(url);
-			}
-			: url=> {this.#isDiff(url); this.#ps.noticeCreChg(url);}
+			? url=> {if (this.#isDiff(url)) this.#encFile(url);}
+			: url=> this.#isDiff(url)
 		treeProc(this.#curPrj, fnc);
 		this.#updDiffJson();
 	}
 	#encIfNeeded(url: string) {
 		if (this.#isCryptoMode && this.#isDiff(url)) this.#encFile(url);
 		this.#updDiffJson();
-		this.#ps.noticeCreChg(url);
 	}
 	#updDiffJson() {writeJsonSync(this.#fnDiff, this.#hDiff);}
 	readonly	#LEN_CHKDIFF	= 1024;
