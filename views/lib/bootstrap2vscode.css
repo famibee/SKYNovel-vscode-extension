@@ -243,3 +243,13 @@ input[type="range"]::-webkit-slider-runnable-track {
 	border-bottom: 10px solid var(--vscode-badge-background);
 	top: -46%;
 }
+
+/* table */
+.table {
+	background: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-badge-foreground);
+}
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+	background: var(--vscode-tree-tableOddRowsBackground);
+	color: var(--vscode-badge-foreground);
+}

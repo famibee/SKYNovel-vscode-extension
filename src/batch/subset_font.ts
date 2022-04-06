@@ -9,10 +9,17 @@ const [, , ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
 const subsetFont = require('subset-font');
-import {outputFile, readFile, ensureLink, statSync, outputJsonSync} from 'fs-extra';
+import {outputFile, readFile, ensureLink, statSync, writeJsonSync} from 'fs-extra';
 const is_win = process.platform === 'win32';
 import {userInfo} from 'os';
 import {extname} from 'path';
+
+
+const oLog: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number}} = {};
+const log_exit = (exit_code = -1)=> {
+	writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
+	if (exit_code > -1) process.exit(exit_code);
+}
 
 const fnc: (inp: string, out: string, str?: string)=> Promise<void> = minify
 	? async (inp, out, str)=> {
@@ -24,7 +31,6 @@ const fnc: (inp: string, out: string, str?: string)=> Promise<void> = minify
 
 const o = require('./font.json');
 const a = [];
-const oInf: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number}} = {};
 
 const {username} = userInfo();
 const PATH_PRJ_FONTS = 'core/font';
@@ -41,16 +47,16 @@ for (const nm in o) {
 	.replace('::PATH_USER_FONTS::', PATH_USER_FONTS)
 	.replace('::PATH_OS_FONTS::', PATH_OS_FONTS);
 	const out = `doc/prj/script/${nm}${minify ?'.woff2' :extname(inp)}`;
-	oInf[nm] = {inp, out, iSize: 1, oSize: 1};
+	oLog[nm] = {inp, out, iSize: 1, oSize: 1};
 	a.push(fnc(inp, out, o[nm].txt));
 }
 Promise.allSettled(a)
 .then(()=> {
-	for (const nm in oInf) oInf[nm] = {
-		...oInf[nm],
+	for (const nm in oLog) oLog[nm] = {
+		...oLog[nm],
 		inp		: o[nm].inp,		// プライベートな環境値を塗りつぶす
-		iSize	: statSync(oInf[nm].inp).size,
-		oSize	: statSync(oInf[nm].out).size,
+		iSize	: statSync(oLog[nm].inp).size,
+		oSize	: statSync(oLog[nm].out).size,
 	};
-	outputJsonSync('core/font/info.json', oInf);
+	log_exit(0);
 });

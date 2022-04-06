@@ -7,10 +7,13 @@
 
 import {defineStore} from 'pinia';
 import {ref, toRaw} from 'vue';
-import {DEF_WSS, T_WSS} from "../types";
+import {DEF_WSS, T_WSS} from '../types';
 import {cmd2Ex} from './stVSCode';
 
-export const disabled = ref(false);
+export const hDisabled = ref({
+	'cnv.font.subset'	: false,
+	'cnv.mat.pic'		: false,
+});
 
 export const useWss = defineStore('workspaceState', {
 	state	: ()=> ({oWss: DEF_WSS}),	// 初期値を返す関数
@@ -20,7 +23,8 @@ export const useWss = defineStore('workspaceState', {
 			this.oWss = oWss;
 
 			this.$subscribe(()=> {	// 状態が変化するたびに
-				if (disabled.value) return;
+				if (hDisabled.value['cnv.font.subset']) return;
+				if (hDisabled.value['cnv.mat.pic']) return;
 				cmd2Ex({cmd: 'update.oWss', oWss: toRaw(this.oWss)})
 			});
 		},

@@ -12,15 +12,15 @@ import {copy, ensureDir, existsSync, readFile, stat, writeFile, writeJsonSync} f
 const {BICUBIC2, BILINEAR, createICNS, createICO} = require('png2icons');
 
 sharp(src).metadata().then((info: any)=> {
-	const o: any = {...info, err: '', exif: '', icc: '', iptc: '', xmp: ''};
+	const oLog: any = {...info, err: '', exif: '', icc: '', iptc: '', xmp: ''};
 	const log_exit = (exit_code = -1)=> {
-		writeJsonSync(__filename +'on', o, {encoding: 'utf8'});
+		writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
 		if (exit_code > -1) process.exit(exit_code);
 	}
 	log_exit();
 
 	if (info.width < 1024 || info.height < 1024) {
-		o.err = `元画像のサイズは 1024 x 1024 以上にして下さい。（width:${info.width} height:${info.height}）`;
+		oLog.err = `元画像のサイズは 1024 x 1024 以上にして下さい。（width:${info.width} height:${info.height}）`;
 		log_exit(10);
 	}
 
@@ -69,5 +69,5 @@ sharp(src).metadata().then((info: any)=> {
 		].map(v=> v()))
 		.then(()=> process.exit(0));
 	}) // サムネイル更新
-	.catch((err: Error)=> {o.err = err.message; log_exit(20)});
+	.catch((err: Error)=> {oLog.err = err.message; log_exit(20)});
 });

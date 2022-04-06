@@ -56,14 +56,16 @@ export const statBreak: {(): string} =
 // 階層フォルダ逐次処理
 import {readdirSync, existsSync, readFileSync, writeFileSync} from 'fs-extra';
 import {resolve, basename, extname} from 'path';
-const regNoUseSysFile = /^(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
-export const regNoUseSysPath = /\/(\..+|.+\.(db|ini|git)|_notes|Icon\r)$/;
+const REG_SYS_FN = /^(_notes|Icon\r|\..+|.+\.(db|ini|git))$/;
+	// 5 matches (122 steps, 0.1ms) https://regex101.com/r/rXUCzW/1
+
+export const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
+	// 5 matches (392 steps, 0.0ms) https://regex101.com/r/kx9jui/1
 
 export function treeProc(wd: string, fnc: (url: string)=> void) {
 	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
-		regNoUseSysFile.lastIndex = 0;
 		const nm = String(d.name).normalize('NFC');
-		if (regNoUseSysFile.test(nm)) return;
+		if (REG_SYS_FN.test(nm)) return;
 		const url = resolve(wd, nm);
 		if (d.isDirectory()) {treeProc(url, fnc); return;}
 
@@ -73,9 +75,8 @@ export function treeProc(wd: string, fnc: (url: string)=> void) {
 
 export function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
 	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
-		regNoUseSysFile.lastIndex = 0;
 		const nm = String(d.name).normalize('NFC');
-		if (regNoUseSysFile.test(nm)) return;
+		if (REG_SYS_FN.test(nm)) return;
 		if (d.isDirectory()) {fncFld(nm); return;}
 
 		const url = resolve(wd, nm);

@@ -7,7 +7,7 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_CFG, T_CFG, T_E2V_CFG as T_E2V2_CFG} from "../types";
+import {DEF_CFG, T_CFG, T_E2V_CFG as T_E2V2_CFG} from '../types';
 import {cmd2Ex, on} from './stVSCode';
 
 export const useCfg = defineStore('doc/prj/prj.json', {

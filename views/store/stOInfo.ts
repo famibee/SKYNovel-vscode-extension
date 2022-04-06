@@ -6,18 +6,22 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {defineStore} from 'pinia';
-import {DEF_FONTINF, T_A_FONTINF, T_E2V_AFONTINFO} from "../types";
+import {DEF_CNVMATINFO, DEF_FONTINF, T_A_FONTINF, T_CNVMATINFO, T_E2V_AFONTINFO, T_E2V_CNVMATINFO} from '../types';
 import {on} from './stVSCode';
 
 let init = false;
 
-export const useFontInfo = ()=> {
+export const useOInfo = ()=> {
 	// 本来の store生成
-	const st = defineStore('core/font/info.json', {
-		state	: ()=> ({aFontInfo: DEF_FONTINF}),	// 初期値を返す関数
+	const st = defineStore('OInfo', {
+		state	: ()=> ({
+			aFontInfo	: DEF_FONTINF,
+			oCnvMatInfo	: DEF_CNVMATINFO,
+		}),	// 初期値を返す関数
 	//	getters	: {},	// state 及び他の getter へのアクセスが可能
 		actions	: {	// State の更新
-			setAFontInfo(aFontInfo: T_A_FONTINF) {this.aFontInfo = aFontInfo;}
+			setAFontInfo(aFontInfo: T_A_FONTINF) {this.aFontInfo = aFontInfo;},
+			setCnvMatInfo(oCnvMatInfo: T_CNVMATINFO) {this.oCnvMatInfo = oCnvMatInfo;},
 		},
 	})();
 
@@ -25,6 +29,7 @@ export const useFontInfo = ()=> {
 		init = true;
 		// 拡張機能メインから値取得
 		on('update.aFontInfo', (data: T_E2V_AFONTINFO)=> st.setAFontInfo(data.aFontInfo));
+		on('update.cnvMatInfo', (data: T_E2V_CNVMATINFO)=> st.setCnvMatInfo(data.oCnvMatInfo));
 	}
 
 	return st;

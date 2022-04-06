@@ -9,12 +9,14 @@ export type T_WSS = {
 	'cnv.font.subset'		: boolean,
 	'cnv.icon.cut_round'	: boolean,
 	'cnv.mat.webp_quality'	: number,
+	'cnv.mat.pic'			: boolean,
 };
 
 export const DEF_WSS: T_WSS = {
 	'cnv.font.subset'		: false,
 	'cnv.icon.cut_round'	: false,
 	'cnv.mat.webp_quality'	: 90,
+	'cnv.mat.pic'			: false,
 };
 
 
@@ -54,18 +56,18 @@ export type T_CFG = {
 	debuger_token	: string,	// デバッガとの接続トークン
 };
 
-// vueテスト用、もう使わないかも
+// vueテスト用
 export const DEF_CFG0: T_CFG = {
 	book	: {
 		title		: '(作品タイトル)',
 		creator		: '(著作者)',
-		cre_url		: '(連絡先URL)',
+		cre_url		: 'https://twitter.com/',
 		publisher	: '(出版者)',
-		pub_url		: '(出版社URL)',
+		pub_url		: 'https://ugainovel.blog.fc2.com/',
 		detail		: '(内容紹介)',
-		version		: '(version)',
+		version		: '1.2.3',
 	},
-	save_ns		: '(save_ns)',
+	save_ns		: 'tst_save_ns',
 	window	: {
 		width	: 800,
 		height	: 600,
@@ -75,7 +77,7 @@ export const DEF_CFG0: T_CFG = {
 		bg_color			: '#008800',
 		tagch_msecwait		: 10,
 		auto_msecpagewait	: 3500,
-		escape				: '(ESC)',
+		escape				: '\\',
 	},
 	debug	: {
 		devtool		: false,
@@ -141,6 +143,31 @@ export const DEF_FONTINF: T_A_FONTINF = [
 ];
 
 
+export type T_CNVMATINFO_SIZE = {
+	baseSize	: number;
+	webpSize	: number;
+};
+export type T_CNVMATINFO = {
+	sum: {
+		baseSize	: number;
+		webpSize	: number;
+	},
+	hSize: {[fn: string]: T_CNVMATINFO_SIZE},
+};
+
+export const DEF_CNVMATINFO: T_CNVMATINFO = {
+	sum: {
+		baseSize	: 4510000,
+		webpSize	: 1550000,
+	},
+	hSize: {	// わざとソートを乱す
+		bbb: {baseSize: 6001, webpSize: 2000},
+		aaa: {baseSize: 6000, webpSize: 1000},
+		ccc: {baseSize: 6002, webpSize: 3000},
+	},
+};
+
+
 export const REG_SN2TEMP = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;	// https://regex101.com/r/FpmGwf/1
 
 export type T_TEMP = {
@@ -187,6 +214,17 @@ export type T_E2V_CFG = {
 export type T_E2V_AFONTINFO = {
 	cmd			: 'update.aFontInfo';
 	aFontInfo	: T_A_FONTINF;
+};
+
+export type T_E2V_CNVMATINFO = {
+	cmd			: 'update.cnvMatInfo';
+	oCnvMatInfo	: T_CNVMATINFO;
+};
+
+export type T_E2V_NOTICE_COMPONENT = {
+	cmd		: 'notice.Component',
+	id		: 'cnv.font.subset'|'cnv.mat.pic',
+	mode	: 'wait'|'comp'|'cancel';
 };
 
 export type T_E2V_TEMP = T_E2V_TEMP_SUB & {

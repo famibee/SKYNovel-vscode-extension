@@ -111,7 +111,7 @@ const {value: v_escape, errorMessage: em_escape, meta: mv_escape} = useField<str
 
 const {value: v_bg_color} = useField<string>(
 	'oCfg.window.bg_color',
-	yup.number().required('必須の項目です'),
+	yup.string().required('必須の項目です').matches(/#\d{6}/, '#000000 形式ではありません'),
 	{initialValue: String(oCfg.value.init.bg_color)},	// ブラウザテスト用、VSCodeで上書き
 );
 

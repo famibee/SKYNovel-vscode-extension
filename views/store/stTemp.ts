@@ -7,7 +7,7 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_TEMP, T_E2V_TEMP, T_V2E_TEMP} from "../types";
+import {DEF_TEMP, T_E2V_TEMP, T_V2E_TEMP} from '../types';
 import {cmd2Ex, on} from './stVSCode';
 
 let init = false;
@@ -43,8 +43,7 @@ export const useTemp = ()=> {
 				case 'rng':	return {...v, num: Number(v.val)};
 				case 'chk':	return {...v, bol: Boolean('false')};
 				default:	return v;
-				}
-			});
+			}});
 			st.err = data.err;
 		});
 	}

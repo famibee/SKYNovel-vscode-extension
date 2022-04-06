@@ -8,11 +8,11 @@
 import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO} from '../views/types';
+import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {copy, copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, statSync, writeFile} from 'fs-extra';
-import {basename} from 'path';
+import {copy, copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile} from 'fs-extra';
+import {basename, extname} from 'path';
 import {v4 as uuidv4} from 'uuid';
 import {userInfo} from 'os';
 
@@ -33,7 +33,7 @@ export class PrjSetting {
 				#htmSrc	= '';
 	readonly	#pathIcon	: string;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: string, title: string, aNeedLib: string[], node: string)=> Promise<number>) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: string, title: string, aNeedLib: string[], node: string)=> Promise<number>, curCnvFile: string) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
 		for (const nm in oWss) {
@@ -41,7 +41,10 @@ export class PrjSetting {
 			if (d) oWss[nm] = d;
 			else this.#wss.update(nm, oWss[nm]);
 		}
+		oWss['cnv.mat.pic'] = existsSync(curCnvFile);
+		this.#wss.update('cnv.mat.pic', oWss['cnv.mat.pic']);
 		this.#oWss = oWss as any;
+		this.#setNoticeCreChgDel();
 
 		const a: (()=> Promise<void>)[] = [];
 
@@ -50,6 +53,9 @@ export class PrjSetting {
 		this.#fnPrjJs = this.#fnPrj +'prj.json';
 		this.#fnAppJs = this.#pathWs +'/doc/app.js';
 		this.#fnPkgJs = this.#pathWs +'/package.json';
+		this.#lenPrj = this.#fnPrj.length;
+		this.#fnPrjBase = this.#pathWs +'/doc/'+ PrjSetting.fld_prj_base
+		+'/';
 
 		this.#pathIcon = 'https://file+.vscode-resource.vscode-webview.net'+ this.#pathWs +'/build/icon.png';
 		this.#fnReadme4Freem = this.#pathWs +'/build/include/readme.txt';
@@ -74,12 +80,25 @@ export class PrjSetting {
 			path_ext +'/res/launch.json', fnLaunchJs
 		));
 
+		const o = readJsonSync(this.#fnPrjJs, {encoding: 'utf8'});
+		this.#oCfg = {	// 後方互換性対応にて二段階目も個別にコピー
+			...this.#oCfg,
+			...o,
+			book	: {...DEF_CFG.book, ...o.book},
+			window	: {...DEF_CFG.window, ...o.window},
+			log		: {...DEF_CFG.log, ...o.log},
+			init	: {...DEF_CFG.init, ...o.init},
+			debug	: {...DEF_CFG.debug, ...o.debug},
+			code	: {...DEF_CFG.code, ...o.code},
+		};
+	//	this.#oCfg = {...this.#oCfg, ...o};
+		codSpt.setEscape(this.#oCfg?.init?.escape ?? '');	// 非同期禁止
+
 		const path_vue_root = path_ext +`/views/`;
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
 				chgTitle(this.#oCfg.book.title);
-				codSpt.setEscape(this.#oCfg?.init?.escape ?? '');
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.#oCfg.debuger_token;
 			},
 
@@ -111,21 +130,7 @@ export class PrjSetting {
 			},
 		);
 
-		new Promise(async ()=> {
-			const o = await readJson(this.#fnPrjJs, {encoding: 'utf8'});
-			this.#oCfg = {	// 後方互換性対応にて二段階目も個別にコピー
-				...this.#oCfg,
-				...o,
-				book	: {...DEF_CFG.book, ...o.book},
-				window	: {...DEF_CFG.window, ...o.window},
-				log		: {...DEF_CFG.log, ...o.log},
-				init	: {...DEF_CFG.init, ...o.init},
-				debug	: {...DEF_CFG.debug, ...o.debug},
-				code	: {...DEF_CFG.code, ...o.code},
-			};
-		//	this.#oCfg = {...this.#oCfg, ...o};
-			await Promise.allSettled(a.map(v=> v()));
-		});
+		Promise.allSettled(a.map(t=> t()));
 	}
 	getLocalSNVer(): {verSN: string, verTemp: string} {
 		const oPkg = readJsonSync(this.#fnPkgJs, {encoding: 'utf8'});
@@ -244,8 +249,51 @@ export class PrjSetting {
 	#aTemp	: T_TEMP[]	= [];
 
 
+	readonly	#REG_CNV_MAT_PIC	= /\.(jpe?g|png)$/;
+	readonly	#REG_CNV_MAT_WEBP	= /\.webp$/;
+	noticeCreChg(_url: string) {}
+	noticeDel(_url: string) {}
+	#setNoticeCreChgDel() {
+		this.noticeCreChg = this.#oWss['cnv.mat.pic']
+		? async url=> {
+			if (! this.#REG_CNV_MAT_PIC.test(url)) return;
+
+			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
+			const pathJs = this.#pathWs +'/build/cnv_mat_pic.js';
+			await copy(this.ctx.extensionPath +'/dist/cnv_mat_pic.js', pathJs);
+
+			const ext = extname(url);
+			const urlRead = this.#fnPrjBase + url.slice(this.#lenPrj, -4) +ext;
+			await this.exeTask(
+				'cnv_mat_pic',
+				'画像ファイル最適化',
+				['sharp'],
+				`node ./build/cnv_mat_pic.js "${url
+				}" ${this.oWss['cnv.mat.webp_quality']
+				} "${urlRead}"`,
+			);
+			this.updCnvMatInfo();
+		}
+		: ()=> {};
+
+		this.noticeDel = this.#oWss['cnv.mat.pic']
+		? url=> {
+			if (! this.#REG_CNV_MAT_WEBP.test(url)) return;
+
+			// webpファイルを削除時、退避していたjpg・pngファイルも削除
+			const base = this.#fnPrjBase + url.slice(this.#lenPrj, -4);
+			['jpg','jpeg','png'].forEach(ext=> remove(base + ext));
+		}
+		: ()=> {};
+	}
+	readonly	#lenPrj;
+	readonly	#fnPrjBase;
+	static readonly	fld_prj_base	= 'prj_base';
+
+
 	#oCfg	= DEF_CFG;
 	get cfg() {return this.#oCfg}
+	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
 	#cmd2Vue = (mes: any)=> {};
 	open() {
@@ -279,6 +327,7 @@ export class PrjSetting {
 				pathIcon: this.#pathIcon,
 			});
 			this.updFontInfo();
+			this.updCnvMatInfo();
 			this.#chkMultiMatch_SettingSn();
 			break;
 
@@ -343,25 +392,29 @@ export class PrjSetting {
 			break;
 
 		case 'update.oWss':{
-			const nm = 'cnv.font.subset';
-			const val = m.oWss[nm];
-			const chg = this.#oWss[nm] != val;
-			this.#oWss = m.oWss;
-			for (const nm in m.oWss) this.#wss.update(nm, m.oWss[nm]);
+			for (const id in m.oWss) {
+				const val = m.oWss[id];
+				this.#wss.update(id, val);
+				if (id !== 'cnv.font.subset'
+				&& id !== 'cnv.mat.pic') continue;
 
-			if (chg) {// 処理中はトグルスイッチを無効にする
-				this.#cmd2Vue({cmd: nm, val: 'wait'});
-				this.cmd(nm, val).then(async go=> {
-					if (go) {
-						await this.#wss.update(nm, val);
-						this.#cmd2Vue({cmd: nm, val: 'comp'});
-						return;
+				const old_value = this.#oWss[id];
+				if (old_value == val) continue;
+
+				// 処理中はトグルスイッチを無効にする
+				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
+				this.#cmd2Vue(o);
+				this.cmd(id, val).then(go=> {
+					if (go) o.mode = 'comp';
+					else {
+						this.#wss.update(id, this.#oWss[id] = m.oWss = old_value);	// こうしないとダイアログ永久ループ
+						o.mode = 'cancel';
 					}
-
-					this.#wss.update(nm, this.#oWss[nm] = ! val);
-					this.#cmd2Vue({cmd: nm, val: 'cancel'});
+					this.#cmd2Vue(o);
 				});
 			}
+			this.#oWss = m.oWss;
+			this.#setNoticeCreChgDel();
 		}	break;
 
 		case 'update.aTemp':
@@ -461,7 +514,7 @@ export class PrjSetting {
 	updFontInfo() {
 		if (! this.#pnlWV) return;
 
-		const fn = this.#pathWs +'/core/font/info.json';
+		const fn = this.#pathWs +'/core/font/subset_font.json';
 		if (! existsSync(fn)) {
 			this.#cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo: []});
 			return;
@@ -476,6 +529,12 @@ export class PrjSetting {
 		}));
 		aFontInfo.sort();
 		this.#cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo});
+	}
+
+	updCnvMatInfo() {
+		const fn = this.#pathWs +'/build/cnv_mat_pic.json';
+		const o = existsSync(fn) ?readJsonSync(fn, {encoding: 'utf8'}) :{};
+		this.#cmd2Vue(<T_E2V_CNVMATINFO>{cmd: 'update.cnvMatInfo', oCnvMatInfo: o});
 	}
 
 }

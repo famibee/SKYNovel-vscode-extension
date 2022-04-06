@@ -7,7 +7,7 @@
 
 import {defineStore} from 'pinia';
 import {useCfg} from '../store/stCfg';
-import {useWss} from "../store/stWSS";
+import {useWss} from '../store/stWSS';
 import {T_E2V_INIT} from '../types';
 const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :undefined;
 
@@ -64,4 +64,10 @@ export const useVSCode = ()=> {
 	}
 
 	return st;
+};
+
+export const getLeftRangeBadge = (value=0, max=0, min=0)=> {
+	const val = Number( (value - min) *100 /(max - min) );
+	const pos = 10 -(val *0.2);
+	return `calc(${val}% + (${pos}px))`;
 };

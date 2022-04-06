@@ -29,6 +29,7 @@
 import {useTemp} from '../store/stTemp';
 import {storeToRefs} from 'pinia';
 import {Field, Form, ErrorMessage, configure} from 'vee-validate';
+import {getLeftRangeBadge} from '../store/stVSCode';
 
 configure({
 	validateOnBlur		: true,
@@ -42,12 +43,6 @@ const {aTemp, err} = storeToRefs(stTemp);	// 分割代入
 
 const isRequired = (value: any)=> {
 	return value ? true : 'This field is required';
-};
-
-const getLeftRangeBadge = (value=0, max=0, min=0)=> {
-	const val = Number( (value - min) *100 /(max - min) );
-	const pos = 10 -(val *0.2);
-	return `calc(${val}% + (${pos}px))`;
 };
 
 </script>

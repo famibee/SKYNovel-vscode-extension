@@ -60,9 +60,13 @@ build({
 	watch,
 });
 
-// === subset_font, cut_round ===
+// === batch ===
 build({
-	entryPoints	: ['./src/subset_font','./src/cut_round'],
+	entryPoints	: [
+		'./src/batch/subset_font',
+		'./src/batch/cut_round',
+		'./src/batch/cnv_mat_pic',
+	],
 	outdir		: 'dist',
 	minify		: true,
 //x	format		: 'iife',

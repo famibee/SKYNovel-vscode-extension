@@ -483,12 +483,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#scanFile(uri: Uri) {
 		const path = uri.path;
 		const fn = getFn(path);
-		REG_SCRIPT.lastIndex = 0;
 		if (! REG_SCRIPT.test(path)) {
-			ScriptScanner.#REG_SPRITE.lastIndex = 0;
-			ScriptScanner.#REG_NOSPR.lastIndex = 0;
-			ScriptScanner.#REG_SOUND.lastIndex = 0;
-			ScriptScanner.#REG_HTML.lastIndex = 0;
 			if (ScriptScanner.#REG_SPRITE.test(path)) {
 				if (ScriptScanner.#REG_NOSPR.test(path)) return;
 				this.#hSetWords['画像ファイル名'].add(fn);
@@ -607,20 +602,19 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 						const kw = o.name.trimEnd();
 						this.#hSetWords['代入変数名'].add(kw);
 						setKw.add(`代入変数名\t${kw}`);
-/*
-	// TODO: インストール済みフォント名から選択できればよいので、凍結
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') {
 							const a = this.#Fonts2ANm(o.text, diags, rng);
 							this.#hInfFont2Str.defaultFontName = a[0].font_nm;
-
+/*
+	// TODO: インストール済みフォント名から選択できればよいので、凍結
 							this.cmd('updValid', '/setting.sn:def_fonts=');
 							a.some(({err})=> {
 								if (err) this.cmd('updValid', '/setting.sn:def_fonts='+ err);
 								return err;
 							});
-						}
+
 // js/Vue
 		case 'updValid'	:{
 			const m = document.getElementById(e.data.id);
@@ -628,6 +622,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			m.setCustomValidity(e.data.mes);
 		}	return;
 */
+						}
 					}
 				} catch (e) {console.error(`fn:ScriptScanner.ts #scanScriptSrc & %o`, e);}
 				return;
@@ -973,7 +968,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			.match(this.#REG_TOKEN) ?? [];
 		for (let i=a.length -1; i>=0; --i) {
 			const t = a[i];
-			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;
+			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;	// /gなので必要
 			if (ScriptScanner.#REG_TAG_LET_ML.test(t)) {
 				const idx = t.indexOf(']') +1;
 				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';
@@ -990,7 +985,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#replaceScript_let_ml(scr: Script, start_idx = 0) {
 		for (let i=scr.len- 1; i >= start_idx; --i) {
 			const token = scr.aToken[i];
-			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;
+			ScriptScanner.#REG_TAG_LET_ML.lastIndex = 0;	// /gなので必要
 			if (ScriptScanner.#REG_TAG_LET_ML.test(token)) {
 				const idxSpl = token.indexOf(']') +1;
 				const ml = token.slice(idxSpl);
