@@ -7,15 +7,18 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_TEMP, T_E2V_TEMP, T_V2E_TEMP} from '../types';
-import {cmd2Ex, on} from './stVSCode';
+import {DEF_TEMP4TST, DEF_TEMP, T_E2V_TEMP, T_V2E_TEMP} from '../types';
+import {cmd2Ex, isVSCode, on} from './stVSCode';
 
 let init = false;
 
 export const useTemp = ()=> {
 	// 本来の store生成
 	const st = defineStore('doc/prj/**/setting.sn', {
-		state	: ()=> ({aTemp: DEF_TEMP, err: ''}),	// 初期値を返す関数
+		state	: ()=> ({	// 初期値を返す関数
+			aTemp	: isVSCode ?DEF_TEMP :DEF_TEMP4TST,
+			err		: '',
+		}),
 		getters	: {	// state 及び他の getter へのアクセスが可能
 		//	getTitle(s) {return s.title;},
 			// getter は全て computed 扱いになるため、引数に応じて結果を替える場合に

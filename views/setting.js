@@ -2195,309 +2195,6 @@ function traverse(value, seen) {
     return value;
 }
 
-function useTransitionState() {
-    const state = {
-        isMounted: false,
-        isLeaving: false,
-        isUnmounting: false,
-        leavingVNodes: new Map()
-    };
-    onMounted(() => {
-        state.isMounted = true;
-    });
-    onBeforeUnmount(() => {
-        state.isUnmounting = true;
-    });
-    return state;
-}
-const TransitionHookValidator = [Function, Array];
-const BaseTransitionImpl = {
-    name: `BaseTransition`,
-    props: {
-        mode: String,
-        appear: Boolean,
-        persisted: Boolean,
-        // enter
-        onBeforeEnter: TransitionHookValidator,
-        onEnter: TransitionHookValidator,
-        onAfterEnter: TransitionHookValidator,
-        onEnterCancelled: TransitionHookValidator,
-        // leave
-        onBeforeLeave: TransitionHookValidator,
-        onLeave: TransitionHookValidator,
-        onAfterLeave: TransitionHookValidator,
-        onLeaveCancelled: TransitionHookValidator,
-        // appear
-        onBeforeAppear: TransitionHookValidator,
-        onAppear: TransitionHookValidator,
-        onAfterAppear: TransitionHookValidator,
-        onAppearCancelled: TransitionHookValidator
-    },
-    setup(props, { slots }) {
-        const instance = getCurrentInstance();
-        const state = useTransitionState();
-        let prevTransitionKey;
-        return () => {
-            const children = slots.default && getTransitionRawChildren(slots.default(), true);
-            if (!children || !children.length) {
-                return;
-            }
-            // there's no need to track reactivity for these props so use the raw
-            // props for a bit better perf
-            const rawProps = toRaw(props);
-            const { mode } = rawProps;
-            // at this point children has a guaranteed length of 1.
-            const child = children[0];
-            if (state.isLeaving) {
-                return emptyPlaceholder(child);
-            }
-            // in the case of <transition><keep-alive/></transition>, we need to
-            // compare the type of the kept-alive children.
-            const innerChild = getKeepAliveChild(child);
-            if (!innerChild) {
-                return emptyPlaceholder(child);
-            }
-            const enterHooks = resolveTransitionHooks(innerChild, rawProps, state, instance);
-            setTransitionHooks(innerChild, enterHooks);
-            const oldChild = instance.subTree;
-            const oldInnerChild = oldChild && getKeepAliveChild(oldChild);
-            let transitionKeyChanged = false;
-            const { getTransitionKey } = innerChild.type;
-            if (getTransitionKey) {
-                const key = getTransitionKey();
-                if (prevTransitionKey === undefined) {
-                    prevTransitionKey = key;
-                }
-                else if (key !== prevTransitionKey) {
-                    prevTransitionKey = key;
-                    transitionKeyChanged = true;
-                }
-            }
-            // handle mode
-            if (oldInnerChild &&
-                oldInnerChild.type !== Comment &&
-                (!isSameVNodeType(innerChild, oldInnerChild) || transitionKeyChanged)) {
-                const leavingHooks = resolveTransitionHooks(oldInnerChild, rawProps, state, instance);
-                // update old tree's hooks in case of dynamic transition
-                setTransitionHooks(oldInnerChild, leavingHooks);
-                // switching between different views
-                if (mode === 'out-in') {
-                    state.isLeaving = true;
-                    // return placeholder node and queue update when leave finishes
-                    leavingHooks.afterLeave = () => {
-                        state.isLeaving = false;
-                        instance.update();
-                    };
-                    return emptyPlaceholder(child);
-                }
-                else if (mode === 'in-out' && innerChild.type !== Comment) {
-                    leavingHooks.delayLeave = (el, earlyRemove, delayedLeave) => {
-                        const leavingVNodesCache = getLeavingNodesForType(state, oldInnerChild);
-                        leavingVNodesCache[String(oldInnerChild.key)] = oldInnerChild;
-                        // early removal callback
-                        el._leaveCb = () => {
-                            earlyRemove();
-                            el._leaveCb = undefined;
-                            delete enterHooks.delayedLeave;
-                        };
-                        enterHooks.delayedLeave = delayedLeave;
-                    };
-                }
-            }
-            return child;
-        };
-    }
-};
-// export the public type for h/tsx inference
-// also to avoid inline import() in generated d.ts files
-const BaseTransition = BaseTransitionImpl;
-function getLeavingNodesForType(state, vnode) {
-    const { leavingVNodes } = state;
-    let leavingVNodesCache = leavingVNodes.get(vnode.type);
-    if (!leavingVNodesCache) {
-        leavingVNodesCache = Object.create(null);
-        leavingVNodes.set(vnode.type, leavingVNodesCache);
-    }
-    return leavingVNodesCache;
-}
-// The transition hooks are attached to the vnode as vnode.transition
-// and will be called at appropriate timing in the renderer.
-function resolveTransitionHooks(vnode, props, state, instance) {
-    const { appear, mode, persisted = false, onBeforeEnter, onEnter, onAfterEnter, onEnterCancelled, onBeforeLeave, onLeave, onAfterLeave, onLeaveCancelled, onBeforeAppear, onAppear, onAfterAppear, onAppearCancelled } = props;
-    const key = String(vnode.key);
-    const leavingVNodesCache = getLeavingNodesForType(state, vnode);
-    const callHook = (hook, args) => {
-        hook &&
-            callWithAsyncErrorHandling(hook, instance, 9 /* TRANSITION_HOOK */, args);
-    };
-    const hooks = {
-        mode,
-        persisted,
-        beforeEnter(el) {
-            let hook = onBeforeEnter;
-            if (!state.isMounted) {
-                if (appear) {
-                    hook = onBeforeAppear || onBeforeEnter;
-                }
-                else {
-                    return;
-                }
-            }
-            // for same element (v-show)
-            if (el._leaveCb) {
-                el._leaveCb(true /* cancelled */);
-            }
-            // for toggled element with same key (v-if)
-            const leavingVNode = leavingVNodesCache[key];
-            if (leavingVNode &&
-                isSameVNodeType(vnode, leavingVNode) &&
-                leavingVNode.el._leaveCb) {
-                // force early removal (not cancelled)
-                leavingVNode.el._leaveCb();
-            }
-            callHook(hook, [el]);
-        },
-        enter(el) {
-            let hook = onEnter;
-            let afterHook = onAfterEnter;
-            let cancelHook = onEnterCancelled;
-            if (!state.isMounted) {
-                if (appear) {
-                    hook = onAppear || onEnter;
-                    afterHook = onAfterAppear || onAfterEnter;
-                    cancelHook = onAppearCancelled || onEnterCancelled;
-                }
-                else {
-                    return;
-                }
-            }
-            let called = false;
-            const done = (el._enterCb = (cancelled) => {
-                if (called)
-                    return;
-                called = true;
-                if (cancelled) {
-                    callHook(cancelHook, [el]);
-                }
-                else {
-                    callHook(afterHook, [el]);
-                }
-                if (hooks.delayedLeave) {
-                    hooks.delayedLeave();
-                }
-                el._enterCb = undefined;
-            });
-            if (hook) {
-                hook(el, done);
-                if (hook.length <= 1) {
-                    done();
-                }
-            }
-            else {
-                done();
-            }
-        },
-        leave(el, remove) {
-            const key = String(vnode.key);
-            if (el._enterCb) {
-                el._enterCb(true /* cancelled */);
-            }
-            if (state.isUnmounting) {
-                return remove();
-            }
-            callHook(onBeforeLeave, [el]);
-            let called = false;
-            const done = (el._leaveCb = (cancelled) => {
-                if (called)
-                    return;
-                called = true;
-                remove();
-                if (cancelled) {
-                    callHook(onLeaveCancelled, [el]);
-                }
-                else {
-                    callHook(onAfterLeave, [el]);
-                }
-                el._leaveCb = undefined;
-                if (leavingVNodesCache[key] === vnode) {
-                    delete leavingVNodesCache[key];
-                }
-            });
-            leavingVNodesCache[key] = vnode;
-            if (onLeave) {
-                onLeave(el, done);
-                if (onLeave.length <= 1) {
-                    done();
-                }
-            }
-            else {
-                done();
-            }
-        },
-        clone(vnode) {
-            return resolveTransitionHooks(vnode, props, state, instance);
-        }
-    };
-    return hooks;
-}
-// the placeholder really only handles one special case: KeepAlive
-// in the case of a KeepAlive in a leave phase we need to return a KeepAlive
-// placeholder with empty content to avoid the KeepAlive instance from being
-// unmounted.
-function emptyPlaceholder(vnode) {
-    if (isKeepAlive(vnode)) {
-        vnode = cloneVNode(vnode);
-        vnode.children = null;
-        return vnode;
-    }
-}
-function getKeepAliveChild(vnode) {
-    return isKeepAlive(vnode)
-        ? vnode.children
-            ? vnode.children[0]
-            : undefined
-        : vnode;
-}
-function setTransitionHooks(vnode, hooks) {
-    if (vnode.shapeFlag & 6 /* COMPONENT */ && vnode.component) {
-        setTransitionHooks(vnode.component.subTree, hooks);
-    }
-    else if (vnode.shapeFlag & 128 /* SUSPENSE */) {
-        vnode.ssContent.transition = hooks.clone(vnode.ssContent);
-        vnode.ssFallback.transition = hooks.clone(vnode.ssFallback);
-    }
-    else {
-        vnode.transition = hooks;
-    }
-}
-function getTransitionRawChildren(children, keepComment = false) {
-    let ret = [];
-    let keyedFragmentCount = 0;
-    for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        // handle fragment children case, e.g. v-for
-        if (child.type === Fragment) {
-            if (child.patchFlag & 128 /* KEYED_FRAGMENT */)
-                keyedFragmentCount++;
-            ret = ret.concat(getTransitionRawChildren(child.children, keepComment));
-        }
-        // comment placeholders should be skipped, e.g. v-if
-        else if (keepComment || child.type !== Comment) {
-            ret.push(child);
-        }
-    }
-    // #1126 if a transition children list contains multiple sub fragments, these
-    // fragments will be merged into a flat children array. Since each v-for
-    // fragment may contain different static bindings inside, we need to de-op
-    // these children to force full diffs to ensure correct behavior.
-    if (keyedFragmentCount > 1) {
-        for (let i = 0; i < ret.length; i++) {
-            ret[i].patchFlag = -2 /* BAIL */;
-        }
-    }
-    return ret;
-}
-
 // implementation, close to no-op
 function defineComponent(options) {
     return isFunction$3(options) ? { setup: options, name: options.name } : options;
@@ -6171,25 +5868,6 @@ function shouldSetAsProp(el, key, value, isSVG) {
     }
     return key in el;
 }
-const DOMTransitionPropsValidators = {
-    name: String,
-    type: String,
-    css: {
-        type: Boolean,
-        default: true
-    },
-    duration: [String, Number, Object],
-    enterFromClass: String,
-    enterActiveClass: String,
-    enterToClass: String,
-    appearFromClass: String,
-    appearActiveClass: String,
-    appearToClass: String,
-    leaveFromClass: String,
-    leaveActiveClass: String,
-    leaveToClass: String
-};
-(/*#__PURE__*/ extend({}, BaseTransition.props, DOMTransitionPropsValidators));
 
 const getModelAssigner = (vnode) => {
     const fn = vnode.props['onUpdate:modelValue'];
@@ -6908,8 +6586,8 @@ function storeToRefs(store) {
 const DEF_WSS = {
   "cnv.font.subset": false,
   "cnv.icon.cut_round": false,
-  "cnv.mat.webp_quality": 90,
-  "cnv.mat.pic": false
+  "cnv.mat.pic": false,
+  "cnv.mat.webp_quality": 90
 };
 const DEF_CFG = {
   book: {
@@ -6946,22 +6624,69 @@ const DEF_CFG = {
   code: {},
   debuger_token: ""
 };
+const DEF_CFG4TST = {
+  book: {
+    title: "(\u4F5C\u54C1\u30BF\u30A4\u30C8\u30EB)",
+    creator: "(\u8457\u4F5C\u8005)",
+    cre_url: "https://twitter.com/",
+    publisher: "(\u51FA\u7248\u8005)",
+    pub_url: "https://ugainovel.blog.fc2.com/",
+    detail: "(\u5185\u5BB9\u7D39\u4ECB)",
+    version: "1.2.3"
+  },
+  save_ns: "tst_save_ns",
+  window: {
+    width: 800,
+    height: 600
+  },
+  log: { max_len: 1024 },
+  init: {
+    bg_color: "#008800",
+    tagch_msecwait: 10,
+    auto_msecpagewait: 3500,
+    escape: "\\"
+  },
+  debug: {
+    devtool: false,
+    token: false,
+    tag: false,
+    putCh: false,
+    debugLog: false,
+    baseTx: false,
+    masume: false,
+    variable: false
+  },
+  code: { script: true, dummy: false },
+  debuger_token: ""
+};
 const DEF_FONTINF = [
   { nm: "KFhimajihoso", mes: "PATH_USER_FONTS", iSize: 1e4, oSize: 3e3 },
   { nm: "ipamjm", mes: "PATH_PRJ_FONTS", iSize: 2e4, oSize: 4e3 }
 ];
 const DEF_CNVMATINFO = {
   sum: {
+    baseSize: 0,
+    webpSize: 0,
+    pathImgCmpWebP: "",
+    pathImgCmpBase: ""
+  },
+  hSize: {}
+};
+const DEF_CNVMATINFO4TST = {
+  sum: {
     baseSize: 451e4,
-    webpSize: 155e4
+    webpSize: 155e4,
+    pathImgCmpWebP: "../",
+    pathImgCmpBase: "../"
   },
   hSize: {
-    bbb: { baseSize: 6001, webpSize: 2e3 },
-    aaa: { baseSize: 6e3, webpSize: 1e3 },
-    ccc: { baseSize: 6002, webpSize: 3e3 }
+    "title_base": { baseSize: 6e3, webpSize: 1e3, fld_nm: "test/title_base", ext: "jpg" },
+    "breakpage_b": { baseSize: 6002, webpSize: 3e3, fld_nm: "test/breakpage_b", ext: "png" },
+    "breakline.5x20": { baseSize: 6001, webpSize: 2e3, fld_nm: "test/breakline.5x20", ext: "png" }
   }
 };
-const DEF_TEMP = [
+const DEF_TEMP = [];
+const DEF_TEMP4TST = [
   { id: "/setting.sn:sys:TextLayer.Back.Alpha", nm: "sys:TextLayer.Back.Alpha", lbl: "\u30E1\u30C3\u30BB\u30FC\u30B8\u80CC\u666F\u4E0D\u900F\u660E\u5EA6", type: "rng", val: "0.7", num: 0.7, max: 1, min: 0, step: 0.05 },
   { id: "/setting.sn:sysse_ok1", nm: "sysse_ok1", lbl: "\u8EFD\u3044\u6C7A\u5B9A\u97F3", type: "txt", val: "BurstB_11" },
   { id: "/setting.sn:sysse_ok2", nm: "sysse_ok2", lbl: "\u91CD\u3044\u6C7A\u5B9A\u97F3", type: "txt", val: "BellA_16" },
@@ -6995,6 +6720,7 @@ const useWss = defineStore("workspaceState", {
 });
 
 const vscode = "acquireVsCodeApi" in window ? acquireVsCodeApi() : void 0;
+const isVSCode = vscode !== void 0;
 const cmd2Ex = vscode ? (o) => vscode.postMessage(o) : (o) => console.log(`cmd2Ex:%o`, o);
 const warn$1 = (mes) => cmd2Ex({ cmd: "warn", mes });
 const openURL = (url) => cmd2Ex({ cmd: "openURL", url });
@@ -7043,7 +6769,7 @@ const getLeftRangeBadge = (value = 0, max = 0, min = 0) => {
 };
 
 const useCfg = defineStore("doc/prj/prj.json", {
-  state: () => ({ oCfg: DEF_CFG }),
+  state: () => ({ oCfg: isVSCode ? DEF_CFG : DEF_CFG4TST }),
   getters: {},
   actions: {
     init(oCfg) {
@@ -15087,7 +14813,7 @@ const useOInfo = () => {
   const st = defineStore("OInfo", {
     state: () => ({
       aFontInfo: DEF_FONTINF,
-      oCnvMatInfo: DEF_CNVMATINFO
+      oCnvMatInfo: isVSCode ? DEF_CNVMATINFO : DEF_CNVMATINFO4TST
     }),
     actions: {
       setAFontInfo(aFontInfo) {
@@ -15105,6 +14831,18 @@ const useOInfo = () => {
   }
   return st;
 };
+
+(()=>{var t={90:(t,e,i)=>{i.d(e,{Z:()=>n});var s=i(645),o=i.n(s)()((function(t){return t[1]}));o.push([t.id,':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--transition-time: 0ms;transform:translateX(calc(var(--exposure) * -1));transition:transform var(--transition-time)}.first .first-overlay-container{position:relative;transform:translateX(var(--exposure));transition:transform var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:transform}.first.focused .first-overlay-container{will-change:transform}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.first.focused{will-change:auto}.first.focused .first-overlay-container{will-change:auto}}}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:0;height:100%;display:flex;align-items:flex-end;justify-content:center;flex-direction:column}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translateX(-0.5px)}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical.first{transform:translateY(calc(var(--exposure) * -1))}.vertical.first .first-overlay-container{transform:translateY(var(--exposure))}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:0;width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{transform:translateX(-0.5px) rotate(90deg)}',""]);const n=o;},645:t=>{t.exports=function(t){var e=[];return e.toString=function(){return this.map((function(e){var i=t(e);return e[2]?"@media ".concat(e[2]," {").concat(i,"}"):i})).join("")},e.i=function(t,i,s){"string"==typeof t&&(t=[[null,t,""]]);var o={};if(s)for(var n=0;n<this.length;n++){var r=this[n][0];null!=r&&(o[r]=!0);}for(var a=0;a<t.length;a++){var d=[].concat(t[a]);s&&o[d[0]]||(i&&(d[2]?d[2]="".concat(i," and ").concat(d[2]):d[2]=i),e.push(d));}},e};}},e={};function i(s){var o=e[s];if(void 0!==o)return o.exports;var n=e[s]={id:s,exports:{}};return t[s](n,n.exports,i),n.exports}i.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return i.d(e,{a:e}),e},i.d=(t,e)=>{for(var s in e)i.o(e,s)&&!i.o(t,s)&&Object.defineProperty(t,s,{enumerable:!0,get:e[s]});},i.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e),(()=>{var t=i(90);const e="rendered",s=document.createElement("template");s.innerHTML='<div class="second" id="second"> <slot name="second"><slot name="before"></slot></slot> </div> <div class="first" id="first"> <div class="first-overlay"> <div class="first-overlay-container" id="firstImageContainer"> <slot name="first"><slot name="after"></slot></slot> </div> </div> <div class="handle-container"> <div class="divider"></div> <div class="handle"> <slot name="handle"> <svg xmlns="http://www.w3.org/2000/svg" class="default-handle" viewBox="-8 -3 16 6"> <path d="M -5 -2 L -7 0 L -5 2 M 5 -2 L 7 0 L 5 2" fill="none" vector-effect="non-scaling-stroke"/> </svg> </slot> </div> </div> </div> ';const o={ArrowLeft:-1,ArrowRight:1},n=["horizontal","vertical"],r=t=>({x:t.touches[0].pageX,y:t.touches[0].pageY}),a=t=>({x:t.pageX,y:t.pageY});class d extends HTMLElement{constructor(){super(),this.exposure=this.hasAttribute("value")?parseFloat(this.getAttribute("value")):50,this.slideOnHover=!1,this.slideDirection="horizontal",this.isMouseDown=!1,this.isFocused=!1,this.onMouseMove=t=>{if(this.isMouseDown||this.slideOnHover){const e=a(t);this.slideToPage(e);}},this.bodyUserSelectStyle="",this.onMouseDown=t=>{if(this.slideOnHover)return;window.addEventListener("mousemove",this.onMouseMove),window.addEventListener("mouseup",this.onWindowMouseUp),this.isMouseDown=!0,this.enableTransition();const e=a(t);this.slideToPage(e),this.focus(),this.bodyUserSelectStyle=window.document.body.style.userSelect,window.document.body.style.userSelect="none";},this.onWindowMouseUp=()=>{this.isMouseDown=!1,window.document.body.style.userSelect=this.bodyUserSelectStyle,window.removeEventListener("mousemove",this.onMouseMove),window.removeEventListener("mouseup",this.onWindowMouseUp);},this.isTouchComparing=!1,this.hasTouchMoved=!1,this.onTouchStart=t=>{this.touchStartPoint=r(t),this.isFocused&&(this.enableTransition(),this.slideToPage(this.touchStartPoint));},this.onTouchMove=t=>{const e=r(t);if(this.isTouchComparing)return this.slideToPage(e),t.preventDefault(),!1;if(!this.hasTouchMoved){const i=Math.abs(e.y-this.touchStartPoint.y),s=Math.abs(e.x-this.touchStartPoint.x);if("horizontal"===this.slideDirection&&i<s||"vertical"===this.slideDirection&&i>s)return this.isTouchComparing=!0,this.focus(),this.slideToPage(e),t.preventDefault(),!1;this.hasTouchMoved=!0;}},this.onTouchEnd=()=>{this.isTouchComparing=!1,this.hasTouchMoved=!1;},this.onBlur=()=>{this.stopSlideAnimation(),this.isFocused=!1,this.firstElement.classList.remove("focused");},this.onFocus=()=>{this.isFocused=!0,this.firstElement.classList.add("focused");},this.onKeyDown=t=>{if(this.isAnimating)return;this.isAnimating=!0;const e=t.key;void 0!==o[e]&&this.startSlideAnimation(o[e]);},this.onKeyUp=t=>{this.isAnimating&&void 0!==o[t.key]&&this.stopSlideAnimation();},this.resetDimensions=()=>{this.imageWidth=this.offsetWidth,this.imageHeight=this.offsetHeight;};const e=this.attachShadow({mode:"open"}),i=document.createElement("style");i.innerHTML=t.Z,this.getAttribute("nonce")&&i.setAttribute("nonce",this.getAttribute("nonce")),e.appendChild(i),e.appendChild(s.content.cloneNode(!0)),this.firstElement=e.getElementById("first"),this.firstImageContainerElement=e.getElementById("firstImageContainer"),this.secondElement=e.getElementById("second");}get value(){return this.exposure}set value(t){const e=parseFloat(t);e!==this.exposure&&(this.exposure=e,this.enableTransition(),this.setExposure());}get hover(){return this.slideOnHover}set hover(t){this.slideOnHover="false"!==t.toString().toLowerCase(),this.removeEventListener("mousemove",this.onMouseMove),this.slideOnHover&&this.addEventListener("mousemove",this.onMouseMove);}get direction(){return this.slideDirection}set direction(t){this.slideDirection=t.toString().toLowerCase(),this.slide(0),this.firstElement.classList.remove(...n),n.includes(this.slideDirection)&&this.firstElement.classList.add(this.slideDirection);}static get observedAttributes(){return ["hover","direction"]}connectedCallback(){this.hasAttribute("tabindex")||(this.tabIndex=0),this.addEventListener("dragstart",(t=>(t.preventDefault(),!1))),new ResizeObserver(this.resetDimensions).observe(this),this.setExposure(0),this.addEventListener("keydown",this.onKeyDown),this.addEventListener("keyup",this.onKeyUp),this.addEventListener("focus",this.onFocus),this.addEventListener("blur",this.onBlur),this.addEventListener("touchstart",this.onTouchStart,{passive:!0}),this.addEventListener("touchmove",this.onTouchMove,{passive:!1}),this.addEventListener("touchend",this.onTouchEnd),this.addEventListener("mousedown",this.onMouseDown),this.hover=!!this.hasAttribute("hover")&&this.getAttribute("hover"),this.direction=this.hasAttribute("direction")?this.getAttribute("direction"):"horizontal",this.resetDimensions(),this.classList.contains(e)||this.classList.add(e),this.querySelectorAll('[slot="before"], [slot="after"]').length>0&&console.warn('<img-comparison-slider>: slot names "before" and "after" are deprecated and soon won\'t be supported. Please use slot="first" instead of slot="after", and slot="second" instead of slot="before".');}disconnectedCallback(){this.transitionTimer&&window.clearTimeout(this.transitionTimer);}attributeChangedCallback(t,e,i){"hover"===t&&(this.hover=i),"direction"===t&&(this.direction=i);}setExposure(t=0){var e;this.exposure=((e=this.exposure+t)<0?0:e>100?100:e),this.firstElement.style.setProperty("--exposure",100-this.exposure+"%");}slide(t=0){this.setExposure(t);const e=new Event("slide");this.dispatchEvent(e);}slideToPage(t){"horizontal"===this.slideDirection&&this.slideToPageX(t.x),"vertical"===this.slideDirection&&this.slideToPageY(t.y);}slideToPageX(t){const e=t-this.getBoundingClientRect().left-window.scrollX;this.exposure=e/this.imageWidth*100,this.slide(0);}slideToPageY(t){const e=t-this.getBoundingClientRect().top-window.scrollY;this.exposure=e/this.imageHeight*100,this.slide(0);}enableTransition(){this.firstElement.style.setProperty("--transition-time","100ms"),this.transitionTimer=window.setTimeout((()=>{this.firstElement.style.setProperty("--transition-time","0ms"),this.transitionTimer=null;}),100);}startSlideAnimation(t){let e=null;const i=s=>{null===e&&(e=s);const o=(s-e)/16.666666666666668*t;this.slide(o),this.isAnimating&&(window.requestAnimationFrame(i),e=s);};window.requestAnimationFrame(i);}stopSlideAnimation(){this.isAnimating=!1;}}"undefined"!=typeof window&&window.customElements.define("img-comparison-slider",d);})();})();
+
+var ImgComparisonSlider = defineComponent({
+    name: 'ImgComparisonSlider',
+    setup: function (props, _a) {
+        var slots = _a.slots;
+        return function () { return h('img-comparison-slider', slots["default"]()); };
+    },
+});
+
+var StgPkg_vue_vue_type_style_index_0_lang = '';
 
 const _hoisted_1$3 = { class: "row" };
 const _hoisted_2$3 = { class: "col-6 col-sm-8 px-1 py-2" };
@@ -15127,18 +14865,12 @@ const _hoisted_12$1 = /* @__PURE__ */ createBaseVNode("label", { class: "form-la
 const _hoisted_13$1 = { class: "table table-striped" };
 const _hoisted_14$1 = /* @__PURE__ */ createBaseVNode("thead", null, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "#"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "Filename"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u5143\u30D5\u30A1\u30A4\u30EB\u306E\u5834\u6240"),
-    /* @__PURE__ */ createBaseVNode("th", {
-      scope: "col",
-      style: { "text-align": "right" }
-    }, "Size\uFF08\u5143\u30D5\u30A1\u30A4\u30EB\uFF09"),
-    /* @__PURE__ */ createBaseVNode("th", {
-      scope: "col",
-      style: { "text-align": "right" }
-    }, "Size\uFF08\u51FA\u529B\u7D50\u679C\uFF09"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "#"),
+    /* @__PURE__ */ createBaseVNode("th", null, "Filename"),
+    /* @__PURE__ */ createBaseVNode("th", null, "\u5143\u30D5\u30A1\u30A4\u30EB\u306E\u5834\u6240"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size\uFF08\u5143\u30D5\u30A1\u30A4\u30EB\uFF09"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size\uFF08\u51FA\u529B\u7D50\u679C\uFF09"),
+    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
   ])
 ], -1);
 const _hoisted_15$1 = ["textContent"];
@@ -15150,14 +14882,14 @@ const _hoisted_20$1 = ["textContent"];
 const _hoisted_21$1 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
   /* @__PURE__ */ createBaseVNode("h5", null, "\u7D20\u6750\u30D5\u30A1\u30A4\u30EB\u6700\u9069\u5316")
 ], -1);
-const _hoisted_22$1 = { class: "col-6 col-sm-4 px-1 py-2" };
+const _hoisted_22$1 = { class: "col-6 col-sm-4 px-1" };
 const _hoisted_23$1 = { class: "form-check form-switch py-2" };
 const _hoisted_24$1 = ["disabled"];
 const _hoisted_25$1 = /* @__PURE__ */ createBaseVNode("label", {
   for: "/workspaceState:cnv.mat.pic",
   class: "form-check-label"
 }, "jpg\u30FBpng \u3092 WebP \u306B\u5909\u63DB", -1);
-const _hoisted_26$1 = { class: "col-6 col-sm-3 px-1 pb-2" };
+const _hoisted_26$1 = { class: "col-6 col-sm-3 px-1" };
 const _hoisted_27$1 = { class: "range-wrap" };
 const _hoisted_28$1 = ["textContent"];
 const _hoisted_29 = /* @__PURE__ */ createBaseVNode("label", {
@@ -15167,14 +14899,14 @@ const _hoisted_29 = /* @__PURE__ */ createBaseVNode("label", {
 const _hoisted_30 = ["disabled"];
 const _hoisted_31 = {
   key: 0,
-  class: "col-6 col-sm-5 px-1 py-2"
+  class: "col-6 col-sm-5 px-1"
 };
 const _hoisted_32 = { class: "table table-striped" };
 const _hoisted_33 = /* @__PURE__ */ createBaseVNode("thead", null, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA\u5408\u8A08"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "webp\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA\u5408\u8A08"),
+    /* @__PURE__ */ createBaseVNode("th", null, "webp\u5909\u63DB\u5F8C"),
+    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
   ])
 ], -1);
 const _hoisted_34 = ["textContent"];
@@ -15182,74 +14914,81 @@ const _hoisted_35 = ["textContent"];
 const _hoisted_36 = ["textContent"];
 const _hoisted_37 = {
   key: 1,
-  id: "acdMatCnv",
-  class: "col-12 px-1 py-3 accordion"
+  class: "col-12 px-1"
 };
 const _hoisted_38 = {
-  class: "accordion-item",
-  style: { "background-color": "var(--vscode-list-dropBackground)" }
-};
-const _hoisted_39 = /* @__PURE__ */ createBaseVNode("h2", {
-  id: "logMatCnv",
-  class: "accordion-header"
-}, [
-  /* @__PURE__ */ createBaseVNode("button", {
-    type: "button",
-    class: "accordion-button text-white",
-    style: { "background-color": "var(--vscode-list-dropBackground)" },
-    "data-bs-toggle": "collapse",
-    "data-bs-target": "#clpMatCnv",
-    "aria-expanded": "true",
-    "aria-controls": "collapseOne"
-  }, " \u5909\u63DB\u30EC\u30DD\u30FC\u30C8 ")
-], -1);
-const _hoisted_40 = {
   id: "clpMatCnv",
-  class: "accordion-collapse collapse",
-  "aria-labelledby": "logMatCnv",
-  "data-bs-parent": "#acdMatCnv"
+  class: "accordion-collapse"
 };
-const _hoisted_41 = { class: "accordion-body" };
-const _hoisted_42 = { class: "table table-striped" };
-const _hoisted_43 = /* @__PURE__ */ createBaseVNode("thead", null, [
+const _hoisted_39 = { class: "accordion-body p-0 tbody_scroll" };
+const _hoisted_40 = {
+  id: "tblMatCnv",
+  class: "table table-striped table-hover accordion bg-secondary"
+};
+const _hoisted_41 = /* @__PURE__ */ createBaseVNode("thead", { class: "sticky-top" }, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u30D5\u30A1\u30A4\u30EB\u540D"),
-    /* @__PURE__ */ createBaseVNode("th", {
-      scope: "col",
-      style: { "text-align": "right" }
-    }, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA"),
-    /* @__PURE__ */ createBaseVNode("th", {
-      scope: "col",
-      style: { "text-align": "right" }
-    }, "webp\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", { scope: "col" }, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "#"),
+    /* @__PURE__ */ createBaseVNode("th", null, "\u30D5\u30A1\u30A4\u30EB\u540D"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp\u5909\u63DB\u5F8C"),
+    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
   ])
 ], -1);
+const _hoisted_42 = ["href", "data-bs-target", "aria-controls"];
+const _hoisted_43 = ["textContent"];
 const _hoisted_44 = ["textContent"];
 const _hoisted_45 = ["textContent"];
 const _hoisted_46 = ["textContent"];
 const _hoisted_47 = ["textContent"];
-const _hoisted_48 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
+const _hoisted_48 = ["id", "aria-labelledby"];
+const _hoisted_49 = {
+  colspan: "4",
+  class: "accordion-body"
+};
+const _hoisted_50 = { class: "position-relative d-flex justify-content-evenly" };
+const _hoisted_51 = ["src"];
+const _hoisted_52 = ["src"];
+const _hoisted_53 = /* @__PURE__ */ createBaseVNode("svg", {
+  slot: "handle",
+  width: "100",
+  xmlns: "http://www.w3.org/2000/svg",
+  viewBox: "-8 -3 16 6"
+}, [
+  /* @__PURE__ */ createBaseVNode("path", {
+    stroke: "#fff",
+    d: "M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2",
+    "stroke-width": "2",
+    fill: "#ffa658",
+    "vector-effect": "non-scaling-stroke"
+  })
+], -1);
+const _hoisted_54 = /* @__PURE__ */ createBaseVNode("button", {
+  type: "button",
+  class: "btn btn-light position-absolute top-50 start-0",
+  disabled: ""
+}, "WebP", -1);
+const _hoisted_55 = ["textContent"];
+const _hoisted_56 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
   /* @__PURE__ */ createBaseVNode("h5", null, "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3")
 ], -1);
-const _hoisted_49 = { class: "container" };
-const _hoisted_50 = { class: "row" };
-const _hoisted_51 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_52 = ["src"];
-const _hoisted_53 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_54 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
+const _hoisted_57 = { class: "container" };
+const _hoisted_58 = { class: "row" };
+const _hoisted_59 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_60 = ["src"];
+const _hoisted_61 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_62 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
   /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
     /* @__PURE__ */ createBaseVNode("h6", null, "\u753B\u50CF\u304B\u3089\u81EA\u52D5\u4F5C\u6210")
   ])
 ], -1);
-const _hoisted_55 = { class: "row" };
-const _hoisted_56 = { class: "col form-check mb-3" };
-const _hoisted_57 = { class: "input-group input-group-sm" };
-const _hoisted_58 = ["textContent"];
-const _hoisted_59 = { class: "row" };
-const _hoisted_60 = { class: "col form-check" };
-const _hoisted_61 = { class: "input-group input-group-sm" };
-const _hoisted_62 = /* @__PURE__ */ createBaseVNode("label", {
+const _hoisted_63 = { class: "row" };
+const _hoisted_64 = { class: "col form-check mb-3" };
+const _hoisted_65 = { class: "input-group input-group-sm" };
+const _hoisted_66 = ["textContent"];
+const _hoisted_67 = { class: "row" };
+const _hoisted_68 = { class: "col form-check" };
+const _hoisted_69 = { class: "input-group input-group-sm" };
+const _hoisted_70 = /* @__PURE__ */ createBaseVNode("label", {
   for: "/workspaceState:cnv.icon.cut_round",
   class: "form-check-label"
 }, "\u4E38\u304F\u5207\u308A\u629C\u304F\u304B", -1);
@@ -15274,6 +15013,8 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       }
     });
     const sortHSize = () => Object.entries(oCnvMatInfo.value.hSize).map(([key, v]) => ({ key, ...v })).sort((a, b) => a.key < b.key ? -1 : 1);
+    const chgRange = (e) => cmd2Ex({ cmd: "change.range", id: e.target.id });
+    const updImg = (src) => src + "?" + new Date().getTime();
     const selectIcon = () => cmd2Ex({
       cmd: "selectFile",
       title: "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3",
@@ -15281,11 +15022,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
       path: "build/icon.png"
     });
     const srcIcon = ref("data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==");
-    const updImg = (src) => srcIcon.value = src + "?" + new Date().getTime();
-    on("!", (data) => updImg(data.pathIcon));
+    const updIconImg = (src) => srcIcon.value = src + "?" + new Date().getTime();
+    on("!", (data) => updIconImg(data.pathIcon));
     const select_icon_err = ref("");
     on("updimg", (data) => {
-      updImg(data.pathIcon);
+      updIconImg(data.pathIcon);
       select_icon_err.value = data.err_mes;
     });
     return (_ctx, _cache) => {
@@ -15324,8 +15065,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
             createBaseVNode("tbody", null, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(unref(aFontInfo), (e, i) => {
                 return openBlock(), createElementBlock("tr", null, [
-                  createBaseVNode("th", {
-                    scope: "row",
+                  createBaseVNode("td", {
                     textContent: toDisplayString(i + 1)
                   }, null, 8, _hoisted_15$1),
                   createBaseVNode("td", {
@@ -15384,8 +15124,9 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               min: "5",
               step: "5",
               disabled: unref(hDisabled)["cnv.mat.pic"],
+              onChange: chgRange,
               class: "form-range my-1 sn-vld"
-            }, null, 8, _hoisted_30), [
+            }, null, 40, _hoisted_30), [
               [vModelText, unref(oWss)["cnv.mat.webp_quality"]]
             ])
           ])
@@ -15411,30 +15152,75 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
           ])
         ])) : createCommentVNode("", true),
         unref(oCnvMatInfo).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_37, [
-          createBaseVNode("div", _hoisted_38, [
-            _hoisted_39,
-            createBaseVNode("div", _hoisted_40, [
-              createBaseVNode("div", _hoisted_41, [
-                createBaseVNode("table", _hoisted_42, [
-                  _hoisted_43,
+          createBaseVNode("div", null, [
+            createBaseVNode("div", _hoisted_38, [
+              createBaseVNode("div", _hoisted_39, [
+                createBaseVNode("table", _hoisted_40, [
+                  _hoisted_41,
                   createBaseVNode("tbody", null, [
-                    (openBlock(true), createElementBlock(Fragment, null, renderList(sortHSize(), (e) => {
-                      return openBlock(), createElementBlock("tr", null, [
-                        createBaseVNode("td", {
-                          textContent: toDisplayString(e.key)
-                        }, null, 8, _hoisted_44),
-                        createBaseVNode("td", {
-                          style: { "text-align": "right" },
-                          textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
-                        }, null, 8, _hoisted_45),
-                        createBaseVNode("td", {
-                          style: { "text-align": "right" },
-                          textContent: toDisplayString(e.webpSize.toLocaleString("ja-JP") + " byte")
-                        }, null, 8, _hoisted_46),
-                        createBaseVNode("td", {
-                          textContent: toDisplayString((e.webpSize / e.baseSize).toLocaleString("ja-JP"))
-                        }, null, 8, _hoisted_47)
-                      ]);
+                    (openBlock(true), createElementBlock(Fragment, null, renderList(sortHSize(), (e, i) => {
+                      return openBlock(), createElementBlock(Fragment, null, [
+                        createBaseVNode("tr", {
+                          href: "#acdMC" + i,
+                          class: "accordion-header",
+                          "data-bs-toggle": "collapse",
+                          "data-bs-target": "#acdMC" + i,
+                          "aria-expanded": "true",
+                          "aria-controls": "acdMC" + i
+                        }, [
+                          createBaseVNode("td", {
+                            textContent: toDisplayString(i + 1)
+                          }, null, 8, _hoisted_43),
+                          createBaseVNode("td", {
+                            textContent: toDisplayString(e.key)
+                          }, null, 8, _hoisted_44),
+                          createBaseVNode("td", {
+                            style: { "text-align": "right" },
+                            textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
+                          }, null, 8, _hoisted_45),
+                          createBaseVNode("td", {
+                            style: { "text-align": "right" },
+                            textContent: toDisplayString(e.webpSize.toLocaleString("ja-JP") + " byte")
+                          }, null, 8, _hoisted_46),
+                          createBaseVNode("td", {
+                            textContent: toDisplayString((e.webpSize / e.baseSize).toLocaleString("ja-JP"))
+                          }, null, 8, _hoisted_47)
+                        ], 8, _hoisted_42),
+                        createBaseVNode("tr", {
+                          id: "acdMC" + i,
+                          "data-bs-parent": "#tblMatCnv",
+                          "aria-labelledby": "acdMC" + i,
+                          class: "accordion-collapse collapse"
+                        }, [
+                          createBaseVNode("td", _hoisted_49, [
+                            createBaseVNode("div", _hoisted_50, [
+                              createVNode(unref(ImgComparisonSlider), null, {
+                                default: withCtx(() => [
+                                  createBaseVNode("img", {
+                                    loading: "lazy",
+                                    slot: "first",
+                                    src: updImg(unref(oCnvMatInfo).sum.pathImgCmpWebP + e.fld_nm + ".webp")
+                                  }, null, 8, _hoisted_51),
+                                  createBaseVNode("img", {
+                                    loading: "lazy",
+                                    slot: "second",
+                                    src: updImg(unref(oCnvMatInfo).sum.pathImgCmpBase + e.fld_nm + "." + e.ext)
+                                  }, null, 8, _hoisted_52),
+                                  _hoisted_53
+                                ]),
+                                _: 2
+                              }, 1024),
+                              _hoisted_54,
+                              createBaseVNode("button", {
+                                type: "button",
+                                class: "btn btn-light position-absolute bottom-50 end-0",
+                                textContent: toDisplayString(e.ext),
+                                disabled: ""
+                              }, null, 8, _hoisted_55)
+                            ])
+                          ])
+                        ], 8, _hoisted_48)
+                      ], 64);
                     }), 256))
                   ])
                 ])
@@ -15442,21 +15228,22 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
             ])
           ])
         ])) : createCommentVNode("", true),
-        _hoisted_48,
-        createBaseVNode("div", _hoisted_49, [
-          createBaseVNode("div", _hoisted_50, [
-            createBaseVNode("div", _hoisted_51, [
+        _hoisted_56,
+        createBaseVNode("div", _hoisted_57, [
+          createBaseVNode("div", _hoisted_58, [
+            createBaseVNode("div", _hoisted_59, [
               createBaseVNode("img", {
+                loading: "lazy",
                 src: srcIcon.value,
                 onClick: selectIcon,
                 class: "img-fluid sn-dragdrop"
-              }, null, 8, _hoisted_52)
+              }, null, 8, _hoisted_60)
             ]),
-            createBaseVNode("div", _hoisted_53, [
-              _hoisted_54,
-              createBaseVNode("div", _hoisted_55, [
-                createBaseVNode("div", _hoisted_56, [
-                  createBaseVNode("div", _hoisted_57, [
+            createBaseVNode("div", _hoisted_61, [
+              _hoisted_62,
+              createBaseVNode("div", _hoisted_63, [
+                createBaseVNode("div", _hoisted_64, [
+                  createBaseVNode("div", _hoisted_65, [
                     createBaseVNode("button", {
                       type: "button",
                       onClick: selectIcon,
@@ -15466,15 +15253,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                       class: "alert alert-danger",
                       role: "alert",
                       textContent: toDisplayString(select_icon_err.value)
-                    }, null, 8, _hoisted_58), [
+                    }, null, 8, _hoisted_66), [
                       [vShow, select_icon_err.value !== ""]
                     ])
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_59, [
-                createBaseVNode("div", _hoisted_60, [
-                  createBaseVNode("div", _hoisted_61, [
+              createBaseVNode("div", _hoisted_67, [
+                createBaseVNode("div", _hoisted_68, [
+                  createBaseVNode("div", _hoisted_69, [
                     withDirectives(createBaseVNode("input", {
                       type: "checkbox",
                       id: "/workspaceState:cnv.icon.cut_round",
@@ -15483,7 +15270,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     }, null, 512), [
                       [vModelCheckbox, unref(oWss)["cnv.icon.cut_round"]]
                     ]),
-                    _hoisted_62
+                    _hoisted_70
                   ])
                 ])
               ])
@@ -15498,7 +15285,10 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
 let init = false;
 const useTemp = () => {
   const st = defineStore("doc/prj/**/setting.sn", {
-    state: () => ({ aTemp: DEF_TEMP, err: "" }),
+    state: () => ({
+      aTemp: isVSCode ? DEF_TEMP : DEF_TEMP4TST,
+      err: ""
+    }),
     getters: {},
     actions: {}
   })();

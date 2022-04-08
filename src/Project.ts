@@ -249,18 +249,24 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 		case 'cnv.mat.pic':
 			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+			await this.#cnv_mat_pic(Boolean(val) ?'all' :'restore');
+			break;
 
-			await this.#exeTask(
-				'cnv_mat_pic',
-				`${Boolean(val) ?'all' :'restore'
-				} ${this.#ps.oWss['cnv.mat.webp_quality']
-				} "${this.#curPrj}" "${this.#curPrjBase}"`,
-			);
-			this.#ps.updCnvMatInfo();
+		case 'cnv.mat.webp_quality':
+			await this.#cnv_mat_pic(val);
 			break;
 		}
 
 		return true;
+	}
+	async #cnv_mat_pic(urlInp: string) {
+		await this.#exeTask(
+			'cnv_mat_pic',
+			`${urlInp
+			} ${this.#ps.oWss['cnv.mat.webp_quality']
+			} "${this.#curPrj}" "${this.#curPrjBase}"`,
+		);
+		this.#ps.updCnvMatInfo();
 	}
 
 	readonly	#hTask2Inf = {

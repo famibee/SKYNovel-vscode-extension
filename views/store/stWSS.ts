@@ -7,7 +7,7 @@
 
 import {defineStore} from 'pinia';
 import {ref, toRaw} from 'vue';
-import {DEF_WSS, T_WSS} from '../types';
+import {DEF_WSS, T_V2E_WSS, T_WSS} from '../types';
 import {cmd2Ex} from './stVSCode';
 
 export const hDisabled = ref({
@@ -25,7 +25,7 @@ export const useWss = defineStore('workspaceState', {
 			this.$subscribe(()=> {	// 状態が変化するたびに
 				if (hDisabled.value['cnv.font.subset']) return;
 				if (hDisabled.value['cnv.mat.pic']) return;
-				cmd2Ex({cmd: 'update.oWss', oWss: toRaw(this.oWss)})
+				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss: toRaw(this.oWss)})
 			});
 		},
 	},

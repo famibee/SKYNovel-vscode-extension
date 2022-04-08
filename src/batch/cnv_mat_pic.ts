@@ -8,7 +8,7 @@
 const [, , urlInp, quality, curPrj, curPrjBase=''] = process.argv;
 
 const sharp = require('sharp');
-import {resolve, parse} from 'path';
+import {resolve, parse, basename} from 'path';
 import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, removeSync, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
 
 //import {foldProc, replaceFile} from '../CmnLib';
@@ -42,7 +42,7 @@ function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 
 const REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 // (jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)
-const REG_OPTITMD	= /\.webp$/;	// 最適化中間ファイル
+const REG_OPTITMD	= /\.webp$/;	// 最適化ファイル
 const REG_CNV_HTML	= /\.(htm|html)$/;
 const REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
 const REG_CNV_JSON	= /\.json$/;
@@ -54,24 +54,36 @@ type T_CNVMATINFO = {
 	sum: {
 		baseSize	: number;
 		webpSize	: number;
+		pathImgCmpWebP	: string;
+		pathImgCmpBase	: string;
 	},
 	hSize: {[fn: string]: {
 		baseSize	: number;
 		webpSize	: number;
+		fld_nm		: string;
+		ext			: string;
 	}},
 };
-let oLog: T_CNVMATINFO = {
-	sum		: {baseSize: 0, webpSize: 0},
+const fnLog = __filename +'on';
+const DEF_CNVMATINFO: T_CNVMATINFO = {
+	sum: {
+		baseSize		: 0,
+		webpSize		: 0,
+		pathImgCmpWebP	: '',
+		pathImgCmpBase	: '',
+	},
 	hSize	: {},
 };
+let oLog = DEF_CNVMATINFO;
 const log_exit = (exit_code = -1)=> {
-	writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
+	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
 }
 
 
 const a: (()=> Promise<void>)[] = [];
 
+const argWebp = {quality: Number(quality),}
 /**
  * 
  * @param {string} urlInp	退避元パス (jpe?g|png)
@@ -85,19 +97,20 @@ function cnv(urlInp: string, urlBase: string, no_move: string = ''): void {
 			if (no_move !== 'no_move') await move(urlInp, urlBase, {overwrite: true});
 
 			// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-			const {dir, name} = parse(urlInp);
+			const {dir, name, ext} = parse(urlInp);
 			const {dir: dirBase} = parse(urlBase);
 			const pathWork = dirBase +'/'+ name +'.webp';
 
 			const info = await sharp(urlBase)
-			.webp({quality: Number(quality),})
+			//.greyscale()	// TEST
+			.webp(argWebp)
 			.toFile(pathWork);	// 一度作業中ファイルは退避先に作る
 
 			await move(pathWork, dir +'/'+ name +'.webp', {overwrite: true})
 
 			const baseSize = statSync(urlBase).size;
 			const webpSize = info.size;
-			oLog.hSize[name] = {baseSize, webpSize,};
+			oLog.hSize[name] = {baseSize, webpSize, fld_nm: basename(dir) +'/'+ name, ext: ext.slice(1),};
 			oLog.sum.baseSize += baseSize;
 			oLog.sum.webpSize += webpSize;
 		},
@@ -151,15 +164,36 @@ switch (urlInp) {
 		.then(()=> log_exit(0));
 		break;
 
-	case 'all':
+	case 'all_no_move':
+		if (! existsSync(fnLog)) break;
+		oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+		oLog.sum.baseSize =
+		oLog.sum.webpSize = 0;
+		for (const nm in oLog.hSize) {
+			const e = oLog.hSize[nm];
+			const ext = '.'+ e.ext;
+			if (! REG_CNV_WEBP.test(ext)) continue;
+
+			cnv(
+				resolve(curPrj, e.fld_nm + ext),
+				resolve(curPrjBase, e.fld_nm + ext),
+				'no_move',
+			);
+		}
+
+		Promise.allSettled(a.map(t=> t()))
+		.then(()=> log_exit(0));
+		break;
+
+	case 'all':{
 		// ファイル最適化
 		ensureDir(curPrjBase);
 		foldProc(curPrj, ()=> {}, dir=> {
-			const wdWrt = resolve(curPrjBase, dir);
-			ensureDir(wdWrt);
+			const wdBase = resolve(curPrjBase, dir);
+			ensureDir(wdBase);
 			foldProc(resolve(curPrj, dir), (url, name)=> {
 				// 退避素材フォルダに元素材を移動
-				if (REG_CNV_WEBP.test(name)) {cnv(url, resolve(wdWrt, name),); return;}
+				if (REG_CNV_WEBP.test(name)) {cnv(url, resolve(wdBase, name)); return;}
 
 				// htm置換（true/*WEBP*/）
 				if (REG_CNV_HTML.test(name)) a.push(async ()=> replaceFile(
@@ -179,14 +213,16 @@ switch (urlInp) {
 
 		Promise.allSettled(a.map(t=> t()))
 		.then(()=> log_exit(0));
-		break;
+	}	break;
 
-	default:
-		const fn = __filename +'on';
-		if (existsSync(fn)) oLog = readJsonSync(fn, {encoding: 'utf8'});
-
-		const {name} = parse(urlInp);
-		const o = oLog.hSize[name] ?? {baseSize: 0, webpSize: 0,}
+	default:{
+		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+		const {dir, name, ext} = parse(urlInp);
+		const o = {
+			...oLog.hSize[name],
+			fld_nm	: basename(dir) +'/'+ name,
+			ext		: ext.slice(1),
+		};
 		oLog.sum.baseSize -= o.baseSize;
 		oLog.sum.webpSize -= o.webpSize;
 
@@ -198,5 +234,5 @@ switch (urlInp) {
 
 		Promise.allSettled(a.map(t=> t()))
 		.then(()=> log_exit(0));
-		break;
+	}	break;
 }

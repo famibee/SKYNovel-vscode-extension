@@ -8,15 +8,15 @@
 export type T_WSS = {
 	'cnv.font.subset'		: boolean,
 	'cnv.icon.cut_round'	: boolean,
-	'cnv.mat.webp_quality'	: number,
 	'cnv.mat.pic'			: boolean,
+	'cnv.mat.webp_quality'	: number,
 };
 
 export const DEF_WSS: T_WSS = {
 	'cnv.font.subset'		: false,
 	'cnv.icon.cut_round'	: false,
-	'cnv.mat.webp_quality'	: 90,
 	'cnv.mat.pic'			: false,
+	'cnv.mat.webp_quality'	: 90,
 };
 
 
@@ -56,43 +56,6 @@ export type T_CFG = {
 	debuger_token	: string,	// デバッガとの接続トークン
 };
 
-// vueテスト用
-export const DEF_CFG0: T_CFG = {
-	book	: {
-		title		: '(作品タイトル)',
-		creator		: '(著作者)',
-		cre_url		: 'https://twitter.com/',
-		publisher	: '(出版者)',
-		pub_url		: 'https://ugainovel.blog.fc2.com/',
-		detail		: '(内容紹介)',
-		version		: '1.2.3',
-	},
-	save_ns		: 'tst_save_ns',
-	window	: {
-		width	: 800,
-		height	: 600,
-	},
-	log		: {max_len: 1024},
-	init	: {
-		bg_color			: '#008800',
-		tagch_msecwait		: 10,
-		auto_msecpagewait	: 3500,
-		escape				: '\\',
-	},
-	debug	: {
-		devtool		: false,
-		token		: false,
-		tag			: false,
-		putCh		: false,
-		debugLog	: false,
-		baseTx		: false,
-		masume		: false,
-		variable	: false,
-	},
-	code	: {script: true, dummy: false},
-	debuger_token	: '',
-};
-
 export const DEF_CFG: T_CFG = {
 	book	: {
 		title		: '',
@@ -129,6 +92,43 @@ export const DEF_CFG: T_CFG = {
 	debuger_token	: '',
 };
 
+// vueテスト用
+export const DEF_CFG4TST: T_CFG = {
+	book	: {
+		title		: '(作品タイトル)',
+		creator		: '(著作者)',
+		cre_url		: 'https://twitter.com/',
+		publisher	: '(出版者)',
+		pub_url		: 'https://ugainovel.blog.fc2.com/',
+		detail		: '(内容紹介)',
+		version		: '1.2.3',
+	},
+	save_ns		: 'tst_save_ns',
+	window	: {
+		width	: 800,
+		height	: 600,
+	},
+	log		: {max_len: 1024},
+	init	: {
+		bg_color			: '#008800',
+		tagch_msecwait		: 10,
+		auto_msecpagewait	: 3500,
+		escape				: '\\',
+	},
+	debug	: {
+		devtool		: false,
+		token		: false,
+		tag			: false,
+		putCh		: false,
+		debugLog	: false,
+		baseTx		: false,
+		masume		: false,
+		variable	: false,
+	},
+	code	: {script: true, dummy: false},
+	debuger_token	: '',
+};
+
 
 export type T_A_FONTINF = {
 	nm		: string;
@@ -146,24 +146,39 @@ export const DEF_FONTINF: T_A_FONTINF = [
 export type T_CNVMATINFO_SIZE = {
 	baseSize	: number;
 	webpSize	: number;
+	fld_nm		: string,
+	ext			: 'jpg'|'jpeg'|'png';
 };
 export type T_CNVMATINFO = {
 	sum: {
-		baseSize	: number;
-		webpSize	: number;
+		baseSize		: number;
+		webpSize		: number;
+		pathImgCmpWebP	: string,
+		pathImgCmpBase	: string,
 	},
 	hSize: {[fn: string]: T_CNVMATINFO_SIZE},
 };
 
 export const DEF_CNVMATINFO: T_CNVMATINFO = {
 	sum: {
-		baseSize	: 4510000,
-		webpSize	: 1550000,
+		baseSize		: 0,
+		webpSize		: 0,
+		pathImgCmpWebP	: '',
+		pathImgCmpBase	: '',
 	},
-	hSize: {	// わざとソートを乱す
-		bbb: {baseSize: 6001, webpSize: 2000},
-		aaa: {baseSize: 6000, webpSize: 1000},
-		ccc: {baseSize: 6002, webpSize: 3000},
+	hSize	: {},
+};
+export const DEF_CNVMATINFO4TST: T_CNVMATINFO = {
+	sum: {
+		baseSize		: 4510000,
+		webpSize		: 1550000,
+		pathImgCmpWebP	: '../',
+		pathImgCmpBase	: '../',
+	},
+	hSize: {	// ソートテストのため、わざとソートを乱す
+		'title_base'	: {baseSize: 6000, webpSize: 1000, fld_nm: 'test/title_base', ext: 'jpg'},
+		'breakpage_b'	: {baseSize: 6002, webpSize: 3000, fld_nm: 'test/breakpage_b', ext: 'png'},
+		'breakline.5x20': {baseSize: 6001, webpSize: 2000, fld_nm: 'test/breakline.5x20', ext: 'png'},
 	},
 };
 
@@ -183,8 +198,8 @@ export type T_TEMP = {
 	min?	: number,
 	step?	: number,
 };
-export const DEF_TEMP0: T_TEMP[] = []
-export const DEF_TEMP: T_TEMP[] = [
+export const DEF_TEMP: T_TEMP[] = []
+export const DEF_TEMP4TST: T_TEMP[] = [
 	{id: '/setting.sn:sys:TextLayer.Back.Alpha', nm: 'sys:TextLayer.Back.Alpha', lbl: 'メッセージ背景不透明度', type: 'rng', val: '0.7', num: 0.7, max: 1, min: 0, step: 0.05,},
 	{id: '/setting.sn:sysse_ok1', nm: 'sysse_ok1', lbl: '軽い決定音', type: 'txt', val: 'BurstB_11'},
 	{id: '/setting.sn:sysse_ok2', nm: 'sysse_ok2', lbl: '重い決定音', type: 'txt', val: 'BellA_16'},
@@ -237,6 +252,11 @@ export type T_E2V_TEMP_SUB = {
 
 
 // Vue2Ex
+export type T_V2E_WSS = {
+	cmd		: 'update.oWss';
+	oWss	: T_WSS;
+};
+
 export type T_V2E_TEMP = {
 	cmd		: 'update.aTemp';
 	aRes	: {
@@ -255,5 +275,10 @@ export type T_V2E_SELECT_ICON_FILE = {
 export type T_E2V_SELECT_ICON_INFO = {
 	cmd			: 'updimg';
 	pathIcon	: string;
-	err_mes	: string;
+	err_mes		: string;
+};
+
+export type T_E2V_CHG_RANGE = {
+	cmd		: 'change.range';
+	id		: string;
 };

@@ -8,7 +8,7 @@
 import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_CFG, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO, T_CNVMATINFO} from '../views/types';
+import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO, T_CNVMATINFO, T_E2V_CHG_RANGE, T_V2E_WSS, DEF_CNVMATINFO} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJsonSync} from 'fs-extra';
@@ -349,8 +349,9 @@ export class PrjSetting {
 			this.#chkMultiMatch_SettingSn();
 			break;
 
-		case 'update.oCfg':
-			const cfg: T_CFG = this.#oCfg = m.oCfg
+		case 'update.oCfg':{
+			const e: T_E2V_CFG = m;
+			const cfg = this.#oCfg = e.oCfg
 			const escape = cfg.init.escape;
 			if (cfg.init.escape !== escape) {
 				this.codSpt.setEscape(escape);
@@ -407,12 +408,31 @@ export class PrjSetting {
 					[/(!define PUBLISHER ").+"/, `$1${cfg.book.publisher}"`],
 				]))(),
 			]);
-			break;
+		}	break;
+
+		case 'change.range':{
+			const e: T_E2V_CHG_RANGE = m;
+			if (e.id != '/workspaceState:cnv.mat.webp_quality') break;
+			if (! this.#oWss['cnv.mat.pic']) break;
+
+			this.#disableOnMatCnv();
+
+			// 処理中はトグルスイッチを無効にする
+			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
+			this.#cmd2Vue(o);
+			this.cmd('cnv.mat.webp_quality', 'all_no_move')
+			.then(()=> {
+				o.mode = 'comp';
+				this.#cmd2Vue(o);
+				this.#setOnMatCnv();
+			});
+		}	break;
 
 		case 'update.oWss':{
+			const e: T_V2E_WSS = m;
 			this.#disableOnMatCnv();
-			for (const id in m.oWss) {
-				const val = m.oWss[id];
+			for (const id in e.oWss) {
+				const val = (<any>e.oWss)[id];
 				this.#wss.update(id, val);
 				if (id !== 'cnv.font.subset'
 				&& id !== 'cnv.mat.pic') continue;
@@ -426,7 +446,7 @@ export class PrjSetting {
 				this.cmd(id, val).then(go=> {
 					if (go) o.mode = 'comp';
 					else {
-						this.#wss.update(id, this.#oWss[id] = m.oWss = old_value);	// こうしないとダイアログ永久ループ
+						this.#wss.update(id, this.#oWss[id] = e.oWss[id] = old_value);	// こうしないとダイアログ永久ループ
 						o.mode = 'cancel';
 					}
 					this.#cmd2Vue(o);
@@ -434,21 +454,22 @@ export class PrjSetting {
 					if (id === 'cnv.mat.pic') this.#setOnMatCnv();
 				});
 			}
-			this.#oWss = m.oWss;
+			this.#oWss = e.oWss;
 		}	break;
 
-		case 'update.aTemp':
-			(<T_V2E_TEMP>m).aRes.forEach(v=> replaceFile(
+		case 'update.aTemp':{
+			const e: T_V2E_TEMP = m;
+			e.aRes.forEach(v=> replaceFile(
 				this.#fnSetting,
 				new RegExp(`(&${v.nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 				`$1$3${v.val}$3`	// https://regex101.com/r/jD2znK/1
 			));
-			break;
+		}	break;
 
 		case 'info':	window.showInformationMessage(m.mes); break;
 		case 'warn':	window.showWarningMessage(m.mes); break;
 
-		case 'openURL':	
+		case 'openURL':	{
 			const url = m.url;
 			if (url.slice(0, 11) === 'ws-file:///') {
 				workspace.openTextDocument(
@@ -459,9 +480,9 @@ export class PrjSetting {
 			else env.openExternal(Uri.parse(
 				url.replace('ws-folder://', this.#pathWs)
 			));
-			break;
+		}	break;
 
-		case 'copyTxt':
+		case 'copyTxt':{
 			if (m.id !== 'copy.folder_save_app') break;
 
 			switch (process.platform) {
@@ -476,7 +497,7 @@ export class PrjSetting {
 				break;
 			}
 			window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
-			break;
+		}	break;
 
 		case 'selectFile':	this.selectFile_icon(m);	break;
 		}}, undefined, this.ctx.subscriptions);
@@ -545,10 +566,12 @@ export class PrjSetting {
 
 	updCnvMatInfo() {
 		const fn = this.#pathWs +'/build/cnv_mat_pic.json';
-		const o = existsSync(fn) ?readJsonSync(fn, {encoding: 'utf8'}) :{
-			sum: {baseSize: 0, webpSize: 0,},
-			hSize: {},
-		};
+		const o = existsSync(fn)
+			? readJsonSync(fn, {encoding: 'utf8'})
+			: DEF_CNVMATINFO;
+		o.sum.pathImgCmpWebP = 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrj;
+		o.sum.pathImgCmpBase = 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrjBase;
+
 		this.#cmd2Vue(<T_E2V_CNVMATINFO>{cmd: 'update.cnvMatInfo', oCnvMatInfo: o});
 	}
 
