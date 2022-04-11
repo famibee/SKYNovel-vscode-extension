@@ -8,7 +8,7 @@
 import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
 import {CodingSupporter} from './CodingSupporter';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO, T_CNVMATINFO, T_E2V_CHG_RANGE, T_V2E_WSS, DEF_CNVMATINFO} from '../views/types';
+import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_FONTINF, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_AFONTINFO, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_CNVMATINFO, T_CNVMAT, T_V2E_WSS, DEF_CNVMAT, T_E2V_CHG_RANGE_WEBP_Q} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJsonSync} from 'fs-extra';
@@ -32,6 +32,9 @@ export class PrjSetting {
 
 				#htmSrc	= '';
 	readonly	#pathIcon	: string;
+
+	readonly	#fnCnvMat	: string;
+				#oCnvMat	: T_CNVMAT;
 
 	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subsetFont'|'cut_round'|'cnv_mat_pic', arg: string)=> Promise<number>, curCnvFile: string) {
 		this.#wss = ctx.workspaceState;
@@ -94,12 +97,17 @@ export class PrjSetting {
 	//	this.#oCfg = {...this.#oCfg, ...o};
 		codSpt.setEscape(this.#oCfg?.init?.escape ?? '');	// 非同期禁止
 
+		this.#fnCnvMat = this.#pathWs +'/build/cnv_mat_pic.json';
+
 		const path_vue_root = path_ext +`/views/`;
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
 				chgTitle(this.#oCfg.book.title);
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.#oCfg.debuger_token;
+
+				if (existsSync(this.#fnCnvMat)) this.#oCnvMat = readJsonSync(this.#fnCnvMat, {encoding: 'utf8'});
+				else writeJsonSync(this.#fnCnvMat, this.#oCnvMat = DEF_CNVMAT);
 			},
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
@@ -249,10 +257,10 @@ export class PrjSetting {
 	#aTemp	: T_TEMP[]	= [];
 
 
-	onCreChgMatCnv(_url: string) {}
+	async	onCreChgMatCnv(_url: string) {}
 	onDelMatCnv(_url: string) {}
 	#disableOnMatCnv() {
-		this.onCreChgMatCnv = ()=> {};
+		this.onCreChgMatCnv = async ()=> {};
 		this.onDelMatCnv = ()=> {};
 	}
 	#setOnMatCnv() {
@@ -263,6 +271,10 @@ export class PrjSetting {
 			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
 			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
 			if (! isBase) this.#disableOnMatCnv();
+
+			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
+			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
+
 			await this.exeTask(
 				'cnv_mat_pic',
 				`"${isBase
@@ -275,7 +287,12 @@ export class PrjSetting {
 				}" ${isBase ?'no_move' :''}`,
 			);
 			if (! isBase) this.#setOnMatCnv();
-			this.updCnvMatInfo();
+
+			o.mode = 'comp';
+			this.#cmd2Vue(o);
+
+			this.#oCnvMat = readJsonSync(this.#fnCnvMat, {encoding: 'utf8'});
+			this.#updCnvMatInfo();
 		};
 		this.onDelMatCnv = url=> {
 			// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
@@ -288,25 +305,20 @@ export class PrjSetting {
 				.replace(this.#REG_CNV_WEBP, '.webp')
 			)
 			.then(()=> {
-				const fn = this.#pathWs +'/build/cnv_mat_pic.json';
-				if (! existsSync(fn)) return;
-				const o: T_CNVMATINFO = readJsonSync(fn, {encoding: 'utf8'});
-
 				const {name} = parse(url);
-				const {baseSize, webpSize} = o.hSize[name];
-				o.sum.baseSize -= baseSize;
-				o.sum.webpSize -= webpSize;
-				delete o.hSize[name];
-				writeJsonSync(fn, o, {encoding: 'utf8'});
-
-				this.updCnvMatInfo();
+				const {baseSize, webpSize} = this.#oCnvMat.hSize[name];
+				this.#oCnvMat.sum.baseSize -= baseSize;
+				this.#oCnvMat.sum.webpSize -= webpSize;
+				delete this.#oCnvMat.hSize[name];
+				writeJsonSync(this.#fnCnvMat, this.#oCnvMat, {encoding: 'utf8'});
+				this.#updCnvMatInfo();
 			});
 		};
 	}
 	readonly	#lenPrjBase;
 	readonly	#fnPrjBase;
 	static readonly	fld_prj_base	= 'prj_base';
-	readonly #REG_CNV_WEBP	= /\.(jpe?g|png)$/;
+	readonly	#REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 
 
 	#oCfg	= DEF_CFG;
@@ -345,7 +357,7 @@ export class PrjSetting {
 				pathIcon: this.#pathIcon,
 			});
 			this.updFontInfo();
-			this.updCnvMatInfo();
+			this.#updCnvMatInfo();
 			this.#chkMultiMatch_SettingSn();
 			break;
 
@@ -410,27 +422,42 @@ export class PrjSetting {
 			]);
 		}	break;
 
-		case 'change.range':{
-			const e: T_E2V_CHG_RANGE = m;
-			if (e.id != '/workspaceState:cnv.mat.webp_quality') break;
+		case 'change.range.webp_q_def':{
 			if (! this.#oWss['cnv.mat.pic']) break;
 
 			this.#disableOnMatCnv();
 
-			// 処理中はトグルスイッチを無効にする
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
-			this.#cmd2Vue(o);
+			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
+
 			this.cmd('cnv.mat.webp_quality', 'all_no_move')
 			.then(()=> {
+				this.#oCnvMat = readJsonSync(this.#fnCnvMat, {encoding: 'utf8'});
+				this.#updCnvMatInfo();
+
 				o.mode = 'comp';
 				this.#cmd2Vue(o);
+
 				this.#setOnMatCnv();
 			});
 		}	break;
 
+		case 'change.range.webp_q':{
+			if (! this.#oWss['cnv.mat.pic']) break;
+
+			const o: T_E2V_CHG_RANGE_WEBP_Q = m;
+			const fi = this.#oCnvMat.hSize[o.nm];
+			if (o.no_def) fi.webp_q = o.webp_q;
+			else delete fi.webp_q;
+			writeJsonSync(this.#fnCnvMat, this.#oCnvMat);
+
+			// Baseフォルダを渡す事で再変換
+			this.onCreChgMatCnv(this.#fnPrjBase + fi.fld_nm +'.'+ fi.ext);
+		}	break;
+
 		case 'update.oWss':{
 			const e: T_V2E_WSS = m;
-			this.#disableOnMatCnv();
+			this.#disableOnMatCnv();	// 処理中はトグルスイッチを無効にする
 			for (const id in e.oWss) {
 				const val = (<any>e.oWss)[id];
 				this.#wss.update(id, val);
@@ -440,18 +467,23 @@ export class PrjSetting {
 				const old_value = this.#oWss[id];
 				if (old_value == val) continue;
 
-				// 処理中はトグルスイッチを無効にする
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
 				this.#cmd2Vue(o);
 				this.cmd(id, val).then(go=> {
-					if (go) o.mode = 'comp';
+					if (go) {
+						if (id === 'cnv.mat.pic') {
+							this.#oCnvMat = readJsonSync(this.#fnCnvMat, {encoding: 'utf8'});
+							this.#updCnvMatInfo();
+						}
+						o.mode = 'comp';
+					}
 					else {
 						this.#wss.update(id, this.#oWss[id] = e.oWss[id] = old_value);	// こうしないとダイアログ永久ループ
 						o.mode = 'cancel';
 					}
 					this.#cmd2Vue(o);
 
-					if (id === 'cnv.mat.pic') this.#setOnMatCnv();
+					this.#setOnMatCnv();
 				});
 			}
 			this.#oWss = e.oWss;
@@ -564,15 +596,15 @@ export class PrjSetting {
 		this.#cmd2Vue(<T_E2V_AFONTINFO>{cmd: 'update.aFontInfo', aFontInfo});
 	}
 
-	updCnvMatInfo() {
-		const fn = this.#pathWs +'/build/cnv_mat_pic.json';
-		const o = existsSync(fn)
-			? readJsonSync(fn, {encoding: 'utf8'})
-			: DEF_CNVMATINFO;
-		o.sum.pathImgCmpWebP = 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrj;
-		o.sum.pathImgCmpBase = 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrjBase;
-
-		this.#cmd2Vue(<T_E2V_CNVMATINFO>{cmd: 'update.cnvMatInfo', oCnvMatInfo: o});
+	#updCnvMatInfo() {
+		this.#cmd2Vue(<T_E2V_CNVMATINFO>{
+			cmd: 'update.cnvMatInfo',
+			oCnvMatInfo: {...this.#oCnvMat, sum: {
+				...this.#oCnvMat.sum,
+				pathImgCmpWebP: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrj,
+				pathImgCmpBase: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrjBase,
+			}},
+		});
 	}
 
 }

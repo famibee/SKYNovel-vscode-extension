@@ -43,8 +43,8 @@ img-comparison-slider:hover > svg {
 <div class="col-6 col-sm-4 px-1 py-2">
 	<label class="form-label">フォントサイズ最適化</label>
 	<div class="form-check form-switch mb-1">
-		<input type="checkbox" id="/workspaceState:cnv.font.subset" v-model="oWss['cnv.font.subset']" :disabled="hDisabled['cnv.font.subset']" class="form-check-input sn_checkbox sn-chk"/>
-		<label for="/workspaceState:cnv.font.subset" class="form-check-label">必要最小限にする</label>
+		<input type="checkbox" id="cnv.font.subset" v-model="oWss['cnv.font.subset']" :disabled="hDisabled['cnv.font.subset']" class="form-check-input sn_checkbox sn-chk"/>
+		<label for="cnv.font.subset" class="form-check-label">必要最小限にする</label>
 	</div>
 </div>
 
@@ -52,15 +52,13 @@ img-comparison-slider:hover > svg {
 <div class="col-12 px-1 py-3">
 	<label class="form-label">フォント情報</label>
 <table class="table table-striped"><thead><tr>
-	<th>#</th>
 	<th>Filename</th>
 	<th>元ファイルの場所</th>
 	<th style="text-align: right;">Size（元ファイル）</th>
 	<th style="text-align: right;">Size（出力結果）</th>
 	<th>削減率</th>
 </tr></thead><tbody>
-<tr v-for="(e, i) in aFontInfo">
-	<td v-text="i +1"/>
+<tr v-for="e in aFontInfo" :key="e.nm">
 	<td v-text="e.nm"/>
 	<td v-text="e.mes"/>
 	<td style="text-align: right;" v-text="e.iSize.toLocaleString('ja-JP') +' byte'"/>
@@ -72,10 +70,11 @@ img-comparison-slider:hover > svg {
 
 <div class="col-12 px-1 pt-3"><h5>素材ファイル最適化</h5></div>
 
-<div class="col-6 col-sm-4 px-1">
+<div class="col-6 col-sm-4 px-2">
 	<div class="form-check form-switch py-2">
-		<input type="checkbox" id="/workspaceState:cnv.mat.pic" v-model="oWss['cnv.mat.pic']" :disabled="hDisabled['cnv.mat.pic']" class="form-check-input sn_checkbox sn-chk"/>
-		<label for="/workspaceState:cnv.mat.pic" class="form-check-label">jpg・png を WebP に変換</label>
+		<input type="checkbox" id="cnv.mat.pic" v-model="oWss['cnv.mat.pic']"
+			:disabled="hDisabled['cnv.mat.pic']" class="form-check-input sn_checkbox sn-chk"/>
+		<label for="cnv.mat.pic" class="form-check-label">jpg・png を WebP に変換</label>
 	</div>
 </div>
 
@@ -84,8 +83,11 @@ img-comparison-slider:hover > svg {
 		<div class="range-badge range-badge-down" :style="{left: getLeftRangeBadge(oWss['cnv.mat.webp_quality'], 100, 5)}">
 			<span v-text="oWss['cnv.mat.webp_quality']"></span>
 		</div>
-		<label for="/workspaceState:cnv.mat.webp_quality" class="form-label">WebP 変換時の画質</label>
-		<input type="range" id="/workspaceState:cnv.mat.webp_quality" v-model="oWss['cnv.mat.webp_quality']" max="100" min="5" step="5" :disabled="hDisabled['cnv.mat.pic']" @change="chgRange" class="form-range my-1 sn-vld"/>
+		<label for="cnv.mat.webp_quality" class="form-label">基本の変換画質</label>
+		<input type="range" id="cnv.mat.webp_quality"
+			v-model="oWss['cnv.mat.webp_quality']" max="100" min="5" step="5"
+			:disabled="hDisabled['cnv.mat.pic']" @change="chgRangeWebpQDef"
+			class="form-range my-1 sn-vld"/>
 	</div>
 </div>
 
@@ -98,8 +100,10 @@ img-comparison-slider:hover > svg {
 	<th>削減率</th>
 </tr></thead><tbody>
 <tr>
-	<td style="text-align: right;" v-text="oCnvMatInfo.sum.baseSize.toLocaleString('ja-JP') +' byte'"></td>
-	<td style="text-align: right;" v-text="oCnvMatInfo.sum.webpSize.toLocaleString('ja-JP') +' byte'"></td>
+	<td style="text-align: right;"
+		v-text="oCnvMatInfo.sum.baseSize.toLocaleString('ja-JP') +' byte'"/>
+	<td style="text-align: right;"
+		v-text="oCnvMatInfo.sum.webpSize.toLocaleString('ja-JP') +' byte'"/>
 	<td v-text="(oCnvMatInfo.sum.webpSize / oCnvMatInfo.sum.baseSize).toLocaleString('ja-JP')"></td>
 </tr>
 </tbody></table>
@@ -110,32 +114,62 @@ img-comparison-slider:hover > svg {
 <div id="clpMatCnv" class="accordion-collapse"><div class="accordion-body p-0 tbody_scroll">
 
 	<table id="tblMatCnv" class="table table-striped table-hover accordion bg-secondary"><thead class="sticky-top"><tr>
-		<th>#</th>
 		<th>ファイル名</th>
+		<th>変換画質</th>
 		<th style="text-align: right;">元画像サイズ</th>
 		<th style="text-align: right;">webp変換後</th>
 		<th>削減率</th>
 	</tr></thead><tbody>
-<template v-for="(e, i) in sortHSize()" class="accordion-item">
-	<tr :href="'#acdMC'+ i" class="accordion-header" data-bs-toggle="collapse" :data-bs-target="'#acdMC'+ i" aria-expanded="true" :aria-controls="'acdMC'+ i">
-		<td v-text="i +1"/>
-		<td v-text="e.key"/>
-		<td style="text-align: right;" v-text="e.baseSize.toLocaleString('ja-JP') +' byte'"/>
-		<td style="text-align: right;" v-text="e.webpSize.toLocaleString('ja-JP') +' byte'"/>
+<template v-for="e in sortHSize()" class="accordion-item" :key="e.key">
+	<tr :href="'#'+ e.id" class="accordion-header" data-bs-toggle="collapse" :data-bs-target="'#'+ e.id" aria-expanded="true" :aria-controls="e.id">
+		<td v-text="e.nm"/>
+		<td v-text="e.webp_q ?? `${oWss['cnv.mat.webp_quality']} (基本の値)`"/>
+		<td style="text-align: right;"
+			v-text="e.baseSize.toLocaleString('ja-JP') +' byte'"/>
+		<td style="text-align: right;"
+			v-text="e.webpSize.toLocaleString('ja-JP') +' byte'"/>
 		<td v-text="(e.webpSize / e.baseSize).toLocaleString('ja-JP')"/>
 	</tr>
-	<tr :id="'acdMC'+ i" data-bs-parent="#tblMatCnv" :aria-labelledby="'acdMC'+ i" class="accordion-collapse collapse">
-	<td colspan="4" class="accordion-body"><div class="position-relative d-flex justify-content-evenly">
-		<ImgComparisonSlider>
-			<img loading="lazy" slot="first" :src="updImg(oCnvMatInfo.sum.pathImgCmpWebP + e.fld_nm +'.webp')"/>
-			<img loading="lazy" slot="second" :src="updImg(oCnvMatInfo.sum.pathImgCmpBase + e.fld_nm +'.'+ e.ext)"/>
-			<svg slot="handle" width="100" xmlns="http://www.w3.org/2000/svg" viewBox="-8 -3 16 6">
-				<path stroke="#fff" d="M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2" stroke-width="2" fill="#ffa658" vector-effect="non-scaling-stroke"></path>
-			</svg>
-		</ImgComparisonSlider>
+	<tr :id="e.id" data-bs-parent="#tblMatCnv" :aria-labelledby="e.id" class="accordion-collapse collapse">
+	<td colspan="4" class="accordion-body"><div class="row">
 
-		<button type="button" class="btn btn-light position-absolute top-50 start-0" disabled>WebP</button>
-		<button type="button" class="btn btn-light position-absolute bottom-50 end-0" v-text="e.ext" disabled></button>
+<div class="col-6 col-sm-4 px-2">
+	<div class="form-check form-switch py-2">
+		<input type="checkbox" :id="'cnv.mat.pic.'+ e.id"
+			:checked="e.webp_q !== undefined"
+			@change="chkChg($event, e)"
+			:disabled="hDisabled['cnv.mat.pic']"
+			class="form-check-input sn_checkbox sn-chk"/>
+		<label :for="'cnv.mat.pic.'+ e.id" class="form-check-label text-white">画質を個別設定</label>
+	</div>
+</div>
+<div class="col-6 col-sm-3 px-1">
+	<div class="range-wrap">
+		<div class="range-badge" :style="{left: getLeftRangeBadge(e.webp_q, 100, 5)}">
+			<span v-text="e.webp_q" v-show="e.webp_q !== undefined"></span>
+		</div>
+		<input type="range" v-model="oCnvMatInfo.hSize[e.nm].webp_q"
+			max="100" min="5" step="5"
+			:disabled="e.webp_q === undefined || hDisabled['cnv.mat.pic']"
+			@change="chgRangeWebpQ($event, e)" class="form-range my-1 sn-vld"/>
+	</div>
+</div>
+
+<div class="col-12 px-1">
+	<div class="position-relative d-flex justify-content-evenly">
+	<ImgComparisonSlider>
+		<img loading="lazy" slot="first" :src="updImg(oCnvMatInfo.sum.pathImgCmpWebP + e.fld_nm +'.webp')"/>
+		<img loading="lazy" slot="second" :src="updImg(oCnvMatInfo.sum.pathImgCmpBase + e.fld_nm +'.'+ e.ext)"/>
+		<svg slot="handle" width="100" xmlns="http://www.w3.org/2000/svg" viewBox="-8 -3 16 6">
+			<path stroke="#fff" d="M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2" stroke-width="2" fill="#ffa658" vector-effect="non-scaling-stroke"></path>
+		</svg>
+	</ImgComparisonSlider>
+
+	<button type="button" class="btn btn-light position-absolute top-50 start-0" disabled>WebP</button>
+	<button type="button" class="btn btn-light position-absolute bottom-50 end-0" v-text="e.ext" disabled></button>
+	</div>
+</div>
+
 	</div></td>
 	</tr>
 </template>
@@ -166,8 +200,8 @@ img-comparison-slider:hover > svg {
 	</div><div class="row">
 		<div class="col form-check">
 			<div class="input-group input-group-sm">
-				<input type="checkbox" id="/workspaceState:cnv.icon.cut_round" v-model="oWss['cnv.icon.cut_round']" class="form-check-input mb-3 sn_checkbox sn-chk">
-				<label for="/workspaceState:cnv.icon.cut_round" class="form-check-label">丸く切り抜くか</label>
+				<input type="checkbox" id="cnv.icon.cut_round" v-model="oWss['cnv.icon.cut_round']" class="form-check-input mb-3 sn_checkbox sn-chk">
+				<label for="cnv.icon.cut_round" class="form-check-label">丸く切り抜くか</label>
 			</div>
 		</div>
 
@@ -184,7 +218,7 @@ import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
 import {ref} from 'vue';
-import {T_E2V_CHG_RANGE, T_E2V_NOTICE_COMPONENT, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../types';
+import {T_CNVMAT_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q, T_E2V_NOTICE_COMPONENT, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../types';
 import {ImgComparisonSlider} from '@img-comparison-slider/vue';
 
 
@@ -204,11 +238,25 @@ on('notice.Component', (data: T_E2V_NOTICE_COMPONENT)=> {switch (data.mode) {
 	case 'comp':	hDisabled.value[data.id] = false;	break;
 }});
 
-const sortHSize = ()=> Object.entries(oCnvMatInfo.value.hSize)
-	.map(([key, v])=> ({key, ...v}))
-	.sort((a, b)=> (a.key < b.key) ?-1 :1);	// 昇順ソート
+const sortHSize: ()=> T_CNVMAT_FILE_AND_KEY[] = ()=> Object.entries(oCnvMatInfo.value.hSize)
+	.map(([nm, v])=> ({nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
+	.sort((a, b)=> (a.nm < b.nm) ?-1 :1);	// 昇順ソート
 
-const chgRange = (e: any)=> cmd2Ex(<T_E2V_CHG_RANGE>{cmd: 'change.range', id: e.target.id});
+const chgRangeWebpQDef = ()=> cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q_DEF>{cmd: 'change.range.webp_q_def'});
+
+
+const chkChg = (el: any, e :T_CNVMAT_FILE_AND_KEY)=> {
+	const no_def = Boolean(el.target.checked);
+	const webp_q = oWss.value['cnv.mat.webp_quality'];
+	if (no_def) oCnvMatInfo.value.hSize[e.nm].webp_q = webp_q;
+	else delete oCnvMatInfo.value.hSize[e.nm].webp_q;
+
+	cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q>{cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q});
+
+};
+const chgRangeWebpQ = (el: any, e :T_CNVMAT_FILE_AND_KEY)=> {
+	cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q>{cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)});
+}
 
 const updImg = (src: string)=> src +'?'+ (new Date()).getTime();
 

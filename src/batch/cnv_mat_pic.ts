@@ -10,6 +10,7 @@ const [, , urlInp, quality, curPrj, curPrjBase=''] = process.argv;
 const sharp = require('sharp');
 import {resolve, parse, basename} from 'path';
 import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, removeSync, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
+import {T_CNVMAT, T_CNVMAT_FILE} from '../../views/types';
 
 //import {foldProc, replaceFile} from '../CmnLib';
 const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
@@ -50,22 +51,8 @@ const REG_REP_JSON	= /("image"\s*:\s*")(.+)\.(jpe?g|png)"/;
 const REG_REP_JSON2	= /webp","image_bkup":".+(jpe?g|png)"/;
 
 
-type T_CNVMATINFO = {
-	sum: {
-		baseSize	: number;
-		webpSize	: number;
-		pathImgCmpWebP	: string;
-		pathImgCmpBase	: string;
-	},
-	hSize: {[fn: string]: {
-		baseSize	: number;
-		webpSize	: number;
-		fld_nm		: string;
-		ext			: string;
-	}},
-};
 const fnLog = __filename +'on';
-const DEF_CNVMATINFO: T_CNVMATINFO = {
+let oLog: T_CNVMAT = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
@@ -74,7 +61,6 @@ const DEF_CNVMATINFO: T_CNVMATINFO = {
 	},
 	hSize	: {},
 };
-let oLog = DEF_CNVMATINFO;
 const log_exit = (exit_code = -1)=> {
 	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
@@ -83,7 +69,6 @@ const log_exit = (exit_code = -1)=> {
 
 const a: (()=> Promise<void>)[] = [];
 
-const argWebp = {quality: Number(quality),}
 /**
  * 
  * @param {string} urlInp	退避元パス (jpe?g|png)
@@ -100,17 +85,18 @@ function cnv(urlInp: string, urlBase: string, no_move: string = ''): void {
 			const {dir, name, ext} = parse(urlInp);
 			const {dir: dirBase} = parse(urlBase);
 			const pathWork = dirBase +'/'+ name +'.webp';
+			const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
 			const info = await sharp(urlBase)
 			//.greyscale()	// TEST
-			.webp(argWebp)
+			.webp({quality: Number(fi.webp_q ?? quality)})
 			.toFile(pathWork);	// 一度作業中ファイルは退避先に作る
 
 			await move(pathWork, dir +'/'+ name +'.webp', {overwrite: true})
 
 			const baseSize = statSync(urlBase).size;
 			const webpSize = info.size;
-			oLog.hSize[name] = {baseSize, webpSize, fld_nm: basename(dir) +'/'+ name, ext: ext.slice(1),};
+			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
 			oLog.sum.baseSize += baseSize;
 			oLog.sum.webpSize += webpSize;
 		},
@@ -154,9 +140,9 @@ switch (urlInp) {
 		// 退避素材戻し
 		foldProc(curPrjBase, ()=> {}, dir=> {
 			const urlCurPrj = resolve(curPrj, dir);
-			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
-				a.push(()=> move(url, resolve(urlCurPrj, nm), {overwrite: true}));
-			}, ()=> {});
+			foldProc(resolve(curPrjBase, dir), (url, nm)=> a.push(
+				()=> move(url, resolve(urlCurPrj, nm), {overwrite: true})
+			), ()=> {});
 		});
 
 		Promise.allSettled(a.map(t=> t()))
@@ -165,10 +151,12 @@ switch (urlInp) {
 		break;
 
 	case 'all_no_move':
-		if (! existsSync(fnLog)) break;
-		oLog = readJsonSync(fnLog, {encoding: 'utf8'});
-		oLog.sum.baseSize =
-		oLog.sum.webpSize = 0;
+		if (existsSync(fnLog)) {
+			oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+			oLog.sum.baseSize = 
+			oLog.sum.webpSize = 0;
+		}
+
 		for (const nm in oLog.hSize) {
 			const e = oLog.hSize[nm];
 			const ext = '.'+ e.ext;
@@ -217,11 +205,12 @@ switch (urlInp) {
 
 	default:{
 		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+
 		const {dir, name, ext} = parse(urlInp);
-		const o = {
+		const o: T_CNVMAT_FILE = {
 			...oLog.hSize[name],
 			fld_nm	: basename(dir) +'/'+ name,
-			ext		: ext.slice(1),
+			ext		: <any>ext.slice(1),
 		};
 		oLog.sum.baseSize -= o.baseSize;
 		oLog.sum.webpSize -= o.webpSize;

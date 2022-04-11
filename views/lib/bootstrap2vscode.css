@@ -209,7 +209,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .range-badge {
 	position: absolute;
 	left: 50%;
-	top: -5%;
+	top: -65%;
 }
 .range-badge span {
 	width: 40px;

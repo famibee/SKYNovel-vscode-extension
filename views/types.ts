@@ -143,23 +143,28 @@ export const DEF_FONTINF: T_A_FONTINF = [
 ];
 
 
-export type T_CNVMATINFO_SIZE = {
+export type T_CNVMAT_FILE = {
 	baseSize	: number;
 	webpSize	: number;
 	fld_nm		: string,
 	ext			: 'jpg'|'jpeg'|'png';
+	webp_q?		: number;
 };
-export type T_CNVMATINFO = {
+export type T_CNVMAT_FILE_AND_KEY = {
+	nm		: string,
+	id		: string,
+} & T_CNVMAT_FILE;
+export type T_CNVMAT = {
 	sum: {
 		baseSize		: number;
 		webpSize		: number;
 		pathImgCmpWebP	: string,
 		pathImgCmpBase	: string,
 	},
-	hSize: {[fn: string]: T_CNVMATINFO_SIZE},
+	hSize: {[fn: string]: T_CNVMAT_FILE},
 };
 
-export const DEF_CNVMATINFO: T_CNVMATINFO = {
+export const DEF_CNVMAT: T_CNVMAT = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
@@ -168,7 +173,7 @@ export const DEF_CNVMATINFO: T_CNVMATINFO = {
 	},
 	hSize	: {},
 };
-export const DEF_CNVMATINFO4TST: T_CNVMATINFO = {
+export const DEF_CNVMAT4TST: T_CNVMAT = {
 	sum: {
 		baseSize		: 4510000,
 		webpSize		: 1550000,
@@ -177,7 +182,7 @@ export const DEF_CNVMATINFO4TST: T_CNVMATINFO = {
 	},
 	hSize: {	// ソートテストのため、わざとソートを乱す
 		'title_base'	: {baseSize: 6000, webpSize: 1000, fld_nm: 'test/title_base', ext: 'jpg'},
-		'breakpage_b'	: {baseSize: 6002, webpSize: 3000, fld_nm: 'test/breakpage_b', ext: 'png'},
+		'breakpage_b'	: {baseSize: 6002, webpSize: 3000, fld_nm: 'test/breakpage_b', ext: 'png', webp_q: 45,},
 		'breakline.5x20': {baseSize: 6001, webpSize: 2000, fld_nm: 'test/breakline.5x20', ext: 'png'},
 	},
 };
@@ -233,7 +238,7 @@ export type T_E2V_AFONTINFO = {
 
 export type T_E2V_CNVMATINFO = {
 	cmd			: 'update.cnvMatInfo';
-	oCnvMatInfo	: T_CNVMATINFO;
+	oCnvMatInfo	: T_CNVMAT;
 };
 
 export type T_E2V_NOTICE_COMPONENT = {
@@ -278,7 +283,13 @@ export type T_E2V_SELECT_ICON_INFO = {
 	err_mes		: string;
 };
 
-export type T_E2V_CHG_RANGE = {
-	cmd		: 'change.range';
-	id		: string;
+export type T_E2V_CHG_RANGE_WEBP_Q_DEF = {
+	cmd		: 'change.range.webp_q_def';
+};
+
+export type T_E2V_CHG_RANGE_WEBP_Q = {
+	cmd		: 'change.range.webp_q';
+	nm		: string;
+	no_def	: boolean;
+	webp_q	: number;
 };

@@ -23,6 +23,7 @@
 			// https://github.com/vuejs/core/issues/4668
 //		"noUnusedParameters": true,	// 使っていない仮引数をエラーに
 								// ただし引数名の先頭にアンダースコアを付けると回避できる
+		"jsx": "preserve",
 		"allowUnreachableCode": false,	// 到達しえないコードを許容しない (false)
 		"allowUnusedLabels": true,	// 到達しえないラベルを許容しない
 		// オブジェクトへの過剰なプロパティチェックを抑制しない

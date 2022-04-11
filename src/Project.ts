@@ -266,7 +266,6 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			} ${this.#ps.oWss['cnv.mat.webp_quality']
 			} "${this.#curPrj}" "${this.#curPrjBase}"`,
 		);
-		this.#ps.updCnvMatInfo();
 	}
 
 	readonly	#hTask2Inf = {
