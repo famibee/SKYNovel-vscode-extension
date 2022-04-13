@@ -6658,7 +6658,7 @@ const DEF_CFG4TST = {
   book: {
     title: "(\u4F5C\u54C1\u30BF\u30A4\u30C8\u30EB)",
     creator: "(\u8457\u4F5C\u8005)",
-    cre_url: "https://twitter.com/",
+    cre_url: "ugainovel@gmail.com",
     publisher: "(\u51FA\u7248\u8005)",
     pub_url: "https://ugainovel.blog.fc2.com/",
     detail: "(\u5185\u5BB9\u7D39\u4ECB)",
@@ -9335,7 +9335,7 @@ let array = {
   max: '${path} field must have less than or equal to ${max} items',
   length: '${path} must have ${length} items'
 };
-Object.assign(Object.create(null), {
+var locale = Object.assign(Object.create(null), {
   mixed,
   string,
   number,
@@ -14361,6 +14361,16 @@ function makeNodesHash(arr){
   return res
 }
 
+function setLocale(custom) {
+  Object.keys(custom).forEach(type => {
+    // @ts-ignore
+    Object.keys(custom[type]).forEach(method => {
+      // @ts-ignore
+      locale[type][method] = custom[type][method];
+    });
+  });
+}
+
 const _hoisted_1$5 = { class: "row" };
 const _hoisted_2$5 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.title",
@@ -14380,7 +14390,7 @@ const _hoisted_7$4 = ["textContent"];
 const _hoisted_8$4 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.cre_url",
   class: "form-label"
-}, "\u9023\u7D61\u5148\uFF35\uFF32\uFF2C", -1);
+}, "\u9023\u7D61\u5148URL\u30FBmail", -1);
 const _hoisted_9$4 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_10$4 = ["disabled"];
 const _hoisted_11$3 = ["textContent"];
@@ -14392,7 +14402,7 @@ const _hoisted_13$3 = ["textContent"];
 const _hoisted_14$3 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.pub_url",
   class: "form-label"
-}, "\u51FA\u7248\u8005\uFF35\uFF32\uFF2C", -1);
+}, "\u51FA\u7248\u8005URL", -1);
 const _hoisted_15$3 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_16$3 = ["disabled"];
 const _hoisted_17$3 = ["textContent"];
@@ -14405,16 +14415,25 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
   setup(__props) {
     const stCfg = useCfg();
     const { oCfg } = storeToRefs(stCfg);
-    const { value: v_save_ns, errorMessage: em_save_ns, meta: mv_save_ns } = useField("oCfg.save_ns", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").matches(/^[\w\.]+$/, "\u82F1\u6570\u5B57\u304B[_.]\u306E\u307F\u3067\u3059").notOneOf(["hatsune", "uc"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.save_ns });
-    const { value: v_title, errorMessage: em_title, meta: mv_title } = useField("oCfg.book.title", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["\u521D\u97F3\u9928\u306B\u3066", "\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.title });
-    const { value: v_creator, errorMessage: em_creator, meta: mv_creator } = useField("oCfg.book.creator", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["\u3075\u3041\u307F\u3079\u3047"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.creator });
-    const { value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url } = useField("oCfg.book.cre_url", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").url("URL\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093").notOneOf(["https://twitter.com/famibee"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.cre_url });
-    const { value: v_publisher, errorMessage: em_publisher, meta: mv_publisher } = useField("oCfg.book.publisher", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["\u96FB\u5B50\u6F14\u5287\u90E8"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.publisher });
-    const { value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url } = useField("oCfg.book.pub_url", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["https://famibee.blog.fc2.com/"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044").test("is-james", () => "URL\uFF08https:\u301C\uFF09\u304B\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044", (v) => create$1().url().isValid(v) || create$1().matches(/^[a-zA-Z0-9_.+-]+@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$/).isValid(v)), { initialValue: oCfg.value.book.pub_url });
-    const { value: v_detail, errorMessage: em_detail, meta: mv_detail } = useField("oCfg.book.detail", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf([
+    setLocale({
+      mixed: {
+        required: "\u5FC5\u9808\u5165\u529B\u9805\u76EE\u3067\u3059",
+        notOneOf: "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"
+      },
+      string: {
+        url: "URL\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093"
+      }
+    });
+    const { value: v_save_ns, errorMessage: em_save_ns, meta: mv_save_ns } = useField("oCfg.save_ns", create$1().required().matches(/^[\w\.]+$/, "\u82F1\u6570\u5B57\u304B[_.]\u306E\u307F\u3067\u3059").notOneOf(["hatsune", "uc"]), { initialValue: oCfg.value.save_ns });
+    const { value: v_title, errorMessage: em_title, meta: mv_title } = useField("oCfg.book.title", create$1().required().notOneOf(["\u521D\u97F3\u9928\u306B\u3066", "\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F"]), { initialValue: oCfg.value.book.title });
+    const { value: v_creator, errorMessage: em_creator, meta: mv_creator } = useField("oCfg.book.creator", create$1().required().notOneOf(["\u3075\u3041\u307F\u3079\u3047"]), { initialValue: oCfg.value.book.creator });
+    const { value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url } = useField("oCfg.book.cre_url", create$1().required().notOneOf(["https://twitter.com/famibee"]).test("is-url_or_mail", () => "URL\uFF08https:\u301C\uFF09\u304B\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044", (v = "") => /https?:\/\//.test(v) ? create$1().url().isValid(v) : create$1().email().isValid(v)), { initialValue: oCfg.value.book.cre_url });
+    const { value: v_publisher, errorMessage: em_publisher, meta: mv_publisher } = useField("oCfg.book.publisher", create$1().required().notOneOf(["\u96FB\u5B50\u6F14\u5287\u90E8"]), { initialValue: oCfg.value.book.publisher });
+    const { value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url } = useField("oCfg.book.pub_url", create$1().required().url().notOneOf(["https://famibee.blog.fc2.com/"]), { initialValue: oCfg.value.book.pub_url });
+    const { value: v_detail, errorMessage: em_detail, meta: mv_detail } = useField("oCfg.book.detail", create$1().required().notOneOf([
       "\u6C5F\u6238\u5DDD\u4E71\u6B69\u300C\u5B64\u5CF6\u306E\u9B3C\u300D\u4E8C\u6B21\u5275\u4F5C\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u30B5\u30F3\u30D7\u30EB\u3067\u3059\u3002",
       "\u68B6\u4E95\u57FA\u6B21\u90CE\u300C\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F\u300D\u3092\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u5316\u3057\u305F\u3082\u306E\u3067\u3059\u3002"
-    ], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.detail });
+    ]), { initialValue: oCfg.value.book.detail });
     on("init", () => {
       const o = oCfg.value;
       v_save_ns.value = o.save_ns;
@@ -14512,7 +14531,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
           _hoisted_8$4,
           createBaseVNode("div", _hoisted_9$4, [
             withDirectives(createBaseVNode("input", {
-              type: "url",
+              type: "text",
               id: "book.cre_url",
               "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_cre_url) ? v_cre_url.value = $event : null),
               class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_cre_url).valid }]),
