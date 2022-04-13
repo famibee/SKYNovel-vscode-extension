@@ -103,22 +103,28 @@ select.form-select {
 }
 
 /* button */
-button.btn {
+.btn {
 	color: var(--vscode-button-foreground, #fff);
 	background-color: var(--vscode-button-background, #0e639c);
 	border: solid var(--vscode-button-border);
 }
-button.btn:hover {
+.btn:hover {
 	color: var(--vscode-button-foreground, #fff);
 	background-color: var(--vscode-button-hover-background);
 }
-button.btn-secondary {
+.btn-secondary {
 	color: var(--vscode-button-secondary-foreground);
 	background-color: var(--vscode-button-secondary-background);
 }
-button.btn-secondary:hover {
+.btn-secondary:hover {
 	background-color: var(--vscode-button-secondary-hover-background);
 }
+
+.btn:disabled {
+    background-color: gray;
+/*     background-color: #0dcaf0; */
+}
+
 
 /* input file */
 .sn_file > input {

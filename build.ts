@@ -50,6 +50,11 @@ vite({
 		},
 	},
 	plugins: [vue()],
+	optimizeDeps: {
+		entries: ['/setting.htm'],
+		include: ['./lib/bootstrap.min.js', './lib/fontawesome/all.min.js'],
+	},
+//	assetsInclude: ['./lib/**/*.woff2'],
 });
 
 // === snsys_pre ===

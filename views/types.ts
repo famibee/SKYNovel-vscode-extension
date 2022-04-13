@@ -97,7 +97,8 @@ export const DEF_CFG4TST: T_CFG = {
 	book	: {
 		title		: '(作品タイトル)',
 		creator		: '(著作者)',
-		cre_url		: 'https://twitter.com/',
+//		cre_url		: 'https://twitter.com/',
+		cre_url		: 'ugainovel@gmail.com',
 		publisher	: '(出版者)',
 		pub_url		: 'https://ugainovel.blog.fc2.com/',
 		detail		: '(内容紹介)',

@@ -18,9 +18,9 @@
 	<div class="invalid-feedback" v-text="em_creator"></div>
 </div>
 <div class="col-6 col-sm-6 px-1 py-2" :class="{'was-validated': mv_cre_url.valid}">
-	<label for="book.cre_url" class="form-label">連絡先ＵＲＬ</label>
+	<label for="book.cre_url" class="form-label">連絡先URL・mail</label>
 	<div class="input-group input-group-sm has-validation">
-		<input type="url" id="book.cre_url" v-model="v_cre_url" class="form-control form-control-sm" :class="{'is-invalid': !mv_cre_url.valid}" @input="subscribe" placeholder="メアド、SNSなど" aria-label="連絡先ＵＲＬ" aria-describedby="Contact URL">
+		<input type="text" id="book.cre_url" v-model="v_cre_url" class="form-control form-control-sm" :class="{'is-invalid': !mv_cre_url.valid}" @input="subscribe" placeholder="メアド、SNSなど" aria-label="連絡先ＵＲＬ" aria-describedby="Contact URL">
 		<button type="button" class="btn btn-info" @click="openURL(v_cre_url)" :disabled="!mv_cre_url.valid">Open</button>
 		<div class="invalid-feedback" v-text="em_cre_url"></div>
 	</div>
@@ -31,8 +31,8 @@
     <input type="text" id="book.publisher" v-model="v_publisher" class="form-control form-control-sm" :class="{'is-invalid': !mv_publisher.valid}" @input="subscribe" placeholder="サークル名、団体名など" aria-label="出版者" aria-describedby="Publisher"/>
 	<div class="invalid-feedback" v-text="em_publisher"></div>
 </div>
-<div class="col-6 px-1 py-3" :class="{'was-validated': mv_pub_url.valid}">
-	<label for="book.pub_url" class="form-label">出版者ＵＲＬ</label>
+<div class="col-6 col-sm-6 px-1 py-2" :class="{'was-validated': mv_pub_url.valid}">
+	<label for="book.pub_url" class="form-label">出版者URL</label>
 	<div class="input-group input-group-sm has-validation">
 		<input type="url" id="book.pub_url" v-model="v_pub_url" class="form-control form-control-sm" :class="{'is-invalid': !mv_pub_url.valid}" @input="subscribe" placeholder="ご自身の公式サイトなど" aria-label="出版者ＵＲＬ" aria-describedby="Publisher URL"/>
 		<button type="button" class="btn btn-info" @click="openURL(v_pub_url)" :disabled="!mv_pub_url.valid">Open</button>
@@ -62,58 +62,71 @@ import {toRaw} from 'vue';
 const stCfg = useCfg();
 const {oCfg} = storeToRefs(stCfg);	// 分割代入
 
+yup.setLocale({
+	mixed: {
+		required	: '必須入力項目です',
+		notOneOf	: 'あなたの作品情報に変更してください',
+	},
+	string: {
+		url		: 'URL形式ではありません',
+	}
+});
+
+
 const {value: v_save_ns, errorMessage: em_save_ns, meta: mv_save_ns} = useField<string>(
 	'oCfg.save_ns',
-	yup.string().required('必須の項目です')
+	yup.string().required()
 	.matches(/^[\w\.]+$/, '英数字か[_.]のみです')
-	.notOneOf(['hatsune', 'uc',], 'あなたの作品情報に変更してください'),
+	.notOneOf(['hatsune', 'uc']),
 	{initialValue: oCfg.value.save_ns},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_title, errorMessage: em_title, meta: mv_title} = useField<string>(
 	'oCfg.book.title',
-	yup.string().required('必須の項目です')
-	.notOneOf(['初音館にて', '桜の樹の下には',], 'あなたの作品情報に変更してください'),
+	yup.string().required()
+	.notOneOf(['初音館にて', '桜の樹の下には']),
 	{initialValue: oCfg.value.book.title},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_creator, errorMessage: em_creator, meta: mv_creator} = useField<string>(
 	'oCfg.book.creator',
-	yup.string().required('必須の項目です')
-	.notOneOf(['ふぁみべぇ'], 'あなたの作品情報に変更してください'),
+	yup.string().required()
+	.notOneOf(['ふぁみべぇ']),
 	{initialValue: oCfg.value.book.creator},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url} = useField<string>(
 	'oCfg.book.cre_url',
-	yup.string().required('必須の項目です').url('URL形式ではありません')
-	.notOneOf(
-		['https://twitter.com/famibee'], 'あなたの作品情報に変更してください'
+	yup.string().required()
+	.notOneOf(['https://twitter.com/famibee'])
+	.test(
+		'is-url_or_mail',
+		()=> 'URL（https:〜）かメールアドレスを指定してください',
+		(v = '')=> /https?:\/\//.test(v)
+			? yup.string().url().isValid(v)
+			: yup.string().email().isValid(v)
 	),
 	{initialValue: oCfg.value.book.cre_url},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_publisher, errorMessage: em_publisher, meta: mv_publisher} = useField<string>(
 	'oCfg.book.publisher',
-	yup.string().required('必須の項目です')
-	.notOneOf(['電子演劇部'], 'あなたの作品情報に変更してください'),
+	yup.string().required()
+	.notOneOf(['電子演劇部']),
 	{initialValue: oCfg.value.book.publisher},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url} = useField<string>(
 	'oCfg.book.pub_url',
-	yup.string().required('必須の項目です').url('URL形式ではありません')
-	.notOneOf(
-		['https://famibee.blog.fc2.com/'], 'あなたの作品情報に変更してください'
-	),
+	yup.string().required().url()
+	.notOneOf(['https://famibee.blog.fc2.com/']),
 	{initialValue: oCfg.value.book.pub_url},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_detail, errorMessage: em_detail, meta: mv_detail} = useField<string>(
 	'oCfg.book.detail',
-	yup.string().required('必須の項目です')
-	.notOneOf(
-		['江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。',
-		'梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。',],
-		'あなたの作品情報に変更してください'
-	),
+	yup.string().required()
+	.notOneOf([
+		'江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。',
+		'梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。'
+	]),
 	{initialValue: oCfg.value.book.detail},	// ブラウザテスト用、VSCodeで上書き
 );
 

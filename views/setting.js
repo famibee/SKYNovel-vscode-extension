@@ -292,8 +292,17 @@ const getGlobalThis = () => {
 let activeEffectScope;
 class EffectScope {
     constructor(detached = false) {
+        /**
+         * @internal
+         */
         this.active = true;
+        /**
+         * @internal
+         */
         this.effects = [];
+        /**
+         * @internal
+         */
         this.cleanups = [];
         if (!detached && activeEffectScope) {
             this.parent = activeEffectScope;
@@ -303,18 +312,27 @@ class EffectScope {
     }
     run(fn) {
         if (this.active) {
+            const currentEffectScope = activeEffectScope;
             try {
                 activeEffectScope = this;
                 return fn();
             }
             finally {
-                activeEffectScope = this.parent;
+                activeEffectScope = currentEffectScope;
             }
         }
     }
+    /**
+     * This should only be called on non-detached scopes
+     * @internal
+     */
     on() {
         activeEffectScope = this;
     }
+    /**
+     * This should only be called on non-detached scopes
+     * @internal
+     */
     off() {
         activeEffectScope = this.parent;
     }
@@ -2674,6 +2692,10 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
             const propsToUpdate = instance.vnode.dynamicProps;
             for (let i = 0; i < propsToUpdate.length; i++) {
                 let key = propsToUpdate[i];
+                // skip if the prop key is a declared emit event listener
+                if (isEmitListener(instance.emitsOptions, key)) {
+                    continue;
+                }
                 // PROPS flag guarantees rawProps to be non-null
                 const value = rawProps[key];
                 if (options) {
@@ -3018,7 +3040,8 @@ function withDirectives(vnode, directives) {
     if (internalInstance === null) {
         return vnode;
     }
-    const instance = internalInstance.proxy;
+    const instance = getExposeProxy(internalInstance) ||
+        internalInstance.proxy;
     const bindings = vnode.dirs || (vnode.dirs = []);
     for (let i = 0; i < directives.length; i++) {
         let [dir, value, arg, modifiers = EMPTY_OBJ] = directives[i];
@@ -3090,6 +3113,9 @@ function createAppContext() {
 let uid = 0;
 function createAppAPI(render, hydrate) {
     return function createApp(rootComponent, rootProps = null) {
+        if (!isFunction$3(rootComponent)) {
+            rootComponent = Object.assign({}, rootComponent);
+        }
         if (rootProps != null && !isObject$5(rootProps)) {
             rootProps = null;
         }
@@ -3229,6 +3255,9 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
                         if (!isArray$9(existing)) {
                             if (_isString) {
                                 refs[ref] = [refValue];
+                                if (hasOwn(setupState, ref)) {
+                                    setupState[ref] = refs[ref];
+                                }
                             }
                             else {
                                 ref.value = [refValue];
@@ -5093,9 +5122,10 @@ const PublicInstanceProxyHandlers = {
     },
     defineProperty(target, key, descriptor) {
         if (descriptor.get != null) {
-            this.set(target, key, descriptor.get(), null);
+            // invalidate key cache of a getter based property #5417
+            target.$.accessCache[key] = 0;
         }
-        else if (descriptor.value != null) {
+        else if (hasOwn(descriptor, 'value')) {
             this.set(target, key, descriptor.value, null);
         }
         return Reflect.defineProperty(target, key, descriptor);
@@ -5412,7 +5442,7 @@ function h(type, propsOrChildren, children) {
 }
 
 // Core API ------------------------------------------------------------------
-const version = "3.2.31";
+const version = "3.2.32";
 
 const svgNS = 'http://www.w3.org/2000/svg';
 const doc = (typeof document !== 'undefined' ? document : null);
@@ -14380,7 +14410,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
     const { value: v_creator, errorMessage: em_creator, meta: mv_creator } = useField("oCfg.book.creator", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["\u3075\u3041\u307F\u3079\u3047"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.creator });
     const { value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url } = useField("oCfg.book.cre_url", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").url("URL\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093").notOneOf(["https://twitter.com/famibee"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.cre_url });
     const { value: v_publisher, errorMessage: em_publisher, meta: mv_publisher } = useField("oCfg.book.publisher", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["\u96FB\u5B50\u6F14\u5287\u90E8"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.publisher });
-    const { value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url } = useField("oCfg.book.pub_url", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").url("URL\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093").notOneOf(["https://famibee.blog.fc2.com/"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"), { initialValue: oCfg.value.book.pub_url });
+    const { value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url } = useField("oCfg.book.pub_url", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf(["https://famibee.blog.fc2.com/"], "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044").test("is-james", () => "URL\uFF08https:\u301C\uFF09\u304B\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044", (v) => create$1().url().isValid(v) || create$1().matches(/^[a-zA-Z0-9_.+-]+@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}$/).isValid(v)), { initialValue: oCfg.value.book.pub_url });
     const { value: v_detail, errorMessage: em_detail, meta: mv_detail } = useField("oCfg.book.detail", create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").notOneOf([
       "\u6C5F\u6238\u5DDD\u4E71\u6B69\u300C\u5B64\u5CF6\u306E\u9B3C\u300D\u4E8C\u6B21\u5275\u4F5C\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u30B5\u30F3\u30D7\u30EB\u3067\u3059\u3002",
       "\u68B6\u4E95\u57FA\u6B21\u90CE\u300C\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F\u300D\u3092\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u5316\u3057\u305F\u3082\u306E\u3067\u3059\u3002"
@@ -14527,7 +14557,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
           }, null, 8, _hoisted_13$3)
         ], 2),
         createBaseVNode("div", {
-          class: normalizeClass(["col-6 px-1 py-3", { "was-validated": unref(mv_pub_url).valid }])
+          class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_pub_url).valid }])
         }, [
           _hoisted_14$3,
           createBaseVNode("div", _hoisted_15$3, [
