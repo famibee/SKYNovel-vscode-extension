@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {defineStore} from 'pinia';
-import {DEF_CNVMAT, DEF_CNVMAT4TST, DEF_FONTINF, T_A_FONTINF, T_CNVMAT, T_E2V_AFONTINFO, T_E2V_CNVMATINFO} from '../types';
+import {DEF_OPTIMG, DEF_OPTIMG4TST, DEF_CNVFONT, T_A_CNVFONT, T_OPTIMG, T_E2V_CNVFONT, T_E2V_OPTIMG, DEF_OPTSND, DEF_OPTSND4TST, T_OPTSND, T_E2V_OPTSND} from '../types';
 import {isVSCode, on} from './stVSCode';
 
 let init = false;
@@ -15,21 +15,24 @@ export const useOInfo = ()=> {
 	// 本来の store生成
 	const st = defineStore('OInfo', {
 		state	: ()=> ({
-			aFontInfo	: DEF_FONTINF,
-			oCnvMatInfo	: isVSCode ?DEF_CNVMAT :DEF_CNVMAT4TST,
+			aCnvFont	: DEF_CNVFONT,
+			oOptImg		: isVSCode ?DEF_OPTIMG :DEF_OPTIMG4TST,
+			oOptSnd		: isVSCode ?DEF_OPTSND :DEF_OPTSND4TST,
 		}),	// 初期値を返す関数
 	//	getters	: {},	// state 及び他の getter へのアクセスが可能
 		actions	: {	// State の更新
-			setAFontInfo(aFontInfo: T_A_FONTINF) {this.aFontInfo = aFontInfo;},
-			setCnvMatInfo(oCnvMatInfo: T_CNVMAT) {this.oCnvMatInfo = oCnvMatInfo;},
+			setACnvFont(aCnvFont: T_A_CNVFONT) {this.aCnvFont = aCnvFont;},
+			setOptImg(oOptImg: T_OPTIMG) {this.oOptImg = oOptImg;},
+			setOptSnd(oOptSnd: T_OPTSND) {this.oOptSnd = oOptSnd;},
 		},
 	})();
 
 	if (! init) {
 		init = true;
 		// 拡張機能メインから値取得
-		on('update.aFontInfo', (data: T_E2V_AFONTINFO)=> st.setAFontInfo(data.aFontInfo));
-		on('update.cnvMatInfo', (data: T_E2V_CNVMATINFO)=> st.setCnvMatInfo(data.oCnvMatInfo));
+		on('update.cnvFont', (d: T_E2V_CNVFONT)=> st.setACnvFont(d.aCnvFont));
+		on('update.optImg', (d: T_E2V_OPTIMG)=> st.setOptImg(d.oOptImg));
+		on('update.optSnd', (d: T_E2V_OPTSND)=> st.setOptSnd(d.oOptSnd));
 	}
 
 	return st;

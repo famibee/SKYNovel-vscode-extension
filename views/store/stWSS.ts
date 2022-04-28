@@ -7,12 +7,13 @@
 
 import {defineStore} from 'pinia';
 import {ref, toRaw} from 'vue';
-import {DEF_WSS, T_V2E_WSS, T_WSS} from '../types';
-import {cmd2Ex} from './stVSCode';
+import {DEF_WSS, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_WSS} from '../types';
+import {cmd2Ex, on} from './stVSCode';
 
 export const hDisabled = ref({
 	'cnv.font.subset'	: false,
 	'cnv.mat.pic'		: false,
+	'cnv.mat.snd'		: false,
 });
 
 export const useWss = defineStore('workspaceState', {
@@ -21,12 +22,26 @@ export const useWss = defineStore('workspaceState', {
 	actions	: {	// State の更新
 		init(oWss: T_WSS) {
 			this.oWss = oWss;
-
 			this.$subscribe(()=> {	// 状態が変化するたびに
 				if (hDisabled.value['cnv.font.subset']) return;
 				if (hDisabled.value['cnv.mat.pic']) return;
-				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss: toRaw(this.oWss)})
+				if (hDisabled.value['cnv.mat.snd']) return;
+				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss:toRaw(this.oWss)});
 			});
+
+			on('notice.Component', (d: T_E2V_NOTICE_COMPONENT)=> {
+				if (d.id === 'cnv.mat.snd.codec') return;
+
+				switch (d.mode) {
+				case 'wait':	hDisabled.value[d.id] = true;	break;
+
+				case 'cancel':
+					this.oWss[d.id] = ! this.oWss[d.id];
+					hDisabled.value[d.id] = false;
+					break;
+
+				case 'comp':	hDisabled.value[d.id] = false;	break;
+			}});
 		},
 	},
 });

@@ -15,7 +15,7 @@ import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
 import {ScriptScanner} from './ScriptScanner';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, ensureFileSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFile, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
 import {resolve, extname, parse} from 'path';
 import img_size from 'image-size';
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -92,7 +92,8 @@ export class Project {
 
 
 	readonly	#pathWs;
-	readonly	#fwPrjMatCnv;
+	readonly	#fwPrjOptPic;
+	readonly	#fwPrjOptSnd;
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
@@ -109,8 +110,11 @@ export class Project {
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.#curPrj +'*');
 		const fwStgSn = workspace.createFileSystemWatcher(this.#curPrj +'**/setting.sn');
-		this.#fwPrjMatCnv = workspace.createFileSystemWatcher(
+		this.#fwPrjOptPic = workspace.createFileSystemWatcher(
 			this.#pathWs +`/doc/{prj,${PrjSetting.fld_prj_base}}/**/*.{jpg,jpeg,png}`
+		);
+		this.#fwPrjOptSnd = workspace.createFileSystemWatcher(
+			this.#pathWs +`/doc/{prj,${PrjSetting.fld_prj_base}}/**/*.{mp3,wav}`
 		);
 		this.#aFSW = [
 			fwPrj.onDidCreate(uri=> {
@@ -142,9 +146,13 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			fwStgSn.onDidCreate(uri=> this.#ps.onCreSettingSn(uri.path)),
 			fwStgSn.onDidDelete(uri=> this.#ps.onDelSettingSn(uri.path)),
 
-			this.#fwPrjMatCnv.onDidCreate(uri=> this.#ps.onCreChgMatCnv(uri.path)),
-			this.#fwPrjMatCnv.onDidChange(uri=> this.#ps.onCreChgMatCnv(uri.path)),
-			this.#fwPrjMatCnv.onDidDelete(uri=> this.#ps.onDelMatCnv(uri.path)),
+			this.#fwPrjOptPic.onDidCreate(uri=> this.#ps.onCreChgOptPic(uri.path)),
+			this.#fwPrjOptPic.onDidChange(uri=> this.#ps.onCreChgOptPic(uri.path)),
+			this.#fwPrjOptPic.onDidDelete(uri=> this.#ps.onDelOptPic(uri.path)),
+
+			this.#fwPrjOptSnd.onDidCreate(uri=> this.#ps.onCreChgOptSnd(uri.path)),
+			this.#fwPrjOptSnd.onDidChange(uri=> this.#ps.onCreChgOptSnd(uri.path)),
+			this.#fwPrjOptSnd.onDidDelete(uri=> this.#ps.onDelOptSnd(uri.path)),
 		];
 
 		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
@@ -251,22 +259,37 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 			await this.#cnv_mat_pic(Boolean(val) ?'all' :'restore');
 			break;
-
 		case 'cnv.mat.webp_quality':
-			await this.#cnv_mat_pic(val);
+			if (! this.#ps.oWss['cnv.mat.pic']) break;
+
+			await this.#cnv_mat_pic('all_no_move');
+			break;
+
+		case 'cnv.mat.snd':
+			if (await window.showInformationMessage('音声ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+			await this.#cnv_mat_snd(Boolean(val) ?'all' :'restore');
+			break;
+		case 'cnv.mat.snd.codec':
+			if (! this.#ps.oWss['cnv.mat.snd']) break;
+
+			await this.#cnv_mat_snd('all_no_move');
 			break;
 		}
 
 		return true;
 	}
-	async #cnv_mat_pic(urlInp: string) {
-		await this.#exeTask(
-			'cnv_mat_pic',
-			`${urlInp
-			} ${this.#ps.oWss['cnv.mat.webp_quality']
-			} "${this.#curPrj}" "${this.#curPrjBase}"`,
-		);
-	}
+	readonly	#cnv_mat_pic = (pathInp: string)=> this.#exeTask(
+		'cnv_mat_pic',
+		`${pathInp
+		} ${this.#ps.oWss['cnv.mat.webp_quality']
+		} "${this.#curPrj}" "${this.#curPrjBase}"`,
+	);
+	readonly	#cnv_mat_snd = (pathInp: string)=> this.#exeTask(
+		'cnv_mat_snd',
+		`${pathInp} '{"codec":"${
+			this.#ps.oWss['cnv.mat.snd.codec']
+		}"}' "${this.#curPrj}" "${this.#curPrjBase}"`,
+	);
 
 	readonly	#hTask2Inf = {
 		'cut_round': {
@@ -284,8 +307,13 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			pathCpyTo	: 'build',
 			aNeedLib	: ['sharp'],
 		},
+		'cnv_mat_snd': {
+			title		: '音声ファイル最適化',
+			pathCpyTo	: 'build',
+			aNeedLib	: ['@ffmpeg-installer/ffmpeg','fluent-ffmpeg'],
+		},
 	};
-	#exeTask(nm: 'subsetFont'|'cut_round'|'cnv_mat_pic', arg: string): Promise<number> {
+	#exeTask(nm: 'subsetFont'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {
 		const inf = this.#hTask2Inf[nm];
 
 		return new Promise(fin=> window.withProgress({
@@ -788,22 +816,30 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 	static	readonly #LEN_ENC	= 1024 *10;
 			readonly #REG_DIR	= /(^.+)\//;
+	#tidDelay: NodeJS.Timer | null = null;
 	async #encFile(path_src: string) {
 		try {
 			const short_path = path_src.slice(this.#lenCurPrj);
 			const path_enc = this.#curCrypto + this.#hDiff[short_path].cn;
 			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
-				removeSync(path_enc);	// これがないとエラーが出るみたい
-				ensureLink(path_src, path_enc);
+				await remove(path_enc);	// これがないとエラーが出るみたい
+				await ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
 				return;
 			}
 
-			if (this.#REG_FULLCRYPTO.test(short_path)) {
-				let s = await readFile(path_src, {encoding: 'utf8'});
-				if (short_path === 'path.json') {	// 内容も変更
+			if (this.#REG_FULLCRYPTO.test(short_path)) {	// この中はSync
+				if (short_path !== 'path.json') {	// 内容も変更
+					const s = readFileSync(path_src, {encoding: 'utf8'});
+					outputFileSync(path_enc, this.#encry.enc(s));
+					return;
+				}
+
+				if (this.#tidDelay) clearTimeout(this.#tidDelay);	// 遅延
+				this.#tidDelay = setTimeout(()=> {
+					let s = readFileSync(path_src, {encoding: 'utf8'});
 					// ファイル名匿名化
 					const hPath: IFn2Path = JSON.parse(s);
 					for (const fn in hPath) {
@@ -819,15 +855,15 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 						}
 					}
 					s = JSON.stringify(hPath);
-				}
-				await outputFile(path_enc, this.#encry.enc(s));
+					outputFileSync(path_enc, this.#encry.enc(s));
+				}, 500);
 				return;
 			}
 
 			const dir = this.#REG_DIR.exec(short_path);
 			if (dir && this.#ps.cfg.code[dir[1]]) {
-				removeSync(path_enc);	// これがないとエラーが出るみたい
-				ensureLink(path_src, path_enc);
+				await remove(path_enc);	// これがないとエラーが出るみたい
+				await ensureLink(path_src, path_enc);
 				//.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
@@ -841,7 +877,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			bh[1] = this.#hExt2N[extname(short_path).slice(1)] ?? 0;
 
 			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
-			ensureFileSync(u2);	// touch
+			await ensureFile(u2);	// touch
 			const ws = createWriteStream(u2)
 			.on('error', e=> {
 				ws.destroy();
@@ -854,7 +890,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			const tr = new EncryptorTransform(this.#encry, path_src);
 			rs.pipe(tr).pipe(ws);
 		}
-		catch (e) {console.error(`encrypter other ${e.message}`);}
+		catch (e) {console.error(`encrypter other ${e.message} src:${path_src}`);}
 	}
 
 

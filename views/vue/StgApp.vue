@@ -1,50 +1,50 @@
 <template>
 <div class="row">
 
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_width.valid}">
-    <label for="book.width" class="form-label">アプリの横幅</label>
-    <input type="number" id="book.width" v-model="v_width" class="form-control form-control-sm" :class="{'is-invalid': !mv_width.valid}" @input="subscribe" placeholder="横幅ドット数" aria-label="アプリの横幅" aria-describedby="Width of application display area"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_width.valid}">
+	<label for="book.width" class="form-label">アプリの横幅</label>
+	<input type="number" id="book.width" v-model="v_width" class="form-control form-control-sm" :class="{'is-invalid': !mv_width.valid}" @input="subscribe" placeholder="横幅ドット数" aria-label="アプリの横幅" aria-describedby="Width of application display area"/>
 	<div class="invalid-feedback" v-text="em_width"></div>
 </div>
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_height.valid}">
-    <label for="book.height" class="form-label">アプリの縦幅</label>
-    <input type="number" id="book.height" v-model="v_height" class="form-control form-control-sm" :class="{'is-invalid': !mv_height.valid}" @input="subscribe" placeholder="縦幅ドット数" aria-label="アプリの縦幅" aria-describedby="Weight of application display area"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_height.valid}">
+	<label for="book.height" class="form-label">アプリの縦幅</label>
+	<input type="number" id="book.height" v-model="v_height" class="form-control form-control-sm" :class="{'is-invalid': !mv_height.valid}" @input="subscribe" placeholder="縦幅ドット数" aria-label="アプリの縦幅" aria-describedby="Weight of application display area"/>
 	<div class="invalid-feedback" v-text="em_height"></div>
 </div>
 
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_version.valid}">
-    <label for="book.version" class="form-label">バージョン</label>
-    <input type="text" id="book.version" v-model="v_version" class="form-control form-control-sm" :class="{'is-invalid': !mv_version.valid}" @input="subscribe" placeholder="1.0.0 など" aria-label="バージョン" aria-describedby="version"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_version.valid}">
+	<label for="book.version" class="form-label">バージョン</label>
+	<input type="text" id="book.version" v-model="v_version" class="form-control form-control-sm" :class="{'is-invalid': !mv_version.valid}" @input="subscribe" placeholder="1.0.0 など" aria-label="バージョン" aria-describedby="version"/>
 	<div class="invalid-feedback" v-text="em_version"></div>
 </div>
 
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_max_len.valid}">
-    <label for="book.max_len" class="form-label">ログ保存長</label>
-    <input type="number" id="book.max_len" v-model="v_max_len" class="form-control form-control-sm" :class="{'is-invalid': !mv_max_len.valid}" @input="subscribe" placeholder="何ページ分保存するか" aria-label="ログ保存長" aria-describedby="Log retention length"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_max_len.valid}">
+	<label for="book.max_len" class="form-label">ログ保存長</label>
+	<input type="number" id="book.max_len" v-model="v_max_len" class="form-control form-control-sm" :class="{'is-invalid': !mv_max_len.valid}" @input="subscribe" placeholder="何ページ分保存するか" aria-label="ログ保存長" aria-describedby="Log retention length"/>
 	<div class="invalid-feedback" v-text="em_max_len"></div>
 </div>
 
 <div class="col-12 px-1 pt-3"><h5>初期値</h5></div>
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_tagch_msecwait.valid}">
-    <label for="book.tagch_msecwait" class="form-label">文字表示待ち時間(ms)</label>
-    <input type="number" id="book.tagch_msecwait" v-model="v_tagch_msecwait" class="form-control form-control-sm" :class="{'is-invalid': !mv_tagch_msecwait.valid}" @input="subscribe" placeholder="ミリ秒単位で指定" aria-label="文字表示待ち時間(ms)" aria-describedby="Character display waiting time"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_tagch_msecwait.valid}">
+	<label for="book.tagch_msecwait" class="form-label">文字表示待ち時間(ms)</label>
+	<input type="number" id="book.tagch_msecwait" v-model="v_tagch_msecwait" class="form-control form-control-sm" :class="{'is-invalid': !mv_tagch_msecwait.valid}" @input="subscribe" placeholder="ミリ秒単位で指定" aria-label="文字表示待ち時間(ms)" aria-describedby="Character display waiting time"/>
 	<div class="invalid-feedback" v-text="em_tagch_msecwait"></div>
 </div>
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_auto_msecpagewait.valid}">
-    <label for="book.auto_msecpagewait" class="form-label">自動読み時文字表示待ち(ms)</label>
-    <input type="number" id="book.auto_msecpagewait" v-model="v_auto_msecpagewait" class="form-control form-control-sm" :class="{'is-invalid': !mv_auto_msecpagewait.valid}" @input="subscribe" placeholder="ミリ秒単位で指定" aria-label="自動読み時文字表示待ち時間(ms)" aria-describedby="Waiting time for character display during automatic reading"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_auto_msecpagewait.valid}">
+	<label for="book.auto_msecpagewait" class="form-label">自動読み時文字表示待ち(ms)</label>
+	<input type="number" id="book.auto_msecpagewait" v-model="v_auto_msecpagewait" class="form-control form-control-sm" :class="{'is-invalid': !mv_auto_msecpagewait.valid}" @input="subscribe" placeholder="ミリ秒単位で指定" aria-label="自動読み時文字表示待ち時間(ms)" aria-describedby="Waiting time for character display during automatic reading"/>
 	<div class="invalid-feedback" v-text="em_auto_msecpagewait"></div>
 </div>
 
-<div class="col-6 col-md-3 px-1 py-2" :class="{'was-validated': mv_escape.valid}">
-    <label for="book.escape" class="form-label">エスケープ文字</label>
-    <input type="text" id="book.escape" v-model="v_escape" class="form-control form-control-sm" :class="{'is-invalid': !mv_escape.valid}" @input="subscribe" placeholder="半角記号推奨" aria-label="エスケープ文字" aria-describedby="Escape character"/>
+<div class="col-6 col-sm-3 px-1 py-2" :class="{'was-validated': mv_escape.valid}">
+	<label for="book.escape" class="form-label">エスケープ文字</label>
+	<input type="text" id="book.escape" v-model="v_escape" class="form-control form-control-sm" :class="{'is-invalid': !mv_escape.valid}" @input="subscribe" placeholder="半角記号推奨" aria-label="エスケープ文字" aria-describedby="Escape character"/>
 	<div class="invalid-feedback" v-text="em_escape"></div>
 </div>
 
-<div class="col-6 col-md-3 px-1 py-2">
-    <label for="book.bg_color" class="form-label">背景色</label>
-    <input type="color" id="book.bg_color" v-model="v_bg_color" class="form-control form-control-sm form-control-color" @input="subscribe" aria-label="背景色" aria-describedby="Background color"/>
+<div class="col-6 col-sm-3 px-1 py-2">
+	<label for="book.bg_color" class="form-label">背景色</label>
+	<input type="color" id="book.bg_color" v-model="v_bg_color" class="form-control form-control-sm form-control-color" @input="subscribe" aria-label="背景色" aria-describedby="Background color"/>
 </div>
 
 </div>

@@ -1,3 +1,26 @@
+## v3.26.0
+- feat: 設定[音声最適化]タブを新設、音声コーデック変換・レポート表示機能
+	- opus (.m4a) Opus
+	- aac  (.aac) Advanced Audio Coding
+	- ogg  (.ogg) Vorbis
+	- ふりーむ！　でも許可されている拡張子、音声は「ogg/aac/m4a/mp3」のみ
+	- ブラウザサポート状況、現状では
+		- opusは Safariのみ「macOS 10.13.x High Sierra/iOS 11 or later.」
+			- https://caniuse.com/opus
+		- aac はフルサポート
+			- https://caniuse.com/aac
+		- ogg は Safariのみ「macOS 11.3 or later.」
+			- https://caniuse.com/?search=ogg
+		- avifは Safari だけがまったくサポートしない
+			- https://caniuse.com/avif
+- feat: 音声コーデック変換有効時にコーデック変更で自動実行
+- fix: 設定[画像最適化]タブを新設、WebP 変換関係を移動
+	- fix: 退避素材フォルダを削除しないように
+	- fix: 基本の変換画質変更後、ビューを非表示にして再表示すると 95 に戻ってしまう件
+- fix: 大量ファイル処理時の path.json 暗号化エラーを回避（遅延更新）
+- fix: (build.ts)前回のような更新ミス対策
+- fix: (src/webpack.config.js) を commonjs に修正
+- fix: リファクタリング
 ## v3.25.2
 - fix: 更新ミス
 ## v3.25.1

@@ -5,14 +5,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , urlInp, quality, curPrj, curPrjBase=''] = process.argv;
+const [, , pathInp, quality, curPrj, curPrjBase=''] = process.argv;
 
 const sharp = require('sharp');
 import {resolve, parse, basename} from 'path';
-import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, removeSync, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
-import {T_CNVMAT, T_CNVMAT_FILE} from '../../views/types';
+import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
+import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
 
-//import {foldProc, replaceFile} from '../CmnLib';
 const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
 	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
@@ -43,7 +42,6 @@ function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 
 const REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 // (jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)
-const REG_OPTITMD	= /\.webp$/;	// 最適化ファイル
 const REG_CNV_HTML	= /\.(htm|html)$/;
 const REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
 const REG_CNV_JSON	= /\.json$/;
@@ -52,7 +50,7 @@ const REG_REP_JSON2	= /webp","image_bkup":".+(jpe?g|png)"/;
 
 
 const fnLog = __filename +'on';
-let oLog: T_CNVMAT = {
+let oLog: T_OPTIMG = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
@@ -71,30 +69,30 @@ const a: (()=> Promise<void>)[] = [];
 
 /**
  * 
- * @param {string} urlInp	退避元パス (jpe?g|png)
- * @param {string} urlBase	退避先パス (jpe?g|png)
- * @param {string} no_move	moveする/しない
+ * @param {string} pathInp	退避元パス (jpe?g|png)
+ * @param {string} pathBase	退避先パス (jpe?g|png)
+ * @param {string} no_move	退避moveする/しない
  * @returns {void} 返り値
  */
-function cnv(urlInp: string, urlBase: string, no_move: string = ''): void {
+function cnv(pathInp: string, pathBase: string, no_move: string = ''): void {
 	a.push(
 		async ()=> {
-			if (no_move !== 'no_move') await move(urlInp, urlBase, {overwrite: true});
+			if (no_move !== 'no_move') await move(pathInp, pathBase, {overwrite: true});
 
 			// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-			const {dir, name, ext} = parse(urlInp);
-			const {dir: dirBase} = parse(urlBase);
-			const pathWork = dirBase +'/'+ name +'.webp';
+			const {dir, name, ext} = parse(pathInp);
+			const {dir: dirBase} = parse(pathBase);
+			const pathWk = dirBase +'/'+ name +'.webp';
 			const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
-			const info = await sharp(urlBase)
+			const info = await sharp(pathBase)
 			//.greyscale()	// TEST
 			.webp({quality: Number(fi.webp_q ?? quality)})
-			.toFile(pathWork);	// 一度作業中ファイルは退避先に作る
+			.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-			await move(pathWork, dir +'/'+ name +'.webp', {overwrite: true})
+			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
 
-			const baseSize = statSync(urlBase).size;
+			const baseSize = statSync(pathBase).size;
 			const webpSize = info.size;
 			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
 			oLog.sum.baseSize += baseSize;
@@ -103,21 +101,24 @@ function cnv(urlInp: string, urlBase: string, no_move: string = ''): void {
 	);
 }
 
-switch (urlInp) {
-	case 'restore':
-		// ファイル最適化 解除
-		foldProc(curPrj, ()=> {}, dir=> {
-			foldProc(resolve(curPrj, dir), (url, nm)=> {
-				// 最適化ファイルの削除
-				if (REG_OPTITMD.test(nm)) {
-					const base = resolve(curPrjBase, dir, nm).slice(0, -4);
-					['jpg','jpeg','png'].forEach(ext=> {
-						// 対応する素材ファイルが無い場合、削除しないように
-						if (existsSync(base + ext)) a.push(()=> remove(url));
-					});
+switch (pathInp) {
+	case 'restore':	// ファイル最適化 解除
+		foldProc(curPrjBase, ()=> {}, dir=> {
+			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
+				if (REG_CNV_WEBP.test(nm)) {
+					// 対応する素材ファイルが無い場合、削除しないように
+					const urlPrj = resolve(curPrj, dir, nm);
+					a.push(()=> move(url, urlPrj, {overwrite: true}));
+					const {name} = parse(nm);
+					const urlOut = resolve(curPrj, dir, name +'.webp');
+					a.push(()=> remove(urlOut));
 					return;
 				}
+			}, ()=> {});
+		});
 
+		foldProc(curPrj, ()=> {}, dir=> {
+			foldProc(resolve(curPrj, dir), (url, nm)=> {
 				// htm置換・(true/*WEBP*/)
 				if (REG_CNV_HTML.test(nm)) {
 					REG_REP_WEBPFLAG.lastIndex = 0;	// /gなので必要
@@ -126,6 +127,7 @@ switch (urlInp) {
 						REG_REP_WEBPFLAG,
 						'false/*WEBP*/',
 					));
+					return;
 				}
 
 				// json置換（アニメpng）
@@ -137,16 +139,7 @@ switch (urlInp) {
 			}, ()=> {});
 		});
 
-		// 退避素材戻し
-		foldProc(curPrjBase, ()=> {}, dir=> {
-			const urlCurPrj = resolve(curPrj, dir);
-			foldProc(resolve(curPrjBase, dir), (url, nm)=> a.push(
-				()=> move(url, resolve(urlCurPrj, nm), {overwrite: true})
-			), ()=> {});
-		});
-
 		Promise.allSettled(a.map(t=> t()))
-		.then(()=> removeSync(curPrjBase))	// 退避素材フォルダ削除
 		.then(()=> log_exit(0));
 		break;
 
@@ -173,8 +166,7 @@ switch (urlInp) {
 		.then(()=> log_exit(0));
 		break;
 
-	case 'all':{
-		// ファイル最適化
+	case 'all':{	// ファイル最適化
 		ensureDir(curPrjBase);
 		foldProc(curPrj, ()=> {}, dir=> {
 			const wdBase = resolve(curPrjBase, dir);
@@ -206,8 +198,8 @@ switch (urlInp) {
 	default:{
 		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
 
-		const {dir, name, ext} = parse(urlInp);
-		const o: T_CNVMAT_FILE = {
+		const {dir, name, ext} = parse(pathInp);
+		const o: T_OPTIMG_FILE = {
 			...oLog.hSize[name],
 			fld_nm	: basename(dir) +'/'+ name,
 			ext		: <any>ext.slice(1),
@@ -219,7 +211,7 @@ switch (urlInp) {
 			// 第一引数（退避元パス）
 			// 第三引数（退避先パス）
 			// 第四引数（moveする/しない）
-		cnv(urlInp, curPrj, curPrjBase);
+		cnv(pathInp, curPrj, curPrjBase);
 
 		Promise.allSettled(a.map(t=> t()))
 		.then(()=> log_exit(0));

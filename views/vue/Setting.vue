@@ -33,9 +33,11 @@
 <script setup lang="ts">
 import StgBasic from './StgBasic.vue'
 import StgApp from './StgApp.vue'
-import StgPkg from './StgPkg.vue'
 import StgTemp from './StgTemp.vue'
 import StgDebug from './StgDebug.vue'
+import StgImgOpt from './StgImgOpt.vue'
+import StgSndOpt from './StgSndOpt.vue'
+import StgPkg from './StgPkg.vue'
 
 import {useVSCode} from '../store/stVSCode';
 import {storeToRefs} from 'pinia';
@@ -48,9 +50,11 @@ type T_TAB = {id: string, nm: string, cmp: any,}
 const aTab: T_TAB[] = [
 	{id: 'basic',	nm: '基本情報',		cmp: StgBasic},
 	{id: 'app',		nm: 'アプリ',		cmp: StgApp},
-	{id: 'package',	nm: 'パッケージ',	cmp: StgPkg},
 	{id: 'temp',	nm: 'テンプレ',		cmp: StgTemp},
 	{id: 'debug',	nm: 'デバッグ',		cmp: StgDebug},
+	{id: 'imgopt',	nm: '画像最適化',	cmp: StgImgOpt},
+	{id: 'sndopt',	nm: '音声最適化',	cmp: StgSndOpt},
+	{id: 'pkg',		nm: 'パッケージ',	cmp: StgPkg},
 ];
 
 </script>

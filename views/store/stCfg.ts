@@ -24,7 +24,6 @@ export const useCfg = defineStore('doc/prj/prj.json', {
 			this.$subscribe(()=> this.subscribe(toRaw(this.oCfg)));
 			// 拡張機能メインから値取得	// 必ず this.$subscribe()以後に
 			on('update.oCfg', (data: T_E2V_CFG)=> this.oCfg = data.oCfg);
-
 		},
 		// useField を使うと $subscribe が効かない
 		subscribe(oCfg: T_CFG) {cmd2Ex(<T_E2V_CFG>{cmd:'update.oCfg', oCfg})},

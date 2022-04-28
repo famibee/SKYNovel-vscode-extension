@@ -10,6 +10,8 @@ export type T_WSS = {
 	'cnv.icon.cut_round'	: boolean,
 	'cnv.mat.pic'			: boolean,
 	'cnv.mat.webp_quality'	: number,
+	'cnv.mat.snd'			: boolean,
+	'cnv.mat.snd.codec'		: string,
 };
 
 export const DEF_WSS: T_WSS = {
@@ -17,6 +19,8 @@ export const DEF_WSS: T_WSS = {
 	'cnv.icon.cut_round'	: false,
 	'cnv.mat.pic'			: false,
 	'cnv.mat.webp_quality'	: 90,
+	'cnv.mat.snd'			: false,
+	'cnv.mat.snd.codec'		: 'opus',
 };
 
 
@@ -131,41 +135,41 @@ export const DEF_CFG4TST: T_CFG = {
 };
 
 
-export type T_A_FONTINF = {
+export type T_A_CNVFONT = {
 	nm		: string;
 	mes		: string;
 	iSize	: number;
 	oSize	: number;
 }[];
 
-export const DEF_FONTINF: T_A_FONTINF = [
+export const DEF_CNVFONT: T_A_CNVFONT = [
 	{nm: 'KFhimajihoso', mes: 'PATH_USER_FONTS', iSize: 10000, oSize: 3000,},
 	{nm: 'ipamjm', mes: 'PATH_PRJ_FONTS', iSize: 20000, oSize: 4000,},
 ];
 
 
-export type T_CNVMAT_FILE = {
+export type T_OPTIMG_FILE = {
 	baseSize	: number;
 	webpSize	: number;
 	fld_nm		: string,
 	ext			: 'jpg'|'jpeg'|'png';
 	webp_q?		: number;
 };
-export type T_CNVMAT_FILE_AND_KEY = {
+export type T_OPTIMG_FILE_AND_KEY = {
 	nm		: string,
 	id		: string,
-} & T_CNVMAT_FILE;
-export type T_CNVMAT = {
+} & T_OPTIMG_FILE;
+export type T_OPTIMG = {
 	sum: {
 		baseSize		: number;
 		webpSize		: number;
 		pathImgCmpWebP	: string,
 		pathImgCmpBase	: string,
 	},
-	hSize: {[fn: string]: T_CNVMAT_FILE},
+	hSize: {[fn: string]: T_OPTIMG_FILE},
 };
 
-export const DEF_CNVMAT: T_CNVMAT = {
+export const DEF_OPTIMG: T_OPTIMG = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
@@ -174,7 +178,7 @@ export const DEF_CNVMAT: T_CNVMAT = {
 	},
 	hSize	: {},
 };
-export const DEF_CNVMAT4TST: T_CNVMAT = {
+export const DEF_OPTIMG4TST: T_OPTIMG = {
 	sum: {
 		baseSize		: 4510000,
 		webpSize		: 1550000,
@@ -185,6 +189,51 @@ export const DEF_CNVMAT4TST: T_CNVMAT = {
 		'title_base'	: {baseSize: 6000, webpSize: 1000, fld_nm: 'test/title_base', ext: 'jpg'},
 		'breakpage_b'	: {baseSize: 6002, webpSize: 3000, fld_nm: 'test/breakpage_b', ext: 'png', webp_q: 45,},
 		'breakline.5x20': {baseSize: 6001, webpSize: 2000, fld_nm: 'test/breakline.5x20', ext: 'png'},
+	},
+};
+
+
+export type T_OPTSND_FILE = {
+	baseSize	: number;
+	optSize		: number;
+	fld_nm		: string,
+	ext			: 'mp4'|'wav';	// mp3|opus|m4a|ogg|aac|flac|wav
+//	webp_q?		: number;
+};
+export type T_OPTSND_FILE_AND_KEY = {
+	nm		: string,
+	id		: string,
+} & T_OPTSND_FILE;
+export type T_OPTSND = {
+	sum: {
+		baseSize	: number;
+		optSize		: number;
+		pathSndOpt	: string,
+		pathSndBase	: string,
+	},
+	hSize: {[fn: string]: T_OPTSND_FILE},
+};
+
+export const DEF_OPTSND: T_OPTSND = {
+	sum: {
+		baseSize	: 0,
+		optSize		: 0,
+		pathSndOpt	: '',
+		pathSndBase	: '',
+	},
+	hSize	: {},
+};
+export const DEF_OPTSND4TST: T_OPTSND = {
+	sum: {
+		baseSize	: 4510001,
+		optSize		: 1550001,
+		pathSndOpt	: '../',
+		pathSndBase	: '../',
+	},
+	hSize: {	// ソートテストのため、わざとソートを乱す
+		'free0509'	: {baseSize: 4000, optSize: 1010, fld_nm: 'test/free0509', ext: 'wav'},
+		'bow'	: {baseSize: 4002, optSize: 3010, fld_nm: 'test/bow', ext: 'mp4',},
+		'wood04': {baseSize: 4001, optSize: 2010, fld_nm: 'test/wood04', ext: 'wav'},
 	},
 };
 
@@ -232,19 +281,23 @@ export type T_E2V_CFG = {
 	oCfg	: T_CFG;
 }
 
-export type T_E2V_AFONTINFO = {
-	cmd			: 'update.aFontInfo';
-	aFontInfo	: T_A_FONTINF;
+export type T_E2V_CNVFONT = {
+	cmd			: 'update.cnvFont';
+	aCnvFont	: T_A_CNVFONT;
 };
-
-export type T_E2V_CNVMATINFO = {
-	cmd			: 'update.cnvMatInfo';
-	oCnvMatInfo	: T_CNVMAT;
+export type T_E2V_OPTIMG = {
+	cmd			: 'update.optImg';
+	oOptImg		: T_OPTIMG;
+};
+export type T_E2V_OPTSND = {
+	cmd			: 'update.optSnd';
+	oOptSnd		: T_OPTSND;
 };
 
 export type T_E2V_NOTICE_COMPONENT = {
 	cmd		: 'notice.Component',
-	id		: 'cnv.font.subset'|'cnv.mat.pic',
+	id		: 'cnv.font.subset'|'cnv.mat.pic'
+			|'cnv.mat.snd'|'cnv.mat.snd.codec',
 	mode	: 'wait'|'comp'|'cancel';
 };
 
@@ -286,6 +339,7 @@ export type T_E2V_SELECT_ICON_INFO = {
 
 export type T_E2V_CHG_RANGE_WEBP_Q_DEF = {
 	cmd		: 'change.range.webp_q_def';
+	webp_q	: number;
 };
 
 export type T_E2V_CHG_RANGE_WEBP_Q = {

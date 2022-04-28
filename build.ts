@@ -7,6 +7,7 @@
 
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch');
+const production = aCmd.includes('--production');
 
 import {build} from 'esbuild';
 
@@ -25,6 +26,8 @@ build({
 //	treeShaking	: true,		// 省略可
 	sourcemap	: true,
 //	minify		: true,
+//	minify		: production,
+	format		: 'cjs',		// Node.js の仕様
 	watch,
 	logLevel	: 'info',	// default log level when using the CLI.
 });
@@ -32,12 +35,14 @@ build({
 // === vue ===
 vite({
 	root	: './views/',
+//x	define	: {'process.env.NODE_ENV': 'production',},
 	build: {
 		lib: {
 			entry	: './setting.ts',
 			fileName: _=> 'setting.js',
 			formats	: ['es'],
 		},
+		minify	: production ?'terser' :false,
 		watch	: watch ?{} :null,
 		outDir		: './',	// rootからの相対
 		emptyOutDir	: false,
@@ -71,6 +76,7 @@ build({
 		'./src/batch/subset_font',
 		'./src/batch/cut_round',
 		'./src/batch/cnv_mat_pic',
+		'./src/batch/cnv_mat_snd',
 	],
 	outdir		: 'dist',
 	minify		: true,

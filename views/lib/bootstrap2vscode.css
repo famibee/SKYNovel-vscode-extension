@@ -83,7 +83,7 @@ input.form-control, textarea.form-control,
 input.form-control:focus, textarea.form-control:focus {
 	color: var(--vscode-input-foreground, #ccc);
 	background-color: var(--vscode-input-background, #3c3c3c);
-	border: solid var(--vscode-input-border);
+	border: solid var(--vscode-input-border, #fff);
 }
 
 /* select */
@@ -97,9 +97,10 @@ input.form-control:focus, textarea.form-control:focus {
 }
 select.form-select {
 	background-image: none;
-	color: var(--vscode-dropdown-foreground);
-	background-color: var(--vscode-dropdown-background);
-	border: solid var(--vscode-input-border);
+	color: var(--vscode-dropdown-foreground, #ccc);
+	background-color: var(--vscode-dropdown-background, #3c3c3c);
+	border: thin solid var(--vscode-input-border, #fff);
+    border-radius: 0.5em;
 }
 
 /* button */
