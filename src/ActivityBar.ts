@@ -395,6 +395,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// package.json
 				const oNewPkgJS = readJsonSync(fnFrom +'/package.json', {encoding: 'utf8'});
+				if (oOldPkgJS.dependencies['@famibee/skynovel'].slice(0, 8) === 'file:../') {
+					oNewPkgJS.dependencies['@famibee/skynovel'] =
+					oOldPkgJS.dependencies['@famibee/skynovel'];
+				}
 				outputJsonSync(fnTo +'/package.json', {
 					...oOldPkgJS,
 					dependencies	: oNewPkgJS.dependencies,

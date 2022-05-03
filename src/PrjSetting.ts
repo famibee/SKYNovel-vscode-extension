@@ -529,7 +529,11 @@ export class PrjSetting {
 			const aP: (()=> Promise<void>)[] = [];
 			for (const id in e.oWss) {
 				const val = (<any>e.oWss)[id];
+				const old_val = (<any>this.#oWss)[id];
+				if (old_val == val) continue;
+
 				this.#wss.update(id, val);
+				(<any>this.#oWss)[id] = val;
 				switch (id) {
 					case 'cnv.font.subset'		: break;
 				//	case 'cnv.icon.cut_round'	: continue;
@@ -539,9 +543,6 @@ export class PrjSetting {
 					case 'cnv.mat.snd.codec'	: break;
 					default:	continue;
 				}
-				const old_val = this.#oWss[id];
-				if (old_val == val) continue;
-				(<any>this.#oWss[id]) = e.oWss[id];
 
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
 				this.#cmd2Vue(o);

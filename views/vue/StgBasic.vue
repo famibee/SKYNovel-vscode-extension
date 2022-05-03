@@ -96,7 +96,7 @@ const {value: v_creator, errorMessage: em_creator, meta: mv_creator} = useField<
 const {value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url} = useField<string>(
 	'oCfg.book.cre_url',
 	yup.string().required()
-	.notOneOf(['https://twitter.com/famibee'])
+	.notOneOf(['https://twitter.com/famibee','https://twitter.com/ugainovel'])
 	.test(
 		'is-url_or_mail',
 		()=> 'URL（https:〜）かメールアドレスを指定してください',
@@ -116,7 +116,7 @@ const {value: v_publisher, errorMessage: em_publisher, meta: mv_publisher} = use
 const {value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url} = useField<string>(
 	'oCfg.book.pub_url',
 	yup.string().required().url()
-	.notOneOf(['https://famibee.blog.fc2.com/']),
+	.notOneOf(['https://famibee.blog.fc2.com/','https://ugainovel.blog.fc2.com/']),
 	{initialValue: oCfg.value.book.pub_url},	// ブラウザテスト用、VSCodeで上書き
 );
 
