@@ -31,7 +31,6 @@ export class PrjSetting {
 	readonly	#localExtensionResRoots: Uri;
 
 				#htmSrc	= '';
-	readonly	#pathIcon	: string;
 
 	readonly	#fnOptPic	: string;
 	readonly	#fnOptSnd	: string;
@@ -61,7 +60,6 @@ export class PrjSetting {
 		+'/';
 		this.#lenPrjBase = this.#fnPrjBase.length;
 
-		this.#pathIcon = 'https://file+.vscode-resource.vscode-webview.net'+ this.#pathWs +'/build/icon.png';
 		this.#fnReadme4Freem = this.#pathWs +'/build/include/readme.txt';
 		const path_ext = ctx.extensionPath;
 		if (! existsSync(this.#fnReadme4Freem)) a.push(async ()=> {
@@ -390,6 +388,8 @@ export class PrjSetting {
 	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
 	#cmd2Vue = (mes: any)=> {};
+	#wvuWs		: Uri;
+	#pathIcon	: string;
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
@@ -409,10 +409,13 @@ export class PrjSetting {
 			],
 		});
 		p.onDidDispose(()=> this.#pnlWV = undefined, undefined, this.ctx.subscriptions);
+		const wv = this.#pnlWV!.webview;
+		this.#wvuWs = wv.asWebviewUri(Uri.file(this.#pathWs));
+		this.#pathIcon = `${this.#wvuWs}/build/icon.png`;
 
 		const {username} = userInfo();
-		this.#cmd2Vue = (mes: any)=> p.webview.postMessage(mes);
-		p.webview.onDidReceiveMessage(m=> {switch (m.cmd) {
+		this.#cmd2Vue = (mes: any)=> wv.postMessage(mes);
+		wv.onDidReceiveMessage(m=> {switch (m.cmd) {
 		case '?':
 			this.#cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
@@ -689,8 +692,8 @@ export class PrjSetting {
 			cmd: 'update.optImg',
 			oOptImg: <T_OPTIMG>{...this.#oOptPic, sum: {
 				...this.#oOptPic.sum,
-				pathImgCmpWebP: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrj,
-				pathImgCmpBase: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrjBase,
+				pathImgCmpWebP	: this.#wvuWs +'/doc/prj/',
+				pathImgCmpBase	: this.#wvuWs +`/doc/`+ PrjSetting.fld_prj_base +'/',
 			}},
 		});
 	}
@@ -699,8 +702,8 @@ export class PrjSetting {
 			cmd: 'update.optSnd',
 			oOptSnd: <T_OPTSND>{...this.#oOptSnd, sum: {
 				...this.#oOptSnd.sum,
-				pathSndOpt: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrj,
-				pathSndBase: 'https://file+.vscode-resource.vscode-webview.net'+ this.#fnPrjBase,
+				pathSndOpt	: this.#wvuWs +'/doc/prj/',
+				pathSndBase	: this.#wvuWs +'/doc/'+ PrjSetting.fld_prj_base +'/',
 			}},
 		});
 	}

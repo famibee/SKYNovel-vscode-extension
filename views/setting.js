@@ -4791,7 +4791,7 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.13
+  * pinia v2.0.14
   * (c) 2022 Eduardo San Martin Morote
   * @license MIT
   */
@@ -4902,7 +4902,7 @@ function createOptionsStore(id, options, pinia, hot) {
       return computedGetters;
     }, {}));
   }
-  store = createSetupStore(id, setup, options, pinia);
+  store = createSetupStore(id, setup, options, pinia, hot, true);
   store.$reset = function $reset() {
     const newState = state ? state() : {};
     this.$patch(($state) => {
@@ -4911,9 +4911,8 @@ function createOptionsStore(id, options, pinia, hot) {
   };
   return store;
 }
-function createSetupStore($id, setup, options = {}, pinia, hot) {
+function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) {
   let scope;
-  const buildState = options.state;
   const optionsForPlugin = assign({ actions: {} }, options);
   const $subscribeOptions = {
     deep: true
@@ -4924,12 +4923,13 @@ function createSetupStore($id, setup, options = {}, pinia, hot) {
   let actionSubscriptions = markRaw([]);
   let debuggerEvents;
   const initialState = pinia.state.value[$id];
-  if (!buildState && !initialState && true) {
+  if (!isOptionsStore && !initialState && true) {
     {
       pinia.state.value[$id] = {};
     }
   }
   ref({});
+  let activeListener;
   function $patch(partialStateOrMutator) {
     let subscriptionMutation;
     isListening = isSyncListening = false;
@@ -4949,8 +4949,11 @@ function createSetupStore($id, setup, options = {}, pinia, hot) {
         events: debuggerEvents
       };
     }
+    const myListenerId = activeListener = Symbol();
     nextTick().then(() => {
-      isListening = true;
+      if (activeListener === myListenerId) {
+        isListening = true;
+      }
     });
     isSyncListening = true;
     triggerSubscriptions(subscriptions, subscriptionMutation, pinia.state.value[$id]);
@@ -5031,7 +5034,7 @@ function createSetupStore($id, setup, options = {}, pinia, hot) {
   for (const key in setupStore) {
     const prop = setupStore[key];
     if (isRef(prop) && !isComputed(prop) || isReactive(prop)) {
-      if (!buildState) {
+      if (!isOptionsStore) {
         if (initialState && shouldHydrate(prop)) {
           if (isRef(prop)) {
             prop.value = initialState[key];
@@ -5074,7 +5077,7 @@ function createSetupStore($id, setup, options = {}, pinia, hot) {
       })));
     }
   });
-  if (initialState && buildState && options.hydrate) {
+  if (initialState && isOptionsStore && options.hydrate) {
     options.hydrate(store.$state, initialState);
   }
   isListening = true;

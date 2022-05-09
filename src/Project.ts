@@ -98,10 +98,58 @@ export class Project {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
+		this.#lenCurPrj = this.#curPrj.length;
+			// 遅らせると core/diff.json 生成でトラブル。0状態で処理してしまう
 		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj, (nm, val)=> this.#cmd(nm, val));
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
+
+		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
+		this.#isCryptoMode = existsSync(this.#curCrypto);
+		const fnPass = this.#pathWs +'/pass.json';
+		const exists_pass = existsSync(fnPass);
+		this.#encry = new Encryptor(exists_pass
+			? readJsonSync(fnPass, {throws: false})
+			: {
+				pass	: uuidv4(),
+				salt	: String(lib.WordArray.random(128 / 8)),
+				iv		: String(lib.WordArray.random(128 / 8)),
+				keySize	: String(512 / 32),
+				ite		: 500 + Math.floor(new Date().getTime() %300),
+				stk		: String(lib.WordArray.random(128 / 8)),
+			});
+		if (! exists_pass) outputFileSync(fnPass, this.#encry.strHPass);
+
+		try {
+			this.#fnDiff = this.#pathWs +'/core/diff.json';
+			if (existsSync(this.#fnDiff)) this.#hDiff = readJsonSync(this.#fnDiff);
+		} catch (e) {
+			// diff破損対策
+			this.#hDiff = Object.create(null);
+		}
+		this.#ps = new PrjSetting(
+			ctx,
+			wsFld,
+			title=> {
+				pti.label = title;
+				this.emPrjTD.fire(pti);
+			},
+			this.#codSpt,
+			(nm, val)=> this.#cmd(nm, val),
+			(nm, arg)=> this.#exeTask(nm, arg),
+			this.#curPrjBase,
+		);
+		this.#initCrypto();
+
+		this.#curPlg = this.#pathWs +'/core/plugin/';
+		ensureDirSync(this.#curPlg);	// 無ければ作る
+		// updPlugin で goAll() が走る
+		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
+		else {
+			this.build();
+			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+		}
 
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.#curPrj +'*/*');
@@ -155,52 +203,6 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			this.#fwPrjOptSnd.onDidDelete(uri=> this.#ps.onDelOptSnd(uri.path)),
 		];
 
-		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
-		this.#isCryptoMode = existsSync(this.#curCrypto);
-		const fnPass = this.#pathWs +'/pass.json';
-		const exists_pass = existsSync(fnPass);
-		this.#encry = new Encryptor(exists_pass
-			? readJsonSync(fnPass, {throws: false})
-			: {
-				pass	: uuidv4(),
-				salt	: String(lib.WordArray.random(128 / 8)),
-				iv		: String(lib.WordArray.random(128 / 8)),
-				keySize	: String(512 / 32),
-				ite		: 500 + Math.floor(new Date().getTime() %300),
-				stk		: String(lib.WordArray.random(128 / 8)),
-			});
-		if (! exists_pass) outputFileSync(fnPass, this.#encry.strHPass);
-
-		try {
-			this.#fnDiff = this.#pathWs +'/core/diff.json';
-			if (existsSync(this.#fnDiff)) this.#hDiff = readJsonSync(this.#fnDiff);
-		} catch (e) {
-			// diff破損対策
-			this.#hDiff = Object.create(null);
-		}
-		this.#ps = new PrjSetting(
-			ctx,
-			wsFld,
-			title=> {
-				pti.label = title;
-				this.emPrjTD.fire(pti);
-			},
-			this.#codSpt,
-			(nm, val)=> this.#cmd(nm, val),
-			(nm, arg)=> this.#exeTask(nm, arg),
-			this.#curPrjBase,
-		);
-		this.#initCrypto();
-
-		this.#curPlg = this.#pathWs +'/core/plugin/';
-		ensureDirSync(this.#curPlg);	// 無ければ作る
-		// updPlugin で goAll() が走る
-		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
-		else {
-			this.build();
-			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
-		}
-
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
@@ -222,7 +224,6 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		};
 		this.dspCryptoMode();
 
-		this.#lenCurPrj = this.#curPrj.length;
 		this.#updPathJson();
 
 		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
@@ -824,7 +825,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
 				await remove(path_enc);	// これがないとエラーが出るみたい
 				await ensureLink(path_src, path_enc);
-				//.catch((e: any)=> console.error(`encrypter cp1 ${e}`));
+				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
 				return;
@@ -864,7 +865,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			if (dir && this.#ps.cfg.code[dir[1]]) {
 				await remove(path_enc);	// これがないとエラーが出るみたい
 				await ensureLink(path_src, path_enc);
-				//.catch((e: any)=> console.error(`encrypter cp2 ${e}`));
+				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
 				return;
@@ -879,18 +880,15 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
 			await ensureFile(u2);	// touch
 			const ws = createWriteStream(u2)
-			.on('error', e=> {
-				ws.destroy();
-				console.error(`encrypter ws=%o`, e);
-			});
+			.on('error', e=> {ws.destroy(); console.error(`enc ws=%o`, e);});
 
 			const rs = createReadStream(path_src)
-			.on('error', e=> console.error(`encrypter rs=%o`, e));
+			.on('error', e=> console.error(`enc rs=%o`, e));
 
 			const tr = new EncryptorTransform(this.#encry, path_src);
 			rs.pipe(tr).pipe(ws);
 		}
-		catch (e) {console.error(`encrypter other ${e.message} src:${path_src}`);}
+		catch (e) {console.error(`enc other ${e.message} src:${path_src}`);}
 	}
 
 

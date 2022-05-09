@@ -1,3 +1,7 @@
+## v3.26.2
+- fix: VSCode更新により WebView上でプロジェクト内画像が見えなくなっていた件
+- fix: core/diff.json 生成でデータが異常な場合がある件
+- fix: src/Project.ts 初期化プロセス修正
 ## v3.26.1
 - fix: 設定[パッケージ]「丸く切り抜く」チェックボタンなどが効いてない件
 - fix: 【ベース更新】機能で dependencies['@famibee/skynovel'] が 'file:../' で始まる場合にノータッチとするように
