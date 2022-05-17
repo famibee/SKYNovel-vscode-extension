@@ -1,3 +1,5 @@
+## v3.26.3
+- fix: [button][link] の hint関連の属性変更に対応
 ## v3.26.2
 - fix: VSCode更新により WebView上でプロジェクト内画像が見えなくなっていた件
 - fix: core/diff.json 生成でデータが異常な場合がある件
