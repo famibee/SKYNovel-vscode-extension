@@ -42,9 +42,11 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 			{label: 'glTF Tools', icon: 'gear', url: 'https://marketplace.visualstudio.com/items?itemName=cesium.gltf-vscode'},
 		]},
 	];
-	readonly	#aTiRoot	= this.#generate('doc', this.#aTreeTmp);
+	readonly	#aTiRoot: TreeItem[];
 
-	constructor(private readonly ctx: ExtensionContext) {}
+	constructor(private readonly ctx: ExtensionContext) {
+		this.#aTiRoot = this.#generate('doc', this.#aTreeTmp);
+	}
 
 	#generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
 		return aTi.map((o, idx)=> {

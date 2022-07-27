@@ -63,17 +63,17 @@ import {toRaw} from 'vue';
 const stCfg = useCfg();
 const {oCfg} = storeToRefs(stCfg);	// 分割代入
 
-const {value: v_width, errorMessage: em_width, meta: mv_width} = useField<string>(
+const {value: v_width, errorMessage: em_width, meta: mv_width} = useField<number>(
 	'oCfg.window.width',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(300, '最小値 300 以上にして下さい'),
-	{initialValue: String(oCfg.value.window.width)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.window.width},	// ブラウザテスト用、VSCodeで上書き
 );
-const {value: v_height, errorMessage: em_height, meta: mv_height} = useField<string>(
+const {value: v_height, errorMessage: em_height, meta: mv_height} = useField<number>(
 	'oCfg.window.height',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(300, '最小値 300 以上にして下さい'),
-	{initialValue: String(oCfg.value.window.height)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.window.height},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_version, errorMessage: em_version, meta: mv_version} = useField<string>(
@@ -83,49 +83,50 @@ const {value: v_version, errorMessage: em_version, meta: mv_version} = useField<
 	{initialValue: oCfg.value.book.version},	// ブラウザテスト用、VSCodeで上書き
 );
 
-const {value: v_max_len, errorMessage: em_max_len, meta: mv_max_len} = useField<string>(
+const {value: v_max_len, errorMessage: em_max_len, meta: mv_max_len} = useField<number>(
 	'oCfg.window.max_len',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(10, '最小値 10 以上にして下さい'),
-	{initialValue: String(oCfg.value.log.max_len)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.log.max_len},	// ブラウザテスト用、VSCodeで上書き
 );
 
-const {value: v_tagch_msecwait, errorMessage: em_tagch_msecwait, meta: mv_tagch_msecwait} = useField<string>(
+const {value: v_tagch_msecwait, errorMessage: em_tagch_msecwait, meta: mv_tagch_msecwait} = useField<number>(
 	'oCfg.window.tagch_msecwait',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(1, '最小値 1 以上にして下さい'),
-	{initialValue: String(oCfg.value.init.tagch_msecwait)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init.tagch_msecwait},	// ブラウザテスト用、VSCodeで上書き
 );
-const {value: v_auto_msecpagewait, errorMessage: em_auto_msecpagewait, meta: mv_auto_msecpagewait} = useField<string>(
+const {value: v_auto_msecpagewait, errorMessage: em_auto_msecpagewait, meta: mv_auto_msecpagewait} = useField<number>(
 	'oCfg.window.auto_msecpagewait',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(1, '最小値 1 以上にして下さい'),
-	{initialValue: String(oCfg.value.init.auto_msecpagewait)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init.auto_msecpagewait},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_escape, errorMessage: em_escape, meta: mv_escape} = useField<string>(
 	'oCfg.escape',
-	yup.string().matches(/^[^ &()*;[\]]*$/, '推奨されない文字です'),
+	yup.string().ensure().matches(/^[^ &()*;[\]]*$/, '推奨されない文字です'),
+//	.matches(/^[^ &()*;[\]]*$/, {message: '推奨されない文字です',excludeEmptyString: true}),
 	{initialValue: oCfg.value.init.escape},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_bg_color} = useField<string>(
 	'oCfg.window.bg_color',
 	yup.string().required('必須の項目です').matches(/#\d{6}/, '#000000 形式ではありません'),
-	{initialValue: String(oCfg.value.init.bg_color)},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init.bg_color},	// ブラウザテスト用、VSCodeで上書き
 );
 
 
 on('init', ()=> {	// useField()の後に初期値を更新したいので
 	const o: T_CFG = oCfg.value;
-	v_width.value = String(o.window.width);
-	v_height.value = String(o.window.height);
-	v_version.value = String(o.book.version);
-	v_max_len.value = String(o.log.max_len);
-	v_tagch_msecwait.value = String(o.init.tagch_msecwait);
-	v_auto_msecpagewait.value = String(o.init.auto_msecpagewait);
-	v_escape.value = String(o.init.escape);
-	v_bg_color.value = String(o.init.bg_color);
+	v_width.value = o.window.width;
+	v_height.value = o.window.height;
+	v_version.value = o.book.version;
+	v_max_len.value = o.log.max_len;
+	v_tagch_msecwait.value = o.init.tagch_msecwait;
+	v_auto_msecpagewait.value = o.init.auto_msecpagewait;
+	v_escape.value = o.init.escape;
+	v_bg_color.value = o.init.bg_color;
 });
 
 // useField を使うと $subscribe が効かないので
@@ -136,13 +137,13 @@ const subscribe = ()=> {
 		...o,
 		book	: {...o.book, version: v_version.value,},
 		window	: {
-			width	: Number(v_width.value),
-			height	: Number(v_height.value),
+			width	: v_width.value,
+			height	: v_height.value,
 		},
-		log		: {max_len: Number(v_max_len.value)},
+		log		: {max_len: v_max_len.value},
 		init	: {
-			tagch_msecwait		: Number(v_tagch_msecwait.value),
-			auto_msecpagewait	: Number(v_auto_msecpagewait.value),
+			tagch_msecwait		: v_tagch_msecwait.value,
+			auto_msecpagewait	: v_auto_msecpagewait.value,
 			escape		: v_escape.value.replaceAll(/[ &()*;[\]]/g, ''),
 							// 本体の正規表現に都合悪い（グループに誤解釈など）文字削除
 			bg_color	: v_bg_color.value,

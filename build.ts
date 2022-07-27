@@ -7,14 +7,14 @@
 
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch');
-const production = aCmd.includes('--production');
+const prod = aCmd.includes('--production');
+const node_env = prod ?'production' :'development';
 
 import {build} from 'esbuild';
 
 import {build as vite} from 'vite';
 import vue from '@vitejs/plugin-vue';
 //console.log(`fn:build.ts __dirname:${__dirname}:`);	// src
-//console.log(`fn:build.ts URL:${import.meta.url}:`);	// undefined
 
 // === メイン ===
 build({
@@ -35,29 +35,26 @@ build({
 // === vue ===
 vite({
 	root	: './views/',
-//x	define	: {'process.env.NODE_ENV': 'production',},
+	define: {
+		'process.env.NODE_ENV'	: JSON.stringify(node_env),
+	},
 	build: {
+		target	: 'esnext',
 		lib: {
 			entry	: './setting.ts',
 			fileName: _=> 'setting.js',
 			formats	: ['es'],
 		},
-		minify	: production ?'terser' :false,
+		minify	: prod ?'terser' :false,
 		watch	: watch ?{} :null,
 		outDir		: './',	// rootからの相対
 		emptyOutDir	: false,
 		reportCompressedSize	: false,
-		target	: 'esnext',
-	},
-	resolve: {
-		alias: {
-			'@'	: './lib',	// いまは効いてない
-		},
 	},
 	plugins: [vue()],
 	optimizeDeps: {
-		entries: ['/setting.htm'],
-		include: ['./lib/bootstrap.min.js', './lib/fontawesome/all.min.js'],
+		entries	: ['/setting.htm'],
+		include	: ['./lib/bootstrap.min.js', './lib/fontawesome/all.min.js'],
 	},
 //	assetsInclude: ['./lib/**/*.woff2'],
 });
@@ -80,8 +77,6 @@ build({
 	],
 	outdir		: 'dist',
 	minify		: true,
-//x	format		: 'iife',
-//x	format		: 'esm',		// ESM はブラウザでも使うことができます
-	format		: 'cjs',		// Node.js の仕様
+	format		: 'cjs',	// Node.js の仕様
 	watch,
 });

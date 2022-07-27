@@ -10,7 +10,7 @@ import {AnalyzeTagArg} from './AnalyzeTagArg';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 
-import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, window, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument} from 'vscode';
+import {DiagnosticCollection, Diagnostic, Location, DiagnosticSeverity, Uri, Range, Position, workspace, DocumentSymbol, SymbolKind, TextDocumentChangeEvent, TextDocument, DiagnosticRelatedInformation} from 'vscode';
 import {existsSync, readFileSync} from 'fs-extra';
 import {userInfo} from 'os';
 
@@ -246,64 +246,75 @@ sys:sn.tagCh.msecWait_Kidoku
 sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 
-	#nm2Diag	: {[url: string]: Diagnostic[]}	= {};
-	#isDuplicateMacroDef	= false;
-	#wasDuplicateMacroDef	= false;
-	hSn2aDsOutline	: {[sn: string]: DocumentSymbol[]}	= {};
+	#uri2Diag	: {[url: string]: Diagnostic[]}	= {};
 	#aDsOutline		: DocumentSymbol[];
+	readonly	#hDiag	:{[code_name: string]: {
+		mes	: string;
+		sev	: DiagnosticSeverity;
+	}} = {
+		マクロ定義重複: {
+			mes	: 'マクロ定義 [macro name=$] が重複しています。一つにして下さい',
+			sev	: DiagnosticSeverity.Error,
+		},
+		マクロ定義重複_その他: {
+			mes	: 'その他の定義箇所',
+			sev	: DiagnosticSeverity.Error,
+		},
+		ラベル重複: {
+			mes	: '同一スクリプトにラベル【$】が重複しています',
+			sev	: DiagnosticSeverity.Error,
+		},
+		タグ記述異常: {
+			mes	: 'タグ記述【$】異常です',
+			sev	: DiagnosticSeverity.Error,
+		},
+		マクロ定義_名称異常: {
+			mes	: 'マクロ定義の name属性が異常です',
+			sev	: DiagnosticSeverity.Error,
+		},
+		マクロ定義_同名タグ: {
+			mes	: '定義済みのタグ[$]と同名のマクロは定義できません',
+			sev	: DiagnosticSeverity.Error,
+		},
+		マクロ定義_同名プラグイン: {
+			mes	: 'プラグイン定義済みのタグ[$]と同名のマクロは定義できません',
+			sev	: DiagnosticSeverity.Error,
+		},
+		マクロ定義異常: {
+			mes	: 'マクロ定義（[$]）が異常です',
+			sev	: DiagnosticSeverity.Error,
+		},
+		一文字マクロ定義_属性異常: {
+			mes	: '一文字マクロ定義[$]の属性が異常です',
+			sev	: DiagnosticSeverity.Error,
+		},
+		フォントファイル不明: {
+			mes	: 'フォントファイル $ が見つかりません',
+			sev	: DiagnosticSeverity.Error,
+		},
+		未定義マクロ: {
+			mes	: '未定義マクロ[$]を使用、あるいはスペルミスです',
+			sev	: DiagnosticSeverity.Warning,
+		},
+		未使用マクロ: {
+			mes	: '未使用のマクロ[$]があります',
+			sev	: DiagnosticSeverity.Information,
+		},
+		改行10行超: {
+			mes	: '改行タグが10行を超えています',
+			sev	: DiagnosticSeverity.Information,
+		},
+	};
 	goAll() {
-		this.#isDuplicateMacroDef = false;
-		this.hMacro = {};
-		this.hMacroUse = {};
-		this.hMacroUse4NoWarm = {};
-		this.hTagMacroUse = {};
-		for (const key in this.#hSetWords) this.#hSetWords[key] = new Set;
-		this.clDiag.clear();
-		this.#nm2Diag = {};
-		this.#hScr2KeyWord = {};
-		this.hSn2aDsOutline = {};
-		this.#hInfFont2Str = {defaultFontName: '', hSn2Font2Str: {}, hFontNm2Path: {},};
-
+		this.#goInitFile();
 		treeProc(this.curPrj, url=> this.#scanFile(Uri.file(url)));
-
-		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
-		for (const def_nm in this.hMacro) {
-			if (def_nm in mu) continue;
-
-			const m = this.hMacro[def_nm];
-			this.#nm2Diag[m.loc.uri.path].push(new Diagnostic(
-				m.loc.range,
-				`未使用のマクロ[${def_nm}]があります`,
-				DiagnosticSeverity.Information
-			));
-		}
-
-		for (const use_nm in this.hMacroUse) {
-			if (use_nm in this.hMacro) continue;
-			if (use_nm in this.hPlugin) continue;
-
-			const aLoc = this.hMacroUse[use_nm];
-			aLoc.forEach(loc=> this.#nm2Diag[loc.uri.path].push(new Diagnostic(
-				loc.range,
-				`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです`,
-				DiagnosticSeverity.Warning
-			)));
-		}
-
-		for (const path in this.#nm2Diag) {
-			this.clDiag.set(Uri.file(path), this.#nm2Diag[path]);
-		}
-
-		if (this.#isDuplicateMacroDef && ! this.#wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
-		this.#wasDuplicateMacroDef = this.#isDuplicateMacroDef;
-
-		this.#bldCnvSnippet();
+		this.goFinishFileSub();
 	}
 
 	goFile(uri: Uri) {
-		this.#goInitFile(uri);
+		this.#goInitFile(uri.path);
 		this.#scanFile(uri);
-		this.#goFinishFile(uri);
+		this.#goFinishFile(uri.path);
 	}
 	#hScr2KeyWord	: {[path: string]: Set<string>}	= {};
 	chgTxtDoc(aChgTxt: TextDocumentChangeEvent[]) {
@@ -336,100 +347,83 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 		for (const path in hDoc) {
 			const doc = hDoc[path];
-			const uri = doc.uri;
-			this.#goInitFile(uri);
-			const old = this.#hScr2KeyWord[path];
-			this.#hScr2KeyWord[path] = new Set;
-
-			// TODO: （.snのみ）できれば差分更新したい
-				// 内部辞書変更
-				// 行増減考慮
-			this.#scanScriptSrc(uri, doc.getText(), hUpdScore[path]);
-
-			this.#goFinishFile(uri);
-			// キーワード削除対応
-			const now = this.#hScr2KeyWord[path];
-			for (const s of old) {
-				if (now.has(s)) continue;
-				let findOther = false;
-				for (const path_other in this.#hScr2KeyWord) {
-					if (path_other === path) continue;
-					if (findOther = this.#hScr2KeyWord[path_other].has(s)) break;
-				}
-				if (findOther) continue;
-
-				const a = s.split('\t');
-				this.#hSetWords[a[0]].delete(a[1]);
-			}
+			this.#goInitFile(path);
+			this.#scanScriptSrc(doc.uri, doc.getText(), hUpdScore[path]);
+			this.#goFinishFile(path);
 		}
 	}
-	#goInitFile(uri: Uri) {
-		// pathが同じ情報をクリア
-		this.#isDuplicateMacroDef = false;
-
-		const path = uri.path;
-		const hMD: {[nm: string]: MacDef} = {};
-		const hMacroOld: {[nm: string]: MacDef} = {};
-		for (const nm in this.hMacro) {
-			const m = this.hMacro[nm];
-			if (m.loc.uri.path !== path) hMD[nm] = m;
-			else {hMacroOld[nm] = m; this.#cteScore.undefMacro(nm);}
-		}
-		this.hMacro = hMD;
-		this.#hMacroOld = hMacroOld;
-		this.#aMacroAdd = [];
-
-		const hMU: {[nm: string]: Location[]} = {};
-		for (const nm in this.hMacroUse) this.hMacroUse[nm].forEach(loc=> {
-			if (loc.uri.path !== path) (hMU[nm] ??= []).push(loc);
-		})
-		this.hMacroUse = hMU;
-
-		const hMU4NW: {[nm: string]: Location[]} = {};
-		for (const nm in this.hMacroUse4NoWarm) this.hMacroUse4NoWarm[nm]
-		.forEach(loc=> {
-			if (loc.uri.path !== path) (hMU4NW[nm] ??= []).push(loc);
-		})
-		this.hMacroUse4NoWarm = hMU4NW;
-
-		this.hTagMacroUse[path] = [];
-		this.clDiag.delete(uri);
-		this.#nm2Diag[path] = [];
-	}
-	#hMacroOld	: {[nm: string]: MacDef}	= {};
+	#hMacroOld	: {[nm: string]: MacDef} = {};	// 変更前に存在したマクロ群を退避
 	#aMacroAdd	: string[]	= [];
-	#goFinishFile(uri: Uri) {
-		const path = uri.path;
-		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
-		for (const def_nm in this.hMacro) {
-			if (def_nm in mu) continue;
+	#hScr2KeyWordOld	= new Set<string>();	// キーワード削除対応
+	hSn2aDsOutline	: {[path: string]: DocumentSymbol[]} = {}; // 外部から参照
+	#hDupMacro2ALoc : {[nm: string]: Location[]} = {};
+	#goInitFile(path?: string) {
+		// TODO: （.snのみ）できれば差分更新したい
+			// 内部辞書変更
+			// 行増減考慮
+		if (! path) {
+			this.hMacro = {};
+			this.hMacroUse = {};
+			this.hMacroUse4NoWarm = {};
+			this.hTagMacroUse = {};
 
-			const m = this.hMacro[def_nm];
-			if (m.loc.uri.path !== path) continue;	// 更新分のみ
-			this.#nm2Diag[path].push(new Diagnostic(
-				m.loc.range,
-				`未使用のマクロ[${def_nm}]があります`,
-				DiagnosticSeverity.Information
-			));
+			for (const key in this.#hSetWords) this.#hSetWords[key] = new Set;
+			this.#hScr2KeyWord = {};
+			this.hSn2aDsOutline = {};
+			this.#hInfFont2Str = {defaultFontName: '', hSn2Font2Str: {}, hFontNm2Path: {},};	// NOTE: 凍結か
+
+			this.#hDupMacro2ALoc = {};
+			this.#uri2Diag = {};
+			return;
 		}
 
-		for (const use_nm in this.hMacroUse) {
-			if (use_nm in this.hMacro) continue;
-			if (use_nm in this.hPlugin) continue;
-
-			const aLoc = this.hMacroUse[use_nm];
-			aLoc.forEach(loc=> {
-				if (loc.uri.path !== path) return;	// 更新分のみ
-				this.#nm2Diag[path].push(new Diagnostic(
-					loc.range,
-					`未定義マクロ[${use_nm}]を使用、あるいはスペルミスです.`,
-					DiagnosticSeverity.Warning	// 「.」はわざと。同じ警告と区別用
-				));
-			});
+		// ファイル個別
+		{
+			const hMD: {[nm: string]: MacDef} = {};
+			this.#hMacroOld = {};	// 変更前に存在したマクロ群を退避
+			for (const nm in this.hMacro) {
+				const m = this.hMacro[nm];
+				if (m.loc.uri.path !== path) hMD[nm] = m;
+				else {this.#hMacroOld[nm] = m; this.#cteScore.undefMacro(nm);}
+			}
+			this.hMacro = hMD;		// 別snで定義されたマクロのみにした
+			this.#aMacroAdd = [];
 		}
+		{
+			const hMU: {[nm: string]: Location[]} = {};
+			for (const nm in this.hMacroUse) this.hMacroUse[nm].forEach(loc=> {
+				if (loc.uri.path !== path) (hMU[nm] ??= []).push(loc);
+			})
+			this.hMacroUse = hMU;	// 別snで使用されたマクロのみにした
+		}
+		{
+			const hMU4NW: {[nm: string]: Location[]} = {};
+			for (const nm in this.hMacroUse4NoWarm) this.hMacroUse4NoWarm[nm]
+			.forEach(loc=> {
+				if (loc.uri.path !== path) (hMU4NW[nm] ??= []).push(loc);
+			})
+			this.hMacroUse4NoWarm = hMU4NW;	// 別snで使用されたマクロのみにした
+		}
+		this.hTagMacroUse[path] = [];
+
+		this.#hScr2KeyWordOld = this.#hScr2KeyWord[path] ??= new Set;
+		this.#hScr2KeyWord[path] = new Set;
+	//	this.hSn2aDsOutline = {};	// 略
+
+		// 重複マクロ定義検知
+		for (const nm in this.#hDupMacro2ALoc) this.#hDupMacro2ALoc[nm] = this.#hDupMacro2ALoc[nm].filter(l=> l.uri.path !== path);
+
+		// マクロ定義重複のみいったん取り去る
+		for (const path4 in this.#uri2Diag) this.#uri2Diag[path4] = this.#uri2Diag[path4].filter(dia=> dia.code !== ScriptScanner.#DIA_CODE_ALL_SN_CHK);
+	}
+	static	#DIA_CODE_ALL_SN_CHK	= '全スクリプトの確認が必要';
+	#goFinishFile(path: string) {
+		this.goFinishFileSub(path);
 
 		if (path.slice(-4) === '.ssn') {
-			const doc = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
+			const doc = workspace.textDocuments.find(td=> td.fileName === path);
+//			const doc = workspace.textDocuments.find(td=> td.fileName === uri.fsPath);
+				// TODO: 変更して動作未確認
 			if (doc) {
 				const hMacroOld = this.#hMacroOld;
 				for (const nm in hMacroOld) {
@@ -460,11 +454,79 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				}));
 			}
 		}
+	}
+	goFinishFileSub(path?: string) {
+		if (path) {
+			// キーワード削除対応
+			const now = this.#hScr2KeyWord[path];
+			for (const s of this.#hScr2KeyWordOld) {
+				if (now.has(s)) continue;
+				let findOther = false;
+				for (const path_other in this.#hScr2KeyWord) {
+					if (path_other === path) continue;
+					if (findOther = this.#hScr2KeyWord[path_other].has(s)) break;
+				}
+				if (findOther) continue;
 
-		this.clDiag.set(uri, this.#nm2Diag[path]);	// 更新分のみ
+				const a = s.split('\t');
+				this.#hSetWords[a[0]].delete(a[1]);
+			}
+		}
 
-		if (this.#isDuplicateMacroDef && ! this.#wasDuplicateMacroDef) window.showErrorMessage(`[SKYNovel] プロジェクト内でマクロ定義が重複しています。どちらか削除して下さい`, {modal: true});
-		this.#wasDuplicateMacroDef = this.#isDuplicateMacroDef;
+		const d重複定義 = this.#hDiag.マクロ定義重複;
+		for (const nm in this.#hDupMacro2ALoc) {
+			const a = [...this.#hDupMacro2ALoc[nm]];	// 破壊禁止
+			if (a.length < 2) continue;
+
+			const loc = a.shift()!;
+			const dia = new Diagnostic(loc.range, d重複定義.mes.replace('$', nm), d重複定義.sev);
+			dia.code = ScriptScanner.#DIA_CODE_ALL_SN_CHK;
+			dia.relatedInformation = a.map(l=> new DiagnosticRelatedInformation(l, this.#hDiag.マクロ定義重複_その他.mes));
+			(this.#uri2Diag[loc.uri.path] ??= []).push(dia);
+		}
+
+		const d未定義 = this.#hDiag.未定義マクロ;
+		for (const use_nm in this.hMacroUse) {
+			if (use_nm in this.hMacro) continue;
+			if (use_nm in this.hPlugin) continue;
+
+			this.hMacroUse[use_nm].forEach(loc=> {
+				if (path && loc.uri.path !== path) return;	// 更新分のみ
+				const dia = new Diagnostic(
+					loc.range,
+					d未定義.mes.replace('$', use_nm),
+					d未定義.sev
+				);
+	dia.code = ScriptScanner.#DIA_CODE_ALL_SN_CHK;
+				(this.#uri2Diag[loc.uri.path] ??= []).push(dia);
+/*
+				(this.#uri2Diag[loc.uri.path] ??= []).push(new Diagnostic(
+					loc.range,
+					d未定義.mes.replace('$', use_nm),
+					d未定義.sev
+				));
+*/
+			});
+		}
+
+		const mu = {...this.hMacroUse, ...this.hMacroUse4NoWarm};
+		const d未使用マクロ = this.#hDiag.未使用マクロ;
+		for (const nm in this.hMacro) {
+			if (nm in mu) continue;
+
+			const m = this.hMacro[nm];
+			if (path && m.loc.uri.path !== path) continue;	// 更新分のみ
+			(this.#uri2Diag[m.loc.uri.path] ??= []).push(new Diagnostic(
+				m.loc.range,
+				d未使用マクロ.mes.replace('$', nm),
+				d未使用マクロ.sev
+			));
+		}
+
+		this.clDiag.clear();
+		for (const path in this.#uri2Diag) {
+			this.clDiag.set(Uri.file(path), this.#uri2Diag[path]);
+		}
 
 		this.#bldCnvSnippet();
 	}
@@ -499,7 +561,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#hSetWords['スクリプトファイル名'].add(fn);
 
 		// goAll()で真っ先に通るので、goScriptSrc()では割愛
-		this.#nm2Diag[path] ??= [];
+		this.#uri2Diag[path] ??= [];
 		this.#hSetWords['ジャンプ先'].add(`fn=${fn}`);
 		this.hTagMacroUse[path] ??= [];
 		this.#hScr2KeyWord[path] ??= new Set();
@@ -543,7 +605,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const f: TINF_FONT_CHK = {font_nm: nm, err: ''};
 			if (nm in this.#hInfFont2Str.hFontNm2Path) return f;
 
-			f.err = `フォントファイル ${nm} が見つかりません`;
+			const d = this.#hDiag.フォントファイル不明;
+			f.err = d.mes.replace('$', nm);
 			this.#aPlaceFont
 			.some((base, i)=> ['woff2','otf','ttf']
 			.some(ext=> {
@@ -557,7 +620,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				return ret;
 			}));
 
-			if (f.err) diags.push(new Diagnostic(rng, f.err, DiagnosticSeverity.Error));
+			if (f.err) diags.push(new Diagnostic(rng, f.err, d.sev));
 
 			return f;
 		});
@@ -571,8 +634,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#nowFontNm = ScriptScanner.DEF_FONT;
 	#scanScriptSrc(uri: Uri, src: string, isUpdScore: boolean) {
 		const path = uri.path;
-		const diags = this.#nm2Diag[path];
-
+		const diags = this.#uri2Diag[path] ??= [];
 		const f2s: TFONT2STR = this.#hInfFont2Str.hSn2Font2Str[path] = {};
 		this.#nowFontNm = ScriptScanner.DEF_FONT;
 
@@ -581,6 +643,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const setKw = this.#hScr2KeyWord[path];
 			// キーワード削除チェック用
 		this.#aDsOutline = this.hSn2aDsOutline[path] = [];
+
 		// procTokenBase を定義、procToken も同値で始める
 		this.#procToken = this.#procTokenBase = (p: Pos, token: string)=> {
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
@@ -638,11 +701,13 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 				if (token in hLabel) {
 					const rng0 = hLabel[token];
+					const d = this.#hDiag.ラベル重複;
+					const mes = d.mes.replace('$', token);
 					if (rng0) {
-						diags.push(new Diagnostic(rng0, `同一スクリプトにラベル【${token}】が重複しています`, DiagnosticSeverity.Error));
+						diags.push(new Diagnostic(rng0, mes, d.sev));
 						hLabel[token] = undefined;
 					}
-					diags.push(new Diagnostic(rng, `同一スクリプトにラベル【${token}】が重複しています`, DiagnosticSeverity.Error));
+					diags.push(new Diagnostic(rng, mes, d.sev));
 				}
 				else hLabel[token] = rng;
 				return;
@@ -659,7 +724,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			// [ タグ開始
 			const a_tag = ScriptScanner.REG_TAG.exec(token);
 			if (! a_tag) {	// []、[ ]など
-				diags.push(new Diagnostic(rng, `タグ記述【${token}】異常です`, DiagnosticSeverity.Error));
+				const d = this.#hDiag.タグ記述異常;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', token), d.sev));
 				p.col += len;
 				return;
 			}
@@ -672,10 +738,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			else {
 				p.line += lineTkn;
 				p.col = len -token.lastIndexOf('\n') -1;
+				const d = this.#hDiag.改行10行超;
 				if (lineTkn > 10) diags.push(new Diagnostic(new Range(
 					rng.start.line, rng.start.character -1,
 					p.line, 0
-				), `改行タグが10行を超えています`, DiagnosticSeverity.Warning));
+				), d.mes, d.sev));
 			}
 
 			const use_nm = a_tag.groups?.name ?? '';
@@ -736,79 +803,69 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			}
 		},
 
-		'macro': (_setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+		'macro': (_setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, _rng_nm: Range)=> {	
 			const hPrm = this.#alzTagArg.hPrm;
-			const def_nm = hPrm.name?.val;
-			if (! def_nm) {	// [macro name=]など
-				diags.push(new Diagnostic(rng, `マクロ定義[${def_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+			const nm = hPrm.name?.val;
+			if (! nm) {	// [macro name=]など
+				const d = this.#hDiag.マクロ定義_名称異常;
+				diags.push(new Diagnostic(rng, d.mes, d.sev));
 				return;
 			}
 
-			if (this.hTag[def_nm]) {
-				diags.push(new Diagnostic(rng, `定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
+			if (this.hTag[nm]) {
+				const d = this.#hDiag.マクロ定義_同名タグ;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', nm), d.sev));
 				return;
 			}
-			if (this.hPlugin[def_nm]) {
-				diags.push(new Diagnostic(rng, `プラグイン定義済みのタグ[${def_nm}]と同名のマクロは定義できません`, DiagnosticSeverity.Error));
-				return;
-			}
-
-			const m = this.hMacro[def_nm];
-			if (! m) {	// 新規マクロ定義を登録
-				const m2 = token.match(ScriptScanner.#regValName);
-				if (! m2) {	// 失敗ケースが思い当たらない
-					diags.push(new Diagnostic(rng, `マクロ定義（[${def_nm}]）が異常です`, DiagnosticSeverity.Error));
-					return;
-				}
-
-				const idx_name_v = (m2.index ?? 0) +(m2[3] ?1 :0);	// '"#分
-				let lineNmVal = 0;
-				let j = idx_name_v;
-				while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
-				const line2 = p.line -lineTkn +lineNmVal;
-				const col2 = ((lineNmVal === 0) ?p.col -token.length :0)
-					+ idx_name_v -token.lastIndexOf('\n', idx_name_v) -1;
-				const rng2 = new Range(
-					line2, col2,
-					line2, col2 +def_nm.length,
-				);
-				this.hMacro[def_nm] = {
-					loc	: new Location(uri, rng2),
-					hPrm: hPrm,
-				};
-				this.#aMacroAdd.push(def_nm);
-
-				const ds = new DocumentSymbol(def_nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
-				this.#aDsOutline.push(ds);
-				this.#aDsOutlineStack.push(this.#aDsOutline);
-				this.#aDsOutline = ds.children;
-
-				if ('nowarn_unused' in hPrm) {
-					if (chkBoolean(hPrm.nowarn_unused.val)) this.hMacroUse4NoWarm[def_nm] = [new Location(uri, rng2)];
-					else delete this.hMacroUse4NoWarm[def_nm];
-				}
-				if (uri.path.slice(-4) === '.ssn') {
-					const o: {[k: string]: string} = {};
-					for (const k in hPrm) o[k] = String(hPrm[k].val);
-					this.#cteScore.defMacro(def_nm, o);
-				}
-
+			if (this.hPlugin[nm]) {
+				const d = this.#hDiag.マクロ定義_同名プラグイン;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', nm), d.sev));
 				return;
 			}
 
-			// すでに定義済みのマクロ
-			this.#isDuplicateMacroDef = true;
-			if (! diags.find(d=> d.range === m.loc.range)) {
-				// （走査上たまたまの）一つめ
-				const dia = new Diagnostic(m.loc.range, `マクロ定義（[${def_nm}]）が重複`, DiagnosticSeverity.Error);
-				if (m.loc.uri === uri) diags.push(dia);
-				else this.clDiag.set(m.loc.uri, [dia]);
+			(this.#hDupMacro2ALoc[nm] ??= []).push(new Location(uri, rng));
+
+			const m = this.hMacro[nm];
+			if (m) return;
+			// 新規マクロ定義を登録
+			const m2 = token.match(ScriptScanner.#regValName);
+			if (! m2) {	// 失敗ケースが思い当たらない
+				const d = this.#hDiag.マクロ定義異常;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', nm), d.sev));
+				return;
 			}
-			diags.push(new Diagnostic(	// （走査上たまたまの）二つめ以降
-				rng_nm.with({end: new Position(p.line, p.col +def_nm.length)}),
-				`マクロ定義（[${def_nm}]）が重複`,
-				DiagnosticSeverity.Error
-			));
+
+			const idx_name_v = (m2.index ?? 0) +(m2[3] ?1 :0);	// '"#分
+			let lineNmVal = 0;
+			let j = idx_name_v;
+			while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
+			const line2 = p.line -lineTkn +lineNmVal;
+			const col2 = ((lineNmVal === 0) ?p.col -token.length :0)
+				+ idx_name_v -token.lastIndexOf('\n', idx_name_v) -1;
+			const rng2 = new Range(
+				line2, col2,
+				line2, col2 +nm.length,
+			);
+			this.hMacro[nm] = {
+				loc	: new Location(uri, rng2),
+				hPrm: hPrm,
+			};
+			this.#aMacroAdd.push(nm);
+
+			const ds = new DocumentSymbol(nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
+			this.#aDsOutline.push(ds);
+			this.#aDsOutlineStack.push(this.#aDsOutline);
+			this.#aDsOutline = ds.children;
+
+			if ('nowarn_unused' in hPrm) {
+				if (chkBoolean(hPrm.nowarn_unused.val)) this.hMacroUse4NoWarm[nm] = [new Location(uri, rng2)];
+				else delete this.hMacroUse4NoWarm[nm];
+			}
+			if (uri.path.slice(-4) === '.ssn') {
+				const o: {[k: string]: string} = {};
+				for (const k in hPrm) o[k] = String(hPrm[k].val);
+				this.#cteScore.defMacro(nm, o);
+			}
 		},
 		'endmacro': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
@@ -817,7 +874,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const char = hPrm.char?.val ?? '';
 			const use_nm = hPrm.name?.val ?? '';
 			if (! char || ! use_nm) {	// [macro name=]など
-				diags.push(new Diagnostic(rng, `一文字マクロ定義[${use_nm}]の属性が異常です`, DiagnosticSeverity.Error));
+				const d = this.#hDiag.一文字マクロ定義_属性異常;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', use_nm), d.sev));
 				return;
 			}
 

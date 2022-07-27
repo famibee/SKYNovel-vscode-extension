@@ -11,12 +11,6 @@ export default defineConfig({
 			},
 		},
 	},
-	resolve: {
-		alias: {
-		//	'@@'	: './lib',	// いまは効いてない
-		//	'vue$'	: resolve(__dirname, 'lib/bootstrap.min.js'),
-		},
-	},
 	plugins	: [vue()],
 	optimizeDeps: {
 		entries: ['/setting.htm'],
