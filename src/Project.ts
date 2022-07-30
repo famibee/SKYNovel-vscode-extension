@@ -100,7 +100,7 @@ export class Project {
 		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
 		this.#lenCurPrj = this.#curPrj.length;
 			// 遅らせると core/diff.json 生成でトラブル。0状態で処理してしまう
-		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj, (nm, val)=> this.#cmd(nm, val));
+		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
@@ -179,7 +179,8 @@ export class Project {
 			}),
 			
 			fwPrjSn.onDidCreate(uri=> this.#codSpt.crePrj(uri)),
-			fwPrjSn.onDidChange(uri=> this.#codSpt.chgPrj(uri)),
+		//	fwPrjSn.onDidChange(uri=> this.#codSpt.chgPrj(uri)),
+				// workspace.onDidChangeTextDocument() からやるので不要
 			fwPrjSn.onDidDelete(uri=> this.#codSpt.delPrj(uri)),
 
 			fwPrjJs.onDidChange(e=> this.#chgPrj(e)),

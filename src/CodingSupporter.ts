@@ -56,7 +56,7 @@ export class CodingSupporter implements
 	}}	= {};
 
 	static	readonly #CMD_SCANSCR_TRGPARAMHINTS = 'extension.skynovel.scanScr_trgParamHints';
-	constructor(ctx: ExtensionContext, readonly pathWs: string, curPrj: string, cmd: (nm: string, val: string)=> Promise<boolean>) {
+	constructor(ctx: ExtensionContext, readonly pathWs: string, curPrj: string) {
 		this.#lenRootPath = pathWs.length +1;
 		CodingSupporter.initClass(ctx);
 		CodingSupporter.#pickItems.forEach(q=> this.#hArgDesc[q.label] = {
@@ -534,7 +534,8 @@ ${md.detail}`
 	setEscape(ce: string) {this.#scrScn.setEscape(ce);}
 
 	readonly	crePrj = (_: Uri)=> this.#scrScn.goAll();		// ファイル増加
-	readonly	chgPrj = (uri: Uri)=> this.#scrScn.goFile(uri);	// ファイル変更
+//	readonly	chgPrj = (uri: Uri)=> this.#scrScn.goFile(uri);	// ファイル変更
+		// workspace.onDidChangeTextDocument() からやるので不要
 	readonly	delPrj = (_: Uri)=> this.#scrScn.goAll();		// ファイル削除
 
 	#loadCfg = ()=> CodingSupporter.#pickItems.sort(this.#compare).forEach(q=> q.description += '（SKYNovel）');
