@@ -47,27 +47,38 @@ export type TINF_FONT_CHK = {
 	err		: string;
 };
 
+class Diagnostic_EX extends Diagnostic {
+	all_sn_chk?	: 1;
+
+	constructor(range: Range, message: string, severity?: DiagnosticSeverity) {
+		super(range, message, severity);
+		this.all_sn_chk = 1;
+	}
+}
+
+type TINF_LABEL = Range | undefined;
+type TH_SN2LABEL = {[label: string]: TINF_LABEL};
+
+
 export class ScriptScanner {
 	readonly	#aPlaceFont;
 	readonly	#aPlaceFontNm = ['PRJ','USER','OS'];
 
 	constructor(readonly pathWs: string, private readonly curPrj: string, private readonly clDiag: DiagnosticCollection, private readonly hTag: {[name: string]: boolean}) {
-		this.#hTagProc['let_abs'] =
-		this.#hTagProc['let_char_at'] =
-		this.#hTagProc['let_index_of'] =
-		this.#hTagProc['let_length'] =
-		this.#hTagProc['let_replace'] =
-		this.#hTagProc['let_round'] =
-		this.#hTagProc['let_search'] =
-		this.#hTagProc['let_substr'] = this.#hTagProc['let'];
-		this.#hTagProc['set_frame'] = this.#hTagProc['let_frame'];
-		this.#hTagProc['jump'] =
-		this.#hTagProc['call'] =
-		this.#hTagProc['event'] =
-		this.#hTagProc['button'] =
-		this.#hTagProc['link'] =
-		this.#hTagProc['return'] = this.#hTagProc['s'];
-		this.#hTagProc['else'] = this.#hTagProc['elsif'];
+		this.#hTagProc.let_abs =
+		this.#hTagProc.let_char_at =
+		this.#hTagProc.let_index_of =
+		this.#hTagProc.let_length =
+		this.#hTagProc.let_replace =
+		this.#hTagProc.let_round =
+		this.#hTagProc.let_search =
+		this.#hTagProc.let_substr = this.#hTagProc.let;
+		this.#hTagProc.set_frame = this.#hTagProc.let_frame;
+
+		this.#hTagProc.call =
+		this.#hTagProc.jump = this.#hTagProc.event;
+		this.#hTagProc.return = this.#hTagProc.s;
+		this.#hTagProc.else = this.#hTagProc.elsif;
 
 		this.#procToken = this.#procTokenBase;
 
@@ -245,7 +256,7 @@ sys:sn.tagCh.msecWait_Kidoku
 sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 
-	#uri2Diag	: {[url: string]: Diagnostic[]}	= {};
+	#uri2Diag	: {[url: string]: Diagnostic_EX[]}	= {};
 	goAll() {
 		this.#goInit();
 		treeProc(this.curPrj, url=> this.goAllSub(Uri.file(url)));
@@ -276,7 +287,6 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		}
 		this.#hSetWords.スクリプトファイル名.add(fn);
 
-		// goAll()で真っ先に通るので、goScriptSrc()では割愛
 		this.#uri2Diag[path] ??= [];
 		this.#hSetWords.ジャンプ先.add(`fn=${fn}`);
 		this.hTagMacroUse[path] ??= [];
@@ -357,6 +367,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 	#hScr2KeyWordOld	= new Set<string>();	// キーワード削除対応
 	hSn2aDsOutline	: {[path: string]: DocumentSymbol[]} = {}; // 外部から参照
 	#hDupMacro2ALoc : {[nm: string]: Location[]} = {};
+	#hFn2label	: {[path: string]: TH_SN2LABEL} = {};
 	#goInit(path?: string) {
 		if (! path) {	// 全ファイル走査
 			this.hMacro = {};
@@ -369,6 +380,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			this.#hInfFont2Str = {defaultFontName: '', hSn2Font2Str: {}, hFontNm2Path: {},};	// NOTE: 凍結か
 
 			this.#hDupMacro2ALoc = {};
+			this.#hFn2label = {};
 			this.#uri2Diag = {};
 			return;
 		}
@@ -396,7 +408,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 		this.#hScr2KeyWordOld = this.#hScr2KeyWord[path] ??= new Set;
 		this.#hScr2KeyWord[path] = new Set;
-	//	this.hSn2aDsOutline = {};	// 略
+	//	this.hSn2aDsOutline = {};	// #scanScriptで
+	//	this.#hSn2label[path] = {};	// #scanScriptで
 
 		// 重複マクロ定義検知
 		for (const nm in this.#hDupMacro2ALoc) this.#hDupMacro2ALoc[nm] = this.#hDupMacro2ALoc[nm].filter(l=> l.uri.path !== path);
@@ -404,9 +417,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		// メッセージをクリア
 		this.#uri2Diag[path] = [];
 		// 他のスクリプトも（スクリプトをまたぐ判定必要な）マクロ定義重複のみ取り去る
-		for (const path4 in this.#uri2Diag) this.#uri2Diag[path4] = this.#uri2Diag[path4].filter(dia=> dia.code !== ScriptScanner.#DIA_CODE_ALL_SN_CHK);
+		for (const path4 in this.#uri2Diag) this.#uri2Diag[path4] = this.#uri2Diag[path4].filter(dia=> ! dia.all_sn_chk);
 	}
-	static	#DIA_CODE_ALL_SN_CHK	= 'sn横断';
 	#goFinish(path: string) {
 		this.#goFinishSub(path);
 
@@ -485,6 +497,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			mes	: '一文字マクロ定義[$]の属性が異常です',
 			sev	: DiagnosticSeverity.Error,
 		},
+		スクリプトファイル不明: {
+			mes	: 'スクリプトファイル $ が見つかりません',
+			sev	: DiagnosticSeverity.Error,
+		},
+		ラベル不明: {
+			mes	: 'ラベル $ が見つかりません',
+			sev	: DiagnosticSeverity.Error,
+		},
 		フォントファイル不明: {
 			mes	: 'フォントファイル $ が見つかりません',
 			sev	: DiagnosticSeverity.Error,
@@ -502,7 +522,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			sev	: DiagnosticSeverity.Information,
 		},
 	};
+	#aFinishJob: (()=> void)[]	= [];
 	#goFinishSub(path?: string) {
+		this.#aFinishJob.forEach(j=> j());
+		this.#aFinishJob = [];
+
 		if (path) {		// 単体ファイル走査時
 			// キーワード削除対応
 			const now = this.#hScr2KeyWord[path];
@@ -526,12 +550,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (a.length < 2) continue;
 
 			const loc = a.shift()!;
-			const dia = new Diagnostic(
+			const dia = new Diagnostic_EX(
 				loc.range,
 				d定義重複.mes.replace('$', nm),
 				d定義重複.sev,
 			);
-			dia.code = ScriptScanner.#DIA_CODE_ALL_SN_CHK;
 			dia.relatedInformation = a.map(l=> new DiagnosticRelatedInformation(l, this.#hDiag.マクロ定義重複_その他.mes));
 			(this.#uri2Diag[loc.uri.path] ??= []).push(dia);
 		}
@@ -542,14 +565,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (use_nm in this.hPlugin) continue;
 
 			this.hMacroUse[use_nm].forEach(loc=> {
-				if (path && loc.uri.path !== path) return;	// 更新分のみ
+				//if (path && loc.uri.path !== path) return;	// 更新分のみ
+					// _EX で全スクリプトに影響するので上記処理させない
 
-				const dia = new Diagnostic(
+				const dia = new Diagnostic_EX(
 					loc.range,
 					d未定義.mes.replace('$', use_nm),
 					d未定義.sev
 				);
-				dia.code = ScriptScanner.#DIA_CODE_ALL_SN_CHK;
 				(this.#uri2Diag[loc.uri.path] ??= []).push(dia);
 			});
 		}
@@ -561,12 +584,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (m.hPrm?.nowarn_unused?.val) continue;
 			if (path && m.loc.uri.path !== path) continue;	// 更新分のみ
 
-			const dia = new Diagnostic(
+			const dia = new Diagnostic(	// _EX ではない
 				m.loc.range,
 				d未使用マクロ.mes.replace('$', nm),
 				d未使用マクロ.sev
 			);
-			dia.code = ScriptScanner.#DIA_CODE_ALL_SN_CHK;
 			(this.#uri2Diag[m.loc.uri.path] ??= []).push(dia);
 	}
 
@@ -645,10 +667,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const f2s: TFONT2STR = this.#hInfFont2Str.hSn2Font2Str[path] = {};
 		this.#nowFontNm = ScriptScanner.DEF_FONT;
 
-		const hLabel: {[label_nm: string]: Range | undefined} = {};
-			// ラベル重複チェック用
-		const setKw = this.#hScr2KeyWord[path];
-			// キーワード削除チェック用
+		const hLabel: TH_SN2LABEL = {};	// ラベル重複チェック用
+		const setKw = this.#hScr2KeyWord[path];	// キーワード削除チェック用
 		this.#aDsOutline = this.hSn2aDsOutline[path] = [];
 
 		// procTokenBase を定義、procToken も同値で始める
@@ -779,6 +799,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const p = {line: 0, col: 0};
 		const a = this.#resolveScript(src.trim()).aToken;
 		a.forEach(token=> {if (token) this.#procToken(p, token)});
+		this.#hFn2label[getFn(path)] = hLabel;
+
 		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);
 	}
 	#procToken:  (p: Pos, token: string)=> void;
@@ -790,7 +812,9 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#hSetWords[key].add(word);
 	}
 	readonly	#hTagProc: {[nm: string]: FncTagProc}	= {
-		'let_ml': (setKw: Set<string>)=> {
+		// constructor で上書きしているので注意
+
+		let_ml: (setKw: Set<string>)=> {
 			this.#procToken = (p, token)=> {
 				const len2 = token.length;
 				let lineTkn = 0;
@@ -807,7 +831,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '代入変数名', v);
 		},
 
-		'macro': (_setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, _rng_nm: Range)=> {	
+		macro: (_setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, _rng_nm: Range)=> {	
 			const hPrm = this.#alzTagArg.hPrm;
 			const nm = hPrm.name?.val;
 			if (! nm) {	// [macro name=]など
@@ -867,9 +891,9 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				this.#cteScore.defMacro(nm, o);
 			}
 		},
-		'endmacro': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		endmacro: ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
-		'char2macro': (_setKw: Set<string>, uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
+		char2macro: (_setKw: Set<string>, uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
 			const hPrm = this.#alzTagArg.hPrm;
 			const char = hPrm.char?.val ?? '';
 			const use_nm = hPrm.name?.val ?? '';
@@ -883,40 +907,64 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			(this.hMacroUse[use_nm] ??= []).push(new Location(uri, rng));
 		},
 
-		'if': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
+		if: (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
 			const ds = new DocumentSymbol(token, '', SymbolKind.Function, rng, rng);
 			this.#aDsOutline.push(ds);
 			this.#aDsOutlineStack.push(this.#aDsOutline);
 			this.#aDsOutline = ds.children;
 		},
-		'elsif': (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
-			this.#hTagProc['if'](setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+		elsif: (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+			this.#hTagProc.if(setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
 
 			this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [];
 		},
-		//'else':  === elsif
-		'endif': ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		// else:  = elsif
+		endif: ()=> this.#aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
-		's': (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
+		event: (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+			this.#hTagProc.s(setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+
+			// fn属性チェック
+				// ファイル追加・削除時は（外部きっかけで）goAll()が走るのでヨシ
+			const hPrm = this.#alzTagArg.hPrm;
+			const fn = hPrm.fn?.val ?? getFn(uri.path);
+			if (fn && fn.at(-1) !== '*') this.#aFinishJob.push(()=> {
+				if (this.#hSetWords.スクリプトファイル名.has(fn)) return;
+				const d = this.#hDiag.スクリプトファイル不明;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', fn), d.sev));
+			});
+
+			// label属性チェック
+			const label = hPrm.label?.val ?? '';
+			if (label && ! /^\*\*/.test(label)) this.#aFinishJob.push(()=> {
+				if (label in this.#hFn2label[fn]) return;
+				const d = this.#hDiag.ラベル不明;
+				diags.push(new Diagnostic(rng, d.mes.replace('$', label), d.sev));
+			});
+		},
+
+		s: (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
 			this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Function, rng, rng));
 		},
 
-		'let': (setKw: Set<string>)=> {
+		let: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '代入変数名', v);
 		},
-		'add_frame': (setKw: Set<string>)=> {
+		add_frame: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.id?.val;
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, 'フレーム名', v);
 		},
-		'playbgm': (setKw: Set<string>)=> {
+		playbgm: (setKw: Set<string>)=> {
 			this.#setKwAdd(setKw, 'サウンドバッファ', 'BGM');
 		},
-		'playse': (setKw: Set<string>)=> {
+		playse: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.buf?.val ?? 'SE';
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', v)
 		},
-		'button': (setKw: Set<string>)=> {
+		button: (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+			this.#hTagProc.event(setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+
 			const c = this.#alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
 			if (c && c.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', c);
 			const e = this.#alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
@@ -924,7 +972,14 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const l = this.#alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
 			if (l && l.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', l);
 		},
-		'link': (setKw: Set<string>)=> {
+
+		// call:  = event
+		// jump:  = event
+		// return:  = s
+
+		link: (setKw: Set<string>, uri: Uri, token: string, rng: Range, diags: Diagnostic[], p: Pos, lineTkn: number, rng_nm: Range)=> {	
+			this.#hTagProc.event(setKw, uri, token, rng, diags, p, lineTkn, rng_nm);
+
 			const c = this.#alzTagArg.hPrm.clicksebuf?.val ?? 'SYS';
 			if (c && c.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', c);
 			const e = this.#alzTagArg.hPrm.entersebuf?.val ?? 'SYS';
@@ -932,15 +987,15 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const l = this.#alzTagArg.hPrm.leavesebuf?.val ?? 'SYS';
 			if (l && l.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', l);
 		},
-		'ch_in_style': (setKw: Set<string>)=> {
+		ch_in_style: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '文字出現演出名', v);
 		},
-		'ch_out_style': (setKw: Set<string>)=> {
+		ch_out_style: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '文字消去演出名', v);
 		},
-		'add_lay': (setKw: Set<string>)=> {
+		add_lay: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.layer?.val;
 			if (! v) return;
 
@@ -949,11 +1004,11 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			const kwn = `${cls === 'grp' ?'画像' :'文字'}レイヤ名`;
 			this.#setKwAdd(setKw, kwn, v);
 		},
-		'add_face': (setKw: Set<string>)=> {
+		add_face: (setKw: Set<string>)=> {
 			const v = this.#alzTagArg.hPrm.name?.val;
 			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '差分名称', v);
 		},
-		'span': (_setKw: Set<string>, _uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
+		span: (_setKw: Set<string>, _uri: Uri, _token: string, rng: Range, diags: Diagnostic[])=> {
 			const v = this.#alzTagArg.hPrm.style?.val;
 			if (! v) {this.#nowFontNm = ScriptScanner.DEF_FONT; return;}
 
