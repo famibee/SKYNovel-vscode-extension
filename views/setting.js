@@ -11220,79 +11220,79 @@ const useOInfo = () => {
   return st;
 };
 (() => {
-  var e = { 90: (e2, t2, i2) => {
-    i2.d(t2, { Z: () => n });
-    var s = i2(645), o = i2.n(s)()(function(e3) {
-      return e3[1];
+  var t = { 792: (t2, e2, i2) => {
+    i2.d(e2, { Z: () => n });
+    var s = i2(609), o = i2.n(s)()(function(t3) {
+      return t3[1];
     });
-    o.push([e2.id, ':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--transition-time: 0ms;transform:translateX(calc(var(--exposure) * -1));transition:transform var(--transition-time)}.first .first-overlay-container{position:relative;transform:translateX(var(--exposure));transition:transform var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:transform}.first.focused .first-overlay-container{will-change:transform}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.first.focused{will-change:auto}.first.focused .first-overlay-container{will-change:auto}}}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:0;height:100%;display:flex;align-items:flex-end;justify-content:center;flex-direction:column}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translateX(-0.5px)}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical.first{transform:translateY(calc(var(--exposure) * -1))}.vertical.first .first-overlay-container{transform:translateY(var(--exposure))}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:0;width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{transform:translateX(-0.5px) rotate(90deg)}', ""]);
+    o.push([t2.id, ':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;--handle-position-start: 50%;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--transition-time: 0ms;transform:translateX(calc(var(--exposure) * -1));transition:transform var(--transition-time)}.first .first-overlay-container{position:relative;transform:translateX(var(--exposure));transition:transform var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:transform}.first.focused .first-overlay-container{will-change:transform}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.first.focused{will-change:auto}.first.focused .first-overlay-container{will-change:auto}}}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:0;height:100%}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{position:absolute;top:var(--handle-position-start);pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translate(calc(-50% - 0.5px), -50%);line-height:0}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical.first{transform:translateY(calc(var(--exposure) * -1))}.vertical.first .first-overlay-container{transform:translateY(var(--exposure))}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:0;width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{top:auto;left:var(--handle-position-start);transform:translate(calc(-50% - 0.5px), -50%) rotate(90deg)}', ""]);
     const n = o;
-  }, 645: (e2) => {
-    e2.exports = function(e3) {
-      var t2 = [];
-      return t2.toString = function() {
-        return this.map(function(t3) {
-          var i2 = e3(t3);
-          return t3[2] ? "@media ".concat(t3[2], " {").concat(i2, "}") : i2;
+  }, 609: (t2) => {
+    t2.exports = function(t3) {
+      var e2 = [];
+      return e2.toString = function() {
+        return this.map(function(e3) {
+          var i2 = t3(e3);
+          return e3[2] ? "@media ".concat(e3[2], " {").concat(i2, "}") : i2;
         }).join("");
-      }, t2.i = function(e4, i2, s) {
-        "string" == typeof e4 && (e4 = [[null, e4, ""]]);
+      }, e2.i = function(t4, i2, s) {
+        "string" == typeof t4 && (t4 = [[null, t4, ""]]);
         var o = {};
         if (s)
           for (var n = 0; n < this.length; n++) {
             var r = this[n][0];
             null != r && (o[r] = true);
           }
-        for (var a = 0; a < e4.length; a++) {
-          var d = [].concat(e4[a]);
-          s && o[d[0]] || (i2 && (d[2] ? d[2] = "".concat(i2, " and ").concat(d[2]) : d[2] = i2), t2.push(d));
+        for (var a = 0; a < t4.length; a++) {
+          var d = [].concat(t4[a]);
+          s && o[d[0]] || (i2 && (d[2] ? d[2] = "".concat(i2, " and ").concat(d[2]) : d[2] = i2), e2.push(d));
         }
-      }, t2;
+      }, e2;
     };
-  } }, t = {};
+  } }, e = {};
   function i(s) {
-    var o = t[s];
+    var o = e[s];
     if (void 0 !== o)
       return o.exports;
-    var n = t[s] = { id: s, exports: {} };
-    return e[s](n, n.exports, i), n.exports;
+    var n = e[s] = { id: s, exports: {} };
+    return t[s](n, n.exports, i), n.exports;
   }
-  i.n = (e2) => {
-    var t2 = e2 && e2.__esModule ? () => e2.default : () => e2;
-    return i.d(t2, { a: t2 }), t2;
-  }, i.d = (e2, t2) => {
-    for (var s in t2)
-      i.o(t2, s) && !i.o(e2, s) && Object.defineProperty(e2, s, { enumerable: true, get: t2[s] });
-  }, i.o = (e2, t2) => Object.prototype.hasOwnProperty.call(e2, t2), (() => {
-    var e2 = i(90);
-    const t2 = "rendered", s = document.createElement("template");
+  i.n = (t2) => {
+    var e2 = t2 && t2.__esModule ? () => t2.default : () => t2;
+    return i.d(e2, { a: e2 }), e2;
+  }, i.d = (t2, e2) => {
+    for (var s in e2)
+      i.o(e2, s) && !i.o(t2, s) && Object.defineProperty(t2, s, { enumerable: true, get: e2[s] });
+  }, i.o = (t2, e2) => Object.prototype.hasOwnProperty.call(t2, e2), (() => {
+    var t2 = i(792);
+    const e2 = "rendered", s = document.createElement("template");
     s.innerHTML = '<div class="second" id="second"> <slot name="second"><slot name="before"></slot></slot> </div> <div class="first" id="first"> <div class="first-overlay"> <div class="first-overlay-container" id="firstImageContainer"> <slot name="first"><slot name="after"></slot></slot> </div> </div> <div class="handle-container"> <div class="divider"></div> <div class="handle"> <slot name="handle"> <svg xmlns="http://www.w3.org/2000/svg" class="default-handle" viewBox="-8 -3 16 6"> <path d="M -5 -2 L -7 0 L -5 2 M 5 -2 L 7 0 L 5 2" fill="none" vector-effect="non-scaling-stroke"/> </svg> </slot> </div> </div> </div> ';
-    const o = { ArrowLeft: -1, ArrowRight: 1 }, n = ["horizontal", "vertical"], r = (e3) => ({ x: e3.touches[0].pageX, y: e3.touches[0].pageY }), a = (e3) => ({ x: e3.pageX, y: e3.pageY });
+    const o = { ArrowLeft: -1, ArrowRight: 1 }, n = ["horizontal", "vertical"], r = (t3) => ({ x: t3.touches[0].pageX, y: t3.touches[0].pageY }), a = (t3) => ({ x: t3.pageX, y: t3.pageY });
     class d extends HTMLElement {
       constructor() {
-        super(), this.exposure = this.hasAttribute("value") ? parseFloat(this.getAttribute("value")) : 50, this.slideOnHover = false, this.slideDirection = "horizontal", this.keyboard = "enabled", this.isMouseDown = false, this.isFocused = false, this.onMouseMove = (e3) => {
+        super(), this.exposure = this.hasAttribute("value") ? parseFloat(this.getAttribute("value")) : 50, this.slideOnHover = false, this.slideDirection = "horizontal", this.keyboard = "enabled", this.isMouseDown = false, this.isFocused = false, this.onMouseMove = (t3) => {
           if (this.isMouseDown || this.slideOnHover) {
-            const t4 = a(e3);
-            this.slideToPage(t4);
+            const e4 = a(t3);
+            this.slideToPage(e4);
           }
-        }, this.bodyUserSelectStyle = "", this.onMouseDown = (e3) => {
+        }, this.bodyUserSelectStyle = "", this.onMouseDown = (t3) => {
           if (this.slideOnHover)
             return;
           window.addEventListener("mousemove", this.onMouseMove), window.addEventListener("mouseup", this.onWindowMouseUp), this.isMouseDown = true, this.enableTransition();
-          const t4 = a(e3);
-          this.slideToPage(t4), this.focus(), this.bodyUserSelectStyle = window.document.body.style.userSelect, window.document.body.style.userSelect = "none";
+          const e4 = a(t3);
+          this.slideToPage(e4), this.focus(), this.bodyUserSelectStyle = window.document.body.style.userSelect, window.document.body.style.userSelect = "none";
         }, this.onWindowMouseUp = () => {
           this.isMouseDown = false, window.document.body.style.userSelect = this.bodyUserSelectStyle, window.removeEventListener("mousemove", this.onMouseMove), window.removeEventListener("mouseup", this.onWindowMouseUp);
-        }, this.isTouchComparing = false, this.hasTouchMoved = false, this.onTouchStart = (e3) => {
-          this.touchStartPoint = r(e3), this.isFocused && (this.enableTransition(), this.slideToPage(this.touchStartPoint));
-        }, this.onTouchMove = (e3) => {
-          const t4 = r(e3);
+        }, this.isTouchComparing = false, this.hasTouchMoved = false, this.onTouchStart = (t3) => {
+          this.touchStartPoint = r(t3), this.isFocused && (this.enableTransition(), this.slideToPage(this.touchStartPoint));
+        }, this.onTouchMove = (t3) => {
+          const e4 = r(t3);
           if (this.isTouchComparing)
-            return this.slideToPage(t4), e3.preventDefault(), false;
+            return this.slideToPage(e4), t3.preventDefault(), false;
           if (!this.hasTouchMoved) {
-            const i3 = Math.abs(t4.y - this.touchStartPoint.y), s2 = Math.abs(t4.x - this.touchStartPoint.x);
+            const i3 = Math.abs(e4.y - this.touchStartPoint.y), s2 = Math.abs(e4.x - this.touchStartPoint.x);
             if ("horizontal" === this.slideDirection && i3 < s2 || "vertical" === this.slideDirection && i3 > s2)
-              return this.isTouchComparing = true, this.focus(), this.slideToPage(t4), e3.preventDefault(), false;
+              return this.isTouchComparing = true, this.focus(), this.slideToPage(e4), t3.preventDefault(), false;
             this.hasTouchMoved = true;
           }
         }, this.onTouchEnd = () => {
@@ -11301,84 +11301,84 @@ const useOInfo = () => {
           this.stopSlideAnimation(), this.isFocused = false, this.firstElement.classList.remove("focused");
         }, this.onFocus = () => {
           this.isFocused = true, this.firstElement.classList.add("focused");
-        }, this.onKeyDown = (e3) => {
+        }, this.onKeyDown = (t3) => {
           if ("disabled" === this.keyboard)
             return;
           if (this.isAnimating)
             return;
           this.isAnimating = true;
-          const t4 = e3.key;
-          void 0 !== o[t4] && this.startSlideAnimation(o[t4]);
-        }, this.onKeyUp = (e3) => {
-          "disabled" !== this.keyboard && this.isAnimating && void 0 !== o[e3.key] && this.stopSlideAnimation();
+          const e4 = t3.key;
+          void 0 !== o[e4] && this.startSlideAnimation(o[e4]);
+        }, this.onKeyUp = (t3) => {
+          "disabled" !== this.keyboard && this.isAnimating && void 0 !== o[t3.key] && this.stopSlideAnimation();
         }, this.resetDimensions = () => {
           this.imageWidth = this.offsetWidth, this.imageHeight = this.offsetHeight;
         };
-        const t3 = this.attachShadow({ mode: "open" }), i2 = document.createElement("style");
-        i2.innerHTML = e2.Z, this.getAttribute("nonce") && i2.setAttribute("nonce", this.getAttribute("nonce")), t3.appendChild(i2), t3.appendChild(s.content.cloneNode(true)), this.firstElement = t3.getElementById("first"), this.firstImageContainerElement = t3.getElementById("firstImageContainer"), this.secondElement = t3.getElementById("second");
+        const e3 = this.attachShadow({ mode: "open" }), i2 = document.createElement("style");
+        i2.innerHTML = t2.Z, this.getAttribute("nonce") && i2.setAttribute("nonce", this.getAttribute("nonce")), e3.appendChild(i2), e3.appendChild(s.content.cloneNode(true)), this.firstElement = e3.getElementById("first"), this.firstImageContainerElement = e3.getElementById("firstImageContainer"), this.secondElement = e3.getElementById("second");
       }
       get value() {
         return this.exposure;
       }
-      set value(e3) {
-        const t3 = parseFloat(e3);
-        t3 !== this.exposure && (this.exposure = t3, this.enableTransition(), this.setExposure());
+      set value(t3) {
+        const e3 = parseFloat(t3);
+        e3 !== this.exposure && (this.exposure = e3, this.enableTransition(), this.setExposure());
       }
       get hover() {
         return this.slideOnHover;
       }
-      set hover(e3) {
-        this.slideOnHover = "false" !== e3.toString().toLowerCase(), this.removeEventListener("mousemove", this.onMouseMove), this.slideOnHover && this.addEventListener("mousemove", this.onMouseMove);
+      set hover(t3) {
+        this.slideOnHover = "false" !== t3.toString().toLowerCase(), this.removeEventListener("mousemove", this.onMouseMove), this.slideOnHover && this.addEventListener("mousemove", this.onMouseMove);
       }
       get direction() {
         return this.slideDirection;
       }
-      set direction(e3) {
-        this.slideDirection = e3.toString().toLowerCase(), this.slide(0), this.firstElement.classList.remove(...n), n.includes(this.slideDirection) && this.firstElement.classList.add(this.slideDirection);
+      set direction(t3) {
+        this.slideDirection = t3.toString().toLowerCase(), this.slide(0), this.firstElement.classList.remove(...n), n.includes(this.slideDirection) && this.firstElement.classList.add(this.slideDirection);
       }
       static get observedAttributes() {
         return ["hover", "direction"];
       }
       connectedCallback() {
-        this.hasAttribute("tabindex") || (this.tabIndex = 0), this.addEventListener("dragstart", (e3) => (e3.preventDefault(), false)), new ResizeObserver(this.resetDimensions).observe(this), this.setExposure(0), this.keyboard = this.hasAttribute("keyboard") && "disabled" === this.getAttribute("keyboard") ? "disabled" : "enabled", this.addEventListener("keydown", this.onKeyDown), this.addEventListener("keyup", this.onKeyUp), this.addEventListener("focus", this.onFocus), this.addEventListener("blur", this.onBlur), this.addEventListener("touchstart", this.onTouchStart, { passive: true }), this.addEventListener("touchmove", this.onTouchMove, { passive: false }), this.addEventListener("touchend", this.onTouchEnd), this.addEventListener("mousedown", this.onMouseDown), this.hover = !!this.hasAttribute("hover") && this.getAttribute("hover"), this.direction = this.hasAttribute("direction") ? this.getAttribute("direction") : "horizontal", this.resetDimensions(), this.classList.contains(t2) || this.classList.add(t2), this.querySelectorAll('[slot="before"], [slot="after"]').length > 0 && console.warn(`<img-comparison-slider>: slot names "before" and "after" are deprecated and soon won't be supported. Please use slot="first" instead of slot="after", and slot="second" instead of slot="before".`);
+        this.hasAttribute("tabindex") || (this.tabIndex = 0), this.addEventListener("dragstart", (t3) => (t3.preventDefault(), false)), new ResizeObserver(this.resetDimensions).observe(this), this.setExposure(0), this.keyboard = this.hasAttribute("keyboard") && "disabled" === this.getAttribute("keyboard") ? "disabled" : "enabled", this.addEventListener("keydown", this.onKeyDown), this.addEventListener("keyup", this.onKeyUp), this.addEventListener("focus", this.onFocus), this.addEventListener("blur", this.onBlur), this.addEventListener("touchstart", this.onTouchStart, { passive: true }), this.addEventListener("touchmove", this.onTouchMove, { passive: false }), this.addEventListener("touchend", this.onTouchEnd), this.addEventListener("mousedown", this.onMouseDown), this.hover = !!this.hasAttribute("hover") && this.getAttribute("hover"), this.direction = this.hasAttribute("direction") ? this.getAttribute("direction") : "horizontal", this.resetDimensions(), this.classList.contains(e2) || this.classList.add(e2), this.querySelectorAll('[slot="before"], [slot="after"]').length > 0 && console.warn(`<img-comparison-slider>: slot names "before" and "after" are deprecated and soon won't be supported. Please use slot="first" instead of slot="after", and slot="second" instead of slot="before".`);
       }
       disconnectedCallback() {
         this.transitionTimer && window.clearTimeout(this.transitionTimer);
       }
-      attributeChangedCallback(e3, t3, i2) {
-        "hover" === e3 && (this.hover = i2), "direction" === e3 && (this.direction = i2), "keyboard" === e3 && (this.keyboard = "disabled" === i2 ? "disabled" : "enabled");
+      attributeChangedCallback(t3, e3, i2) {
+        "hover" === t3 && (this.hover = i2), "direction" === t3 && (this.direction = i2), "keyboard" === t3 && (this.keyboard = "disabled" === i2 ? "disabled" : "enabled");
       }
-      setExposure(e3 = 0) {
-        var t3;
-        this.exposure = (t3 = this.exposure + e3) < 0 ? 0 : t3 > 100 ? 100 : t3, this.firstElement.style.setProperty("--exposure", 100 - this.exposure + "%");
+      setExposure(t3 = 0) {
+        var e3;
+        this.exposure = (e3 = this.exposure + t3) < 0 ? 0 : e3 > 100 ? 100 : e3, this.firstElement.style.setProperty("--exposure", 100 - this.exposure + "%");
       }
-      slide(e3 = 0) {
-        this.setExposure(e3);
-        const t3 = new Event("slide");
-        this.dispatchEvent(t3);
+      slide(t3 = 0) {
+        this.setExposure(t3);
+        const e3 = new Event("slide");
+        this.dispatchEvent(e3);
       }
-      slideToPage(e3) {
-        "horizontal" === this.slideDirection && this.slideToPageX(e3.x), "vertical" === this.slideDirection && this.slideToPageY(e3.y);
+      slideToPage(t3) {
+        "horizontal" === this.slideDirection && this.slideToPageX(t3.x), "vertical" === this.slideDirection && this.slideToPageY(t3.y);
       }
-      slideToPageX(e3) {
-        const t3 = e3 - this.getBoundingClientRect().left - window.scrollX;
-        this.exposure = t3 / this.imageWidth * 100, this.slide(0);
+      slideToPageX(t3) {
+        const e3 = t3 - this.getBoundingClientRect().left - window.scrollX;
+        this.exposure = e3 / this.imageWidth * 100, this.slide(0);
       }
-      slideToPageY(e3) {
-        const t3 = e3 - this.getBoundingClientRect().top - window.scrollY;
-        this.exposure = t3 / this.imageHeight * 100, this.slide(0);
+      slideToPageY(t3) {
+        const e3 = t3 - this.getBoundingClientRect().top - window.scrollY;
+        this.exposure = e3 / this.imageHeight * 100, this.slide(0);
       }
       enableTransition() {
         this.firstElement.style.setProperty("--transition-time", "100ms"), this.transitionTimer = window.setTimeout(() => {
           this.firstElement.style.setProperty("--transition-time", "0ms"), this.transitionTimer = null;
         }, 100);
       }
-      startSlideAnimation(e3) {
-        let t3 = null;
+      startSlideAnimation(t3) {
+        let e3 = null;
         const i2 = (s2) => {
-          null === t3 && (t3 = s2);
-          const o2 = (s2 - t3) / 16.666666666666668 * e3;
-          this.slide(o2), this.isAnimating && (window.requestAnimationFrame(i2), t3 = s2);
+          null === e3 && (e3 = s2);
+          const o2 = (s2 - e3) / 16.666666666666668 * t3;
+          this.slide(o2), this.isAnimating && (window.requestAnimationFrame(i2), e3 = s2);
         };
         window.requestAnimationFrame(i2);
       }
@@ -11389,13 +11389,10 @@ const useOInfo = () => {
     "undefined" != typeof window && window.customElements.define("img-comparison-slider", d);
   })();
 })();
-var ImgComparisonSlider = defineComponent({
+const ImgComparisonSlider = defineComponent({
   name: "ImgComparisonSlider",
-  setup: function(props, _a) {
-    var slots = _a.slots;
-    return function() {
-      return h("img-comparison-slider", slots["default"]());
-    };
+  setup(_, { slots }) {
+    return () => h("img-comparison-slider", slots.default());
   }
 });
 const _hoisted_1$3 = { class: "col-6 col-sm-4 px-2" };

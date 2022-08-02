@@ -56,9 +56,7 @@ class Diagnostic_EX extends Diagnostic {
 	}
 }
 
-type TINF_LABEL = Range | undefined;
-type TH_SN2LABEL = {[label: string]: TINF_LABEL};
-
+type TH_SN2LBLRNG = {[label: string]: Range};
 
 export class ScriptScanner {
 	readonly	#aPlaceFont;
@@ -336,9 +334,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#goFinish(path);
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
-		// すべて再走査（重複走査・永久ループに留意）
+		// すべて追加走査（重複走査・永久ループに留意）
 			// 重複定義時は、最初に見つかったもののみ #hMacro(Old) に入っている
-		const hUrl = new Set<string>();
 		const mon = {...this.#hMacroOld, ...this.hMacro};
 		for (const nm in mon) {
 			// 1.このファイルで定義されたマクロ
@@ -348,12 +345,15 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				.includes(path)) continue;	// 定義重複は別変数なので
 			// 2.を使用しているファイル
 			this.hMacroUse[nm]?.forEach(loc=> {
-				if (loc.uri.path !== path) hUrl.add(loc.uri.path);
+				if (loc.uri.path !== path) this.#sNeedScan.add(loc.uri.path);
 			});
 		}
-		hUrl.forEach(url=> {	// 再走査
+
+		// 追加走査
+		this.#sNeedScan.delete(path);	// 処理重複につき
+		this.#sNeedScan.forEach(url=> {
 			this.#goInit(url);
-			const td = workspace.textDocuments.find(td=> td.fileName === url);
+			const td = workspace.textDocuments.find(td=> td.uri.path === url);
 			this.#scanScript(
 				Uri.file(url),
 				td?.getText() ?? readFileSync(url, {encoding: 'utf8'}),
@@ -362,12 +362,22 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			this.#goFinish(url);
 		});
 	}
+
+	#sNeedScan	= new Set<string>();	// スキャン必要フラグ（単体ファイル走査時）
+
 	#hMacroOld	: {[nm: string]: MacDef} = {};	// 変更前に存在したマクロ群
 	#aMacroAdd	: string[]	= [];
+
 	#hScr2KeyWordOld	= new Set<string>();	// キーワード削除対応
 	hSn2aDsOutline	: {[path: string]: DocumentSymbol[]} = {}; // 外部から参照
 	#hDupMacro2ALoc : {[nm: string]: Location[]} = {};
-	#hFn2label	: {[path: string]: TH_SN2LABEL} = {};
+
+	#hFn2label	: {[path: string]: TH_SN2LBLRNG}= {};	// ラベル存在チェック用
+	#hFn2JoinLabel	: {[path: string]: string}	= {};	// ラベル名結合文字列
+		// ジャンプ先変更チェック用。無名以外のラベル名を結合
+	#hFTJump	: {[path_from: string]: Set<string>} = {};	// to_fn
+		// ジャンプ元から先への関連
+
 	#goInit(path?: string) {
 		if (! path) {	// 全ファイル走査
 			this.hMacro = {};
@@ -382,10 +392,13 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 			this.#hDupMacro2ALoc = {};
 			this.#hFn2label = {};
 			this.#uri2Diag = {};
+			this.#hFn2JoinLabel = {};
+			this.#hFTJump = {};
 			return;
 		}
 
 		// 単体ファイル走査時
+		this.#sNeedScan = new Set();
 		{
 			const hMD: {[nm: string]: MacDef} = {};
 			this.#hMacroOld = {};	// 変更前に存在したマクロ群を退避
@@ -410,6 +423,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		this.#hScr2KeyWord[path] = new Set;
 	//	this.hSn2aDsOutline = {};	// #scanScriptで
 	//	this.#hSn2label[path] = {};	// #scanScriptで
+	//	this.#hFn2Jump[path] = {};	// #scanScriptで
 
 		// 重複マクロ定義検知
 		for (const nm in this.#hDupMacro2ALoc) this.#hDupMacro2ALoc[nm] = this.#hDupMacro2ALoc[nm].filter(l=> l.uri.path !== path);
@@ -667,9 +681,13 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const f2s: TFONT2STR = this.#hInfFont2Str.hSn2Font2Str[path] = {};
 		this.#nowFontNm = ScriptScanner.DEF_FONT;
 
-		const hLabel: TH_SN2LABEL = {};	// ラベル重複チェック用
+		const hLblRng: TH_SN2LBLRNG = {};	// ラベル重複チェック用
 		const setKw = this.#hScr2KeyWord[path];	// キーワード削除チェック用
 		this.#aDsOutline = this.hSn2aDsOutline[path] = [];
+
+		let sJoinLabel = '';	// ラベル変更検知用、jump情報・ラベル名結合文字列
+								// [jump]タグなどの順番が変わっただけでも変更扱いで
+		this.#hFTJump[path] = new Set();
 
 		// procTokenBase を定義、procToken も同値で始める
 		this.#procToken = this.#procTokenBase = (p: Pos, token: string)=> {
@@ -724,17 +742,16 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				this.#aDsOutline.push(new DocumentSymbol(token, '', SymbolKind.Key, rng, rng));
 				if (token.charAt(1) === '*') return;	// 無名ラベルは除外
 
-				if (token in hLabel) {
-					const rng0 = hLabel[token];
+				sJoinLabel += token;	// まぁ区切りなくていいか。*あるし
+				const lr = hLblRng[token];
+				if (lr) {
+					const rng0 = hLblRng[token];
 					const d = this.#hDiag.ラベル重複;
 					const mes = d.mes.replace('$', token);
-					if (rng0) {
-						diags.push(new Diagnostic(rng0, mes, d.sev));
-						hLabel[token] = undefined;
-					}
+					if (rng0) diags.push(new Diagnostic(rng0, mes, d.sev));
 					diags.push(new Diagnostic(rng, mes, d.sev));
 				}
-				else hLabel[token] = rng;
+				else hLblRng[token] = rng;
 				return;
 			}
 			if (uc !== 91) {	// 文字表示
@@ -799,7 +816,16 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		const p = {line: 0, col: 0};
 		const a = this.#resolveScript(src.trim()).aToken;
 		a.forEach(token=> {if (token) this.#procToken(p, token)});
-		this.#hFn2label[getFn(path)] = hLabel;
+
+		const fn = getFn(path);
+		this.#hFn2label[fn] = hLblRng;
+
+		if (this.#hFn2JoinLabel[path] !== sJoinLabel) {
+			for (const path_from in this.#hFTJump) {
+				if (this.#hFTJump[path_from].has(fn)) this.#sNeedScan.add(path_from);
+			}
+		}
+		this.#hFn2JoinLabel[path] = sJoinLabel;
 
 		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);
 	}
@@ -941,6 +967,8 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				const d = this.#hDiag.ラベル不明;
 				diags.push(new Diagnostic(rng, d.mes.replace('$', label), d.sev));
 			});
+
+			this.#hFTJump[uri.path].add(fn);
 		},
 
 		s: (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
