@@ -604,7 +604,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				d未使用マクロ.sev
 			);
 			(this.#uri2Diag[m.loc.uri.path] ??= []).push(dia);
-	}
+		}
 
 		this.clDiag.clear();
 		for (const path in this.#uri2Diag) {
@@ -954,21 +954,23 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 				// ファイル追加・削除時は（外部きっかけで）goAll()が走るのでヨシ
 			const hPrm = this.#alzTagArg.hPrm;
 			const fn = hPrm.fn?.val ?? getFn(uri.path);
-			if (fn && fn.at(-1) !== '*') this.#aFinishJob.push(()=> {
+			// fnが変数・文字列操作系・ext_* などならチェック不能
+			if (/^[*%&"'#]/.test(fn) || fn.at(-1) === '*') return;
+
+			this.#aFinishJob.push(()=> {
 				if (this.#hSetWords.スクリプトファイル名.has(fn)) return;
 				const d = this.#hDiag.スクリプトファイル不明;
 				diags.push(new Diagnostic(rng, d.mes.replace('$', fn), d.sev));
 			});
+			this.#hFTJump[uri.path].add(fn);
 
-			// label属性チェック
+			// label属性チェック（%&"'# も弾く）
 			const label = hPrm.label?.val ?? '';
-			if (label && ! /^\*\*/.test(label)) this.#aFinishJob.push(()=> {
-				if (label in this.#hFn2label[fn]) return;
+			if (label && /^\*(?!\*)/.test(label)) this.#aFinishJob.push(()=> {
+				if (fn in this.#hFn2label && label in this.#hFn2label[fn]) return;	// 遅延調査
 				const d = this.#hDiag.ラベル不明;
 				diags.push(new Diagnostic(rng, d.mes.replace('$', label), d.sev));
 			});
-
-			this.#hFTJump[uri.path].add(fn);
 		},
 
 		s: (_setKw: Set<string>, _uri: Uri, token: string, rng: Range)=> {
