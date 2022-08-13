@@ -133,7 +133,7 @@ on('init', ()=> {	// useField()の後に初期値を更新したいので
 const subscribe = ()=> {
 	// 変更後の $state が取れないので手動作成
 	const o: T_CFG = toRaw(oCfg.value);
-	stCfg.subscribe(<T_CFG>{	// 二段階目も個別にコピー
+	const o2: T_CFG = {	// 二段階目も個別にコピー
 		...o,
 		book	: {...o.book, version: v_version.value,},
 		window	: {
@@ -148,7 +148,8 @@ const subscribe = ()=> {
 							// 本体の正規表現に都合悪い（グループに誤解釈など）文字削除
 			bg_color	: v_bg_color.value,
 		},
-	});
+	};
+	stCfg.subscribe(o2);
 };
 
 </script>

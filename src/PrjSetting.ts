@@ -37,7 +37,7 @@ export class PrjSetting {
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subsetFont'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>, curCnvFile: string) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>, curCnvFile: string) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
 		for (const nm in oWss) {
@@ -682,6 +682,7 @@ export class PrjSetting {
 			mes		: this.#hHead2Mes[(<any>v).inp.slice(0, 12)],
 			iSize	: (<any>v).iSize,
 			oSize	: (<any>v).oSize,
+			err		: (<any>v).err,
 		}));
 		aFontInfo.sort();
 		this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: aFontInfo});

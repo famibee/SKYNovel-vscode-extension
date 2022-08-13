@@ -6313,8 +6313,8 @@ const DEF_CFG4TST = {
   debuger_token: ""
 };
 const DEF_CNVFONT = [
-  { nm: "KFhimajihoso", mes: "PATH_USER_FONTS", iSize: 1e4, oSize: 3e3 },
-  { nm: "ipamjm", mes: "PATH_PRJ_FONTS", iSize: 2e4, oSize: 4e3 }
+  { nm: "KFhimajihoso", mes: "OS\uFF08\u30E6\u30FC\u30B6\u30FC\u5225\uFF09\u3078\u306E\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u6E08\u307F\u30D5\u30A9\u30F3\u30C8", iSize: 1e4, oSize: 3e3, err: "" },
+  { nm: "ipamjm", mes: "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u5185\uFF08core/font/ \u4E0B\uFF09", iSize: 2e4, oSize: 4e3, err: "\u5909\u63DB\u5931\u6557\u3067\u3059\u3002\u5165\u529B\u30D5\u30A1\u30A4\u30EB ipamjm.ttf \u304C\u5B58\u5728\u3059\u308B\u304B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044" }
 ];
 const DEF_OPTIMG = {
   sum: {
@@ -11535,7 +11535,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     });
     const subscribe = () => {
       const o = toRaw(oCfg.value);
-      stCfg.subscribe({
+      const o2 = {
         ...o,
         save_ns: v_save_ns.value,
         book: {
@@ -11547,7 +11547,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
           pub_url: v_pub_url.value,
           detail: v_detail.value
         }
-      });
+      };
+      stCfg.subscribe(o2);
     };
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$7, [
@@ -11819,7 +11820,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
     });
     const subscribe = () => {
       const o = toRaw(oCfg.value);
-      stCfg.subscribe({
+      const o2 = {
         ...o,
         book: { ...o.book, version: v_version.value },
         window: {
@@ -11833,7 +11834,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
           escape: v_escape.value.replaceAll(/[ &()*;[\]]/g, ""),
           bg_color: v_bg_color.value
         }
-      });
+      };
+      stCfg.subscribe(o2);
     };
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$6, [
@@ -12567,9 +12569,9 @@ const _hoisted_31$1 = { class: "form-check form-switch py-2" };
 const _hoisted_32$1 = ["id", "checked", "onChange", "disabled"];
 const _hoisted_33$1 = ["for"];
 const _hoisted_34$1 = { class: "col-6 col-sm-3 px-1" };
-const _hoisted_35 = { class: "range-wrap" };
-const _hoisted_36 = ["textContent"];
-const _hoisted_37 = ["onUpdate:modelValue", "disabled", "onChange"];
+const _hoisted_35$1 = { class: "range-wrap" };
+const _hoisted_36$1 = ["textContent"];
+const _hoisted_37$1 = ["onUpdate:modelValue", "disabled", "onChange"];
 const _hoisted_38 = { class: "col-12 px-1" };
 const _hoisted_39 = { class: "position-relative d-flex justify-content-evenly" };
 const _hoisted_40 = ["src"];
@@ -12603,7 +12605,8 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const chgRangeWebpQDef = (el) => {
       const webp_q = Number(el.target.value);
       oWss.value["cnv.mat.webp_quality"] = webp_q;
-      cmd2Ex({ cmd: "change.range.webp_q_def", webp_q });
+      const q = { cmd: "change.range.webp_q_def", webp_q };
+      cmd2Ex(q);
     };
     const stWss = useWss();
     const { oWss } = storeToRefs(stWss);
@@ -12614,10 +12617,12 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
         oOptImg.value.hSize[e.nm].webp_q = webp_q;
       else
         delete oOptImg.value.hSize[e.nm].webp_q;
-      cmd2Ex({ cmd: "change.range.webp_q", nm: e.nm, no_def, webp_q });
+      const q = { cmd: "change.range.webp_q", nm: e.nm, no_def, webp_q };
+      cmd2Ex(q);
     };
     const chgRangeWebpQ = (el, e) => {
-      cmd2Ex({ cmd: "change.range.webp_q", nm: e.nm, no_def: true, webp_q: Number(el.target.value) });
+      const q = { cmd: "change.range.webp_q", nm: e.nm, no_def: true, webp_q: Number(el.target.value) };
+      cmd2Ex(q);
     };
     const updImg = (src) => src + "?" + new Date().getTime();
     return (_ctx, _cache) => {
@@ -12744,14 +12749,14 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                 ])
                               ]),
                               createBaseVNode("div", _hoisted_34$1, [
-                                createBaseVNode("div", _hoisted_35, [
+                                createBaseVNode("div", _hoisted_35$1, [
                                   createBaseVNode("div", {
                                     class: "range-badge",
                                     style: normalizeStyle({ left: unref(getLeftRangeBadge)(e.webp_q, 100, 5) })
                                   }, [
                                     withDirectives(createBaseVNode("span", {
                                       textContent: toDisplayString(e.webp_q)
-                                    }, null, 8, _hoisted_36), [
+                                    }, null, 8, _hoisted_36$1), [
                                       [vShow, e.webp_q !== void 0]
                                     ])
                                   ], 4),
@@ -12764,7 +12769,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                     disabled: e.webp_q === void 0 || unref(hDisabled)["cnv.mat.pic"],
                                     onChange: ($event) => chgRangeWebpQ($event, e),
                                     class: "form-range my-1 sn-vld"
-                                  }, null, 40, _hoisted_37), [
+                                  }, null, 40, _hoisted_37$1), [
                                     [vModelText, unref(oOptImg).hSize[e.nm].webp_q]
                                   ])
                                 ])
@@ -13001,27 +13006,30 @@ const _hoisted_16 = ["textContent"];
 const _hoisted_17 = ["textContent"];
 const _hoisted_18 = ["textContent"];
 const _hoisted_19 = ["textContent"];
-const _hoisted_20 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
+const _hoisted_20 = { key: 0 };
+const _hoisted_21 = /* @__PURE__ */ createBaseVNode("td", null, null, -1);
+const _hoisted_22 = ["textContent"];
+const _hoisted_23 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
   /* @__PURE__ */ createBaseVNode("h5", null, "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3")
 ], -1);
-const _hoisted_21 = { class: "container" };
-const _hoisted_22 = { class: "row" };
-const _hoisted_23 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_24 = ["src"];
-const _hoisted_25 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_26 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
+const _hoisted_24 = { class: "container" };
+const _hoisted_25 = { class: "row" };
+const _hoisted_26 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_27 = ["src"];
+const _hoisted_28 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_29 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
   /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
     /* @__PURE__ */ createBaseVNode("h6", null, "\u753B\u50CF\u304B\u3089\u81EA\u52D5\u4F5C\u6210")
   ])
 ], -1);
-const _hoisted_27 = { class: "row" };
-const _hoisted_28 = { class: "col form-check mb-3" };
-const _hoisted_29 = { class: "input-group input-group-sm" };
-const _hoisted_30 = ["textContent"];
-const _hoisted_31 = { class: "row" };
-const _hoisted_32 = { class: "col form-check" };
-const _hoisted_33 = { class: "input-group input-group-sm" };
-const _hoisted_34 = /* @__PURE__ */ createBaseVNode("label", {
+const _hoisted_30 = { class: "row" };
+const _hoisted_31 = { class: "col form-check mb-3" };
+const _hoisted_32 = { class: "input-group input-group-sm" };
+const _hoisted_33 = ["textContent"];
+const _hoisted_34 = { class: "row" };
+const _hoisted_35 = { class: "col form-check" };
+const _hoisted_36 = { class: "input-group input-group-sm" };
+const _hoisted_37 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.icon.cut_round",
   class: "form-check-label"
 }, "\u4E38\u304F\u5207\u308A\u629C\u304F\u304B", -1);
@@ -13032,12 +13040,13 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
     const { aCnvFont } = storeToRefs(stOInfo);
     const stWss = useWss();
     const { oWss } = storeToRefs(stWss);
-    const selectIcon = () => cmd2Ex({
+    const qselectIcon = {
       cmd: "selectFile",
       title: "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3",
       openlabel: "\u7D20\u6750\u753B\u50CF\u3092\u9078\u629E",
       path: "build/icon.png"
-    });
+    };
+    const selectIcon = () => cmd2Ex(qselectIcon);
     const srcIcon = ref("data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==");
     const updIconImg = (src) => srcIcon.value = src + "?" + new Date().getTime();
     on("!", (data) => updIconImg(data.pathIcon));
@@ -13081,47 +13090,59 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
             _hoisted_14,
             createBaseVNode("tbody", null, [
               (openBlock(true), createElementBlock(Fragment, null, renderList(unref(aCnvFont), (e) => {
-                return openBlock(), createElementBlock("tr", {
+                return openBlock(), createElementBlock(Fragment, {
                   key: e.nm
                 }, [
-                  createBaseVNode("td", {
-                    textContent: toDisplayString(e.nm)
-                  }, null, 8, _hoisted_15),
-                  createBaseVNode("td", {
-                    textContent: toDisplayString(e.mes)
-                  }, null, 8, _hoisted_16),
-                  createBaseVNode("td", {
-                    style: { "text-align": "right" },
-                    textContent: toDisplayString(e.iSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_17),
-                  createBaseVNode("td", {
-                    style: { "text-align": "right" },
-                    textContent: toDisplayString(e.oSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_18),
-                  createBaseVNode("td", {
-                    textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
-                  }, null, 8, _hoisted_19)
-                ]);
+                  createBaseVNode("tr", {
+                    style: normalizeStyle({ borderBottom: e.err ? "hidden" : "inherit" })
+                  }, [
+                    createBaseVNode("td", {
+                      textContent: toDisplayString(e.nm)
+                    }, null, 8, _hoisted_15),
+                    createBaseVNode("td", {
+                      textContent: toDisplayString(e.mes)
+                    }, null, 8, _hoisted_16),
+                    createBaseVNode("td", {
+                      style: { "text-align": "right" },
+                      textContent: toDisplayString(e.iSize.toLocaleString("ja-JP") + " byte")
+                    }, null, 8, _hoisted_17),
+                    createBaseVNode("td", {
+                      style: { "text-align": "right" },
+                      textContent: toDisplayString(e.oSize.toLocaleString("ja-JP") + " byte")
+                    }, null, 8, _hoisted_18),
+                    createBaseVNode("td", {
+                      textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
+                    }, null, 8, _hoisted_19)
+                  ], 4),
+                  e.err ? (openBlock(), createElementBlock("tr", _hoisted_20, [
+                    _hoisted_21,
+                    createBaseVNode("td", {
+                      textContent: toDisplayString(e.err),
+                      colspan: "4",
+                      style: { "color": "red" }
+                    }, null, 8, _hoisted_22)
+                  ])) : createCommentVNode("", true)
+                ], 64);
               }), 128))
             ])
           ])
         ]),
-        _hoisted_20,
-        createBaseVNode("div", _hoisted_21, [
-          createBaseVNode("div", _hoisted_22, [
-            createBaseVNode("div", _hoisted_23, [
+        _hoisted_23,
+        createBaseVNode("div", _hoisted_24, [
+          createBaseVNode("div", _hoisted_25, [
+            createBaseVNode("div", _hoisted_26, [
               createBaseVNode("img", {
                 loading: "lazy",
                 src: srcIcon.value,
                 onClick: selectIcon,
                 class: "img-fluid sn-dragdrop"
-              }, null, 8, _hoisted_24)
+              }, null, 8, _hoisted_27)
             ]),
-            createBaseVNode("div", _hoisted_25, [
-              _hoisted_26,
-              createBaseVNode("div", _hoisted_27, [
-                createBaseVNode("div", _hoisted_28, [
-                  createBaseVNode("div", _hoisted_29, [
+            createBaseVNode("div", _hoisted_28, [
+              _hoisted_29,
+              createBaseVNode("div", _hoisted_30, [
+                createBaseVNode("div", _hoisted_31, [
+                  createBaseVNode("div", _hoisted_32, [
                     createBaseVNode("button", {
                       type: "button",
                       onClick: selectIcon,
@@ -13131,15 +13152,15 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       class: "alert alert-danger",
                       role: "alert",
                       textContent: toDisplayString(select_icon_err.value)
-                    }, null, 8, _hoisted_30), [
+                    }, null, 8, _hoisted_33), [
                       [vShow, select_icon_err.value !== ""]
                     ])
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_31, [
-                createBaseVNode("div", _hoisted_32, [
-                  createBaseVNode("div", _hoisted_33, [
+              createBaseVNode("div", _hoisted_34, [
+                createBaseVNode("div", _hoisted_35, [
+                  createBaseVNode("div", _hoisted_36, [
                     withDirectives(createBaseVNode("input", {
                       type: "checkbox",
                       id: "cnv.icon.cut_round",
@@ -13148,7 +13169,7 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                     }, null, 512), [
                       [vModelCheckbox, unref(oWss)["cnv.icon.cut_round"]]
                     ]),
-                    _hoisted_34
+                    _hoisted_37
                   ])
                 ])
               ])

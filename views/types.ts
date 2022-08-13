@@ -140,11 +140,12 @@ export type T_A_CNVFONT = {
 	mes		: string;
 	iSize	: number;
 	oSize	: number;
+	err		: string;
 }[];
 
 export const DEF_CNVFONT: T_A_CNVFONT = [
-	{nm: 'KFhimajihoso', mes: 'PATH_USER_FONTS', iSize: 10000, oSize: 3000,},
-	{nm: 'ipamjm', mes: 'PATH_PRJ_FONTS', iSize: 20000, oSize: 4000,},
+	{nm: 'KFhimajihoso', mes: 'OS（ユーザー別）へのインストール済みフォント', iSize: 10000, oSize: 3000, err: '',},
+	{nm: 'ipamjm', mes: 'プロジェクト内（core/font/ 下）', iSize: 20000, oSize: 4000, err: '変換失敗です。入力ファイル ipamjm.ttf が存在するか確認してください',},
 ];
 
 

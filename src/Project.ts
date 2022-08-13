@@ -11,7 +11,7 @@ import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
-import {PrjTreeItem, TREEITEM_CFG, PrjBtnName} from './PrjTreeItem';
+import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {ScriptScanner} from './ScriptScanner';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
@@ -94,7 +94,7 @@ export class Project {
 	readonly	#pathWs;
 	readonly	#fwPrjOptPic;
 	readonly	#fwPrjOptSnd;
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>) {
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
@@ -299,7 +299,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			pathCpyTo	: 'build',
 			aNeedLib	: ['sharp', 'png2icons'],
 		},
-		'subsetFont': {
+		'subset_font': {
 			title		: 'フォントサイズ最適化',
 			pathCpyTo	: 'core/font',
 			aNeedLib	: ['subset-font'],
@@ -315,7 +315,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			aNeedLib	: ['@ffmpeg-installer/ffmpeg','fluent-ffmpeg'],
 		},
 	};
-	#exeTask(nm: 'subsetFont'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {
+	#exeTask(nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {
 		const inf = this.#hTask2Inf[nm];
 
 		return new Promise(fin=> window.withProgress({
@@ -332,9 +332,9 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			.join(' ');
 
 			tasks.executeTask(new Task(
-				{type: 'SKYNovel '+ nm},	// definition（タスクの一意性）
+				{type: 'SKYNovel TaskSys'},	// タスクの一意性
 				this.wsFld,
-				inf.title,		// name、UIに表示
+				inf.title,		// UIに表示
 				'SKYNovel',		// source
 				new ShellExecution(
 					`cd "${this.#pathWs}" ${statBreak()} ${
@@ -346,7 +346,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				re=> this.#hTaskExe.set(<any>nm, re),
 				rj=> console.error(`fn:Project #exeTask() rj:${rj.message}`)
 			);
-			this.hOnEndTask.set(<any>nm, e=> {
+			this.hOnEndTask.set('Sys', e=> {
 				fin(e.exitCode ?? 0);
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);
@@ -388,7 +388,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		);
 
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-		await this.#exeTask('subsetFont', (minify ?'--minify' :''),);
+		await this.#exeTask('subset_font', (minify ?'--minify' :''),);
 
 		// フォント情報更新
 		this.#ps.updFontInfo();
@@ -559,29 +559,30 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				return;
 		}
 
+		const task_type = cfg.task_type ?? 'Pkg';
 		const t = new Task(
-			{type: 'SKYNovel '+ btn_nm},	// definition（タスクの一意性）
+			{type: 'SKYNovel Task'+ task_type},	// タスクの一意性
 			this.wsFld,
-			cfg.label,					// name、UIに表示
-			'SKYNovel',					// source
+			cfg.label,		// UIに表示
+			'SKYNovel',		// source
 			new ShellExecution(cmd),
 		);
-		this.hOnEndTask.set(btn_nm, ()=> done());
+		this.hOnEndTask.set(task_type, ()=> done());
 		switch (btn_nm) {	// タスク後処理
 			//case 'SnUpd':	// ここには来ない
 			case 'SnUpd_waited':	// Promise待ち後
-				this.hOnEndTask.set(btn_nm, ()=> {this.getLocalSNVer(); done();});
+				this.hOnEndTask.set(task_type, ()=> {this.getLocalSNVer(); done();});
 				break;
 
 			case 'Crypto_waited':
-				this.hOnEndTask.set(btn_nm, ()=> {this.dspCryptoMode(); done();});
+				this.hOnEndTask.set(task_type, ()=> {this.dspCryptoMode(); done();});
 				break;
 
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
 			case 'PackMacArm64':
-			case 'PackLinux':	this.hOnEndTask.set(btn_nm, ()=> {
+			case 'PackLinux':	this.hOnEndTask.set(task_type, ()=> {
 				// アップデート用ファイル作成
 				const oPkg = readJsonSync(pathWs +'/package.json', {encoding: 'utf8'});
 
@@ -653,7 +654,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			});
 				break;
 
-			case 'PackFreem':	this.hOnEndTask.set(btn_nm, ()=> {
+			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
 				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
 				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
@@ -942,12 +943,12 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			removeSync(this.#pathWs +'/package-lock.json');
 		}
 		cmd += 'npm run webpack:dev';
-		const type = 'SKYNovel auto';
+		const type = 'SKYNovel TaskSys';
 		const name = '自動ビルド';
 		const t = new Task(
-			{type},			// definition（タスクの一意性）
+			{type},			// タスクの一意性
 			this.wsFld!,
-			name,			// name、UIに表示
+			name,			// UIに表示
 			'SKYNovel',		// source
 			new ShellExecution(cmd),
 		);

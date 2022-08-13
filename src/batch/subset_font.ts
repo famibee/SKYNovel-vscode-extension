@@ -9,13 +9,13 @@ const [, , ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
 const subsetFont = require('subset-font');
-import {outputFile, readFile, ensureLink, statSync, writeJsonSync} from 'fs-extra';
+import {outputFile, readFile, ensureLink, statSync, writeJsonSync, existsSync} from 'fs-extra';
 const is_win = process.platform === 'win32';
 import {userInfo} from 'os';
 import {extname} from 'path';
 
 
-const oLog: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number}} = {};
+const oLog: {[nm: string]: {inp: string, out: string, iSize: number, oSize: number, err: string}} = {};
 const log_exit = (exit_code = -1)=> {
 	writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
@@ -47,16 +47,27 @@ for (const nm in o) {
 	.replace('::PATH_USER_FONTS::', PATH_USER_FONTS)
 	.replace('::PATH_OS_FONTS::', PATH_OS_FONTS);
 	const out = `doc/prj/script/${nm}${minify ?'.woff2' :extname(inp)}`;
-	oLog[nm] = {inp, out, iSize: 1, oSize: 1};
+	oLog[nm] = {inp, out, iSize: 1, oSize: 1, err: ''};
+	if (! existsSync(inp)) {
+		oLog[nm].err = `変換失敗です。入力ファイル ${o[nm].inp.slice(20)} が存在するか確認してください`;
+		continue;
+	}
 	a.push(fnc(inp, out, o[nm].txt));
 }
 Promise.allSettled(a)
 .then(()=> {
-	for (const nm in oLog) oLog[nm] = {
-		...oLog[nm],
-		inp		: o[nm].inp,		// プライベートな環境値を塗りつぶす
-		iSize	: statSync(oLog[nm].inp).size,
-		oSize	: statSync(oLog[nm].out).size,
-	};
+	for (const nm in oLog) {
+		const q = oLog[nm];
+		const inp = q.inp;
+		const out = q.out;
+		q.inp = o[nm].inp;	// プライベートな環境値を塗りつぶす
+	//	q.out = // これは存在しない
+		if (! existsSync(out)) {
+			oLog[nm].err = `変換失敗です。出力ファイル ${q.out} が存在しません`;
+			continue;
+		}
+		oLog[nm].iSize = statSync(inp).size;
+		oLog[nm].oSize = statSync(out).size;
+	}
 	log_exit(0);
 });

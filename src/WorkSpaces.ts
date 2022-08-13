@@ -11,7 +11,7 @@ import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
-import {PrjTreeItem, PrjBtnName} from './PrjTreeItem';
+import {PrjTreeItem, TASK_TYPE} from './PrjTreeItem';
 
 import {commands, EventEmitter, ExtensionContext, Range, TaskProcessEndEvent, tasks, TextEditor, TextEditorDecorationType, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem} from 'vscode';
 
@@ -36,8 +36,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		this.#refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
+		// "type": "SKYNovel TaskSys",
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
-			<PrjBtnName>(e.execution.task.definition.type.slice(9))
+			<TASK_TYPE>(e.execution.task.definition.type.slice(13))
 		)?.(e));
 
 		itmStt.detail = 'onUpdDoc';	// text - detail と表示される
@@ -275,7 +276,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask);
 	}
 
-	#hOnEndTask = new Map<PrjBtnName, (e: TaskProcessEndEvent)=> void>([]);
+	#hOnEndTask = new Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>([]);
 
 	getTreeItem = (t: TreeItem)=> t;
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;

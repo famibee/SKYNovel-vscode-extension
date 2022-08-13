@@ -25,13 +25,20 @@
 	<th style="text-align: right;">Size（出力結果）</th>
 	<th>削減率</th>
 </tr></thead><tbody>
-<tr v-for="e in aCnvFont" :key="e.nm">
-	<td v-text="e.nm"/>
-	<td v-text="e.mes"/>
-	<td style="text-align: right;" v-text="e.iSize.toLocaleString('ja-JP') +' byte'"/>
-	<td style="text-align: right;" v-text="e.oSize.toLocaleString('ja-JP') +' byte'"/>
-	<td v-text="(e.oSize / e.iSize).toLocaleString('ja-JP')"/>
-</tr></tbody></table>
+<template v-for="e in aCnvFont" :key="e.nm">
+	<tr :style="{borderBottom: (e.err) ?'hidden' :'inherit'}">
+		<td v-text="e.nm"/>
+		<td v-text="e.mes"/>
+		<td style="text-align: right;" v-text="e.iSize.toLocaleString('ja-JP') +' byte'"/>
+		<td style="text-align: right;" v-text="e.oSize.toLocaleString('ja-JP') +' byte'"/>
+		<td v-text="(e.oSize / e.iSize).toLocaleString('ja-JP')"/>
+	</tr>
+	<tr v-if="e.err">
+		<td/>
+		<td v-text="e.err" colspan="4" style="color: red"/>
+	</tr>
+</template>
+</tbody></table>
 </div>
 
 
@@ -84,12 +91,13 @@ const stWss = useWss();
 const {oWss} = storeToRefs(stWss);	// 分割代入
 
 
-const selectIcon = ()=> cmd2Ex(<T_V2E_SELECT_ICON_FILE>{
+const qselectIcon: T_V2E_SELECT_ICON_FILE = {
 	cmd			: 'selectFile',
 	title		: 'アプリアイコン',
 	openlabel	: '素材画像を選択',
 	path		: 'build/icon.png',
-});
+};
+const selectIcon = ()=> cmd2Ex(qselectIcon);
 
 const srcIcon = ref('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==');
 const updIconImg = (src: string)=> srcIcon.value = src +'?'+ (new Date()).getTime();

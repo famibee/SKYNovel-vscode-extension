@@ -165,7 +165,8 @@ const sortHSize: ()=> T_OPTIMG_FILE_AND_KEY[] = ()=> Object.entries(oOptImg.valu
 const chgRangeWebpQDef = (el: any)=> {
 	const webp_q = Number(el.target.value);
 	oWss.value['cnv.mat.webp_quality'] = webp_q;
-	cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q_DEF>{cmd: 'change.range.webp_q_def', webp_q});
+	const q: T_E2V_CHG_RANGE_WEBP_Q_DEF = {cmd: 'change.range.webp_q_def', webp_q};
+	cmd2Ex(q);
 }
 
 
@@ -178,11 +179,13 @@ const chkChg = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
 	if (no_def) oOptImg.value.hSize[e.nm].webp_q = webp_q;
 	else delete oOptImg.value.hSize[e.nm].webp_q;
 
-	cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q>{cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q});
+	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q};
+	cmd2Ex(q);
 
 };
 const chgRangeWebpQ = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
-	cmd2Ex(<T_E2V_CHG_RANGE_WEBP_Q>{cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)});
+	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)};
+	cmd2Ex(q);
 }
 
 const updImg = (src: string)=> src +'?'+ (new Date()).getTime();

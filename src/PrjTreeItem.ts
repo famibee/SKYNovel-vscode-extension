@@ -32,11 +32,14 @@ const aPrjBtnName = [
 ] as const;
 export type PrjBtnName = typeof aPrjBtnName[keyof typeof aPrjBtnName];
 
+export type TASK_TYPE = 'Sys'|'Web'|'App'|'Pkg';
+
 export interface TREEITEM_CFG {
 	cmd		: PrjBtnName|'',
 	exe?	: boolean,
 	icon	: string,
 	label	: string,
+	task_type?	: TASK_TYPE,
 	desc?	: string,
 	npm?	: string,
 	children?	: TREEITEM_CFG[],
@@ -48,16 +51,17 @@ type ON_BTN = (ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG)=> void;
 export class PrjTreeItem extends TreeItem {
 	static	readonly #aTreeTmp	: TREEITEM_CFG[] = [
 		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
+			task_type: 'Sys',
 			npm: `npm update ${statBreak()} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
-			npm: 'npm run rebuild'},
-		{cmd: 'PrjSet',		icon: 'gear',		label: '設定'},
-		{cmd: 'Crypto',		icon: 'gear',		label: '暗号化',
+			task_type: 'Sys', npm: 'npm run rebuild'},
+		{cmd: 'PrjSet',		icon: 'gear',	label: '設定',	task_type: 'Sys',},
+		{cmd: 'Crypto',		icon: 'gear',	label: '暗号化',task_type: 'Sys',
 			npm: 'npm run webpack:dev'},
 		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
-			npm: 'npm run web',		exe: true,},
+			task_type: 'Web',npm: 'npm run web',	exe: true,},
 		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-			npm: 'npm run start',	exe: true,},
+			task_type: 'App',npm: 'npm run start',	exe: true,},
 		{cmd: '', icon: '',label: '生成', children: [
 			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
 				npm: `npm run webpack:pro ${statBreak()

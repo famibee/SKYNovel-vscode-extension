@@ -145,7 +145,7 @@ on('init', ()=> {	// useField()の後に初期値を更新したいので
 const subscribe = ()=> {
 	// 変更後の $state が取れないので手動作成
 	const o: T_CFG = toRaw(oCfg.value);
-	stCfg.subscribe(<T_CFG>{
+	const o2: T_CFG = {
 		...o, save_ns: v_save_ns.value,
 		book: {
 			...o.book,
@@ -156,7 +156,8 @@ const subscribe = ()=> {
 			pub_url		: v_pub_url.value,
 			detail		: v_detail.value,
 		}
-	});
+	};
+	stCfg.subscribe(o2);
 };
 
 </script>
