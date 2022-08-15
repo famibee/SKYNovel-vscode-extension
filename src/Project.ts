@@ -353,8 +353,22 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			});
 		})));
 	}
-	readonly	#REG_FONT	= /\.(woff2|otf|ttf)$/;
+	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/;
 	async	#subsetFont(minify: boolean) {
+		// 旧フォントファイルはすべて一度削除
+		foldProc(
+			this.#pathWs +'/doc/prj/script/',
+			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
+			_=> {},
+		);
+
+		if (! minify) {
+			// 【node subset_font.js】を実行。終了を待ったり待たなかったり
+			await this.#exeTask('subset_font', '');
+			this.#ps.updFontInfo();		// フォント情報更新
+			return;
+		}
+
 		// フォント出現箇所から生成すべき最小限のフォント情報についてまとめる
 		const oFont: {[font_nm: string]: {
 			inp	: string;
@@ -378,20 +392,23 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
 		oFont[o.defaultFontName].txt += oFont[ScriptScanner.DEF_FONT].txt;
 		delete oFont[ScriptScanner.DEF_FONT];
+
+		for (const fnm in oFont) {	// 文字重複しない最小限とするように
+			const s = new Set<string>;
+			const a: string[] = Array.from(oFont[fnm].txt);
+				// txt.split('')や [...txt] はサロゲートペアで問題
+			a.forEach(c=> s.add(c));
+//x			oFont[fnm].txt = [...s].sort().join('').normalize('NFC');
+//x			oFont[fnm].txt = Array.from(s).sort().join('');
+			oFont[fnm].txt = [...s].sort().join('');	// sort()は不要だが綺麗
+		//	oFont[fnm].txt = [...s].join('');
+		}
+///
 		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
 
-		// 旧フォントファイルはすべて一度削除
-		foldProc(
-			this.#pathWs +'/doc/prj/script/',
-			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
-			_=> {},
-		);
-
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-		await this.#exeTask('subset_font', (minify ?'--minify' :''),);
-
-		// フォント情報更新
-		this.#ps.updFontInfo();
+		await this.#exeTask('subset_font', '--minify');
+		this.#ps.updFontInfo();		// フォント情報更新
 	}
 
 

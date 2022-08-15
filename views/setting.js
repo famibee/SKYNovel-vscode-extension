@@ -12328,7 +12328,7 @@ const useOInfo = () => {
     var s = i2(609), o = i2.n(s)()(function(t3) {
       return t3[1];
     });
-    o.push([t2.id, ':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;--handle-position-start: 50%;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--transition-time: 0ms;transform:translateX(calc(var(--exposure) * -1));transition:transform var(--transition-time)}.first .first-overlay-container{position:relative;transform:translateX(var(--exposure));transition:transform var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:transform}.first.focused .first-overlay-container{will-change:transform}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.first.focused{will-change:auto}.first.focused .first-overlay-container{will-change:auto}}}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:0;height:100%}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{position:absolute;top:var(--handle-position-start);pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translate(calc(-50% - 0.5px), -50%);line-height:0}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical.first{transform:translateY(calc(var(--exposure) * -1))}.vertical.first .first-overlay-container{transform:translateY(var(--exposure))}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:0;width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{top:auto;left:var(--handle-position-start);transform:translate(calc(-50% - 0.5px), -50%) rotate(90deg)}', ""]);
+    o.push([t2.id, ':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;--handle-position-start: 50%;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;right:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--keyboard-transition-time: 0ms;--default-transition-time: 0ms;--transition-time: var(--default-transition-time)}.first .first-overlay-container{position:relative;clip-path:inset(0 var(--exposure) 0 0);transition:clip-path var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:clip-path}.first.focused .first-overlay-container{will-change:clip-path}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.first{--keyboard-transition-time: 50ms;--default-transition-time: 10ms;transform:translateX(calc(var(--exposure) * -1));transition:transform var(--transition-time);right:auto}.first .first-overlay-container{transform:translateX(var(--exposure));transition:transform var(--transition-time);clip-path:none}.first.focused{will-change:auto}.first.focused .first-overlay-container{will-change:auto}}}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:var(--exposure);height:100%;transition:right var(--transition-time),bottom var(--transition-time)}.focused .handle-container{will-change:right}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.handle-container{right:0}.focused .handle-container{will-change:auto}}}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{position:absolute;top:var(--handle-position-start);pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translate(calc(-50% - 0.5px), -50%);line-height:0}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical .first-overlay-container{clip-path:inset(0 0 var(--exposure) 0)}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:var(--exposure);width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{top:auto;left:var(--handle-position-start);transform:translate(calc(-50% - 0.5px), -50%) rotate(90deg)}@media not all and (min-resolution: 0.001dpcm){@supports(-webkit-appearance: none){.vertical.first{transform:translateY(calc(var(--exposure) * -1))}.vertical .first-overlay-container{transform:translateY(var(--exposure));clip-path:none}.vertical .handle-container{bottom:0}}}', ""]);
     const n = o;
   }, 609: (t2) => {
     t2.exports = function(t3) {
@@ -12418,7 +12418,7 @@ const useOInfo = () => {
           this.imageWidth = this.offsetWidth, this.imageHeight = this.offsetHeight;
         };
         const e3 = this.attachShadow({ mode: "open" }), i2 = document.createElement("style");
-        i2.innerHTML = t2.Z, this.getAttribute("nonce") && i2.setAttribute("nonce", this.getAttribute("nonce")), e3.appendChild(i2), e3.appendChild(s.content.cloneNode(true)), this.firstElement = e3.getElementById("first"), this.firstImageContainerElement = e3.getElementById("firstImageContainer"), this.secondElement = e3.getElementById("second");
+        i2.innerHTML = t2.Z, this.getAttribute("nonce") && i2.setAttribute("nonce", this.getAttribute("nonce")), e3.appendChild(i2), e3.appendChild(s.content.cloneNode(true)), this.firstElement = e3.getElementById("first"), this.secondElement = e3.getElementById("second");
       }
       get value() {
         return this.exposure;
@@ -12473,22 +12473,23 @@ const useOInfo = () => {
       }
       enableTransition() {
         this.firstElement.style.setProperty("--transition-time", "100ms"), this.transitionTimer = window.setTimeout(() => {
-          this.firstElement.style.setProperty("--transition-time", "0ms"), this.transitionTimer = null;
+          this.firstElement.style.setProperty("--transition-time", "var(--default-transition-time)"), this.transitionTimer = null;
         }, 100);
       }
       startSlideAnimation() {
         let t3 = null, e3 = this.animationDirection;
+        this.firstElement.style.setProperty("--transition-time", "var(--keyboard-transition-time)");
         const i2 = (s2) => {
           if (0 === this.animationDirection || e3 !== this.animationDirection)
             return;
           null === t3 && (t3 = s2);
           const o2 = (s2 - t3) / 16.666666666666668 * this.animationDirection;
-          this.slide(o2), window.requestAnimationFrame(i2), t3 = s2;
+          this.slide(o2), setTimeout(() => window.requestAnimationFrame(i2), 0), t3 = s2;
         };
         window.requestAnimationFrame(i2);
       }
       stopSlideAnimation() {
-        this.animationDirection = 0;
+        this.animationDirection = 0, this.firstElement.style.setProperty("--transition-time", "var(--default-transition-time)");
       }
     }
     "undefined" != typeof window && window.customElements.define("img-comparison-slider", d);

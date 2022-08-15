@@ -36,8 +36,10 @@ const fnc: (log: LOG, str: string)=> Promise<void> = minify
 					log.out += ['woff2','woff','ttf'][i];
 					await outputFile(log.out, bufOut);
 					break;
-				} catch {
-					log.err += `【${a[i]} 変換失敗】\n`;
+				} catch (e) {
+					const m = `【${a[i]} 生成失敗】`;
+					console.error(m + e.message);
+					log.err += m +'\n';
 					continue;
 				}
 			}
