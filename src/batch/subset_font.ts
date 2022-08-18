@@ -8,8 +8,8 @@
 const [, , ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
-const subsetFont = require('subset-font');
-import {outputFile, readFile, ensureLink, statSync, writeJsonSync, existsSync} from 'fs-extra';
+import {exec} from 'child_process';
+import {statSync, writeJsonSync, existsSync, copy} from 'fs-extra';
 const is_win = process.platform === 'win32';
 import {userInfo} from 'os';
 import {extname} from 'path';
@@ -25,27 +25,20 @@ const log_exit = (exit_code = -1)=> {
 const fnc: (log: LOG, str: string)=> Promise<void> = minify
 	? async (log, str)=> {
 		try {
-			const bufIn = await readFile(log.inp);
-
-			// woff2 変換に失敗しても woff なら成功する場合があるので、リトライ
-			const a = ['woff2','woff','sfnt'];
-			const len = a.length;
-			for (let i=0; i<len; ++i) {
-				try {
-					const bufOut = await subsetFont(bufIn, str, {targetFormat: a[i]});
-					log.out += ['woff2','woff','ttf'][i];
-					await outputFile(log.out, bufOut);
-					break;
-				} catch (e) {
-					const m = `【${a[i]} 生成失敗】`;
-					console.error(m + e.message);
+			str = str.replaceAll('\"', '\\"');
+			await new Promise<void>((re, rj)=> exec(`pyftsubset ${log.inp} --text="${str}" --layout-features='*' --flavor=woff2 --output-file=${log.out}`, e=> {
+				if (e) {
+					const m = e.message.replace(/--text=[^\n]+/, '...');
+					console.error(m);
 					log.err += m +'\n';
-					continue;
+					rj();	// 必須。ないとログエラーが出ない
+					return;
 				}
-			}
-		} catch (e) {log.err += e.message +'\n';}
+				re();
+			}));
+		} catch (e) {log.err += e.message.replace(/--text=[^\n]+/, '...') +'\n';}
 	}
-	: log=> ensureLink(log.inp, log.out);
+	: log=> copy(log.inp, log.out);
 
 const o = require('./font.json');
 const a = [];
@@ -64,7 +57,7 @@ for (const nm in o) {
 	.replace('::PATH_PRJ_FONTS::', PATH_PRJ_FONTS)
 	.replace('::PATH_USER_FONTS::', PATH_USER_FONTS)
 	.replace('::PATH_OS_FONTS::', PATH_OS_FONTS);
-	const out = `doc/prj/script/${nm}${minify ?'.' :extname(inp)}`;
+	const out = `doc/prj/script/${nm}${minify ?'.woff2' :extname(inp)}`;
 	const log = oLog[nm] = {inp, out, iSize: 1, oSize: 1, err: ''};
 	if (! existsSync(inp)) {
 		log.err = `変換失敗です。入力ファイル ${o[nm].inp.slice(20)} が存在するか確認してください`;

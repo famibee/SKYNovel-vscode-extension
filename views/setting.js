@@ -6474,7 +6474,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.6.5
+  * vee-validate v4.6.6
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -6704,7 +6704,7 @@ function debounceAsync(inner, ms = 0) {
 }
 function applyModelModifiers(value, modifiers) {
   if (!isObject$4(modifiers)) {
-    return;
+    return value;
   }
   if (modifiers.number) {
     return toNumber(value);

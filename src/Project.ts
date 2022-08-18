@@ -15,7 +15,7 @@ import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {ScriptScanner} from './ScriptScanner';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, ensureLink, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
 import {resolve, extname, parse} from 'path';
 import img_size from 'image-size';
 import {lib, enc, RIPEMD160} from 'crypto-js';
@@ -302,7 +302,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		'subset_font': {
 			title		: 'フォントサイズ最適化',
 			pathCpyTo	: 'core/font',
-			aNeedLib	: ['subset-font'],
+			aNeedLib	: [],
 		},
 		'cnv_mat_pic': {
 			title		: '画像ファイル最適化',
@@ -355,6 +355,8 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 	}
 	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/;
 	async	#subsetFont(minify: boolean) {
+		if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) return;
+
 		// 旧フォントファイルはすべて一度削除
 		foldProc(
 			this.#pathWs +'/doc/prj/script/',
@@ -395,15 +397,11 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 		for (const fnm in oFont) {	// 文字重複しない最小限とするように
 			const s = new Set<string>;
-			const a: string[] = Array.from(oFont[fnm].txt);
+			Array.from(oFont[fnm].txt).forEach(c=> s.add(c));
 				// txt.split('')や [...txt] はサロゲートペアで問題
-			a.forEach(c=> s.add(c));
-//x			oFont[fnm].txt = [...s].sort().join('').normalize('NFC');
-//x			oFont[fnm].txt = Array.from(s).sort().join('');
 			oFont[fnm].txt = [...s].sort().join('');	// sort()は不要だが綺麗
 		//	oFont[fnm].txt = [...s].join('');
 		}
-///
 		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
 
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
@@ -658,7 +656,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				}, ()=> {});
 
 				// （暗号化ファイル名）更新ファイルをコピー
-				ensureLink(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
+				copy(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
 					// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
 					// という相反する要望を充たすような
 					// 既存ファイル削除にも便利
@@ -843,7 +841,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			const path_enc = this.#curCrypto + this.#hDiff[short_path].cn;
 			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
 				await remove(path_enc);	// これがないとエラーが出るみたい
-				await ensureLink(path_src, path_enc);
+				await copy(path_src, path_enc);
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
@@ -883,7 +881,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			const dir = this.#REG_DIR.exec(short_path);
 			if (dir && this.#ps.cfg.code[dir[1]]) {
 				await remove(path_enc);	// これがないとエラーが出るみたい
-				await ensureLink(path_src, path_enc);
+				await copy(path_src, path_enc);
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので

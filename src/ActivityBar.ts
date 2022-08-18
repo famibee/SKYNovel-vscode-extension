@@ -5,14 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, replaceFile, setCtx4} from './CmnLib';
+import {is_win, oIcon, replaceFile, setCtx4} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, Event, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
@@ -22,6 +22,7 @@ export enum eTreeEnv {
 	NPM,
 	SKYNOVEL_VER,
 	TEMP_VER,
+	PY_FONTTOOLS,
 };
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
@@ -35,13 +36,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	readonly #aEnv: {label: string, icon: string}[]	= [
-		{label: 'Node.js',	icon: 'node-js-brands'},
-		{label: 'npm',		icon: 'npm-brands'},
-		{label: 'SKYNovel（最新）',		icon: 'skynovel'},
-		{label: 'テンプレ（最新）',		icon: 'skynovel'},
+		{icon: 'node-js-brands',label: 'Node.js',},
+		{icon: 'npm-brands',	label: 'npm',},
+		{icon: 'skynovel',		label: 'SKYNovel（最新）',},
+		{icon: 'skynovel',		label: 'テンプレ（最新）',},
+		{icon: 'python-brands',	label: 'fonttools',},
 	];
 	readonly #aTiEnv: TreeItem[] = [];
-	static aReady	= [false, false, false, false];
+	static aReady	= [false, false, false, false, false];
 
 	#workSps: WorkSpaces;
 	#tlBox	: ToolBox;
@@ -56,7 +58,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 
-		this.#chkEnv(()=> {
+		let fncInit = ()=> {
+			fncInit = ()=> {};
+
 			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
 			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
 			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
@@ -68,7 +72,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
 
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
-		});
+		};
+		this.#chkEnv(()=> fncInit());
 	}
 
 	#dispose() {
@@ -81,10 +86,46 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	async #chkEnv(finish: (ok: boolean)=> void) {
 		const tiNode = this.#aTiEnv[eTreeEnv.NODE];
 		const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
+		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS];
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
-		await new Promise<void>(re=> exec('node -v', (err, stdout)=> {
-			if (err) {
+		ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = false;
+		exec('pip list', async (e, stdout)=> {
+			if (e) {
+				tiPFT.description = `-- pip error`;
+				tiPFT.iconPath = oIcon('error');
+				this.#onDidChangeTreeData.fire(tiPFT);
+				finish(false);
+				return;
+			}
+			if (! /^fonttools\s/gm.test(stdout)
+			|| ! /^brotli\s/gm.test(stdout)) await new Promise<void>(re=> exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
+				if (e) {
+					tiPFT.description = `-- install失敗`;
+					tiPFT.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiPFT);
+					finish(false);
+					return;
+				}
+				re();
+			}));
+			ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
+			tiPFT.description = `-- ready`;
+			tiPFT.iconPath = oIcon('python-brands');
+			this.#onDidChangeTreeData.fire(tiPFT);
+
+			// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
+			if (is_win) {
+				exec('python -m site --user-site', async (e, stdout)=> {
+					if (e) {finish(false); return;}		// ありえないが
+					const path = stdout.slice(0, -15) +'Scripts\\;';
+					const col = this.ctx.environmentVariableCollection;
+					col.prepend('PATH', path);
+				});
+			}
+		});
+		await new Promise<void>(re=> exec('node -v', (e, stdout)=> {
+			if (e) {
 				tiNode.description = `-- 見つかりません`;
 				tiNode.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNode);
@@ -118,8 +159,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			this.#onDidChangeTreeData.fire(tiNode);
 			re();
 		}));
-		await new Promise<void>(re=> exec('npm -v', (err, stdout)=> {
-			if (err) {
+		await new Promise<void>(re=> exec('npm -v', (e, stdout)=> {
+			if (e) {
 				tiNpm.description = `-- 見つかりません`;
 				tiNpm.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNpm);
@@ -144,8 +185,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			else this.#openEnvInfo();
 		});
 	}
-	readonly #onDidChangeTreeData: EventEmitter<TreeItem | undefined> = new EventEmitter<TreeItem | undefined>();
-	readonly onDidChangeTreeData: Event<TreeItem | undefined> = this.#onDidChangeTreeData.event;
+	readonly #onDidChangeTreeData = new EventEmitter<TreeItem | undefined>();
+	readonly onDidChangeTreeData = this.#onDidChangeTreeData.event;
 
 	readonly getTreeItem = (t: TreeItem)=> t;
 
@@ -203,8 +244,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		this.#pnlWV.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
-		readFile(path_doc +'/envinfo.htm', 'utf-8', (err, data)=> {
-			if (err) throw err;
+		readFile(path_doc +'/envinfo.htm', 'utf-8', (e, data)=> {
+			if (e) throw e;
 
 			const wv = this.#pnlWV!.webview;
 			this.#pnlWV!.webview.html = data
@@ -273,8 +314,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}
 		}, false);
 
-		readFile(path_doc +'/tmpwiz.htm', 'utf-8', (err, data)=> {
-			if (err) throw err;
+		readFile(path_doc +'/tmpwiz.htm', 'utf-8', (e, data)=> {
+			if (e) throw e;
 
 			const wv = this.#pnlWV!.webview;
 			this.#pnlWV!.webview.html = data

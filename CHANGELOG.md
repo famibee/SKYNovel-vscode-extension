@@ -1,3 +1,9 @@
+## v3.29.0
+- feat: フォントサイズ最適化：fonttoolsに移行、subset-font不採用に
+- feat: 自動環境設定【pip install --user fonttools brotli】機構追加
+	- Win 動作確認済
+- fix: フォントサイズ最適化：エラーメッセージが表示されなくなっていたのを修正
+- fix: ensureLink を copy に変更（Win上フォントファイルで権限を持ったまま削除できなくなるため）
 ## v3.28.1
 - feat: 文字抽出ファイル /core/font/font.json 生成時に文字重複しない最小限とするように
 - fix: 旧フォントファイルはすべて一度削除する際、woff のみ削除忘れがあった件
