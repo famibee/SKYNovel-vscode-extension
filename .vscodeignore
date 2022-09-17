@@ -1,14 +1,16 @@
 .vscode/
-src/
 node_modules/
+src/
+server/src/
+server/*.json
 test/
+views/test/
 
 **/*.cs
 **/*.d.ts
 **/*.map
 **/*.ts
 **/*.vue
-views/test/
 
 .eslintrc.json
 skynovel-Mac2Win

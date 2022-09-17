@@ -6,19 +6,26 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run Extension",
+			"name": "Launch Client",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"outFiles": ["${workspaceRoot}/dist/**/*.js"],
 			"preLaunchTask": "dbg start",
 			"postDebugTask": "dbg stop"
 		},
 		{
+			"name": "Attach to LSP",
 			"type": "node",
+			"request": "attach",
+			"port": 6009,
+			"restart": true,
+			"outFiles": ["${workspaceRoot}/server/out/**/*.js"]
+		},
+		{
 			"name": "vscode-jest-tests",
+			"type": "node",
 			"request": "launch",
 			"console": "internalConsole",
 			"internalConsoleOptions": "neverOpen",
@@ -29,6 +36,12 @@
 				"--watchAll=false",
 				"-t ${jest.testNamePattern}"
 			]
+		}
+	],
+	"compounds": [
+		{
+			"name": "Run Extension",
+			"configurations": ["Launch Client", "Attach to LSP"]
 		}
 	]
 }

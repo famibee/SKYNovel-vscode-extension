@@ -22,7 +22,7 @@
 			// https://stackoverflow.com/questions/70051535/props-is-declared-but-its-value-is-never-read-error-occurred-in-vue3-type
 			// https://github.com/vuejs/core/issues/4668
 //		"noUnusedParameters": true,	// 使っていない仮引数をエラーに
-								// ただし引数名の先頭にアンダースコアを付けると回避できる
+							// ただし引数名の先頭にアンダースコアを付けると回避できる
 		"jsx": "preserve",
 		"allowUnreachableCode": false,	// 到達しえないコードを許容しない (false)
 		"allowUnusedLabels": true,	// 到達しえないラベルを許容しない
@@ -35,8 +35,5 @@
 		"incremental": true		// 差分ビルド
 	},
 	"include": ["src/**/*", "views/**/*"],
-	"exclude": [
-		"node_modules",
-		".vscode-test"
-	]
+	"exclude": ["node_modules",".vscode-test"]
 }

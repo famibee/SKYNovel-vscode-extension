@@ -22,7 +22,8 @@
 - float		何もしない	Boolean	true：レイヤを最前面に移動する。
 - index		何もしない	0〜	レイヤをindexで指定したインデックスに移動する。<br/>0がもっとも背後。レイヤを重ねるたびに1加算したindexになる
 - dive		何もしない	レイヤ名	レイヤをdiveで指定したレイヤのすぐ後ろに潜り込ませる。<br/>「plg:プラグイン名」と記述する事でプラグインも指定できる。
-- style		何もしない	CSS style	※文字表示中の場合はすべてのスタイルが変更される
+- style		何もしない	CSS style	文字の CSS Style を指定する。<br/>[span][ch]などで style を指定しない際のデフォルト値。<br/>「color: red;」「color: blue;」と個別指定時は、過去値を上書きする。<br/>空白文字を指定時は全てクリアする
+- r_style		何もしない	CSS style	ルビの CSS Style を指定する。<br/>「color: red;」「color: blue;」と個別指定時は、過去値を上書きする。<br/>空白文字を指定時は全てクリアする
 - ch_in_style		何もしない	文字出現演出名	[ch_in_style]で定義した文字出現演出名
 - ch_out_style		何もしない	文字消去演出名	[ch_out_style]で定義した文字消去演出名
 - fn	y	何もしない	画像ファイル名	基本画像ファイルを指定する

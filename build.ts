@@ -80,3 +80,12 @@ build({
 	format		: 'cjs',	// Node.js の仕様
 	watch,
 });
+
+// === lsp-skynovel-server ===
+build({
+	entryPoints	: ['./server/src/LangSrv'],
+	outdir		: 'server/dist',
+	minify		: true,
+	format		: 'cjs',	// Node.js の仕様
+	watch,
+});

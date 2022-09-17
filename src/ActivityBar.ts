@@ -12,10 +12,17 @@ import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
+
+import {
+	LanguageClient,
+	LanguageClientOptions,
+	ServerOptions,
+	TransportKind
+} from 'vscode-languageclient/node';
 
 export enum eTreeEnv {
 	NODE = 0,
@@ -74,6 +81,35 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
 		};
 		this.#chkEnv(()=> fncInit());
+
+		const module = ctx.asAbsolutePath('server/dist/LangSrv.js');
+		const so: ServerOptions = {
+			run		: {module, transport: TransportKind.ipc},
+			debug	: {module, transport: TransportKind.ipc,
+				options: {execArgv: ['--nolazy',
+				'--inspect='+ (7000 + Math.round(Math.random() *999))
+			//	'--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
+			]},}
+		};
+		const co: LanguageClientOptions = {
+			documentSelector: [{scheme: 'file', language: 'skynovel'}],
+			synchronize: {
+				fileEvents: [
+					workspace.createFileSystemWatcher('**/.clientrc'),
+					workspace.createFileSystemWatcher('**/doc/prj/**/*.json'),
+				],
+			},
+		};
+		const lsp = new LanguageClient(
+			'SKYNovelLangSrv',
+			'SKYNovel Language Server',	// 開発ホストの【出力】タブに出る名前
+			so,
+			co,
+		);
+//===
+//		lsp.start();
+//===
+		ctx.subscriptions.push({dispose: ()=> lsp.stop()});
 	}
 
 	#dispose() {

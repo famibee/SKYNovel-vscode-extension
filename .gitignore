@@ -2,7 +2,7 @@
 /.vscode-test/
 /*.vsix
 
-/node_modules/
+node_modules/
 *.cs
 
 *.LICENSE.txt

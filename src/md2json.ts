@@ -31,7 +31,7 @@ const repTag2MB = (md: string)=> md
 	.replace(REG_TAG2MB, (a, p1, p2)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.html#${p2})`)
 	.replace(/<br\/?>/g, '  \n');
 
-import {readdirSync, readFileSync, writeFileSync} from 'fs-extra';
+import {copy, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 
 const path = './src/md/';
 readdirSync(path, {withFileTypes: true})
@@ -62,6 +62,7 @@ readdirSync(path, {withFileTypes: true})
 });
 
 writeFileSync('./src/md.json', JSON.stringify(hMd));
+copy('./src/md.json', './server/dist/md.json');		// 2 LSP
 
 	/* === OK、美しい or 役立つ
 - 列挙

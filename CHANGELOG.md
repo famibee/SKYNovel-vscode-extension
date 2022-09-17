@@ -1,3 +1,12 @@
+## v3.29.1
+- fix: タグ説明を更新、@famibee/skynovel 1.35.0 対応
+	- [lay][span][ch][tcy][graph][ruby2]に属性 r_style 追加
+	- [link]に属性 r_style, r_style_hover, r_style_clicked 追加
+	- [ruby2]に属性 style 追加
+	- [graph]から属性 ch_in_style、ch_out_style の記述を削除
+- fix: [return]のタグ説明を更新（fn・label属性追加）
+- fix: [playse][playbgm]のタグ説明を更新（pan属性追加、speed属性更新）
+- fix: LSP (Language Server Protocol) 移行（実験）中
 ## v3.29.0
 - feat: フォントサイズ最適化：fonttoolsに移行、subset-font不採用に
 - feat: 自動環境設定【pip install --user fonttools brotli】機構追加
@@ -16,8 +25,8 @@
 - fix: フォントサイズ最適化：エラーで動作しなくなっていた件
 - fix: 出力コンソールの【エラー: タスク タイプ '...' は登録されていません。】を出さないように
 - fix: .vueファイル内でキャスト表現がエラーになるようになった件に対処
-- 既知の問題
-	- フォントサイズ最適化：そもそもなぜ失敗しているのか
+- ~~既知の問題~~
+	- ~~フォントサイズ最適化：そもそもなぜ失敗しているのか~~
 ## v3.27.2
 - fix: fn・label文法チェックで内部エラーになり起動失敗していた件
 ## v3.27.1

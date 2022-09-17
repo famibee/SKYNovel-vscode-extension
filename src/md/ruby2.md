@@ -6,6 +6,9 @@
 - page		fore	fore、back	ページの裏表
 - t	y		String	親文字列
 - r	y		String	ルビ文字列
+- style		何もしない	CSS style	文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- r_style		何もしない	CSS style	ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- wait		現在の文字表示速度	ミリ秒	一時的な文字表示速度。0で瞬時。
 
 ***
 t=${1:親文字列} r=${2:ルビ文字列}
