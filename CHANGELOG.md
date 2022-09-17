@@ -1,3 +1,5 @@
+## v3.29.2
+- docs: [ch]でのみ、背景styleなどを一塊とする件を明記
 ## v3.29.1
 - fix: タグ説明を更新、@famibee/skynovel 1.35.0 対応
 	- [lay][span][ch][tcy][graph][ruby2]に属性 r_style 追加

@@ -8,7 +8,7 @@
 - record		true	Boolean	履歴に保存するか
 - wait		現在の文字表示速度	ミリ秒	一時的な文字表示速度。0で瞬時。
 - style		何もしない	CSS style	文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
-- r_style		何もしない	CSS style	ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- r_style		何もしない	CSS style	ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る<br/>※[ch]でのみ、背景styleなどを一塊とする。【[span style='']文字[span]】と動作が異なる。
 - ch_in_style		何もしない	文字出現演出名	[ch_in_style]で定義した文字出現演出名
 - ch_out_style		何もしない	文字消去演出名	[ch_out_style]で定義した文字消去演出名
 
@@ -28,4 +28,10 @@ layer=${1{{文字レイヤ名}}} page=${2|fore,back|} text=${3:表示したい�
 &a + b&
 
 では「&（半角）」を表示するには？（これらの文法のせいで普通に書けない）
-[ch text="&'&'"]として下さい
+[ch text="&'&'"]として下さい。
+
+また、[ch]でのみ、背景styleなどを一塊とする。
+
+例）以下は表示が異なる
+[span style='background-image: linear-gradient(70deg, tomato 0%, lightskyblue 100%); border-radius: 8px;']SPAN[span]
+[ch text='CH' style='background-image: linear-gradient(70deg, tomato 0%, lightskyblue 100%); border-radius: 8px;']
