@@ -1270,10 +1270,10 @@ WorkspaceEdit
 				const lr = hLblRng[token];
 				if (lr) {
 					const rngLbl = hLblRng[token];
-					const d = this.#hDiag.ラベル重複;
-					const mes = d.mes.replace('$', token);
-					if (rngLbl) aDi.push(Diagnostic.create(rngLbl, mes, d.sev));
-					aDi.push(Diagnostic.create(rng, mes, d.sev));
+					const {mes, sev} = this.#hDiag.ラベル重複;
+					const mes2 = mes.replace('$', token);
+					if (rngLbl) aDi.push(Diagnostic.create(rngLbl, mes2, sev));
+					aDi.push(Diagnostic.create(rng, mes, sev));
 				}
 				else hLblRng[token] = rng;
 				return;
@@ -1296,8 +1296,8 @@ WorkspaceEdit
 			// [ タグ開始
 			const a_tag = this.#REG_TAG.exec(token);
 			if (! a_tag) {	// []、[ ]など
-				const d = this.#hDiag.タグ記述異常;
-				aDi.push(Diagnostic.create(rng, d.mes.replace('$', token), d.sev));
+				const {mes, sev} = this.#hDiag.タグ記述異常;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', token), sev));
 				return;
 			}
 
@@ -1309,11 +1309,11 @@ WorkspaceEdit
 			else {
 				p.line += lineTkn;
 				p.character = len -token.lastIndexOf('\n') -1;
-				const d = this.#hDiag.改行10行超;
+				const {mes, sev} = this.#hDiag.改行10行超;
 				if (lineTkn > 10) aDi.push(Diagnostic.create(Range.create(
 					rng.start.line, rng.start.character -1,
 					p.line, 0
-				), d.mes, d.sev));
+				), mes, sev));
 			}
 
 			const use_nm = a_tag.groups?.name ?? '';
@@ -1391,19 +1391,19 @@ WorkspaceEdit
 			const {uri, token, rng, aDi, p, lineTkn, hArg} = arg;
 			const nm = hArg.name?.val;
 			if (! nm) {	// [macro name=]など
-				const d = this.#hDiag.マクロ定義_名称異常;
-				aDi.push(Diagnostic.create(rng, d.mes, d.sev));
+				const {mes, sev} = this.#hDiag.マクロ定義_名称異常;
+				aDi.push(Diagnostic.create(rng, mes, sev));
 				return;
 			}
 
 			if (nm in LspWs.#hTag) {
-				const d = this.#hDiag.マクロ定義_同名タグ;
-				aDi.push(Diagnostic.create(rng, d.mes.replace('$', nm), d.sev));
+				const {mes, sev} = this.#hDiag.マクロ定義_同名タグ;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
 				return;
 			}
 			if (nm in this.#hDefPlugin) {
-				const d = this.#hDiag.マクロ定義_同名プラグイン;
-				aDi.push(Diagnostic.create(rng, d.mes.replace('$', nm), d.sev));
+				const {mes, sev} = this.#hDiag.マクロ定義_同名プラグイン;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
 				return;
 			}
 
@@ -1414,8 +1414,8 @@ WorkspaceEdit
 			// 新規マクロ定義を登録
 			const m = token.match(LspWs.#regValName);
 			if (! m) {	// 失敗ケースが思い当たらない
-				const d = this.#hDiag.マクロ定義異常;
-				aDi.push(Diagnostic.create(rng, d.mes.replace('$', nm), d.sev));
+				const {mes, sev} = this.#hDiag.マクロ定義異常;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
 				return;
 			}
 
@@ -1454,8 +1454,8 @@ WorkspaceEdit
 			const char = hArg.char?.val ?? '';
 			const use_nm = hArg.name?.val ?? '';
 			if (! char || ! use_nm) {	// [macro name=]など
-				const d = this.#hDiag.一文字マクロ定義_属性異常;
-				aDi.push(Diagnostic.create(rng, d.mes.replace('$', use_nm), d.sev));
+				const {mes, sev} = this.#hDiag.一文字マクロ定義_属性異常;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', use_nm), sev));
 				return;
 			}
 			if (use_nm in LspWs.#hTag || use_nm in this.#hDefPlugin) return;
@@ -1495,8 +1495,8 @@ WorkspaceEdit
 
 			this.#aFinishJob.push(()=> {
 				if (! this.#hSetWords.スクリプトファイル名.has(fn)) {	// 遅延調査
-					const d = this.#hDiag.スクリプトファイル不明;
-					aDi.push(Diagnostic.create(rng, d.mes.replace('$', fn), d.sev));
+					const {mes, sev} = this.#hDiag.スクリプトファイル不明;
+					aDi.push(Diagnostic.create(rng, mes.replace('$', fn), sev));
 					return;
 				}
 				let to_uri = '';
@@ -1505,30 +1505,26 @@ WorkspaceEdit
 					return;
 				}
 
-				const label = hArg.label?.val ?? '';
-				if (label) {
-					if (/^\*(?!\*)/.test(label)	// チェック（%&"'# も弾く）
-					&& (! (fn in this.#hFn2label)
-					|| ! (label in this.#hFn2label[fn]))) {
-						const d = this.#hDiag.ラベル不明;
-						aDi.push(Diagnostic.create(rng, d.mes.replace('$', label), d.sev));
-						return;
-					}
-
-					(this.#Uri2Links[uri] ??= []).push({
-						range	: rng,
-						target	: to_uri,
-						tooltip	: `${fn}.sn を開く`,	// ラベルジャンプを作れないので
-				//		tooltip	: `${fn}.sn、ラベル ${label} を開く`,
-					});		// this.#hFn2label[fn][label],	// ラベルを渡せない
-					return;
-				}
-
-				(this.#Uri2Links[uri] ??= []).push({
+				const fncLnk = ()=> (this.#Uri2Links[uri] ??= []).push({
 					range	: rng,
 					target	: to_uri,
 					tooltip	: `${fn}.sn を開く`,
 				});
+				const label = hArg.label?.val ?? '';
+				if (! label) {fncLnk(); return;}
+
+				if (/^\*(?!\*)/.test(label)	// チェック（%&"'# も弾く）
+				&& (! (fn in this.#hFn2label)
+				|| ! (label in this.#hFn2label[fn]))) {
+					const {mes, sev} = this.#hDiag.ラベル不明;
+					aDi.push(Diagnostic.create(rng, mes.replace('$', label), sev));
+					fncLnk();	// エラーは出すが、修正のためにリンクは出してあげる
+					return;
+				}
+
+				fncLnk();
+					// ラベルジャンプを作れないので
+					//	tooltip	: `${fn}.sn、ラベル ${label} を開く`,
 			});
 		},
 
