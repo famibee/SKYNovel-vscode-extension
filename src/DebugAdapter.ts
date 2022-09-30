@@ -334,7 +334,7 @@ class DebugAdapter extends LoggingDebugSession {
 	// A value of true indicates that this 'terminate' request is part of a restart sequence.
 	//	_args.restart		restart?: boolean;
 /*	protected terminateRequest(res: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(res)}) args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
+	console.log(`fn:DebugAdapter.ts terminateRequest(res:${JSON.stringify(res)}) args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
 
 	}
 */
@@ -381,10 +381,10 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 	protected override async setFunctionBreakPointsRequest(res: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments, _req?: DebugProtocol.Request): Promise<void> {
 		const a: any[] = [];
 		res.body = {breakpoints: []};
-		args.breakpoints.forEach(dbp=> {
+		for (const dbp of args.breakpoints) {
 			a.push(dbp);
 			res.body.breakpoints.push({verified: true,});
-		});
+		}
 		await this.#dbg.setFuncBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);
@@ -393,7 +393,7 @@ console.log(`fn:DebugAdapter.ts line:227 terminateRequest(res:${JSON.stringify(r
 //	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments, request?: DebugProtocol.Request): void {}
 
 	protected override restartFrameRequest(res: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)})`);
+//console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)})`);
 
 // args.frameId: number ... 0〜	SKYNovelでいうスタック深さ
 		// バックステップなど、状態戻し機構が出来ないとこれもできないかなと。
@@ -407,7 +407,7 @@ console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringif
 
 /*
 	protected sourceRequest(res: DebugProtocol.SourceResponse, _args: DebugProtocol.SourceArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)} _args:${JSON.stringify(_args)} req:${JSON.stringify(req)})`);
+	console.log(`fn:DebugAdapter.ts sourceRequest(res:${JSON.stringify(res)} _args:${JSON.stringify(_args)} req:${JSON.stringify(req)})`);
 	}
 */
 
@@ -516,10 +516,10 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 						if (v2) h = JSON.parse(String(v2));
 					}
 				}
-				for (const key in h) {
+				for (const [key, v2] of Object.entries(h)) {
 					if (DebugAdapter.#REG_SN_VAR.test(key) === tst_sn) continue;
 
-					const v = String(h[key]);
+					const v = String(v2);
 					const o: DebugProtocol.Variable = {
 						name	: key,
 						type	: this.#getType(v),
@@ -532,7 +532,7 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 						variablesReference: 0,	// > 0の場合、変数は構造化されている
 					};
 					if (key.slice(0, 6) === 'const.') o.presentationHint!.attributes = ['constant'];
-					if (v === '[object Object]') o.value = JSON.stringify(h[key]);
+					if (v === '[object Object]') o.value = JSON.stringify(v2);
 					else if (o.type === 'object' || o.type === 'array')
 					this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
 					= this.#hdlsVar.create(`${id}:${key}`);
@@ -789,15 +789,15 @@ console.log(`fn:DebugAdapter.ts line:271 sourceRequest(res:${JSON.stringify(res)
 */
 /*
 	protected breakpointLocationsRequest(res: DebugProtocol.BreakpointLocationsResponse, args: DebugProtocol.BreakpointLocationsArguments, _request?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.source.path:${args.source.path}`);
+	console.log(`fn:DebugAdapter.ts breakpointLocationsRequest() args.source.path:${args.source.path}`);
 
 		if (args.source.path) {
 			const bps = this.dbg.getBreakpoints(args.source.path, this.convertClientLineToDebugger(args.line));
 			res.body = {
-				breakpoints: bps.map(col=> {return {
+				breakpoints: bps.map(col=> ({
 					line: args.line,
 					column: this.convertDebuggerColumnToClient(col)
-				}})
+				}))
 			};
 		}
 		else res.body = {breakpoints: []};
@@ -835,10 +835,10 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 	protected override async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
 		const a: any[] = [];
 		res.body = {breakpoints: []};
-		args.breakpoints.forEach(dbp=> {
+		for (const dbp of args.breakpoints) {
 			a.push(dbp);
 			res.body.breakpoints.push({verified: true,});
-		});
+		}
 		// 現状設定されたすべてのデータブレークポイント群を渡す。削除時も同様
 		// チェックボックスOFFは削除扱い
 		await this.#dbg.setDataBreakpoint(res.request_seq, a);
@@ -880,7 +880,7 @@ console.log(`fn:DebugAdapter.ts line:644 breakpointLocationsRequest() args.sourc
 //	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments, request?: DebugProtocol.Request): void;
 
 	protected override loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
-console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
+//console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
 
 
 		res.body.sources = [

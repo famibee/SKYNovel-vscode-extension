@@ -5,301 +5,301 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import {LspWs} from './LspWs';
+
 import {
 	createConnection,
-	TextDocuments,
-	Diagnostic,
-	DiagnosticSeverity,
-	ProposedFeatures,
-	InitializeParams,
 	DidChangeConfigurationNotification,
-	CompletionItem,
-	CompletionItemKind,
-	TextDocumentPositionParams,
-	TextDocumentSyncKind,
-	InitializeResult,
-	MarkupContent
+	ProposedFeatures,
+	TextDocuments,
+	TextDocumentSyncKind
 } from 'vscode-languageserver/node';
 import {
 	TextDocument
 } from 'vscode-languageserver-textdocument';
-import {MD_STRUCT} from '../../dist/md2json';
 
 
 // Also include all preview / proposed LSP features.
 const conn = createConnection(ProposedFeatures.all);
-	console.log = conn.console.log.bind(conn.console);		// おまじない
-	console.error = conn.console.error.bind(conn.console);	// おまじない
+	console.log = conn.console.log.bind(conn.console);
+	console.error = conn.console.error.bind(conn.console);
+		// 拡張機能ホストの[出力]-[SKYNovel Language Server]に出る
 	process.on('unhandledRejection', e=> {
 		conn.console.error(`Unhandled exception ${e}`);
 	});
 
-const docs: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
-
 let hasCfgCap = false;
-let hasWsFldCap = false;
 let hasDiagRelatedInfCap = false;
+const docs = new TextDocuments(TextDocument);
 
-conn.onInitialize((params: InitializeParams)=> {
-	const cap = params.capabilities;
+let aLspWs: LspWs[]	= [];
 
-	// Does the client support the `workspace/configuration` request?
-	// クライアントは「workspace/configuration」リクエストをサポート?
-	// If not, we fall back using global settings.
-	// そうでない場合は、グローバル設定を使用してフォールバック
-	hasCfgCap = !!(
-		cap.workspace && !!cap.workspace.configuration
-	);
-	hasWsFldCap = !!(
-		cap.workspace && !!cap.workspace.workspaceFolders
-	);
+conn.onInitialize(prm=> {
+	const cap = prm.capabilities;
+	hasCfgCap = !!cap.workspace?.configuration;
+	const hasWsFldCap = !!cap.workspace?.workspaceFolders;
 	hasDiagRelatedInfCap = !!(
-		cap.textDocument &&
-		cap.textDocument.publishDiagnostics &&
-		cap.textDocument.publishDiagnostics.relatedInformation
+		cap.textDocument?.publishDiagnostics?.relatedInformation
 	);
 
-	const ret: InitializeResult = {
+	conn.onInitialized(()=> {
+		// すべての構成変更を登録
+		if (hasCfgCap) conn.client.register(DidChangeConfigurationNotification.type, undefined);
+
+		conn.onRequest(LspWs.REQ_ID, hd=> {
+			for (const wf of aLspWs) wf.onRequest(hd);
+		});
+
+		// 起動時のワークスペースのフォルダに対し管理オブジェクトを生成
+		aLspWs = (prm.workspaceFolders ?? []).map(wf=> new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
+		// ワークスペースのフォルダ数変化
+		if (hasWsFldCap) conn.workspace.onDidChangeWorkspaceFolders(e=> {
+			for (const {uri} of e.removed) {
+				aLspWs = aLspWs.filter(wf=> wf.destroy(uri));
+			}
+			for (const wf of e.added) {
+				aLspWs.push(new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
+			}
+		});
+	});
+
+	return {
 		capabilities: {
-			textDocumentSync: TextDocumentSyncKind.Incremental,
-/*
-			diagnosticProvider: {
-				documentSelector		: null,
-				identifier	: 'skynovel',
-				interFileDependencies	: true,
-				workspaceDiagnostics	: false,
-			},
-*/
-			completionProvider: {		// コード補完機能
+		//	positionEncoding?		// 規定値でOK
+			textDocumentSync	: TextDocumentSyncKind.Incremental,	// 規定値でOK
+				// TextDocumentSyncOptions、同.openClose を指定すると止まる
+		//	notebookDocumentSync?
+			completionProvider: {	// コード補完機能
 				resolveProvider		: true,
 				triggerCharacters	: ['[', ' ', '='],
 			},
-/*
-			definitionProvider		: true,	// 定義へ移動、定義をここに表示
-			documentLinkProvider	: {resolveProvider: true},// ラベルジャンプ？
-			documentSymbolProvider	: true,	// アウトライン
-			foldingRangeProvider	: true,
-			renameProvider	: {prepareProvider: true,},	// シンボルの名前変更
-			selectionRangeProvider	: true,
-			workspaceSymbolProvider	: true,
-			workspace: {
+			hoverProvider	: true,		// 識別子上にマウスホバーしたとき表示するヒント
+
+			signatureHelpProvider: {	// 引数の説明
+				triggerCharacters	: ['='],
+			},
+
+		//	declarationProvider?		// 
+
+			definitionProvider		: true,		// 定義へ移動、定義をここに表示
+			//	{workDoneProgress?: boolean;}
+
+		//	implementationProvider?: boolean | ImplementationOptions | ImplementationRegistrationOptions;		// Goto 宣言
+
+			referencesProvider		: true,		// 参照へ移動、参照をここに表示
+			//	{workDoneProgress?: boolean;}
+
+//	textDocument/documentHighlight	ハイライト対象シンボルの利用（参照）のリスト取得
+		//	documentHighlightProvider?: boolean | DocumentHighlightOptions;
+
+			documentSymbolProvider	: true,		// ドキュメントアウトライン
+
+//	textDocument/codeAction			コード アクションのリストの取得
+		//	codeActionProvider?: boolean | CodeActionOptions;
+
+//	textDocument/codeLens			code lensのリストの取得
+//	codeLens/resolve				code lensの処理の実行
+		//	codeLensProvider?: CodeLensOptions;
+
+			documentLinkProvider	: {resolveProvider: false},	// リンク
+	//		documentLinkProvider	: {resolveProvider: true},	// リンク
+
+		//	colorProvider?: boolean | DocumentColorOptions | DocumentColorRegistrationOptions;
+
+//	workspace/symbol			ワークスペース全体からクエリ条件に合致するシンボルの取得
+		//	workspaceSymbolProvider	: true,
+		//	workspaceSymbolProvider	: {resolveProvider: true,},
+
+		//	documentFormattingProvider			// ドキュメントの整形	// 規定値でOK
+		//	documentRangeFormattingProvider?:		// 規定値でOK
+		//	documentOnTypeFormattingProvider	// タイプ時の整形	// 規定値でOK
+
+			renameProvider	: {prepareProvider: true,},		// シンボルの名前変更
+
+		//	foldingRangeProvider?				// 規定値でOK
+
+		//	selectionRangeProvider?: boolean | SelectionRangeOptions | SelectionRangeRegistrationOptions;
+	//		selectionRangeProvider	: true,		// 規定値でOK
+
+		//	executeCommandProvider?: ExecuteCommandOptions;
+
+		//	callHierarchyProvider?: boolean | CallHierarchyOptions | CallHierarchyRegistrationOptions;
+			// documentSelector: DocumentSelector | null;
+
+		//	linkedEditingRangeProvider?: boolean | LinkedEditingRangeOptions | LinkedEditingRangeRegistrationOptions;
+			// documentSelector: DocumentSelector | null;
+
+		//	semanticTokensProvider?: SemanticTokensOptions | SemanticTokensRegistrationOptions;
+			// Semantic Tokens｜Language Server Protocol に対応したミニ言語処理系を作る https://zenn.dev/takl/books/0fe11c6e177223/viewer/d2d307
+
+		//	monikerProvider?: boolean | MonikerOptions | MonikerRegistrationOptions;
+
+		//	typeHierarchyProvider?: boolean | TypeHierarchyOptions | TypeHierarchyRegistrationOptions;
+
+		//	inlineValueProvider?: boolean | InlineValueOptions | InlineValueRegistrationOptions;
+
+		//	inlayHintProvider?: boolean | InlayHintOptions | InlayHintRegistrationOptions;
+
+			workspace	: hasWsFldCap ?{
 				workspaceFolders: {
-					supported	: true,
-					changeNotifications	: true,
+					supported			: true,
+				//	changeNotifications	: true,
 				},
-			},
-*/
-		}
-	};
-	if (hasWsFldCap) {
-		ret.capabilities.workspace = {
-			workspaceFolders: {
-				supported: true,
-			},
-		};
-	}
-	return ret;
-});
+			//	fileOperations?: FileOperationOptions;
+			} :undefined,
 
-conn.onInitialized(()=> {
-	if (hasCfgCap) {
-		// Register for all configuration changes.
-		// すべての構成変更を登録します。
-		conn.client.register(DidChangeConfigurationNotification.type, undefined);
-	}
-	if (hasWsFldCap) {
-		conn.workspace.onDidChangeWorkspaceFolders(_e=> {
-			console.log('Workspace folder change event received.');
-		});
-	}
-
-	initCompletion();
+		//	experimental?: T;
+	}};
 });
 
 
+// =======================================
+/*	// 未使用
 interface MySettings {
 	maxNumberOfProblems: number;
 }
 
-const SETTING_DEF: MySettings = {maxNumberOfProblems: 1000,};
-let glbStg: MySettings = SETTING_DEF;
-
 // Cache the settings of all open documents
 const mapDocStg: Map<string, Thenable<MySettings>> = new Map();
 
-conn.onDidChangeConfiguration(chg=> {
-	if (hasCfgCap) {
-		mapDocStg.clear();	// Reset all cached document settings
-	}
-	else glbStg = <MySettings>(
-		(chg.settings.SKYNovelLangSrv || SETTING_DEF)
-	);
+conn.onDidChangeConfiguration(_chg=> {
+	if (hasCfgCap) mapDocStg.clear();	// Reset all cached document settings
 
-	docs.all().forEach(validateDoc);	// 開いている全Docを再検証
+	const [{uri}] = docs.all();
+	if (uri) for (const wf of aLspWs) wf.fullScan(uri);
 });
-
-function getDocSettings(res: string): Thenable<MySettings> {
-	if (! hasCfgCap) {
-		return Promise.resolve(glbStg);
-	}
-	let ret = mapDocStg.get(res);
-	if (! ret) {
-		ret = conn.workspace.getConfiguration({
-			scopeUri: res,
-			section	: 'SKYNovelLangSrv'
-		});
-		mapDocStg.set(res, ret);
-	}
-	return ret;
-}
 
 // 開いているドキュメントの設定のみを保持
-docs.onDidClose(e=> mapDocStg.delete(e.document.uri));
+docs.onDidClose(({document: {uri}})=> mapDocStg.delete(uri));
+*/
 
-// 開かれたときや、変更時に来る
-docs.onDidChangeContent(chg=> validateDoc(chg.document));
 
-async function validateDoc(doc: TextDocument): Promise<void> {
-	// In this simple example we get the settings for every validate run.
-	// この単純な例では、すべての検証実行の設定を取得します。
-	const stg = await getDocSettings(doc.uri);
+// === ファイル変更イベント（ファイルを開いたときにも） ===
+const hDocThrowOpCl: {[uri: string]: 0} = {};
+docs.onDidOpen(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
+docs.onDidClose(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
 
-	const txt = doc.getText();
-//console.log(`validateDoc fn:${doc.uri.slice(-12)}`);
-	const pattern = /\b[A-Z]{2,}\b/g;
-	let m: RegExpExecArray | null;
+// === ファイル変更イベント（手入力が対象） ===
+docs.onDidChangeContent(chg=> {
+	// 変更時のみのイベントにする
+	const {uri} = chg.document;
+	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
 
-	let cntPrb = 0;
-	const aDiag: Diagnostic[] = [];
-	while ((m = pattern.exec(txt)) && cntPrb < stg.maxNumberOfProblems) {
-		cntPrb++;
-		const d: Diagnostic = {
-			severity: DiagnosticSeverity.Warning,
-			range: {
-				start	: doc.positionAt(m.index),
-				end		: doc.positionAt(m.index + m[0].length)
-			},
-			message: `${m[0]} is all uppercase.`,
-			source: 'ex',
-		};
-		if (hasDiagRelatedInfCap) {
-			d.relatedInformation = [
-				{
-					location: {
-						uri		: doc.uri,
-						range	: {...d.range},
-					},
-					message: 'Spelling matters'
-				},
-				{
-					location: {
-						uri		: doc.uri,
-						range	: {...d.range},
-					},
-					message: 'Particularly for names'
-				}
-			];
-		}
-		aDiag.push(d);
-	}
-
-	// Send the computed diagnostics to VSCode.
-	conn.sendDiagnostics({uri: doc.uri, diagnostics: aDiag});
-}
-
-// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
-//	// Changed は保存時に発生する
-conn.onDidChangeWatchedFiles(chg=> {
-console.log('onDidChangeWatchedFiles !');
-
-// NOTE: ワークスペース関係なくここに来る？　分岐はこちらの責任？
-
-	chg.changes.forEach(e=> console.log(`  type:${e.type} uri:${e.uri.slice(-32)}`));
-		/*
-			const Created = 1;
-			const Changed = 2;
-			const Deleted = 3;
-		*/
+	for (const wf of aLspWs) wf.onDidChangeContent(chg);
 });
 
+
+// === ファイル変更イベント（手入力以外が対象） ===
+//	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
+//	// Changed は保存時に発生する
+conn.onDidChangeWatchedFiles(chg=> {
+	for (const wf of aLspWs) wf.onDidChangeWatchedFiles(chg);
+});
+
+
+// === 識別子上にマウスホバーしたとき表示するヒント ===
+conn.onHover(prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onHover(prm);
+		if (ret) return ret;
+	}
+	return {contents: []};
+});
+
+
+// === コード補完機能 ===
+//	// 自動補完（初期リストを返すハンドラー）
+conn.onCompletion(prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onCompletion(prm);
+		if (ret) {wfCompletioning = wf; return ret;}
+	}
+	return [];
+});
+let wfCompletioning: LspWs;
+//	// 自動補完候補の選択（補完リストで選択された項目の追加情報を解決するハンドラー）
+conn.onCompletionResolve(ci=> wfCompletioning.onCompletionResolve(ci));
+
+
+// === 引数の説明 ===
+conn.onSignatureHelp(prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onSignatureHelp(prm);
+		if (ret) return ret;
+	}
+	return null;
+});
+
+
+// === 定義へ移動、定義をここに表示 ===
+conn.onDefinition((prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onDefinition(prm);
+		if (ret) return ret;
+	}
+	return null;
+}));
+
+// === 参照へ移動、参照をここに表示 ===
+conn.onReferences((prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onReferences(prm);
+		if (ret) return ret;
+	}
+	return null;
+}));
+
+
+//conn.onWorkspaceSymbol
+
+// === ドキュメントアウトライン ===
+conn.onDocumentSymbol((prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onDocumentSymbol(prm);
+		if (ret) return ret;
+	}
+	return null;
+}));
+
+
+// === リンク ===
+conn.onDocumentLinks((prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onDocumentLinks(prm);
+		if (ret) return ret;
+//		if (ret) {wfDocumentLinks = wf; return ret;}
+	}
+	return null;
+}));
+/*
+	let wfDocumentLinks: LspWs;
+	conn.onDocumentLinkResolve(prm=> {
+	console.log(`fn:LangSrv.ts line:272 prm:${JSON.stringify(prm)}`);
+		return wfDocumentLinks.onDocumentLinkResolve(prm)
+	});
+	//conn.onDocumentLinkResolve(prm=> wfDocumentLinks.onDocumentLinkResolve(prm));
+*/
+
+
+// === シンボルの名前変更・準備 ===
+conn.onPrepareRename(prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onPrepareRename(prm);
+		if (ret) return ret;
+	}
+	return null;
+});
+// === シンボルの名前変更 ===
+conn.onRenameRequest(prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onRenameRequest(prm);
+		if (ret) return ret;
+	}
+	return null;
+});
+
+
+
 // =======================================
-// コード補完機能
-// =======================================
-function initCompletion() {
-	const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
-	const cmdScanScr_trgPrm = {title: '「スクリプト再捜査」「引数の説明」', command: 'extension.skynovel.scanScr_trgParamHints'};
-	for (const tag_nm in hMd) {
-		const md = hMd[tag_nm];
-		const docu: string | MarkupContent = md.comment
-			? <MarkupContent>{
-				kind	: 'markdown',
-				value	: 
-`$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm
-})
-
----
-${md.comment}`,}
-			: '';
-		md.snippet.forEach(v=> aCITag.push({
-			label	: v.nm,
-			kind	: CompletionItemKind.Snippet,
-			detail	: md.detail,
-			command	: cmdScanScr_trgPrm,
-			documentation	: docu,
-			// 以下は未検討
-		/*
-			labelDetails?: CompletionItemLabelDetails;
-			tags?: CompletionItemTag[];
-			deprecated?: boolean;
-			preselect?: boolean;
-			sortText?: string;
-			filterText?: string;
-			insertText?: string;
-			insertTextFormat?: InsertTextFormat;
-			insertTextMode?: InsertTextMode;
-			textEdit?: TextEdit | InsertReplaceEdit;
-			textEditText?: string;
-			additionalTextEdits?: TextEdit[];
-			commitCharacters?: string[];
-			data?: LSPAny;
-		*/
-		}));
-	}
-	aCITagMacro = aCITag;
-}
-//const scrScn_hTagMacroUse: {[uri: string]: string}	= {};
-let aCITag	: CompletionItem[]	= [];
-//let aCIMacro	: CompletionItem[]	= [];
-let aCITagMacro	: CompletionItem[]	= [];
-
-//	// 初期リストを返すハンドラー
-conn.onCompletion(
-	(docPrm: TextDocumentPositionParams): CompletionItem[]=> {
-		const d = docs.get(docPrm.textDocument.uri);
-		if (! d) return [];
-		const p = docPrm.position;
-		const trgChr = d.getText({start: {line: p.line, character: p.character -1}, end: p});
-console.log(`fn:lsp.ts line:274 trgChr:${trgChr}:`);
-		if (trgChr === '[') return aCITagMacro;	// タグやマクロ候補を表示
-
-		return [];
-	}
-);
-//	// 補完リストで選択された項目の追加情報を解決するハンドラー
-conn.onCompletionResolve(
-	(ci: CompletionItem): CompletionItem=> {
-		if (ci.data === 1) {
-			ci.detail = 'TypeScript details';
-			ci.documentation = 'TypeScript documentation';
-		}
-		else if (ci.data === 2) {
-			ci.detail = 'JavaScript details';
-			ci.documentation = 'JavaScript documentation';
-		}
-		return ci;
-	}
-);
-
-
-docs.listen(conn);	// for open, change and close text document events
-conn.listen();			// Listen on the connection
+docs.listen(conn);
+conn.listen();

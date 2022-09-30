@@ -5,8 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, getNonce, replaceFile, replaceRegsFile, treeProc} from './CmnLib';
-import {CodingSupporter} from './CodingSupporter';
+import {foldProc, getNonce, replaceRegsFile, treeProc} from './CmnLib';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
@@ -37,13 +36,13 @@ export class PrjSetting {
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly codSpt: CodingSupporter, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>, curCnvFile: string) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
-		for (const nm in oWss) {
+		for (const [nm, v] of Object.entries(oWss)) {
 			const d: any = this.#wss.get(nm);
 			if (d) oWss[nm] = d;
-			else this.#wss.update(nm, oWss[nm]);
+			else this.#wss.update(nm, v);
 		}
 		this.#oWss = oWss as any;
 		this.#setOnOptPic();
@@ -94,7 +93,7 @@ export class PrjSetting {
 			code	: {...DEF_CFG.code, ...o.code},
 		};
 	//	this.#oCfg = {...this.#oCfg, ...o};
-		codSpt.setEscape(this.#oCfg?.init?.escape ?? '');	// 非同期禁止
+//		setEscape();	// 非同期禁止
 
 		this.#fnOptPic = this.#pathWs +'/build/cnv_mat_pic.json';
 		this.#fnOptSnd = this.#pathWs +'/build/cnv_mat_snd.json';
@@ -133,9 +132,9 @@ export class PrjSetting {
 			},
 
 			async ()=> {
-				treeProc(this.#fnPrj, url=> {
-					if (url.slice(-11) !== '/setting.sn') return;
-					this.#aPathSettingSn.push(url);
+				treeProc(this.#fnPrj, path=> {
+					if (path.slice(-11) !== '/setting.sn') return;
+					this.#aPathSettingSn.push(path);
 				});
 				this.#chkMultiMatch_SettingSn();
 			},
@@ -176,8 +175,8 @@ export class PrjSetting {
 	#writePrjJs() {
 		const o = {...this.#oCfg};
 		o.code = {};
-		for (const nm in this.#oCfg.code) {
-			if (this.#oCfg.code[nm]) o.code[nm] = true;
+		for (const [nm, v] of Object.entries(this.#oCfg.code)) {
+			if (v) o.code[nm] = true;
 		}
 		return writeFile(this.#fnPrjJs, JSON.stringify(o, null , '\t'));
 	}
@@ -431,12 +430,9 @@ export class PrjSetting {
 
 		case 'update.oCfg':{
 			const e: T_E2V_CFG = m;
+			const escOld = this.#oCfg.init.escape;
 			const cfg = this.#oCfg = e.oCfg
-			const escape = cfg.init.escape;
-			if (cfg.init.escape !== escape) {
-				this.codSpt.setEscape(escape);
-				this.codSpt.goAll();
-			}
+			if (cfg.init.escape !== escOld) this.setEscape();
 			cfg.debuger_token ||= uuidv4();
 			this.#writePrjJs();
 
@@ -530,8 +526,7 @@ export class PrjSetting {
 		case 'update.oWss':{
 			const e: T_V2E_WSS = m;
 			const aP: (()=> Promise<void>)[] = [];
-			for (const id in e.oWss) {
-				const val = (<any>e.oWss)[id];
+			for (const [id, val] of Object.entries(e.oWss)) {
 				const old_val = (<any>this.#oWss)[id];
 				if (old_val == val) continue;
 
@@ -549,7 +544,7 @@ export class PrjSetting {
 
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
 				this.#cmd2Vue(o);
-				aP.push(()=> this.cmd(id, val).then(go=> {
+				aP.push(()=> this.cmd(id, String(val)).then(go=> {
 					if (go) {
 						switch (id) {
 							case 'cnv.mat.pic':
@@ -582,11 +577,11 @@ export class PrjSetting {
 
 		case 'update.aTemp':{
 			const e: T_V2E_TEMP = m;
-			e.aRes.forEach(v=> replaceFile(
+			for (const v of e.aRes) {
 				this.#fnSetting,
 				new RegExp(`(&${v.nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 				`$1$3${v.val}$3`	// https://regex101.com/r/jD2znK/1
-			));
+			}
 		}	break;
 
 		case 'info':	window.showInformationMessage(m.mes); break;

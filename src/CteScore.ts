@@ -6,7 +6,6 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {IFn2Path, getNonce, chkBoolean} from './CmnLib';
-import {ScriptScanner} from './ScriptScanner';
 import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
 
 import {TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position} from 'vscode';
@@ -41,10 +40,10 @@ export class CteScore {
 		window.registerCustomEditorProvider('SKYNovel.score', {
 			async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
 				const path = doc.fileName;
-				for (const cur in CteScore.#hCur2Me) {
+				for (const [cur, v] of Object.entries(CteScore.#hCur2Me)) {
 					if (cur !== path.slice(0, cur.length)) continue;
 
-					CteScore.#hCur2Me[cur].#resolveCustomTextEditor(doc, webviewPanel);
+					v.#resolveCustomTextEditor(doc, webviewPanel);
 					break;
 				}
 			}
@@ -153,6 +152,9 @@ export class CteScore {
 
 
 	#hPath2Wv	: {[path: string]: Webview}	= {};
+	static	readonly	analyzTagArg = (token: string)=> CteScore.REG_TAG.exec(token);
+	// 47 match 959 step (1ms) https://regex101.com/r/TKk1Iz/4
+	static	readonly	REG_TAG	= /\[(?<name>[^\s;\]]+)\s*(?<args>(?:[^"'#\]]+|(["'#]).*?\3)*?)]/;
 	#resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel) {
 		const path = doc.fileName;
 		const t = this.#hPath2Tokens[path];
@@ -246,7 +248,7 @@ export class CteScore {
 				ed.replace(doc.uri, rng, txt);
 				workspace.applyEdit(ed);
 
-				const a_tag: any = ScriptScanner.analyzTagArg(txt);
+				const a_tag = CteScore.analyzTagArg(txt);
 				const g = a_tag?.groups;
 				if (! g) break;
 				const t2t = this.#hTag2Tds[g.name];
@@ -283,19 +285,14 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		}[]} =	{};
 		const t = this.#hPath2Tokens[path];
 		const hPath = this.#hPrj2hPath;
-		for (const fn in hPath) {
-			const p = hPath[fn];
-			for (const ext in p) {
+		for (const [fn, p] of Object.entries(hPath)) {
+			for (const [ext, v] of Object.entries(p)) {
 				if (ext === ':cnt') continue;
 
-				const path = String(p[ext]);
+				const path = String(v);
 				const fld = String(path.match(CteScore.#regFld));
 				hFld2[fld] ??= [];
-				hFld2[fld].push({
-					ext		: ext,
-					path	: path,
-					fn		: fn,
-				});
+				hFld2[fld].push({ext, path, fn});
 			}
 		}
 
@@ -311,15 +308,15 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 	#hBufWords	: {[key: string]: Set<string>}	= {};
 	updWords(key: string, Words: Set<string>) {
 		this.#hBufWords[key] = Words;
-		for (const path in this.#hPath2Wv) {
-			this.#hPath2Wv[path].postMessage({cmd: 'del_wds', key: key});
+		for (const v of Object.values(this.#hPath2Wv)) {
+			v.postMessage({cmd: 'del_wds', key: key});
 		}
 	}
 
 	#hPrj2hPath	: IFn2Path	= {};
 	updPath(hPath: IFn2Path) {
 		this.#hPrj2hPath = hPath;
-		for (const path_doc in this.#hPath2Tokens) {
+		for (const path_doc of Object.keys(this.#hPath2Tokens)) {
 			if (path_doc in this.#hPath2Wv) this.#updWv_db(path_doc);
 		}
 	}
@@ -414,7 +411,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 	}
 
 	#make_tds_tag(token: string, line: number, row: number): string {
-		const a_tag: any = ScriptScanner.analyzTagArg(token);
+		const a_tag = CteScore.analyzTagArg(token);
 		const g = a_tag?.groups;
 		if (! g) return '';
 
@@ -505,15 +502,15 @@ v.type === 'bool' ?' pt-2' :''
 
 	undefMacro(def_nm: string) {delete this.#hTag2Tds[def_nm];}
 	defMacro(def_nm: string, hPrm: any) {
-		this.#hTag2Tds[def_nm] = ()=> {return {...{
+		this.#hTag2Tds[def_nm] = ()=> ({...{
 			icon		: 'icon未指定',
 			btn_face	: 'btn_face未指定',
-		}, ...hPrm}};
+		}, ...hPrm});
 	}
 	static	readonly	#alzTagArg	= new AnalyzeTagArg;
 	static	readonly	#EXTS_PIC	= 'jpg|jpeg|png';
 	#hTag2Tds	: {[tag_nm: string]: (hPrm: HPRM)=> HTDS}	= {
-		ch			: hPrm=> {return {
+		ch			: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-outline-primary text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 			icon		: 'fa-align-left',
@@ -523,24 +520,24 @@ v.type === 'bool' ?' pt-2' :''
 				{name: 'text', type: 'textarea', val: hPrm.text?.val ?? '', hint: '本文テキスト'},
 			],
 			detail		: `<form><textarea class="form-control bg-light" placeholder="本文テキストを入力" data-nm="text">${hPrm.text?.val ?? ''}</textarea></form>`,
-		}},
+		}),
 
-		jump		: hPrm=> {return {
+		jump		: hPrm=> ({
 			icon		: 'fa-external-link-alt',
 			btn_face	: 'ジャンプ'
 				+ (hPrm.fn?.val ?` ${hPrm.fn?.val}` :'')
 				+ (hPrm.label?.val ?` ${hPrm.label?.val}` :''),
-		}},
-		call		: hPrm=> {return {
+		}),
+		call		: hPrm=> ({
 			icon		: 'fa-exchange-alt',
 			btn_face	: 'コール'
 				+ (hPrm.fn?.val ?` ${hPrm.fn?.val}` :'')
 				+ (hPrm.label?.val ?` ${hPrm.label?.val}` :''),
-		}},
-		return		: _=> {return {
+		}),
+		return		: _=> ({
 			icon		: 'fa-long-arrow-alt-left',
 			btn_face	: '戻る',
-		}},
+		}),
 		add_lay		: hPrm=> {
 			const is_grp = (hPrm.class?.val === 'grp');
 			return {
@@ -553,18 +550,18 @@ v.type === 'bool' ?' pt-2' :''
 					+ hPrm.layer?.val,
 			};
 		},
-		clear_lay	: hPrm=> {return {
+		clear_lay	: hPrm=> ({
 			col			: hPrm.layer?.val ?? 'base',
 			btn_style	: `btn-outline-primary text-white`,
 			icon		: 'fa-ban',
 			btn_face	: 'レイヤ設定消去',
-		};},
-		lay			: hPrm=> {return {
+		}),
+		lay			: hPrm=> ({
 			col			: hPrm.layer?.val ?? 'base',
 			btn_style	: `btn-outline-primary text-white`,
 			icon		: 'fa-cog',
 			btn_face	: 'レイヤ設定',
-		};},
+		}),
 
 		img			: hPrm=> {
 			const layer = hPrm.layer?.val ?? 'base';
@@ -584,7 +581,7 @@ v.type === 'bool' ?' pt-2' :''
 				]
 			};
 		},
-		scene_change	: hPrm=> {return {
+		scene_change	: hPrm=> ({
 			col			: 'base',
 			td_style	: 'sn-cmb-'
 				+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg?.val}` :'end'),
@@ -599,8 +596,8 @@ v.type === 'bool' ?' pt-2' :''
 				{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},
 				{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule\/'},
 			],
-		};},
-		scene_reserve	: hPrm=> {return {
+		}),
+		scene_reserve	: hPrm=> ({
 			col			: hPrm.layer?.val ?? '0',
 			td_style	: 'sn-cmb-'
 				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn?.val}` :'end'),
@@ -614,7 +611,7 @@ v.type === 'bool' ?' pt-2' :''
 				{name: 'pos', type: 'str', val: hPrm.pos?.val ?? '', hint: '表示位置'},
 				{name: 'alpha', type: 'range', val: hPrm.alpha?.val ?? '', hint: '不透明度',  min: '0.0', max: '1.0', step: '0.1'},
 			],
-		};},
+		}),
 
 		grp			: hPrm=> {
 			return {
@@ -650,28 +647,28 @@ v.type === 'bool' ?' pt-2' :''
 				],
 			};
 		},
-		fg			: hPrm=> {return {
+		fg			: hPrm=> ({
 			col			: hPrm.layer?.val ?? '命令',
 			btn_style	: `btn-success`,
 			icon		: 'fa-image',
 			btn_face	: hPrm.fn?.val ?? '',
-		};},
+		}),
 
-		button		: hPrm=> {return {
+		button		: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-sign-out-alt',
 			btn_face	: (hPrm.text?.val ?`文字ボタン「${hPrm.text?.val}」` :'')
 						+ (hPrm.pic?.val ?`画像ボタン ${hPrm.pic?.val}` :''),
-		}},
-		enable_event: hPrm=> {return {
+		}),
+		enable_event: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-check-square',
 			btn_face	: `イベント発生 ${(hPrm.enabled?.val === 'true')
 				?'させる' :'させない'}`,
-		}},
-		event		: hPrm=> {return {
+		}),
+		event		: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-bolt',
@@ -679,27 +676,27 @@ v.type === 'bool' ?' pt-2' :''
 				+ (hPrm.global?.val === 'true' ?'（毎回）' :'（一回だけ）')
 				+ (hPrm.del?.val === 'true' ?'の削除 ' :'')
 				+ hPrm.key?.val,
-		}},
+		}),
 
-		waitclick	: _=> {return {
+		waitclick	: _=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-hourglass-start',
 			btn_face	: 'クリック待ち',
-		}},
-		r			: _=> {return {
+		}),
+		r			: _=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-align-left',
 			btn_face	: '文字改行',
-		}},
-		l			: _=> {return {
+		}),
+		l			: _=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-leaf',
 			btn_face	: '改行待ち',
-		}},
-		plc			: hPrm=> {return {
+		}),
+		plc			: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-book-open',
@@ -710,15 +707,15 @@ v.type === 'bool' ?' pt-2' :''
 				{name: 'time', type: 'num', val: hPrm.time?.val ?? '500', hint: '再開時の効果音FO時間'},
 				{name: 'buf', type: 'str', val: hPrm.buf?.val ?? '音声', hint: '再開時の再生停止'},
 			],
-		}},
+		}),
 
-		let			: hPrm=> {return {
+		let			: hPrm=> ({
 			btn_style	: 'btn-secondary',
 			icon		: 'fa-calculator',
 			btn_face	: `変数操作 ${hPrm.name?.val}=…`,
-		}},
+		}),
 
-		bgm			: hPrm=> {return {
+		bgm			: hPrm=> ({
 			col			: 'BGM',
 			td_style	: 'sn-cmb-'
 				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn?.val}` :'end'),
@@ -726,23 +723,23 @@ v.type === 'bool' ?' pt-2' :''
 			icon		: 'fa-play',
 			btn_face	: hPrm.fn?.val ?? '',
 			tooltip		: `fn=${hPrm.fn?.val}`,
-		}},
-		stopbgm		: _=> {return {
+		}),
+		stopbgm		: _=> ({
 			col			: 'BGM',
 			td_style	: 'sn-cmb-end',
 			btn_style	: 'btn-outline-info',
 			icon		: 'fa-stop',
 			btn_face	: '再生停止',
-		}},
-		fadeoutbgm	: hPrm=> {return {
+		}),
+		fadeoutbgm	: hPrm=> ({
 			col			: 'BGM',
 			td_style	: 'sn-cmb-end',
 			btn_style	: 'btn-outline-info',
 			icon		: 'fa-volume-down',
 			btn_face	: `フェードアウト ${hPrm.time?.val}ms かけて`,
-		}},
+		}),
 
-		wait		: hPrm=> {return {
+		wait		: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-hourglass-start',
@@ -750,17 +747,17 @@ v.type === 'bool' ?' pt-2' :''
 			tooltip		: '待機'
 				+ (hPrm.time?.val ?` time=${hPrm.time?.val}ms` :'')
 				+ (hPrm.canskip?.val ?` スキップできるか=${hPrm.canskip?.val}` :''),
-		}},
-		s			: _=> {return {
+		}),
+		s			: _=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-stop',
 			btn_face	: '停止する',
-		}},
-		close		: _=> {return {
+		}),
+		close		: _=> ({
 			icon		: 'fa-window-close',
 			btn_face	: 'アプリの終了',
-		}},
+		}),
 
 		macro	: hPrm=> {
 			this.#macro_nm = hPrm.name?.val ?? '';
@@ -783,13 +780,13 @@ v.type === 'bool' ?' pt-2' :''
 			}
 		},
 
-		アルバム解放	: hPrm=> {return {
+		アルバム解放	: hPrm=> ({
 			icon		: 'fa-th',
 			btn_face	: 'アルバム解放 '+ hPrm.name?.val,
 			args		: [
 				{name: 'name', type: 'str', val: hPrm.name.val ?? '', hint: '素材識別名'},
 			],
-		}},
+		}),
 	};
 	#macro_nm	= '';
 	#MAX_COL		= 7;

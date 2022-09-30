@@ -34,9 +34,8 @@ const repTag2MB = (md: string)=> md
 import {copy, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 
 const path = './src/md/';
-readdirSync(path, {withFileTypes: true})
-.filter((d: any)=> d.isFile())
-.forEach(({name}: any)=> {
+for (const {name} of readdirSync(path, {withFileTypes: true})
+.filter(d=> d.isFile())) {
 	const nm = name.slice(0, -3);
 	const txt = readFileSync(path + name, {encoding: 'utf8'});
 	const a = txt.split(/\*{3}\n*/);
@@ -59,7 +58,7 @@ readdirSync(path, {withFileTypes: true})
 		}),
 		comment	: repTag2MB(a[3] ?? '').trim(),
 	};
-});
+}
 
 writeFileSync('./src/md.json', JSON.stringify(hMd));
 copy('./src/md.json', './server/dist/md.json');		// 2 LSP

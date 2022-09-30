@@ -27,7 +27,9 @@ window.addEventListener('message', e=> {
 	if (! e.isTrusted) {warn('Setting.vue isTrusted=false'); return;}
 	go(e.data.cmd, e.data);
 });
-function go(nm: string, data: any) {aHook.forEach(v=> {if (v.nm === nm) v.fnc(data)});}
+function go(nm: string, data: any) {for (const v of aHook) {
+	if (v.nm === nm) v.fnc(data);
+}}
 cmd2Ex({cmd: '?'});	// 拡張機能メインへ準備完了通知
 
 

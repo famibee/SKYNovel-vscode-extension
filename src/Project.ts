@@ -5,16 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win} from './CmnLib';
-import {CodingSupporter} from './CodingSupporter';
+import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
-import {ScriptScanner} from './ScriptScanner';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Location, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
 import {resolve, extname, parse} from 'path';
 import img_size from 'image-size';
@@ -25,12 +23,27 @@ import * as archiver from 'archiver';
 import {basename, dirname} from 'path';
 import {execSync} from 'child_process';
 import * as ncu from 'npm-check-updates';
+import {userInfo} from 'os';
 
 type BtnEnable = '_off'|'Stop'|'';
+type PluginDef = {
+	uri: string, sl: number, sc: number, el: number, ec: number,
+};
+
+// フォントと使用文字情報
+export type TFONT2STR = {
+	[font_nm: string]: string;
+};
+
+export type TINF_INTFONT = {
+	defaultFontName	: string;
+	hSn2Font2Str	: {[sn: string]: {[font_nm: string]: string}};
+	hFontNm2uri	: {[font_nm: string]: string};
+};
+
 
 export class Project {
-	readonly	#codSpt;
-
+	readonly	#pathWs;
 	readonly	#curPlg;
 	readonly	#curPrj;
 	readonly	#lenCurPrj;
@@ -80,27 +93,30 @@ export class Project {
 
 	readonly	#aTiFlat: TreeItem[]	= [];
 	enableBtn(enabled: boolean): void {
-		if (enabled) this.#aTiFlat.forEach(ti=> {
+		if (enabled) for (const ti of this.#aTiFlat) {
 			ti.contextValue = ti.contextValue?.trimEnd();
 			this.emPrjTD.fire(ti);
-		});	// 値を戻してボタン表示
-		else this.#aTiFlat.forEach(ti=> {
+		}	// 値を戻してボタン表示
+		else for (const ti of this.#aTiFlat) {
 			ti.contextValue += ' ';
 			this.emPrjTD.fire(ti);
-		});	// 値を壊してボタン消去
+		}	// 値を壊してボタン消去
 	}
 
-
-	readonly	#pathWs;
 	readonly	#fwPrjOptPic;
 	readonly	#fwPrjOptSnd;
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>) {
+
+	readonly	#sendRequest2LSP: (cmd: string, o?: any)=> void;
+
+	readonly	#clDiag;
+
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
 		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
 		this.#lenCurPrj = this.#curPrj.length;
 			// 遅らせると core/diff.json 生成でトラブル。0状態で処理してしまう
-		this.#codSpt = new CodingSupporter(ctx, this.#pathWs, this.#curPrj);
+		this.#sendRequest2LSP = (cmd, o = {})=> this.sendRequest2LSP(cmd, 'file://'+ this.#curPrj, o);	// LSPにはfile:〜が必要なので
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
@@ -135,10 +151,9 @@ export class Project {
 				pti.label = title;
 				this.emPrjTD.fire(pti);
 			},
-			this.#codSpt,
+			()=> this.sendRequest2LSP('def_esc.upd', 'file://'+ this.#curPrj),
 			(nm, val)=> this.#cmd(nm, val),
 			(nm, arg)=> this.#exeTask(nm, arg),
-			this.#curPrjBase,
 		);
 		this.#initCrypto();
 
@@ -147,13 +162,13 @@ export class Project {
 		// updPlugin で goAll() が走る
 		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
 		else {
-			this.build();
+			this.#build();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
 		// ファイル増減を監視し、path.json を自動更新
 		const fwPrj = workspace.createFileSystemWatcher(this.#curPrj +'*/*');
-		const fwPrjSn = workspace.createFileSystemWatcher(this.#curPrj +'*/*.{sn,ssn}');
+//		const fwPrjSn = workspace.createFileSystemWatcher(this.#curPrj +'*/*.{sn,ssn}');
 		const fwPrjJs = workspace.createFileSystemWatcher(this.#curPrj +'prj.json');
 		// prjルートフォルダ監視
 		const fwFld = workspace.createFileSystemWatcher(this.#curPrj +'*');
@@ -178,17 +193,17 @@ export class Project {
 				this.#delPrj(uri);
 			}),
 			
-			fwPrjSn.onDidCreate(uri=> this.#codSpt.crePrj(uri)),
+//			fwPrjSn.onDidCreate(uri=> this.#codSpt.crePrj(uri)),
 		//	fwPrjSn.onDidChange(uri=> this.#codSpt.chgPrj(uri)),
 				// workspace.onDidChangeTextDocument() からやるので不要
-			fwPrjSn.onDidDelete(uri=> this.#codSpt.delPrj(uri)),
+//			fwPrjSn.onDidDelete(uri=> this.#codSpt.delPrj(uri)),
 
 			fwPrjJs.onDidChange(e=> this.#chgPrj(e)),
 
 			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri.path)),
 			/*fwFld.onDidChange(uri=> {	// フォルダ名ではこれが発生せず、Cre & Del
 				if (uri.path.slice(-5) === '.json') return;
-console.log(`fn:Project.ts Cha path:${uri.path}`);
+	console.log(`fn:Project.ts Cha path:${uri.path}`);
 			}),*/
 			fwFld.onDidDelete(uri=> this.#ps.onDelDir(uri.path)),
 
@@ -229,6 +244,22 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
 		debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
+
+		const {username} = userInfo();
+		this.#aPlaceFont	= [
+			`${this.#pathWs}/core/font`,
+			is_win
+				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
+				: `/Users/${username}/Library/Fonts`,
+			is_win
+				? 'C:/Windows/Fonts'
+				: '/Library/Fonts',
+		];
+
+		// 診断機能
+		this.#clDiag = languages.createDiagnosticCollection(docsel.language);
+
+		this.#sendRequest2LSP('ready');
 	}
 	readonly	getLocalSNVer: ()=> {verSN: string, verTemp: string};
 	#aDbgSS	: DebugSession[]	= [];
@@ -243,6 +274,64 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		this.#aDbgSS = [];
 		return Promise.allSettled(a);
 	}
+
+
+	onRequest(hd: any) {
+		switch (hd.cmd) {
+			case 'init':{
+				const pp2s: {[pp: string]: string} = {};
+				treeProc(this.#curPrj, path=> {
+					if (! /\.(ss?n|json)$/.test(path)) return;
+
+					const pp = path.slice(this.#lenCurPrj);
+					pp2s[pp] = readFileSync(path, {encoding: 'utf8'});
+				});
+
+				this.#sendRequest2LSP(hd.cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg,});
+			}	break;
+
+			case 'analyze_inf':{
+				this.#InfFont = hd.o.InfFont;
+
+				let updF2U = false;
+				this.#clDiag.clear();
+				const f2u = this.#InfFont.hFontNm2uri;
+//console.log(`fn:Project.ts f2u:%o`, {...f2u});
+				const hUri2Diag: {[uri: string]: Diagnostic[]} = {};
+				for (const [nm, uri] of Object.entries(f2u)) {
+					if (uri.charAt(0) === '/'
+					|| uri.charAt(0) === ':') continue;
+
+					this.#aPlaceFont
+					.some((base, i)=> ['woff2','otf','ttf'].some(ext=> {
+						const ret = existsSync(`${base}/${nm}.${ext}`);
+						if (ret) {
+							f2u[nm] = `::PATH_${['PRJ','USER','OS'][i]
+							}_FONTS::/${nm}.${ext}`;
+							updF2U = true;
+						}
+						return ret;
+					}));
+
+					if (f2u[nm].charAt(0) === ':') continue;
+					const [err, uri2, sl, sc, el, ec] = uri.split(',');
+					(hUri2Diag[uri2] ??= []).push(new Diagnostic(
+						new Range(Number(sl), Number(sc), Number(el), Number(ec)), err, DiagnosticSeverity.Error,
+					));
+				}
+				for (const [uri, a] of Object.entries(hUri2Diag)) {
+					this.#clDiag.set(Uri.file(uri), a);
+				}
+				if (updF2U) this.#sendRequest2LSP('int_font.upd', this.#InfFont.hFontNm2uri);
+			}	break;
+		}
+	}
+	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
+		defaultFontName	: '',
+		hSn2Font2Str	: {},
+		hFontNm2uri		: {},
+	};
+	readonly	#aPlaceFont;
 
 
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
@@ -354,12 +443,13 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		})));
 	}
 	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/;
+	static	readonly	DEF_FONT = ':DEF_FONT:';
 	async	#subsetFont(minify: boolean) {
 		if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) return;
 
 		// 旧フォントファイルはすべて一度削除
 		foldProc(
-			this.#pathWs +'/doc/prj/script/',
+			this.#curPrj +'script/',
 			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
 			_=> {},
 		);
@@ -376,31 +466,29 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			inp	: string;
 			txt	: string;
 		}} = {};
-		oFont[ScriptScanner.DEF_FONT] = {inp: '', txt: ''};
+		oFont[Project.DEF_FONT] = {inp: '', txt: ''};
 
-		const o = this.#codSpt.getInfFont2Str();
+		const o = this.#InfFont;
 		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
-			inp: o.hFontNm2Path[font_nm],
+			inp: o.hFontNm2uri[font_nm],
 			txt: '',
 		};
-		for (const sn in o.hSn2Font2Str) {
-			const f2s = o.hSn2Font2Str[sn];
-			for (const font_nm in f2s) {
+		for (const f2s of Object.values(o.hSn2Font2Str)) {
+			for (const [font_nm, v] of Object.entries(f2s)) {
 				ensureFont2Str(font_nm);
-				oFont[font_nm].txt += f2s[font_nm];
+				oFont[font_nm].txt += v;
 			}
 		}
 		ensureFont2Str(o.defaultFontName);
 			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
-		oFont[o.defaultFontName].txt += oFont[ScriptScanner.DEF_FONT].txt;
-		delete oFont[ScriptScanner.DEF_FONT];
+		oFont[o.defaultFontName].txt += oFont[Project.DEF_FONT].txt;
+		delete oFont[Project.DEF_FONT];
 
-		for (const fnm in oFont) {	// 文字重複しない最小限とするように
-			const s = new Set<string>;
-			Array.from(oFont[fnm].txt).forEach(c=> s.add(c));
+		for (const v of Object.values(oFont)) {	// 文字重複しない最小限とするように
+			const s = new Set<string>(Array.from(v.txt));	// 一意化
 				// txt.split('')や [...txt] はサロゲートペアで問題
-			oFont[fnm].txt = [...s].sort().join('');	// sort()は不要だが綺麗
-		//	oFont[fnm].txt = [...s].join('');
+			v.txt = [...s].sort().join('');	// sort()は不要だが綺麗
+		//	v.txt = [...s].join('');
 		}
 		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
 
@@ -451,7 +539,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			this.#onBtn_sub(ti, btn_nm, cfg, (timeout = 4000)=> {
 				ti.iconPath = iconPath;
 
-				this.#aTiFlat.forEach(ti=> {
+				for (const ti of this.#aTiFlat) {
 					switch (ti.contextValue?.slice(-4)) {
 						case '_off':
 						case 'Stop':
@@ -459,7 +547,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 							break;
 					}
 					this.emPrjTD.fire(ti);
-				});	// 値を戻してボタン表示
+				}	// 値を戻してボタン表示
 
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> done(0), timeout);
@@ -467,11 +555,10 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		}));
 	}
 	#onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
-		const pathWs = this.wsFld.uri.fsPath;
-		let cmd = `cd "${pathWs}" ${statBreak()} `;
-		if (! existsSync(pathWs +'/node_modules')) {
+		let cmd = `cd "${this.#pathWs}" ${statBreak()} `;
+		if (! existsSync(this.#pathWs +'/node_modules')) {
 			cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
-			removeSync(pathWs +'/package-lock.json');
+			removeSync(this.#pathWs +'/package-lock.json');
 		}
 
 		// メイン処理
@@ -479,9 +566,9 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.#termDbgSS()
-				.then(()=> this.actBar.updPrjFromTmp(pathWs))
+				.then(()=> this.actBar.updPrjFromTmp(this.#pathWs))
 				.then(()=> ncu.run({	// ncu -u --target minor
-					packageFile: pathWs +'/package.json',
+					packageFile: this.#pathWs +'/package.json',
 					// Defaults:
 					// jsonUpgraded: true,
 					// silent: true,
@@ -540,8 +627,8 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				this.#termDbgSS();
 
 				let find_ng = false;
-				treeProc(pathWs +'/doc/prj', url=> {
-					if (find_ng || url.slice(-4) !== '.svg') return;
+				treeProc(this.#curPrj, path=> {
+					if (find_ng || path.slice(-4) !== '.svg') return;
 
 					find_ng = true;
 					window.showErrorMessage(
@@ -549,7 +636,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 					)
 					.then(a=> {switch (a) {
 						case 'フォルダを開く':
-							env.openExternal(Uri.file(dirname(url)));	break;
+							env.openExternal(Uri.file(dirname(path)));	break;
 						case 'Online Converter':
 							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
 							break;
@@ -599,9 +686,9 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			case 'PackMacArm64':
 			case 'PackLinux':	this.hOnEndTask.set(task_type, ()=> {
 				// アップデート用ファイル作成
-				const oPkg = readJsonSync(pathWs +'/package.json', {encoding: 'utf8'});
+				const oPkg = readJsonSync(this.#pathWs +'/package.json', {encoding: 'utf8'});
 
-				const pathPkg = pathWs +'/build/package';
+				const pathPkg = this.#pathWs +'/build/package';
 				const pathUpd = pathPkg +'/update';
 				const fnUcJs = pathUpd +'/_index.json';
 				let oUc = existsSync(fnUcJs)
@@ -671,23 +758,23 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(createReadStream(pathWs +'/doc/web.htm'), {name: 'index.html'})
-				.append(createReadStream(pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
-				.glob('web.js', {cwd: pathWs +'/doc/'})
-				.glob('web.*.js', {cwd: pathWs +'/doc/'})
+				.append(createReadStream(this.#pathWs +'/doc/web.htm'), {name: 'index.html'})
+				.append(createReadStream(this.#pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.glob('web.js', {cwd: this.#pathWs +'/doc/'})
+				.glob('web.*.js', {cwd: this.#pathWs +'/doc/'})
 				.glob(`${
 					this.#isCryptoMode ?Project.fldnm_crypto_prj :'prj'
-				}/**/*`, {cwd: pathWs +'/doc/'})
-				.glob('favicon.ico', {cwd: pathWs +'/doc/'});
+				}/**/*`, {cwd: this.#pathWs +'/doc/'})
+				.glob('favicon.ico', {cwd: this.#pathWs +'/doc/'});
 
-				const fn_out = `${basename(pathWs)}_1.0freem.zip`;
-				const ws = createWriteStream(pathWs +`/build/package/${fn_out}`)
+				const fn_out = `${basename(this.#pathWs)}_1.0freem.zip`;
+				const ws = createWriteStream(this.#pathWs +`/build/package/${fn_out}`)
 				.on('close', ()=> {
 					done();
 					window.showInformationMessage(
 						`ふりーむ！形式で出力（${fn_out}）しました`,
 						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(pathWs +'/build/package/'))})
+					).then(a=> {if (a) env.openExternal(Uri.file(this.#pathWs +'/build/package/'))})
 				});
 				arc.pipe(ws);
 				arc.finalize();	// zip圧縮実行
@@ -707,7 +794,7 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 	get title() {return this.#ps.cfg.book.title}
 	get version() {return this.#ps.cfg.book.version}
 
-	dispose() {this.#aFSW.forEach(f=> f.dispose());}
+	dispose() {for (const f of this.#aFSW) f.dispose();}
 
 
 	#crePrj(e: Uri) {this.#encIfNeeded(e.path); this.#updPathJson();}
@@ -727,9 +814,9 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 	// プロジェクトフォルダ以下全走査で暗号化
 	#initCrypto() {
-		const fnc: (url: string)=> void = this.#isCryptoMode
-			? url=> {if (this.#isDiff(url)) this.#encFile(url);}
-			: url=> this.#isDiff(url)
+		const fnc: (path: string)=> void = this.#isCryptoMode
+			? path=> {if (this.#isDiff(path)) this.#encFile(path);}
+			: path=> this.#isDiff(path)
 		treeProc(this.#curPrj, fnc);
 		this.#updDiffJson();
 	}
@@ -789,11 +876,11 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 			removeSync(pathPre);
 
 			// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
-			this.#aRepl.forEach(url=> replaceFile(
+			for (const url of this.#aRepl) replaceFile(
 				this.#pathWs +'/'+ url,
 				/\(hPlg, {.+?}\);/,
 				`(hPlg);`,
-			));
+			);
 			// ビルド関連：パッケージするフォルダ名変更
 			replaceFile(
 				this.#pathWs +'/package.json',
@@ -808,11 +895,11 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		ensureDir(this.#curCrypto);
 
 		// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
-		this.#aRepl.forEach(url=> replaceFile(
+		for (const url of this.#aRepl) replaceFile(
 			this.#pathWs +'/'+ url,
 			/\(hPlg\);/,
 			`(hPlg, {cur: '${Project.#fld_crypto_prj}/', crypto: true});`,
-		));
+		);
 		// ビルド関連：パッケージするフォルダ名変更
 		replaceFile(
 			this.#pathWs +'/package.json',
@@ -857,23 +944,22 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 				if (this.#tidDelay) clearTimeout(this.#tidDelay);	// 遅延
 				this.#tidDelay = setTimeout(()=> {
-					let s = readFileSync(path_src, {encoding: 'utf8'});
+					const s = readFileSync(path_src, {encoding: 'utf8'});
 					// ファイル名匿名化
 					const hPath: IFn2Path = JSON.parse(s);
-					for (const fn in hPath) {
-						const hExt2N = hPath[fn];
-						for (const ext in hExt2N) {
+					for (const hExt2N of Object.values(hPath)) {
+						for (const [ext, v] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-10) === ':RIPEMD160') continue;
-							const path = String(hExt2N[ext]);
+							const path = String(v);
 							const dir = this.#REG_DIR.exec(path);
 							if (dir && this.#ps.cfg.code[dir[1]]) continue;
 
 							hExt2N[ext] = this.#hDiff[path].cn;
 						}
 					}
-					s = JSON.stringify(hPath);
-					outputFileSync(path_enc, this.#encry.enc(s));
+					const sNew = JSON.stringify(hPath);
+					outputFileSync(path_enc, this.#encry.enc(sNew));
 				}, 500);
 				return;
 			}
@@ -910,11 +996,12 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 
 
 	readonly	#REG_PLGADDTAG	= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
+	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
 	#updPlugin(build = true) {
 		if (! existsSync(this.#curPlg)) return;
 
 		const h4json	: {[def_nm: string]: number}	= {};
-		const hDefPlg	: {[def_nm: string]: Location}	= {};
+		this.#hDefPlg = {};
 		foldProc(this.#curPlg, ()=> {}, nm=> {
 			h4json[nm] = 0;
 
@@ -934,22 +1021,25 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				while ((j = txt.lastIndexOf('\n', j -1)) >= 0) ++line;
 
 				const col = idx_nm -txt.lastIndexOf('\n', idx_nm) -1;
-				hDefPlg[nm] = new Location(
-					Uri.file(path),
-					new Range(line, col, line, col +len_nm),
-				);
+				this.#hDefPlg[nm] = {
+					uri	: path,
+					sl	: line,
+					sc	: col,
+					el	: line,
+					ec	: col +len_nm,
+				};
 			}
 		});
-		this.#codSpt.setHDefPlg(hDefPlg);
+		this.#sendRequest2LSP('def_plg.upd', this.#hDefPlg);
 
 		outputFile(this.#curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
-		.then(build ?()=> this.build() :()=> {})
+		.then(build ?()=> this.#build() :()=> {})
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
-	private	build() {
+	#build = ()=> {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
-		this.build = ()=> {};	// onceにする
+		this.#build = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは Project.ts の tasks.onDidEndTaskProcess で
 		let cmd = `cd "${this.#pathWs}" ${statBreak()} `;
@@ -994,10 +1084,13 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 	#hPathFn2Exts	: IFn2Path	= {};
 	async #updPathJson() {
 		try {
+			const uriPathJs = this.#curPrj +'path.json';
 			this.#hPathFn2Exts = this.#get_hPathFn2Exts(this.#curPrj);
-			await outputJson(this.#curPrj +'path.json', this.#hPathFn2Exts);
-			this.#codSpt.updPath(this.#hPathFn2Exts);
-			if (this.#isCryptoMode) this.#encFile(this.#curPrj +'path.json');
+			await outputJson(uriPathJs, this.#hPathFn2Exts);
+
+			if (this.#isCryptoMode) this.#encFile(uriPathJs);
+
+// NOTE: Score	this.#codSpt.updPath(this.#hPathFn2Exts);
 		}
 		catch (err) {console.error(`Project updPathJson ${err}`);}
 	}
@@ -1012,10 +1105,11 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		//		URLエンコードされていない物を想定。
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
+		const aD: Diagnostic[] = [];
 		foldProc($cur, ()=> {}, dir=> {
 			const wd = resolve($cur, dir);
 			foldProc(wd, (url, nm)=> {
-				this.#addPath(hFn2Path, dir, nm);
+				this.#addPath(hFn2Path, dir, nm, aD);
 
 				// スプライトシート用json自動生成機能
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
@@ -1069,34 +1163,26 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 				writeJsonSync(fnJs, oJs);
 				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
 
-				this.#addPath(hFn2Path, dir, `${a[1]}.json`);
+				this.#addPath(hFn2Path, dir, `${a[1]}.json`, aD);
 			}, ()=> {});
 		});
+		if (this.#clDiag) {
+			this.#clDiag.delete(this.#URI_DUMMY_MAT);
+			if (aD.length > 0) this.#clDiag.set(this.#URI_DUMMY_MAT, aD);
+		}
 
 		return hFn2Path;
 	}
-	#addPath(hFn2Path: IFn2Path, dir: string, nm: string) {
-		const p = parse(nm);
-		const ext = p.ext.slice(1);
-		const fn = p.name;
+	readonly #URI_DUMMY_MAT		= Uri.file('素材ファイル');
+	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: Diagnostic[]) {
+		const {name: fn, base, ext: ext0} = parse(nm);
+		const ext = ext0.slice(1);
 		let hExts = hFn2Path[fn];
 		if (! hExts) {
 			hExts = hFn2Path[fn] = {':cnt': 1};
 		}
 		else if (ext in hExts) {
-			window.showErrorMessage(`[SKYNovel] プロジェクト内でファイル【${p.base}】が重複しています。フォルダを縦断検索するため許されません`, {modal: true})
-			.then(()=> window.showQuickPick([
-				{label: `1) ${hExts[ext]}`, description:`クリックで削除対象`},
-				{label: `2) ${dir +'/'+ nm}`, description:`クリックで削除対象`},
-			]))
-			.then(selected=> {
-				if (! selected) return;
-
-				const id = Number(selected.label.slice(0, 1));
-				const fn = this.#curPrj + (id === 1 ?hExts[ext] :dir +'/'+ nm);
-				window.showInformationMessage(`${fn} を削除しますか？`, {modal: true}, 'はい')
-				.then(a=> {if (a === 'はい') removeSync(fn);});
-			});
+			aD.push(new Diagnostic(new Range(0, 0, 0, 0), `プロジェクト内でファイル【${base}】が重複しています。フォルダを縦断検索するため許されません`, DiagnosticSeverity.Error));
 			return;
 		}
 		else {
@@ -1104,72 +1190,5 @@ console.log(`fn:Project.ts Cha path:${uri.path}`);
 		}
 		hExts[ext] = dir +'/'+ nm;
 	}
-
-/*
-	#userFnTail	= '';
-	readonly	#REG_PATH	= /([^\/\s]+)\.([^\d]\w+)/;
-		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
-	#searchPath(path: string, extptn = ''): string {
-		if (! path) throw '[searchPath] fnが空です';
-
-		const a = path.match(this.#REG_PATH);
-		let fn = a ?a[1] :path;
-		const ext = a ?a[2] :'';
-		if (this.#userFnTail) {
-			const utn = fn +'@@'+ this.#userFnTail;
-			if (utn in this.#hPathFn2Exts) {
-				if (extptn === '') fn = utn;
-				else for (let e3 in this.#hPathFn2Exts[utn]) {
-					if (`|${extptn}|`.indexOf(`|${e3}|`) === -1) continue;
-
-					fn = utn;
-					break;
-				}
-			}
-		}
-		const h_exts = this.#hPathFn2Exts[fn];
-		if (! h_exts) throw `サーチパスに存在しないファイル【${path}】です`;
-
-		let ret = '';
-		if (! ext) {	// fnに拡張子が含まれていない
-			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
-			const hcnt = h_exts[':cnt'];
-			if (extptn === '') {
-				if (hcnt > 1) throw `指定ファイル【${path}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
-
-				return path;
-			}
-
-			const search_exts = `|${extptn}|`;
-			if (hcnt > 1) {
-				let cnt = 0;
-				for (const e2 in h_exts) {
-					if (search_exts.indexOf(`|${e2}|`) === -1) continue;
-					if (++cnt > 1) throw `指定ファイル【${path}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
-				}
-			}
-			for (let e in h_exts) {
-				if (search_exts.indexOf(`|${e}|`) === -1) continue;
-
-				return String(h_exts[e]);
-			}
-			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${path}】`;
-		}
-
-		// fnに拡張子xが含まれている
-		//	ファイル名サーチ→拡張子群にxが含まれるか
-		if (extptn !== '') {
-			const search_exts2 = `|${extptn}|`;
-			if (search_exts2.indexOf(`|${ext}|`) === -1) {
-				throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${path}】`;
-			}
-		}
-
-		ret = String(h_exts[ext]);
-		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${path}】、サーチ対象拡張子群【${extptn}】`;
-
-		return ret;
-	}
-*/
 
 }

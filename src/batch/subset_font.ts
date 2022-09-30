@@ -52,8 +52,8 @@ const PATH_OS_FONTS = is_win
 	? `C:/Windows/Fonts`
 	: `/Library/Fonts`;
 
-for (const nm in o) {
-	const inp = String(o[nm].inp)
+for (const [nm, v] of Object.entries(o)) {
+	const inp = String((<any>v).inp)
 	.replace('::PATH_PRJ_FONTS::', PATH_PRJ_FONTS)
 	.replace('::PATH_USER_FONTS::', PATH_USER_FONTS)
 	.replace('::PATH_OS_FONTS::', PATH_OS_FONTS);
@@ -67,8 +67,7 @@ for (const nm in o) {
 }
 Promise.allSettled(a)
 .then(()=> {
-	for (const nm in oLog) {
-		const log = oLog[nm];
+	for (const [nm, log] of Object.entries(oLog)) {
 		const {inp, out} = log;
 		log.inp = o[nm].inp;	// プライベートな環境値を塗りつぶす
 	//	log.out = // これは存在しない

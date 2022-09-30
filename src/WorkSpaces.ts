@@ -33,7 +33,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		itmStt.busy = true;	// ピン留めしてなくてもアイコン回転で表示してくれる
 		itmStt.detail = 'refresh';	// text - detail と表示される
 
-		this.#refresh();
+//		this.#refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
 		// "type": "SKYNovel TaskSys",
@@ -158,6 +158,12 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	}
 	#tiLayers	: TreeItem[]	= [];
 
+	#sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void	= ()=> {};
+	start(sendRequest2LSP: (cmd: string, curPrj: string, o: any)=> void) {
+		this.#sendRequest2LSP = sendRequest2LSP;
+		this.#refresh();
+	}
+
 	refreshEnv() {
 		this.actBar.chkLastSNVer(Object.entries(this.#hPrj).map(([,v])=> v.getLocalSNVer()));
 	}
@@ -236,7 +242,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		// フォルダーを開いている（len>1 ならワークスペース）
 		if (! e)  {		// 起動時
-			aWsFld.forEach(wsFld=> this.#makePrj(wsFld));
+			for (const wsFld of aWsFld) this.#makePrj(wsFld);
 			if (this.#aTiRoot.length === 0) return;
 			this.#aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.#emPrjTD.fire(undefined);
@@ -261,8 +267,19 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	readonly onDidChangeTreeData = this.#emPrjTD.event;
 
 
+	onRequest(hd: any): any | undefined {
+		const pathWs = hd.curPrj.slice(7, -9);
+		const prj = this.#hPrj[pathWs];
+		if (! prj) {
+			console.error(`fn:WorkSpaces.ts onRequest 'project ${pathWs} does not exist'`);
+			return undefined;
+		}
+		return prj.onRequest(hd);
+	}
+
+
 	enableBtn(enable: boolean): void {
-		for (const pathWs in this.#hPrj) this.#hPrj[pathWs].enableBtn(enable);
+		for (const v of Object.values(this.#hPrj)) v.enableBtn(enable);
 	}
 
 
@@ -273,7 +290,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		const isPrjValid = existPkgJS && existsSync(pathWs +'/doc/prj/prj.json');
 		if (! isPrjValid) return;
 
-		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask);
+		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, this.#sendRequest2LSP);
 	}
 
 	#hOnEndTask = new Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>([]);
@@ -282,11 +299,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;
 
 	dispose() {
-		for (const pathWs in this.#hPrj) this.#hPrj[pathWs].dispose();
+		for (const v of Object.values(this.#hPrj)) v.dispose();
 		this.#hPrj = {};
-		for (const itm in this.#hItmLangStt) {
+		for (const [itm, v] of Object.entries(this.#hItmLangStt)) {
 			if (Object.prototype.hasOwnProperty.call(this.#hItmLangStt, itm)) {
-				this.#hItmLangStt[itm].dispose();
+				v.dispose();
 			}
 		}
 	}

@@ -85,6 +85,8 @@ build({
 build({
 	entryPoints	: ['./server/src/LangSrv'],
 	outdir		: 'server/dist',
+	bundle		: true,
+	platform	: 'node',
 	minify		: true,
 	format		: 'cjs',	// Node.js の仕様
 	watch,

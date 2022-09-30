@@ -65,11 +65,11 @@ function normalizeClass(value) {
 function looseCompareArrays(a, b) {
   if (a.length !== b.length)
     return false;
-  let equal3 = true;
-  for (let i = 0; equal3 && i < a.length; i++) {
-    equal3 = looseEqual(a[i], b[i]);
+  let equal2 = true;
+  for (let i = 0; equal2 && i < a.length; i++) {
+    equal2 = looseEqual(a[i], b[i]);
   }
-  return equal3;
+  return equal2;
 }
 function looseEqual(a, b) {
   if (a === b)
@@ -1874,7 +1874,7 @@ function injectHook(type, hook, target = currentInstance, prepend = false) {
     return wrappedHook;
   }
 }
-const createHook = (lifecycle) => (hook, target = currentInstance) => (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, hook, target);
+const createHook = (lifecycle) => (hook, target = currentInstance) => (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, (...args) => hook(...args), target);
 const onBeforeMount = createHook("bm");
 const onMounted = createHook("m");
 const onBeforeUpdate = createHook("bu");
@@ -2907,7 +2907,7 @@ function createRenderer(options) {
 function baseCreateRenderer(options, createHydrationFns) {
   const target = getGlobalThis();
   target.__VUE__ = true;
-  const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, parentNode: hostParentNode, nextSibling: hostNextSibling, setScopeId: hostSetScopeId = NOOP, cloneNode: hostCloneNode, insertStaticContent: hostInsertStaticContent } = options;
+  const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, parentNode: hostParentNode, nextSibling: hostNextSibling, setScopeId: hostSetScopeId = NOOP, insertStaticContent: hostInsertStaticContent } = options;
   const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, isSVG = false, slotScopeIds = null, optimized = !!n2.dynamicChildren) => {
     if (n1 === n2) {
       return;
@@ -3002,34 +3002,30 @@ function baseCreateRenderer(options, createHydrationFns) {
   const mountElement = (vnode, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
     let el;
     let vnodeHook;
-    const { type, props, shapeFlag, transition, patchFlag, dirs } = vnode;
-    if (vnode.el && hostCloneNode !== void 0 && patchFlag === -1) {
-      el = vnode.el = hostCloneNode(vnode.el);
-    } else {
-      el = vnode.el = hostCreateElement(vnode.type, isSVG, props && props.is, props);
-      if (shapeFlag & 8) {
-        hostSetElementText(el, vnode.children);
-      } else if (shapeFlag & 16) {
-        mountChildren(vnode.children, el, null, parentComponent, parentSuspense, isSVG && type !== "foreignObject", slotScopeIds, optimized);
-      }
-      if (dirs) {
-        invokeDirectiveHook(vnode, null, parentComponent, "created");
-      }
-      if (props) {
-        for (const key in props) {
-          if (key !== "value" && !isReservedProp(key)) {
-            hostPatchProp(el, key, null, props[key], isSVG, vnode.children, parentComponent, parentSuspense, unmountChildren);
-          }
-        }
-        if ("value" in props) {
-          hostPatchProp(el, "value", null, props.value);
-        }
-        if (vnodeHook = props.onVnodeBeforeMount) {
-          invokeVNodeHook(vnodeHook, parentComponent, vnode);
-        }
-      }
-      setScopeId(el, vnode, vnode.scopeId, slotScopeIds, parentComponent);
+    const { type, props, shapeFlag, transition, dirs } = vnode;
+    el = vnode.el = hostCreateElement(vnode.type, isSVG, props && props.is, props);
+    if (shapeFlag & 8) {
+      hostSetElementText(el, vnode.children);
+    } else if (shapeFlag & 16) {
+      mountChildren(vnode.children, el, null, parentComponent, parentSuspense, isSVG && type !== "foreignObject", slotScopeIds, optimized);
     }
+    if (dirs) {
+      invokeDirectiveHook(vnode, null, parentComponent, "created");
+    }
+    if (props) {
+      for (const key in props) {
+        if (key !== "value" && !isReservedProp(key)) {
+          hostPatchProp(el, key, null, props[key], isSVG, vnode.children, parentComponent, parentSuspense, unmountChildren);
+        }
+      }
+      if ("value" in props) {
+        hostPatchProp(el, "value", null, props.value);
+      }
+      if (vnodeHook = props.onVnodeBeforeMount) {
+        invokeVNodeHook(vnodeHook, parentComponent, vnode);
+      }
+    }
+    setScopeId(el, vnode, vnode.scopeId, slotScopeIds, parentComponent);
     if (dirs) {
       invokeDirectiveHook(vnode, null, parentComponent, "beforeMount");
     }
@@ -3139,6 +3135,13 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   const patchProps = (el, vnode, oldProps, newProps, parentComponent, parentSuspense, isSVG) => {
     if (oldProps !== newProps) {
+      if (oldProps !== EMPTY_OBJ) {
+        for (const key in oldProps) {
+          if (!isReservedProp(key) && !(key in newProps)) {
+            hostPatchProp(el, key, oldProps[key], null, isSVG, vnode.children, parentComponent, parentSuspense, unmountChildren);
+          }
+        }
+      }
       for (const key in newProps) {
         if (isReservedProp(key))
           continue;
@@ -3146,13 +3149,6 @@ function baseCreateRenderer(options, createHydrationFns) {
         const prev = oldProps[key];
         if (next !== prev && key !== "value") {
           hostPatchProp(el, key, prev, next, isSVG, vnode.children, parentComponent, parentSuspense, unmountChildren);
-        }
-      }
-      if (oldProps !== EMPTY_OBJ) {
-        for (const key in oldProps) {
-          if (!isReservedProp(key) && !(key in newProps)) {
-            hostPatchProp(el, key, oldProps[key], null, isSVG, vnode.children, parentComponent, parentSuspense, unmountChildren);
-          }
         }
       }
       if ("value" in newProps) {
@@ -3949,7 +3945,7 @@ function normalizeVNode(child) {
   }
 }
 function cloneIfMounted(child) {
-  return child.el === null || child.memo ? child : cloneVNode(child);
+  return child.el === null && child.patchFlag !== -1 || child.memo ? child : cloneVNode(child);
 }
 function normalizeChildren$1(vnode, children) {
   let type = 0;
@@ -4280,7 +4276,7 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.2.39";
+const version = "3.2.40";
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
 const templateContainer = doc && /* @__PURE__ */ doc.createElement("template");
@@ -4314,13 +4310,6 @@ const nodeOps = {
   querySelector: (selector) => doc.querySelector(selector),
   setScopeId(el, id) {
     el.setAttribute(id, "");
-  },
-  cloneNode(el) {
-    const cloned = el.cloneNode(true);
-    if (`_value` in el) {
-      cloned._value = el._value;
-    }
-    return cloned;
   },
   insertStaticContent(content, parent, anchor, isSVG, start, end) {
     const before = anchor ? anchor.previousSibling : parent.lastChild;
@@ -5385,10 +5374,10 @@ window.addEventListener("message", (e) => {
   go(e.data.cmd, e.data);
 });
 function go(nm, data) {
-  aHook.forEach((v) => {
+  for (const v of aHook) {
     if (v.nm === nm)
       v.fnc(data);
-  });
+  }
 }
 cmd2Ex({ cmd: "?" });
 const oVSCode = vscode?.getState() ?? {
@@ -5432,7 +5421,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.6.7
+  * vee-validate v4.6.10
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -5457,6 +5446,7 @@ function resolveRule(id) {
 const FormContextKey = Symbol("vee-validate-form");
 const FieldContextKey = Symbol("vee-validate-field-instance");
 const IS_ABSENT = Symbol("Default empty value");
+const isClient = typeof window !== "undefined";
 function isLocator(value) {
   return isCallable(value) && !!value.__locatorRef;
 }
@@ -5508,6 +5498,89 @@ function isEvent(evt) {
 }
 function isPropPresent(obj, prop) {
   return prop in obj && obj[prop] !== IS_ABSENT;
+}
+function isEqual(a, b) {
+  if (a === b)
+    return true;
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    if (a.constructor !== b.constructor)
+      return false;
+    var length, i, keys2;
+    if (Array.isArray(a)) {
+      length = a.length;
+      if (length != b.length)
+        return false;
+      for (i = length; i-- !== 0; )
+        if (!isEqual(a[i], b[i]))
+          return false;
+      return true;
+    }
+    if (a instanceof Map && b instanceof Map) {
+      if (a.size !== b.size)
+        return false;
+      for (i of a.entries())
+        if (!b.has(i[0]))
+          return false;
+      for (i of a.entries())
+        if (!isEqual(i[1], b.get(i[0])))
+          return false;
+      return true;
+    }
+    if (isFile(a) && isFile(b)) {
+      if (a.size !== b.size)
+        return false;
+      if (a.name !== b.name)
+        return false;
+      if (a.lastModified !== b.lastModified)
+        return false;
+      if (a.type !== b.type)
+        return false;
+      return true;
+    }
+    if (a instanceof Set && b instanceof Set) {
+      if (a.size !== b.size)
+        return false;
+      for (i of a.entries())
+        if (!b.has(i[0]))
+          return false;
+      return true;
+    }
+    if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
+      length = a.length;
+      if (length != b.length)
+        return false;
+      for (i = length; i-- !== 0; )
+        if (a[i] !== b[i])
+          return false;
+      return true;
+    }
+    if (a.constructor === RegExp)
+      return a.source === b.source && a.flags === b.flags;
+    if (a.valueOf !== Object.prototype.valueOf)
+      return a.valueOf() === b.valueOf();
+    if (a.toString !== Object.prototype.toString)
+      return a.toString() === b.toString();
+    keys2 = Object.keys(a);
+    length = keys2.length;
+    if (length !== Object.keys(b).length)
+      return false;
+    for (i = length; i-- !== 0; )
+      if (!Object.prototype.hasOwnProperty.call(b, keys2[i]))
+        return false;
+    for (i = length; i-- !== 0; ) {
+      var key = keys2[i];
+      if (!isEqual(a[key], b[key]))
+        return false;
+    }
+    return true;
+  }
+  return a !== a && b !== b;
+}
+function isFile(a) {
+  if (!isClient) {
+    return false;
+  }
+  return a instanceof File;
 }
 var fastDeepEqual = function equal(a, b) {
   if (a === b)
@@ -6058,72 +6131,6 @@ function klona(x) {
   }
   return tmp || x;
 }
-var es6 = function equal2(a, b) {
-  if (a === b)
-    return true;
-  if (a && b && typeof a == "object" && typeof b == "object") {
-    if (a.constructor !== b.constructor)
-      return false;
-    var length, i, keys2;
-    if (Array.isArray(a)) {
-      length = a.length;
-      if (length != b.length)
-        return false;
-      for (i = length; i-- !== 0; )
-        if (!equal2(a[i], b[i]))
-          return false;
-      return true;
-    }
-    if (a instanceof Map && b instanceof Map) {
-      if (a.size !== b.size)
-        return false;
-      for (i of a.entries())
-        if (!b.has(i[0]))
-          return false;
-      for (i of a.entries())
-        if (!equal2(i[1], b.get(i[0])))
-          return false;
-      return true;
-    }
-    if (a instanceof Set && b instanceof Set) {
-      if (a.size !== b.size)
-        return false;
-      for (i of a.entries())
-        if (!b.has(i[0]))
-          return false;
-      return true;
-    }
-    if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
-      length = a.length;
-      if (length != b.length)
-        return false;
-      for (i = length; i-- !== 0; )
-        if (a[i] !== b[i])
-          return false;
-      return true;
-    }
-    if (a.constructor === RegExp)
-      return a.source === b.source && a.flags === b.flags;
-    if (a.valueOf !== Object.prototype.valueOf)
-      return a.valueOf() === b.valueOf();
-    if (a.toString !== Object.prototype.toString)
-      return a.toString() === b.toString();
-    keys2 = Object.keys(a);
-    length = keys2.length;
-    if (length !== Object.keys(b).length)
-      return false;
-    for (i = length; i-- !== 0; )
-      if (!Object.prototype.hasOwnProperty.call(b, keys2[i]))
-        return false;
-    for (i = length; i-- !== 0; ) {
-      var key = keys2[i];
-      if (!equal2(a[key], b[key]))
-        return false;
-    }
-    return true;
-  }
-  return a !== a && b !== b;
-};
 let ID_COUNTER = 0;
 function useFieldState(path, init2) {
   const { value, initialValue, setInitialValue } = _useFieldValue(path, init2.modelValue, !init2.standalone);
@@ -6205,7 +6212,7 @@ function _useFieldMeta(currentValue, initialValue, errors) {
     validated: !!unref(errors).length,
     initialValue: computed(() => unref(initialValue)),
     dirty: computed(() => {
-      return !es6(unref(currentValue), unref(initialValue));
+      return !isEqual(unref(currentValue), unref(initialValue));
     })
   });
   watch(errors, (value) => {
@@ -6332,13 +6339,15 @@ function _useField(name, rules, opts) {
     meta.touched = isTouched;
   }
   let unwatchValue;
+  let lastWatchedValue = klona(value.value);
   function watchValue() {
     unwatchValue = watch(value, (val, oldVal) => {
-      if (es6(val, oldVal)) {
+      if (isEqual(val, oldVal) && isEqual(val, lastWatchedValue)) {
         return;
       }
       const validateFn = validateOnValueUpdate ? validateWithStateMutation : validateValidStateOnly;
       validateFn();
+      lastWatchedValue = klona(val);
     }, {
       deep: true
     });
@@ -6393,7 +6402,7 @@ function _useField(name, rules, opts) {
   provide(FieldContextKey, field);
   if (isRef(rules) && typeof unref(rules) !== "function") {
     watch(rules, (value2, oldValue) => {
-      if (es6(value2, oldValue)) {
+      if (isEqual(value2, oldValue)) {
         return;
       }
       meta.validated ? validateWithStateMutation() : validateValidStateOnly();
@@ -6430,7 +6439,7 @@ function _useField(name, rules, opts) {
     if (!Object.keys(deps).length) {
       return;
     }
-    const shouldValidate = !es6(deps, oldDeps);
+    const shouldValidate = !isEqual(deps, oldDeps);
     if (shouldValidate) {
       meta.validated ? validateWithStateMutation() : validateValidStateOnly();
     }
@@ -6471,11 +6480,14 @@ function useCheckboxField(name, rules, opts) {
     const checked = computed(() => {
       const currentValue = unref(field.value);
       const checkedVal = unref(checkedValue);
-      return Array.isArray(currentValue) ? currentValue.findIndex((v) => es6(v, checkedVal)) >= 0 : es6(checkedVal, currentValue);
+      return Array.isArray(currentValue) ? currentValue.findIndex((v) => isEqual(v, checkedVal)) >= 0 : isEqual(checkedVal, currentValue);
     });
     function handleCheckboxChange(e, shouldValidate = true) {
       var _a2;
       if (checked.value === ((_a2 = e === null || e === void 0 ? void 0 : e.target) === null || _a2 === void 0 ? void 0 : _a2.checked)) {
+        if (shouldValidate) {
+          field.validate();
+        }
         return;
       }
       let newValue = normalizeEventValue(e);
@@ -6504,7 +6516,7 @@ function useVModel({ prop, value, handleChange }) {
     return;
   }
   watch(value, (newValue) => {
-    if (es6(newValue, getCurrentModelValue(vm, propName))) {
+    if (isEqual(newValue, getCurrentModelValue(vm, propName))) {
       return;
     }
     vm.emit(emitName, newValue);
@@ -6514,7 +6526,7 @@ function useVModel({ prop, value, handleChange }) {
       return;
     }
     const newValue = propValue === IS_ABSENT ? void 0 : propValue;
-    if (es6(newValue, applyModelModifiers(value.value, vm.props.modelModifiers))) {
+    if (isEqual(newValue, applyModelModifiers(value.value, vm.props.modelModifiers))) {
       return;
     }
     handleChange(newValue);
@@ -6902,6 +6914,7 @@ function useForm(opts) {
   }
   function resetForm(state) {
     RESET_LOCK = true;
+    mutateAllFields((f) => f.resetField());
     if (state === null || state === void 0 ? void 0 : state.values) {
       setInitialValues(state.values);
       setValues(state === null || state === void 0 ? void 0 : state.values);
@@ -6909,7 +6922,6 @@ function useForm(opts) {
       setInitialValues(originalInitialValues.value);
       setValues(originalInitialValues.value);
     }
-    mutateAllFields((f) => f.resetField());
     if (state === null || state === void 0 ? void 0 : state.touched) {
       setTouched(state.touched);
     }
@@ -6988,7 +7000,7 @@ function useForm(opts) {
       const currentGroupValue = getFromPath(formValues, fieldName);
       const isSameGroup = isGroup && (fieldInstance === fieldsByPath.value[fieldName] || !fieldsByPath.value[fieldName]);
       if (isSameGroup && Array.isArray(currentGroupValue) && !shouldKeepValue) {
-        const valueIdx = currentGroupValue.findIndex((i) => es6(i, unref(field.checkedValue)));
+        const valueIdx = currentGroupValue.findIndex((i) => isEqual(i, unref(field.checkedValue)));
         if (valueIdx > -1) {
           const newVal = [...currentGroupValue];
           newVal.splice(valueIdx, 1);
@@ -7174,7 +7186,7 @@ function useFormMeta(fieldsByPath, currentValues, initialValues, errors) {
     valid: "every"
   };
   const isDirty = computed(() => {
-    return !es6(currentValues, unref(initialValues));
+    return !isEqual(currentValues, unref(initialValues));
   });
   function calculateFlags() {
     const fields = Object.values(fieldsByPath.value).flat(1).filter(Boolean);

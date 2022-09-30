@@ -64,24 +64,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
-		let fncInit = ()=> {
-			fncInit = ()=> {};
-
-			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
-			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
-			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
-
-			this.#workSps = new WorkSpaces(ctx, this);
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
-
-			this.#tlBox = new ToolBox(ctx);
-			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
-
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
-		};
-		this.#chkEnv(()=> fncInit());
-
+		// LSP
 		const module = ctx.asAbsolutePath('server/dist/LangSrv.js');
 		const so: ServerOptions = {
 			run		: {module, transport: TransportKind.ipc},
@@ -106,11 +91,39 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			so,
 			co,
 		);
-//===
-//		lsp.start();
-//===
 		ctx.subscriptions.push({dispose: ()=> lsp.stop()});
+
+		// WorkSpaces
+		this.#workSps = new WorkSpaces(ctx, this);
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
+
+		// link WorkSpaces & LSP
+		lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
+//console.log(`fn:ActivityBar.ts onRequest cmd:${hd.cmd}: hd:%o`, hd);
+			this.#workSps.onRequest(hd);
+		});
+		lsp.start().then(()=> this.#workSps.start((cmd, curPrj, o)=> {
+//console.log(`fn:ActivityBar.ts sendRequest cmd:${cmd} curPrj:${curPrj}`);
+			if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);
+				// 制作中チェック用
+			lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, curPrj, o});
+		}));
+
+		// 環境設定チェック
+		let fncInit = ()=> {
+			fncInit = ()=> {};
+
+			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
+			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
+
+			this.#tlBox = new ToolBox(ctx);
+			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
+
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
+		};
+		this.#chkEnv(()=> fncInit());
 	}
+	static readonly #REQ_ID = ':SKYNovel:';
 
 	#dispose() {
 		if (this.#pnlWV) this.#pnlWV.dispose();

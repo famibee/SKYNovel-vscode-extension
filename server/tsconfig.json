@@ -35,6 +35,6 @@
 		"noImplicitOverride": true,	// overrideを使用しないオーバーライドをエラーに
 		"incremental": true		// 差分ビルド
 	},
-	"include": ["src"],
+	"include": ["src/**/*"],
 	"exclude": ["node_modules", ".vscode-test"]
 }

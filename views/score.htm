@@ -160,7 +160,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <script>
 	document.addEventListener('DOMContentLoaded', ()=> {
 		document.getElementById('${id}dl').addEventListener('click', e=> {
-console.log(`fn:score.htm line:167 click`);
 			e.stopPropagation();
 		});
 	});
@@ -183,7 +182,6 @@ console.log(`fn:score.htm line:167 click`);
 	document.addEventListener('DOMContentLoaded', ()=> {
 		for (const c of document.getElementsByTagName('select')) {
 			c.addEventListener('click', e=> {
-console.log(`fn:score.htm line:186 click`);
 				e.stopPropagation();
 			});
 		}

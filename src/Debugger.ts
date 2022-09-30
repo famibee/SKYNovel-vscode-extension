@@ -127,9 +127,9 @@ export class Debugger extends EventEmitter {
 			if (! di) return false;
 
 			let token = String(di[':token']);
-			for (const key in o2) token = token.replace(
-				new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
-				`$1${o2[key]}$3`
+			for (const [k, v] of Object.entries(o2)) token = token.replace(
+				new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
+				`$1${v}$3`
 			)
 			di[':token'] = token;
 
@@ -194,9 +194,9 @@ export class Debugger extends EventEmitter {
 				let token = String(di[':token']);
 				const o2: {[nm: string]: string} = {fn, b_pic: fn, pic: fn};
 				const fnc = ()=> {
-					for (const key in o2) token = token.replace(
-						new RegExp(`(\\s${key}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
-						`$1${o2[key]}$3`
+					for (const [k, v] of Object.entries(o2)) token = token.replace(
+						new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
+						`$1${v}$3`
 					)
 					di[':token'] = token;
 
@@ -230,10 +230,9 @@ export class Debugger extends EventEmitter {
 		if (! dbg) return;
 
 		const hRepTkn: {[id_tag: string]: any} = {};
-		e.contentChanges.forEach(c=> {
+		for (const c of e.contentChanges) {
 			const sa = c.text.length -c.rangeLength;
-			for (const id_tag in dbg.#hDCId2DI) {
-				const di = dbg.#hDCId2DI[id_tag];
+			for (const [id_tag, di] of Object.entries(dbg.#hDCId2DI)) {
 				if (! di.rng.contains(c.range)) continue;
 
 				di[':col_e'] += sa;
@@ -244,8 +243,8 @@ export class Debugger extends EventEmitter {
 				if (n.charAt(0) !== '[' || n.slice(-1) !== ']') continue;
 				hRepTkn[id_tag] = {...di, ':id_tag': id_tag,};
 			}
-		});
-		for (const id in hRepTkn) dbg.send2SN('_replaceToken', hRepTkn[id]);
+		}
+		for (const v of Object.values(hRepTkn)) dbg.send2SN('_replaceToken', v);
 	}
 
 
@@ -311,13 +310,13 @@ export class Debugger extends EventEmitter {
 		this.#loadSource(fn);
 		const sl = this.#hScriptLines[fn];
 		const len_sl = sl.length;
-		aBp.forEach(v=> {
+		for (const v of aBp) {
 			while (sl[v.ln -1].replace(/;.*$/, '').trim() === '') {
 				if (v.ln++ === len_sl) {v.verified = false; break;}
 			}
 			o[v.ln] = v;
 			this.#sendEvent2Adpt('breakpointValidated', v);
-		});
+		}
 		this.send2SN('add_break', {fn: fn, o: o});
 		this.#hFn2hLineBP[fn] = o;
 

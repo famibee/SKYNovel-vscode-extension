@@ -86,7 +86,7 @@ it('prj_json_simple', async ()=> {
 
 try {
 		// 復号化（本番方式）
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -94,8 +94,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -146,7 +146,7 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 
 try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -154,8 +154,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 		const encAB = readFileSync(path_enc).buffer;
@@ -200,7 +200,7 @@ it('free0509_mp3_stream_transform', done=> {
 
 try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -208,8 +208,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -255,7 +255,7 @@ it('_yesno_png_stream_transform', done=> {
 
 try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -263,8 +263,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -310,7 +310,7 @@ it('title_jpg_stream_transform', done=> {
 
 try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -318,8 +318,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -365,7 +365,7 @@ it('nc10889_mp4_stream_transform', done=> {
 
 try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> {return {ret: '', ext_num: 0,}};
+		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
 		const hSN: IPluginInitArg = {
 			setDec	: fnc=> fncDec = fnc,
 			setEnc	: ()=> {},
@@ -373,8 +373,8 @@ try {
 			getHash	: ()=> {},
 			tstDecryptInfo	: ()=> infDecrypt,
 		};
-		const {init} = require('../core/src/snsys_pre');
-//		const {init} = await import('../core/src/snsys_pre');
+		const {init} = require('../src/snsys_pre');
+//		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 		const encAB = readFileSync(path_enc).buffer;

@@ -19,14 +19,14 @@ import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 
 const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
-	readdirSync(wd, {withFileTypes: true}).forEach((d: any)=> {
+	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
-		if (REG_IGNORE_SYS_PATH.test(nm)) return;
-		if (d.isDirectory()) {fncFld(nm); return;}
+		if (REG_IGNORE_SYS_PATH.test(nm)) continue;
+		if (d.isDirectory()) {fncFld(nm); continue;}
 
 		const url = resolve(wd, nm);
 		fnc(url, nm);
-	});
+	}
 }
 
 
@@ -124,8 +124,7 @@ switch (pathInp) {
 			oLog.sum.optSize = 0;
 		}
 
-		for (const nm in oLog.hSize) {
-			const e = oLog.hSize[nm];
+		for (const e of Object.values(oLog.hSize)) {
 			const ext = '.'+ e.ext;
 			if (! REG_CNV_AAC.test(ext)) continue;
 
