@@ -5,11 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, getNonce, replaceRegsFile, treeProc} from './CmnLib';
+import {foldProc, getNonce, openURL, replaceRegsFile, treeProc} from './CmnLib';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
-import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
+import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson, writeJsonSync} from 'fs-extra';
 import {basename, parse} from 'path';
 import {v4 as uuidv4} from 'uuid';
@@ -587,18 +587,7 @@ export class PrjSetting {
 		case 'info':	window.showInformationMessage(m.mes); break;
 		case 'warn':	window.showWarningMessage(m.mes); break;
 
-		case 'openURL':	{
-			const url = m.url;
-			if (url.slice(0, 11) === 'ws-file:///') {
-				workspace.openTextDocument(
-					url.replace('ws-file://', this.#pathWs)
-				)
-				.then(doc=> window.showTextDocument(doc));
-			}
-			else env.openExternal(Uri.parse(
-				url.replace('ws-folder://', this.#pathWs)
-			));
-		}	break;
+		case 'openURL':	openURL(Uri.parse(m.url), this.#pathWs);	break;
 
 		case 'copyTxt':{
 			if (m.id !== 'copy.folder_save_app') break;

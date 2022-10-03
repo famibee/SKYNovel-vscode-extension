@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {DocumentFilter, workspace, ExtensionContext} from 'vscode';
+import {DocumentFilter, workspace, ExtensionContext, env, Uri, window as vsc_win} from 'vscode';
 
 // =============== Global
 export function int(o: any): number {return parseInt(String(o), 10)}
@@ -130,6 +130,22 @@ export	function chkBoolean(v: any): boolean {
 }
 
 export	function getFn(path: string) {return basename(path, extname(path))};
+
+
+export	function openURL(url: Uri, pathWs: string) {
+	switch (url.scheme) {
+		case 'ws-file':
+			workspace.openTextDocument(pathWs + url.path)
+			.then(doc=> vsc_win.showTextDocument(doc));
+			break;
+	
+		case 'ws-folder':
+			env.openExternal(Uri.file(pathWs + url.path));
+			break;
+
+		default:	env.openExternal(url);
+	}
+}
 
 
 // =============== EncryptorTransform

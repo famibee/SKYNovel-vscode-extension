@@ -24,7 +24,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-export enum eTreeEnv {
+export const enum eTreeEnv {
 	NODE = 0,
 	NPM,
 	SKYNOVEL_VER,
@@ -57,14 +57,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		this.#aTiEnv = this.#aEnv.map(v=> {
-			const ti = new TreeItem(v.label);
-			if (v.label) ti.iconPath = oIcon(v.icon);
-			ti.contextValue = v.label;
-			return ti;
-		});
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
+		// WorkSpaces
+		this.#workSps = new WorkSpaces(ctx, this);
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
 
 		// LSP
 		const module = ctx.asAbsolutePath('server/dist/LangSrv.js');
@@ -93,28 +88,35 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		);
 		ctx.subscriptions.push({dispose: ()=> lsp.stop()});
 
-		// WorkSpaces
-		this.#workSps = new WorkSpaces(ctx, this);
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
-
 		// link WorkSpaces & LSP
 		lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
 //console.log(`fn:ActivityBar.ts onRequest cmd:${hd.cmd}: hd:%o`, hd);
 			this.#workSps.onRequest(hd);
 		});
-		lsp.start().then(()=> this.#workSps.start((cmd, curPrj, o)=> {
+		lsp.start().then(()=> {
+			this.#workSps.start((cmd, curPrj, o)=> {
 //console.log(`fn:ActivityBar.ts sendRequest cmd:${cmd} curPrj:${curPrj}`);
-			if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);
-				// 制作中チェック用
-			lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, curPrj, o});
-		}));
+				if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);
+					// 制作中チェック用
+
+				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, curPrj, o});
+			});
+		});
 
 		// 環境設定チェック
+		this.#aTiEnv = this.#aEnv.map(v=> {
+			const ti = new TreeItem(v.label);
+			if (v.label) ti.iconPath = oIcon(v.icon);
+			ti.contextValue = v.label;
+			return ti;
+		});
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 		let fncInit = ()=> {
 			fncInit = ()=> {};
 
 			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
 			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
+			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
 			this.#tlBox = new ToolBox(ctx);
 			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));

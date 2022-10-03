@@ -7,11 +7,12 @@
 
 import {getFn, int, REG_SCRIPT} from './CmnLib';
 import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
-import {MD_STRUCT} from '../../dist/md2json';
+import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
 
 import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, Hover, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
+import {QuickPickItem, QuickPickItemKind} from 'vscode';
 
 interface Script {
 	aToken	: string[];		// トークン群
@@ -26,14 +27,24 @@ type ARG_TAG_PROC = {
 	token	: string,
 	rng		: Range,
 	aDi		: Diagnostic[],
+	pBefore	: Position,
 	p		: Position,
-	lineTkn	: number,
 	rng_nm	: Range,
 	aDsOutline	: DocumentSymbol[];
 };
 interface MacroDef {
 	loc		: Location;
-	hPrm	: any;
+	hPrm	: HPRM;
+
+	sum?	: string;
+	param	: MD_PARAM_DETAILS[];
+/*
+	snippet: {
+		nm: string;
+		txt: string;
+	}[];
+ */
+	detail?	: string;
 }
 
 // フォントと使用文字情報
@@ -51,84 +62,286 @@ type PluginDef = {
 	uri: string, sl: number, sc: number, el: number, ec: number,
 };
 
+
+type ArgDesc = {[name: string]: {
+	label	: string;
+	doc		: string;
+}};
+
+
 type TH_SN2LBLRNG = {[label: string]: Range};
 
 export interface IExts { [ext: string]: string; };
 export interface IFn2Path { [fn: string]: IExts; };
 
+type QuickPickItemEx = QuickPickItem & {
+	kind?	: QuickPickItemKind;
+	uri		: string;
+}
+
+const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
+	DEFAULT		= '',
+	SPRITE	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
+		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
+	SCRIPT	= 'sn|ssn',
+	FONT	= 'woff2|woff|otf|ttf',
+	SOUND	= 'mp3|m4a|ogg|aac|flac|wav',
+	HTML	= 'htm|html',
+};
+
 
 export class LspWs {
-	static				inited	= false;
-//	static	readonly	#pickItems	: QuickPickItem[] = [];	// LSPの仕事ではない
-	static				#hTag		: {[tag_nm: string]: boolean}	= {};
-	static				#hSnippet	: {[tag_nm: string]: string}	= {};
+	// === 新キーワード選択値はここに追加する
+	readonly	#hSetWords	: {[key: string]: Set<string>}	= {
+		'代入変数名'	: new Set,
+		'ジャンプ先'	: new Set,
+		'レイヤ名'		: new Set,
+		'文字レイヤ名'	: new Set,
+		'画像レイヤ名'	: new Set,
+		'マクロ名'		: new Set,
+		'スクリプトファイル名': new Set,
+		'画像ファイル名': new Set,
+		'音声ファイル名': new Set,
+		'HTMLファイル名': new Set,
+		'差分名称'		: new Set,
+		'フレーム名'	: new Set,
+		'サウンドバッファ'	: new Set,
+		'文字出現演出名': new Set,
+		'文字消去演出名': new Set,
+	};
+	readonly	#hPreWords	: {[key: string]: string}	= {
+		'イベント名':
+`|Click
+RightClick
+MiddleClick
+UpWheel
+DownWheel
+Control
+Alt
+Meta
+Backspace
+Enter
+=
+A
+alt+A
+ctrl+A
+shift+A
+alt+ctrl+A
+ctrl+shift+A
+alt+shift+A
+alt+ctrl+shift+A
+' '
+ArrowLeft
+ArrowRight
+ArrowUp
+ArrowDown
+Tab
+Delete
+Home
+End
+PageUp
+PageDown|`.replaceAll('\n', ','),
+		'animation-timing-function':
+`|ease
+ease-in
+ease-out
+ease-in-out
+linear
+step-start
+step-end
+cubic-bezier(...)|`.replaceAll('\n', ','),
+		'イージング名':
+`|Back.In
+Back.InOut
+Back.Out
+Bounce.In
+Bounce.InOut
+Bounce.Out
+Circular.In
+Circular.InOut
+Circular.Out
+Cubic.In
+Cubic.InOut
+Cubic.Out
+Elastic.In
+Elastic.InOut
+Elastic.Out
+Exponential.In
+Exponential.InOut
+Exponential.Out
+Linear.None
+Quadratic.In
+Quadratic.InOut
+Quadratic.Out
+Quartic.In
+Quartic.InOut
+Quartic.Out
+Quintic.In
+Quintic.InOut
+Quintic.Out
+Sinusoidal.In
+Sinusoidal.InOut
+Sinusoidal.Out|`.replaceAll('\n', ','),
+		'ブレンドモード名': '|normal,add,multiply,screen|',
+	};
+	static readonly	#sPredefWrtVar	=
+`const.Date.getDateStr
+const.Date.getTime
+const.sn.bookmark.json
+const.sn.config.（略）
+const.sn.displayState
+const.sn.frm.（フレーム名）
+const.sn.frm.（フレーム名）.alpha
+const.sn.frm.（フレーム名）.height
+const.sn.frm.（フレーム名）.rotate
+const.sn.frm.（フレーム名）.scale_x
+const.sn.frm.（フレーム名）.scale_y
+const.sn.frm.（フレーム名）.visible
+const.sn.frm.（フレーム名）.width
+const.sn.frm.（フレーム名）.x
+const.sn.frm.（フレーム名）.y
+const.sn.isApp
+const.sn.isDarkMode
+const.sn.isDbg
+const.sn.isDebugger
+const.sn.isFirstBoot
+const.sn.isKidoku
+const.sn.isPackaged
+const.sn.key.alternate
+const.sn.key.back
+const.sn.key.command
+const.sn.key.control
+const.sn.key.end
+const.sn.key.escape
+const.sn.last_page_text
+const.sn.lay.（レイヤ名）
+const.sn.lay.（レイヤ名）.（foreかback）.alpha
+const.sn.lay.（レイヤ名）.（foreかback）.height
+const.sn.lay.（レイヤ名）.（foreかback）.visible
+const.sn.lay.（レイヤ名）.（foreかback）.width
+const.sn.lay.（レイヤ名）.（foreかback）.x
+const.sn.lay.（レイヤ名）.（foreかback）.y
+const.sn.log.json
+const.sn.Math.PI
+const.sn.needClick2Play
+const.sn.platform
+const.sn.sound.codecs
+const.sn.vctCallStk.length
+save:const.sn.autowc.enabled
+save:const.sn.autowc.text
+save:const.sn.autowc.time
+save:const.sn.layer.（文字レイヤ名）.enabled
+save:const.sn.loopPlaying
+save:const.sn.mesLayer
+save:const.sn.scriptFn
+save:const.sn.scriptIdx
+save:const.sn.sLog
+save:sn.doRecLog
+sn.auto.enabled
+sn.button.fontFamily
+sn.event.domdata.（任意）
+sn.eventArg
+sn.eventLabel
+sn.skip.all
+sn.skip.enabled
+sn.tagL.enabled
+sys:const.sn.nativeWindow.x
+sys:const.sn.nativeWindow.y
+sys:const.sn.save.place
+sys:const.sn.sound.BGM.volume
+sys:const.sn.sound.SE.volume
+sys:const.sn.sound.SYS.volume
+sys:const.sn.sound.【buf】.volume
+sys:sn.auto.msecLineWait
+sys:sn.auto.msecLineWait_Kidoku
+sys:sn.auto.msecPageWait
+sys:sn.auto.msecPageWait_Kidoku
+sys:sn.skip.mode
+sys:sn.sound.global_volume
+sys:sn.sound.movie_volume
+sys:sn.tagCh.canskip
+sys:sn.tagCh.doWait
+sys:sn.tagCh.doWait_Kidoku
+sys:sn.tagCh.msecWait
+sys:sn.tagCh.msecWait_Kidoku
+sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
-			readonly	#hArgDesc	: {[name: string]: {
-				label	: string;
-				doc		: string;
-			}}	= {};
+
+	static	readonly	#REG_SPRITE	= new RegExp(`\\.(${SEARCH_PATH_ARG_EXT.SPRITE})$`);
+		// https://regex101.com/r/DPaLv3/1
+	static	readonly	#REG_NOSPR	= /\/(path|prj)\.json$/;
+		// https://regex101.com/r/DPaLv3/2
+//	static	readonly	#REG_FONT	= new RegExp(`\\.(${SEARCH_PATH_ARG_EXT.EXT_FONT})$`);
+	static	readonly	#REG_SOUND	= new RegExp(`\\.(${SEARCH_PATH_ARG_EXT.SOUND})$`);
+	static	readonly	#REG_HTML	= /\.html?$/;
+
+
+	static		inited		= false;
+	static		#hTag		: {[tag_nm: string]: boolean}	= {};
+	static		#hSnippet	: {[tag_nm: string]: string}	= {};
+	static	readonly	#aCITag			: CompletionItem[]	= [];
 
 	readonly	#curPrj		: string;	// 'file:///'付き
 	readonly	#lenCurPrj	: number;
 
-	#aCITagMacro	: CompletionItem[]	= [];
 
 	constructor(private readonly wf: WorkspaceFolder, private readonly conn: Connection, private readonly docs:TextDocuments<TextDocument>, readonly hasDiagRelatedInfCap: boolean) {
 		this.#curPrj = this.wf.uri +'/doc/prj/';	// 'file:///'付き
 		this.#lenCurPrj = this.#curPrj.length;
 
-		const cmdScanScr_trgPrm = {title: '「スクリプト再捜査」「引数の説明」', command: 'extension.skynovel.scanScr_trgParamHints'};
-		const fnc = LspWs.inited
-		? ()=> {}
-		: (tag_nm: string)=> LspWs.#hTag[tag_nm] = true;
-		LspWs.inited = true;
-		for (const [tag_nm, md] of Object.entries(hMd)) {
-			fnc(tag_nm);
+		if (! LspWs.inited) {
+			LspWs.inited = true;
 
-			const docu: string | MarkupContent = md.comment
-			? {kind: 'markdown', value:
-`$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm
-})
+			//const command = {title: '「スクリプト再捜査」「引数の説明」', command: 'extension.skynovel.scanScr_trgParamHints'};
+				// NOTE: Lsp が呼んでくれない
+				// onCompletion() if (trgChr === '[') で呼ぶはず
+			for (const [tag_nm, {sum, snippet}] of Object.entries(hMd)) {
+				LspWs.#hTag[tag_nm] = true;
+
+				const doc = sum.split(' ')[0];
+				LspWs.#hTagArgDesc[tag_nm] = {
+					label	: `[${tag_nm} ...]`,
+					doc,
+				};
+
+				const documentation: string | MarkupContent = sum
+				? {kind: 'markdown', value: `$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm})
 
 ---
-${md.comment}`,}
-			: '';
+${sum}`,}
+				: '';
 
-			for (const sn of md.snippet) {
-				LspWs.#hSnippet[sn.nm] = sn.txt;
+				for (const {nm, txt} of snippet) {
+					LspWs.#hSnippet[nm] = txt;
 
-				this.#aCITagMacro.push({
-					label	: sn.nm,
-				//	labelDetails: {detail: '=LSP=', description: '***'},
-					// 選択で消える不具合
-						// detail: labelのすぐ右にくっつく
-						// description: 左端
-					kind	: CompletionItemKind.Snippet,
-				//	tags?	: CompletionItemTag[];
-					detail	: md.detail,	// 最初に出る一覧の右二つ
-					documentation	: docu,
-				/*	// 以下は未検討
-					deprecated?: boolean;
-					preselect?: boolean;
-					sortText?: string;
-					filterText?: string;
-					insertText?: string;
-					insertTextFormat?: InsertTextFormat;
-					insertTextMode?: InsertTextMode;
-					textEdit?: TextEdit | InsertReplaceEdit;
-					textEditText?: string;
-					additionalTextEdits?: TextEdit[];
-					commitCharacters?: string[];
-				*/
-					command	: cmdScanScr_trgPrm,
-				//	data?: LSPAny;
-				})
+					LspWs.#aCITag.push({
+						label	: nm,
+					//	labelDetails: {detail: '=LSP=', description: '***'},
+						// 選択で消える不具合
+							// detail: labelのすぐ右にくっつく
+							// description: 左端
+						kind	: CompletionItemKind.Snippet,
+					//	tags?	: CompletionItemTag[];
+						detail	: doc,		// 最初に出る一覧の右二つ
+						documentation,
+					/*	// 以下は未検討
+						deprecated?: boolean;
+						preselect?: boolean;
+						sortText?: string;
+						filterText?: string;
+						insertText?: string;
+						insertTextFormat?: InsertTextFormat;
+						insertTextMode?: InsertTextMode;
+						textEdit?: TextEdit | InsertReplaceEdit;
+						textEditText?: string;
+						additionalTextEdits?: TextEdit[];
+						commitCharacters?: string[];
+					*/
+					//	command,
+					//	data?: LSPAny;
+					})
+				}
 			}
-
-			this.#hArgDesc[tag_nm] = {
-				label	: `[${tag_nm} ...]`,
-				doc		: md.detail,
-			};
 		}
 
 		this.#hTagProc.let_abs =
@@ -220,9 +433,9 @@ ${md.comment}`,}
 		// すべて追加走査（重複走査・永久ループに留意）
 			// 重複定義時は、最初に見つかったもののみ #hMacro(Old) に入っている
 		const mon = {...this.#hOldDefMacro, ...this.#hDefMacro};
-		for (const [nm, md] of Object.entries(mon)) {
+		for (const [nm, {loc}] of Object.entries(mon)) {
 			// 1.このファイルで定義されたマクロ
-			if (md.loc.uri !== uri &&
+			if (loc.uri !== uri &&
 				! this.#hDupMac2aUse[nm]?.map(locUse=> locUse.uri)
 				.includes(uri)) continue;	// 定義重複は別変数なので
 			// 2.を使用しているファイル
@@ -277,15 +490,17 @@ ${md.comment}`,}
 
 		// マクロ
 		const md = this.#hDefMacro[hit];
-if (md) console.log(`fn:LspWs.ts hit:${hit} uri:${md.loc.uri}`);
-		if (md) return {range, contents: {kind: 'markdown', value:
-`~~~skynovel
-(マクロ) [${hit}]
+		if (md) {
+			const {param, sum} = md;
+			return {range, contents: {kind: 'markdown', value: `~~~skynovel
+(マクロ) [${hit}${
+	param.map(({name, required, def, rangetype})=> ` ${name}=${required ?'【必須】' :''}%${rangetype}|${def}`).join('')
+}]
 ~~~
-定義位置：[${
-	getFn(md.loc.uri)
-}](${ md.loc.uri }#L${ md.loc.range.start.line +1 })`
-		}};
+---
+${sum ?? ''} [定義位置：${ getFn(md.loc.uri) }](${ md.loc.uri }#L${ md.loc.range.start.line +1 })  \n`
+			}};	// 【半角空白二つ + \n】で改行
+		}
 
 		// プラグイン定義タグ
 		const pd = this.#hDefPlugin[hit];
@@ -294,24 +509,20 @@ if (md) console.log(`fn:LspWs.ts hit:${hit} uri:${md.loc.uri}`);
 (プラグイン定義タグ) [${hit}]
 ~~~
 ---
-定義位置：[${
-	getFn(pd.uri)
-}](${ pd.uri }#L${ pd.sl +1 })`	// TODO: クリックでジャンプ
+[定義位置：${ getFn(pd.uri) }](${ pd.uri }#L${ pd.sl +1 })`
 		}};
 
 		// タグ
 		const td = hMd[hit];
 		if (! td) return {contents: []};	// 前に警告出してる
-		const {param, detail} = td;
+		const {param, sum} = td;
 		return {range, contents: {kind: 'markdown', value: `~~~skynovel
 (タグ) [${hit}${
-	param.map(p=> ` ${p.name}=${
-		p.default ?`%${p.name}|${p.default}` :'【必須】'
-	}`).join('')
+	param.map(({name, required, def, rangetype})=> ` ${name}=${required ?'【必須】' :''}%${rangetype}|${def}`).join('')
 }]
 ~~~
 ---
-${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${hit})  \n`)}`		// 【半角空白二つ + \n】で改行
+${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${hit})  \n`)}`		// 【半角空白二つ + \n】で改行
 		}};
 	}
 		readonly #checkRelated = (path: string)=> this.#curPrj === path.slice(0, this.#lenCurPrj);
@@ -352,10 +563,12 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 		if (! aUse) return [];
 		const use = aUse.find(o=> this.#contains(o.rng, p));
 		if (! use) return [];
-		const td = hMd[use.nm];
-		if (! td) return [];	// 前に警告出してる
+		const md = this.#hDefMacro[use.nm] ?? hMd[use.nm];
+		if (! md) return [];
+
 		// 属性候補を表示
-		if (trgChr === ' ') return td.param.map(({name, comment})=> ({
+		const {param} = md;
+		if (trgChr === ' ') return param.map(({name, comment})=> ({
 			label	: name,
 			kind	: CompletionItemKind.Field,
 			detail	: comment,	// 属性候補選択時のコメント
@@ -365,9 +578,9 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 		// if (trgChr === '=')
 		const r = this.#getWordRangeAtPosition(d, p, LspWs.#REG_FIELD);
 		if (! r) return [];
-		const idxParam = this.#searchArgName(d.getText(r.range), td);
+		const idxParam = this.#searchArgName(d.getText(r.range), param);
 		if (idxParam === -1) return [];
-		const prm_details = td.param[idxParam];
+		const prm_details = param[idxParam];
 		if (! prm_details) return [];
 		let {rangetype} = prm_details;
 		switch (rangetype) {
@@ -378,7 +591,7 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 
 		let kind: CompletionItemKind = CompletionItemKind.Value;
 		const words = this.#hPreWords[rangetype];
-		if (! words) return prm_details?.default ?[{label: prm_details.default, kind,}] :[];
+		if (! words) return prm_details?.def ?[{label: prm_details.def, kind,}] :[];
 		switch (rangetype) {
 			case 'イベント名':	kind = CompletionItemKind.Event;	break;
 			case '代入変数名':	kind = CompletionItemKind.Variable;	break;
@@ -420,13 +633,22 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 		return ci;
 	}
 	#cnvSnippet	= (s: string, _cur_fn: string)=> s;
+	#aCITagMacro	: CompletionItem[]	= [];
 	#hFn2JumpSnippet	: {[fn: string]: string}	= {};
 	#bldCnvSnippet() {
 		let eq = true;
 
 		const mn = this.#hSetWords.マクロ名;
 		mn.clear();
-		for (const mm of Object.keys(this.#hDefMacro)) mn.add(mm);
+		const hMacArgDesc: ArgDesc	= {};
+		for (const [mac_nm, {sum}] of Object.entries(this.#hDefMacro)) {
+			mn.add(mac_nm);
+			hMacArgDesc[mac_nm] = {
+				label	: `[${mac_nm} ...]`,
+				doc		: sum ?? '',
+			};
+		}
+		this.#hArgDesc = {...LspWs.#hTagArgDesc, ...hMacArgDesc};
 
 		this.#hSetWords.代入変数名.add(LspWs.#sPredefWrtVar);
 		this.#hSetWords.文字出現演出名.add('default');
@@ -442,6 +664,45 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 		}
 		if (eq) return;
 
+		this.#aCITagMacro = [
+			...LspWs.#aCITag,
+
+			...Object.entries(this.#hDefMacro).map(([nm, {sum}])=> ({
+				label	: nm,
+			//	labelDetails: {detail: '=LSP=', description: '***'},
+				// 選択で消える不具合
+					// detail: labelのすぐ右にくっつく
+					// description: 左端
+				kind	: CompletionItemKind.Snippet,
+			//	tags?	: CompletionItemTag[];
+				detail	: sum?.split(' ')[0],	// 最初に出る一覧の右二つ
+		//		documentation	: docu,
+			/*	// 以下は未検討
+				deprecated?: boolean;
+				preselect?: boolean;
+				sortText?: string;
+				filterText?: string;
+				insertText?: string;
+				insertTextFormat?: InsertTextFormat;
+				insertTextMode?: InsertTextMode;
+				textEdit?: TextEdit | InsertReplaceEdit;
+				textEditText?: string;
+				additionalTextEdits?: TextEdit[];
+				commitCharacters?: string[];
+			*/
+		//		command	: cmdScanScr_trgPrm,
+			//	data?: LSPAny;
+			})),
+
+			...Object.entries(this.#hDefPlugin).map(([nm, _pd])=> ({
+				label	: nm,
+				kind	: CompletionItemKind.Snippet,
+			//	tags?	: CompletionItemTag[];
+				detail	: '（プラグインにより追加されたタグ）',	// 最初に出る一覧の右二つ	// TODO: プラグインの概要
+			})),
+		];
+
+		// NOTE: マクロやプラグインのスニペットは未実装。優先順位低い
 		this.#hFn2JumpSnippet = {};
 		this.#cnvSnippet = (s, cur_fn)=> {
 			const bk = this.#hPreWords.ジャンプ先;
@@ -458,119 +719,32 @@ ${detail.replace('\n', `[タグリファレンス](https://famibee.github.io/SKY
 					= `|${(cur_sn + sn).slice(0, -1)}|`;
 			})();
 
-			const ret = s.replace(/{{([^\}]+)}}/g, (_, p)=> this.#hPreWords[p]);
-
 			this.#hPreWords.ジャンプ先 = bk;
 
-			return ret;
+			return s.replace(/{{([^\}]+)}}/g, (_, p)=> this.#hPreWords[p]);
 		};
 	}
-	readonly	#hPreWords	: {[key: string]: string}	= {
-		'イベント名': `|Click,RightClick,MiddleClick,UpWheel,DownWheel,Control,Alt,Meta,Backspace,Enter,=,A,alt+A,ctrl+A,shift+A,alt+ctrl+A,ctrl+shift+A,alt+shift+A,alt+ctrl+shift+A,' ',ArrowLeft,ArrowRight,ArrowUp,ArrowDown,Tab,Delete,Home,End,PageUp,PageDown|`,
-		'animation-timing-function': '|ease,ease-in,ease-out,ease-in-out,linear,step-start,step-end,cubic-bezier(...)|',
-		'イージング名': '|Back.In,Back.InOut,Back.Out,Bounce.In,Bounce.InOut,Bounce.Out,Circular.In,Circular.InOut,Circular.Out,Cubic.In,Cubic.InOut,Cubic.Out,Elastic.In,Elastic.InOut,Elastic.Out,Exponential.In,Exponential.InOut,Exponential.Out,Linear.None,Quadratic.In,Quadratic.InOut,Quadratic.Out,Quartic.In,Quartic.InOut,Quartic.Out,Quintic.In,Quintic.InOut,Quintic.Out,Sinusoidal.In,Sinusoidal.InOut,Sinusoidal.Out|',
-		'ブレンドモード名': '|normal,add,multiply,screen|',
-	};
-	static readonly	#sPredefWrtVar	=
-`const.Date.getDateStr
-const.Date.getTime
-const.sn.bookmark.json
-const.sn.config.（略）
-const.sn.displayState
-const.sn.frm.（フレーム名）
-const.sn.frm.（フレーム名）.alpha
-const.sn.frm.（フレーム名）.height
-const.sn.frm.（フレーム名）.rotate
-const.sn.frm.（フレーム名）.scale_x
-const.sn.frm.（フレーム名）.scale_y
-const.sn.frm.（フレーム名）.visible
-const.sn.frm.（フレーム名）.width
-const.sn.frm.（フレーム名）.x
-const.sn.frm.（フレーム名）.y
-const.sn.isApp
-const.sn.isDarkMode
-const.sn.isDbg
-const.sn.isDebugger
-const.sn.isFirstBoot
-const.sn.isKidoku
-const.sn.isPackaged
-const.sn.key.alternate
-const.sn.key.back
-const.sn.key.command
-const.sn.key.control
-const.sn.key.end
-const.sn.key.escape
-const.sn.last_page_text
-const.sn.lay.（レイヤ名）
-const.sn.lay.（レイヤ名）.（foreかback）.alpha
-const.sn.lay.（レイヤ名）.（foreかback）.height
-const.sn.lay.（レイヤ名）.（foreかback）.visible
-const.sn.lay.（レイヤ名）.（foreかback）.width
-const.sn.lay.（レイヤ名）.（foreかback）.x
-const.sn.lay.（レイヤ名）.（foreかback）.y
-const.sn.log.json
-const.sn.Math.PI
-const.sn.needClick2Play
-const.sn.platform
-const.sn.sound.codecs
-const.sn.vctCallStk.length
-save:const.sn.autowc.enabled
-save:const.sn.autowc.text
-save:const.sn.autowc.time
-save:const.sn.layer.（文字レイヤ名）.enabled
-save:const.sn.loopPlaying
-save:const.sn.mesLayer
-save:const.sn.scriptFn
-save:const.sn.scriptIdx
-save:const.sn.sLog
-save:sn.doRecLog
-sn.auto.enabled
-sn.button.fontFamily
-sn.event.domdata.（任意）
-sn.eventArg
-sn.eventLabel
-sn.skip.all
-sn.skip.enabled
-sn.tagL.enabled
-sys:const.sn.nativeWindow.x
-sys:const.sn.nativeWindow.y
-sys:const.sn.save.place
-sys:const.sn.sound.BGM.volume
-sys:const.sn.sound.SE.volume
-sys:const.sn.sound.SYS.volume
-sys:const.sn.sound.【buf】.volume
-sys:sn.auto.msecLineWait
-sys:sn.auto.msecLineWait_Kidoku
-sys:sn.auto.msecPageWait
-sys:sn.auto.msecPageWait_Kidoku
-sys:sn.skip.mode
-sys:sn.sound.global_volume
-sys:sn.sound.movie_volume
-sys:sn.tagCh.canskip
-sys:sn.tagCh.doWait
-sys:sn.tagCh.doWait_Kidoku
-sys:sn.tagCh.msecWait
-sys:sn.tagCh.msecWait_Kidoku
-sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 
 	static	readonly	#REG_FIELD	= /(?<=\s)[^\s=[\]]+(?:=(?:[^"'#\s;\]]+|(["'#]).*?\1)?)?/g;
-	#searchArgName(inp: string, md: MD_STRUCT): number {
+	#searchArgName(inp: string, param: MD_PARAM_DETAILS[]): number {
 		const includesEq = inp.search(/(?<=[^=]+)=/);
 		// = 打鍵済みなら属性名確定で、同一を探す
 		//（配列で前の方のyoyoにマッチしyにマッチしない、という事があるので）
 		if (includesEq === -1) {
 			const reg = new RegExp(`^${inp.replace(/=.*$/,'')}`);
-			return md.param.findIndex(p=> reg.test(p.name));
+			return param.findIndex(p=> reg.test(p.name));
 		}
 
 		const arg_nm = inp.slice(0, includesEq);
-		return md.param.findIndex(p=> p.name === arg_nm);
+		return param.findIndex(p=> p.name === arg_nm);
 	}
 
 
 	// === 引数の説明 ===
 	#preSigHelp	: SignatureHelp	= {signatures: []};
 	#rngPreTag	: Range;
+						#hArgDesc		: ArgDesc	= {};
+	static	readonly	#hTagArgDesc	: ArgDesc	= {};
 	onSignatureHelp(prm: SignatureHelpParams): SignatureHelp | null {
 		const {uri} = prm.textDocument;		// 'file:///'付き
 		if (! this.#checkRelated(uri)) return null;
@@ -583,78 +757,68 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		if (! d) return null;
 
 		let token = '';
-		const p = prm.position;
-		if (prm.context?.isRetrigger) {	// すでに開いてる
+		const {position: p, context} = prm;
+		if (context?.isRetrigger) {	// すでに開いてる
 			// Helpオープン中再訪時は、始点（変化しない）からタグ正規表現かけ終点を探す
-			let r = this.#rngPreTag;
-			r = Range.create(r.start.line, r.start.character,
-				r.end.line +2, r.end.character);
-				// 二行分捕捉すれば、改行発生後どんな行長になっても対応できるはず
+			const r = {...this.#rngPreTag};
+			r.end.line += 2;	// 二行分捕捉すれば、改行発生後どんな行長になっても対応できるはず
 			const a = this.#analyzToken(d.getText(r));
 			if (! a) return null;	// No tag here.
 
 			token = a[0];
 			const pp = d.positionAt(d.offsetAt(r.start) +token.length);
-			r = Range.create(r.start.line, r.start.character, 
-				pp.line, pp.character);
-			if (! this.#contains(Range.create(r.start.line, r.start.character +1, r.end.line, r.end.character -1), p)) return null;	// Out of tag.
+			r.end.line = pp.line;
+			r.end.character = pp.character;
+			if (! this.#contains(Range.create(
+				r.start.line,
+				r.start.character +1,
+				r.end.line,
+				Math.max(r.end.character, 0),	// タグ名と属性を入れてから押しっぱなしUNDOすると -1 になりエラーになるので
+			), p)) return null;	// Out of tag.
 
 			this.#rngPreTag = r;
 		}
 		else {
-			const r = aUse.find(o=> this.#contains(o.rng, p))?.rng;
-			if (! r) return null;	// 'No args here.
+			const r2 = aUse.find(o=> this.#contains(o.rng, p))?.rng;
+			if (! r2) return null;	// 'No args here.
 
-			this.#rngPreTag = Range.create(r.start.line, r.start.character,
-				r.end.line, r.end.character +1);	// 1は起動spaceキー文字分
+			this.#rngPreTag = Range.create(r2.start.line, r2.start.character, r2.end.line, r2.end.character +1);	// 1は起動spaceキー文字分
 			token = d.getText(this.#rngPreTag);
 		}
 
 		const a_tag = this.#analyzTagArg(token);
 		const g = a_tag?.groups;
 		if (! g) return null;	// No args here.
+		const {name} = g;
+		const md = this.#hDefMacro[name] ?? hMd[name];
+		if (! md) return null;
 
-		const nm = g.name;
-		if (nm in this.#hDefMacro) return null;	// Promise.reject(`[${nm}] マクロです 定義ファイル：${m.loc.uri.path.slice(this.#lenRootPath)}`);
-			// TODO: マクロも「引数の説明」サポート。doc/md/*.md を解析（複数行データ対応するため）
-
-		const td = hMd[nm];
-		if (! td) return null;	// Nothing md file.(2) nm:${nm}`);	// 前に警告出してる
-		if (! prm.context?.isRetrigger) {
-			const ad = this.#hArgDesc[nm];	// NOTE: マクロ定義で増減
+		const {param} = md;
+		if (! context?.isRetrigger) {
+			const ad = this.#hArgDesc[name];
 			if (! ad) {
-				console.log(`fn:LspWs.ts hArgDesc[${nm}] 定義なし`);
+				console.log(`fn:LspWs.ts hArgDesc[${name}] 定義なし`);
 				return null;
 			}
 			let sPrm = '';
 			const aPI: ParameterInformation[] = [];
-			if (td.param[0]?.name) for (const prm of td.param) {
-				const p = `${prm.name}=${
-					prm.required ?'【必須】' :`%${prm.name}|${prm.default}`
-				}`;
+			if (param[0]?.name) for (const {name, required, def, rangetype, comment} of param) {
+				const p = `${name}=${required ?'【必須】' :''}%${rangetype}|${def}`;
 				sPrm += ' '+ p;
 				// 検索文字列、属性概要
-				aPI.push({label: p, documentation: {kind: 'markdown', value: prm.comment}});
+				aPI.push({label: p, documentation: {kind: 'markdown', value: comment}});
 			}
 
 			// 全体、タグ説明
-			const si = SignatureInformation.create(`[${nm}${sPrm}]`, ad.doc);
+			const si = SignatureInformation.create(`[${name}${sPrm}]`, ad.doc);
 			si.parameters = aPI;
 			this.#preSigHelp = {signatures: [si],};
 		}
 		const {range} = this.#getWordRangeAtPosition(d, p, LspWs.#REG_FIELD);
 		this.#preSigHelp.activeParameter = range
-			? this.#searchArgName(d.getText(range), td)
+			? this.#searchArgName(d.getText(range), param)
 			: -1;
 
-/*
-	context?: SignatureHelpContext;
-	extends	TextDocumentPositionParams
-		textDocument: TextDocumentIdentifier;
-		position: Position;
-	extends	WorkDoneProgressParams
-		workDoneToken?: ProgressToken;
-*/
 		return this.#preSigHelp;
 	}
 		#analyzTagArg = (token: string)=> this.#REG_TAG.exec(token);
@@ -726,7 +890,7 @@ sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
 		if (! this.#checkRelated(uri)) return null;
 
 		return this.#Uri2Links[uri] ?? [];
-	}	// TODO: ラベルジャンプ？
+	}	// TODO: ラベルジャンプ
 	#Uri2Links: {[uri: string]: DocumentLink[]}	= {};
 /*
 	onDocumentLinkResolve(prm: DocumentLink): DocumentLink | null {
@@ -825,30 +989,6 @@ WorkspaceEdit
 
 
 
-	// === 新キーワード選択値はここに追加する
-	readonly	#hSetWords	: {[key: string]: Set<string>}	= {
-		'代入変数名'	: new Set,
-		'ジャンプ先'	: new Set,
-		'レイヤ名'		: new Set,
-		'文字レイヤ名'	: new Set,
-		'画像レイヤ名'	: new Set,
-		'マクロ名'		: new Set,
-		'スクリプトファイル名': new Set,
-		'画像ファイル名': new Set,
-		'音声ファイル名': new Set,
-		'HTMLファイル名': new Set,
-		'差分名称'		: new Set,
-		'フレーム名'	: new Set,
-		'サウンドバッファ'	: new Set,
-		'文字出現演出名': new Set,
-		'文字消去演出名': new Set,
-	};
-	#setKwAdd(setKw: Set<string>, key: string, word: string) {
-		setKw.add(`${key}\t${word}`);
-		this.#hSetWords[key].add(word);
-	}
-
-
 	// =======================================
 	#uri2Diag	: {[uri: string]: Diagnostic[]}	= {};
 	#oCfg: any = {};
@@ -880,7 +1020,26 @@ WorkspaceEdit
 			}
 		}
 		#noticeAnalyzeInf() {
-			this.#sendRequest('analyze_inf', {InfFont: this.#InfFont});
+			const aQuickPickMac = Object.entries(this.#hDefMacro)
+			.map(([nm, {sum, loc: {uri}}])=> ({
+				label		: nm,
+				description	: `（マクロ）${sum?.split(' ')[0] ?? ''}`,
+				//detail,	// 別の行になる
+				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+			}));
+
+			const aQuickPickPlg: QuickPickItemEx[] = Object.entries(this.#hDefPlugin).map(([nm, {uri}])=> ({
+				label		: nm,
+				description	: '（プラグインによる定義）',
+				//detail,	// 別の行になる
+				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+			}));
+
+			this.#sendRequest('analyze_inf', {
+				InfFont			: this.#InfFont,
+				aQuickPickMac,
+				aQuickPickPlg,
+			});
 		}
 
 
@@ -910,12 +1069,6 @@ WorkspaceEdit
 		this.#hScript[pp] = this.#resolveScript(s);
 		this.#scanScript(pp);
 	}
-	static	readonly	#REG_SPRITE	= /\.(png|jpg|jpeg|json|svg|webp|mp4|webm)$/;	// https://regex101.com/r/DPaLv3/1
-	static	readonly	#REG_NOSPR	= /\/(path|prj)\.json$/;
-		// https://regex101.com/r/DPaLv3/2
-//	static	readonly	#REG_FONT	= /\.(woff2|otf|ttf)$/;
-	static	readonly	#REG_SOUND	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
-	static	readonly	#REG_HTML	= /\.html?$/;
 
 
 	#hScript		: {[pp: string]: Script}		= {};
@@ -1003,7 +1156,7 @@ WorkspaceEdit
 		this.#scanFinishSub(pp);
 
 /*	// NOTE: Score
-		if (pp.slice(-4) === '.ssn') {	// TODO: 変更して動作未確認
+		if (pp.slice(-4) === '.ssn') {	// TODO: Score 変更して動作未確認
 			const d = this.docs.get(this.#curPrj + pp);	// NOTE: LSPでは失敗する
 			if (! d) return;
 
@@ -1178,10 +1331,10 @@ WorkspaceEdit
 			));
 		}
 
-		this.#bldCnvSnippet();
-
 		// Send the computed diagnostics to VSCode.
 		for (const [uri, diagnostics] of Object.entries(this.#uri2Diag)) this.conn.sendDiagnostics({uri, diagnostics});
+
+		this.#bldCnvSnippet();
 	}
 
 
@@ -1301,6 +1454,7 @@ WorkspaceEdit
 				return;
 			}
 
+			const pBefore = {...p};
 			// 複数行タグでの行カウント補正
 			let lineTkn = 0;
 			let j = -1;
@@ -1345,7 +1499,7 @@ WorkspaceEdit
 				const hArg = this.#alzTagArg.hPrm;
 				hArg[':タグ名'] = <any>use_nm;
 
-				fnc({setKw, hArg, uri, pp, token, rng: rngp1, aDi, p, lineTkn, rng_nm, aDsOutline});
+				fnc({setKw, hArg, uri, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline});
 			}
 		};
 
@@ -1363,7 +1517,11 @@ WorkspaceEdit
 
 //		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
-	#procTokenBase = (_p: Position, _token: string)=> {};
+		#setKwAdd(setKw: Set<string>, key: string, word: string) {
+			setKw.add(`${key}\t${word}`);
+			this.#hSetWords[key].add(word);
+		}
+		#procTokenBase = (_p: Position, _token: string)=> {};
 	#procToken:  (p: Position, token: string)=> void	= this.#procTokenBase;
 		// トークン解析実行するのはこのメソッド
 		// [let_ml]処理中は一時差し替え → procToken に復帰
@@ -1388,7 +1546,7 @@ WorkspaceEdit
 		},
 
 		macro: arg=> {
-			const {uri, token, rng, aDi, p, lineTkn, hArg} = arg;
+			const {uri, token, rng, aDi, pBefore, p, hArg} = arg;
 			const nm = hArg.name?.val;
 			if (! nm) {	// [macro name=]など
 				const {mes, sev} = this.#hDiag.マクロ定義_名称異常;
@@ -1419,24 +1577,39 @@ WorkspaceEdit
 				return;
 			}
 
-			const idx_name_v = (m.index ?? 0) +(m[3] ?1 :0);	// '"#分
-			let lineNmVal = 0;
-			let j = idx_name_v;
-			while ((j = token.lastIndexOf('\n', j -1)) >= 0) ++lineNmVal;
-			const line2 = p.line -lineTkn +lineNmVal;
-			const col2 = ((lineNmVal === 0) ?p.character -token.length :0)
-				+ idx_name_v -token.lastIndexOf('\n', idx_name_v) -1;
+			const param: MD_PARAM_DETAILS[] = [];
+			for (const [aNm, {val}] of Object.entries(hArg)) {
+				if (aNm.charAt(0) !== '%') continue;
+
+				const required = aNm.slice(-1) !== '?';
+				const name = aNm.slice(1, required ?undefined :-1);
+				const [rangetype, def, comment] = val.split('|');
+				param.push({
+					name,
+					required	: String(required),
+					def,
+					rangetype,
+					comment,
+				});
+			}
+
 			const rng2 = Range.create(
-				line2, col2,
-				line2, col2 +nm.length,
+				pBefore.line, pBefore.character,
+				p.line, p.character,
 			);
+			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');
 			this.#hDefMacro[nm] = {
-				loc	: Location.create(uri, rng2),
-				hPrm: hArg,
+				loc		: Location.create(uri, rng2),
+				hPrm	: hArg,
+				sum,
+				param,
+				detail	: hArg.detail?.val.replaceAll('\\n', '  \n'),
 			};
 			this.#aMacroAdd.push(nm);
 
-			const ds = DocumentSymbol.create(nm, 'マクロ定義', SymbolKind.Class, rng2, rng2);
+			const ds = DocumentSymbol.create(nm, 'マクロ定義', SymbolKind.Class, rng2, rng2, sum ?[
+				DocumentSymbol.create(sum.split(' ')[0], undefined, SymbolKind.String, rng2, rng2),
+			] :undefined);
 			arg.aDsOutline.push(ds);
 			this.#aDsOutlineStack.push(arg.aDsOutline);
 			arg.aDsOutline = [];
@@ -1468,7 +1641,7 @@ WorkspaceEdit
 			const ds = DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng);
 			arg.aDsOutline.push(ds);
 			this.#aDsOutlineStack.push(arg.aDsOutline);
-			arg.aDsOutline = ds.children ?? [];	// TODO: 元で ??[] がいらない理由
+			arg.aDsOutline = ds.children ?? [];
 		},
 		elsif: arg=> {	
 			this.#hTagProc.if(arg);
@@ -1490,7 +1663,7 @@ WorkspaceEdit
 
 			this.#hPp2JumpFn[pp].add(fn);
 
-			const isEventTag_Del = Boolean(hArg.del?.val) && hArg[':タグ名'] === 'event';
+			const isEventTag_Del = Boolean(hArg.del?.val) && hArg[':タグ名'].val === 'event';
 			if (isEventTag_Del) return;
 
 			this.#aFinishJob.push(()=> {
@@ -1500,7 +1673,7 @@ WorkspaceEdit
 					return;
 				}
 				let to_uri = '';
-				try {to_uri = this.#searchPath(fn, LspWs.EXT_SCRIPT);} catch {
+				try {to_uri = this.#searchPath(fn, SEARCH_PATH_ARG_EXT.SCRIPT);} catch {
 					console.error(`fn:LspWs.ts to_uri ERR`);
 					return;
 				}
@@ -1643,7 +1816,7 @@ WorkspaceEdit
 			LspWs.#REG_TAG_LET_ML.lastIndex = 0;	// /gなので必要
 			if (LspWs.#REG_TAG_LET_ML.test(t)) {
 				const idx = t.indexOf(']') +1;
-				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';	// TODO: 
+				if (idx === 0) throw '[let_ml]で閉じる【]】がありません';	// TODO: Diag化
 				const s = t.slice(0, idx);
 				const e = t.slice(idx);
 				a.splice(i, 1, s, e);
@@ -1710,20 +1883,24 @@ WorkspaceEdit
 	#setEscape(ce: string) {
 	//	if (this.hC2M && (ce in this.hC2M)) throw '[エスケープ文字] char【'+ ce +'】が登録済みの括弧マクロまたは一文字マクロです';
 
+		// 【2022/10/03 SKYNovel src/sn/Grammar.ts より引用】
 		// 1059 match 13935 step (8ms) https://regex101.com/r/ygXx16/6
 		this.#REG_TOKEN = new RegExp(
-		(ce	?`\\${ce}\\S|`:'')+	// エスケープシーケンス
+		(ce	?`\\${ce}\\S|` :'')+	// エスケープシーケンス
 		'\\n+'+				// 改行
 		'|\\t+'+			// タブ
 		`|\\[let_ml\\s+[^\\]]+\\]`+
 			`.+?`+		// [let_ml]〜[endlet_ml]間のテキスト
 		`(?=\\[endlet_ml[\\]\\s])`+
-		`|\\[(?:[^"'#;\\]]+|(["'#]).*?\\1|;[^\\n]*)*?]`+	// タグ
+		`|\\[(?:[^"'#;\\]]+|`+	// タグ
+			`(["'#]).*?\\1` +
+				// . は (?:\\${ ce??'\\' }.|[^\\1]) でなくてよさげ
+		`|;[^\\n]*)*?]`+
 		'|;[^\\n]*'+		// コメント
-		'|&[^&\\n]+&'+		// ＆表示＆
-		'|&&?[^;\\n\\t&]+'+	// ＆代入
-		'|^\\*\\w+'+		// ラベル
-		`|[^\\n\\t\\[;${ce?`\\${ce}`:''}]+`,	// 本文
+		'|&[^&\\n]+&'+			// ＆表示＆
+		'|&&?[^&;\\n\\t]+'+		// ＆代入
+		'|^\\*[^\\s\\[&;\\\\]+'+	// ラベル
+		`|[^\\n\\t\\[;${ce ?`\\${ce}` :''}]+`,		// 本文
 		'gs');
 	//	RubySpliter.setEscape(ce);
 	//	this.REG_CANTC2M = new RegExp(`[\w\s;[\]*=&｜《》${ce}]`);
@@ -1731,16 +1908,9 @@ WorkspaceEdit
 	}
 
 
-	static	readonly	EXT_SPRITE	= 'png|jpg|jpeg|json|svg|webp|mp4|webm';
-		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
-	static	readonly	EXT_SCRIPT	= 'sn|ssn';
-	static	readonly	EXT_FONT	= 'woff2|woff|otf|ttf';
-	static	readonly	EXT_SOUND	= 'mp3|m4a|ogg|aac|flac|wav';
-	static	readonly	EXT_HTML	= 'htm|html';
-
 	readonly	#REG_PATH = /([^\/\s]+)\.([^\d]\w+)/;
 		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
-	#searchPath(fn: string, extptn = ''): string {
+	#searchPath(fn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): string {
 		if (! fn) throw '[searchPath] fnが空です';
 		if (fn.slice(0, 7) === 'http://') return fn;
 /*
@@ -1808,7 +1978,7 @@ WorkspaceEdit
 
 		return ret;
 	}
-	#userFnTail	= '';
+	#userFnTail		= '';
 	#hPathFn2Exts	: IFn2Path	= {};
 
 }

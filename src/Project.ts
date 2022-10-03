@@ -5,14 +5,15 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
+import {aPickItems, QuickPickItemEx} from './WorkSpaces';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
 import {resolve, extname, parse} from 'path';
 import img_size from 'image-size';
@@ -242,8 +243,24 @@ export class Project {
 
 		this.#updPathJson();
 
+
 		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
 		debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
+
+		// デバッグ中のみ有効なホバー
+		ctx.subscriptions.push(languages.registerEvaluatableExpressionProvider(docsel, {
+			provideEvaluatableExpression(doc: TextDocument, pos: Position): ProviderResult<EvaluatableExpression> {
+				const r = doc.getWordRangeAtPosition(pos, Project.#REG_VAR);
+				if (! r) return Promise.reject('No word here.');
+
+				const txt = doc.getText(r);
+				const hc = txt.charAt(0);
+				if (hc === '[' || hc === '*' || hc === ';'
+				|| txt.slice(-1)=== '=') return Promise.reject('No word here.');
+				return new EvaluatableExpression(r, txt);
+			},
+		}));
+
 
 		const {username} = userInfo();
 		this.#aPlaceFont	= [
@@ -261,8 +278,10 @@ export class Project {
 
 		this.#sendRequest2LSP('ready');
 	}
-	readonly	getLocalSNVer: ()=> {verSN: string, verTemp: string};
-	#aDbgSS	: DebugSession[]	= [];
+	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
+	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
+	readonly	getLocalSNVer	: ()=> {verSN: string, verTemp: string};
+				#aDbgSS			: DebugSession[]	= [];
 	private	onDidTermDbgSS() {}
 	#termDbgSS(): Promise<PromiseSettledResult<void>[]> {
 		this.#hTaskExe.get('TaskWeb')?.terminate();
@@ -291,6 +310,13 @@ export class Project {
 			}	break;
 
 			case 'analyze_inf':{
+				this.#aPickItems = [
+					...aPickItems,
+					{kind: QuickPickItemKind.Separator},
+					...hd.o.aQuickPickMac,
+					{kind: QuickPickItemKind.Separator},
+					...hd.o.aQuickPickPlg
+				];
 				this.#InfFont = hd.o.InfFont;
 
 				let updF2U = false;
@@ -332,6 +358,16 @@ export class Project {
 		hFontNm2uri		: {},
 	};
 	readonly	#aPlaceFont;
+
+
+	#aPickItems	: QuickPickItemEx[] = [];
+	openReferencePallet() {
+		window.showQuickPick<QuickPickItemEx>(this.#aPickItems, {
+			placeHolder			: 'どのリファレンスを開きますか?',
+			matchOnDescription	: true,
+		})
+		.then(q=> {if (q?.uri) openURL(Uri.parse(q.uri), this.#pathWs);});
+	}
 
 
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる

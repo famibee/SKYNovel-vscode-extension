@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, docsel} from './CmnLib';
+import {oIcon, docsel, openURL} from './CmnLib';
 import {ActivityBar} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -13,14 +13,17 @@ import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 import {PrjTreeItem, TASK_TYPE} from './PrjTreeItem';
 
-import {commands, EventEmitter, ExtensionContext, Range, TaskProcessEndEvent, tasks, TextEditor, TextEditorDecorationType, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem} from 'vscode';
+import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind} from 'vscode';
 
 import {existsSync} from 'fs-extra';
+import {MD_STRUCT} from './md2json';
 
-interface DecChars {
-	aRange		: Range[];
-	decorator	: TextEditorDecorationType;
+export type QuickPickItemEx = QuickPickItem & {
+	kind?	: QuickPickItemKind;
+	uri		: string;
 }
+export const	aPickItems	: QuickPickItemEx[] = [];
+
 
 export class WorkSpaces implements TreeDataProvider<TreeItem> {
 	readonly	#aTiRoot		: TreeItem[] = [];
@@ -40,16 +43,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
 			<TASK_TYPE>(e.execution.task.definition.type.slice(13))
 		)?.(e));
-
-		itmStt.detail = 'onUpdDoc';	// text - detail と表示される
-		this.#onUpdDoc(window.activeTextEditor);
-		window.onDidChangeActiveTextEditor(te=> this.#onUpdDoc(te), null, ctx.subscriptions);
-		workspace.onDidCloseTextDocument(td=> {
-			if (this.#teActive?.document === td) this.#teActive = undefined;
-		});
-		workspace.onDidChangeTextDocument(e=> {
-			if (e.document === this.#teActive?.document) this.#onUpdDoc(this.#teActive);
-		}, null, ctx.subscriptions);
 
 		// デバッガ
 		itmStt.detail = 'initDebug';	// text - detail と表示される
@@ -155,6 +148,14 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		CteScore.init(ctx);
 
 		this.#removeStatusItem('init');
+
+		const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
+		for (const [tag_nm, {sum}] of Object.entries(hMd)) aPickItems.push({
+			label		: tag_nm,
+			description	: sum,
+			//detail,	// 別の行になる
+			uri			: 'https://famibee.github.io/SKYNovel/tag.html#'+ tag_nm,
+		});
 	}
 	#tiLayers	: TreeItem[]	= [];
 
@@ -162,7 +163,39 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	start(sendRequest2LSP: (cmd: string, curPrj: string, o: any)=> void) {
 		this.#sendRequest2LSP = sendRequest2LSP;
 		this.#refresh();
+
+		this.ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()));
+
+/*		// server/src/LspWs.ts constructor 冒頭を参照
+		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
+		commands.registerCommand('extension.skynovel.scanScr_trgParamHints', ()=> {
+console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
+			commands.executeCommand('editor.action.triggerParameterHints')});
+*/
 	}
+	#openReferencePallet() {
+		const aWsFld = workspace.workspaceFolders;
+		const at = window.activeTextEditor;
+		if (! aWsFld || ! at) {		// undefinedだった場合はファイルを開いている
+			window.showQuickPick<QuickPickItemEx>(aPickItems, {
+				placeHolder			: 'どのリファレンスを開きますか?',
+				matchOnDescription	: true,
+			})
+			.then(q=> {if (q) openURL(Uri.parse(q.uri), '');});
+			return;
+		}
+
+		const pathAt = at.document.uri.fsPath;
+		const a = Object.entries(this.#hPrj);
+		a.sort(([a], [b])=> b.length > a.length ?-1 :1);
+		for (const [pathWs, prj] of a) {
+			if (pathAt.slice(0, pathWs.length) !== pathWs) continue;
+
+			prj.openReferencePallet();
+			break;
+		}
+	}
+
 
 	refreshEnv() {
 		this.actBar.chkLastSNVer(Object.entries(this.#hPrj).map(([,v])=> v.getLocalSNVer()));
@@ -190,51 +223,6 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		delete this.#hItmLangStt[id];
 	}
 
-	#tidDelay: NodeJS.Timer | null = null;
-	#onUpdDoc(te: TextEditor | undefined) {
-		if (! te) return;
-		if (te.document.languageId !== 'skynovel') return;
-
-		this.#teActive = te;
-
-		// 遅延
-		if (this.#tidDelay) clearTimeout(this.#tidDelay);
-		this.#tidDelay = setTimeout(()=> this.#updDeco(), 500);
-	}
-
-	#teActive: TextEditor | undefined;
-	#decChars: DecChars = {
-		aRange: [],
-		decorator: window.createTextEditorDecorationType({})
-	};
-	static	readonly #REG_FN_OR_LABEL = /(?<=\s)(?:fn|label)\s*=\s*([^\]\s]+)/g;
-	#updDeco() {
-		if (! this.#teActive) return;
-
-		const doc = this.#teActive.document;
-		const src = doc.getText();
-
-		window.setStatusBarMessage('');
-		this.#decChars.decorator.dispose();
-		this.#decChars = {
-			aRange: [],
-			decorator: window.createTextEditorDecorationType({
-				'light': {'textDecoration': 'underline',},
-				'dark': {'textDecoration': 'underline',}
-			})
-		}
-
-		// fn属性やlabel属性の値に下線を引くように
-		let m;
-		// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
-		while (m = WorkSpaces.#REG_FN_OR_LABEL.exec(src)) {
-			this.#decChars.aRange.push(new Range(
-				doc.positionAt(m.index +m[0].length -m[1].length),
-				doc.positionAt(m.index +m[0].length)
-			));
-		}
-		this.#teActive.setDecorations(this.#decChars.decorator, this.#decChars.aRange);
-	}
 
 	#refresh(e?: WorkspaceFoldersChangeEvent): void {
 		const aWsFld = workspace.workspaceFolders;

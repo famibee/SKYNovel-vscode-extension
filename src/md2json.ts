@@ -12,17 +12,17 @@
 export interface MD_PARAM_DETAILS {
 	name		: string;
 	required	: string;
-	default		: string;
+	def			: string;
 	rangetype	: string;
 	comment		: string;
 }
-const idx2nmParam = ['name', 'required', 'default', 'rangetype', 'comment'];
+const idx2nmParam = ['name', 'required', 'def', 'rangetype', 'comment'];
 
 export interface MD_STRUCT {
-	detail	: string,
+	sum		: string,
 	param	: MD_PARAM_DETAILS[],
 	snippet	: {nm: string, txt: string}[],
-	comment	: string,
+	detail	: string,
 }
 const hMd: {[name: string]: MD_STRUCT} = {};
 
@@ -49,14 +49,14 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 		return o;
 	});
 	hMd[nm] = {
-		detail	: (a[0] ?? '').trim(),
+		sum		: (a[0] ?? '').trim(),
 		param	: aPrm,
 		snippet	: `\t${(a[2] ?? '').trim()}`.split('\n*\n').map(sn=> {
 			const i = sn.indexOf('\t');
 			const a2 = sn.slice(i +1);
 			return {nm: nm + sn.slice(0, i), txt: a2 ?`${nm} ${a2}` :nm};
 		}),
-		comment	: repTag2MB(a[3] ?? '').trim(),
+		detail	: repTag2MB(a[3] ?? '').trim(),
 	};
 }
 
