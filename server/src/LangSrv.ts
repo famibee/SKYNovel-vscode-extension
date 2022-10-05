@@ -12,8 +12,7 @@ import {
 	DidChangeConfigurationNotification,
 	ProposedFeatures,
 	TextDocuments,
-	TextDocumentSyncKind
-} from 'vscode-languageserver/node';
+	TextDocumentSyncKind} from 'vscode-languageserver/node';
 import {
 	TextDocument
 } from 'vscode-languageserver-textdocument';
@@ -28,9 +27,10 @@ const conn = createConnection(ProposedFeatures.all);
 		conn.console.error(`Unhandled exception ${e}`);
 	});
 
+const docs = new TextDocuments(TextDocument);
+
 let hasCfgCap = false;
 let hasDiagRelatedInfCap = false;
-const docs = new TextDocuments(TextDocument);
 
 let aLspWs: LspWs[]	= [];
 
@@ -41,6 +41,8 @@ conn.onInitialize(prm=> {
 	hasDiagRelatedInfCap = !!(
 		cap.textDocument?.publishDiagnostics?.relatedInformation
 	);
+	const inlayHintSupport = !!cap.workspace?.inlayHint?.refreshSupport;
+	//let inlayValueSupport = false;
 
 	conn.onInitialized(()=> {
 		// すべての構成変更を登録
@@ -48,6 +50,16 @@ conn.onInitialize(prm=> {
 
 		conn.onRequest(LspWs.REQ_ID, hd=> {
 			for (const wf of aLspWs) wf.onRequest(hd);
+		});
+
+		// === コード内に挿入して表示するインレイヒント ===
+		if (inlayHintSupport) conn.languages.inlayHint.on(prm=> {
+			for (const wf of aLspWs) {
+				const ret = wf.onInlayHint(prm);
+				if (ret) return ret;
+			}
+
+			return null;
 		});
 
 		// 起動時のワークスペースのフォルダに対し管理オブジェクトを生成
@@ -79,12 +91,13 @@ conn.onInitialize(prm=> {
 				triggerCharacters	: ['='],
 			},
 
-		//	declarationProvider?		// 
+		//	declarationProvider?		// 宣言に移動
 
 			definitionProvider		: true,		// 定義へ移動、定義をここに表示
 			//	{workDoneProgress?: boolean;}
 
-		//	implementationProvider?: boolean | ImplementationOptions | ImplementationRegistrationOptions;		// Goto 宣言
+		//	implementationProvider?: boolean | ImplementationOptions | ImplementationRegistrationOptions;
+			// インターフェイスからこのインターフェイスを実装するクラスに移動したり、抽象メソッドから実装メソッドのリストに移動したり
 
 			referencesProvider		: true,		// 参照へ移動、参照をここに表示
 			//	{workDoneProgress?: boolean;}
@@ -128,9 +141,12 @@ conn.onInitialize(prm=> {
 
 		//	linkedEditingRangeProvider?: boolean | LinkedEditingRangeOptions | LinkedEditingRangeRegistrationOptions;
 			// documentSelector: DocumentSelector | null;
+			// Visual Studio Code November 2020 https://code.visualstudio.com/updates/v1_52#_linked-editing-range-provider
 
 		//	semanticTokensProvider?: SemanticTokensOptions | SemanticTokensRegistrationOptions;
 			// Semantic Tokens｜Language Server Protocol に対応したミニ言語処理系を作る https://zenn.dev/takl/books/0fe11c6e177223/viewer/d2d307
+			// Semantic Highlight Guide | Visual Studio Code Extension API https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide
+			// NOTE: 色づけ、LSPでやったほうが軽い？　優先順位低いが
 
 		//	monikerProvider?: boolean | MonikerOptions | MonikerRegistrationOptions;
 
@@ -139,6 +155,8 @@ conn.onInitialize(prm=> {
 		//	inlineValueProvider?: boolean | InlineValueOptions | InlineValueRegistrationOptions;
 
 		//	inlayHintProvider?: boolean | InlayHintOptions | InlayHintRegistrationOptions;
+			inlayHintProvider: inlayHintSupport,
+			//    resolveProvider?: boolean;
 
 			workspace	: hasWsFldCap ?{
 				workspaceFolders: {
@@ -154,6 +172,8 @@ conn.onInitialize(prm=> {
 
 
 // =======================================
+
+
 /*	// 未使用
 interface MySettings {
 	maxNumberOfProblems: number;
@@ -172,29 +192,6 @@ conn.onDidChangeConfiguration(_chg=> {
 // 開いているドキュメントの設定のみを保持
 docs.onDidClose(({document: {uri}})=> mapDocStg.delete(uri));
 */
-
-
-// === ファイル変更イベント（ファイルを開いたときにも） ===
-const hDocThrowOpCl: {[uri: string]: 0} = {};
-docs.onDidOpen(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
-docs.onDidClose(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
-
-// === ファイル変更イベント（手入力が対象） ===
-docs.onDidChangeContent(chg=> {
-	// 変更時のみのイベントにする
-	const {uri} = chg.document;
-	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
-
-	for (const wf of aLspWs) wf.onDidChangeContent(chg);
-});
-
-
-// === ファイル変更イベント（手入力以外が対象） ===
-//	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
-//	// Changed は保存時に発生する
-conn.onDidChangeWatchedFiles(chg=> {
-	for (const wf of aLspWs) wf.onDidChangeWatchedFiles(chg);
-});
 
 
 // === 識別子上にマウスホバーしたとき表示するヒント ===
@@ -296,6 +293,30 @@ conn.onRenameRequest(prm=> {
 		if (ret) return ret;
 	}
 	return null;
+});
+
+
+// === ファイル変更イベント（ファイルを開いたときにも） ===
+const hDocThrowOpCl: {[uri: string]: 0} = {};
+docs.onDidOpen(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
+docs.onDidClose(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
+conn.onShutdown(()=> {for (const wf of aLspWs) wf.destroy(); aLspWs = [];});
+
+// === ファイル変更イベント（手入力が対象） ===
+docs.onDidChangeContent(chg=> {
+	// 変更時のみのイベントにする
+	const {uri} = chg.document;
+	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
+
+	for (const wf of aLspWs) wf.onDidChangeContent(chg);
+});
+
+
+// === ファイル変更イベント（手入力以外が対象） ===
+//	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
+//	// Changed は保存時に発生する
+conn.onDidChangeWatchedFiles(chg=> {
+	for (const wf of aLspWs) wf.onDidChangeWatchedFiles(chg);
 });
 
 

@@ -317,8 +317,8 @@ export class Project {
 					{kind: QuickPickItemKind.Separator},
 					...hd.o.aQuickPickPlg
 				];
-				this.#InfFont = hd.o.InfFont;
 
+				this.#InfFont = hd.o.InfFont;
 				let updF2U = false;
 				this.#clDiag.clear();
 				const f2u = this.#InfFont.hFontNm2uri;
@@ -349,6 +349,7 @@ export class Project {
 					this.#clDiag.set(Uri.file(uri), a);
 				}
 				if (updF2U) this.#sendRequest2LSP('int_font.upd', this.#InfFont.hFontNm2uri);
+
 			}	break;
 		}
 	}

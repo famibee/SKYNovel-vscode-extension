@@ -36,7 +36,6 @@ export class WorkSpaces implements TreeDataProvider<TreeItem> {
 		itmStt.busy = true;	// ピン留めしてなくてもアイコン回転で表示してくれる
 		itmStt.detail = 'refresh';	// text - detail と表示される
 
-//		this.#refresh();
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
 		// "type": "SKYNovel TaskSys",
@@ -173,6 +172,7 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			commands.executeCommand('editor.action.triggerParameterHints')});
 */
 	}
+
 	#openReferencePallet() {
 		const aWsFld = workspace.workspaceFolders;
 		const at = window.activeTextEditor;

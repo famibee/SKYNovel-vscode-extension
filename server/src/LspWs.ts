@@ -10,9 +10,8 @@ import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
 
-import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, Hover, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, Hover, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
-import {QuickPickItem, QuickPickItemKind} from 'vscode';
 
 interface Script {
 	aToken	: string[];		// トークン群
@@ -73,11 +72,6 @@ type TH_SN2LBLRNG = {[label: string]: Range};
 
 export interface IExts { [ext: string]: string; };
 export interface IFn2Path { [fn: string]: IExts; };
-
-type QuickPickItemEx = QuickPickItem & {
-	kind?	: QuickPickItemKind;
-	uri		: string;
-}
 
 const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	DEFAULT		= '',
@@ -354,18 +348,18 @@ ${sum}`,}
 		this.#hTagProc.let_substr = this.#hTagProc.let;
 		this.#hTagProc.set_frame = this.#hTagProc.let_frame;
 
-		this.#hTagProc.call =
 		this.#hTagProc.jump = this.#hTagProc.event;
 		this.#hTagProc.return = this.#hTagProc.s;
 		this.#hTagProc.else = this.#hTagProc.elsif;
 	}
-	destroy(path: string) {
-		if (! this.#checkRelated(path)) return false;
+	destroy(path?: string) {
+		if (path && ! this.#checkRelated(path)) return false;
 
 		return true;
 	}
 
 
+	// =======================================
 	static readonly REQ_ID = ':SKYNovel:';
 	#sendRequest(cmd: string, o = {}) {
 		this.conn.sendRequest(LspWs.REQ_ID, {cmd, curPrj: this.#curPrj, o});
@@ -390,7 +384,6 @@ ${sum}`,}
 		: ()=> this.#procPathJson = ()=> this.#procPathJson = this.#fullScan,
 	};
 	#fullScan() {this.#sendRequest('init');}
-	// =======================================
 
 
 	// === ファイル変更イベント（手入力が対象） ===
@@ -525,7 +518,7 @@ ${sum ?? ''} [定義位置：${ getFn(md.loc.uri) }](${ md.loc.uri }#L${ md.loc.
 ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${hit})  \n`)}`		// 【半角空白二つ + \n】で改行
 		}};
 	}
-		readonly #checkRelated = (path: string)=> this.#curPrj === path.slice(0, this.#lenCurPrj);
+		readonly #checkRelated = (uri: string)=> this.#curPrj === uri.slice(0, this.#lenCurPrj);
 		#getWordRangeAtPosition(td: TextDocument, p: Position, reg: RegExp): {hit: string, range?: Range,} {
 //			if (reg.flags.indexOf('g') === -1) console.log(`fn:LspWs.ts #getWordRangeAtPosition gフラグが必要です`);// TO DO: あとでコメントアウト
 
@@ -987,6 +980,13 @@ WorkspaceEdit
 */
 	}
 
+	onInlayHint(prm: InlayHintParams): InlayHint[] | null | undefined {
+		const {uri} = prm.textDocument;		// 'file:///'付き
+		if (! this.#checkRelated(uri)) return null;
+
+		const pp = uri.slice(this.#lenCurPrj);
+		return this.#hDoc2InlayHint[pp] ?? [];
+	}
 
 
 	// =======================================
@@ -1020,25 +1020,26 @@ WorkspaceEdit
 			}
 		}
 		#noticeAnalyzeInf() {
-			const aQuickPickMac = Object.entries(this.#hDefMacro)
-			.map(([nm, {sum, loc: {uri}}])=> ({
-				label		: nm,
-				description	: `（マクロ）${sum?.split(' ')[0] ?? ''}`,
-				//detail,	// 別の行になる
-				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
-			}));
-
-			const aQuickPickPlg: QuickPickItemEx[] = Object.entries(this.#hDefPlugin).map(([nm, {uri}])=> ({
-				label		: nm,
-				description	: '（プラグインによる定義）',
-				//detail,	// 別の行になる
-				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
-			}));
+			this.conn.languages.inlayHint.refresh();
 
 			this.#sendRequest('analyze_inf', {
 				InfFont			: this.#InfFont,
-				aQuickPickMac,
-				aQuickPickPlg,
+
+				aQuickPickMac	: Object.entries(this.#hDefMacro)
+				.map(([nm, {sum, loc: {uri}}])=> ({
+					label		: nm,
+					description	: `（マクロ）${sum?.split(' ')[0] ?? ''}`,
+					//detail,	// 別の行になる
+					uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+				})),
+
+				aQuickPickPlg	: Object.entries(this.#hDefPlugin)
+				.map(([nm, {uri}])=> ({
+					label		: nm,
+					description	: '（プラグインによる定義）',
+					//detail,	// 別の行になる
+					uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+				})),
 			});
 		}
 
@@ -1094,6 +1095,8 @@ WorkspaceEdit
 	#hPp2JumpFn		: {[pp_from: string]: Set<string>}	= {};	// to_fn
 		// ジャンプ元から先への関連
 
+	#hDoc2InlayHint		: {[pp: string]: InlayHint[]}	= {};
+
 	#scanInit(pp?: string) {
 		if (! pp) {	// 全ファイル走査時
 			this.#hDefMacro = {};
@@ -1111,6 +1114,7 @@ WorkspaceEdit
 			this.#Uri2Links = {};
 			this.#hPp2JoinLabel = {};
 			this.#hPp2JumpFn = {};
+			this.#hDoc2InlayHint = {};
 			return;
 		}
 
@@ -1151,6 +1155,8 @@ WorkspaceEdit
 		// メッセージをクリア
 		this.#uri2Diag[uri] = [];
 		this.#Uri2Links[uri] = [];
+
+		this.#hDoc2InlayHint[pp] = [];
 	}
 	#goFinish(pp: string) {
 		this.#scanFinishSub(pp);
@@ -1654,53 +1660,31 @@ WorkspaceEdit
 		event: arg=> {
 			this.#hTagProc.s(arg);
 
-			const {pp, uri, aDi, rng, hArg} = arg;
-			// fn属性チェック
-				// ファイル追加・削除時は（外部きっかけで）goAll()が走るのでヨシ
+			const {pp, hArg} = arg;
 			const fn = hArg.fn?.val ?? getFn(pp);
-			// fnが変数・文字列操作系・ext_* などならチェック不能
-			if (/^[*%&"'#]/.test(fn) || fn.at(-1) === '*') return;
-
+			if (!fn || /^[*%&"'#]/.test(fn) || fn.at(-1) === '*') return;
+				// fnが変数・文字列操作系ならチェック不能
 			this.#hPp2JumpFn[pp].add(fn);
 
-			const isEventTag_Del = Boolean(hArg.del?.val) && hArg[':タグ名'].val === 'event';
-			if (isEventTag_Del) return;
-
-			this.#aFinishJob.push(()=> {
-				if (! this.#hSetWords.スクリプトファイル名.has(fn)) {	// 遅延調査
-					const {mes, sev} = this.#hDiag.スクリプトファイル不明;
-					aDi.push(Diagnostic.create(rng, mes.replace('$', fn), sev));
-					return;
-				}
-				let to_uri = '';
-				try {to_uri = this.#searchPath(fn, SEARCH_PATH_ARG_EXT.SCRIPT);} catch {
-					console.error(`fn:LspWs.ts to_uri ERR`);
-					return;
-				}
-
-				const fncLnk = ()=> (this.#Uri2Links[uri] ??= []).push({
-					range	: rng,
-					target	: to_uri,
-					tooltip	: `${fn}.sn を開く`,
-				});
-				const label = hArg.label?.val ?? '';
-				if (! label) {fncLnk(); return;}
-
-				if (/^\*(?!\*)/.test(label)	// チェック（%&"'# も弾く）
-				&& (! (fn in this.#hFn2label)
-				|| ! (label in this.#hFn2label[fn]))) {
-					const {mes, sev} = this.#hDiag.ラベル不明;
-					aDi.push(Diagnostic.create(rng, mes.replace('$', label), sev));
-					fncLnk();	// エラーは出すが、修正のためにリンクは出してあげる
-					return;
-				}
-
-				fncLnk();
-					// ラベルジャンプを作れないので
-					//	tooltip	: `${fn}.sn、ラベル ${label} を開く`,
-			});
+			if (Boolean(hArg.del?.val) && hArg[':タグ名'].val === 'event') return;
+			this.#hTagProcSubFnLbl(arg, fn);
 		},
+		// jump:  = event
+		call: arg=> {
+			this.#hTagProc.event(arg);
 
+			const {pp, hArg, p} = arg;
+			const fn = hArg.fn?.val ?? getFn(pp);
+			if (!fn || fn.at(-1) !== '*') return;
+
+			const a = this.#cnvFnWildcard2A(fn);
+			const i = InlayHint.create({...p}, a.length === 0 ?'対象なし' :a.join(','), InlayHintKind.Parameter);
+			i.paddingLeft = true;
+			i.paddingRight = true;
+			i.tooltip = 'ワイルドカード表現で対象となるスクリプト名';
+			(this.#hDoc2InlayHint[pp] ??= []).push(i);
+		},
+		// return:  = s
 		s: arg=> {
 			const {token, rng} = arg;
 			arg.aDsOutline.push(DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng));
@@ -1732,10 +1716,6 @@ WorkspaceEdit
 			const l = hArg.leavesebuf?.val ?? 'SYS';
 			if (l && l.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', l);
 		},
-
-		// call:  = event
-		// jump:  = event
-		// return:  = s
 
 		link: arg=> {	
 			this.#hTagProc.event(arg);
@@ -1783,6 +1763,47 @@ WorkspaceEdit
 		},
 	}	
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];
+		#hTagProcSubFnLbl(arg: ARG_TAG_PROC, fn: string) {
+			const {uri, aDi, rng, hArg} = arg;
+
+			this.#aFinishJob.push(()=> {
+				if (! this.#hSetWords.スクリプトファイル名.has(fn)) {	// 遅延調査
+					const {mes, sev} = this.#hDiag.スクリプトファイル不明;
+					aDi.push(Diagnostic.create(rng, mes.replace('$', fn), sev));
+					return;
+				}
+				let to_uri = '';
+				try {to_uri = this.#searchPath(fn, SEARCH_PATH_ARG_EXT.SCRIPT);} catch {
+					console.error(`fn:LspWs.ts to_uri ERR`);
+					return;
+				}
+
+				const fncLnk = ()=> (this.#Uri2Links[uri] ??= []).push({
+					range	: rng,
+					target	: to_uri,
+					tooltip	: `${fn}.sn を開く`,
+				});
+				const label = hArg.label?.val ?? '';
+				if (! label) {fncLnk(); return;}
+
+				if (/^\*(?!\*)/.test(label)	// チェック（%&"'# も弾く）
+				&& (! (fn in this.#hFn2label)
+				|| ! (label in this.#hFn2label[fn]))) {
+					const {mes, sev} = this.#hDiag.ラベル不明;
+					aDi.push(Diagnostic.create(rng, mes.replace('$', label), sev));
+					fncLnk();	// エラーは出すが、修正のためにリンクは出してあげる
+					return;
+				}
+
+				fncLnk();
+					// ラベルジャンプを作れないので
+					//	tooltip	: `${fn}.sn、ラベル ${label} を開く`,
+			});
+		}
+		#cnvFnWildcard2A(fn: string): string[] {
+			const EXT = 'sn';
+			return this.#matchPath('^'+ fn.slice(0, -1) +'.*', EXT).map(v=> decodeURIComponent(getFn(v[EXT])))
+		}
 
 
 	static	#splitAmpersand(token: string): {
@@ -1980,5 +2001,26 @@ WorkspaceEdit
 	}
 	#userFnTail		= '';
 	#hPathFn2Exts	: IFn2Path	= {};
+
+	#matchPath(fnptn: string, extptn: string = SEARCH_PATH_ARG_EXT.DEFAULT): ReadonlyArray<IExts> {
+		const aRet :IExts[] = [];
+		const regPtn = new RegExp(fnptn);
+		const regExt = new RegExp(extptn);
+		for (const [fn, h_exts] of Object.entries(this.#hPathFn2Exts)) {
+			if (fn.search(regPtn) === -1) continue;
+			if (extptn === '') {aRet.push(h_exts); continue;}
+
+			const o :IExts = {};
+			let isa = false;
+			for (const ext of Object.keys(h_exts)) {
+				if (ext.search(regExt) === -1) continue;
+
+				o[ext] = fn;
+				isa = true;
+			}
+			if (isa) aRet.push(o);
+		}
+		return aRet;
+	}
 
 }
