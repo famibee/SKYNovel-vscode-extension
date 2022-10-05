@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.2.0",
+	"version": "4.2.1",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -735,7 +735,7 @@
 		"image-size": "^1.0.2",
 		"jest": "^29.1.2",
 		"rimraf": "^3.0.2",
-		"terser": "^5.15.0",
+		"terser": "^5.15.1",
 		"ts-loader": "^9.4.1",
 		"typescript": "^4.8.4",
 		"vite": "^3.1.4",
