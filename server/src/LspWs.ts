@@ -380,8 +380,6 @@ ${sum}`,}
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
 		'def_esc.upd'	: ()=> this.#fullScan(),
 		'int_font.upd'	: o=> this.#InfFont.hFontNm2uri = o,
-		'Ignore path.json processing only once.'
-		: ()=> this.#procPathJson = ()=> this.#procPathJson = this.#fullScan,
 	};
 	#fullScan() {this.#sendRequest('init');}
 
@@ -460,12 +458,9 @@ ${sum}`,}
 			const pp = uri.slice(this.#lenCurPrj);
 			if (pp === 'path.json'
 			&& (type === FileChangeType.Created ||
-				type === FileChangeType.Changed)) {
-				this.#procPathJson(); continue;
-			}
+				type === FileChangeType.Changed)) {this.#fullScan(); continue;}
 		}
 	}
-	#procPathJson: ()=> void = ()=> this.#procPathJson = this.#fullScan;
 
 
 	// === 識別子上にマウスホバーしたとき表示するヒント ===
@@ -487,7 +482,7 @@ ${sum}`,}
 			const {param, sum} = md;
 			return {range, contents: {kind: 'markdown', value: `~~~skynovel
 (マクロ) [${hit}${
-	param.map(({name, required, def, rangetype})=> ` ${name}=${required ?'【必須】' :''}%${rangetype}|${def}`).join('')
+	param.map(md=> this.#cnvMdParam2Str(md)).join('')
 }]
 ~~~
 ---
@@ -511,7 +506,7 @@ ${sum ?? ''} [定義位置：${ getFn(md.loc.uri) }](${ md.loc.uri }#L${ md.loc.
 		const {param, sum} = td;
 		return {range, contents: {kind: 'markdown', value: `~~~skynovel
 (タグ) [${hit}${
-	param.map(({name, required, def, rangetype})=> ` ${name}=${required ?'【必須】' :''}%${rangetype}|${def}`).join('')
+	param.map(md=> this.#cnvMdParam2Str(md)).join('')
 }]
 ~~~
 ---
@@ -534,6 +529,12 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			}
 			return {hit: ''};
 		}
+		readonly	#cnvMdParam2Str = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${this.#escHighlight(
+			required === 'y'
+			? `【必須】${rangetype}`
+			: `${rangetype}|${def}`
+		)}`;
+		readonly	#escHighlight = (s: string)=> [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
 
 
 	// === コード補完機能 ===
@@ -754,14 +755,16 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 		if (context?.isRetrigger) {	// すでに開いてる
 			// Helpオープン中再訪時は、始点（変化しない）からタグ正規表現かけ終点を探す
 			const r = {...this.#rngPreTag};
+			if (! r) return null;
 			r.end.line += 2;	// 二行分捕捉すれば、改行発生後どんな行長になっても対応できるはず
 			const a = this.#analyzToken(d.getText(r));
 			if (! a) return null;	// No tag here.
 
 			token = a[0];
-			const pp = d.positionAt(d.offsetAt(r.start) +token.length);
-			r.end.line = pp.line;
-			r.end.character = pp.character;
+			const pp2 = d.positionAt(d.offsetAt(r.start) +token.length);
+			if (! pp2) return null;
+			r.end.line = pp2.line;
+			r.end.character = pp2.character;
 			if (! this.#contains(Range.create(
 				r.start.line,
 				r.start.character +1,
@@ -779,7 +782,7 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			token = d.getText(this.#rngPreTag);
 		}
 
-		const a_tag = this.#analyzTagArg(token);
+		const a_tag = this.#REG_TAG_NAME.exec(token.slice(1));
 		const g = a_tag?.groups;
 		if (! g) return null;	// No args here.
 		const {name} = g;
@@ -795,11 +798,11 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			}
 			let sPrm = '';
 			const aPI: ParameterInformation[] = [];
-			if (param[0]?.name) for (const {name, required, def, rangetype, comment} of param) {
-				const p = `${name}=${required ?'【必須】' :''}%${rangetype}|${def}`;
+			if (param[0]?.name) for (const md of param) {
+				const p = this.#cnvMdParam2Str(md);
 				sPrm += ' '+ p;
 				// 検索文字列、属性概要
-				aPI.push({label: p, documentation: {kind: 'markdown', value: comment}});
+				aPI.push({label: p, documentation: {kind: 'markdown', value: md.comment}});
 			}
 
 			// 全体、タグ説明
@@ -814,7 +817,7 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 
 		return this.#preSigHelp;
 	}
-		#analyzTagArg = (token: string)=> this.#REG_TAG.exec(token);
+		#REG_TAG_NAME	= /(?<name>[^\s;\]]+)/;
 		#analyzToken(token: string): RegExpExecArray | null {
 			this.#REG_TOKEN.lastIndex = 0;	// /gなので必要
 			return this.#REG_TOKEN.exec(token);
@@ -1004,9 +1007,16 @@ WorkspaceEdit
 
 		this.#hDefPlugin = o.hDefPlg;
 
+		const aOldUri2Diag = Object.keys(this.#uri2Diag);
 		this.#scanInit();
 		for (const [pp, s] of Object.entries(o.pp2s)) this.#scanAllSub(pp, s);
 		this.#scanFinishSub();
+
+		// スクリプト削除時にエラーや警告を消す
+		for (const uri of aOldUri2Diag) {
+			if (uri in this.#uri2Diag) continue;
+			this.conn.sendDiagnostics({uri, diagnostics: []});
+		}
 
 		this.#noticeAnalyzeInf();
 	}
@@ -1454,8 +1464,9 @@ WorkspaceEdit
 			}
 
 			// [ タグ開始
-			const a_tag = this.#REG_TAG.exec(token);
-			if (! a_tag) {	// []、[ ]など
+			const a_tag = this.#REG_TAG_NAME.exec(token.slice(1, -1));
+			const use_nm = a_tag?.groups?.name;
+			if (! use_nm) {	// []、[ ]など
 				const {mes, sev} = this.#hDiag.タグ記述異常;
 				aDi.push(Diagnostic.create(rng, mes.replace('$', token), sev));
 				return;
@@ -1477,7 +1488,6 @@ WorkspaceEdit
 				), mes, sev));
 			}
 
-			const use_nm = a_tag.groups?.name ?? '';
 			this.#hDoc2TagMacUse[pp].push({nm: use_nm, rng: {
 				start: rng.start, end: {...p}	// 値が変わるので、この瞬間の値を
 			}});
@@ -1501,7 +1511,8 @@ WorkspaceEdit
 
 			const fnc = this.#hTagProc[use_nm];
 			if (fnc) {
-				this.#alzTagArg.go(a_tag.groups?.args ?? '');
+				const args = token.slice(1 +use_nm.length, -1);
+				this.#alzTagArg.go(args);
 
 				const hArg = this.#alzTagArg.hPrm;
 				hArg[':タグ名'] = <any>use_nm;
@@ -1511,7 +1522,11 @@ WorkspaceEdit
 		};
 
 		const p = {line: 0, character: 0};
-		for (const token of this.#hScript[pp].aToken) this.#procToken(p, token);
+		try {
+			for (const token of this.#hScript[pp].aToken) this.#procToken(p, token);
+		} catch (e) {
+			console.error(`#scanScript Err ${pp}(${p.line},${p.character})`);
+		}
 
 		this.#hFn2label[fn] = hLblRng;
 
@@ -1593,7 +1608,7 @@ WorkspaceEdit
 				const [rangetype, def, comment] = val.split('|');
 				param.push({
 					name,
-					required	: String(required),
+					required	: required ?'y' :'',
 					def,
 					rangetype,
 					comment,
@@ -1823,9 +1838,6 @@ WorkspaceEdit
 			cast: ((cnt_equa === 3) ?equa[2].trim() :null)
 		};
 	}
-
-	// 47 match 959 step (1ms) https://regex101.com/r/TKk1Iz/4
-	readonly	#REG_TAG	= /\[(?<name>[^\s;\]]+)\s*(?<args>(?:[^"'#\]]+|(["'#]).*?\3)*?)]/;
 
 
 	static	readonly #REG_TAG_LET_ML	= /^\[let_ml\s/g;

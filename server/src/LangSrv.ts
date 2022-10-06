@@ -18,7 +18,6 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 
-// Also include all preview / proposed LSP features.
 const conn = createConnection(ProposedFeatures.all);
 	console.log = conn.console.log.bind(conn.console);
 	console.error = conn.console.error.bind(conn.console);
