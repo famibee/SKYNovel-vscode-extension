@@ -529,11 +529,11 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			}
 			return {hit: ''};
 		}
-		readonly	#cnvMdParam2Str = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${this.#escHighlight(
+		readonly	#cnvMdParam2Str = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
-			? `【必須】${rangetype}`
-			: `${rangetype}|${def}`
-		)}`;
+			? `【必須】${this.#escHighlight(rangetype)}`
+			: `${this.#escHighlight(rangetype)}|${this.#escHighlight(def)}`
+		}`;
 		readonly	#escHighlight = (s: string)=> [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
 
 
