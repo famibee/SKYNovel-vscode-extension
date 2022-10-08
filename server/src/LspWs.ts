@@ -648,7 +648,10 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 		this.#hSetWords.文字出現演出名.add('default');
 		this.#hSetWords.文字消去演出名.add('default');
 		for (const [key, set] of Object.entries(this.#hSetWords)) {
-			const str = `|${[...set.values()].sort().join(',')}|`;
+			const str = `|${
+				[...set.values()].sort().map(v=> v.replaceAll(',', '\\,'))
+				.join(',').replaceAll('|', '\\|')	// スニペット構文のエスケープ
+			}|`;
 			if (this.#hPreWords[key] !== str) {
 				eq = false;
 			//	this.#cteScore.updWords(key, set);	// NOTE: Score
@@ -1427,6 +1430,10 @@ WorkspaceEdit
 
 				const kw = `fn=${getFn(pp)} label=${token}`;
 				this.#setKwAdd(setKw, 'ジャンプ先', kw);
+
+				const [label] = token.split('|');
+					// 吉里吉里仕様のセーブラベル名にあたる機能は無いが、属性指定時に
+					//「|」後はデフォルト値解釈で無視されるので、この処理がいる
 				aDsOutline.push({
 					name	: token,
 					detail	: '',
@@ -1434,18 +1441,18 @@ WorkspaceEdit
 					range	: rng,
 					selectionRange	: rng,
 				});
-				if (token.charAt(1) === '*') return;	// 無名ラベルは除外
+				if (label.charAt(1) === '*') return;	// 無名ラベルは除外
 
 				sJoinLabel += token;	// まぁ区切りなくていいか。*あるし
-				const lr = hLblRng[token];
+				const lr = hLblRng[label];
 				if (lr) {
-					const rngLbl = hLblRng[token];
+					const rngLbl = hLblRng[label];
 					const {mes, sev} = this.#hDiag.ラベル重複;
-					const mes2 = mes.replace('$', token);
+					const mes2 = mes.replace('$', label);
 					if (rngLbl) aDi.push(Diagnostic.create(rngLbl, mes2, sev));
 					aDi.push(Diagnostic.create(rng, mes, sev));
 				}
-				else hLblRng[token] = rng;
+				else hLblRng[label] = rng;
 				return;
 			}
 			if (uc !== 91) {	// 文字表示
