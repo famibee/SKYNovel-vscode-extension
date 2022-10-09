@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.2.4",
+	"version": "4.2.5",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -697,7 +697,7 @@
 		"node-fetch": "^2.6.7",
 		"npm-check-updates": "^16.3.9",
 		"original-fs": "^1.2.0",
-		"pinia": "^2.0.22",
+		"pinia": "^2.0.23",
 		"socket.io": "^4.5.2",
 		"uuid": "^9.0.0",
 		"vee-validate": "^4.6.10",

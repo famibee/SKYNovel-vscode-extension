@@ -534,7 +534,7 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			? `【必須】${this.#escHighlight(rangetype)}`
 			: `${this.#escHighlight(rangetype)}|${this.#escHighlight(def)}`
 		}`;
-		readonly	#escHighlight = (s: string)=> [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
+		readonly	#escHighlight = (s = '')=> [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
 
 
 	// === コード補完機能 ===
@@ -1613,6 +1613,7 @@ WorkspaceEdit
 				const required = aNm.slice(-1) !== '?';
 				const name = aNm.slice(1, required ?undefined :-1);
 				const [rangetype, def, comment] = val.split('|');
+//console.log(`fn:LspWs.ts [macro] nm:${nm} name:${name}= rangetype:${rangetype} def:${def} comment:${comment}`);
 				param.push({
 					name,
 					required	: required ?'y' :'',

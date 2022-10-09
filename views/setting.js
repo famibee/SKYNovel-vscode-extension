@@ -4836,7 +4836,7 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.22
+  * pinia v2.0.23
   * (c) 2022 Eduardo San Martin Morote
   * @license MIT
   */
@@ -5076,10 +5076,7 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
     },
     $dispose
   };
-  const store = reactive(assign(
-    {},
-    partialStore
-  ));
+  const store = reactive(partialStore);
   pinia._s.set($id, store);
   const setupStore = pinia._e.run(() => {
     scope = effectScope();
