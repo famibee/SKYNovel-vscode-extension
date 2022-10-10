@@ -5418,7 +5418,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.6.10
+  * vee-validate v4.7.0
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -6130,8 +6130,8 @@ function klona(x) {
 }
 let ID_COUNTER = 0;
 function useFieldState(path, init2) {
-  const { value, initialValue, setInitialValue } = _useFieldValue(path, init2.modelValue, !init2.standalone);
-  const { errorMessage, errors, setErrors } = _useFieldErrors(path, !init2.standalone);
+  const { value, initialValue, setInitialValue } = _useFieldValue(path, init2.modelValue, init2.form);
+  const { errorMessage, errors, setErrors } = _useFieldErrors(path, init2.form);
   const meta = _useFieldMeta(value, initialValue, errors);
   const id = ID_COUNTER >= Number.MAX_SAFE_INTEGER ? 0 : ++ID_COUNTER;
   function setState(state) {
@@ -6160,8 +6160,7 @@ function useFieldState(path, init2) {
     setState
   };
 }
-function _useFieldValue(path, modelValue, shouldInjectForm = true) {
-  const form = shouldInjectForm === true ? injectWithSelf(FormContextKey, void 0) : void 0;
+function _useFieldValue(path, modelValue, form) {
   const modelRef = ref(unref(modelValue));
   function resolveInitialValue2() {
     if (!form) {
@@ -6220,8 +6219,7 @@ function _useFieldMeta(currentValue, initialValue, errors) {
   });
   return meta;
 }
-function _useFieldErrors(path, shouldInjectForm) {
-  const form = shouldInjectForm ? injectWithSelf(FormContextKey, void 0) : void 0;
+function _useFieldErrors(path, form) {
   function normalizeErrors(messages) {
     if (!messages) {
       return [];
@@ -6254,12 +6252,13 @@ function useField(name, rules, opts) {
   return _useField(name, rules, opts);
 }
 function _useField(name, rules, opts) {
-  const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, standalone, keepValueOnUnmount, modelPropName, syncVModel } = normalizeOptions(unref(name), opts);
-  const form = !standalone ? injectWithSelf(FormContextKey) : void 0;
+  const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, controlled, keepValueOnUnmount, modelPropName, syncVModel, form: controlForm } = normalizeOptions(unref(name), opts);
+  const injectedForm = controlled ? injectWithSelf(FormContextKey) : void 0;
+  const form = controlForm || injectedForm;
   let markedForRemoval = false;
   const { id, value, initialValue, meta, setState, errors, errorMessage } = useFieldState(name, {
     modelValue,
-    standalone
+    form
   });
   if (syncVModel) {
     useVModel({ value, prop: modelPropName, handleChange });
@@ -6448,19 +6447,19 @@ function normalizeOptions(name, opts) {
     initialValue: void 0,
     validateOnMount: false,
     bails: true,
-    rules: "",
     label: name,
     validateOnValueUpdate: true,
-    standalone: false,
     keepValueOnUnmount: void 0,
     modelPropName: "modelValue",
-    syncVModel: true
+    syncVModel: true,
+    controlled: true
   });
   if (!opts) {
     return defaults();
   }
   const checkedValue = "valueProp" in opts ? opts.valueProp : opts.checkedValue;
-  return Object.assign(Object.assign(Object.assign({}, defaults()), opts || {}), { checkedValue });
+  const controlled = "standalone" in opts ? !opts.standalone : opts.controlled;
+  return Object.assign(Object.assign(Object.assign({}, defaults()), opts || {}), { controlled: controlled !== null && controlled !== void 0 ? controlled : true, checkedValue });
 }
 function extractRuleFromSchema(schema, fieldName) {
   if (!schema) {
@@ -6715,6 +6714,7 @@ let FORM_COUNTER = 0;
 function useForm(opts) {
   var _a2;
   const formId = FORM_COUNTER++;
+  const controlledModelPaths = /* @__PURE__ */ new Set();
   let RESET_LOCK = false;
   const fieldsByPath = ref({});
   const isSubmitting = ref(false);
@@ -6761,6 +6761,13 @@ function useForm(opts) {
   const keepValuesOnUnmount = (_a2 = opts === null || opts === void 0 ? void 0 : opts.keepValuesOnUnmount) !== null && _a2 !== void 0 ? _a2 : false;
   const { initialValues, originalInitialValues, setInitialValues } = useFormInitialValues(fieldsByPath, formValues, opts === null || opts === void 0 ? void 0 : opts.initialValues);
   const meta = useFormMeta(fieldsByPath, formValues, originalInitialValues, errors);
+  const controlledValues = computed(() => {
+    return [...controlledModelPaths, ...keysOf(fieldsByPath.value)].reduce((acc, path) => {
+      const value = getFromPath(formValues, path);
+      setInPath(acc, path, value);
+      return acc;
+    }, {});
+  });
   const schema = opts === null || opts === void 0 ? void 0 : opts.validationSchema;
   const debouncedSilentValidation = debounceAsync(_validateSchema, 5);
   const debouncedValidation = debounceAsync(_validateSchema, 5);
@@ -6799,10 +6806,61 @@ function useForm(opts) {
       return validation;
     }, { valid: formResult.valid, results: {}, errors: {} });
   });
+  function makeSubmissionFactory(onlyControlled) {
+    return function submitHandlerFactory(fn, onValidationError) {
+      return function submissionHandler(e) {
+        if (e instanceof Event) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        setTouched(keysOf(fieldsByPath.value).reduce((acc, field) => {
+          acc[field] = true;
+          return acc;
+        }, {}));
+        isSubmitting.value = true;
+        submitCount.value++;
+        return validate2().then((result) => {
+          const values = klona(formValues);
+          if (result.valid && typeof fn === "function") {
+            const controlled = klona(controlledValues.value);
+            return fn(onlyControlled ? controlled : values, {
+              evt: e,
+              controlledValues: controlled,
+              setErrors,
+              setFieldError,
+              setTouched,
+              setFieldTouched,
+              setValues,
+              setFieldValue,
+              resetForm
+            });
+          }
+          if (!result.valid && typeof onValidationError === "function") {
+            onValidationError({
+              values,
+              evt: e,
+              errors: result.errors,
+              results: result.results
+            });
+          }
+        }).then((returnVal) => {
+          isSubmitting.value = false;
+          return returnVal;
+        }, (err) => {
+          isSubmitting.value = false;
+          throw err;
+        });
+      };
+    };
+  }
+  const handleSubmitImpl = makeSubmissionFactory(false);
+  const handleSubmit = handleSubmitImpl;
+  handleSubmit.withControlled = makeSubmissionFactory(true);
   const formCtx = {
     formId,
     fieldsByPath,
     values: formValues,
+    controlledValues,
     errorBag,
     errors,
     schema,
@@ -6882,7 +6940,7 @@ function useForm(opts) {
     fieldArrays.forEach((f) => f && f.reset());
   }
   function createModel(path) {
-    const { value } = _useFieldValue(path);
+    const { value } = _useFieldValue(path, void 0, formCtx);
     watch(value, () => {
       if (!fieldExists(unref(path))) {
         validate2({ mode: "validated-only" });
@@ -6890,6 +6948,7 @@ function useForm(opts) {
     }, {
       deep: true
     });
+    controlledModelPaths.add(unref(path));
     return value;
   }
   function useFieldModel(path) {
@@ -7062,51 +7121,6 @@ function useForm(opts) {
     }
     return fieldInstance.validate();
   }
-  function handleSubmit(fn, onValidationError) {
-    return function submissionHandler(e) {
-      if (e instanceof Event) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      setTouched(keysOf(fieldsByPath.value).reduce((acc, field) => {
-        acc[field] = true;
-        return acc;
-      }, {}));
-      isSubmitting.value = true;
-      submitCount.value++;
-      return validate2().then((result) => {
-        if (result.valid && typeof fn === "function") {
-          return fn(klona(formValues), {
-            evt: e,
-            setErrors,
-            setFieldError,
-            setTouched,
-            setFieldTouched,
-            setValues,
-            setFieldValue,
-            resetForm
-          });
-        }
-        if (!result.valid && typeof onValidationError === "function") {
-          onValidationError({
-            values: klona(formValues),
-            evt: e,
-            errors: result.errors,
-            results: result.results
-          });
-        }
-      }).then((returnVal) => {
-        isSubmitting.value = false;
-        return returnVal;
-      }, (err) => {
-        isSubmitting.value = false;
-        throw err;
-      });
-    };
-  }
-  function setFieldInitialValue(path, value) {
-    setInPath(initialValues.value, path, klona(value));
-  }
   function unsetInitialValue(path) {
     unsetPath(initialValues.value, path);
   }
@@ -7116,6 +7130,9 @@ function useForm(opts) {
     if (updateOriginal && !(opts === null || opts === void 0 ? void 0 : opts.initialValues)) {
       setInPath(originalInitialValues.value, path, klona(value));
     }
+  }
+  function setFieldInitialValue(path, value) {
+    setInPath(initialValues.value, path, klona(value));
   }
   async function _validateSchema() {
     const schemaValue = unref(schema);
@@ -7155,26 +7172,7 @@ function useForm(opts) {
     });
   }
   provide(FormContextKey, formCtx);
-  return {
-    errors,
-    meta,
-    values: formValues,
-    isSubmitting,
-    submitCount,
-    validate: validate2,
-    validateField,
-    handleReset: () => resetForm(),
-    resetForm,
-    handleSubmit,
-    submitForm,
-    setFieldError,
-    setErrors,
-    setFieldValue,
-    setValues,
-    setFieldTouched,
-    setTouched,
-    useFieldModel
-  };
+  return Object.assign(Object.assign({}, formCtx), { handleReset: () => resetForm(), submitForm });
 }
 function useFormMeta(fieldsByPath, currentValues, initialValues, errors) {
   const MERGE_STRATEGIES = {
@@ -7311,7 +7309,7 @@ const FormImpl = defineComponent({
     const initialValues = toRef(props, "initialValues");
     const validationSchema = toRef(props, "validationSchema");
     const keepValues = toRef(props, "keepValues");
-    const { errors, values, meta, isSubmitting, submitCount, validate: validate2, validateField, handleReset, resetForm, handleSubmit, setErrors, setFieldError, setFieldValue, setValues, setFieldTouched, setTouched } = useForm({
+    const { errors, values, meta, isSubmitting, submitCount, controlledValues, validate: validate2, validateField, handleReset, resetForm, handleSubmit, setErrors, setFieldError, setFieldValue, setValues, setFieldTouched, setTouched } = useForm({
       validationSchema: validationSchema.value ? validationSchema : void 0,
       initialValues,
       initialErrors: props.initialErrors,
@@ -7345,6 +7343,7 @@ const FormImpl = defineComponent({
         values,
         isSubmitting: isSubmitting.value,
         submitCount: submitCount.value,
+        controlledValues: controlledValues.value,
         validate: validate2,
         validateField,
         handleSubmit: handleScopedSlotSubmit,

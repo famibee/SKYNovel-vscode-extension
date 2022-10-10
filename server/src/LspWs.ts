@@ -182,7 +182,19 @@ Sinusoidal.Out|`.replaceAll('\n', ','),
 `const.Date.getDateStr
 const.Date.getTime
 const.sn.bookmark.json
-const.sn.config.（略）
+const.sn.config.book.title
+const.sn.config.book.creator
+const.sn.config.book.cre_url
+const.sn.config.book.publisher
+const.sn.config.book.pub_url
+const.sn.config.book.detail
+const.sn.config.book.version
+const.sn.config.init.bg_color
+const.sn.config.init.tagch_msecwait
+const.sn.config.init.auto_msecpagewait
+const.sn.config.init.escape
+const.sn.config.window.height
+const.sn.config.window.width
 const.sn.displayState
 const.sn.frm.（フレーム名）
 const.sn.frm.（フレーム名）.alpha
@@ -604,10 +616,11 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 		}));
 	}
 		#contains({start, end}: Range, {line: l, character: c}: Position): boolean {
-			return	start.line <= l
-				&&	l <= end.line
-				&&	start.character <= c
-				&&	c <= end.character;
+			if (l < start.line || end.line < l) return false;
+			if (l === start.line && c < start.character) return false;
+			if (l === end.line && end.character < c) return false;
+
+			return true;
 		}
 	#activeUri = '';
 	// 自動補完候補の選択
@@ -649,8 +662,9 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 		this.#hSetWords.文字消去演出名.add('default');
 		for (const [key, set] of Object.entries(this.#hSetWords)) {
 			const str = `|${
-				[...set.values()].sort().map(v=> v.replaceAll(',', '\\,'))
-				.join(',').replaceAll('|', '\\|')	// スニペット構文のエスケープ
+				[...set.values()].sort().join('\n')
+				.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
+				.replaceAll('\n', ',')
 			}|`;
 			if (this.#hPreWords[key] !== str) {
 				eq = false;
@@ -1625,7 +1639,7 @@ WorkspaceEdit
 
 			const rng2 = Range.create(
 				pBefore.line, pBefore.character,
-				p.line, p.character,
+				p.line, p.character -1,
 			);
 			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');
 			this.#hDefMacro[nm] = {

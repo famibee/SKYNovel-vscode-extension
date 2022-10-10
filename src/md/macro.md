@@ -6,8 +6,13 @@
 - nowarn_unused		false	Boolean	true：未使用警告を止める
 - design_unit		false	Boolean	true：デバッグモード時、マクロの引数変更とする（マクロの内部をサーチさせない）
 - stepin		true	Boolean	false：デバッグモード時、ステップインしない（マクロ内で停止させない）
+- sum		概要説明	String	拡張機能で表示する概要説明
+- detail		詳細説明	String	拡張機能で表示する詳細説明
 
 ***
-name=${1:マクロ名}]
+name=${1:マクロ名}
+	sum='概要説明'
+	%aaa='型|省略値|引数説明'
+]
 	; ここにマクロの処理内容を
 [endmacro
