@@ -1,3 +1,6 @@
+## v4.2.7
+- fix: [link]の説明で途中から色が変になる件
+- docs: [tsy][tsy_frame]に path 属性について追記
 ## v4.2.6
 - fix: 複数行タグで説明が出ない場合があった件
 - fix: コード補完機能：【const.sn.config.〜】系の prj.json 内の変数をいくつか追加

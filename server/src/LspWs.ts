@@ -546,12 +546,10 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 			? `【必須】${this.#escHighlight(rangetype)}`
 			: `${this.#escHighlight(rangetype)}|${this.#escHighlight(def)}`
 		}`;
-		readonly	#escHighlight = (s = '')=> [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
-
-
-	// === コード補完機能 ===
-	// 自動補完
-	//	// 初期リストを返すハンドラー
+		readonly	#escHighlight = (s = '')=> {
+			if (s.charAt(0) === `'` && s.at(-1) === `'`) return s;
+			return [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
+		}
 	onCompletion(prm: TextDocumentPositionParams): CompletionItem[] | null {
 		const {uri} = prm.textDocument;		// 'file:///'付き
 		if (! this.#checkRelated(uri)) return null;
