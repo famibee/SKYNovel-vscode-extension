@@ -1282,8 +1282,8 @@ WorkspaceEdit
 			mes	: '未使用のマクロ[$]があります',
 			sev	: DiagnosticSeverity.Information,
 		},
-		改行32行超: {
-			mes	: '改行タグが32行を超えています',
+		改行64行超: {
+			mes	: '改行タグが64行を超えています',
 			sev	: DiagnosticSeverity.Information,
 		},
 	};
@@ -1500,8 +1500,8 @@ WorkspaceEdit
 			else {
 				p.line += lineTkn;
 				p.character = len -token.lastIndexOf('\n') -1;
-				const {mes, sev} = this.#hDiag.改行32行超;
-				if (lineTkn > 32) aDi.push(Diagnostic.create(Range.create(
+				const {mes, sev} = this.#hDiag.改行64行超;
+				if (lineTkn > 64) aDi.push(Diagnostic.create(Range.create(
 					rng.start.line, Math.max(rng.start.character -1, 0),
 					p.line, 0
 				), mes, sev));
