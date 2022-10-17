@@ -212,11 +212,12 @@ const getGlobalThis = () => {
 let activeEffectScope;
 class EffectScope {
   constructor(detached = false) {
+    this.detached = detached;
     this.active = true;
     this.effects = [];
     this.cleanups = [];
+    this.parent = activeEffectScope;
     if (!detached && activeEffectScope) {
-      this.parent = activeEffectScope;
       this.index = (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(this) - 1;
     }
   }
@@ -251,13 +252,14 @@ class EffectScope {
           this.scopes[i].stop(true);
         }
       }
-      if (this.parent && !fromParent) {
+      if (!this.detached && this.parent && !fromParent) {
         const last = this.parent.scopes.pop();
         if (last && last !== this) {
           this.parent.scopes[this.index] = last;
           last.index = this.index;
         }
       }
+      this.parent = void 0;
       this.active = false;
     }
   }
@@ -1447,10 +1449,14 @@ function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
       setBlockTracking(-1);
     }
     const prevInstance = setCurrentRenderingInstance(ctx);
-    const res = fn(...args);
-    setCurrentRenderingInstance(prevInstance);
-    if (renderFnWithContext._d) {
-      setBlockTracking(1);
+    let res;
+    try {
+      res = fn(...args);
+    } finally {
+      setCurrentRenderingInstance(prevInstance);
+      if (renderFnWithContext._d) {
+        setBlockTracking(1);
+      }
     }
     return res;
   };
@@ -2646,6 +2652,8 @@ const normalizeSlot = (key, rawSlot, ctx) => {
     return rawSlot;
   }
   const normalized = withCtx((...args) => {
+    if (false)
+      ;
     return normalizeSlotValue(rawSlot(...args));
   }, ctx);
   normalized._c = false;
@@ -2860,7 +2868,7 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
     if (_isString || _isRef) {
       const doSet = () => {
         if (rawRef.f) {
-          const existing = _isString ? refs[ref2] : ref2.value;
+          const existing = _isString ? hasOwn(setupState, ref2) ? setupState[ref2] : refs[ref2] : ref2.value;
           if (isUnmount) {
             isArray$9(existing) && remove(existing, refValue);
           } else {
@@ -4276,7 +4284,7 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.2.40";
+const version = "3.2.41";
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
 const templateContainer = doc && /* @__PURE__ */ doc.createElement("template");
@@ -4472,24 +4480,6 @@ function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspe
   }
   needRemove && el.removeAttribute(key);
 }
-const [_getNow, skipTimestampCheck] = /* @__PURE__ */ (() => {
-  let _getNow2 = Date.now;
-  let skipTimestampCheck2 = false;
-  if (typeof window !== "undefined") {
-    if (Date.now() > document.createEvent("Event").timeStamp) {
-      _getNow2 = performance.now.bind(performance);
-    }
-    const ffMatch = navigator.userAgent.match(/firefox\/(\d+)/i);
-    skipTimestampCheck2 = !!(ffMatch && Number(ffMatch[1]) <= 53);
-  }
-  return [_getNow2, skipTimestampCheck2];
-})();
-let cachedNow = 0;
-const p = /* @__PURE__ */ Promise.resolve();
-const reset = () => {
-  cachedNow = 0;
-};
-const getNow = () => cachedNow || (p.then(reset), cachedNow = _getNow());
 function addEventListener(el, event, handler, options) {
   el.addEventListener(event, handler, options);
 }
@@ -4526,12 +4516,17 @@ function parseName(name) {
   const event = name[2] === ":" ? name.slice(3) : hyphenate(name.slice(2));
   return [event, options];
 }
+let cachedNow = 0;
+const p = /* @__PURE__ */ Promise.resolve();
+const getNow = () => cachedNow || (p.then(() => cachedNow = 0), cachedNow = Date.now());
 function createInvoker(initialValue, instance) {
   const invoker = (e) => {
-    const timeStamp = e.timeStamp || _getNow();
-    if (skipTimestampCheck || timeStamp >= invoker.attached - 1) {
-      callWithAsyncErrorHandling(patchStopImmediatePropagation(e, invoker.value), instance, 5, [e]);
+    if (!e._vts) {
+      e._vts = Date.now();
+    } else if (e._vts <= invoker.attached) {
+      return;
     }
+    callWithAsyncErrorHandling(patchStopImmediatePropagation(e, invoker.value), instance, 5, [e]);
   };
   invoker.value = initialValue;
   invoker.attached = getNow();

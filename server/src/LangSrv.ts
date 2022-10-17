@@ -134,6 +134,7 @@ conn.onInitialize(prm=> {
 	//		selectionRangeProvider	: true,		// 規定値でOK
 
 		//	executeCommandProvider?: ExecuteCommandOptions;
+//		executeCommandProvider: {commands: ['revealFileInOS']},
 
 		//	callHierarchyProvider?: boolean | CallHierarchyOptions | CallHierarchyRegistrationOptions;
 			// documentSelector: DocumentSelector | null;
@@ -153,7 +154,6 @@ conn.onInitialize(prm=> {
 
 		//	inlineValueProvider?: boolean | InlineValueOptions | InlineValueRegistrationOptions;
 
-		//	inlayHintProvider?: boolean | InlayHintOptions | InlayHintRegistrationOptions;
 			inlayHintProvider: inlayHintSupport,
 			//    resolveProvider?: boolean;
 

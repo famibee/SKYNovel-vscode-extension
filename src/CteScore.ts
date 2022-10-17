@@ -253,7 +253,7 @@ export class CteScore {
 				if (! g) break;
 				const t2t = this.#hTag2Tds[g.name];
 				if (! t2t) break;
-				CteScore.#alzTagArg.go(g.args);
+				CteScore.#alzTagArg.parse(g.args);
 				const oTds = t2t(CteScore.#alzTagArg.hPrm);
 				wv.postMessage({cmd: 'upd_btn_face', ln: o.ln, htm: `
 <i class="fas ${oTds.icon}" aria-hidden="true"></i>
@@ -421,7 +421,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			'fa-code', g.name, g.args,
 		);
 
-		CteScore.#alzTagArg.go(g.args);
+		CteScore.#alzTagArg.parse(g.args);
 		const oTds = t2t(CteScore.#alzTagArg.hPrm);
 		const len = oTds.args ?oTds.args.length : 0;
 		const frm_style =

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL, getFn} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -35,12 +35,22 @@ type PluginDef = {
 export type TFONT2STR = {
 	[font_nm: string]: string;
 };
-
-export type TINF_INTFONT = {
-	defaultFontName	: string;
-	hSn2Font2Str	: {[sn: string]: {[font_nm: string]: string}};
-	hFontNm2uri	: {[font_nm: string]: string};
+type TFONT_ERR = {
+	err	: string;
+	nm	: string;
+	sl	: number;
+	sc	: number;
+	el	: number;
+	ec	: number;
 };
+type TINF_INTFONT = {
+	defaultFontName	: string;
+	hSn2Font2Str	: {[sn: string]: TFONT2STR};
+	hUri2FontErr	: {[uri: string]: TFONT_ERR[]}
+};
+
+type T_DBPIC = {w: number, h: number,};
+type TH_DBPIC = { [fn: string]: T_DBPIC; };
 
 
 export class Project {
@@ -299,6 +309,7 @@ export class Project {
 		switch (hd.cmd) {
 			case 'init':{
 				const pp2s: {[pp: string]: string} = {};
+
 				treeProc(this.#curPrj, path=> {
 					if (! /\.(ss?n|json)$/.test(path)) return;
 
@@ -319,44 +330,58 @@ export class Project {
 				];
 
 				this.#InfFont = hd.o.InfFont;
-				let updF2U = false;
+
 				this.#clDiag.clear();
-				const f2u = this.#InfFont.hFontNm2uri;
-//console.log(`fn:Project.ts f2u:%o`, {...f2u});
-				const hUri2Diag: {[uri: string]: Diagnostic[]} = {};
-				for (const [nm, uri] of Object.entries(f2u)) {
-					if (uri.charAt(0) === '/'
-					|| uri.charAt(0) === ':') continue;
+				for (const [uri, a] of Object.entries(this.#InfFont.hUri2FontErr)) {
+					const aD: Diagnostic[] = [];
+					for (const {err, nm, sl, sc, el, ec} of a) {
+						if (this.#getFontNm2path(nm)) continue;
 
-					this.#aPlaceFont
-					.some((base, i)=> ['woff2','otf','ttf'].some(ext=> {
-						const ret = existsSync(`${base}/${nm}.${ext}`);
-						if (ret) {
-							f2u[nm] = `::PATH_${['PRJ','USER','OS'][i]
-							}_FONTS::/${nm}.${ext}`;
-							updF2U = true;
-						}
-						return ret;
-					}));
-
-					if (f2u[nm].charAt(0) === ':') continue;
-					const [err, uri2, sl, sc, el, ec] = uri.split(',');
-					(hUri2Diag[uri2] ??= []).push(new Diagnostic(
-						new Range(Number(sl), Number(sc), Number(el), Number(ec)), err, DiagnosticSeverity.Error,
-					));
+						aD.push(new Diagnostic(
+							new Range(sl, sc, el, ec), err,
+							DiagnosticSeverity.Error,
+						));
+					}
+					this.#clDiag.set(Uri.parse(uri), aD);
 				}
-				for (const [uri, a] of Object.entries(hUri2Diag)) {
-					this.#clDiag.set(Uri.file(uri), a);
-				}
-				if (updF2U) this.#sendRequest2LSP('int_font.upd', this.#InfFont.hFontNm2uri);
+			}	break;
 
+			case 'db_pic':{
+				const hDbPic: TH_DBPIC = {};
+				treeProc(this.#curPrj, path=> this.#path2hDbPic(path, hDbPic));
+				this.#sendRequest2LSP(hd.cmd +'.res', {hDbPic});
 			}	break;
 		}
 	}
+	#getFontNm2path(font_nm: string): string {
+		for (const base of this.#aPlaceFont) {
+			for (const ext of ['woff2','otf','ttf']) {
+				const path = `${base}/${font_nm}.${ext}`;
+				if (existsSync(path)) return path;
+			}
+		}
+		return '';
+	};
+	#path2hDbPic(path: string, hDbPic: TH_DBPIC) {
+		if (! this.#REG_PIC.test(path)) return;
+
+		const {width = 0, height = 0} = img_size(path);
+		hDbPic[getFn(path)] = {w: width, h: height,};
+/*
+const args = [Uri.parse(path)];
+console.log(`fn:Project.ts ==${
+	Uri.parse(
+		`command:revealInExplorer?${encodeURIComponent(JSON.stringify(args))}`
+	)
+}==`);
+*/
+
+	}
+	readonly	#REG_PIC	= /\.(jpe?g|png|svg|webp)$/;
 	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
 		defaultFontName	: '',
 		hSn2Font2Str	: {},
-		hFontNm2uri		: {},
+		hUri2FontErr	: {},
 	};
 	readonly	#aPlaceFont;
 
@@ -505,11 +530,11 @@ export class Project {
 		}} = {};
 		oFont[Project.DEF_FONT] = {inp: '', txt: ''};
 
-		const o = this.#InfFont;
 		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
-			inp: o.hFontNm2uri[font_nm],
+			inp: this.#getFontNm2path(font_nm),
 			txt: '',
 		};
+		const o = this.#InfFont;
 		for (const f2s of Object.values(o.hSn2Font2Str)) {
 			for (const [font_nm, v] of Object.entries(f2s)) {
 				ensureFont2Str(font_nm);
@@ -958,7 +983,7 @@ export class Project {
 
 	static	readonly #LEN_ENC	= 1024 *10;
 			readonly #REG_DIR	= /(^.+)\//;
-	#tidDelay: NodeJS.Timer | null = null;
+	#tiDelayEnc: NodeJS.Timer | null = null;
 	async #encFile(path_src: string) {
 		try {
 			const short_path = path_src.slice(this.#lenCurPrj);
@@ -979,8 +1004,8 @@ export class Project {
 					return;
 				}
 
-				if (this.#tidDelay) clearTimeout(this.#tidDelay);	// 遅延
-				this.#tidDelay = setTimeout(()=> {
+				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);	// 遅延
+				this.#tiDelayEnc = setTimeout(()=> {
 					const s = readFileSync(path_src, {encoding: 'utf8'});
 					// ファイル名匿名化
 					const hPath: IFn2Path = JSON.parse(s);
@@ -1119,17 +1144,21 @@ export class Project {
 
 
 	#hPathFn2Exts	: IFn2Path	= {};
-	async #updPathJson() {
-		try {
-			const uriPathJs = this.#curPrj +'path.json';
-			this.#hPathFn2Exts = this.#get_hPathFn2Exts(this.#curPrj);
-			await outputJson(uriPathJs, this.#hPathFn2Exts);
+	#tiDelayPathJson: NodeJS.Timer | null = null;
+	#updPathJson() {
+		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
+		this.#tiDelayPathJson = setTimeout(()=> {
+			try {
+				const uriPathJs = this.#curPrj +'path.json';
+				this.#hPathFn2Exts = this.#get_hPathFn2Exts(this.#curPrj);
+				outputJson(uriPathJs, this.#hPathFn2Exts);
 
-			if (this.#isCryptoMode) this.#encFile(uriPathJs);
+				if (this.#isCryptoMode) this.#encFile(uriPathJs);
 
-// NOTE: Score	this.#codSpt.updPath(this.#hPathFn2Exts);
-		}
-		catch (err) {console.error(`Project updPathJson ${err}`);}
+	// NOTE: Score	this.#codSpt.updPath(this.#hPathFn2Exts);
+			}
+			catch (err) {console.error(`Project updPathJson ${err}`);}
+		}, 100);
 	}
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
 	#get_hPathFn2Exts($cur: string): IFn2Path {
@@ -1212,20 +1241,20 @@ export class Project {
 	}
 	readonly #URI_DUMMY_MAT		= Uri.file('素材ファイル');
 	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: Diagnostic[]) {
-		const {name: fn, base, ext: ext0} = parse(nm);
-		const ext = ext0.slice(1);
+		const {name: fn, base, ext} = parse(nm);
+		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
 		if (! hExts) {
 			hExts = hFn2Path[fn] = {':cnt': 1};
 		}
-		else if (ext in hExts) {
+		else if (ext2 in hExts) {
 			aD.push(new Diagnostic(new Range(0, 0, 0, 0), `プロジェクト内でファイル【${base}】が重複しています。フォルダを縦断検索するため許されません`, DiagnosticSeverity.Error));
 			return;
 		}
 		else {
 			hExts[':cnt'] = uint(hExts[':cnt']) +1;
 		}
-		hExts[ext] = dir +'/'+ nm;
+		hExts[ext2] = dir +'/'+ nm;
 	}
 
 }

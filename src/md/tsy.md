@@ -9,7 +9,7 @@
 - repeat		1	0〜	繰返し回数。0 で無限ループ。1を設定すると「繰り返しなし」、2を設定すると「二回同じ動き」を行なう。
 - arrive		false	Boolean	trueならクリックキャンセルでアニメ終端までSkip。falseならその場で停止
 - backlay		false	Boolean	trueならトゥイーン終了時、fore→backへ属性をコピーする。<br/>コピーする属性はalpha, height, rotation, scale_x, scale_y, width, left, top。
-- ease		Linear.None（イージング無し）	イージング名	揺れのイージング（値の変化の仕方）を指定する。[イージングの変化はこちらの図](https://createjs.com/demos/tweenjs/tween_sparktable)（または[こちら](https://sole.github.io/tween.js/examples/03_graphs.html)）が分かりやすい。指定できる値は[tsy]を参照
+- ease		Linear.None	イージング名	揺れのイージング（値の変化の仕方）を指定する。[イージングの変化はこちらの図](https://createjs.com/demos/tweenjs/tween_sparktable)（または[こちら](https://sole.github.io/tween.js/examples/03_graphs.html)）が分かりやすい。指定できる値は[tsy]を参照
 - yoyo		false	Boolean	（暫定）ヨーヨーのように逆方向に戻って繰り返す
 - chain		なにもしない	レイヤ名	指定したレイヤのトゥイーンアニメが終了してから、このトゥイーンを続けて開始する
 - alpha		1.0	0.0〜1.0（実数）	レイヤの透過度。0（完全透明）〜0.5（半透明）〜1（不透明）<br/>> **相対値あるいは絶対値を指定できる**<br/>> x=500 .......... 500<br/>> x='=500' ....... 現在のxに+500加算した値<br/>> x='=-500' ...... 現在のxに-500加算した値<br/>> x='250,500' .... +250から＋500までの間でランダムな値<br/>> x='=250,500' ... +250から＋500までの間でランダムな値を現在のxに加算した値

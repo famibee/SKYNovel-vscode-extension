@@ -18,6 +18,24 @@ export	const	REG_SCRIPT	= /\.ss?n$/;
 
 export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
+export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
+	DEFAULT	= '',
+	SPRITE	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
+		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
+	SCRIPT	= 'sn|ssn',
+	FONT	= 'woff2|woff|otf|ttf',
+	SOUND	= 'mp3|m4a|ogg|aac|flac|wav',
+	HTML	= 'htm|html',
+	CSS		=	'css',
+	SN		=	'sn',
+
+	TST_PNGPNG_	= 'png|png_',
+	TST_HH		= 'hh',
+	TST_EEE		= 'eee',
+	TST_GGG		= 'ggg',
+	TST_PNGXML	= 'png|xml',
+};
+
 
 // =============== Project
 export interface IExts { [ext: string]: string | number; };
