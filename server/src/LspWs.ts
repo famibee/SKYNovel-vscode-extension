@@ -7,7 +7,7 @@
 
 import {getFn, int, REG_SCRIPT} from './CmnLib';
 import {Grammar, Script} from './Grammar';
-import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
+import {AnalyzeTagArg, HPRM, PRM_RANGE} from './AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
 
@@ -15,7 +15,6 @@ import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLi
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type ARG_TAG_PROC = {
-	setKw	: Set<string>,
 	hArg	: HPRM,
 	uri		: string,
 	pp		: string,
@@ -26,6 +25,7 @@ type ARG_TAG_PROC = {
 	p		: Position,
 	rng_nm	: Range,
 	aDsOutline	: DocumentSymbol[];
+	hRng	: {[key: string]: PRM_RANGE}
 };
 interface MacroDef {
 	loc		: Location;
@@ -80,7 +80,7 @@ export interface IExts { [ext: string]: string; };
 export interface IFn2Path { [fn: string]: IExts; };
 
 const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
-	DEFAULT		= '',
+	DEFAULT	= '',
 	SP_GSM	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
 		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
 	SCRIPT	= 'sn|ssn',
@@ -93,34 +93,81 @@ const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 type T_DBPIC = {w: number, h: number,};
 type TH_DBPIC = { [fn: string]: T_DBPIC; };
 
+type MAP_KW2ALOC = Map<string, Location[]>;
+
+type T_DIAG = {
+	mes	: string;
+	sev	: DiagnosticSeverity;
+};
+
+
+const CHK重複_KEY = [
+	'マクロ定義',
+	'差分名称',
+	'レイヤ定義',
+	'フレーム定義',
+	'文字出現演出定義',
+	'文字消去演出定義',
+	'一文字マクロ定義',
+] as const;
+type T_CHK重複_KEY = typeof CHK重複_KEY[number]; // union type
+
+const hInfKw: {[key in T_CHK重複_KEY]: T_KW_VAR} = {
+	マクロ定義		: 'マクロ名',
+	差分名称		: '差分名称',
+	レイヤ定義		: 'レイヤ名',
+	フレーム定義	: 'フレーム名',
+	文字出現演出定義	: '文字出現演出名',
+	文字消去演出定義	: '文字消去演出名',
+	一文字マクロ定義	: '一文字マクロ文字',
+};
+
+
+const KW_FIX = [	// #scanAll() - #updPath() で設定
+	// 実存ファイル組
+	'スクリプトファイル名',
+	'画像ファイル名',
+	'音声ファイル名',
+	'HTMLファイル名',
+] as const;
+type T_KW_FIX = typeof KW_FIX[number]; // union type
+
+// T_NMKW組。スクリプトに登場
+const KW_VAR = [
+	// CHK重複
+	'マクロ名',		// #recDefKw()でついでに #hT2Pp2Kw[i][pp] 記録、
+	'差分名称',			// #scanEnd()で #hKey2KW に集積
+	'レイヤ名',			// 〃
+		'文字レイヤ名',		// #hTagProc -> [add_lay]
+		'画像レイヤ名',		// #hTagProc -> [add_lay]
+	'フレーム名',		// 〃
+	'文字出現演出名',	// 〃
+	'文字消去演出名',	// 〃
+	'一文字マクロ文字',	// 〃
+
+	// 以外
+	'代入変数名',	// & 変数操作、[let_ml][let]
+	'ジャンプ先',	// * ラベル ほか（スニペット作成に使ってる）
+] as const;
+type T_KW_VAR = typeof KW_VAR[number]; // union type
+
+type T_KW = T_KW_FIX | T_KW_VAR;
+
 
 export class LspWs {
 	// === 新キーワード選択値はここに追加する。存在チェックもなるべく同時に
-	// #scanInitAll() でクリア・初期値
-	readonly	#hSetWords	: {[key: string]: Set<string>}	= {
-		'代入変数名'	: new Set,	// & 変数操作、[let_ml][let]
+	// #scanInitAll() （やその前後の流れ）でクリア・初期値
+	readonly	#hKey2KW	: {[key in T_KW]: Set<string>};
+	// キーワード集積・存在チェック用
+	readonly	#hT2Pp2Kw	: {[key in T_KW]: {[pp: string]: Set<string>}};
 
-		'ジャンプ先'	: new Set,	// * ラベル（なにに使ってる？　過去値比較のみ？）
+	// キーワード重複チェック用
+	readonly	#hT2DefKw2ALoc	: {[key in T_CHK重複_KEY]: MAP_KW2ALOC};
 
-		'レイヤ名'		: new Set,	// #hTagProc -> [add_lay]
-		'文字レイヤ名'	: new Set,
-		'画像レイヤ名'	: new Set,
 
-		'マクロ名'		: new Set,	// #scanEnd()
-
-		'スクリプトファイル名': new Set,	// #updPath() で設定
-		'画像ファイル名': new Set,
-		'音声ファイル名': new Set,
-		'HTMLファイル名': new Set,
-
-		'差分名称'		: new Set,	// #hTagProc -> [add_face]
-		'フレーム名'	: new Set,	// #hTagProc -> [add_frame]
-		'サウンドバッファ': new Set,	// -> [playbgm][playse][button][link]
-		'文字出現演出名': new Set,	// #hTagProc -> [ch_in_style]
-		'文字消去演出名': new Set,	// #hTagProc -> [ch_out_style]
-	};
-	readonly	#hPreWords	: {[key: string]: string}	= {
-		'イベント名':
+	// === キーワードスニペット（#prepareSnippet() でkey追加・更新。既存はノータッチ）
+	readonly	#hK2Snp	: {[key: string]: string}	= {
+		イベント名:
 `|Click
 RightClick
 MiddleClick
@@ -167,7 +214,7 @@ linear
 step-start
 step-end
 cubic-bezier(...)|`,
-		'イージング名':
+		イージング名:
 `|Back.In
 Back.InOut
 Back.Out
@@ -199,14 +246,15 @@ Quintic.Out
 Sinusoidal.In
 Sinusoidal.InOut
 Sinusoidal.Out|`,
-		'ブレンドモード名':
+		ブレンドモード名:
 `|normal
 add
 multiply
 screen|`,
 	};
+
 	readonly	#hRegPreWords	: {[key: string]: RegExp}	= {};
-	static readonly	#sPredefWrtVar	=
+	static readonly	#aPredefWrtVar	=
 `const.Date.getDateStr
 const.Date.getTime
 const.sn.bookmark.json
@@ -298,13 +346,13 @@ sys:sn.tagCh.doWait
 sys:sn.tagCh.doWait_Kidoku
 sys:sn.tagCh.msecWait
 sys:sn.tagCh.msecWait_Kidoku
-sys:TextLayer.Back.Alpha`.replaceAll('\n', ',');
+sys:TextLayer.Back.Alpha`.split('\n');
 
 
 	static		inited		= false;
 	static		#hTag		: {[tag_nm: string]: boolean}	= {};
 	static		#hSnippet	: {[tag_nm: string]: string}	= {};
-	static	readonly	#aCITag			: CompletionItem[]	= [];
+	static	readonly	#aCITag	: CompletionItem[]			= [];
 
 	readonly	#curPrj		: string;	// 'file:///'付き
 	readonly	#lenCurPrj	: number;
@@ -381,26 +429,37 @@ ${sum}`,}
 		this.#hTagProc.let_substr = this.#hTagProc.let;
 		this.#hTagProc.set_frame = this.#hTagProc.let_frame;
 
+		this.#hTagProc.button =
+		this.#hTagProc.link =
 		this.#hTagProc.event =
 		this.#hTagProc.jump =
 		this.#hTagProc.return = this.#hTagProc.s;
 		this.#hTagProc.else = this.#hTagProc.elsif;
 
-		for (const [k, v] of Object.entries(this.#hPreWords)) {
+		for (const [k, v] of Object.entries(this.#hK2Snp)) {
 			const re = v.slice(1, -1)
 			.replaceAll(/([|\.+])/g, '\\$1')	// 正規表現のエスケープ
 			.replaceAll('<ワンキー>', '\\w+')
-			.replaceAll('👾\\', '')
+			.replaceAll('👾\\', '')		// 特殊文字処理だけど初期値なので問題なし
 			.replaceAll('\n', '|');
 			this.#hRegPreWords[k] = new RegExp(
 				`^(${re})$`,
 				k === 'イベント名' ?'i': ''
 			);
 
-			this.#hPreWords[k] = v
+			this.#hK2Snp[k] = v
 			.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
 			.replaceAll('\n', ',');
 		}
+
+		this.#hT2DefKw2ALoc = <{[key in T_CHK重複_KEY]: MAP_KW2ALOC}>Object
+		.fromEntries( CHK重複_KEY.map(v=> [v, new Map]) );
+
+		const aKw = [...KW_FIX, ...KW_VAR];
+		this.#hKey2KW = <{[key in T_KW]: Set<string>}>Object
+		.fromEntries( aKw.map(kw=> [kw, new Set]) );
+
+		this.#hT2Pp2Kw = <{[key in T_KW]: {[pp: string]: Set<string>}}>Object.fromEntries( aKw.map(kw=> [kw, {}]) );
 	}
 	destroy(path?: string) {
 		if (path && ! this.#checkRelated(path)) return false;
@@ -470,39 +529,31 @@ ${sum}`,}
 
 		// scanScript 本編
 		this.#scanBegin();
-		this.#sNeedScan = new Set();
+		this.#sPpNeedScan = new Set(this.#getAPpDefKw());
 		this.#hScript[pp] = this.#grm.resolveScript(chg.document.getText());
-		this.#scanInit(pp);
 		this.#scanScript(pp);
-		this.#goFinish(pp);
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
 		// すべて追加走査（重複走査・永久ループに留意）
 			// 重複定義時は、最初に見つかったもののみ #hMacro(Old) に入っている
 		const mon = {...this.#hOldDefMacro, ...this.#hDefMacro};
 		for (const [nm, {loc}] of Object.entries(mon)) {
-			if (loc.uri === uri || this.#hDupMac2aUse[nm]?.some(locUse=> locUse.uri === uri)) {
-				// このファイルで使用している、別ファイルで定義されたマクロ
-				// このファイルで定義されたマクロ、を使用している別ファイル
-				for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
-					//if (locUse.uri !== uri) // 略、.delete(uri)するので
-					this.#sNeedScan.add(locUse.uri.slice(this.#lenCurPrj));
-				}
+			if (loc.uri !== uri) continue;
+
+			// このファイルで使用している、別ファイルで定義されたマクロ
+			// このファイルで定義されたマクロ、を使用している別ファイル
+			for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
+				//if (locUse.uri !== uri) // 略、.delete(uri)するので
+				this.#sPpNeedScan.add(locUse.uri.slice(this.#lenCurPrj));
 			}
 		}
 
 		// 追加走査
-		this.#sNeedScan.delete(uri);	// 処理重複につき
-//console.log(`fn:LspWs.ts pp2:${[...this.#sNeedScan.keys()].join(',')}:`);
-		for (const pp2 of this.#sNeedScan) {
-			this.#scanInit(pp2);
-			this.#scanScript(pp2);
-			this.#goFinish(pp2);
-		}
+		this.#sPpNeedScan.delete(pp);	// 処理重複につき
+		for (const pp2 of this.#sPpNeedScan) this.#scanScript(pp2);
 		this.#scanEnd();
 	}
-	#sNeedScan	= new Set<string>();	// スキャン必要フラグ（単体ファイル走査時）
-		// {[pp: string]: 0}
+	#sPpNeedScan	= new Set<string>();	// スキャン必要フラグ（単体ファイル走査時）
 
 	// === ファイル変更イベント（手入力以外が対象） ===
 	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
@@ -592,7 +643,7 @@ ${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNov
 				if (rangetype !== '画像ファイル名') return [];
 
 				const v = hVal[name];
-				if (! v || ! this.#hSetWords.画像ファイル名.has(v)) return [];
+				if (! v || ! this.#hKey2KW.画像ファイル名.has(v)) return [];
 
 				const {w, h} = this.#hDbPic[v] ?? {w: 0, h: 0};
 				const path = this.#searchPath(v, SEARCH_PATH_ARG_EXT.SP_GSM);
@@ -612,7 +663,7 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 		}
 		readonly	#whThumbnail = 120;
 
-		readonly #checkRelated = (uri: string)=> this.#curPrj === uri.slice(0, this.#lenCurPrj);
+		readonly	#checkRelated = (uri: string)=> this.#curPrj === uri.slice(0, this.#lenCurPrj);
 		readonly	#cnvMdParam2Str = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
 			? `【必須】${this.#escHighlight(rangetype)}`
@@ -658,7 +709,7 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 		// if (trgChr === '=')
 		const token = d.getText(u.rng);
 		const hRng = this.#alzTagArg.parseinDetail(token, u.nm.length, u.rng.start.line, u.rng.start.character);
-		const pr = Object.entries(hRng).find(([, {k_ln, k_ch, v_ln, v_ch, v_len}])=> this.#contains(Range.create(k_ln, k_ch, v_ln, v_ch +v_len), p));
+		const pr = Object.entries(hRng).find(([, prm])=> this.#contains(this.#genPrm2Rng(prm), p));
 		if (! pr) return null;
 		const [prK] = pr;
 		const prm_details = param.find(pd=> pd.name === prK);
@@ -672,13 +723,15 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 		.map(label=> ({label, kind: CompletionItemKind.Keyword,}));
 
 		let kind: CompletionItemKind = CompletionItemKind.Value;
-		const words = this.#hPreWords[rangetype];
+		const words = this.#hK2Snp[rangetype];
 		if (! words) return prm_details?.def ?[{label: prm_details.def, kind,}] :[];
+
 		switch (rangetype) {
 			case 'イベント名':	kind = CompletionItemKind.Event;	break;
 
 			case '代入変数名':	kind = CompletionItemKind.Variable;	break;
 			case 'ジャンプ先':	kind = CompletionItemKind.Reference;	break;
+			case 'レイヤ名（カンマ区切りで複数可）':
 			case 'レイヤ名':
 			case '文字レイヤ名':
 			case '画像レイヤ名':	kind = CompletionItemKind.Folder;	break;
@@ -696,10 +749,10 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 
 			default:	kind = CompletionItemKind.EnumMember;	break;
 		}
-		return words.slice(1, -1).split(',').map(v=> ({
-			label	: v,
-			kind	:
-				v.slice(0, 6) === 'const.' ? CompletionItemKind.Constant :kind,
+		return words.slice(1, -1).split(',').map(label=> ({
+			label,
+			kind: label.slice(0, 6) === 'const.'
+				? CompletionItemKind.Constant :kind,
 		}));
 	}
 		#contains({start, end}: Range, {line: l, character: c}: Position): boolean {
@@ -726,25 +779,26 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 
 		return ci;
 	}
-	#cnvSnippet	= (s: string, _cur_fn: string)=> s;
+	#cnvSnippet	= (s: string, _fn_cur_sn: string)=> s;
 	#aCITagMacro		: CompletionItem[]	= [];
 	#hFn2JumpSnippet	: {[fn: string]: string}	= {};
 	#prepareSnippet() {
+		// this.#hK2Snpに key追加・更新するメソッド。既存 key はノータッチ
 		let eq = true;
-		for (const [key, set] of Object.entries(this.#hSetWords)) {
+		for (const [key, set] of Object.entries(this.#hKey2KW)) {
 			const str = `|${
 				[...set.values()].sort().join('\n')
 				.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
 				.replaceAll('\n', ',')
 			}|`;
-			if (this.#hPreWords[key] !== str) {
+			if (this.#hK2Snp[key] !== str) {
 				eq = false;
 			//	this.#cteScore.updWords(key, set);	// NOTE: Score
 					// この中は参照渡しとReq/Res型なので、更新確認は別にいらない
 			}
-			this.#hPreWords[key] = (str === '||') ?`:${key}` :str;
+			this.#hK2Snp[key] = (str === '||') ?`:${key}` :str;
 		}
-		if (eq) return;
+		if (eq) return;	// 以降の不要処理を防ぐが、オーバースペックかも
 
 		this.#aCITagMacro = [
 			...LspWs.#aCITag,
@@ -776,34 +830,32 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 			//	data?: LSPAny;
 			})),
 
-			...Object.entries(this.#hDefPlugin).map(([nm, _pd])=> ({
+			...Object.entries(this.#hDefPlugin).map(([nm])=> ({
 				label	: nm,
 				kind	: CompletionItemKind.Snippet,
 			//	tags?	: CompletionItemTag[];
-				detail	: '（プラグインにより追加されたタグ）',	// 最初に出る一覧の右二つ	// NOTE: プラグインの概要
+				detail	: '（プラグインにより追加されたタグ）',// 最初に出る一覧の右二つ
 			})),
 		];
 
 		// NOTE: マクロやプラグインのスニペットは未実装。優先順位低い
 		this.#hFn2JumpSnippet = {};
-		this.#cnvSnippet = (s, cur_fn)=> {
-			const bk = this.#hPreWords.ジャンプ先;
-
-			const jsn = this.#hFn2JumpSnippet[cur_fn];
-			this.#hPreWords.ジャンプ先 = jsn ?? (()=> {
-				if (typeof bk !== 'string') return 'ジャンプ先';
+		this.#cnvSnippet = (s, fn_cur_sn)=> {
+			const jsn = this.#hFn2JumpSnippet[fn_cur_sn];
+			if (jsn) this.#hK2Snp.ジャンプ先 = jsn;
+			else {
 				let cur_sn = '';
-				const sn = (bk.slice(1, -1) +',').replace(
-					new RegExp(`fn=${cur_fn},(?:fn=${cur_fn} [^,|]+,)*`),
+				const sn = (this.#hK2Snp.ジャンプ先.slice(1, -1) +',')
+				.replace(
+					new RegExp(`fn=${fn_cur_sn},(?:fn=${fn_cur_sn} [^,|]+,)*`),
 					m=> {cur_sn = m; return '';}
-				)
-				return this.#hFn2JumpSnippet[cur_fn]
-					= `|${(cur_sn + sn).slice(0, -1)}|`;
-			})();
+				);
+				this.#hK2Snp.ジャンプ先
+				= this.#hFn2JumpSnippet[fn_cur_sn]
+				= `|${(cur_sn + sn).slice(0, -1)}|`;
+			}
 
-			this.#hPreWords.ジャンプ先 = bk;
-
-			return s.replace(/{{([^\}]+)}}/g, (_, p)=> this.#hPreWords[p]);
+			return s.replace(/{{([^\}]+)}}/g, (_, p)=> this.#hK2Snp[p]);
 		};
 	}
 
@@ -852,7 +904,7 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 		const token = d.getText(u.rng);
 //console.log(`fn:LspWs.ts token:${token}: u.nm:${u.nm}: p(${p.line}, ${p.character}) u.rng.start(${JSON.stringify(u.rng.start)})`);
 		const hRng = this.#alzTagArg.parseinDetail(token, u.nm.length, u.rng.start.line, u.rng.start.character);
-		const pr = Object.entries(hRng).find(([, {k_ln, k_ch, v_ln, v_ch, v_len}])=> this.#contains(Range.create(k_ln, k_ch, v_ln, v_ch +v_len), p));
+		const pr = Object.entries(hRng).find(([, prm])=> this.#contains(this.#genPrm2Rng(prm), p));
 		if (pr) {
 			const [prK] = pr;
 			ret.activeParameter = param.findIndex(p=> p.name === prK);
@@ -884,11 +936,10 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 
 				const token = d.getText(u.rng);
 				const hRng = this.#alzTagArg.parseinDetail(token, u.nm.length, u.rng.start.line, u.rng.start.character);
-				const r = hRng.name;
-				if (! r) return null;
+				const prm = hRng.name;
+				if (! prm) return null;
 
-				const {v_ln, v_ch, v_len} = r;
-				name = d.getText(Range.create(v_ln, v_ch, v_ln, v_ch +v_len));
+				name = d.getText(this.#genPrm2Rng(prm));
 			}
 		}
 
@@ -922,11 +973,10 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 
 				const token = d.getText(u.rng);
 				const hRng = this.#alzTagArg.parseinDetail(token, u.nm.length, u.rng.start.line, u.rng.start.character);
-				const r = hRng.name;
-				if (! r) return null;
+				const prm = hRng.name;
+				if (! prm) return null;
 
-				const {v_ln, v_ch, v_len} = r;
-				name = d.getText(Range.create(v_ln, v_ch, v_ln, v_ch +v_len));
+				name = d.getText(this.#genPrm2Rng(prm));
 				break;
 			}
 		}
@@ -1073,18 +1123,22 @@ WorkspaceEdit
 
 		this.#hDefPlugin = o.hDefPlg;
 
+		//console.log(`fn:LspWs.ts #scanAll() 1: #scanBegin()`);
 		this.#scanBegin();
+		//console.log(`fn:LspWs.ts #scanAll() 2: #scanInitAll()`);
 		this.#scanInitAll();
+		//console.log(`fn:LspWs.ts #scanAll() 3: #updPath()`);
 		this.#updPath(o.pp2s['path.json'] ?? '{}');		// 必ず #scanInitAll() 後
+		//console.log(`fn:LspWs.ts #scanAll() 4: #scanScript()`);
 		for (const [pp, s] of Object.entries(o.pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
 
 			this.#hScript[pp] = this.#grm.resolveScript(s);
-			this.#scanInit(pp);
 			this.#scanScript(pp);
-			this.#goFinish(pp);
 		}
+		//console.log(`fn:LspWs.ts #scanAll() 8: #scanEnd()`);
 		this.#scanEnd();
+		//console.log(`fn:LspWs.ts #scanAll() 9:`);
 	}
 		#updPath(sJson: string) {
 			const oJs = JSON.parse(sJson);
@@ -1096,19 +1150,19 @@ WorkspaceEdit
 					h[ext] = curPrj + w;
 
 					if (LspWs.#REG_SCRIPT.test(ext)) {
-						this.#hSetWords.スクリプトファイル名.add(nm);
+						this.#hKey2KW.スクリプトファイル名.add(nm);
 						continue;
 					}
 					if (LspWs.#REG_SP_GSM.test(ext)) {
-						this.#hSetWords.画像ファイル名.add(nm);
+						this.#hKey2KW.画像ファイル名.add(nm);
 						continue;
 					}
 					if (LspWs.#REG_SOUND.test(ext)) {
-						this.#hSetWords.音声ファイル名.add(nm);
+						this.#hKey2KW.音声ファイル名.add(nm);
 						continue;
 					}
 					if (LspWs.#REG_HTML.test(ext)) {
-						this.#hSetWords.HTMLファイル名.add(nm);
+						this.#hKey2KW.HTMLファイル名.add(nm);
 						continue;
 					}
 				}
@@ -1121,47 +1175,81 @@ WorkspaceEdit
 
 
 	#scanBegin() {this.#aOldUri2Diag = Object.keys(this.#uri2Diag);}
-	#aOldUri2Diag	: string[]	= [];
+	#aOldUri2Diag	: string[]	= [];	// スクリプト削除時にエラーや警告を消す用
 	#aEndingJob	: (()=> void)[]	= [];
 	#scanEnd() {
-		const setマクロ名 = this.#hSetWords.マクロ名;
-		const hMacArgDesc: ArgDesc	= {};
-		for (const [mac_nm, {sum}] of Object.entries(this.#hDefMacro)) {
-			setマクロ名.add(mac_nm);
-			hMacArgDesc[mac_nm] = {
-				label	: `[${mac_nm} ...]`,
-				doc		: sum ?? '',
-			};
-		}
-		this.#hArgDesc = {...LspWs.#hTagArgDesc, ...hMacArgDesc};
+		// == キーワードを全てマージ（スクリプトに登場したもの＋組み込み初期値）
+		// 【実存ファイル組】を触ってはいけないので全ループ禁止
+		for (const key of KW_VAR) this.#hKey2KW[key] = new Set(
+			Object.values(this.#hT2Pp2Kw[key] ??= {})
+			.flatMap(v=> [...v.keys()]),
+		);
+		this.#hKey2KW.差分名称 = new Set([
+			...this.#hKey2KW.画像ファイル名,
+			...this.#hKey2KW.差分名称,
+		]);
+		for (const kw of LspWs.#aPredefWrtVar) this.#hKey2KW.代入変数名.add(kw);
+		this.#hKey2KW.文字出現演出名.add('default');
+		this.#hKey2KW.文字消去演出名.add('default');
 
+
+		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];
 
 
-		const d定義重複 = this.#hDiag.マクロ定義重複;
-		for (const [nm, aUse] of Object.entries(this.#hDupMac2aUse)) {
-			if (aUse.length < 2) continue;
+		// == 情報集積ここまで、結果からDB作成系
+		for (const i of CHK重複_KEY) this.#chkDupDefKw(i);
 
-			const mes = d定義重複.mes.replace('$', nm);
-			// 同じ警告は一度全て削除
-			for (const [uri, a] of Object.entries(this.#uri2Diag)) {
-				this.#uri2Diag[uri] = a.flatMap(d=> d.message == mes ?[] :d);
-			}
 
-		//	if (false) {	// 4 tst
-			if (this.hasDiagRelatedInfCap) {
-				const [{range, uri}] = aUse;
-				const diag = Diagnostic.create(range, mes, d定義重複.sev);
-				diag.relatedInformation = aUse.map(u=> ({
-					location	: {uri: u.uri, range: u.range},
-					message		: this.#hDiag.マクロ定義重複_その他.mes,
-				}));
-				(this.#uri2Diag[uri] ??= []).push(diag);
-			}
-			else for (const u of aUse) (this.#uri2Diag[u.uri] ??= [])
-			.push(Diagnostic.create(u.range, mes, d定義重複.sev));
+		const {mes, sev} = this.#hDiag.未使用マクロ;
+		for (const [nm, {hPrm, loc}] of Object.entries(this.#hDefMacro)) {
+			if (nm in this.#hMacro2aLocUse) continue;
+			if (hPrm?.nowarn_unused?.val) continue;
+
+			(this.#uri2Diag[loc.uri] ??= []).push(Diagnostic.create(
+				loc.range,
+				mes.replace('$', nm),
+				sev
+			));
 		}
+
+
+/*	// NOTE: Score
+		if (pp.slice(-4) === '.ssn') {	// NOTE: Score 変更して動作未確認
+			const d = this.docs.get(this.#curPrj + pp);	// NOTE: LSPでは失敗する
+			if (! d) return;
+
+			const hMacroOld = this.#hOldDefMacro;
+			for (const [nm, v] of Object.entries(hMacroOld)) {
+				if (! (nm in this.#hDefMacro)	// マクロ定義が削除された
+				||	Object.entries(this.#hDefMacro[nm].hPrm).sort().join()
+				!==	Object.entries(v.hPrm).sort().join())
+				// マクロ定義の引数が更新された
+				this.#hMacro2UseLocs[nm]?.forEach(locUse=> {
+					const txt = doc.lineAt(loc.range.start.line).text.trim();
+					this.#cteScore.updLine(
+						doc,
+						loc.range,
+						txt,
+						this.#resolveScript(txt).aToken
+					);	// 最新ssn定義で更新
+				});
+			}
+
+			// 追加されたマクロ定義
+			this.#aMacroAdd.forEach(nm=> this.#hMacro2UseLocs[nm]?.forEach(locUse=> {
+				const txt = doc.lineAt(loc.range.start.line).text.trim();
+				this.#cteScore.updLine(
+					doc,
+					loc.range,
+					txt,
+					this.#resolveScript(txt).aToken,
+				);
+			}));
+		}
+*/
+
 
 		const d未定義 = this.#hDiag.未定義マクロ;
 		for (const [nm, aUse] of Object.entries(this.#hMacro2aLocUse)) {
@@ -1186,7 +1274,21 @@ WorkspaceEdit
 			this.conn.sendDiagnostics({uri, diagnostics: []});
 		}
 
+		const hMacArgDesc: ArgDesc	= {};
+		for (const [mac_nm, {sum}] of Object.entries(this.#hDefMacro)) {
+			// 重複後の解消時対策としてここでやる
+			//（重複時はどれともいえないが、一つならそれが正解・最初の一個を取ればいい）
+			hMacArgDesc[mac_nm] = {
+				label	: `[${mac_nm} ...]`,
+				doc		: sum ?? '',
+			};
+		}
+		this.#hArgDesc = {...LspWs.#hTagArgDesc, ...hMacArgDesc};
 
+		this.#prepareSnippet();
+
+
+		// == 結果を通知系
 		this.#sendRequest('analyze_inf', {
 			InfFont			: this.#InfFont,
 
@@ -1209,25 +1311,11 @@ WorkspaceEdit
 			})),
 		});
 
-
-		this.#prepareSnippet();
-
 		this.conn.languages.inlayHint.refresh();
 	}
 
 
-	readonly	#hDiag	:{[code_name: string]: {
-		mes	: string;
-		sev	: DiagnosticSeverity;
-	}} = {
-		マクロ定義重複: {
-			mes	: 'マクロ定義 [macro name=$] が重複しています。一つにして下さい',
-			sev	: DiagnosticSeverity.Error,
-		},
-		マクロ定義重複_その他: {
-			mes	: 'その他の定義箇所',
-			sev	: DiagnosticSeverity.Error,
-		},
+	readonly	#hDiag	:{[code_name: string]: T_DIAG} = {
 		ラベル重複: {
 			mes	: '同一スクリプトにラベル【$】が重複しています',
 			sev	: DiagnosticSeverity.Error,
@@ -1295,12 +1383,8 @@ WorkspaceEdit
 	#hDoc2TagMacUse	: {[pp: string]: {nm: string, rng: Range}[]}	= {};
 
 	#hOldDefMacro	: {[nm: string]: MacroDef}	= {};	// 変更前に存在したマクロ群
-//	#aMacroAdd		: string[]	= [];
 
-	#hScr2KeyWord	: {[pp: string]: Set<string>}	= {};
-	#OldhScr2KeyWord	= new Set<string>();	// キーワード削除対応
 	#hSn2aDsOutline	: {[pp: string]: DocumentSymbol[]}	= {};
-	#hDupMac2aUse	: {[nm: string]: Location[]}	= {};	// 重複マクロ定義検知用
 
 	#hFn2label		: {[fn: string]: TH_FN2LBLRNG}	= {};	// ラベル存在チェック用
 	#hPp2JoinLabel	: {[pp: string]: string}		= {};	// ラベル名結合文字列
@@ -1312,19 +1396,13 @@ WorkspaceEdit
 	#Uri2Links	: {[uri: string]: DocumentLink[]}	= {};
 
 	#scanInitAll() {
-		for (const key of Object.keys(this.#hSetWords)) this.#hSetWords[key].clear();
-		this.#hSetWords.代入変数名.add(LspWs.#sPredefWrtVar);
-		this.#hSetWords.文字出現演出名.add('default');
-		this.#hSetWords.文字消去演出名.add('default');
-
 		this.#hDefMacro = {};
 		this.#hMacro2aLocUse = {};
 		this.#hDoc2TagMacUse = {};
 
-		this.#hScr2KeyWord = {};
+		for (const key of KW_VAR) this.#hT2Pp2Kw[key] = {};
 		this.#hSn2aDsOutline = {};
 		this.#InfFont = {defaultFontName: '', hSn2Font2Str: {}, hUri2FontErr: {}};
-		this.#hDupMac2aUse = {};
 
 		this.#hFn2label = {};
 		this.#hPp2JoinLabel = {};
@@ -1333,110 +1411,8 @@ WorkspaceEdit
 
 		this.#uri2Diag = {};
 		this.#Uri2Links = {};
-	}
-	#scanInit(pp: string) {
-		// 単体ファイル走査時
-		const uri = this.#curPrj + pp;
-		{
-			const hMD: {[nm: string]: MacroDef} = {};
-			this.#hOldDefMacro = {};	// 変更前に存在したマクロ群を退避
-			for (const [nm, md] of Object.entries(this.#hDefMacro)) {
-				if (md.loc.uri !== uri) hMD[nm] = md;
-				else this.#hOldDefMacro[nm] = md;
-			//	else {this.#hOldDefMacro[nm] = md; this.#cteScore.undefMacro(nm);}	// NOTE: Score
-			}
-			this.#hDefMacro = hMD;		// 別snで定義されたマクロのみにした
-//			this.#aMacroAdd = [];
-		}
-		{
-			const hMU: {[nm: string]: Location[]} = {};
-			for (const [nm, aUse] of Object.entries(this.#hMacro2aLocUse)) {
-				for (const locUse of aUse) {
-					if (locUse.uri !== uri) (hMU[nm] ??= []).push(locUse);
-				}
-			}
-			this.#hMacro2aLocUse = hMU;	// 別snで使用されたマクロのみにした
-		}
-		this.#hDoc2TagMacUse[pp] = [];
 
-		this.#OldhScr2KeyWord = this.#hScr2KeyWord[pp] ??= new Set;
-		this.#hScr2KeyWord[pp] = new Set;
-		this.#hSn2aDsOutline[pp] = [];
-		this.#InfFont.hUri2FontErr[uri] = [];
-	//	this.#hSn2label[path] = {};	// #scanScriptで
-	//	this.#hFn2Jump[path] = {};	// #scanScriptで
-
-		// 重複マクロ定義検知
-		for (const [nm, aUse] of Object.entries(this.#hDupMac2aUse)) this.#hDupMac2aUse[nm] = aUse.filter(locUse=> locUse.uri !== uri);
-
-		this.#hDoc2InlayHint[pp] = [];
-
-		// メッセージをクリア
-		this.#uri2Diag[uri] = [];
-		this.#Uri2Links[uri] = [];
-	}
-	#goFinish(pp: string) {
-		// キーワード削除対応
-		const now = this.#hScr2KeyWord[pp];
-		for (const s of this.#OldhScr2KeyWord) {
-			if (now.has(s)) continue;
-
-			if (Object.entries(this.#hScr2KeyWord).some(
-				([pp2, v])=> pp2 !== pp && v.has(s)
-			)) continue;	// 別のpathにあるので削除されてない
-
-			const [k, w] = s.split('\t');
-			this.#hSetWords[k].delete(w);
-		}
-
-		const {mes, sev} = this.#hDiag.未使用マクロ;
-		const uri = this.#curPrj + pp;
-		for (const [nm, {hPrm, loc}] of Object.entries(this.#hDefMacro)) {
-			if (nm in this.#hMacro2aLocUse) continue;
-			if (hPrm?.nowarn_unused?.val) continue;
-			if (pp && loc.uri !== uri) continue;	// 更新分のみ
-
-			(this.#uri2Diag[loc.uri] ??= []).push(Diagnostic.create(
-				loc.range,
-				mes.replace('$', nm),
-				sev
-			));
-		}
-
-/*	// NOTE: Score
-		if (pp.slice(-4) === '.ssn') {	// NOTE: Score 変更して動作未確認
-			const d = this.docs.get(this.#curPrj + pp);	// NOTE: LSPでは失敗する
-			if (! d) return;
-
-			const hMacroOld = this.#hOldDefMacro;
-			for (const [nm, v] of Object.entries(hMacroOld)) {
-				if (! (nm in this.#hDefMacro)	// マクロ定義が削除された
-				||	Object.entries(this.#hDefMacro[nm].hPrm).sort().join()
-				!==	Object.entries(v.hPrm).sort().join())
-				// マクロ定義の引数が更新された
-				this.#hMacro2UseLocs[nm]?.forEach(locUse=> {
-					const txt = doc.lineAt(loc.range.start.line).text.trim();
-					this.#cteScore.updLine(
-						doc,
-						loc.range,
-						txt,
-						this.#resolveScript(txt).aToken
-					);	// 最新ssn定義で更新
-				});
-			}
-
-			// 追加されたマクロ定義
-			this.#aMacroAdd.forEach(nm=> this.#hMacro2UseLocs[nm]?.forEach(locUse=> {
-				const txt = doc.lineAt(loc.range.start.line).text.trim();
-				this.#cteScore.updLine(
-					doc,
-					loc.range,
-					txt,
-					this.#resolveScript(txt).aToken,
-				);
-			}));
-		}
-*/
+		for (const m of Object.values(this.#hT2DefKw2ALoc)) m.clear();
 	}
 
 
@@ -1473,27 +1449,58 @@ WorkspaceEdit
 	static	readonly	DEF_FONT = ':DEF_FONT:';
 	#nowFontNm = LspWs.DEF_FONT;
 	#scanScript(pp: string) {
-		const fn = getFn(pp);
 		const uri = this.#curPrj + pp;
-		const aDi = this.#uri2Diag[uri];
-		const f2s: TFONT2STR = this.#InfFont.hSn2Font2Str[pp] = {};
-		this.#nowFontNm = LspWs.DEF_FONT;
+		for (const m of Object.values(this.#hT2DefKw2ALoc)) {
+			this.#delDefKw(m, uri);
+			for (const [nm, aLoc] of m.entries()) {
+				m.set(nm, aLoc.flatMap(loc=> loc.uri === uri ?[] :loc));
+			}
+		}
 
-		const hLblRng: TH_FN2LBLRNG = {};	// ラベル重複チェック用
-		const setKw = this.#hScr2KeyWord[pp];	// キーワード削除チェック用
-		const aDsOutline: DocumentSymbol[] = this.#hSn2aDsOutline[pp] = [];
+		// 単体ファイル走査時
+		{
+			const hMD: {[nm: string]: MacroDef} = {};
+			this.#hOldDefMacro = {};	// 変更前に存在したマクロ群を退避
+			for (const [nm, md] of Object.entries(this.#hDefMacro)) {
+				if (md.loc.uri !== uri) hMD[nm] = md;
+				else this.#hOldDefMacro[nm] = md;
+			//	else {this.#hOldDefMacro[nm] = md; this.#cteScore.undefMacro(nm);}	// NOTE: Score
+			}
+			this.#hDefMacro = hMD;		// 別snで定義されたマクロのみにした
+		}
+		{
+			const hMU: {[nm: string]: Location[]} = {};
+			for (const [nm, aUse] of Object.entries(this.#hMacro2aLocUse)) {
+				for (const locUse of aUse) {
+					if (locUse.uri !== uri) (hMU[nm] ??= []).push(locUse);
+				}
+			}
+			this.#hMacro2aLocUse = hMU;	// 別snで使用されたマクロのみにした
+		}
+		this.#hDoc2TagMacUse[pp] = [];
 
-		const tmpSj = `fn=${fn}`;
-		const lenSj = tmpSj.length;
-		this.#hSetWords.ジャンプ先 = new Set(
-			[...this.#hSetWords.ジャンプ先]
-			.filter(v=> v.slice(0, lenSj) !== tmpSj)
-		);
-		this.#setKwAdd(setKw, 'ジャンプ先', tmpSj);
+		for (const pp2s of Object.values(this.#hT2Pp2Kw)) pp2s[pp] ??= new Set;
+		this.#InfFont.hUri2FontErr[uri] = [];
+
+		this.#hDoc2InlayHint[pp] = [];
+
+
+		const fn = getFn(pp);
+		this.#hT2Pp2Kw['ジャンプ先'][pp].add(`fn=${fn}`);
 
 		const sJumpFn = new Set();	// ジャンプ元から先(fn)への関連
 		let sJoinLabel = '';	// ラベル変更検知用、jump情報・ラベル名結合文字列
 								// [jump]タグなどの順番が変わっただけでも変更扱いで
+		const hLblRng: TH_FN2LBLRNG = {};	// ラベル重複チェック用
+
+		const aDsOutline: DocumentSymbol[] = this.#hSn2aDsOutline[pp] = [];
+
+		const f2s: TFONT2STR = this.#InfFont.hSn2Font2Str[pp] = {};
+		this.#nowFontNm = LspWs.DEF_FONT;
+
+		// メッセージをクリア
+		const aDi: Diagnostic[] = this.#uri2Diag[uri] = [];
+		this.#Uri2Links[uri] = [];
 
 		// procTokenBase を定義、procToken も同値で始める
 		this.#procToken = this.#procTokenBase = (p: Position, token: string)=> {
@@ -1514,7 +1521,7 @@ WorkspaceEdit
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
 					if (name.charAt(0) !== '&') {
 						const kw = name.trimEnd();
-						this.#setKwAdd(setKw, '代入変数名', kw);
+						this.#hT2Pp2Kw['代入変数名'][pp].add(kw);
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, uri, rng);
@@ -1525,8 +1532,7 @@ WorkspaceEdit
 			if ((uc === 42) && (token.length > 1)) {	// * ラベル
 				p.character += len;
 
-				const kw = `fn=${getFn(pp)} label=${token}`;
-				this.#setKwAdd(setKw, 'ジャンプ先', kw);
+				this.#hT2Pp2Kw['ジャンプ先'][pp].add(`fn=${fn} label=${token}`);
 
 				const [lbl] = token.split('|');
 					// 吉里吉里仕様のセーブラベル名にあたる機能は無いが、属性指定時に
@@ -1612,35 +1618,32 @@ WorkspaceEdit
 			const args = token.slice(1 +use_nm.length, -1);
 			this.#alzTagArg.parse(args);
 			const hArg = this.#alzTagArg.hPrm;
-			hArg[':タグ名'] = <any>use_nm;
+			hArg[':タグ名'] = {val: use_nm};
 			if (use_nm in this.#hDefPlugin) return;	// プラグインはここまで
 
 			// 引数調査（マクロ＋タグ）
+			const hRng = this.#alzTagArg.parseinDetail(token, use_nm.length, pBefore.line, pBefore.character);
 			this.#aEndingJob.push(()=> {	// 遅延調査
 				const param = this.#hDefMacro[use_nm]?.param ?? hMd[use_nm]?.param;
 				if (! param) return;
 
-				const hRng = this.#alzTagArg.parseinDetail(token, use_nm.length, rng_nm.start.line, rng_nm.start.character);
-				for (const {rangetype, name} of param) {
+				for (const {name, rangetype} of param) {
 					if (rangetype === 'ラベル名') {	// ラベルがあればジャンプ系タグ
 						if (Boolean(hArg.del?.val)
-						&& hArg[':タグ名'].val === 'event') continue;
+						&& use_nm === 'event') continue;
 
 						const argFn = hArg.fn?.val ?? getFn(pp);
 						const argLbl = hArg.label?.val;
 						if (this.#chkLiteral(argFn)) {
 							// 変数・文字列操作系ならチェック不能
-if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
+if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	sJumpFn.add(argFn);
 
-	const {pBefore} = arg;
-	const hRng = this.#alzTagArg.parseinDetail(token, use_nm.length, pBefore.line, pBefore.character);
 	if (this.#chkLiteral4lbl(argLbl) && ! this.#hFn2label[argFn][argLbl]) {
 		// 変数・文字列操作系ならチェック不能
-		const {k_ln, k_ch, v_ln, v_ch, v_len} = hRng[name];
 		const {mes, sev} = this.#hDiag.ラベル不明;
 		aDi.push(Diagnostic.create(
-			Range.create(k_ln, k_ch, v_ln, v_ch +v_len),
+			this.#genPrm2Rng(hRng[name]),
 			mes.replace('$', argLbl),
 			sev
 		));
@@ -1649,16 +1652,12 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 		const to_uri = this.#searchPath(argFn, SEARCH_PATH_ARG_EXT.SCRIPT);
 		const lnOpen = (this.#hFn2label[argFn][argLbl]?.start.line ?? 0) +1;
 		for (const nmArg of ['fn', 'label']) {
-			const r = hRng[nmArg];
-			if (! r) continue;
-			const {k_ln, k_ch, v_ln, v_ch, v_len} = r;
+			const prm = hRng[nmArg];
+			if (! prm) continue;
 			(this.#Uri2Links[uri] ??= []).push({
-				range	: Range.create(
-					k_ln, k_ch,
-					v_ln, v_ch +v_len,
-				),
+				range	: this.#genPrm2Rng(prm),
 				target	: to_uri +`#L${lnOpen}`,
-				tooltip	: `${fn}.sn の${argLbl ?'ラベル '+ argLbl :'冒頭'} を開く`,
+				tooltip	: `${argFn}.sn の${argLbl ?'ラベル '+ argLbl :'冒頭'} を開く`,
 			});
 		}
 	}
@@ -1671,11 +1670,32 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 					let {val} = hArg[name];
 					if (! this.#chkLiteral(val)) continue;	// 変数・文字列操作系ならチェック不能
 
+					const prm = hRng[name];
 					switch (rangetype) {
-						// #hSetWords
+						// #hSetWords系
 					//	case '代入変数名':	// 観察者効果により存在チェック不可
 
 					//	case 'ジャンプ先':
+
+						case 'レイヤ名（カンマ区切りで複数可）':
+							for (const v of val.split(',')) {
+								this.#chkLayer(name, 'レイヤ名', v, prm, aDi);
+							}
+							break;
+
+						case '差分名称':
+							if (use_nm === 'add_face') {
+								if ('fn' in hArg) break;
+
+								// nameがfnになるので、画像ファイル名としてチェック
+								this.#chkLayer(name, '画像ファイル名', val, prm, aDi);
+								break;
+							}
+
+							for (const v of val.split(',')) {
+								this.#chkLayer(name, '差分名称', v, prm, aDi);
+							}
+							break;
 
 						case 'レイヤ名':
 						case '文字レイヤ名':
@@ -1688,34 +1708,24 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 						case '音声ファイル名':
 						case 'HTMLファイル名':
 
-						case '差分名称':
 						case 'フレーム名':
 					//	case 'サウンドバッファ':	// 観察者効果により存在チェック不可
 						case '文字出現演出名':
-						case '文字消去演出名':{
-							if (this.#hSetWords[rangetype].has(val)) break;
-
-							const {k_ln, k_ch, v_ln, v_ch, v_len} = hRng[name];
-							const {mes, sev} = this.#hDiag.キーワード不明;
-							aDi.push(Diagnostic.create(
-								Range.create(k_ln, k_ch, v_ln, v_ch +v_len),
-								mes.replace('$', `${name} (${rangetype.slice(0, -1)})`)
-								.replace('$', val),
-								sev
-							));
-						}	break;
+						case '文字消去演出名':
+							this.#chkLayer(name, rangetype, val, prm, aDi);
+							break;
 						// フォントファイルは #getFonts2ANm()→ローカルにて。システムフォントを調べる必要がある
 
-						// #hPreWords
+
+						// #hPreWords系
 						case 'イベント名':
 						case 'イージング名':
 						case 'ブレンドモード名':{
 							if (this.#hRegPreWords[rangetype].test(val)) break;
 
-							const {k_ln, k_ch, v_ln, v_ch, v_len} = hRng[name];
 							const {mes, sev} = this.#hDiag.キーワード異常;
 							aDi.push(Diagnostic.create(
-								Range.create(k_ln, k_ch, v_ln, v_ch +v_len),
+								this.#genPrm2Rng(prm),
 								mes.replace('$', `${name} (${rangetype})`)
 								.replace('$', val),
 								sev
@@ -1725,7 +1735,7 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 				}
 			});
 
-			const arg = {setKw, hArg, uri, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline};
+			const arg = {hArg, uri, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng};
 			if (use_nm in LspWs.#hTag) {this.#hTagProc[use_nm]?.(arg); return;}
 
 			// ここからマクロのみ
@@ -1743,20 +1753,34 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 
 		if (this.#hPp2JoinLabel[pp] !== sJoinLabel) {
 			for (const [pp_from, v] of Object.entries(sJumpFn)) {
-				if (v.has(fn)) this.#sNeedScan.add(pp_from);
+				if (v.has(fn)) this.#sPpNeedScan.add(pp_from);
 			}
 			this.#hPp2JoinLabel[pp] = sJoinLabel;
 		}
 
 //		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
+		#chkLayer(name: string, rangetype: T_KW, val: string, prm: PRM_RANGE, aDi: Diagnostic[]): void {
+			if (this.#hKey2KW[rangetype].has(val)) return;
+
+			const {mes, sev} = this.#hDiag.キーワード不明;
+			aDi.push(Diagnostic.create(
+				this.#genPrm2Rng(prm),
+				mes.replace('$', `${name} (${rangetype.slice(0, -1)})`)
+				.replace('$', val),
+				sev
+			));
+		}
+		#genPrm2Rng(prm: PRM_RANGE): Range {
+			const {k_ln, k_ch, v_ln, v_ch, v_len} = prm;
+			return Range.create(k_ln, k_ch, v_ln, v_ch +v_len);
+		}
+
 		#chkLiteral(fn: string): boolean {return !!fn && /^[^*%&"'#]/.test(fn) && fn.at(-1) !== '*'}
 		#chkLiteral4lbl(lbl: string): boolean {return !!lbl && /^\*[^*%&"'#]/.test(lbl)}
 		#REG_TAG_NAME	= /(?<name>[^\s;\]]+)/;
-		#setKwAdd(setKw: Set<string>, key: string, word: string) {
-			setKw.add(`${key}\t${word}`);
-			this.#hSetWords[key].add(word);
-		}
+
+
 		#procTokenBase = (_p: Position, _token: string)=> {};
 	#procToken:  (p: Position, token: string)=> void	= this.#procTokenBase;
 		// トークン解析実行するのはこのメソッド
@@ -1764,7 +1788,7 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 	readonly	#hTagProc: {[nm: string]: (arg: ARG_TAG_PROC)=> void}	= {
 		// constructor で上書きしているので注意
 
-		let_ml: ({setKw, hArg})=> {
+		let_ml: ({hArg, pp})=> {
 			this.#procToken = (p, token)=> {
 				const len2 = token.length;
 				let lineTkn = 0;
@@ -1778,11 +1802,11 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 			};
 
 			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '代入変数名', v);
+			if (v && v.charAt(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
 		},
 
 		macro: arg=> {
-			const {uri, token, rng, aDi, pBefore, p, hArg} = arg;
+			const {uri, token, rng, aDi, pBefore, p, hArg, hRng} = arg;
 			const nm = hArg.name?.val;
 			if (! nm) {	// [macro name=]など
 				const {mes, sev} = this.#hDiag.マクロ定義_名称異常;
@@ -1801,8 +1825,7 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 				return;
 			}
 
-			// 重複マクロ定義検知（複数スクリプトをまたがるので、あとで網羅処理）
-			(this.#hDupMac2aUse[nm] ??= []).push(Location.create(uri, rng));
+			this.#recDefKw('マクロ定義', 'name', arg);
 			if (nm in this.#hDefMacro) return;
 
 			// 新規マクロ定義を登録
@@ -1835,7 +1858,6 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 				p.line, p.character,
 			);
 			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');	
-			const hRng = this.#alzTagArg.parseinDetail(token, 5, rng2.start.line, rng2.start.character);
 			this.#hDefMacro[nm] = {
 				loc		: Location.create(uri, rng2),
 				hPrm	: hArg,
@@ -1845,7 +1867,6 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 				name_v_ln	: hRng.name.v_ln,
 				name_v_ch	: hRng.name.v_ch,
 			};
-//			this.#aMacroAdd.push(nm);
 
 			const ds = DocumentSymbol.create(nm, 'マクロ定義', SymbolKind.Class, rng2, rng2, sum ?[
 				DocumentSymbol.create(sum.split(' ')[0], undefined, SymbolKind.String, rng2, rng2),
@@ -1863,7 +1884,8 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 		},
 		endmacro: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
-		char2macro: ({uri, rng, aDi, hArg, token, pBefore})=> {
+		char2macro: arg=> {
+			const {uri, rng, aDi, hArg, hRng} = arg;
 			const char = hArg.char?.val ?? '';
 			const use_nm = hArg.name?.val ?? '';
 			if (! char || ! use_nm) {	// [macro name=]など
@@ -1871,13 +1893,13 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 				aDi.push(Diagnostic.create(rng, mes.replace('$', use_nm), sev));
 				return;
 			}
+			this.#recDefKw('一文字マクロ定義', 'char', arg);
 			if (use_nm in LspWs.#hTag || use_nm in this.#hDefPlugin) return;
 
-			const hRng = this.#alzTagArg.parseinDetail(token, 10, pBefore.line, pBefore.character);
-			const r = hRng.name;
+			const {v_ln, v_ch} = hRng.name;
 			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(uri, Range.create(
-				r.v_ln, r.v_ch,
-				r.v_ln, r.v_ch +use_nm.length,
+				v_ln, v_ch,
+				v_ln, v_ch +use_nm.length,
 			)));
 		},
 
@@ -1918,64 +1940,34 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 			arg.aDsOutline.push(DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng));
 		},
 
-		let: ({setKw, hArg})=> {
+		let: ({hArg, pp})=> {
 			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '代入変数名', v);
+			if (v && v.charAt(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
 		},
-		add_frame: ({setKw, hArg})=> {
-			const v = hArg.id?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, 'フレーム名', v);
-		},
-		playbgm: ({setKw})=> {
-			this.#setKwAdd(setKw, 'サウンドバッファ', 'BGM');
-		},
-		playse: ({setKw, hArg})=> {
-			const v = hArg.buf?.val ?? 'SE';
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, 'サウンドバッファ', v)
-		},
-		button: arg=> {	
-			this.#hTagProc.event(arg);
+		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
+		// button = s
 
+		// link = s
+		ch_in_style: arg=> this.#recDefKw('文字出現演出定義', 'name', arg),
+		ch_out_style: arg=> this.#recDefKw('文字消去演出定義', 'name', arg),
+		add_lay: arg=> {
+			const {hArg, pp} = arg;
+			const lay = hArg.layer?.val;
+			if (! lay) return;
+			if ('cond' in hArg && hArg.cond.val === '!const.sn.lay.'+ lay) return;	// タグが実行されない場合があり得るので無視
+
+			this.#hT2Pp2Kw[
+				hArg.class?.val === 'grp' ?'画像レイヤ名' :'文字レイヤ名'
+			][pp].add(lay);
+
+			this.#recDefKw('レイヤ定義', 'layer', arg);
+		},
+		add_face: arg=> {
 			const {hArg} = arg;
-			const c = hArg.clicksebuf?.val ?? 'SYS';
-			if (c && c.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', c);
-			const e = hArg.entersebuf?.val ?? 'SYS';
-			if (e && e.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', e);
-			const l = hArg.leavesebuf?.val ?? 'SYS';
-			if (l && l.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', l);
-		},
+			const nm = hArg.name?.val;
+			if (! nm || nm.charAt(0) === '&') return;
 
-		link: arg=> {	
-			this.#hTagProc.event(arg);
-
-			const {hArg} = arg;
-			const c = hArg.clicksebuf?.val ?? 'SYS';
-			if (c && c.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', c);
-			const e = hArg.entersebuf?.val ?? 'SYS';
-			if (e && e.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', e);
-			const l = hArg.leavesebuf?.val ?? 'SYS';
-			if (l && l.charAt(0) !== '&') this.#setKwAdd(arg.setKw, 'サウンドバッファ', l);
-		},
-		ch_in_style: ({setKw, hArg})=> {
-			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '文字出現演出名', v);
-		},
-		ch_out_style: ({setKw, hArg})=> {
-			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '文字消去演出名', v);
-		},
-		add_lay: ({setKw, hArg})=> {
-			const v = hArg.layer?.val;
-			if (! v) return;
-
-			this.#setKwAdd(setKw, 'レイヤ名', v);
-			const cls = hArg.class?.val;
-			const kwn = `${cls === 'grp' ?'画像' :'文字'}レイヤ名`;
-			this.#setKwAdd(setKw, kwn, v);
-		},
-		add_face: ({setKw, hArg})=> {
-			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#setKwAdd(setKw, '差分名称', v);
+			this.#recDefKw('差分名称', 'name', arg);
 		},
 		span: ({rng, uri, hArg})=> {
 			const v = hArg.style?.val;
@@ -1995,6 +1987,51 @@ if (this.#hSetWords.スクリプトファイル名.has(argFn)) {
 			const EXT = 'sn';
 			return this.#matchPath('^'+ fn.slice(0, -1) +'.*', EXT).map(v=> decodeURIComponent(getFn(v[EXT])))
 		}
+
+
+	// === 重複チェック系 ===
+	#recDefKw(i: T_CHK重複_KEY, nmArg: string, {hArg, uri, hRng, pp}: ARG_TAG_PROC) {
+		const kw = hArg[nmArg]?.val;
+		if (! kw || kw.charAt(0) === '&') return;
+
+		const m = this.#hT2DefKw2ALoc[i];
+		const a = m.get(kw) ?? [];
+		a.push(Location.create(uri, this.#genPrm2Rng(hRng[nmArg]),));
+		m.set(kw, a);
+
+		this.#hT2Pp2Kw[hInfKw[i]][pp].add(kw);
+	}
+	#chkDupDefKw(i: T_CHK重複_KEY) {
+		const diag = i +' $ が重複しています';
+		for (const [kw, aLoc] of this.#hT2DefKw2ALoc[i].entries()) {
+			if (aLoc.length < 2) continue;
+
+			// 同じ警告は一度全て削除
+			const mes = diag.replace('$', kw);
+			for (const [uri, a] of Object.entries(this.#uri2Diag)) {
+				this.#uri2Diag[uri] = a.flatMap(d=> d.message == mes ?[] :d);
+			}
+
+			if (this.hasDiagRelatedInfCap) {
+				const [{uri, range}] = aLoc;
+				(this.#uri2Diag[uri] ??= []).push(Diagnostic.create(
+					range, mes, undefined, undefined, undefined,
+					aLoc.map(location=> ({location, message: 'その他の箇所'}))
+				));
+			}
+			else for (const {uri, range} of aLoc) (this.#uri2Diag[uri] ??= []).push(Diagnostic.create(range, mes, DiagnosticSeverity.Error));
+		}
+	}
+	#delDefKw(m: MAP_KW2ALOC, uri: string) {
+		for (const [kw, aLoc] of m.entries()) {
+			m.set(kw, aLoc.filter(loc=> loc.uri !== uri));
+		}
+	}
+	#getAPpDefKw(): string[] {
+		return Object.values(this.#hT2DefKw2ALoc)
+		.flatMap(m=> [...m.values()]
+		.flatMap(a=> a.map(l=> l.uri.slice(this.#lenCurPrj))));
+	}
 
 
 	static	#splitAmpersand(token: string): {
