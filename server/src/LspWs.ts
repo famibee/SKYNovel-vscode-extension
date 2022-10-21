@@ -11,7 +11,7 @@ import {AnalyzeTagArg, HPRM, PRM_RANGE} from './AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
 
-import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, Hover, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type ARG_TAG_PROC = {
@@ -89,9 +89,6 @@ const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	HTML	= 'htm|html',
 };
 
-
-type T_DBPIC = {w: number, h: number,};
-type TH_DBPIC = { [fn: string]: T_DBPIC; };
 
 type MAP_KW2ALOC = Map<string, Location[]>;
 
@@ -478,22 +475,18 @@ ${sum}`,}
 		if (curPrj === this.#curPrj) this.#hCmd2ReqProc[cmd]?.(o);
 	}
 	#hCmd2ReqProc: {[cmd: string]: (o: any)=> void}	= {
-		'ready': ()=> {this.#fullScan(); this.#sendRequest('db_pic');},
+		'ready': ()=> this.#fullScan(),
 		'init.res':	o=> {
 			this.#hCmd2ReqProc = this.#hCmd2ReqProc_Inited;
 			this.#scanAll(o);
 		},
 		// これ以上ここに追加してはいけない
 	};
-	#hDbPic: TH_DBPIC	= {};
 	readonly	#hCmd2ReqProc_Inited: {[cmd: string]: (o: any)=> void}	= {
 		'init.res'		: o=> this.#scanAll(o),
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
 		'def_esc.upd'	: ()=> this.#fullScan(),
-		'db_pic.res'	: o=> this.#hDbPic = o.hDbPic,
-		'db_pic.add'	: o=> {
-			for (const fn of Object.keys(o.hDbPic)) this.#hDbPic[fn] = o.hDbPic[fn];
-		},
+		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.genHover(uri, pos)}),
 	};
 	#fullScan() {this.#sendRequest('init');}
 
@@ -574,103 +567,113 @@ ${sum}`,}
 
 
 	// === 識別子上にマウスホバーしたとき表示するヒント ===
-	onHover(prm: TextDocumentPositionParams): Hover | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
-		if (! this.#checkRelated(uri)) return null;
-
+	genHover(uri: string, p: Position): {value: string, range: Range} | undefined {
 		const pp = uri.slice(this.#lenCurPrj);
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
-		if (! aUse) return null;
-		const p = prm.position;
+		if (! aUse) return undefined;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
-		if (! u) return null;
+		if (! u) return undefined;
 
 		const d = this.docs.get(uri);
-		if (! d) return null;
+		if (! d) return undefined;
 		const token = d.getText(u.rng);
-		const hVal: {[key: string]: string} = {};
+		const hVal: {[nm: string]: string} = {};
 		const args = token.slice(1 +u.nm.length, -1);
 		this.#alzTagArg.parse(args);
 		for (const pr of Object.entries(this.#alzTagArg.hPrm)) {
-			const [prK, prV] = pr;
-			hVal[prK] = prV.val;
+			const [k, v] = pr;
+			hVal[k] = v.val;
 		}
+		const hRng = this.#alzTagArg.parseinDetail(token, u.nm.length, u.rng.start.line, u.rng.start.character);
 
 		// マクロ
 		const md = this.#hDefMacro[u.nm];
 		if (md) {
-			const {param, sum} = md;
-			return {range: u.rng, contents: {kind: 'markdown', value: `~~~skynovel
+			const {param, sum='', loc} = md;
+			const onePrmMd = this.#p_prm2md(p, hRng, param, hVal);
+			return {range: u.rng, value: `~~~skynovel
 (マクロ) [${u.nm}${
-	param.map(md=> this.#cnvMdParam2Str(md)).join('')
-}]
-~~~
+	onePrmMd ?? (	// オンマウスの属性のみ
+		param.slice(0, this.#属性表示最大数)	// 属性群を列挙
+		.map(mpd=> this.#genPrm2Md(mpd)).join('')
+		+ (param.length > this.#属性表示最大数 ?' ...以下略': '') +`]
+~~~`
+	)
+}
 ---
-${sum ?? ''} [定義位置：${ getFn(md.loc.uri) }](${ md.loc.uri }#L${ md.loc.range.start.line +1 })${this.#prmPic2md(param, hVal)}`
-			}};
+${
+	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n---\n'+ this.#prmPic2md(param, hVal) }  \n`)
+}`
+			};
+		}
+
+		// タグ
+		const td = hMd[u.nm];
+		if (td) {
+			const {param, sum=''} = td;
+			const onePrmMd = this.#p_prm2md(p, hRng, param, hVal);
+			return {range: u.rng, value: `~~~skynovel
+(タグ) [${u.nm}${
+	onePrmMd ?? (	// オンマウスの属性のみ
+		param.slice(0, this.#属性表示最大数)	// 属性群を列挙
+		.map(mpd=> this.#genPrm2Md(mpd)).join('')
+		+ (param.length > this.#属性表示最大数 ?' ...以下略': '') +`]
+~~~`
+	)
+}
+---
+${
+	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n---\n'+ this.#prmPic2md(param, hVal) }  \n`)
+}`
+			};
 		}
 
 		// プラグイン定義タグ
 		const pd = this.#hDefPlugin[u.nm];
-		if (pd) return {range: u.rng, contents: {kind: 'markdown', value:
+		if (pd) return {range: u.rng, value:
 `~~~skynovel
 (プラグイン定義タグ) [${u.nm}]
 ~~~
 ---
 [定義位置：${ getFn(pd.uri) }](${ pd.uri }#L${ pd.sl +1 })`
-		}};
+		};
 
-		// タグ
-		const td = hMd[u.nm];
-		if (td) {
-			const {param, sum} = td;
-			return {range: u.rng, contents: {kind: 'markdown', value: `~~~skynovel
-(タグ) [${u.nm}${
-	param.map(md=> this.#cnvMdParam2Str(md)).join('')
-}]
-~~~
----
-${sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${this.#prmPic2md(param, hVal)}`)}`
-			}};
-		}
-
-		return null;
+		return undefined;
 	}
-		#prmPic2md(param: MD_PARAM_DETAILS[], hVal: {[key: string]: string}): string {
+	readonly	#属性表示最大数 = 5;
+		#p_prm2md(p: Position, hRng: {[key: string]: PRM_RANGE}, param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string | undefined {
+			const pr = Object.entries(hRng).find(([, prm])=> this.#contains(this.#genPrm2Rng(prm), p));
+			if (! pr) return undefined;
+
+			const [prK] = pr;
+			const mpd = param.find(({name})=> name === prK);
+			if (! mpd) return undefined;
+
+			return this.#genPrm2Md(mpd) +` ...以下略]
+~~~
+---`+ this.#prmPic2md([mpd], hVal);
+		}
+		#prmPic2md(param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string {
 			if (param.length === 0) return '';
 
-			return '  \n  \n'+ param.flatMap(({rangetype, name})=> {
+			return '\n  \n'+ param.flatMap(({rangetype, name})=> {
 				if (rangetype !== '画像ファイル名') return [];
 
-				const v = hVal[name];
-				if (! v || ! this.#hKey2KW.画像ファイル名.has(v)) return [];
+				const val = hVal[name];
+				if (! val || ! this.#hKey2KW.画像ファイル名.has(val)) return [];
 
-				const {w, h} = this.#hDbPic[v] ?? {w: 0, h: 0};
-				const path = this.#searchPath(v, SEARCH_PATH_ARG_EXT.SP_GSM);
-				const src = `${path}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
-/*
-console.log(`fn:LspWs.ts path:${path}:`);
-
-//				const browseFileCommandUrl = `https://notepm.jp`;
-				const args = ['file://'+ path];
-				const browseFileCommandUrl = `command:revealFileInOS?${encodeURIComponent(JSON.stringify(args))}`;
-console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
-
-				return `- ${name} = ${v} ${w}x${h} [Open Containing Folder](${browseFileCommandUrl} "Open Containing Folder")  \n![${v}](${src} "${v}")`;
-*/
-				return `- ${name} = ${v} ${w}x${h}  \n![${v}](${src} "${v}")`;
+				return `<!-- ${JSON.stringify({name, val})} -->`;
 			}).join('  \n');	// 【半角空白二つ + \n】で改行
 		}
-		readonly	#whThumbnail = 120;
 
 		readonly	#checkRelated = (uri: string)=> this.#curPrj === uri.slice(0, this.#lenCurPrj);
-		readonly	#cnvMdParam2Str = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
+		readonly	#genPrm2Md = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
 			? `【必須】${this.#escHighlight(rangetype)}`
 			: `${this.#escHighlight(rangetype)}|${this.#escHighlight(def)}`
 		}`;
 		readonly	#escHighlight = (s = '')=> {
-			if (s.charAt(0) === `'` && s.at(-1) === `'`) return s;
+			if (s.at(0) === `'` && s.at(-1) === `'`) return s;
 			return [']',' '].some(el=> s.includes(el)) ?`'${s}'` :s;
 		}
 
@@ -712,10 +715,10 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 		const pr = Object.entries(hRng).find(([, prm])=> this.#contains(this.#genPrm2Rng(prm), p));
 		if (! pr) return null;
 		const [prK] = pr;
-		const prm_details = param.find(pd=> pd.name === prK);
-		if (! prm_details) return null;
+		const mpd = param.find(({name})=> name === prK);
+		if (! mpd) return null;
 
-		let {rangetype} = prm_details;
+		let {rangetype} = mpd;
 		switch (rangetype) {
 			case 'Boolean':	rangetype = 'true、false'; break;
 		}
@@ -724,7 +727,7 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 
 		let kind: CompletionItemKind = CompletionItemKind.Value;
 		const words = this.#hK2Snp[rangetype];
-		if (! words) return prm_details?.def ?[{label: prm_details.def, kind,}] :[];
+		if (! words) return mpd?.def ?[{label: mpd.def, kind,}] :[];
 
 		switch (rangetype) {
 			case 'イベント名':	kind = CompletionItemKind.Event;	break;
@@ -887,7 +890,7 @@ console.log(`fn:LspWs.ts line:577 ==${browseFileCommandUrl}==`);
 			let sPrm = '';
 			const aPI: ParameterInformation[] = [];
 			if (param[0]?.name) for (const md of param) {
-				const p = this.#cnvMdParam2Str(md);
+				const p = this.#genPrm2Md(md);
 				sPrm += ' '+ p;
 				// 検索文字列、属性概要
 				aPI.push({label: p, documentation: {kind: 'markdown', value: md.comment}});
@@ -1519,7 +1522,7 @@ WorkspaceEdit
 				//変数操作
 				try {
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
-					if (name.charAt(0) !== '&') {
+					if (name.at(0) !== '&') {
 						const kw = name.trimEnd();
 						this.#hT2Pp2Kw['代入変数名'][pp].add(kw);
 
@@ -1802,7 +1805,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			};
 
 			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
+			if (v && v.at(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
 		},
 
 		macro: arg=> {
@@ -1838,7 +1841,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 			const param: MD_PARAM_DETAILS[] = [];
 			for (const [aNm, {val}] of Object.entries(hArg)) {
-				if (aNm.charAt(0) !== '%') continue;
+				if (aNm.at(0) !== '%') continue;
 
 				const required = aNm.slice(-1) !== '?';
 				const name = aNm.slice(1, required ?undefined :-1);
@@ -1942,7 +1945,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 		let: ({hArg, pp})=> {
 			const v = hArg.name?.val;
-			if (v && v.charAt(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
+			if (v && v.at(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
 		},
 		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
 		// button = s
@@ -1965,7 +1968,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		add_face: arg=> {
 			const {hArg} = arg;
 			const nm = hArg.name?.val;
-			if (! nm || nm.charAt(0) === '&') return;
+			if (! nm || nm.at(0) === '&') return;
 
 			this.#recDefKw('差分名称', 'name', arg);
 		},
@@ -1992,7 +1995,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	// === 重複チェック系 ===
 	#recDefKw(i: T_CHK重複_KEY, nmArg: string, {hArg, uri, hRng, pp}: ARG_TAG_PROC) {
 		const kw = hArg[nmArg]?.val;
-		if (! kw || kw.charAt(0) === '&') return;
+		if (! kw || kw.at(0) === '&') return;
 
 		const m = this.#hT2DefKw2ALoc[i];
 		const a = m.get(kw) ?? [];
@@ -2043,7 +2046,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			// != を弾けないので中途半端ではある
 		const cnt_equa = equa.length;
 		if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
-		if (equa[1].charAt(0) === '&') throw '「&計算」書式では「&」指定が不要です';
+		if (equa[1].at(0) === '&') throw '「&計算」書式では「&」指定が不要です';
 		return {
 			name: equa[0].replaceAll('＝', '==').replaceAll('≠', '!='),
 			text: equa[1].replaceAll('＝', '==').replaceAll('≠', '!='),
@@ -2106,7 +2109,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 				}
 			}
 			for (let e of Object.keys(h_exts)) {
-				if (search_exts.indexOf(`|${e}|`) > -1) return h_exts[e];
+				if (search_exts.indexOf(`|${e}|`) > -1) return String(h_exts[e]);
 			}
 			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${fn}】`;
 		}
@@ -2117,7 +2120,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${fn}】`;
 		}
 
-		ret = h_exts[ext];
+		ret = String(h_exts[ext]);
 		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${fn}】、サーチ対象拡張子群【${extptn}】`;
 
 		return ret;

@@ -84,7 +84,8 @@ conn.onInitialize(prm=> {
 				resolveProvider		: true,
 				triggerCharacters	: ['[', ' ', '='],
 			},
-			hoverProvider	: true,		// 識別子上にマウスホバーしたとき表示するヒント
+		///	hoverProvider	: true,		// 識別子上にマウスホバーしたとき表示するヒント
+			// client側で行うこととする
 
 			signatureHelpProvider: {	// 引数の説明
 				triggerCharacters	: ['='],
@@ -133,8 +134,8 @@ conn.onInitialize(prm=> {
 		//	selectionRangeProvider?: boolean | SelectionRangeOptions | SelectionRangeRegistrationOptions;
 	//		selectionRangeProvider	: true,		// 規定値でOK
 
-		//	executeCommandProvider?: ExecuteCommandOptions;
-//		executeCommandProvider: {commands: ['revealFileInOS']},
+		//	executeCommandProvider?: ExecuteCommandOptions;		// コマンド登録
+//		executeCommandProvider: {commands: ['skynovel.openReferencePallet']},
 
 		//	callHierarchyProvider?: boolean | CallHierarchyOptions | CallHierarchyRegistrationOptions;
 			// documentSelector: DocumentSelector | null;
@@ -194,6 +195,8 @@ docs.onDidClose(({document: {uri}})=> mapDocStg.delete(uri));
 
 
 // === 識別子上にマウスホバーしたとき表示するヒント ===
+	// client側で行うこととする
+/*
 conn.onHover(prm=> {
 	for (const wf of aLspWs) {
 		const ret = wf.onHover(prm);
@@ -201,6 +204,7 @@ conn.onHover(prm=> {
 	}
 	return {contents: []};
 });
+*/
 
 
 // === コード補完機能 ===

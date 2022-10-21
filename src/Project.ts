@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL, getFn} from './CmnLib';
+import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL, SEARCH_PATH_ARG_EXT, int} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -13,7 +13,7 @@ import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {aPickItems, QuickPickItemEx} from './WorkSpaces';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
 import {resolve, extname, parse} from 'path';
 import img_size from 'image-size';
@@ -48,9 +48,6 @@ type TINF_INTFONT = {
 	hSn2Font2Str	: {[sn: string]: TFONT2STR};
 	hUri2FontErr	: {[uri: string]: TFONT_ERR[]}
 };
-
-type T_DBPIC = {w: number, h: number,};
-type TH_DBPIC = { [fn: string]: T_DBPIC; };
 
 
 export class Project {
@@ -264,7 +261,7 @@ export class Project {
 				if (! r) return Promise.reject('No word here.');
 
 				const txt = doc.getText(r);
-				const hc = txt.charAt(0);
+				const hc = txt.at(0);
 				if (hc === '[' || hc === '*' || hc === ';'
 				|| txt.slice(-1)=== '=') return Promise.reject('No word here.');
 				return new EvaluatableExpression(r, txt);
@@ -346,13 +343,63 @@ export class Project {
 				}
 			}	break;
 
-			case 'db_pic':{
-				const hDbPic: TH_DBPIC = {};
-				treeProc(this.#curPrj, path=> this.#path2hDbPic(path, hDbPic));
-				this.#sendRequest2LSP(hd.cmd +'.res', {hDbPic});
-			}	break;
+			case 'hover.res':	this.#hUri2Proc[hd.o?.uri]?.(hd.o);	break;
 		}
 	}
+	#hUri2Proc: {[uri: string]: (o: any)=> void}	= {};
+	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
+		return new Promise<Hover>(rs=> {
+			// ホバーイベントを伝え、文字列加工だけ任せ文字列を返してもらい、ここで表示
+			const uri = 'file://'+ doc.uri.path;
+			this.#hUri2Proc[uri] = o=> {
+				delete this.#hUri2Proc[uri];
+
+				let value = String(o.value);
+				if (! value) return;
+				const a = value.split(/(?=\n---\n)/);
+				if (a.length === 3) {
+					// 中央部分のみ置換。SQLジャンクション的なものの対策
+					const [args, ...detail] = a;
+//console.log(`fn:Project.ts detail=${detail}=`);
+					value = args + detail.join('').replaceAll(
+						/<!-- ({.+?}) -->/g,
+						(_, e1)=> {
+	const o = JSON.parse(e1);
+//console.log(`fn:Project.ts line:379 o:${JSON.stringify(o)}:`);
+
+	const {name, val} = o;
+	const path = this.#curPrj + this.#searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
+	const {width = 0, height = 0} = img_size(path);
+
+	const aPathEx = encodeURIComponent(JSON.stringify([Uri.file(path)]));
+
+	const srcEx = `${path}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
+
+	return `- ${name} = ${val} (${width}x${height}) ${
+		`[ファイルを見る](${path} "ファイルを見る")`
+	} [サイドバーに表示](${
+		Uri.parse(`command:revealInExplorer?${aPathEx}`)
+	} "サイドバーに表示")
+	[フォルダを開く](${
+		Uri.parse(`command:revealFileInOS?${aPathEx}`)
+	} "フォルダを開く")  \n`
+	+ `![${val}](${srcEx} "${val}")`;
+						}
+					);
+				}
+
+				const ms = new MarkdownString(value);
+			//	const ms = new MarkdownString(value, o.range);// 表示されない
+//console.log(`fn:Project.ts ms=${ms.value}=`);
+				ms.isTrusted = true;
+			//	ms.supportHtml = true;
+				rs(new Hover(ms));
+			};
+			this.#sendRequest2LSP('hover', {uri, pos});
+		});
+	}
+		readonly	#whThumbnail = 200;
+
 	#getFontNm2path(font_nm: string): string {
 		for (const base of this.#aPlaceFont) {
 			for (const ext of ['woff2','otf','ttf']) {
@@ -362,22 +409,6 @@ export class Project {
 		}
 		return '';
 	};
-	#path2hDbPic(path: string, hDbPic: TH_DBPIC) {
-		if (! this.#REG_PIC.test(path)) return;
-
-		const {width = 0, height = 0} = img_size(path);
-		hDbPic[getFn(path)] = {w: width, h: height,};
-/*
-const args = [Uri.parse(path)];
-console.log(`fn:Project.ts ==${
-	Uri.parse(
-		`command:revealInExplorer?${encodeURIComponent(JSON.stringify(args))}`
-	)
-}==`);
-*/
-
-	}
-	readonly	#REG_PIC	= /\.(jpe?g|png|svg|webp)$/;
 	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
 		defaultFontName	: '',
 		hSn2Font2Str	: {},
@@ -1255,6 +1286,79 @@ console.log(`fn:Project.ts ==${
 			hExts[':cnt'] = uint(hExts[':cnt']) +1;
 		}
 		hExts[ext2] = dir +'/'+ nm;
+	}
+
+	readonly	#REG_PATH = /([^\/\s]+)\.([^\d]\w+)/;
+		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
+	#userFnTail		= '';
+	#searchPath(fn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): string {
+		if (! fn) throw '[searchPath] fnが空です';
+		if (fn.slice(0, 7) === 'http://') return fn;
+/*
+		if (path.slice(0, 11) === 'downloads:/') {
+			const fp = this.sys.path_downloads + path.slice(11);
+			this.sys.ensureFileSync(fp);
+			return fp;
+		}
+		if (path.slice(0, 10) === 'userdata:/') {
+			const fp = this.sys.path_userdata + 'storage/'+ path.slice(10);
+			this.sys.ensureFileSync(fp);
+			return fp;
+		}
+*/
+
+		const a = fn.match(this.#REG_PATH);
+		let fn0 = a ?a[1] :fn;
+		const ext = a ?a[2] :'';
+		if (this.#userFnTail) {
+			const utn = fn0 +'@@'+ this.#userFnTail;
+			if (utn in this.#hPathFn2Exts) {
+				if (extptn === '') fn0 = utn;
+				else for (const e3 of Object.keys(this.#hPathFn2Exts[utn])) {
+					if (`|${extptn}|`.indexOf(`|${e3}|`) === -1) continue;
+
+					fn0 = utn;
+					break;
+				}
+			}
+		}
+		const h_exts = this.#hPathFn2Exts[fn0];
+		if (! h_exts) throw `サーチパスに存在しないファイル【${fn}】です`;
+
+		let ret = '';
+		if (! ext) {	// fnに拡張子が含まれていない
+			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
+			const hcnt = int(h_exts[':cnt']);
+			if (extptn === '') {
+				if (hcnt > 1) throw `指定ファイル【${fn}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
+
+				return fn;
+			}
+
+			const search_exts = `|${extptn}|`;
+			if (hcnt > 1) {
+				let cnt = 0;
+				for (const e2 of Object.keys(h_exts)) {
+					if (search_exts.indexOf(`|${e2}|`) === -1) continue;
+					if (++cnt > 1) throw `指定ファイル【${fn}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
+				}
+			}
+			for (let e of Object.keys(h_exts)) {
+				if (search_exts.indexOf(`|${e}|`) > -1) return String(h_exts[e]);
+			}
+			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${fn}】`;
+		}
+
+		// fnに拡張子xが含まれている
+		//	ファイル名サーチ→拡張子群にxが含まれるか
+		if (extptn !== '' && `|${extptn}|`.indexOf(`|${ext}|`) === -1) {
+			throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${fn}】`;
+		}
+
+		ret = String(h_exts[ext]);
+		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${fn}】、サーチ対象拡張子群【${extptn}】`;
+
+		return ret;
 	}
 
 }

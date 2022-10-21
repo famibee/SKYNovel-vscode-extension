@@ -12,7 +12,7 @@ import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, workspace} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, workspace, languages} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
@@ -122,6 +122,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
 
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
+
+			ctx.subscriptions.push(languages.registerHoverProvider({scheme: 'file', language: 'skynovel'}, this.#workSps));
 		};
 		this.#chkEnv(()=> fncInit());
 	}

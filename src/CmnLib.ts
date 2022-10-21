@@ -20,7 +20,7 @@ export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
 
 export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	DEFAULT	= '',
-	SPRITE	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
+	SP_GSM	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
 		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
 	SCRIPT	= 'sn|ssn',
 	FONT	= 'woff2|woff|otf|ttf',

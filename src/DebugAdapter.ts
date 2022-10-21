@@ -593,7 +593,7 @@ class DebugAdapter extends LoggingDebugSession {
 		else if (/^[+-]?[0-9]+([0-9]*)?$/.test(v)) type = 'integer';
 		else if (/^[+-]?[0-9]+(\.[0-9]*)?([eE][+-]?[0-9]+)?$/.test(v)) type = 'float';
 		else if (v) {
-			const bc = v.charAt(0);
+			const bc = v.at(0);
 			if (bc === '{' || bc === '[') type = bc === '{' ?'object' :'array';
 		}
 		return type;

@@ -13,7 +13,7 @@ import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 import {PrjTreeItem, TASK_TYPE} from './PrjTreeItem';
 
-import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind} from 'vscode';
+import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind, Hover, Position, ProviderResult, TextDocument, HoverProvider} from 'vscode';
 
 import {existsSync} from 'fs-extra';
 import {MD_STRUCT} from './md2json';
@@ -25,7 +25,7 @@ export type QuickPickItemEx = QuickPickItem & {
 export const	aPickItems	: QuickPickItemEx[] = [];
 
 
-export class WorkSpaces implements TreeDataProvider<TreeItem> {
+export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
 	#hPrj	: {[pathWs: string]: Project}	= {};
@@ -157,6 +157,17 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		});
 	}
 	#tiLayers	: TreeItem[]	= [];
+
+
+	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
+		for (const [pathWs, prj] of Object.entries(this.#hPrj)) {
+			if (pathWs !== doc.uri.fsPath.slice(0, pathWs.length)) continue;
+
+			return prj.provideHover(doc, pos);
+		}
+		return null;
+	}
+
 
 	#sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void	= ()=> {};
 	start(sendRequest2LSP: (cmd: string, curPrj: string, o: any)=> void) {

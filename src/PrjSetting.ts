@@ -211,7 +211,7 @@ export class PrjSetting {
 		this.#fnSetting = this.#aPathSettingSn[0];
 		const src = readFileSync(this.#fnSetting, {encoding: 'utf8'});
 		for (const [full, nm1, nm2, val, sep = '', lbl_json = ''] of src.matchAll(REG_SN2TEMP)) {
-			if (full.charAt(0) === ';') continue;
+			if (full.at(0) === ';') continue;
 
 			const lbl = lbl_json.trim();
 			if (lbl === '' || lbl.slice(0, 10) === '(HIDE GUI)') continue;
@@ -224,7 +224,7 @@ export class PrjSetting {
 				type: 'txt',
 				val	: sep ?val.slice(1, -1) :val,
 			};
-			if (lbl.charAt(0) === '{') o = {...o, ...JSON.parse(lbl)};
+			if (lbl.at(0) === '{') o = {...o, ...JSON.parse(lbl)};
 			switch (o.type) {	// 型チェック
 				case 'rng':	break;
 		/*
