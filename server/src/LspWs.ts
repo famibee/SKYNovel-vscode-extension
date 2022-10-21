@@ -11,7 +11,7 @@ import {AnalyzeTagArg, HPRM, PRM_RANGE} from './AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
 
-import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type ARG_TAG_PROC = {
@@ -602,7 +602,7 @@ ${sum}`,}
 }
 ---
 ${
-	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n---\n'+ this.#prmPic2md(param, hVal) }  \n`)
+	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)
 }`
 			};
 		}
@@ -623,7 +623,7 @@ ${
 }
 ---
 ${
-	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n---\n'+ this.#prmPic2md(param, hVal) }  \n`)
+	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)
 }`
 			};
 		}
@@ -651,9 +651,9 @@ ${
 
 			return this.#genPrm2Md(mpd) +` ...以下略]
 ~~~
----`+ this.#prmPic2md([mpd], hVal);
+---`+ this.#prmMat2md([mpd], hVal);
 		}
-		#prmPic2md(param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string {
+		#prmMat2md(param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string {
 			if (param.length === 0) return '';
 
 			return '\n  \n'+ param.flatMap(({rangetype, name})=> {
@@ -1494,7 +1494,7 @@ WorkspaceEdit
 		const sJumpFn = new Set();	// ジャンプ元から先(fn)への関連
 		let sJoinLabel = '';	// ラベル変更検知用、jump情報・ラベル名結合文字列
 								// [jump]タグなどの順番が変わっただけでも変更扱いで
-		const hLblRng: TH_FN2LBLRNG = {};	// ラベル重複チェック用
+		this.#hFn2label[fn] ??= {};
 
 		const aDsOutline: DocumentSymbol[] = this.#hSn2aDsOutline[pp] = [];
 
@@ -1504,6 +1504,7 @@ WorkspaceEdit
 		// メッセージをクリア
 		const aDi: Diagnostic[] = this.#uri2Diag[uri] = [];
 		this.#Uri2Links[uri] = [];
+		this.#hChkDup = {};
 
 		// procTokenBase を定義、procToken も同値で始める
 		this.#procToken = this.#procTokenBase = (p: Position, token: string)=> {
@@ -1550,15 +1551,8 @@ WorkspaceEdit
 				if (lbl.charAt(1) === '*') return;	// 無名ラベルは除外
 
 				sJoinLabel += token;	// まぁ区切りなくていいか。*あるし
-				const lr = hLblRng[lbl];
-				if (lr) {
-					const rngLbl = hLblRng[lbl];
-					const {mes, sev} = this.#hDiag.ラベル重複;
-					const mes2 = mes.replace('$', lbl);
-					if (rngLbl) aDi.push(Diagnostic.create(rngLbl, mes2, sev));
-					aDi.push(Diagnostic.create(rng, mes, sev));
-				}
-				else hLblRng[lbl] = rng;
+				this.#chkDupDiag(aDi, 'ラベル重複', lbl, uri, rng);
+				this.#hFn2label[fn][lbl] = rng;
 				return;
 			}
 			if (uc !== 91) {	// 文字表示
@@ -1752,8 +1746,6 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			console.error(`#scanScript Err ${pp}(${p.line},${p.character}) e:${e.message}`);
 		}
 
-		this.#hFn2label[fn] = hLblRng;
-
 		if (this.#hPp2JoinLabel[pp] !== sJoinLabel) {
 			for (const [pp_from, v] of Object.entries(sJumpFn)) {
 				if (v.has(fn)) this.#sPpNeedScan.add(pp_from);
@@ -1763,6 +1755,30 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 //		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
+		#chkDupDiag(aDi: Diagnostic[], key: string, name: string, uri: string, rng: Range) {
+			const {mes, sev} = this.#hDiag[key];
+			if (! this.hasDiagRelatedInfCap) {
+				(aDi ??= []).push(Diagnostic.create(rng, mes.replace('$', name), sev));
+				return;
+			}
+
+			const m = this.#hChkDup[key] ??= new Map;
+			const d = m.get(name);
+			if (! d) {
+				m.set(name, Diagnostic.create(rng, mes.replace('$', name), sev));
+				return;
+			}
+			if (! d.relatedInformation) {
+				d.relatedInformation = [];
+				aDi.push(d);
+			}
+			d.relatedInformation.push(DiagnosticRelatedInformation.create(
+				Location.create(uri, rng),
+				'その他の箇所'
+			));
+		}
+		#hChkDup	: {[name: string]: Map<string, Diagnostic>}		= {};
+
 		#chkLayer(name: string, rangetype: T_KW, val: string, prm: PRM_RANGE, aDi: Diagnostic[]): void {
 			if (this.#hKey2KW[rangetype].has(val)) return;
 

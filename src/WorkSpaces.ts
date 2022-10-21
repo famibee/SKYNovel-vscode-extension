@@ -38,9 +38,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider {
 
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
-		// "type": "SKYNovel TaskSys",
+		// "type": "SKYNovel Sys",
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
-			<TASK_TYPE>(e.execution.task.definition.type.slice(13))
+			<TASK_TYPE>(e.execution.task.definition.type.slice(9))
 		)?.(e));
 
 		// デバッガ

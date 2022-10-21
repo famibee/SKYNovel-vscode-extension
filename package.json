@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.5.0",
+	"version": "4.5.1",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -636,25 +636,25 @@
 		},
 		"taskDefinitions": [
 			{
-				"type": "SKYNovel TaskSys",
+				"type": "SKYNovel Sys",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel TaskWeb",
+				"type": "SKYNovel Web",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel TaskApp",
+				"type": "SKYNovel App",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel TaskPkg",
+				"type": "SKYNovel Pkg",
 				"required": [
 					"task"
 				]
