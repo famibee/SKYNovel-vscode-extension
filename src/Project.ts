@@ -5,19 +5,21 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, uint, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, IFn2Path, is_win, docsel, openURL, SEARCH_PATH_ARG_EXT, int} from './CmnLib';
+import {statBreak, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, openURL} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {aPickItems, QuickPickItemEx} from './WorkSpaces';
+import {Config, SysExtension} from './Config';
+import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
-import {resolve, extname, parse} from 'path';
+import {extname} from 'path';
 import img_size from 'image-size';
-import {lib, enc, RIPEMD160} from 'crypto-js';
+import {lib} from 'crypto-js';
 import {v4 as uuidv4} from 'uuid';
 import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
@@ -25,6 +27,7 @@ import {basename, dirname} from 'path';
 import {execSync} from 'child_process';
 import * as ncu from 'npm-check-updates';
 import {userInfo} from 'os';
+
 
 type BtnEnable = '_off'|'Stop'|'';
 type PluginDef = {
@@ -81,8 +84,6 @@ export class Project {
 		'webm'	: 21,
 		'ogv'	: 22,
 	};
-	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
-		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 
 	readonly	#encry;
 
@@ -118,9 +119,17 @@ export class Project {
 
 	readonly	#clDiag;
 
+	readonly	#cfg;
+
+
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void) {
 		this.#pathWs = wsFld.uri.fsPath;
 		this.#curPrj = this.#pathWs +'/doc/prj/';
+
+		const sr = new SysExtension({cur: this.#curPrj, crypto: false, dip: ''});
+		this.#cfg = new Config(sr);
+		this.#cfg.loadEx(path_src=> this.#encFile(path_src), this.#clDiag);
+
 		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
 		this.#lenCurPrj = this.#curPrj.length;
 			// 遅らせると core/diff.json 生成でトラブル。0状態で処理してしまう
@@ -155,6 +164,7 @@ export class Project {
 		this.#ps = new PrjSetting(
 			ctx,
 			wsFld,
+			this.#cfg,
 			title=> {
 				pti.label = title;
 				this.emPrjTD.fire(pti);
@@ -251,7 +261,7 @@ export class Project {
 		this.#updPathJson();
 
 
-		debug.onDidTerminateDebugSession(_=> this.onDidTermDbgSS());
+		debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
 		debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
 
 		// デバッグ中のみ有効なホバー
@@ -289,7 +299,16 @@ export class Project {
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 	readonly	getLocalSNVer	: ()=> {verSN: string, verTemp: string};
 				#aDbgSS			: DebugSession[]	= [];
-	private	onDidTermDbgSS() {}
+	#onDidTermDbgSS = ()=> {}
+
+	readonly	#ps;
+
+	get title() {return this.#cfg.oCfg.book.title}
+	get version() {return this.#cfg.oCfg.book.version}
+
+	dispose() {for (const f of this.#aFSW) f.dispose();}
+
+
 	#termDbgSS(): Promise<PromiseSettledResult<void>[]> {
 		this.#hTaskExe.get('TaskWeb')?.terminate();
 		this.#hTaskExe.delete('TaskWeb');
@@ -302,6 +321,7 @@ export class Project {
 	}
 
 
+	// LSP
 	onRequest(hd: any) {
 		switch (hd.cmd) {
 			case 'init':{
@@ -368,7 +388,7 @@ export class Project {
 //console.log(`fn:Project.ts line:379 o:${JSON.stringify(o)}:`);
 
 	const {name, val} = o;
-	const path = this.#curPrj + this.#searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
+	const path = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
 	const {width = 0, height = 0} = img_size(path);
 
 	const aPathEx = encodeURIComponent(JSON.stringify([Uri.file(path)]));
@@ -696,8 +716,8 @@ export class Project {
 			case 'TaskWebDbg':
 			case 'TaskAppDbg':
 				this.#termDbgSS().then(()=> {
-					this.onDidTermDbgSS = ()=> {
-						this.onDidTermDbgSS = ()=> {};
+					this.#onDidTermDbgSS = ()=> {
+						this.#onDidTermDbgSS = ()=> {};
 						done(0);
 					};
 					debug.startDebugging(
@@ -883,13 +903,6 @@ export class Project {
 	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
 
 
-	readonly	#ps;
-	get title() {return this.#ps.cfg.book.title}
-	get version() {return this.#ps.cfg.book.version}
-
-	dispose() {for (const f of this.#aFSW) f.dispose();}
-
-
 	#crePrj(e: Uri) {this.#encIfNeeded(e.path); this.#updPathJson();}
 	#chgPrj(e: Uri) {this.#encIfNeeded(e.path);}
 	#delPrj(e: Uri) {
@@ -905,7 +918,8 @@ export class Project {
 		this.#updDiffJson();
 	}
 
-	// プロジェクトフォルダ以下全走査で暗号化
+
+	// 暗号化
 	#initCrypto() {
 		const fnc: (path: string)=> void = this.#isCryptoMode
 			? path=> {if (this.#isDiff(path)) this.#encFile(path);}
@@ -1046,7 +1060,7 @@ export class Project {
 							if (ext.slice(-10) === ':RIPEMD160') continue;
 							const path = String(v);
 							const dir = this.#REG_DIR.exec(path);
-							if (dir && this.#ps.cfg.code[dir[1]]) continue;
+							if (dir && this.#cfg.oCfg.code[dir[1]]) continue;
 
 							hExt2N[ext] = this.#hDiff[path].cn;
 						}
@@ -1058,7 +1072,7 @@ export class Project {
 			}
 
 			const dir = this.#REG_DIR.exec(short_path);
-			if (dir && this.#ps.cfg.code[dir[1]]) {
+			if (dir && this.#cfg.oCfg.code[dir[1]]) {
 				await remove(path_enc);	// これがないとエラーが出るみたい
 				await copy(path_src, path_enc);
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
@@ -1174,191 +1188,12 @@ export class Project {
 	}
 
 
-	#hPathFn2Exts	: IFn2Path	= {};
 	#tiDelayPathJson: NodeJS.Timer | null = null;
 	#updPathJson() {
 		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
 		this.#tiDelayPathJson = setTimeout(()=> {
-			try {
-				const uriPathJs = this.#curPrj +'path.json';
-				this.#hPathFn2Exts = this.#get_hPathFn2Exts(this.#curPrj);
-				outputJson(uriPathJs, this.#hPathFn2Exts);
-
-				if (this.#isCryptoMode) this.#encFile(uriPathJs);
-
-	// NOTE: Score	this.#codSpt.updPath(this.#hPathFn2Exts);
-			}
-			catch (err) {console.error(`Project updPathJson ${err}`);}
+			this.#cfg.loadEx(path_src=> this.#encFile(path_src), this.#clDiag);
 		}, 100);
-	}
-	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
-	#get_hPathFn2Exts($cur: string): IFn2Path {
-		const hFn2Path: IFn2Path = {};
-
-	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
-		// ｛ファイル名：｛拡張子：パス｝｝形式で格納。
-		//		検索が高速なハッシュ形式。
-		//		ここでの「ファイル名」と「拡張子」はスクリプト経由なので
-		//		URLエンコードされていない物を想定。
-		//		パスのみURLエンコード済みの、File.urlと同様の物を。
-		//		あとで実際にロード関数に渡すので。
-		const aD: Diagnostic[] = [];
-		foldProc($cur, ()=> {}, dir=> {
-			const wd = resolve($cur, dir);
-			foldProc(wd, (url, nm)=> {
-				this.#addPath(hFn2Path, dir, nm, aD);
-
-				// スプライトシート用json自動生成機能
-				// breakline.5x20.png などから breakline.json を（無ければ）生成
-				const a2 = nm.match(this.#REG_NEEDHASH);
-				if (a2) {
-					const s = readFileSync(url, {encoding: 'utf8'});
-					const h = RIPEMD160(s).toString(enc.Hex);
-					const snm = nm.slice(0, -a2[0].length);
-					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
-				}
-				const a = nm.match(this.#REG_SPRSHEETIMG);
-				if (! a) return;
-
-				const fnJs = resolve(wd, a[1] +'.json');
-				if (existsSync(fnJs)) return;
-
-				const {width = 0, height = 0} = img_size(url);
-				const xLen = uint(a[2]);
-				const yLen = uint(a[3]);
-				const w = width /xLen;
-				const h = height /yLen;
-				const basename = a[1];
-				const ext = a[4];
-
-				const oJs :any = {
-					frames: {},
-					meta: {
-						app: 'skynovel',
-						version: '1.0',
-						image: a[0],
-						format: 'RGBA8888',
-						size: {w: width, h :height},
-						scale: 1,
-						animationSpeed: 1,	// 0.01~1.00
-					},
-				};
-				let cnt = 0;
-				for (let ix=0; ix<xLen; ++ix) {
-					for (let iy=0; iy<yLen; ++iy) {
-						oJs.frames[basename + String(++cnt).padStart(4, '0') +'.'+ ext] = {
-							frame	: {x: ix *w, y: iy*h, w: w, h :h},
-							rotated	: false,
-							trimmed	: false,
-							spriteSourceSize
-								: {x: 0, y: 0, w: width, h :height},
-							sourceSize	: {w: w, h :h},
-							pivot		: {x: 0.5, y: 0.5},
-						};
-					}
-				}
-				writeJsonSync(fnJs, oJs);
-				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
-
-				this.#addPath(hFn2Path, dir, `${a[1]}.json`, aD);
-			}, ()=> {});
-		});
-		if (this.#clDiag) {
-			this.#clDiag.delete(this.#URI_DUMMY_MAT);
-			if (aD.length > 0) this.#clDiag.set(this.#URI_DUMMY_MAT, aD);
-		}
-
-		return hFn2Path;
-	}
-	readonly #URI_DUMMY_MAT		= Uri.file('素材ファイル');
-	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: Diagnostic[]) {
-		const {name: fn, base, ext} = parse(nm);
-		const ext2 = ext.slice(1);
-		let hExts = hFn2Path[fn];
-		if (! hExts) {
-			hExts = hFn2Path[fn] = {':cnt': 1};
-		}
-		else if (ext2 in hExts) {
-			aD.push(new Diagnostic(new Range(0, 0, 0, 0), `プロジェクト内でファイル【${base}】が重複しています。フォルダを縦断検索するため許されません`, DiagnosticSeverity.Error));
-			return;
-		}
-		else {
-			hExts[':cnt'] = uint(hExts[':cnt']) +1;
-		}
-		hExts[ext2] = dir +'/'+ nm;
-	}
-
-	readonly	#REG_PATH = /([^\/\s]+)\.([^\d]\w+)/;
-		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
-	#userFnTail		= '';
-	#searchPath(fn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): string {
-		if (! fn) throw '[searchPath] fnが空です';
-		if (fn.slice(0, 7) === 'http://') return fn;
-/*
-		if (path.slice(0, 11) === 'downloads:/') {
-			const fp = this.sys.path_downloads + path.slice(11);
-			this.sys.ensureFileSync(fp);
-			return fp;
-		}
-		if (path.slice(0, 10) === 'userdata:/') {
-			const fp = this.sys.path_userdata + 'storage/'+ path.slice(10);
-			this.sys.ensureFileSync(fp);
-			return fp;
-		}
-*/
-
-		const a = fn.match(this.#REG_PATH);
-		let fn0 = a ?a[1] :fn;
-		const ext = a ?a[2] :'';
-		if (this.#userFnTail) {
-			const utn = fn0 +'@@'+ this.#userFnTail;
-			if (utn in this.#hPathFn2Exts) {
-				if (extptn === '') fn0 = utn;
-				else for (const e3 of Object.keys(this.#hPathFn2Exts[utn])) {
-					if (`|${extptn}|`.indexOf(`|${e3}|`) === -1) continue;
-
-					fn0 = utn;
-					break;
-				}
-			}
-		}
-		const h_exts = this.#hPathFn2Exts[fn0];
-		if (! h_exts) throw `サーチパスに存在しないファイル【${fn}】です`;
-
-		let ret = '';
-		if (! ext) {	// fnに拡張子が含まれていない
-			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
-			const hcnt = int(h_exts[':cnt']);
-			if (extptn === '') {
-				if (hcnt > 1) throw `指定ファイル【${fn}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
-
-				return fn;
-			}
-
-			const search_exts = `|${extptn}|`;
-			if (hcnt > 1) {
-				let cnt = 0;
-				for (const e2 of Object.keys(h_exts)) {
-					if (search_exts.indexOf(`|${e2}|`) === -1) continue;
-					if (++cnt > 1) throw `指定ファイル【${fn}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
-				}
-			}
-			for (let e of Object.keys(h_exts)) {
-				if (search_exts.indexOf(`|${e}|`) > -1) return String(h_exts[e]);
-			}
-			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${fn}】`;
-		}
-
-		// fnに拡張子xが含まれている
-		//	ファイル名サーチ→拡張子群にxが含まれるか
-		if (extptn !== '' && `|${extptn}|`.indexOf(`|${ext}|`) === -1) {
-			throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${fn}】`;
-		}
-
-		ret = String(h_exts[ext]);
-		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${fn}】、サーチ対象拡張子群【${extptn}】`;
-
-		return ret;
 	}
 
 }

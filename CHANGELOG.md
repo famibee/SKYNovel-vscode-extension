@@ -1,3 +1,6 @@
+## v4.5.2
+- fix: リビルドなどが終了しない（前回のデグレード）
+- refactor: SKYNovelとコード共通化、ConfigBase 基底の Config クラスに prj・path.json 処理外部化
 ## v4.5.1
 - fix: ラベル重複エラーでそれぞれへのリンクが張られていない件
 ## v4.5.0

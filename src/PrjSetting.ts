@@ -7,13 +7,14 @@
 
 import {foldProc, getNonce, openURL, replaceRegsFile, treeProc} from './CmnLib';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
-import {DEF_CFG, DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
+import {DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson, writeJsonSync} from 'fs-extra';
 import {basename, parse} from 'path';
 import {v4 as uuidv4} from 'uuid';
 import {userInfo} from 'os';
+import {Config} from './Config';
 
 export class PrjSetting {
 	readonly	#wss;
@@ -36,7 +37,7 @@ export class PrjSetting {
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>) {
+	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
 		for (const [nm, v] of Object.entries(oWss)) {
@@ -81,18 +82,6 @@ export class PrjSetting {
 			path_ext +'/res/launch.json', fnLaunchJs
 		));
 
-		const o = readJsonSync(this.#fnPrjJs, {encoding: 'utf8'});
-		this.#oCfg = {	// 後方互換性対応にて二段階目も個別にコピー
-			...this.#oCfg,
-			...o,
-			book	: {...DEF_CFG.book, ...o.book},
-			window	: {...DEF_CFG.window, ...o.window},
-			log		: {...DEF_CFG.log, ...o.log},
-			init	: {...DEF_CFG.init, ...o.init},
-			debug	: {...DEF_CFG.debug, ...o.debug},
-			code	: {...DEF_CFG.code, ...o.code},
-		};
-	//	this.#oCfg = {...this.#oCfg, ...o};
 //		setEscape();	// 非同期禁止
 
 		this.#fnOptPic = this.#pathWs +'/build/cnv_mat_pic.json';
@@ -102,8 +91,8 @@ export class PrjSetting {
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
-				chgTitle(this.#oCfg.book.title);
-				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.#oCfg.debuger_token;
+				chgTitle(this.cfg.oCfg.book.title);
+				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.cfg.oCfg.debuger_token;
 
 				if (existsSync(this.#fnOptPic)) this.#oOptPic = readJsonSync(this.#fnOptPic, {encoding: 'utf8'});
 				else writeJsonSync(this.#fnOptPic, this.#oOptPic = DEF_OPTIMG);
@@ -114,8 +103,8 @@ export class PrjSetting {
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
 				foldProc(this.#fnPrj, ()=> {}, nm=> {
-					if (nm in this.#oCfg.code) return;
-					this.#oCfg.code[nm] = false;
+					if (nm in this.cfg.oCfg.code) return;
+					this.cfg.oCfg.code[nm] = false;
 				});
 			},
 
@@ -127,8 +116,8 @@ export class PrjSetting {
 				.replaceAll('${nonce}', getNonce())
 				.replace('.ts"></script>', '.js"></script>');
 
-				if (this.#oCfg.save_ns === 'hatsune'
-				|| this.#oCfg.save_ns === 'uc') this.open();
+				if (this.cfg.oCfg.save_ns === 'hatsune'
+				|| this.cfg.oCfg.save_ns === 'uc') this.open();
 			},
 
 			async ()=> {
@@ -142,6 +131,8 @@ export class PrjSetting {
 
 		Promise.allSettled(a.map(t=> t()));
 	}
+
+
 	getLocalSNVer(): {verSN: string, verTemp: string} {
 		const oPkg = readJsonSync(this.#fnPkgJs, {encoding: 'utf8'});
 		const fnCngLog = this.#pathWs +'/CHANGELOG.md';
@@ -162,20 +153,20 @@ export class PrjSetting {
 	onCreDir(path: string) {
 		if (! statSync(path).isDirectory()) return;
 
-		this.#oCfg.code[basename(path)] = false;
+		this.cfg.oCfg.code[basename(path)] = false;
 		//fs.outputJson(this.fnPrjJs, this.oCfg);
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
-		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
+		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
 	}
 	onDelDir(path: string) {
-		delete this.#oCfg.code[basename(path)];
+		delete this.cfg.oCfg.code[basename(path)];
 		this.#writePrjJs();
-		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.#oCfg});
+		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
 	}
 	#writePrjJs() {
-		const o = {...this.#oCfg};
+		const o = {...this.cfg.oCfg};
 		o.code = {};
-		for (const [nm, v] of Object.entries(this.#oCfg.code)) {
+		for (const [nm, v] of Object.entries(this.cfg.oCfg.code)) {
 			if (v) o.code[nm] = true;
 		}
 		return writeFile(this.#fnPrjJs, JSON.stringify(o, null , '\t'));
@@ -382,8 +373,6 @@ export class PrjSetting {
 	readonly	#REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 
 
-	#oCfg	= DEF_CFG;
-	get cfg() {return this.#oCfg}
 	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
 	#cmd2Vue = (mes: any)=> {};
@@ -418,7 +407,7 @@ export class PrjSetting {
 		case '?':
 			this.#cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
-				oCfg	: this.#oCfg,
+				oCfg	: this.cfg.oCfg,
 				oWss	: this.#oWss,
 				pathIcon: this.#pathIcon,
 			});
@@ -430,8 +419,8 @@ export class PrjSetting {
 
 		case 'update.oCfg':{
 			const e: T_E2V_CFG = m;
-			const escOld = this.#oCfg.init.escape;
-			const cfg = this.#oCfg = e.oCfg
+			const escOld = this.cfg.oCfg.init.escape;
+			const cfg = this.cfg.oCfg = e.oCfg
 			if (cfg.init.escape !== escOld) this.setEscape();
 			cfg.debuger_token ||= uuidv4();
 			this.#writePrjJs();
@@ -594,13 +583,13 @@ export class PrjSetting {
 
 			switch (process.platform) {
 			case 'win32':
-				env.clipboard.writeText(`C:\\Users\\${username}\\AppData\\Roaming\\${this.#oCfg.save_ns}\\storage\\`);
+				env.clipboard.writeText(`C:\\Users\\${username}\\AppData\\Roaming\\${this.cfg.oCfg.save_ns}\\storage\\`);
 				break;
 			case 'darwin':
-				env.clipboard.writeText(`/Users/${username}/Library/Application Support/${this.#oCfg.save_ns}/storage/`);
+				env.clipboard.writeText(`/Users/${username}/Library/Application Support/${this.cfg.oCfg.save_ns}/storage/`);
 				break;
 			case 'linux':
-				env.clipboard.writeText(`~/.config/${this.#oCfg.save_ns}/storage/`);
+				env.clipboard.writeText(`~/.config/${this.cfg.oCfg.save_ns}/storage/`);
 				break;
 			}
 			window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);

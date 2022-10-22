@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {DocumentFilter, workspace, ExtensionContext, env, Uri, window as vsc_win} from 'vscode';
+import {workspace, ExtensionContext, env, Uri, window as vsc_win} from 'vscode';
 
 // =============== Global
 export function int(o: any): number {return parseInt(String(o), 10)}
@@ -16,32 +16,10 @@ export function uint(o: any): number {
 
 export	const	REG_SCRIPT	= /\.ss?n$/;
 
-export	const docsel: DocumentFilter = {scheme: 'file', language: 'skynovel'};
-
-export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
-	DEFAULT	= '',
-	SP_GSM	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
-		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
-	SCRIPT	= 'sn|ssn',
-	FONT	= 'woff2|woff|otf|ttf',
-	SOUND	= 'mp3|m4a|ogg|aac|flac|wav',
-	HTML	= 'htm|html',
-	CSS		=	'css',
-	SN		=	'sn',
-
-	TST_PNGPNG_	= 'png|png_',
-	TST_HH		= 'hh',
-	TST_EEE		= 'eee',
-	TST_GGG		= 'ggg',
-	TST_PNGXML	= 'png|xml',
-};
+export	const docsel = {scheme: 'file', language: 'skynovel'};
 
 
 // =============== Project
-export interface IExts { [ext: string]: string | number; };
-export interface IFn2Path { [fn: string]: IExts; };
-
-
 export function getNonce() {
 	let text = '';
 	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, docsel, openURL} from './CmnLib';
+import {oIcon, docsel, openURL, getFn} from './CmnLib';
 import {ActivityBar} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -13,7 +13,7 @@ import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
 import {PrjTreeItem, TASK_TYPE} from './PrjTreeItem';
 
-import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind, Hover, Position, ProviderResult, TextDocument, HoverProvider} from 'vscode';
+import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, SnippetString} from 'vscode';
 
 import {existsSync} from 'fs-extra';
 import {MD_STRUCT} from './md2json';
@@ -25,7 +25,7 @@ export type QuickPickItemEx = QuickPickItem & {
 export const	aPickItems	: QuickPickItemEx[] = [];
 
 
-export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider {
+export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
 	#hPrj	: {[pathWs: string]: Project}	= {};
@@ -38,9 +38,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider {
 
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
-		// "type": "SKYNovel Sys",
+		// "type": "SKYNovel TaskSys",
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
-			<TASK_TYPE>(e.execution.task.definition.type.slice(9))
+			<TASK_TYPE>(e.execution.task.definition.type.slice(13))
 		)?.(e));
 
 		// デバッガ
@@ -144,6 +144,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			onDidChangeTreeData: emDbgLayTd.event,
 		}));
 
+		ctx.subscriptions.push(languages.registerDocumentDropEditProvider(docsel, this));
+
 		CteScore.init(ctx);
 
 		this.#removeStatusItem('init');
@@ -157,6 +159,51 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		});
 	}
 	#tiLayers	: TreeItem[]	= [];
+
+
+	// ファイルドロップ（＋Shiftボタンを押す必要がある）
+	async	provideDocumentDropEdits(doc: TextDocument, pos: Position, dataTransfer: DataTransfer, tkn: CancellationToken): Promise<DocumentDropEdit | null | undefined> {
+		// データ転送をチェックして、uris のリストを削除したかどうかを確認します
+		const dti = dataTransfer.get('text/uri-list');
+			// L3,5 というフラグメントをサポートするらしい（3 は行番号、5 は列番号）
+		if (! dti) return undefined;
+
+		// 'text/uri-list' には改行で区切られた URI のリストが含まれる
+		const urlList = await dti.asString();
+		if (tkn.isCancellationRequested) return undefined;
+		const aUri: Uri[] = [];
+		for (const res of urlList.split('\n')) {try {
+			aUri.push(Uri.parse(res));
+		} catch {/* noop */}}
+		if (aUri.length === 0) return undefined;
+
+		// 
+/*
+		if (ワークスペース外からのDrag) {
+			// ファイルコピー先を聞く bg|image|rule, music|sound
+			// キャンセルなら return undefined;
+			// ファイルコピー
+			// aUri をファイルコピー先に書き換え
+		}
+
+		// 挿入スニペット作成
+*/
+		// Build a snippet to insert
+		const snippet = new SnippetString();
+		aUri.forEach((uri, i)=> {
+			const fn = getFn(uri.path);
+console.log(`fn:WorkSpaces.ts fn:${fn} `);
+			snippet.appendText(`${i + 1}. ${fn}`);
+			snippet.appendTabstop();
+
+			if (i <= aUri.length - 1 && aUri.length > 1) {
+				snippet.appendText('\n');
+			}
+		});
+
+		return { insertText: snippet };
+
+	}
 
 
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {

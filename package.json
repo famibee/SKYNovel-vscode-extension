@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.5.1",
+	"version": "4.5.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -636,25 +636,25 @@
 		},
 		"taskDefinitions": [
 			{
-				"type": "SKYNovel Sys",
+				"type": "SKYNovel TaskSys",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel Web",
+				"type": "SKYNovel TaskWeb",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel App",
+				"type": "SKYNovel TaskApp",
 				"required": [
 					"task"
 				]
 			},
 			{
-				"type": "SKYNovel Pkg",
+				"type": "SKYNovel TaskPkg",
 				"required": [
 					"task"
 				]
@@ -695,7 +695,7 @@
 		"crypto-js": "^4.1.1",
 		"fs-extra": "^10.1.0",
 		"node-fetch": "^2.6.7",
-		"npm-check-updates": "^16.3.14",
+		"npm-check-updates": "^16.3.15",
 		"original-fs": "^1.2.0",
 		"pinia": "^2.0.23",
 		"socket.io": "^4.5.3",
@@ -729,7 +729,7 @@
 		"esbuild": "^0.15.12",
 		"esbuild-jest": "^0.5.0",
 		"esbuild-register": "^3.3.3",
-		"eslint": "^8.25.0",
+		"eslint": "^8.26.0",
 		"file-loader": "^6.2.0",
 		"glob": "^8.0.3",
 		"image-size": "^1.0.2",

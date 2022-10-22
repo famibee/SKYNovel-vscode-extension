@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {is_win, oIcon, replaceFile, setCtx4} from './CmnLib';
+import {docsel, is_win, oIcon, replaceFile, setCtx4} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
@@ -52,15 +52,11 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	readonly #aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false, false];
 
-	#workSps: WorkSpaces;
+	#workSps;
 	#tlBox	: ToolBox;
 
 
 	private constructor(private readonly ctx: ExtensionContext) {
-		// WorkSpaces
-		this.#workSps = new WorkSpaces(ctx, this);
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
-
 		// LSP
 		const module = ctx.asAbsolutePath('server/dist/LangSrv.js');
 		const so: ServerOptions = {
@@ -72,7 +68,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			]},}
 		};
 		const co: LanguageClientOptions = {
-			documentSelector: [{scheme: 'file', language: 'skynovel'}],
+			documentSelector: [docsel],
 			synchronize: {
 				fileEvents: [
 					workspace.createFileSystemWatcher('**/.clientrc'),
@@ -88,16 +84,20 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		);
 		ctx.subscriptions.push({dispose: ()=> lsp.stop()});
 
+		// WorkSpaces
+		this.#workSps = new WorkSpaces(ctx, this);
+
 		// link WorkSpaces & LSP
 		lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
 //console.log(`fn:ActivityBar.ts onRequest cmd:${hd.cmd}: hd:%o`, hd);
 			this.#workSps.onRequest(hd);
 		});
 		lsp.start().then(()=> {
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
+
 			this.#workSps.start((cmd, curPrj, o)=> {
 //console.log(`fn:ActivityBar.ts sendRequest cmd:${cmd} curPrj:${curPrj}`);
-				if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);
-					// 制作中チェック用
+				if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);	// 制作中チェック用
 
 				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, curPrj, o});
 			});
