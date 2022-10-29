@@ -13,14 +13,12 @@ import {
 	ProposedFeatures,
 	TextDocuments,
 	TextDocumentSyncKind} from 'vscode-languageserver/node';
-import {
-	TextDocument
-} from 'vscode-languageserver-textdocument';
+import {TextDocument} from 'vscode-languageserver-textdocument';
 
 
 const conn = createConnection(ProposedFeatures.all);
-	console.log = conn.console.log.bind(conn.console);
-	console.error = conn.console.error.bind(conn.console);
+	console.log = (...args)=> conn.console.log(String(args));
+	console.error = (...args)=> conn.console.error(String(args));
 		// 拡張機能ホストの[出力]-[SKYNovel Language Server]に出る
 	process.on('unhandledRejection', e=> {
 		conn.console.error(`Unhandled exception ${e}`);
@@ -46,6 +44,18 @@ conn.onInitialize(prm=> {
 	conn.onInitialized(()=> {
 		// すべての構成変更を登録
 		if (hasCfgCap) conn.client.register(DidChangeConfigurationNotification.type, undefined);
+
+		// vsix デバッグ用（【出力】-【ログ（ウインドウ）】にも出す）
+		console.log = (...args)=> {
+			const txt = String(args);
+			conn.console.log(txt);
+			conn.sendRequest(LspWs.REQ_ID, {cmd: 'log', txt});
+		};
+		console.error = (...args)=> {
+			const txt = String(args);
+			conn.console.error(txt);
+			conn.sendRequest(LspWs.REQ_ID, {cmd: 'error', txt});
+		};
 
 		conn.onRequest(LspWs.REQ_ID, hd=> {
 			for (const wf of aLspWs) wf.onRequest(hd);

@@ -18,7 +18,7 @@
 		"noImplicitAny": true,		// 暗黙的な any をエラーに
 		"strictNullChecks": true,	// 全ての型で Null を許容しないように
 		"noUnusedLocals": true,		// 使っていないローカル変数をエラーに
-		"noUnusedParameters": false,	// TODO: vueビルドでエラーが発生するので
+		"noUnusedParameters": false,	// NOTE: vueビルドでエラーが発生するので
 			// https://stackoverflow.com/questions/70051535/props-is-declared-but-its-value-is-never-read-error-occurred-in-vue3-type
 			// https://github.com/vuejs/core/issues/4668
 //		"noUnusedParameters": true,	// 使っていない仮引数をエラーに

@@ -5,14 +5,23 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {getFn, int, REG_SCRIPT} from './CmnLib';
+import {getFn, int, is_win, REG_SCRIPT} from '../../src/CmnLib';
 import {Grammar, Script} from './Grammar';
-import {AnalyzeTagArg, HPRM, PRM_RANGE} from './AnalyzeTagArg';
+import {AnalyzeTagArg, HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
-const hMd: {[tag_nm: string]: MD_STRUCT} = require('../dist/md.json');
+const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
+import {TFONT2STR, TINF_INTFONT, T_QuickPickItemEx} from '../../src/Project';
 
 import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
+
+type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
+type PROJECT_PATH	= string;	// script/main.sn
+type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
+//type VSC_FULL_PATH= string;	// c:\[user]\...\[prj]\doc\prj\script\main.sn
+type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
+									// scheme つき
+
 
 type ARG_TAG_PROC = {
 	hArg	: HPRM,
@@ -44,24 +53,6 @@ interface MacroDef {
 	name_v_ln		: number;
 	name_v_ch		: number;
 }
-
-// フォントと使用文字情報
-type TFONT2STR = {
-	[font_nm: string]	: string;
-};
-type TFONT_ERR = {
-	err	: string;
-	nm	: string;
-	sl	: number;
-	sc	: number;
-	el	: number;
-	ec	: number;
-};
-type TINF_INTFONT = {
-	defaultFontName	: string;
-	hSn2Font2Str	: {[sn: string]: TFONT2STR};
-	hUri2FontErr	: {[uri: string]: TFONT_ERR[]}
-};
 
 type PluginDef = {
 	uri: string, sl: number, sc: number, el: number, ec: number,
@@ -351,15 +342,35 @@ sys:TextLayer.Back.Alpha`.split('\n');
 	static		#hSnippet	: {[tag_nm: string]: string}	= {};
 	static	readonly	#aCITag	: CompletionItem[]			= [];
 
-	readonly	#curPrj		: string;	// 'file:///'付き
-	readonly	#lenCurPrj	: number;
+	readonly	#PATH_WS		: WORKSPACE_PATH;
+	readonly	#LEN_PATH_WS;
+	readonly	#PATH_PRJ		: string;	// 'file://'付き
+	readonly	#LEN_PATH_PRJ	: number;
 
 	readonly	#grm	= new Grammar;
 
 
-	constructor(private readonly wf: WorkspaceFolder, private readonly conn: Connection, private readonly docs:TextDocuments<TextDocument>, readonly hasDiagRelatedInfCap: boolean) {
-		this.#curPrj = this.wf.uri +'/doc/prj/';	// 'file:///'付き
-		this.#lenCurPrj = this.#curPrj.length;
+	#fullSchPath2fp(fsp: FULL_SCH_PATH): FULL_PATH {
+		return fsp.replace(/file:\/\/(\/\w%3A)?/, '');
+	}	// 似たような名前のメソッドになるので目立たせる
+		// 逆方向は難しそう、変換前の値は保存必要か
+
+	#fp2wp(fp: FULL_PATH): WORKSPACE_PATH {return fp.slice(this.#LEN_PATH_WS)}
+///	#wp2fp(wp: WORKSPACE_PATH): FULL_PATH {return this.#PATH_WS + wp}
+///	#wp2pp(wp: )	WORKSPACE_PATH.slice(9) === PROJECT_PATH
+
+//	#wp2pp(wp: WORKSPACE_PATH): PROJECT_PATH {return wp.slice(this.#LEN_PATH_PRJ)}
+	#fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.#LEN_PATH_PRJ)}
+
+
+	constructor(readonly wf: WorkspaceFolder, private readonly conn: Connection, private readonly docs:TextDocuments<TextDocument>, readonly hasDiagRelatedInfCap: boolean) {
+			// wf.uri=file:///c%3A/Users/[略]/win=
+			// wf.uri=file:///Users/[略]/mac=
+		this.#PATH_WS = this.#fp2wp( this.#fullSchPath2fp(wf.uri) );
+		this.#LEN_PATH_WS = this.#PATH_WS.length;
+//console.error(`005 fn:LspWs.ts constructor      u2p=${this.#PATH_WS}= wf.uri=${wf.uri}=`);
+		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
+		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 
 		if (! LspWs.inited) {
 			LspWs.inited = true;
@@ -380,7 +391,7 @@ sys:TextLayer.Back.Alpha`.split('\n');
 				? {kind: 'markdown', value: `$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm})
 
 ---
-${sum}`,}
+${sum}`,}	// --- の前に空行がないとフォントサイズが大きくなる
 				: '';
 
 				for (const {nm, txt} of snippet) {
@@ -468,11 +479,12 @@ ${sum}`,}
 	// =======================================
 	static readonly REQ_ID = ':SKYNovel:';
 	#sendRequest(cmd: string, o = {}) {
-		this.conn.sendRequest(LspWs.REQ_ID, {cmd, curPrj: this.#curPrj, o});
+//console.error(`050 fn:LspWs.ts ⬇ #sendRequest cmd:${cmd} o:${JSON.stringify(o).slice(0, 200)}`);
+		this.conn.sendRequest(LspWs.REQ_ID, {cmd, pathWs: this.#PATH_WS, o});
 	}
-	onRequest({cmd, curPrj, o}: {cmd: string, curPrj: string, o: any}) {
-//console.log(`fn:LspWs.ts onRequest cmd:${cmd} o:${Object.keys(o)}:`);
-		if (curPrj === this.#curPrj) this.#hCmd2ReqProc[cmd]?.(o);
+	onRequest({cmd, pathWs, o}: {cmd: string, pathWs: string, o: any}) {
+//console.error(`040 fn:LspWs.ts ⬆ onRequest cmd:${cmd} pathWs=${pathWs}= #PATH_WS=${this.#PATH_WS}= o:${Object.keys(o)}:`);
+		if (pathWs === this.#PATH_WS) this.#hCmd2ReqProc[cmd]?.(o);
 	}
 	#hCmd2ReqProc: {[cmd: string]: (o: any)=> void}	= {
 		'ready': ()=> this.#fullScan(),
@@ -486,20 +498,20 @@ ${sum}`,}
 		'init.res'		: o=> this.#scanAll(o),
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
 		'def_esc.upd'	: ()=> this.#fullScan(),
-		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.genHover(uri, pos)}),
+		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.#genHover(uri, pos)}),
 	};
 	#fullScan() {this.#sendRequest('init');}
 
 
 	// === ファイル変更イベント（手入力が対象） ===
 	onDidChangeContent(chg: TextDocumentChangeEvent<TextDocument>) {
-		const {uri} = chg.document;		// 'file:///'付き
+		const {uri} = chg.document;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return;
 
 		if (! REG_SCRIPT.test(uri)) return;
 
-		const pp = uri.slice(this.#lenCurPrj);
-		if (! pp) return;
+		const fp = this.#fullSchPath2fp(uri);
+		const pp = this.#fp2pp(fp);
 //console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${chg.document.version}`);
 
 /*	// NOTE: Score
@@ -522,9 +534,13 @@ ${sum}`,}
 
 		// scanScript 本編
 		this.#scanBegin();
-		this.#sPpNeedScan = new Set(this.#getAPpDefKw());
+		this.#sFpNeedScan = new Set(
+			Object.values(this.#hT2DefKw2ALoc)
+			.flatMap(m=> [...m.values()]
+			.flatMap(a=> a.map(l=> l.uri)))
+		);
 		this.#hScript[pp] = this.#grm.resolveScript(chg.document.getText());
-		this.#scanScript(pp);
+		this.#scanScript(fp);
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
 		// すべて追加走査（重複走査・永久ループに留意）
@@ -537,28 +553,28 @@ ${sum}`,}
 			// このファイルで定義されたマクロ、を使用している別ファイル
 			for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
 				//if (locUse.uri !== uri) // 略、.delete(uri)するので
-				this.#sPpNeedScan.add(locUse.uri.slice(this.#lenCurPrj));
+				this.#sFpNeedScan.add(locUse.uri);
 			}
 		}
 
 		// 追加走査
-		this.#sPpNeedScan.delete(pp);	// 処理重複につき
-		for (const pp2 of this.#sPpNeedScan) this.#scanScript(pp2);
+		this.#sFpNeedScan.delete(fp);	// 処理重複につき
+		for (const fp2 of this.#sFpNeedScan) this.#scanScript(fp2);
 		this.#scanEnd();
 	}
-	#sPpNeedScan	= new Set<string>();	// スキャン必要フラグ（単体ファイル走査時）
+	#sFpNeedScan	= new Set<string>;	// 派生スキャン必要sn（単体ファイル走査時）
 
 	// === ファイル変更イベント（手入力以外が対象） ===
 	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
 	//	// Changed は保存時に発生する
 	onDidChangeWatchedFiles({changes}: DidChangeWatchedFilesParams) {
-		const {uri} = changes[0];	// 'file:///'付き
+		const {uri} = changes[0];	// 'file://'付き
 		if (! this.#checkRelated(uri)) return;
 //console.log(`fn:LspWs.ts onDidChangeWatchedFiles !`);
 
 		for (const {type, uri} of changes) {
-			const pp = uri.slice(this.#lenCurPrj);
-//console.log(`fn:LspWs.ts   pp:${pp}:`);
+			const fp = this.#fullSchPath2fp(uri);
+			const pp = this.#fp2pp(fp);
 			if (pp === 'path.json'
 			&& (type === FileChangeType.Created ||
 				type === FileChangeType.Changed)) {this.#fullScan(); continue;}
@@ -567,12 +583,14 @@ ${sum}`,}
 
 
 	// === 識別子上にマウスホバーしたとき表示するヒント ===
-	genHover(uri: string, p: Position): {value: string, range: Range} | undefined {
-		const pp = uri.slice(this.#lenCurPrj);
+	#genHover(uri: string, p: Position): {value: string, range: Range} | undefined {	// uri ... 'file://'付き
+		const fp = this.#fullSchPath2fp(uri);
+		const pp = this.#fp2pp(fp);
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		if (! aUse) return undefined;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
 		if (! u) return undefined;
+//console.log(`fn:LspWs.ts #genHover ::${this.docs.keys().join(',')}::`);
 
 		const d = this.docs.get(uri);
 		if (! d) return undefined;
@@ -602,7 +620,7 @@ ${sum}`,}
 }
 ---
 ${
-	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)
+	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
 }`
 			};
 		}
@@ -623,7 +641,7 @@ ${
 }
 ---
 ${
-	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)
+	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
 }`
 			};
 		}
@@ -666,7 +684,7 @@ ${
 			}).join('  \n');	// 【半角空白二つ + \n】で改行
 		}
 
-		readonly	#checkRelated = (uri: string)=> this.#curPrj === uri.slice(0, this.#lenCurPrj);
+		readonly	#checkRelated = (uri: string)=> this.#PATH_PRJ === this.#fullSchPath2fp(uri).slice(0, this.#LEN_PATH_PRJ);
 		readonly	#genPrm2Md = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
 			? `【必須】${this.#escHighlight(rangetype)}`
@@ -681,11 +699,10 @@ ${
 	// === コード補完機能 ===
 	//	// 自動補完（初期リストを返すハンドラー）
 	onCompletion(prm: TextDocumentPositionParams): CompletionItem[] | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
-		if (! pp) return null;
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		const d = this.docs.get(uri);
 		if (! d) return null;
 
@@ -867,10 +884,10 @@ ${
 						#hArgDesc		: ArgDesc	= {};
 	static	readonly	#hTagArgDesc	: ArgDesc	= {};
 	onSignatureHelp(prm: SignatureHelpParams): SignatureHelp | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp];
 		if (! aUse) return null;
 		const {position: p, context} = prm;
@@ -884,7 +901,7 @@ ${
 		if (! context?.isRetrigger) {
 			const ad = this.#hArgDesc[u.nm];
 			if (! ad) {
-				console.log(`fn:LspWs.ts hArgDesc[${u.nm}] 定義なし`);
+				console.error(`fn:LspWs.ts hArgDesc[${u.nm}] 定義なし`);
 				return null;
 			}
 			let sPrm = '';
@@ -920,10 +937,10 @@ ${
 
 	// === 定義へ移動、定義をここに表示 ===
 	onDefinition(prm: DefinitionParams): Definition | DefinitionLink[] | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		if (! aUse) return null;
 		const p = prm.position;
@@ -957,10 +974,10 @@ ${
 
 	// === 参照へ移動、参照をここに表示 ===
 	onReferences(prm: ReferenceParams): Location[] | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		if (! aUse) return null;
 		const p = prm.position;
@@ -990,16 +1007,16 @@ ${
 
 	// === ドキュメントアウトライン ===
 	onDocumentSymbol(prm: DocumentSymbolParams): SymbolInformation[] | DocumentSymbol[] | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		return this.#hSn2aDsOutline[pp];
 	}
 
 	// === リンク ===
 	onDocumentLinks(prm: DocumentLinkParams): DocumentLink[] | DocumentSymbol[] | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
 		return this.#Uri2Links[uri] ?? [];
@@ -1017,7 +1034,7 @@ ${
 		const {uri} = prm.textDocument;
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		if (! aUse) return null;
 		const p = prm.position;
@@ -1038,7 +1055,7 @@ ${
 		static	readonly	#REG_NG4MAC_NM = /[\s"'#;\]　]+/;
 	// === シンボルの名前変更 ===
 	onRenameRequest(prm: RenameParams): WorkspaceEdit | null {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
 		const {newName} = prm;
@@ -1107,10 +1124,10 @@ WorkspaceEdit
 
 	// === コード内に挿入して表示するインレイヒント ===
 	onInlayHint(prm: InlayHintParams): InlayHint[] | null | undefined {
-		const {uri} = prm.textDocument;		// 'file:///'付き
+		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		const pp = uri.slice(this.#lenCurPrj);
+		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 		return this.#hDoc2InlayHint[pp] ?? [];
 	}
 
@@ -1137,7 +1154,8 @@ WorkspaceEdit
 			if (! REG_SCRIPT.test(pp)) continue;
 
 			this.#hScript[pp] = this.#grm.resolveScript(s);
-			this.#scanScript(pp);
+			const fp = this.#PATH_PRJ + pp;
+			this.#scanScript(fp);
 		}
 		//console.log(`fn:LspWs.ts #scanAll() 8: #scanEnd()`);
 		this.#scanEnd();
@@ -1145,12 +1163,11 @@ WorkspaceEdit
 	}
 		#updPath(sJson: string) {
 			const oJs = JSON.parse(sJson);
-			const curPrj = this.#curPrj.slice(7);	// とりあえず'file:///'なし
 			for (const [nm, v] of Object.entries(oJs)) {
 				const h = this.#hPathFn2Exts[nm] = <any>v;
 				for (const [ext, w] of Object.entries(h)) {
 					if (ext === ':cnt') continue;
-					h[ext] = curPrj + w;
+					h[ext] = this.#PATH_PRJ + w;
 
 					if (LspWs.#REG_SCRIPT.test(ext)) {
 						this.#hKey2KW.スクリプトファイル名.add(nm);
@@ -1177,8 +1194,8 @@ WorkspaceEdit
 		static	readonly	#REG_HTML	= new RegExp(SEARCH_PATH_ARG_EXT.HTML);
 
 
-	#scanBegin() {this.#aOldUri2Diag = Object.keys(this.#uri2Diag);}
-	#aOldUri2Diag	: string[]	= [];	// スクリプト削除時にエラーや警告を消す用
+	#scanBegin() {this.#aOldFp2Diag = Object.keys(this.#fp2Diag);}
+	#aOldFp2Diag: FULL_PATH[]	= [];	// スクリプト削除時にエラーや警告を消す用
 	#aEndingJob	: (()=> void)[]	= [];
 	#scanEnd() {
 		// == キーワードを全てマージ（スクリプトに登場したもの＋組み込み初期値）
@@ -1210,7 +1227,10 @@ WorkspaceEdit
 			if (nm in this.#hMacro2aLocUse) continue;
 			if (hPrm?.nowarn_unused?.val) continue;
 
-			(this.#uri2Diag[loc.uri] ??= []).push(Diagnostic.create(
+			// loc.uri is fp
+				// loc.uri=/Users/[略]/win/doc/prj/script/main.sn:
+				// loc.uri=/Users/[略]/mac/doc/prj/script/main.sn:
+			(this.#fp2Diag[loc.uri] ??= []).push(Diagnostic.create(
 				loc.range,
 				mes.replace('$', nm),
 				sev
@@ -1261,20 +1281,24 @@ WorkspaceEdit
 
 			const mes = d未定義.mes.replace('$', nm);
 			// 同じ警告は一度全て削除
-			for (const [uri, a] of Object.entries(this.#uri2Diag)) {
-				this.#uri2Diag[uri] = a.flatMap(d=> d.message == mes ?[] :d);
+			for (const [fp, aD] of Object.entries(this.#fp2Diag)) {
+				this.#fp2Diag[fp] = aD.flatMap(d=> d.message == mes ?[] :d);
 			}
 
-			for (const {uri, range} of aUse) (this.#uri2Diag[uri] ??= [])
+			for (const {uri, range} of aUse) (this.#fp2Diag[uri] ??= [])
 			.push(Diagnostic.create(range, mes, d未定義.sev));
 		}
 
 		// Send the computed diagnostics to VSCode.
-		for (const [uri, diagnostics] of Object.entries(this.#uri2Diag)) this.conn.sendDiagnostics({uri, diagnostics});
+		for (const [fp, diagnostics] of Object.entries(this.#fp2Diag)) {
+			const uri = is_win ?'file:///c:'+ fp :fp;
+			this.conn.sendDiagnostics({uri, diagnostics});
+		}
+//		for (const [fp, diagnostics] of Object.entries(this.#fp2Diag)) this.conn.sendDiagnostics({uri: fp, diagnostics});
 		// スクリプト削除時にエラーや警告を消す
-		for (const uri of this.#aOldUri2Diag) {
-			if (uri in this.#uri2Diag) continue;
-			this.conn.sendDiagnostics({uri, diagnostics: []});
+		for (const fp of this.#aOldFp2Diag) {
+			if (fp in this.#fp2Diag) continue;
+			this.conn.sendDiagnostics({uri: fp, diagnostics: []});
 		}
 
 		const hMacArgDesc: ArgDesc	= {};
@@ -1296,21 +1320,21 @@ WorkspaceEdit
 			InfFont			: this.#InfFont,
 
 			aQuickPickMac	: Object.entries(this.#hDefMacro)
-			.map(([nm, {sum, loc: {uri}}])=> ({
-		//	.map(([nm, {sum, loc: {uri, range}}])=> ({
+			.map(([nm, {sum, loc: {uri}}])=> (<T_QuickPickItemEx>{
+		//	.map(([nm, {sum, loc: {uri, range}}])=> (<T_QuickPickItemEx>{
 				label		: nm,
 				description	: `（マクロ）${sum?.split(' ')[0] ?? ''}`,
 				//detail,	// 別の行になる
-			//	uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}#L${range.start.line}`,	// 効かない
-				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+			//	uri	: `ws-file://${this.#fp2wp(uri)}#L${range.start.line}`,	// 効かない
+				uri	: `ws-file://${this.#fp2wp(uri)}`,
 			})),
 
 			aQuickPickPlg	: Object.entries(this.#hDefPlugin)
-			.map(([nm, {uri}])=> ({
+			.map(([nm, {uri}])=> (<T_QuickPickItemEx>{
 				label		: nm,
 				description	: '（プラグインによる定義）',
 				//detail,	// 別の行になる
-				uri	: `ws-file:///doc/prj/${uri.slice(this.#lenCurPrj)}`,
+				uri	: `ws-file://${this.#fp2wp(uri)}`,
 			})),
 		});
 
@@ -1378,24 +1402,24 @@ WorkspaceEdit
 	};
 
 
-	#hScript		: {[pp: string]: Script}		= {};
+	#hScript		: {[pp: PROJECT_PATH]: Script}	= {};
 
 	#hDefPlugin		: {[nm: string]: PluginDef}		= {};
 	#hDefMacro		: {[nm: string]: MacroDef}		= {};
 	#hMacro2aLocUse	: {[nm: string]: Location[]}	= {};
-	#hDoc2TagMacUse	: {[pp: string]: {nm: string, rng: Range}[]}	= {};
+	#hDoc2TagMacUse	: {[pp: PROJECT_PATH]: {nm: string, rng: Range}[]}	= {};
 
 	#hOldDefMacro	: {[nm: string]: MacroDef}	= {};	// 変更前に存在したマクロ群
 
-	#hSn2aDsOutline	: {[pp: string]: DocumentSymbol[]}	= {};
+	#hSn2aDsOutline	: {[pp: PROJECT_PATH]: DocumentSymbol[]}	= {};
 
 	#hFn2label		: {[fn: string]: TH_FN2LBLRNG}	= {};	// ラベル存在チェック用
-	#hPp2JoinLabel	: {[pp: string]: string}		= {};	// ラベル名結合文字列
+	#hPp2JoinLabel	: {[pp: PROJECT_PATH]: string}	= {};	// ラベル名結合文字列
 		// ジャンプ先変更チェック用。無名以外のラベル名を結合
 
-	#hDoc2InlayHint	: {[pp: string]: InlayHint[]}	= {};
+	#hDoc2InlayHint	: {[pp: PROJECT_PATH]: InlayHint[]}	= {};
 
-	#uri2Diag	: {[uri: string]: Diagnostic[]}		= {};
+	#fp2Diag	: {[fp: FULL_PATH]: Diagnostic[]}	= {};
 	#Uri2Links	: {[uri: string]: DocumentLink[]}	= {};
 
 	#scanInitAll() {
@@ -1405,14 +1429,14 @@ WorkspaceEdit
 
 		for (const key of KW_VAR) this.#hT2Pp2Kw[key] = {};
 		this.#hSn2aDsOutline = {};
-		this.#InfFont = {defaultFontName: '', hSn2Font2Str: {}, hUri2FontErr: {}};
+		this.#InfFont = {defaultFontName: '', hSn2Font2Str: {}, hFp2FontErr: {}};
 
 		this.#hFn2label = {};
 		this.#hPp2JoinLabel = {};
 
 		this.#hDoc2InlayHint = {};
 
-		this.#uri2Diag = {};
+		this.#fp2Diag = {};
 		this.#Uri2Links = {};
 
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) m.clear();
@@ -1423,15 +1447,15 @@ WorkspaceEdit
 	#InfFont	: TINF_INTFONT	= {
 		defaultFontName	: '',
 		hSn2Font2Str	: {},
-		hUri2FontErr	: {},
+		hFp2FontErr		: {},
 	};
-	#getFonts2ANm(fonts: string, uri: string, rng: Range): string {
+	#getFonts2ANm(fonts: string, fp: string, rng: Range): string {
 		const aNm = fonts.split(',')
 		.map(nm=> /^["'\s]*(?<text>[^,;"']+)/.exec(nm)?.groups?.text ?? '');
 			// https://regex101.com/r/TA5y7N/1
 
 		for (const nm of aNm) {
-			(this.#InfFont.hUri2FontErr[uri] ??= []).push({
+			(this.#InfFont.hFp2FontErr[fp] ??= []).push({
 				err	: this.#hDiag.フォントファイル不明.mes.replace('$', nm),
 				nm,
 				sl	: rng.start.line,
@@ -1451,12 +1475,12 @@ WorkspaceEdit
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
 	static	readonly	DEF_FONT = ':DEF_FONT:';
 	#nowFontNm = LspWs.DEF_FONT;
-	#scanScript(pp: string) {
-		const uri = this.#curPrj + pp;
+	#scanScript(fp: string) {
+		const pp = this.#fp2pp(fp);
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) {
-			this.#delDefKw(m, uri);
+			this.#delDefKw(m, fp);
 			for (const [nm, aLoc] of m.entries()) {
-				m.set(nm, aLoc.flatMap(loc=> loc.uri === uri ?[] :loc));
+				m.set(nm, aLoc.flatMap(loc=> loc.uri === fp ?[] :loc));
 			}
 		}
 
@@ -1465,7 +1489,7 @@ WorkspaceEdit
 			const hMD: {[nm: string]: MacroDef} = {};
 			this.#hOldDefMacro = {};	// 変更前に存在したマクロ群を退避
 			for (const [nm, md] of Object.entries(this.#hDefMacro)) {
-				if (md.loc.uri !== uri) hMD[nm] = md;
+				if (md.loc.uri !== fp) hMD[nm] = md;
 				else this.#hOldDefMacro[nm] = md;
 			//	else {this.#hOldDefMacro[nm] = md; this.#cteScore.undefMacro(nm);}	// NOTE: Score
 			}
@@ -1475,7 +1499,7 @@ WorkspaceEdit
 			const hMU: {[nm: string]: Location[]} = {};
 			for (const [nm, aUse] of Object.entries(this.#hMacro2aLocUse)) {
 				for (const locUse of aUse) {
-					if (locUse.uri !== uri) (hMU[nm] ??= []).push(locUse);
+					if (locUse.uri !== fp) (hMU[nm] ??= []).push(locUse);
 				}
 			}
 			this.#hMacro2aLocUse = hMU;	// 別snで使用されたマクロのみにした
@@ -1483,7 +1507,7 @@ WorkspaceEdit
 		this.#hDoc2TagMacUse[pp] = [];
 
 		for (const pp2s of Object.values(this.#hT2Pp2Kw)) pp2s[pp] ??= new Set;
-		this.#InfFont.hUri2FontErr[uri] = [];
+		this.#InfFont.hFp2FontErr[fp] = [];
 
 		this.#hDoc2InlayHint[pp] = [];
 
@@ -1502,8 +1526,8 @@ WorkspaceEdit
 		this.#nowFontNm = LspWs.DEF_FONT;
 
 		// メッセージをクリア
-		const aDi: Diagnostic[] = this.#uri2Diag[uri] = [];
-		this.#Uri2Links[uri] = [];
+		const aDi: Diagnostic[] = this.#fp2Diag[fp] = [];
+		this.#Uri2Links[fp] = [];
 		this.#hChkDup = {};
 
 		// procTokenBase を定義、procToken も同値で始める
@@ -1528,7 +1552,7 @@ WorkspaceEdit
 						this.#hT2Pp2Kw['代入変数名'][pp].add(kw);
 
 						// doc/prj/script/setting.sn の デフォルトフォント
-						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, uri, rng);
+						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
 					}
 				} catch (e) {console.error(`fn:LspWs.ts #scanScriptSrc & %o`, e);}
 				return;
@@ -1551,7 +1575,7 @@ WorkspaceEdit
 				if (lbl.charAt(1) === '*') return;	// 無名ラベルは除外
 
 				sJoinLabel += token;	// まぁ区切りなくていいか。*あるし
-				this.#chkDupDiag(aDi, 'ラベル重複', lbl, uri, rng);
+				this.#chkDupDiag(aDi, 'ラベル重複', lbl, fp, rng);
 				this.#hFn2label[fn][lbl] = rng;
 				return;
 			}
@@ -1651,7 +1675,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		for (const nmArg of ['fn', 'label']) {
 			const prm = hRng[nmArg];
 			if (! prm) continue;
-			(this.#Uri2Links[uri] ??= []).push({
+			(this.#Uri2Links[fp] ??= []).push({
 				range	: this.#genPrm2Rng(prm),
 				target	: to_uri +`#L${lnOpen}`,
 				tooltip	: `${argFn}.sn の${argLbl ?'ラベル '+ argLbl :'冒頭'} を開く`,
@@ -1732,11 +1756,11 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 				}
 			});
 
-			const arg = {hArg, uri, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng};
+			const arg = {hArg, uri: fp, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng};
 			if (use_nm in LspWs.#hTag) {this.#hTagProc[use_nm]?.(arg); return;}
 
 			// ここからマクロのみ
-			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(uri, rngp1));
+			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(fp, rngp1));
 		};
 
 		const p = {line: 0, character: 0};
@@ -1748,7 +1772,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 		if (this.#hPp2JoinLabel[pp] !== sJoinLabel) {
 			for (const [pp_from, v] of Object.entries(sJumpFn)) {
-				if (v.has(fn)) this.#sPpNeedScan.add(pp_from);
+				if (v.has(fn)) this.#sFpNeedScan.add(this.#PATH_PRJ + pp_from);
 			}
 			this.#hPp2JoinLabel[pp] = sJoinLabel;
 		}
@@ -2027,29 +2051,24 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 			// 同じ警告は一度全て削除
 			const mes = diag.replace('$', kw);
-			for (const [uri, a] of Object.entries(this.#uri2Diag)) {
-				this.#uri2Diag[uri] = a.flatMap(d=> d.message == mes ?[] :d);
+			for (const [fp, a] of Object.entries(this.#fp2Diag)) {
+				this.#fp2Diag[fp] = a.flatMap(d=> d.message == mes ?[] :d);
 			}
 
 			if (this.hasDiagRelatedInfCap) {
 				const [{uri, range}] = aLoc;
-				(this.#uri2Diag[uri] ??= []).push(Diagnostic.create(
+				(this.#fp2Diag[uri] ??= []).push(Diagnostic.create(
 					range, mes, undefined, undefined, undefined,
 					aLoc.map(location=> ({location, message: 'その他の箇所'}))
 				));
 			}
-			else for (const {uri, range} of aLoc) (this.#uri2Diag[uri] ??= []).push(Diagnostic.create(range, mes, DiagnosticSeverity.Error));
+			else for (const {uri, range} of aLoc) (this.#fp2Diag[uri] ??= []).push(Diagnostic.create(range, mes, DiagnosticSeverity.Error));
 		}
 	}
 	#delDefKw(m: MAP_KW2ALOC, uri: string) {
 		for (const [kw, aLoc] of m.entries()) {
 			m.set(kw, aLoc.filter(loc=> loc.uri !== uri));
 		}
-	}
-	#getAPpDefKw(): string[] {
-		return Object.values(this.#hT2DefKw2ALoc)
-		.flatMap(m=> [...m.values()]
-		.flatMap(a=> a.map(l=> l.uri.slice(this.#lenCurPrj))));
 	}
 
 
@@ -2166,3 +2185,4 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	}
 
 }
+

@@ -5,14 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, is_win, oIcon, replaceFile, setCtx4} from './CmnLib';
+import {docsel, is_win, replaceRegsFile, v2fp} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, workspace, languages} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
@@ -24,6 +24,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
+
 export const enum eTreeEnv {
 	NODE = 0,
 	NPM,
@@ -32,9 +33,29 @@ export const enum eTreeEnv {
 	PY_FONTTOOLS,
 };
 
+
+export function getNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i=0; i<32; ++i) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}
+
+
+let extPath = '';
+export function oIcon(name: string) {return {
+	light	: extPath +`/res/light/${name}.svg`,
+	dark	: extPath +`/res/dark/${name}.svg`,
+}};
+
+
+
+
 export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
-		setCtx4(ctx);
+		extPath = ctx.extensionPath;
 
 		ActivityBar.#actBar = new ActivityBar(ctx);
 	}
@@ -58,7 +79,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	private constructor(private readonly ctx: ExtensionContext) {
 		// LSP
-		const module = ctx.asAbsolutePath('server/dist/LangSrv.js');
+		const module = ctx.asAbsolutePath('dist/LangSrv.js');
 		const so: ServerOptions = {
 			run		: {module, transport: TransportKind.ipc},
 			debug	: {module, transport: TransportKind.ipc,
@@ -71,8 +92,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			documentSelector: [docsel],
 			synchronize: {
 				fileEvents: [
-					workspace.createFileSystemWatcher('**/.clientrc'),
-					workspace.createFileSystemWatcher('**/doc/prj/**/*.json'),
+//					workspace.createFileSystemWatcher('**/.clientrc'),
+//					workspace.createFileSystemWatcher('**/doc/prj/**/*.json'),
 				],
 			},
 		};
@@ -89,18 +110,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		// link WorkSpaces & LSP
 		lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
-//console.log(`fn:ActivityBar.ts onRequest cmd:${hd.cmd}: hd:%o`, hd);
+			switch (hd.cmd) {
+				case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
+				case 'error':	console.error(hd.txt);	return;
+			}
+//console.error(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
 			this.#workSps.onRequest(hd);
-		});
-		lsp.start().then(()=> {
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
-
-			this.#workSps.start((cmd, curPrj, o)=> {
-//console.log(`fn:ActivityBar.ts sendRequest cmd:${cmd} curPrj:${curPrj}`);
-				if (curPrj.slice(0, 8) !== 'file:///') console.error(`fn:ActivityBar.ts sendRequest 'file:///' err curPrj:${curPrj}`);	// 制作中チェック用
-
-				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, curPrj, o});
-			});
 		});
 
 		// 環境設定チェック
@@ -111,21 +126,29 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
-		let fncInit = ()=> {
-			fncInit = ()=> {};
+		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
 
-			ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
-			ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
-			ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
+		Promise.allSettled([
+			lsp.start(),
+			this.#chkEnv(()=> {
+				ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
+				ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
+				ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
-			this.#tlBox = new ToolBox(ctx);
-			ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
+				this.#tlBox = new ToolBox(ctx);
+				ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
 
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
+				ctx.subscriptions.push(languages.registerHoverProvider({scheme: 'file', language: 'skynovel'}, this.#workSps));
+			}),
+		]).then(()=> {
+			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
 
-			ctx.subscriptions.push(languages.registerHoverProvider({scheme: 'file', language: 'skynovel'}, this.#workSps));
-		};
-		this.#chkEnv(()=> fncInit());
+			this.#workSps.start((cmd, uriWs, o)=> {
+				// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
+//console.error(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${u2p(uriWs.path)}=`);
+				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
+			});
+		});
 	}
 	static readonly #REQ_ID = ':SKYNovel:';
 
@@ -413,9 +436,20 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// package.json の置換
 				const fnPkgJs = pathWs +'/package.json';
-				replaceFile(fnPkgJs, /("name"\s*:\s*").*(")/, `$1${this.#save_ns}$2`);
-				replaceFile(fnPkgJs, /("(?:appBundleId|appId)"\s*:\s*").*(")/g, `$1com.fc2.blog.famibee.skynovel.${this.#save_ns}$2`);
-				replaceFile(fnPkgJs, /("artifactName"\s*:\s*").*(")/, `$1${this.#save_ns}-\${version}-\${arch}.\${ext}$2`);
+				replaceRegsFile(fnPkgJs, [
+					[
+						/("name"\s*:\s*").*(")/,
+						`$1${this.#save_ns}$2`,
+					],
+					[
+						/("(?:appBundleId|appId)"\s*:\s*").*(")/g,
+						`$1com.fc2.blog.famibee.skynovel.${this.#save_ns}$2`,
+					],
+					[
+						/("artifactName"\s*:\s*").*(")/,
+						`$1${this.#save_ns}-\${version}-\${arch}.\${ext}$2`,
+					],
+				], false);
 
 				// フォルダ名変更
 				moveSync(fnFrom, fnTo);

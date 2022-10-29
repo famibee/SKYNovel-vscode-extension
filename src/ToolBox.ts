@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {getNonce} from './CmnLib';
+import {getNonce} from './ActivityBar';
 
 import {WebviewViewProvider, ExtensionContext, WebviewView, WebviewViewResolveContext, CancellationToken, Uri, window} from 'vscode';
 

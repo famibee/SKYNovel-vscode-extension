@@ -12,18 +12,18 @@ import {resolve, parse, basename} from 'path';
 import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
 import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
 
-const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
+const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
-		if (REG_IGNORE_SYS_PATH.test(nm)) continue;
+		if (REG_SYS_FN.test(nm)) continue;
 		if (d.isDirectory()) {fncFld(nm); continue;}
 
-		const url = resolve(wd, nm);
-		fnc(url, nm);
+		const fp = resolve(wd, nm);
+		fnc(fp, nm);
 	}
 }
-function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
+function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
 			console.error(`replaceFile no exists src:${src}`);
@@ -33,6 +33,7 @@ function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
 		if (txt !== ret) writeFileSync(dest, ret);
+		else if (verbose) console.error(`replaceFile fail by same:${src}`);
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);
@@ -45,8 +46,14 @@ const REG_CNV_WEBP	= /\.(jpe?g|png)$/;
 const REG_CNV_HTML	= /\.(htm|html)$/;
 const REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
 const REG_CNV_JSON	= /\.json$/;
-const REG_REP_JSON	= /("image"\s*:\s*")(.+)\.(jpe?g|png)"/;
-const REG_REP_JSON2	= /webp","image_bkup":".+(jpe?g|png)"/;
+
+const REG_REP_JSON_CNV	= /("image":")([^.]+\.\d+x\d+).*\.(jpe?g|png)"/;
+const DEST_REP_JSON_CNV	= '$1$2.webp","image_bkup":"$2.$3"';
+	// https://regex101.com/r/JE6RKV/1	テスト用に /g をつけている
+
+const REG_REP_JSON_RESTORE	= /webp","image_bkup":".+(jpe?g|png)"/;
+const DEST_REP_JSON_RESTORE	= '$1"';
+	// https://regex101.com/r/7dqoPZ/1	テスト用に /g をつけている
 
 
 const fnLog = __filename +'on';
@@ -105,15 +112,14 @@ switch (pathInp) {
 	case 'restore':	// ファイル最適化 解除
 		foldProc(curPrjBase, ()=> {}, dir=> {
 			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
-				if (REG_CNV_WEBP.test(nm)) {
-					// 対応する素材ファイルが無い場合、削除しないように
-					const urlPrj = resolve(curPrj, dir, nm);
-					a.push(()=> move(url, urlPrj, {overwrite: true}));
-					const {name} = parse(nm);
-					const urlOut = resolve(curPrj, dir, name +'.webp');
-					a.push(()=> remove(urlOut));
-					return;
-				}
+				if (! REG_CNV_WEBP.test(nm)) return;
+
+				// 対応する素材ファイルが無い場合、削除しないように
+				const urlPrj = resolve(curPrj, dir, nm);
+				a.push(()=> move(url, urlPrj, {overwrite: true}));
+				const {name} = parse(nm);
+				const urlOut = resolve(curPrj, dir, name +'.webp');
+				a.push(()=> remove(urlOut));
 			}, ()=> {});
 		});
 
@@ -133,8 +139,8 @@ switch (pathInp) {
 				// json置換（アニメpng）
 				if (REG_CNV_JSON.test(nm)) a.push(async ()=> replaceFile(
 					url,
-					REG_REP_JSON2,
-					'$1"',
+					REG_REP_JSON_RESTORE,
+					DEST_REP_JSON_RESTORE,
 				));
 			}, ()=> {});
 		});
@@ -184,8 +190,8 @@ switch (pathInp) {
 				// json置換（アニメpng）
 				if (REG_CNV_JSON.test(name)) a.push(async ()=> replaceFile(
 					url,
-					REG_REP_JSON,
-					'$1$2.webp","image_bkup":"$2.$3"',
+					REG_REP_JSON_CNV,
+					DEST_REP_JSON_CNV,
 				));
 			}, ()=> {});
 		});

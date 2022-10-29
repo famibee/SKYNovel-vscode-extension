@@ -5,9 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, is_win, statBreak} from './CmnLib';
+import {is_win} from './CmnLib';
+import {oIcon} from './ActivityBar';
 
 import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIcon, WorkspaceFolder} from 'vscode';
+
 
 const aPrjBtnName = [
 	'SnUpd',
@@ -48,11 +50,16 @@ export interface TREEITEM_CFG {
 
 type ON_BTN = (ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG)=> void;
 
+
+export let statBreak = ';';		// これは依存が少ないここで
+export function updStatBreak(s: string) {statBreak = s}
+
+
 export class PrjTreeItem extends TreeItem {
 	static	readonly #aTreeTmp	: TREEITEM_CFG[] = [
 		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
 			task_type: 'Sys',
-			npm: `npm update ${statBreak()} npm run webpack:dev`},
+			npm: `npm update ${statBreak} npm run webpack:dev`},
 		{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
 			task_type: 'Sys', npm: 'npm run rebuild'},
 		{cmd: 'PrjSet',		icon: 'gear',	label: '設定',	task_type: 'Sys',},
@@ -64,25 +71,25 @@ export class PrjTreeItem extends TreeItem {
 			task_type: 'App',npm: 'npm run start',	exe: true,},
 		{cmd: '', icon: '',label: '生成', children: [
 			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
-				npm: `npm run webpack:pro ${statBreak()
+				npm: `npm run webpack:pro ${statBreak
 				} ./node_modules/.bin/electron-builder -w --x64`},
 			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
 					// 一パッケージに統合型、ファイルサイズ二倍になる
 			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
-				npm: `npm run webpack:pro ${statBreak()
+				npm: `npm run webpack:pro ${statBreak
 				} ./node_modules/.bin/electron-builder -w --ia32`},
 			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
-				npm: `npm run webpack:pro ${statBreak()
+				npm: `npm run webpack:pro ${statBreak
 				} ./node_modules/.bin/electron-builder -m --x64`,
 				forMac: true,},
 			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
-				npm: `npm run webpack:pro ${statBreak()
+				npm: `npm run webpack:pro ${statBreak
 				} ./node_modules/.bin/electron-builder -m --arm64`,
 				forMac: true,},
 				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
 					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
 			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
-				npm: `npm run webpack:pro ${statBreak()
+				npm: `npm run webpack:pro ${statBreak
 				} ./node_modules/.bin/electron-builder -l`},
 				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
 			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',

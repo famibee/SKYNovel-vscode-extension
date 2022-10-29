@@ -8,7 +8,7 @@
 import {uint} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
-import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, debug} from 'vscode';
+import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, debug, RelativePattern} from 'vscode';
 import {DebugProtocol} from '@vscode/debugprotocol';
 import {readFileSync, writeFileSync} from 'fs-extra';
 import {EventEmitter} from 'events';
@@ -28,7 +28,7 @@ export interface InfoBreakpoint {
 
 export class Debugger extends EventEmitter {
 	#pathWs	= '';
-	constructor(readonly wsFld: WorkspaceFolder | undefined, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
+	constructor(private readonly wsFld: WorkspaceFolder, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
 		super();
 		if (wsFld) {
 			this.#pathWs = wsFld.uri.path;
@@ -186,7 +186,9 @@ export class Debugger extends EventEmitter {
 			}
 
 			// ファイル生成、を検知しての prj.json 更新を待って次へ
-			const fwPathJs = workspace.createFileSystemWatcher(this.#pathWs +`/doc/prj/path.json`);
+			const fwPathJs = workspace.createFileSystemWatcher(
+				new RelativePattern(this.wsFld, `doc/prj/path.json`)
+			);
 			fwPathJs.onDidChange(()=> {
 				fwPathJs.dispose();
 

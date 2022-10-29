@@ -17,6 +17,7 @@ export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数�
 	HTML	= 'htm|html',
 	CSS		=	'css',
 	SN		=	'sn',
+	PSD		=	'psd',
 
 	TST_PNGPNG_	= 'png|png_',
 	TST_HH		= 'hh',
@@ -67,8 +68,8 @@ export interface IExts { [ext: string]: string; };
 export interface IFn2Path { [fn: string]: IExts; };
 
 export interface IConfig {
-	oCfg: T_CFG;
-	getNs(): string;
+	oCfg	: T_CFG;
+	getNs()	: string;
 	searchPath(fn: string, extptn?: string): string;
 	addPath(fn: string, h_exts: IExts): void;
 }
@@ -77,7 +78,7 @@ export interface ISysRoots {
 	loadPath(hPathFn2Exts: IFn2Path, cfg: IConfig): Promise<void>;
 	decStr(ext: string, d: string): string;
 
-	get cur(): string;
+	get cur()	: string;
 	get crypto(): boolean;
 	fetch(url: string): Promise<Response>;	// ハッシュ値作成ロード用
 	hash(data: string): string;
@@ -158,7 +159,7 @@ export class ConfigBase implements IConfig {
 		if (! this.sys.crypto) return;
 
 		for (const hExts of Object.values(this.hPathFn2Exts)) {
-			for (const [ext, v] of Object.values(hExts)) {
+			for (const [ext, v] of Object.entries(hExts)) {
 				if (ext.slice(-10) !== ':RIPEMD160') continue;
 				const hp = v.slice(v.lastIndexOf('/') +1);
 				const fn = hExts[ext.slice(0, -10)];

@@ -5,12 +5,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {getNonce, chkBoolean} from './CmnLib';
+import {chkBoolean} from './CmnLib';
 import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
+import {IFn2Path} from './ConfigBase';
+import {getNonce} from './ActivityBar';
 
 import {TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position} from 'vscode';
 import {readFileSync} from 'fs-extra';
-import { IFn2Path } from './ConfigBase';
 
 interface HTDS {
 	col?		: string,

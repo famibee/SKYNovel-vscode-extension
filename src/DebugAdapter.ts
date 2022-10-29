@@ -24,8 +24,6 @@ const {Subject} = require('await-notify');
 import {docsel} from './CmnLib';
 
 
-let daii: DebugAdapterInlineImplementation | null = null;
-
 export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void {
 	// デバッグ構成解決【.vscode/launch.json がない場合のデバッグ構成作成初期値】
 	const lng = docsel.language ?? '';
@@ -93,11 +91,15 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 		},
 	};	*/
 	const dadf: DebugAdapterDescriptorFactory = {
-		createDebugAdapterDescriptor: ds=> daii ?? (daii = new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag))),
+		createDebugAdapterDescriptor: ds=> {
+			if (! ds.workspaceFolder) return undefined;
+			return daii ??= new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag));
+		},
 	};
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
 //	if ('dispose' in dadf) ctx.subscriptions.push(dadf);
 }
+	let daii: DebugAdapterInlineImplementation | null = null;
 
 
 function timeout(ms: number) {return new Promise(re=> setTimeout(()=> re(0), ms));}
@@ -110,7 +112,7 @@ class DebugAdapter extends LoggingDebugSession {
 	readonly	#dbg		: Debugger;	// runtime (or debugger)
 
 	// セッションごと【▶（デバッグの開始）や⟲（再起動ボタン）】に生成する
-	constructor(readonly wsFld: WorkspaceFolder | undefined, hookTag: (o: any)=> void) {
+	constructor(readonly wsFld: WorkspaceFolder, hookTag: (o: any)=> void) {
 		super('sn_debug.txt');
 
 		this.setDebuggerLinesStartAt1(true);

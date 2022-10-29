@@ -11,7 +11,7 @@ import {DEF_CFG} from '../views/types';
 
 import img_size from 'image-size';
 import {RIPEMD160, enc} from 'crypto-js';
-import {readJsonSync, readJson, existsSync, outputJson, readFileSync, writeJsonSync} from 'fs-extra';
+import {readJson, existsSync, outputJson, readFileSync, writeJsonSync} from 'fs-extra';
 import {parse, resolve} from 'path';
 import {Diagnostic, Uri, DiagnosticSeverity, window, DiagnosticCollection, Range} from 'vscode';
 
@@ -20,9 +20,9 @@ export class SysExtension implements ISysRoots {
 	constructor(protected arg: HSysBaseArg) {}
 	async loadPath(hPathFn2Exts: IFn2Path, _cfg: IConfig) {
 		const fn = this.arg.cur +'path.json';
-	//	const src = readFileSync(fn);
+	//	const src = await readFile(fn);
 	//	const oJs = JSON.parse(this.decStr(fn, src));
-		const oJs = readJsonSync(fn, {encoding: 'utf8'});
+		const oJs = await readJson(fn, {encoding: 'utf8'});
 		for (const [nm, v] of Object.entries(oJs)) {
 			const h = hPathFn2Exts[nm] = <any>v;
 			for (const [ext, w] of Object.entries(h)) {
@@ -44,18 +44,17 @@ export class SysExtension implements ISysRoots {
 	get path_downloads() {return this.$path_downloads}
 	protected $path_userdata	= '';
 	get path_userdata() {return this.$path_userdata}
-
-	async ensureFileSync(_path: string) {}
 }
 
 
 export class Config extends ConfigBase {
 	constructor(override readonly sys: SysExtension) {super(sys)}
 
-	async loadEx(encFile: (path_src: string)=> Promise<void>, clDiag: DiagnosticCollection) {
+	async loadEx(encFile: (fp: string)=> Promise<void>, clDiag: DiagnosticCollection) {
+		const fpPrj = this.sys.cur +'prj.json';
+		const fpPath = this.sys.cur +'path.json';
 		try {
-			const pathPrj = this.sys.cur +'prj.json';
-			let o = readJsonSync(pathPrj, {encoding: 'utf8'});
+			let o = await readJson(fpPrj, {encoding: 'utf8'});
 			o = {
 				...DEF_CFG,
 				...o,
@@ -68,15 +67,14 @@ export class Config extends ConfigBase {
 			};
 			await super.load(o);
 
-			const pathPath = this.sys.cur +'path.json';
 			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.cur, clDiag);
-			outputJson(pathPath, this.hPathFn2Exts);
+			outputJson(fpPath, this.hPathFn2Exts);
 
-			if (this.sys.crypto) encFile(pathPath);
+			if (this.sys.crypto) encFile(fpPath);
 
 //			this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
 		}
-		catch (err) {console.error(`Project loadPrjJs ${err}`);}
+		catch (err) {console.error(`Project loadPrjJs ${err} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
 	}
 
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象

@@ -65,11 +65,11 @@ function normalizeClass(value) {
 function looseCompareArrays(a, b) {
   if (a.length !== b.length)
     return false;
-  let equal2 = true;
-  for (let i = 0; equal2 && i < a.length; i++) {
-    equal2 = looseEqual(a[i], b[i]);
+  let equal = true;
+  for (let i = 0; equal && i < a.length; i++) {
+    equal = looseEqual(a[i], b[i]);
   }
-  return equal2;
+  return equal;
 }
 function looseEqual(a, b) {
   if (a === b)
@@ -5413,7 +5413,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.7.0
+  * vee-validate v4.7.1
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -5574,44 +5574,55 @@ function isFile(a) {
   }
   return a instanceof File;
 }
-var fastDeepEqual = function equal(a, b) {
-  if (a === b)
-    return true;
-  if (a && b && typeof a == "object" && typeof b == "object") {
-    if (a.constructor !== b.constructor)
-      return false;
-    var length, i, keys2;
-    if (Array.isArray(a)) {
-      length = a.length;
-      if (length != b.length)
-        return false;
-      for (i = length; i-- !== 0; )
-        if (!equal(a[i], b[i]))
-          return false;
-      return true;
-    }
-    if (a.constructor === RegExp)
-      return a.source === b.source && a.flags === b.flags;
-    if (a.valueOf !== Object.prototype.valueOf)
-      return a.valueOf() === b.valueOf();
-    if (a.toString !== Object.prototype.toString)
-      return a.toString() === b.toString();
-    keys2 = Object.keys(a);
-    length = keys2.length;
-    if (length !== Object.keys(b).length)
-      return false;
-    for (i = length; i-- !== 0; )
-      if (!Object.prototype.hasOwnProperty.call(b, keys2[i]))
-        return false;
-    for (i = length; i-- !== 0; ) {
-      var key = keys2[i];
-      if (!equal(a[key], b[key]))
-        return false;
-    }
-    return true;
+function set$1(obj, key, val) {
+  if (typeof val.value === "object")
+    val.value = klona(val.value);
+  if (!val.enumerable || val.get || val.set || !val.configurable || !val.writable || key === "__proto__") {
+    Object.defineProperty(obj, key, val);
+  } else
+    obj[key] = val.value;
+}
+function klona(x) {
+  if (typeof x !== "object")
+    return x;
+  var i = 0, k, list, tmp, str = Object.prototype.toString.call(x);
+  if (str === "[object Object]") {
+    tmp = Object.create(x.__proto__ || null);
+  } else if (str === "[object Array]") {
+    tmp = Array(x.length);
+  } else if (str === "[object Set]") {
+    tmp = /* @__PURE__ */ new Set();
+    x.forEach(function(val) {
+      tmp.add(klona(val));
+    });
+  } else if (str === "[object Map]") {
+    tmp = /* @__PURE__ */ new Map();
+    x.forEach(function(val, key) {
+      tmp.set(klona(key), klona(val));
+    });
+  } else if (str === "[object Date]") {
+    tmp = new Date(+x);
+  } else if (str === "[object RegExp]") {
+    tmp = new RegExp(x.source, x.flags);
+  } else if (str === "[object DataView]") {
+    tmp = new x.constructor(klona(x.buffer));
+  } else if (str === "[object ArrayBuffer]") {
+    tmp = x.slice(0);
+  } else if (str.slice(-6) === "Array]") {
+    tmp = new x.constructor(x);
   }
-  return a !== a && b !== b;
-};
+  if (tmp) {
+    for (list = Object.getOwnPropertySymbols(x); i < list.length; i++) {
+      set$1(tmp, list[i], Object.getOwnPropertyDescriptor(x, list[i]));
+    }
+    for (i = 0, list = Object.getOwnPropertyNames(x); i < list.length; i++) {
+      if (Object.hasOwnProperty.call(tmp, k = list[i]) && tmp[k] === x[k])
+        continue;
+      set$1(tmp, k, Object.getOwnPropertyDescriptor(x, k));
+    }
+  }
+  return tmp || x;
+}
 function cleanupNonNestedPath(path) {
   if (isNotNestedPath(path)) {
     return path.replace(/\[|\]/gi, "");
@@ -5704,11 +5715,11 @@ function warn(message) {
 function resolveNextCheckboxValue(currentValue, checkedValue, uncheckedValue) {
   if (Array.isArray(currentValue)) {
     const newVal = [...currentValue];
-    const idx = newVal.findIndex((v) => fastDeepEqual(v, checkedValue));
+    const idx = newVal.findIndex((v) => isEqual(v, checkedValue));
     idx >= 0 ? newVal.splice(idx, 1) : newVal.push(checkedValue);
     return newVal;
   }
-  return fastDeepEqual(currentValue, checkedValue) ? uncheckedValue : checkedValue;
+  return isEqual(currentValue, checkedValue) ? uncheckedValue : checkedValue;
 }
 function debounceAsync(inner, ms = 0) {
   let timer = null;
@@ -5747,6 +5758,26 @@ function withLatest(fn, onDone) {
     onDone(result, args);
     return result;
   };
+}
+function computedDeep({ get: get2, set: set2 }) {
+  const baseRef = ref(klona(get2()));
+  watch(get2, (newValue) => {
+    if (isEqual(newValue, baseRef.value)) {
+      return;
+    }
+    baseRef.value = klona(newValue);
+  }, {
+    deep: true
+  });
+  watch(baseRef, (newValue) => {
+    if (isEqual(newValue, get2())) {
+      return;
+    }
+    set2(klona(newValue));
+  }, {
+    deep: true
+  });
+  return baseRef;
 }
 const normalizeChildren = (tag, context, slotProps) => {
   if (!context.slots.default) {
@@ -6073,55 +6104,6 @@ async function validateObjectSchema(schema, values, opts) {
     results,
     errors
   };
-}
-function set$1(obj, key, val) {
-  if (typeof val.value === "object")
-    val.value = klona(val.value);
-  if (!val.enumerable || val.get || val.set || !val.configurable || !val.writable || key === "__proto__") {
-    Object.defineProperty(obj, key, val);
-  } else
-    obj[key] = val.value;
-}
-function klona(x) {
-  if (typeof x !== "object")
-    return x;
-  var i = 0, k, list, tmp, str = Object.prototype.toString.call(x);
-  if (str === "[object Object]") {
-    tmp = Object.create(x.__proto__ || null);
-  } else if (str === "[object Array]") {
-    tmp = Array(x.length);
-  } else if (str === "[object Set]") {
-    tmp = /* @__PURE__ */ new Set();
-    x.forEach(function(val) {
-      tmp.add(klona(val));
-    });
-  } else if (str === "[object Map]") {
-    tmp = /* @__PURE__ */ new Map();
-    x.forEach(function(val, key) {
-      tmp.set(klona(key), klona(val));
-    });
-  } else if (str === "[object Date]") {
-    tmp = new Date(+x);
-  } else if (str === "[object RegExp]") {
-    tmp = new RegExp(x.source, x.flags);
-  } else if (str === "[object DataView]") {
-    tmp = new x.constructor(klona(x.buffer));
-  } else if (str === "[object ArrayBuffer]") {
-    tmp = x.slice(0);
-  } else if (str.slice(-6) === "Array]") {
-    tmp = new x.constructor(x);
-  }
-  if (tmp) {
-    for (list = Object.getOwnPropertySymbols(x); i < list.length; i++) {
-      set$1(tmp, list[i], Object.getOwnPropertyDescriptor(x, list[i]));
-    }
-    for (i = 0, list = Object.getOwnPropertyNames(x); i < list.length; i++) {
-      if (Object.hasOwnProperty.call(tmp, k = list[i]) && tmp[k] === x[k])
-        continue;
-      set$1(tmp, k, Object.getOwnPropertyDescriptor(x, k));
-    }
-  }
-  return tmp || x;
 }
 let ID_COUNTER = 0;
 function useFieldState(path, init2) {
@@ -7050,12 +7032,16 @@ function useForm(opts) {
       const shouldKeepValue = (_a3 = unref(field.keepValueOnUnmount)) !== null && _a3 !== void 0 ? _a3 : unref(keepValuesOnUnmount);
       const currentGroupValue = getFromPath(formValues, fieldName);
       const isSameGroup = isGroup && (fieldInstance === fieldsByPath.value[fieldName] || !fieldsByPath.value[fieldName]);
-      if (isSameGroup && Array.isArray(currentGroupValue) && !shouldKeepValue) {
-        const valueIdx = currentGroupValue.findIndex((i) => isEqual(i, unref(field.checkedValue)));
-        if (valueIdx > -1) {
-          const newVal = [...currentGroupValue];
-          newVal.splice(valueIdx, 1);
-          setFieldValue(fieldName, newVal, { force: true });
+      if (isSameGroup && !shouldKeepValue) {
+        if (Array.isArray(currentGroupValue)) {
+          const valueIdx = currentGroupValue.findIndex((i) => isEqual(i, unref(field.checkedValue)));
+          if (valueIdx > -1) {
+            const newVal = [...currentGroupValue];
+            newVal.splice(valueIdx, 1);
+            setFieldValue(fieldName, newVal, { force: true });
+          }
+        } else if (currentGroupValue === unref(field.checkedValue)) {
+          unsetPath(formValues, fieldName);
         }
       }
       if (!fieldExists(fieldName)) {
@@ -7063,7 +7049,7 @@ function useForm(opts) {
         if (shouldKeepValue) {
           return;
         }
-        if (isGroup && !isEmptyContainer(getFromPath(formValues, fieldName))) {
+        if (isGroup && Array.isArray(currentGroupValue) && !isEmptyContainer(currentGroupValue)) {
           return;
         }
         unsetPath(formValues, fieldName);
@@ -7425,7 +7411,7 @@ function useFieldArray(arrayPath) {
     const key = entryCounter++;
     const entry = {
       key,
-      value: computed({
+      value: computedDeep({
         get() {
           const currentValues = getFromPath(form === null || form === void 0 ? void 0 : form.values, unref(arrayPath), []) || [];
           const idx = fields.value.findIndex((e) => e.key === key);
@@ -7516,6 +7502,7 @@ function useFieldArray(arrayPath) {
       return;
     }
     form === null || form === void 0 ? void 0 : form.setFieldValue(`${pathName}[${idx}]`, value);
+    form === null || form === void 0 ? void 0 : form.validate({ mode: "validated-only" });
   }
   function prepend(value) {
     const pathName = unref(arrayPath);

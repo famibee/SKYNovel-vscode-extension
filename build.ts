@@ -25,8 +25,7 @@ build({
 	platform	: 'node',
 //	treeShaking	: true,		// 省略可
 	sourcemap	: true,
-//	minify		: true,
-//	minify		: production,
+//	minify		: prod,
 	format		: 'cjs',		// Node.js の仕様
 	watch,
 	logLevel	: 'info',	// default log level when using the CLI.
@@ -84,7 +83,7 @@ build({
 // === lsp-skynovel-server ===
 build({
 	entryPoints	: ['./server/src/LangSrv'],
-	outdir		: 'server/dist',
+	outdir		: 'dist',
 	bundle		: true,
 	platform	: 'node',
 	minify		: true,

@@ -5,7 +5,6 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {workspace, ExtensionContext, env, Uri, window as vsc_win} from 'vscode';
 
 // =============== Global
 export function int(o: any): number {return parseInt(String(o), 10)}
@@ -20,96 +19,82 @@ export	const docsel = {scheme: 'file', language: 'skynovel'};
 
 
 // =============== Project
-export function getNonce() {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i=0; i<32; ++i) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-	return text;
-}
-
-export function setCtx4(ctx: ExtensionContext) {extPath = ctx.extensionPath;}
-let extPath = '';
-export function oIcon(name: string) {return {
-	light: `${extPath}/res/light/${name}.svg`,
-	dark: `${extPath}/res/dark/${name}.svg`,
-}};
-
-
 export const is_win = process.platform === 'win32';
 export const is_mac = process.platform === 'darwin';
 //const is_linux = process.platform === 'linux';
-export const statBreak: {(): string} =
-	is_mac ? ()=> '&&'
-	: is_win ? ()=> {
-		const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-7);
-		return (chkShell === 'cmd.exe') ?'&' :';';
-	}
-	: ()=> ';';
+
+
+export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
+	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
+	// TODO: v2fp() いずれなくす
 
 
 // 階層フォルダ逐次処理
-import {readdirSync, existsSync, readFileSync, writeFileSync} from 'fs-extra';
+import {readdirSync, existsSync, readFileSync, writeFileSync, ensureFileSync} from 'fs-extra';
 import {resolve, basename, extname} from 'path';
-const REG_SYS_FN = /^(_notes|Icon\r|\..+|.+\.(db|ini|git))$/;
-	// 5 matches (122 steps, 0.1ms) https://regex101.com/r/rXUCzW/1
+
+const REG_SYS_FN = /^(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
+	// 6 matches (144 steps, 0.1ms)【\n 入注意】 https://regex101.com/r/uFkUrb/1
 
 export const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
-	// 5 matches (392 steps, 0.0ms) https://regex101.com/r/kx9jui/1
+	// 6 matches (537 steps, 0.2ms)【\n 入注意】 https://regex101.com/r/3IgJ6Y/1
 
-export function treeProc(wd: string, fnc: (path: string)=> void) {
+export function treeProc(wd: string, fnc: (fp: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
-		const path = resolve(wd, nm);
-		if (d.isDirectory()) {treeProc(path, fnc); continue;}
+		const fp = resolve(wd, nm);
+		if (d.isDirectory()) {treeProc(fp, fnc); continue;}
 
-		fnc(path);
+		fnc(fp);
 	}
 }
 
-export function foldProc(wd: string, fnc: (path: string, nm: string)=> void, fncFld: (nm: string)=> void) {
+export function foldProc(wd: string, fnc: (fp: string, nm: string)=> void, fncFld: (nm: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
 		if (d.isDirectory()) {fncFld(nm); continue;}
 
-		const url = resolve(wd, nm);
-		fnc(url, nm);
+		const fp = resolve(wd, nm);
+		fnc(fp, nm);
 	}
 }
 
-export function replaceFile(src: string, r: RegExp, rep: string, dest = src) {
+export function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
 			console.error(`replaceFile no exists src:${src}`);
 			return;
 		}
+		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので
 
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
 		if (txt !== ret) writeFileSync(dest, ret);
+		else if (verbose) console.error(`replaceFile fail by same:${src}`);
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);
 	}
 }
 
-export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], dest = src) {
+export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
 			console.error(`replaceFile no exists src:${src}`);
 			return;
 		}
+		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので
 
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		let ret = txt;
 		for (const [r, rep] of a) ret = ret.replace(r, rep);
 		if (txt !== ret) writeFileSync(dest, ret);
+		else if (verbose) console.error(`replaceRegsFile fail by same:${src}`);
 	}
 	catch (err) {
-		console.error(`replaceFile src:${src} ${err}`);
+		console.error(`replaceRegsFile src:${src} ${err}`);
 	}
 }
 
@@ -126,22 +111,6 @@ export	function chkBoolean(v: any): boolean {
 }
 
 export	function getFn(path: string) {return basename(path, extname(path))};
-
-
-export	function openURL(url: Uri, pathWs: string) {
-	switch (url.scheme) {
-		case 'ws-file':
-			workspace.openTextDocument(pathWs + url.path)
-			.then(doc=> vsc_win.showTextDocument(doc));
-			break;
-	
-		case 'ws-folder':
-			env.openExternal(Uri.file(pathWs + url.path));
-			break;
-
-		default:	env.openExternal(url);
-	}
-}
 
 
 // =============== EncryptorTransform

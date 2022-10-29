@@ -5,18 +5,18 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {statBreak, treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, openURL} from './CmnLib';
+import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
-import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
-import {aPickItems, QuickPickItemEx} from './WorkSpaces';
+import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE, statBreak} from './PrjTreeItem';
+import {aPickItems, QuickPickItemEx, openURL} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, remove, ensureFile} from 'fs-extra';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern} from 'vscode';
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {extname} from 'path';
 import img_size from 'image-size';
 import {lib} from 'crypto-js';
@@ -27,12 +27,16 @@ import {basename, dirname} from 'path';
 import {execSync} from 'child_process';
 import * as ncu from 'npm-check-updates';
 import {userInfo} from 'os';
+import fetch from 'node-fetch';
 
 
 type BtnEnable = '_off'|'Stop'|'';
 type PluginDef = {
 	uri: string, sl: number, sc: number, el: number, ec: number,
 };
+
+		const	FLD_CRYPT_PRJ	= 'crypto_prj';
+export	const	FLD_PRJ_BASE	= 'prj_base';
 
 // フォントと使用文字情報
 export type TFONT2STR = {
@@ -46,44 +50,29 @@ type TFONT_ERR = {
 	el	: number;
 	ec	: number;
 };
-type TINF_INTFONT = {
+export type TINF_INTFONT = {
 	defaultFontName	: string;
 	hSn2Font2Str	: {[sn: string]: TFONT2STR};
-	hUri2FontErr	: {[uri: string]: TFONT_ERR[]}
+	hFp2FontErr		: {[fp: string]: TFONT_ERR[]}
 };
+
+export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
 
 export class Project {
-	readonly	#pathWs;
-	readonly	#curPlg;
-	readonly	#curPrj;
-	readonly	#lenCurPrj;
+	readonly	#PATH_WS;
+	readonly	#PATH_PRJ;
+	readonly	#LEN_PATH_PRJ;
 
-	readonly	#curPrjBase;
+	readonly	#PATH_PLG;
 
-	readonly	#curCrypto;
-	static readonly	#fld_crypto_prj		= 'crypto_prj';
-	static get fldnm_crypto_prj() {return Project.#fld_crypto_prj}
+	readonly	#PATH_PRJ_BASE;
+
+	readonly	#PATH_CRYPT;
 	#isCryptoMode	= false;
 	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 	readonly	#REG_FULLCRYPTO		= /\.(sn|ssn|json|html?)$/;
 	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
-	readonly	#hExt2N: {[ext: string]: number} = {
-		'jpg'	: 1,
-		'jpeg'	: 1,
-		'png'	: 2,
-		'svg'	: 3,
-		'webp'	: 4,
-		'mp3'	: 10,
-		'm4a'	: 11,
-		'ogg'	: 12,
-		'aac'	: 13,
-		'flac'	: 14,
-		'wav'	: 15,
-		'mp4'	: 20,
-		'webm'	: 21,
-		'ogv'	: 22,
-	};
 
 	readonly	#encry;
 
@@ -122,25 +111,25 @@ export class Project {
 	readonly	#cfg;
 
 
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void) {
-		this.#pathWs = wsFld.uri.fsPath;
-		this.#curPrj = this.#pathWs +'/doc/prj/';
+	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void) {
+		const vfp = wsFld.uri.path;
+		this.#PATH_WS = v2fp(vfp);
+		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
+		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
+//console.error(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
+		this.#PATH_PLG = this.#PATH_WS +'/core/plugin/';
+		ensureDirSync(this.#PATH_PLG);	// 無ければ作る
 
-		const sr = new SysExtension({cur: this.#curPrj, crypto: false, dip: ''});
-		this.#cfg = new Config(sr);
-		this.#cfg.loadEx(path_src=> this.#encFile(path_src), this.#clDiag);
-
-		this.#curPrjBase = this.#pathWs +`/doc/${PrjSetting.fld_prj_base}/`;
-		this.#lenCurPrj = this.#curPrj.length;
-			// 遅らせると core/diff.json 生成でトラブル。0状態で処理してしまう
-		this.#sendRequest2LSP = (cmd, o = {})=> this.sendRequest2LSP(cmd, 'file://'+ this.#curPrj, o);	// LSPにはfile:〜が必要なので
+		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
+		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
 
-		this.#curCrypto = this.#pathWs +`/doc/${Project.#fld_crypto_prj}/`;
-		this.#isCryptoMode = existsSync(this.#curCrypto);
-		const fnPass = this.#pathWs +'/pass.json';
+		// 暗号化処理
+		this.#PATH_CRYPT = this.#PATH_WS +`/doc/${FLD_CRYPT_PRJ}/`;
+		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
+		const fnPass = this.#PATH_WS +'/pass.json';
 		const exists_pass = existsSync(fnPass);
 		this.#encry = new Encryptor(exists_pass
 			? readJsonSync(fnPass, {throws: false})
@@ -155,47 +144,56 @@ export class Project {
 		if (! exists_pass) outputFileSync(fnPass, this.#encry.strHPass);
 
 		try {
-			this.#fnDiff = this.#pathWs +'/core/diff.json';
+			this.#fnDiff = this.#PATH_WS +'/core/diff.json';
 			if (existsSync(this.#fnDiff)) this.#hDiff = readJsonSync(this.#fnDiff);
-		} catch (e) {
-			// diff破損対策
-			this.#hDiff = Object.create(null);
-		}
+		} catch (e) {this.#hDiff = Object.create(null);}	// diff破損対策
+
+		// プロジェクト管理系
+		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: false, dip: ''});
+		this.#cfg = new Config(sr);
+		this.#cfg.loadEx(fp=> this.#encFile(fp), this.#clDiag);	// use #encry
+
 		this.#ps = new PrjSetting(
 			ctx,
 			wsFld,
 			this.#cfg,
 			title=> {
 				pti.label = title;
-				this.emPrjTD.fire(pti);
+				emPrjTD.fire(pti);
 			},
-			()=> this.sendRequest2LSP('def_esc.upd', 'file://'+ this.#curPrj),
+			()=> sendRequest2LSP('def_esc.upd', wsFld.uri),
 			(nm, val)=> this.#cmd(nm, val),
 			(nm, arg)=> this.#exeTask(nm, arg),
 		);
 		this.#initCrypto();
 
-		this.#curPlg = this.#pathWs +'/core/plugin/';
-		ensureDirSync(this.#curPlg);	// 無ければ作る
 		// updPlugin で goAll() が走る
-		if (existsSync(this.#pathWs +'/node_modules')) this.#updPlugin(false);
+		if (existsSync(this.#PATH_WS +'/node_modules')) this.#updPlugin(false);
 		else {
 			this.#build();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
-		// ファイル増減を監視し、path.json を自動更新
-		const fwPrj = workspace.createFileSystemWatcher(this.#curPrj +'*/*');
-//		const fwPrjSn = workspace.createFileSystemWatcher(this.#curPrj +'*/*.{sn,ssn}');
-		const fwPrjJs = workspace.createFileSystemWatcher(this.#curPrj +'prj.json');
+		// ファイル増減を監視し、path.json を自動更新など各種処理
+			// 第一引数は new RelativePattern() 必須とする。win対応にも
+		const fwPrj = workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/*/**/*.[a-zA-Z][a-zA-Z0-9]*')
+		);	// sn,jpen,png などの他に woff2,mp3,m4a
+		const fwPrjJs = workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/prj.json')
+		);
 		// prjルートフォルダ監視
-		const fwFld = workspace.createFileSystemWatcher(this.#curPrj +'*');
-		const fwStgSn = workspace.createFileSystemWatcher(this.#curPrj +'**/setting.sn');
+		const fwFld = workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/[a-zA-Z0-9]*')
+		);	// '.' 始まりフォルダを除外
+		const fwStgSn = workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/**/setting.sn')
+		);
 		this.#fwPrjOptPic = workspace.createFileSystemWatcher(
-			this.#pathWs +`/doc/{prj,${PrjSetting.fld_prj_base}}/**/*.{jpg,jpeg,png}`
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{jpg,jpeg,png,webp}`)
 		);
 		this.#fwPrjOptSnd = workspace.createFileSystemWatcher(
-			this.#pathWs +`/doc/{prj,${PrjSetting.fld_prj_base}}/**/*.{mp3,wav}`
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{mp3,wav,m4a,aac,ogg}`)
 		);
 		this.#aFSW = [
 			fwPrj.onDidCreate(uri=> {
@@ -210,31 +208,25 @@ export class Project {
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
 				this.#delPrj(uri);
 			}),
-			
-//			fwPrjSn.onDidCreate(uri=> this.#codSpt.crePrj(uri)),
-		//	fwPrjSn.onDidChange(uri=> this.#codSpt.chgPrj(uri)),
-				// workspace.onDidChangeTextDocument() からやるので不要
-//			fwPrjSn.onDidDelete(uri=> this.#codSpt.delPrj(uri)),
 
-			fwPrjJs.onDidChange(e=> this.#chgPrj(e)),
+			fwPrjJs.onDidChange(uri=> this.#chgPrj(uri)),
 
-			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri.path)),
-			/*fwFld.onDidChange(uri=> {	// フォルダ名ではこれが発生せず、Cre & Del
-				if (uri.path.slice(-5) === '.json') return;
-	console.log(`fn:Project.ts Cha path:${uri.path}`);
+			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri)),
+			/*fwFld.onDidChange(uri=> {
+				// NOTE: フォルダ名ではこれが発生せず、Cre & Del（いつ時点？）
 			}),*/
-			fwFld.onDidDelete(uri=> this.#ps.onDelDir(uri.path)),
+			fwFld.onDidDelete(uri=> this.#ps.onDelDir(uri)),
 
-			fwStgSn.onDidCreate(uri=> this.#ps.onCreSettingSn(uri.path)),
-			fwStgSn.onDidDelete(uri=> this.#ps.onDelSettingSn(uri.path)),
+			fwStgSn.onDidCreate(uri=> this.#ps.onCreSettingSn(uri)),
+			fwStgSn.onDidDelete(uri=> this.#ps.onDelSettingSn(uri)),
 
-			this.#fwPrjOptPic.onDidCreate(uri=> this.#ps.onCreChgOptPic(uri.path)),
-			this.#fwPrjOptPic.onDidChange(uri=> this.#ps.onCreChgOptPic(uri.path)),
-			this.#fwPrjOptPic.onDidDelete(uri=> this.#ps.onDelOptPic(uri.path)),
+			this.#fwPrjOptPic.onDidCreate(uri=> this.#ps.onCreChgOptPic(uri)),
+			this.#fwPrjOptPic.onDidChange(uri=> this.#ps.onCreChgOptPic(uri)),
+			this.#fwPrjOptPic.onDidDelete(uri=> this.#ps.onDelOptPic(uri)),
 
-			this.#fwPrjOptSnd.onDidCreate(uri=> this.#ps.onCreChgOptSnd(uri.path)),
-			this.#fwPrjOptSnd.onDidChange(uri=> this.#ps.onCreChgOptSnd(uri.path)),
-			this.#fwPrjOptSnd.onDidDelete(uri=> this.#ps.onDelOptSnd(uri.path)),
+			this.#fwPrjOptSnd.onDidCreate(uri=> this.#ps.onCreChgOptSnd(uri)),
+			this.#fwPrjOptSnd.onDidChange(uri=> this.#ps.onCreChgOptSnd(uri)),
+			this.#fwPrjOptSnd.onDidDelete(uri=> this.#ps.onDelOptSnd(uri)),
 		];
 
 		const aTi = pti.children;
@@ -246,15 +238,15 @@ export class Project {
 			tiDevSnUpd.description = o.verSN
 			? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
 			: '取得できません';
-			this.emPrjTD.fire(tiDevSnUpd);
+			emPrjTD.fire(tiDevSnUpd);
 			return o;
 		};
-		this.actBar.chkLastSNVer([this.getLocalSNVer()]);
+		actBar.chkLastSNVer([this.getLocalSNVer()]);
 
 		const tiDevCrypto = aTi[Project.#idxDevCrypto];
 		this.dspCryptoMode = ()=> {
 			tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`
-			this.emPrjTD.fire(tiDevCrypto);
+			emPrjTD.fire(tiDevCrypto);
 		};
 		this.dspCryptoMode();
 
@@ -278,10 +270,9 @@ export class Project {
 			},
 		}));
 
-
 		const {username} = userInfo();
 		this.#aPlaceFont	= [
-			`${this.#pathWs}/core/font`,
+			`${this.#PATH_WS}/core/font`,
 			is_win
 				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
 				: `/Users/${username}/Library/Fonts`,
@@ -326,11 +317,12 @@ export class Project {
 		switch (hd.cmd) {
 			case 'init':{
 				const pp2s: {[pp: string]: string} = {};
-
-				treeProc(this.#curPrj, path=> {
+				treeProc(this.#PATH_PRJ, path=> {
 					if (! /\.(ss?n|json)$/.test(path)) return;
 
-					const pp = path.slice(this.#lenCurPrj);
+					path = v2fp(Uri.file(path).path);
+					const pp = path.slice(this.#LEN_PATH_PRJ);
+					if (! pp) return;
 					pp2s[pp] = readFileSync(path, {encoding: 'utf8'});
 				});
 
@@ -340,17 +332,28 @@ export class Project {
 			case 'analyze_inf':{
 				this.#aPickItems = [
 					...aPickItems,
-					{kind: QuickPickItemKind.Separator},
-					...hd.o.aQuickPickMac,
-					{kind: QuickPickItemKind.Separator},
-					...hd.o.aQuickPickPlg
+
+					{kind: QuickPickItemKind.Separator, label: ''},
+
+					...(<T_QuickPickItemEx[]>hd.o.aQuickPickMac)
+					.map(({label, description, uri})=> ({
+						label, description, uri: Uri.parse(uri),
+					})),
+
+					{kind: QuickPickItemKind.Separator, label: ''},
+
+					...(<T_QuickPickItemEx[]>hd.o.aQuickPickPlg)
+					.map(({label, description, uri})=> ({
+						label, description, uri: Uri.parse(uri),
+					})),
 				];
 
 				this.#InfFont = hd.o.InfFont;
 
 				this.#clDiag.clear();
-				for (const [uri, a] of Object.entries(this.#InfFont.hUri2FontErr)) {
+				for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
 					const aD: Diagnostic[] = [];
+//console.error(`080 fn:Project.ts analyze_inf uri:${uri}:`);
 					for (const {err, nm, sl, sc, el, ec} of a) {
 						if (this.#getFontNm2path(nm)) continue;
 
@@ -359,20 +362,27 @@ export class Project {
 							DiagnosticSeverity.Error,
 						));
 					}
-					this.#clDiag.set(Uri.parse(uri), aD);
+					this.#clDiag.set(Uri.file(fp), aD);
 				}
 			}	break;
 
-			case 'hover.res':	this.#hUri2Proc[hd.o?.uri]?.(hd.o);	break;
+			case 'hover.res':	{
+				const {path} = Uri.parse(hd.o?.uri);
+//console.error(`fn:Project.ts hover.res path:${path}: hd.o=${JSON.stringify(hd.o)}`);
+				this.#hPath2Proc[path]?.(hd.o);
+			}	break;
 		}
 	}
-	#hUri2Proc: {[uri: string]: (o: any)=> void}	= {};
+
+	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
+		const vfp = doc.uri.path;
+//console.error(`fn:Project.ts provideHover path=${vfp}=`);
 		return new Promise<Hover>(rs=> {
 			// ホバーイベントを伝え、文字列加工だけ任せ文字列を返してもらい、ここで表示
-			const uri = 'file://'+ doc.uri.path;
-			this.#hUri2Proc[uri] = o=> {
-				delete this.#hUri2Proc[uri];
+			this.#hPath2Proc[vfp] = o=> {
+//console.error(`fn:Project.ts Hover OK!`);
+				delete this.#hPath2Proc[vfp];
 
 				let value = String(o.value);
 				if (! value) return;
@@ -380,28 +390,26 @@ export class Project {
 				if (a.length === 3) {
 					// 中央部分のみ置換。SQLジャンクション的なものの対策
 					const [args, ...detail] = a;
-//console.log(`fn:Project.ts detail=${detail}=`);
 					value = args + detail.join('').replaceAll(
 						/<!-- ({.+?}) -->/g,
 						(_, e1)=> {
 	const o = JSON.parse(e1);
-//console.log(`fn:Project.ts line:379 o:${JSON.stringify(o)}:`);
-
+//console.error(`fn:Project.ts line:379 o:${JSON.stringify(o)}:`);
 	const {name, val} = o;
-	const path = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
-	const {width = 0, height = 0} = img_size(path);
+	const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
 
-	const aPathEx = encodeURIComponent(JSON.stringify([Uri.file(path)]));
-
-	const srcEx = `${path}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
+	const vfpImg = this.#vpPrj + ppImg;
+	const srcEx = `${vfpImg}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
+	const {width = 0, height = 0} = img_size(this.#PATH_PRJ + ppImg);
+	const exImg = encodeURIComponent(JSON.stringify([Uri.parse(vfpImg)]));
 
 	return `- ${name} = ${val} (${width}x${height}) ${
-		`[ファイルを見る](${path} "ファイルを見る")`
+		`[ファイルを見る](${vfpImg} "ファイルを見る")`
 	} [サイドバーに表示](${
-		Uri.parse(`command:revealInExplorer?${aPathEx}`)
+		Uri.parse(`command:revealInExplorer?${exImg}`)
 	} "サイドバーに表示")
 	[フォルダを開く](${
-		Uri.parse(`command:revealFileInOS?${aPathEx}`)
+		Uri.parse(`command:revealFileInOS?${exImg}`)
 	} "フォルダを開く")  \n`
 	+ `![${val}](${srcEx} "${val}")`;
 						}
@@ -410,14 +418,15 @@ export class Project {
 
 				const ms = new MarkdownString(value);
 			//	const ms = new MarkdownString(value, o.range);// 表示されない
-//console.log(`fn:Project.ts ms=${ms.value}=`);
 				ms.isTrusted = true;
 			//	ms.supportHtml = true;
 				rs(new Hover(ms));
 			};
-			this.#sendRequest2LSP('hover', {uri, pos});
+			this.#sendRequest2LSP('hover', {uri: doc.uri.toString(), pos});
+				// 【file:///Users/...】 LSPの doc 特定で使う
 		});
 	}
+	get	#vpPrj(): string {return this.wsFld.uri.toString() +'/doc/prj/'}
 		readonly	#whThumbnail = 200;
 
 	#getFontNm2path(font_nm: string): string {
@@ -432,7 +441,7 @@ export class Project {
 	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
 		defaultFontName	: '',
 		hSn2Font2Str	: {},
-		hUri2FontErr	: {},
+		hFp2FontErr	: {},
 	};
 	readonly	#aPlaceFont;
 
@@ -443,25 +452,25 @@ export class Project {
 			placeHolder			: 'どのリファレンスを開きますか?',
 			matchOnDescription	: true,
 		})
-		.then(q=> {if (q?.uri) openURL(Uri.parse(q.uri), this.#pathWs);});
+		.then(q=> {if (q?.uri) openURL(q.uri, this.#PATH_WS);});
 	}
 
 
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
 	async #cmd(nm: string, val: string): Promise<boolean> {
-//console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
+//console.error(`fn:Project.ts #cmd nm:${nm} val:${val}`);
 // await (new Promise((re: any)=> setTimeout(re, 2000)));
 		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
 		switch (nm) {
 		case 'cnv.font.subset':
 			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			await this.#subsetFont(Boolean(val));
+			await this.#subsetFont(chkBoolean(val));
 			break;
 
 		case 'cnv.mat.pic':
 			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-			await this.#cnv_mat_pic(Boolean(val) ?'all' :'restore');
+			await this.#cnv_mat_pic(chkBoolean(val) ?'all' :'restore');
 			break;
 		case 'cnv.mat.webp_quality':
 			if (! this.#ps.oWss['cnv.mat.pic']) break;
@@ -471,7 +480,7 @@ export class Project {
 
 		case 'cnv.mat.snd':
 			if (await window.showInformationMessage('音声ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-			await this.#cnv_mat_snd(Boolean(val) ?'all' :'restore');
+			await this.#cnv_mat_snd(chkBoolean(val) ?'all' :'restore');
 			break;
 		case 'cnv.mat.snd.codec':
 			if (! this.#ps.oWss['cnv.mat.snd']) break;
@@ -486,13 +495,13 @@ export class Project {
 		'cnv_mat_pic',
 		`${pathInp
 		} ${this.#ps.oWss['cnv.mat.webp_quality']
-		} "${this.#curPrj}" "${this.#curPrjBase}"`,
+		} "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 	);
 	readonly	#cnv_mat_snd = (pathInp: string)=> this.#exeTask(
 		'cnv_mat_snd',
 		`${pathInp} '{"codec":"${
 			this.#ps.oWss['cnv.mat.snd.codec']
-		}"}' "${this.#curPrj}" "${this.#curPrjBase}"`,
+		}"}' "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 	);
 
 	readonly	#hTask2Inf = {
@@ -525,10 +534,10 @@ export class Project {
 			title		: inf.title,
 			cancellable	: false,
 		}, prg=> new Promise<void>(async donePrg=> {
-			const pathJs = this.#pathWs +`/${inf.pathCpyTo}/${nm}.js`;
+			const pathJs = this.#PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
 			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
 
-			const oPkg = await readJson(this.#pathWs +'/package.json', {encoding: 'utf8'});
+			const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
 			const sNeedInst = inf.aNeedLib
 			.filter(nm=> ! oPkg.devDependencies[nm])
 			.join(' ');
@@ -539,8 +548,8 @@ export class Project {
 				inf.title,		// UIに表示
 				'SKYNovel',		// source
 				new ShellExecution(
-					`cd "${this.#pathWs}" ${statBreak()} ${
-						sNeedInst ?`npm i -D ${sNeedInst} ${statBreak()} ` :''
+					`cd "${this.#PATH_WS}" ${statBreak} ${
+						sNeedInst ?`npm i -D ${sNeedInst} ${statBreak} ` :''
 					}node ./${inf.pathCpyTo}/${nm}.js ${arg}`
 				),
 			))
@@ -562,7 +571,7 @@ export class Project {
 
 		// 旧フォントファイルはすべて一度削除
 		foldProc(
-			this.#curPrj +'script/',
+			this.#PATH_PRJ +'script/',
 			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
 			_=> {},
 		);
@@ -570,7 +579,7 @@ export class Project {
 		if (! minify) {
 			// 【node subset_font.js】を実行。終了を待ったり待たなかったり
 			await this.#exeTask('subset_font', '');
-			this.#ps.updFontInfo();		// フォント情報更新
+			this.#ps.dispFontInfo();		// フォント情報更新
 			return;
 		}
 
@@ -603,11 +612,11 @@ export class Project {
 			v.txt = [...s].sort().join('');	// sort()は不要だが綺麗
 		//	v.txt = [...s].join('');
 		}
-		await outputJson(this.#pathWs +'/core/font/font.json', oFont);
+		await outputJson(this.#PATH_WS +'/core/font/font.json', oFont);
 
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
 		await this.#exeTask('subset_font', '--minify');
-		this.#ps.updFontInfo();		// フォント情報更新
+		this.#ps.dispFontInfo();		// フォント情報更新
 	}
 
 
@@ -668,10 +677,10 @@ export class Project {
 		}));
 	}
 	#onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
-		let cmd = `cd "${this.#pathWs}" ${statBreak()} `;
-		if (! existsSync(this.#pathWs +'/node_modules')) {
-			cmd += `npm i ${statBreak()} `;	// 自動で「npm i」
-			removeSync(this.#pathWs +'/package-lock.json');
+		let cmd = `cd "${this.#PATH_WS}" ${statBreak} `;
+		if (! existsSync(this.#PATH_WS +'/node_modules')) {
+			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
+			removeSync(this.#PATH_WS +'/package-lock.json');
 		}
 
 		// メイン処理
@@ -679,9 +688,9 @@ export class Project {
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
 				this.#termDbgSS()
-				.then(()=> this.actBar.updPrjFromTmp(this.#pathWs))
+				.then(()=> this.actBar.updPrjFromTmp(this.#PATH_WS))
 				.then(()=> ncu.run({	// ncu -u --target minor
-					packageFile: this.#pathWs +'/package.json',
+					packageFile: this.#PATH_WS +'/package.json',
 					// Defaults:
 					// jsonUpgraded: true,
 					// silent: true,
@@ -740,7 +749,7 @@ export class Project {
 				this.#termDbgSS();
 
 				let find_ng = false;
-				treeProc(this.#curPrj, path=> {
+				treeProc(this.#PATH_PRJ, path=> {
 					if (find_ng || path.slice(-4) !== '.svg') return;
 
 					find_ng = true;
@@ -799,16 +808,16 @@ export class Project {
 			case 'PackMacArm64':
 			case 'PackLinux':	this.hOnEndTask.set(task_type, ()=> {
 				// アップデート用ファイル作成
-				const oPkg = readJsonSync(this.#pathWs +'/package.json', {encoding: 'utf8'});
+				const oPkg = readJsonSync(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
 
-				const pathPkg = this.#pathWs +'/build/package';
+				const pathPkg = this.#PATH_WS +'/build/package';
 				const pathUpd = pathPkg +'/update';
 				const fnUcJs = pathUpd +'/_index.json';
 				let oUc = existsSync(fnUcJs)
 					? readJsonSync(fnUcJs, {encoding: 'utf8'})
 					: {};
 
-//console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
+//console.error(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
 				const isMacBld = btn_nm.slice(4, 7) === 'Mac';
 				const isLinBld = btn_nm.slice(4, 7) === 'Lin';
 				const fnYml = pathPkg +`/latest${
@@ -818,7 +827,7 @@ export class Project {
 				const mv = /version: (.+)/.exec(sYml);
 				if (! mv) throw `[Pack...] .yml に version が見つかりません`;
 				const ver = mv[1];
-//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
+//console.error(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
 				if (oUc.version != ver || oUc.name != oPkg.name) {
 					oUc = {};
 					removeSync(pathUpd);
@@ -871,23 +880,23 @@ export class Project {
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
 				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(createReadStream(this.#pathWs +'/doc/web.htm'), {name: 'index.html'})
-				.append(createReadStream(this.#pathWs +'/build/include/readme.txt'), {name: 'readme.txt'})
-				.glob('web.js', {cwd: this.#pathWs +'/doc/'})
-				.glob('web.*.js', {cwd: this.#pathWs +'/doc/'})
+				.append(createReadStream(this.#PATH_WS +'/doc/web.htm'), {name: 'index.html'})
+				.append(createReadStream(this.#PATH_WS +'/build/include/readme.txt'), {name: 'readme.txt'})
+				.glob('web.js', {cwd: this.#PATH_WS +'/doc/'})
+				.glob('web.*.js', {cwd: this.#PATH_WS +'/doc/'})
 				.glob(`${
-					this.#isCryptoMode ?Project.fldnm_crypto_prj :'prj'
-				}/**/*`, {cwd: this.#pathWs +'/doc/'})
-				.glob('favicon.ico', {cwd: this.#pathWs +'/doc/'});
+					this.#isCryptoMode ?FLD_CRYPT_PRJ :'prj'
+				}/**/*`, {cwd: this.#PATH_WS +'/doc/'})
+				.glob('favicon.ico', {cwd: this.#PATH_WS +'/doc/'});
 
-				const fn_out = `${basename(this.#pathWs)}_1.0freem.zip`;
-				const ws = createWriteStream(this.#pathWs +`/build/package/${fn_out}`)
+				const fn_out = `${basename(this.#PATH_WS)}_1.0freem.zip`;
+				const ws = createWriteStream(this.#PATH_WS +`/build/package/${fn_out}`)
 				.on('close', ()=> {
 					done();
 					window.showInformationMessage(
 						`ふりーむ！形式で出力（${fn_out}）しました`,
 						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(this.#pathWs +'/build/package/'))})
+					).then(a=> {if (a) env.openExternal(Uri.file(this.#PATH_WS +'/build/package/'))})
 				});
 				arc.pipe(ws);
 				arc.finalize();	// zip圧縮実行
@@ -903,71 +912,78 @@ export class Project {
 	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
 
 
-	#crePrj(e: Uri) {this.#encIfNeeded(e.path); this.#updPathJson();}
-	#chgPrj(e: Uri) {this.#encIfNeeded(e.path);}
-	#delPrj(e: Uri) {
-		const short_path = e.path.slice(this.#lenCurPrj);
-		removeSync(
-			this.#curCrypto + short_path
-			.replace(this.#REG_REPPATHJSON, '.bin')
-			.replace(/"/, '')
-		);
+	#crePrj(uri: Uri) {this.#encIfNeeded(uri); this.#updPathJson();}
+	#chgPrj(uri: Uri) {this.#encIfNeeded(uri);}
+	#delPrj({path}: Uri) {
+		const {pathCn, pp} = this.#path2cn(path);
+		if (pathCn) removeSync(pathCn);
+
 		this.#updPathJson();
 
-		delete this.#hDiff[short_path];
+		delete this.#hDiff[pp];
 		this.#updDiffJson();
 	}
-
+		#path2cn(fp: string) {
+			fp = v2fp(Uri.file(fp).path);
+			const pp = this.#fp2pp(fp);
+			const diff = this.#hDiff[pp];
+			return {
+				pathCn: diff
+					? fp.replace(/\/prj\/.+$/, `/${FLD_CRYPT_PRJ}/${diff.cn}`)
+					: undefined,
+				diff,
+				pp,
+			};
+		}
+		#fp2pp(fp: string): string {return fp.slice(this.#LEN_PATH_PRJ)}
 
 	// 暗号化
 	#initCrypto() {
-		const fnc: (path: string)=> void = this.#isCryptoMode
-			? path=> {if (this.#isDiff(path)) this.#encFile(path);}
-			: path=> this.#isDiff(path)
-		treeProc(this.#curPrj, fnc);
+		const fnc: (fp: string)=> void = this.#isCryptoMode
+			? fp=> {if (this.#isDiff(fp)) this.#encFile(fp);}
+			: fp=> this.#isDiff(fp);
+		treeProc(this.#PATH_PRJ, fnc);
 		this.#updDiffJson();
 	}
-	#encIfNeeded(url: string) {
-		if (this.#isCryptoMode && this.#isDiff(url)) this.#encFile(url);
+	#encIfNeeded({path}: Uri) {
+//console.error(`fn:Project.ts #encIfNeeded path=${path}= ! ${v2fp(path)}`);
+		path = v2fp(path);
+		if (this.#isCryptoMode && this.#isDiff(path)) this.#encFile(path);
 		this.#updDiffJson();
 	}
 	#updDiffJson() {writeJsonSync(this.#fnDiff, this.#hDiff);}
-	readonly	#LEN_CHKDIFF	= 1024;
-	#isDiff(url: string): boolean {
-		const short_path = url.slice(this.#lenCurPrj);
-		const diff = this.#hDiff[short_path];
-		if (diff) {
-			const url_c = url
-			.replace(/\/prj\/.+$/, `/${Project.#fld_crypto_prj}/${diff.cn}`);
-			if (! existsSync(url_c)) return true;
-		}
+
+	#isDiff(fp: string): boolean {
+		const {pathCn, diff, pp} = this.#path2cn(fp);
+		if (pathCn && ! existsSync(pathCn)) return true;
 
 		let hash = 0;
-		if (this.#REG_FULLCRYPTO.test(url)) {
-			hash = crc32.str(readFileSync(url, {encoding: 'utf8'}));
+		if (this.#REG_FULLCRYPTO.test(fp)) {
+			hash = crc32.str(readFileSync(fp, {encoding: 'utf8'}));
 		}
 		else {
 			const b = new Uint8Array(this.#LEN_CHKDIFF);
-			const fd = openSync(url, 'r');
+			const fd = openSync(fp, 'r');
 			readSync(fd, b, 0, this.#LEN_CHKDIFF, 0);
 			closeSync(fd);
 			hash = crc32.buf(b);
 		}
 		if (diff?.hash === hash) return false;
 
-		this.#hDiff[short_path] = {
+		this.#hDiff[pp] = {
 			hash,
-			cn: this.#REG_NEEDCRYPTO.test(short_path)
-				? short_path.replace(
+			cn	: this.#REG_NEEDCRYPTO.test(pp)
+				? pp.replace(
 					this.#REG_SPATH2HFN,
-					`$1/${this.#encry.uuidv5(short_path)}$2`
+					`$1/${this.#encry.uuidv5(pp)}$2`
 				)
 				.replace(this.#REG_REPPATHJSON, '.bin')
-				: short_path,
+				: pp,
 		};
 		return true;
 	}
-	readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
+		readonly	#LEN_CHKDIFF	= 1024;
+		readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
 
 
 	readonly	#aRepl = [
@@ -975,23 +991,23 @@ export class Project {
 		'core/web4webpack.js',
 	];
 	#tglCryptoMode() {
-		const pathPre = this.#curPlg +'snsys_pre';
+		const pathPre = this.#PATH_PLG +'snsys_pre/';
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		if (! this.#isCryptoMode) {
-			removeSync(this.#curCrypto);
+			removeSync(this.#PATH_CRYPT);
 
 			removeSync(pathPre);
 
 			// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 			for (const url of this.#aRepl) replaceFile(
-				this.#pathWs +'/'+ url,
+				this.#PATH_WS +'/'+ url,
 				/\(hPlg, {.+?}\);/,
 				`(hPlg);`,
 			);
 			// ビルド関連：パッケージするフォルダ名変更
 			replaceFile(
-				this.#pathWs +'/package.json',
-				new RegExp(`"doc/${Project.#fld_crypto_prj}\\/",`),
+				this.#PATH_WS +'/package.json',
+				new RegExp(`"doc/${FLD_CRYPT_PRJ}\\/",`),
 				`"doc/prj/",`,
 			);
 			this.#updPlugin();	// doc/prj/prj.json 更新＆ビルド
@@ -999,26 +1015,27 @@ export class Project {
 			return;
 		}
 
-		ensureDir(this.#curCrypto);
+		ensureDir(this.#PATH_CRYPT);
 
 		// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 		for (const url of this.#aRepl) replaceFile(
-			this.#pathWs +'/'+ url,
+			this.#PATH_WS +'/'+ url,
 			/\(hPlg\);/,
-			`(hPlg, {cur: '${Project.#fld_crypto_prj}/', crypto: true});`,
+			`(hPlg, {cur: '${FLD_CRYPT_PRJ}/', crypto: true});`,
 		);
 		// ビルド関連：パッケージするフォルダ名変更
 		replaceFile(
-			this.#pathWs +'/package.json',
+			this.#PATH_WS +'/package.json',
 			/"doc\/prj\/",/,
-			`"doc/${Project.#fld_crypto_prj}/",`,
+			`"doc/${FLD_CRYPT_PRJ}/",`,
 		);
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
 			this.ctx.extensionPath +`/dist/snsys_pre.js`,
-			/pia\.tstDecryptInfo\(\)/,
+			/[^\s=]+\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
-			pathPre +'/index.js',
+			true,
+			pathPre +'index.js',
 		);
 		this.#updPlugin();	// doc/prj/prj.json 更新＆ビルド
 
@@ -1026,39 +1043,33 @@ export class Project {
 		this.#initCrypto();
 	}
 
-	static	readonly #LEN_ENC	= 1024 *10;
-			readonly #REG_DIR	= /(^.+)\//;
-	#tiDelayEnc: NodeJS.Timer | null = null;
-	async #encFile(path_src: string) {
+	async #encFile(fp: string) {
 		try {
-			const short_path = path_src.slice(this.#lenCurPrj);
-			const path_enc = this.#curCrypto + this.#hDiff[short_path].cn;
-			if (! this.#REG_NEEDCRYPTO.test(path_src)) {
-				await remove(path_enc);	// これがないとエラーが出るみたい
-				await copy(path_src, path_enc);
+			const pp = this.#fp2pp(fp);
+			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp].cn;
+			if (! this.#REG_NEEDCRYPTO.test(fp)) {
+				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
 				return;
 			}
 
-			if (this.#REG_FULLCRYPTO.test(short_path)) {	// この中はSync
-				if (short_path !== 'path.json') {	// 内容も変更
-					const s = readFileSync(path_src, {encoding: 'utf8'});
+			if (this.#REG_FULLCRYPTO.test(pp)) {	// この中はSync
+				if (pp !== 'path.json') {	// 内容も変更
+					const s = readFileSync(fp, {encoding: 'utf8'});
 					outputFileSync(path_enc, this.#encry.enc(s));
 					return;
 				}
 
 				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);	// 遅延
 				this.#tiDelayEnc = setTimeout(()=> {
-					const s = readFileSync(path_src, {encoding: 'utf8'});
 					// ファイル名匿名化
-					const hPath: IFn2Path = JSON.parse(s);
+					const hPath: IFn2Path = readJsonSync(fp, {encoding: 'utf8'});
 					for (const hExt2N of Object.values(hPath)) {
-						for (const [ext, v] of Object.entries(hExt2N)) {
+						for (const [ext, path] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-10) === ':RIPEMD160') continue;
-							const path = String(v);
 							const dir = this.#REG_DIR.exec(path);
 							if (dir && this.#cfg.oCfg.code[dir[1]]) continue;
 
@@ -1071,48 +1082,43 @@ export class Project {
 				return;
 			}
 
-			const dir = this.#REG_DIR.exec(short_path);
+			const dir = this.#REG_DIR.exec(pp);
 			if (dir && this.#cfg.oCfg.code[dir[1]]) {
-				await remove(path_enc);	// これがないとエラーが出るみたい
-				await copy(path_src, path_enc);
+				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
 					// となるだけなので
 				return;
 			}
 
-			let cnt_code = Project.#LEN_ENC;
-			let ite_buf = 2;
-			const bh = new Uint8Array(ite_buf + cnt_code);
-			bh[0] = 0;	// bin ver
-			bh[1] = this.#hExt2N[extname(short_path).slice(1)] ?? 0;
-
 			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
 			await ensureFile(u2);	// touch
 			const ws = createWriteStream(u2)
 			.on('error', e=> {ws.destroy(); console.error(`enc ws=%o`, e);});
 
-			const rs = createReadStream(path_src)
+			const rs = createReadStream(fp)
 			.on('error', e=> console.error(`enc rs=%o`, e));
 
-			const tr = new EncryptorTransform(this.#encry, path_src);
+			const tr = new EncryptorTransform(this.#encry, fp);
 			rs.pipe(tr).pipe(ws);
 		}
-		catch (e) {console.error(`enc other ${e.message} src:${path_src}`);}
+		catch (e) {console.error(`enc other ${e.message} src:${fp}`);}
 	}
+		#tiDelayEnc: NodeJS.Timer | null = null;
+		readonly #REG_DIR	= /(^.+)\//;
 
 
 	readonly	#REG_PLGADDTAG	= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
 	#updPlugin(build = true) {
-		if (! existsSync(this.#curPlg)) return;
+		if (! existsSync(this.#PATH_PLG)) return;
 
 		const h4json	: {[def_nm: string]: number}	= {};
 		this.#hDefPlg = {};
-		foldProc(this.#curPlg, ()=> {}, nm=> {
+		foldProc(this.#PATH_PLG, ()=> {}, nm=> {
 			h4json[nm] = 0;
 
-			const path = `${this.#curPlg}${nm}/index.js`;
+			const path = `${this.#PATH_PLG}${nm}/index.js`;
 			if (! existsSync(path)) return;
 
 			const txt = readFileSync(path, 'utf8');
@@ -1139,7 +1145,7 @@ export class Project {
 		});
 		this.#sendRequest2LSP('def_plg.upd', this.#hDefPlg);
 
-		outputFile(this.#curPlg.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
+		outputFile(this.#PATH_PLG.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
 		.then(build ?()=> this.#build() :()=> {})
 		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
 	}
@@ -1149,10 +1155,10 @@ export class Project {
 		this.#build = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは Project.ts の tasks.onDidEndTaskProcess で
-		let cmd = `cd "${this.#pathWs}" ${statBreak()} `;
-		if (! existsSync(this.#pathWs +'/node_modules')) {
-			cmd += `npm i ${statBreak()} `;		// 自動で「npm i」
-			removeSync(this.#pathWs +'/package-lock.json');
+		let cmd = `cd "${this.#PATH_WS}" ${statBreak} `;
+		if (! existsSync(this.#PATH_WS +'/node_modules')) {
+			cmd += `npm i ${statBreak} `;		// 自動で「npm i」
+			removeSync(this.#PATH_WS +'/package-lock.json');
 		}
 		cmd += 'npm run webpack:dev';
 		const type = 'SKYNovel TaskSys';
@@ -1192,8 +1198,193 @@ export class Project {
 	#updPathJson() {
 		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
 		this.#tiDelayPathJson = setTimeout(()=> {
-			this.#cfg.loadEx(path_src=> this.#encFile(path_src), this.#clDiag);
+			// path.json 更新（暗号化もここ「のみ」で）
+			this.#cfg.loadEx(fp=> this.#encFile(fp), this.#clDiag);
+
+			// ドロップ時コピー先候補
+			for (const [spae, aFld] of this.#mExt2Folders) {
+				const aPath: string[] = [];
+				for (const nmFolder of aFld) if (existsSync(this.#PATH_WS +`/doc/prj/${nmFolder}/`)) aPath.push(nmFolder);
+				this.#mExt2ToPath.set(spae, aPath);
+			}
 		}, 100);
 	}
+	readonly	#mExt2Folders: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
+		[SEARCH_PATH_ARG_EXT.SP_GSM, ['bg','image']],
+		[SEARCH_PATH_ARG_EXT.SOUND, ['music','sound']],
+		[SEARCH_PATH_ARG_EXT.FONT, ['script']],
+		[SEARCH_PATH_ARG_EXT.SCRIPT, ['script']],
+	]);
+	#mExt2ToPath	: Map<SEARCH_PATH_ARG_EXT, string[]>	= new Map;
+	#getコピー先候補(ext: string): string[] {
+		let aコピー先候補: string[] = [];
+		for (const [spae, a] of this.#mExt2ToPath.entries()) {
+			if (! new RegExp(spae).test(ext)) continue;
+
+			aコピー先候補 = a;
+			break;
+		}
+
+		return aコピー先候補;
+	}
+
+	async	drop(td: TextDocument, pos: Position, aUri: Uri[]): Promise<DocumentDropEdit | null | undefined> {
+		const aFpNew: string[] = [];
+		for (const uri of aUri) {
+			const {path, scheme} = uri;
+			const ext = extname(path).slice(1);
+			if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
+
+			const fp = v2fp(path);
+//console.error(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}:`);
+			let fpNew = fp;
+			const fn_ext = '/'+ basename(fp);
+			const aコピー先候補 = this.#getコピー先候補(ext);
+			switch (scheme) {
+			case 'file':
+				if (statSync(fp).isDirectory()) {	// フォルダドロップ
+					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return undefined;	// プロジェクト外なら鼻も引っ掛けない
+
+					// TODO: フォルダペーストでフォルダビュー
+					return undefined;
+				}
+
+				if (fp.slice(0, this.#PATH_PRJ.length) === this.#PATH_PRJ) break;
+
+				// プロジェクト外からのドラッグ
+				// ファイルコピー
+				switch (aコピー先候補.length) {
+					case 0:		// 候補もなし、コピー先を選ばせる
+						const ans = await window.showOpenDialog({
+							canSelectFolders	: true,
+							defaultUri	: Uri.file(this.#PATH_PRJ),
+							openLabel	: basename(fp) +' のコピー先',
+							title		: 'ファイルを保存',	// macOSは非表示
+						});
+						if (! ans || ans.length === 0) return undefined;
+
+						const uriCopy = ans[0].path;
+						if (uriCopy.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ
+						|| uriCopy === this.#PATH_PRJ) {	// 直下は禁止
+							window.showErrorMessage('プロジェクト外へのコピーはできません');
+							return undefined;
+						}
+						fpNew = uriCopy + fn_ext;
+						break;
+
+					case 1:		// 選ぶまでもなく確定
+						fpNew = this.#PATH_PRJ + aコピー先候補[0] + fn_ext;
+						break;
+
+					default:{
+						aコピー先候補.push('キャンセル');
+						const ans = await window.showInformationMessage(
+							basename(fp) +' のコピー先を選んでください',
+							...aコピー先候補,
+						);
+						if (ans === 'キャンセル') return undefined;
+
+						fpNew = this.#PATH_PRJ + ans + fn_ext;
+					}	break;
+				}
+				await copyFile(fp, fpNew);
+				break;
+
+			case 'http':
+			case 'https':{	// webブラウザ画像やURLリンクの場合はダウンロード
+				const uriDL = uri.toString();
+//console.error(`fn:Project.ts urlDL=${uriDL}=`);
+				const res = await fetch(uriDL);
+				if (! res.ok) {
+					window.showErrorMessage(`ダウンロードに失敗しました。手動でローカルにコピーして下さい uri=${uriDL}`);
+					return undefined;
+				}
+
+				let ppNew = '';
+				switch (aコピー先候補.length) {
+					case 0:		// 候補もなし
+						return undefined;	// サポートしないものとする
+
+				//	case 1:		// 選ぶまでもなく確定
+					default:	// 決め打ち
+						ppNew = aコピー先候補[0] + fn_ext;
+						break;
+				}
+				fpNew = this.#PATH_PRJ + ppNew;
+				await writeFile(fpNew, await res.buffer());
+
+				window.showInformationMessage(`素材をダウンロードしました。 path=${ppNew}`);
+				// サイドバーに表示
+				await commands.executeCommand('revealInExplorer', Uri.parse(this.#vpPrj + ppNew));
+
+			}	break;
+
+			default:	return undefined;
+			}
+
+			aFpNew.push(fpNew);
+		}
+
+		// スニペット挿入・値部を書き換え
+		if (aFpNew.length === 0) return undefined;
+		const fp = aFpNew[0];
+		const ext = extname(fp).slice(1);
+		const fn = getFn(fp);
+		for (const [spae, snippet] of this.#mExt2Snippet.entries()) {
+			if (! new RegExp(spae).test(ext)) continue;
+
+			// 属性値にドロップした場合は、値部を書き換える
+			const gw = this.#getWordRangeAtPosition(td, pos, this.#REG_FIELD);
+			if (gw) {
+				const {range, nm} = gw;
+				if (nm) return {insertText: '', additionalEdit: this.#createWsEd_repVal(td.uri, range, nm, fn)};
+			}
+
+			// スニペット挿入
+			const sni = snippet.replace('...', fn)
+			.replaceAll(/\${\d\|([^,]+)\|}/g, '$1');
+				// https://regex101.com/r/QAiATp/1
+//console.log(`fn:Project.ts sni=${sni}=`);
+			return {insertText: new SnippetString(sni)};
+		}
+
+		return undefined;
+	}
+		readonly	#REG_FIELD	= /(?<=\s)[^\s=[\]]+(?:=(?:[^"'#\s;\]]+|(["'#]).*?\1)?)?/g;	// https://regex101.com/r/1m4Hgp/1 7 matches 95 steps, 0.4ms
+		#createWsEd_repVal(uri: Uri, range: Range, nm: string, val: string) {
+			const we = new WorkspaceEdit;
+			const v2 = /[\s=]/.test(val)
+				? (/['#]/.test(val) ? `"${val}"` : `'${val}'`)
+				: val;
+			we.replace(uri, range, nm + '=' + v2);
+			return we;
+		}
+
+		#getWordRangeAtPosition(td: TextDocument, {line, character}: Position, reg: RegExp): {hit: string, range: Range, nm: string, val: string} {
+//			if (reg.flags.indexOf('g') === -1) console.log(`fn:LspWs.ts #getWordRangeAtPosition gフラグが必要です`);// TO DO: あとでコメントアウト
+
+			const s = td.getText(new Range(line, 0, line, 9999));
+			let e;
+			reg.lastIndex = 0;	// /gなので必要
+			while (e = reg.exec(s)) {
+				const [hit] = e, b = reg.lastIndex -hit.length;
+
+				const [nm, ...v] = hit.split('=');
+				const val = v.join('=');
+
+				if (b <= character && character <= reg.lastIndex) return {
+					hit,
+					range: new Range(line, b, line, reg.lastIndex),
+					nm, val,
+				};
+			}
+			return {hit: '', range: new Range(0, 0, 0, 0), nm: '', val: ''};
+		}
+		#mExt2Snippet: Map<SEARCH_PATH_ARG_EXT, string> = new Map([
+			[SEARCH_PATH_ARG_EXT.SP_GSM	, '[${1|lay|} fn=...]$0'],
+			[SEARCH_PATH_ARG_EXT.SOUND	, '[${1|playse,playbgm|} fn=...]$0'],
+			[SEARCH_PATH_ARG_EXT.FONT	, "[span style='font-family: ...;']$0"],
+			[SEARCH_PATH_ARG_EXT.SCRIPT	, '[${1|jump,call|} fn=...]$0'],
+		]);
 
 }

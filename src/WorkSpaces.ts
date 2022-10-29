@@ -5,30 +5,45 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {oIcon, docsel, openURL, getFn} from './CmnLib';
-import {ActivityBar} from './ActivityBar';
+import {docsel, v2fp, is_win, is_mac} from './CmnLib';
+import {ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
-import {PrjTreeItem, TASK_TYPE} from './PrjTreeItem';
-
-import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, QuickPickItemKind, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, SnippetString} from 'vscode';
-
-import {existsSync} from 'fs-extra';
+import {PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
 import {MD_STRUCT} from './md2json';
 
+import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win} from 'vscode';
+import {existsSync} from 'fs-extra';
+
+
 export type QuickPickItemEx = QuickPickItem & {
-	kind?	: QuickPickItemKind;
-	uri		: string;
+	uri?	: Uri;
 }
 export const	aPickItems	: QuickPickItemEx[] = [];
+
+
+export	function openURL(url: Uri, pathWs: string) {
+	switch (url.scheme) {
+		case 'ws-file':
+			workspace.openTextDocument(pathWs + url.path)
+			.then(doc=> vsc_win.showTextDocument(doc));
+			break;
+	
+		case 'ws-folder':
+			env.openExternal(Uri.file(pathWs + url.path));
+			break;
+
+		default:	env.openExternal(url);
+	}
+}
 
 
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
-	#hPrj	: {[pathWs: string]: Project}	= {};
+	#mPrj	: Map<string, Project>	= new Map();
 
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
 		const itmStt = this.#addStatusItem('init');
@@ -155,14 +170,14 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			label		: tag_nm,
 			description	: sum,
 			//detail,	// 別の行になる
-			uri			: 'https://famibee.github.io/SKYNovel/tag.html#'+ tag_nm,
+			uri			: Uri.parse('https://famibee.github.io/SKYNovel/tag.html#'+ tag_nm),
 		});
 	}
 	#tiLayers	: TreeItem[]	= [];
 
 
 	// ファイルドロップ（＋Shiftボタンを押す必要がある）
-	async	provideDocumentDropEdits(doc: TextDocument, pos: Position, dataTransfer: DataTransfer, tkn: CancellationToken): Promise<DocumentDropEdit | null | undefined> {
+	async	provideDocumentDropEdits(td: TextDocument, pos: Position, dataTransfer: DataTransfer, tkn: CancellationToken): Promise<DocumentDropEdit | null | undefined> {
 		// データ転送をチェックして、uris のリストを削除したかどうかを確認します
 		const dti = dataTransfer.get('text/uri-list');
 			// L3,5 というフラグメントをサポートするらしい（3 は行番号、5 は列番号）
@@ -172,43 +187,26 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		const urlList = await dti.asString();
 		if (tkn.isCancellationRequested) return undefined;
 		const aUri: Uri[] = [];
-		for (const res of urlList.split('\n')) {try {
-			aUri.push(Uri.parse(res));
-		} catch {/* noop */}}
+		for (const res of urlList.split('\n')) {
+			try { aUri.push(Uri.parse(res)); } catch {/* noop */}
+		}
 		if (aUri.length === 0) return undefined;
 
-		// 
-/*
-		if (ワークスペース外からのDrag) {
-			// ファイルコピー先を聞く bg|image|rule, music|sound
-			// キャンセルなら return undefined;
-			// ファイルコピー
-			// aUri をファイルコピー先に書き換え
+		for (const [vfpWs ,prj] of this.#mPrj.entries()) {
+			const cp = vfpWs +'/doc/prj/';
+			if (td.uri.path.slice(0, cp.length) !== cp) continue;
+
+			return await prj.drop(td, pos, aUri) ?? {insertText: ''};
+				// なにもさせない（undefined だと簡易な文字列が挿入される）
 		}
-
-		// 挿入スニペット作成
-*/
-		// Build a snippet to insert
-		const snippet = new SnippetString();
-		aUri.forEach((uri, i)=> {
-			const fn = getFn(uri.path);
-console.log(`fn:WorkSpaces.ts fn:${fn} `);
-			snippet.appendText(`${i + 1}. ${fn}`);
-			snippet.appendTabstop();
-
-			if (i <= aUri.length - 1 && aUri.length > 1) {
-				snippet.appendText('\n');
-			}
-		});
-
-		return { insertText: snippet };
-
+		return undefined;
 	}
 
 
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
-		for (const [pathWs, prj] of Object.entries(this.#hPrj)) {
-			if (pathWs !== doc.uri.fsPath.slice(0, pathWs.length)) continue;
+		for (const [vfpWs, prj] of this.#mPrj.entries()) {
+			const cp = vfpWs +'/doc/prj/';
+			if (doc.uri.path.slice(0, cp.length) !== cp) continue;
 
 			return prj.provideHover(doc, pos);
 		}
@@ -216,8 +214,14 @@ console.log(`fn:WorkSpaces.ts fn:${fn} `);
 	}
 
 
-	#sendRequest2LSP: (cmd: string, curPrj: string, o?: any)=> void	= ()=> {};
-	start(sendRequest2LSP: (cmd: string, curPrj: string, o: any)=> void) {
+	#sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void	= ()=> {};
+	start(sendRequest2LSP: (cmd: string, uriWs: Uri, o: any)=> void) {
+		// これは #refresh() 直前のここで
+		if (is_mac) updStatBreak('&&');
+		else if (is_win) {
+			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-7);
+			updStatBreak((chkShell === 'cmd.exe') ?'&' :';');
+		}
 		this.#sendRequest2LSP = sendRequest2LSP;
 		this.#refresh();
 
@@ -226,7 +230,7 @@ console.log(`fn:WorkSpaces.ts fn:${fn} `);
 /*		// server/src/LspWs.ts constructor 冒頭を参照
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
 		commands.registerCommand('extension.skynovel.scanScr_trgParamHints', ()=> {
-console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
+console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			commands.executeCommand('editor.action.triggerParameterHints')});
 */
 	}
@@ -239,24 +243,22 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 				placeHolder			: 'どのリファレンスを開きますか?',
 				matchOnDescription	: true,
 			})
-			.then(q=> {if (q) openURL(Uri.parse(q.uri), '');});
+			.then(q=> {if (q?.uri) openURL(q.uri, '');});
 			return;
 		}
 
-		const pathAt = at.document.uri.fsPath;
-		const a = Object.entries(this.#hPrj);
-		a.sort(([a], [b])=> b.length > a.length ?-1 :1);
-		for (const [pathWs, prj] of a) {
-			if (pathAt.slice(0, pathWs.length) !== pathWs) continue;
-
+		const pathDoc = at.document.uri.path;
+		for (const [vfpWs, prj] of this.#mPrj.entries()) {
+			if (pathDoc.slice(0, vfpWs.length) !== vfpWs) continue;
 			prj.openReferencePallet();
-			break;
 		}
 	}
 
 
 	refreshEnv() {
-		this.actBar.chkLastSNVer(Object.entries(this.#hPrj).map(([,v])=> v.getLocalSNVer()));
+		const a = [];
+		for (const prj of this.#mPrj.values()) a.push(prj.getLocalSNVer());
+		this.actBar.chkLastSNVer(a);
 	}
 
 /*
@@ -303,9 +305,7 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
 			this.#aTiRoot.splice(del, 1);
 
-			const pathWs = e.removed[0].uri.fsPath;
-
-			this.#hPrj[pathWs].dispose();
+			this.#mPrj.get(e.removed[0].uri.path)?.dispose();
 		}
 		this.#emPrjTD.fire(undefined);
 	}
@@ -314,10 +314,12 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 
 	onRequest(hd: any): any | undefined {
-		const pathWs = hd.curPrj.slice(7, -9);
-		const prj = this.#hPrj[pathWs];
+//console.error(`070 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
+		// TODO: 辱コード
+		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
+//		const prj = this.#mPrj.get(hd.pathWs);
 		if (! prj) {
-			console.error(`fn:WorkSpaces.ts onRequest 'project ${pathWs} does not exist'`);
+			console.error(`fn:WorkSpaces.ts onRequest 'project ${hd.pathWs} does not exist'`);	// 本番でも【出力】-【ログ（ウインドウ）】に出力される
 			return undefined;
 		}
 		return prj.onRequest(hd);
@@ -325,18 +327,18 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 
 	enableBtn(enable: boolean): void {
-		for (const v of Object.values(this.#hPrj)) v.enableBtn(enable);
+		for (const prj of this.#mPrj.values()) prj.enableBtn(enable);
 	}
 
 
-	// WorkspaceFolder を TreeItem に反映
 	#makePrj(wsFld: WorkspaceFolder) {
-		const pathWs = wsFld.uri.fsPath;
-		const existPkgJS = existsSync(pathWs +'/package.json');
-		const isPrjValid = existPkgJS && existsSync(pathWs +'/doc/prj/prj.json');
-		if (! isPrjValid) return;
+		const vfpWs = wsFld.uri.path;
+		const pathWs = v2fp(vfpWs);
+//console.error(`010 fn:WorkSpaces.ts #makePrj vfpWs=${vfpWs}=`);
+		if (! existsSync(pathWs +'/package.json')
+		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;
 
-		this.#hPrj[pathWs] = new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, this.#sendRequest2LSP);
+		this.#mPrj.set(vfpWs, new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, this.#sendRequest2LSP));
 	}
 
 	#hOnEndTask = new Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>([]);
@@ -345,8 +347,8 @@ console.log(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;
 
 	dispose() {
-		for (const v of Object.values(this.#hPrj)) v.dispose();
-		this.#hPrj = {};
+		for (const prj of this.#mPrj.values()) prj.dispose();
+		this.#mPrj.clear();
 		for (const [itm, v] of Object.entries(this.#hItmLangStt)) {
 			if (Object.prototype.hasOwnProperty.call(this.#hItmLangStt, itm)) {
 				v.dispose();

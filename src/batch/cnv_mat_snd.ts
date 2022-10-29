@@ -17,15 +17,15 @@ import {resolve, parse, basename} from 'path';
 import {ensureDir, existsSync, move, readdirSync, readJsonSync, remove, statSync, writeJsonSync} from 'fs-extra';
 import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 
-const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
+const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
-		if (REG_IGNORE_SYS_PATH.test(nm)) continue;
+		if (REG_SYS_FN.test(nm)) continue;
 		if (d.isDirectory()) {fncFld(nm); continue;}
 
-		const url = resolve(wd, nm);
-		fnc(url, nm);
+		const fp = resolve(wd, nm);
+		fnc(fp, nm);
 	}
 }
 
@@ -108,7 +108,7 @@ switch (pathInp) {
 				const urlPrj = resolve(curPrj, dir, nm);
 				a.push(()=> move(url, urlPrj, {overwrite: true}));
 				const urlOut = urlPrj.slice(0, -3);
-				['opus','aac','ogg'].
+				['m4a','aac','ogg'].
 				forEach(ext=> a.push(()=>remove(urlOut + ext)));
 			}, ()=> {});
 		});

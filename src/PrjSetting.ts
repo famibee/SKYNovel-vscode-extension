@@ -5,35 +5,41 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, getNonce, openURL, replaceRegsFile, treeProc} from './CmnLib';
-import {ActivityBar, eTreeEnv} from './ActivityBar';
+import {foldProc, getFn, replaceRegsFile, treeProc, v2fp} from './CmnLib';
+import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
+import {Config} from './Config';
+import {openURL} from './WorkSpaces';
+import {FLD_PRJ_BASE} from './Project';
 import {DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson, writeJsonSync} from 'fs-extra';
-import {basename, parse} from 'path';
+import {basename} from 'path';
 import {v4 as uuidv4} from 'uuid';
 import {userInfo} from 'os';
-import {Config} from './Config';
+
 
 export class PrjSetting {
 	readonly	#wss;
-				#oWss		= DEF_WSS;
-	readonly	#pathWs		: string;
-	readonly	#fnPrj		: string;
-	readonly	#fnPrjJs	: string;
-	readonly	#fnPkgJs	: string;
-	readonly	#fnAppJs	: string;
-				#fnSetting	: string;
-	readonly	#fnInsNsh	: string;
-	readonly	#fnIcon		: string;
-	readonly	#fnReadme4Freem	: string;
+				#oWss			= DEF_WSS;
+	readonly	#PATH_WS		: string;
+	readonly	#PATH_PRJ		: string;
+	readonly	#PATH_PRJ_JSON	: string;
+	readonly	#PATH_APP_JS	: string;
+	readonly	#PATH_PKG_JSON	: string;
+	readonly	#PATH_PRJ_BASE;
+	readonly	#LEN_PATH_PRJ_BASE;
+
+				#fnSetting		: string;
+	readonly	#PATH_INS_NSH		: string;
+	readonly	#PATH_ICON			: string;
+	readonly	#PATH_README4FREEM	: string;
 	readonly	#localExtensionResRoots: Uri;
 
 				#htmSrc	= '';
 
-	readonly	#fnOptPic	: string;
-	readonly	#fnOptSnd	: string;
+	readonly	#PATH_OPT_PIC	: string;
+	readonly	#PATH_OPT_SND	: string;
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
@@ -49,43 +55,41 @@ export class PrjSetting {
 		this.#setOnOptPic();
 		this.#setOnOptSnd();
 
-		const a: (()=> Promise<void>)[] = [];
+		this.#PATH_WS = v2fp(wsFld.uri.path);
+		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
+		this.#PATH_PRJ_JSON = this.#PATH_PRJ +'prj.json';
+		this.#PATH_APP_JS = this.#PATH_WS +'/doc/app.js';
+		this.#PATH_PKG_JSON = this.#PATH_WS +'/package.json';
+		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
+		this.#LEN_PATH_PRJ_BASE = this.#PATH_PRJ_BASE.length;
 
-		this.#pathWs = wsFld.uri.fsPath;
-		this.#fnPrj = this.#pathWs +'/doc/prj/';
-		this.#fnPrjJs = this.#fnPrj +'prj.json';
-		this.#fnAppJs = this.#pathWs +'/doc/app.js';
-		this.#fnPkgJs = this.#pathWs +'/package.json';
-		this.#fnPrjBase = this.#pathWs +'/doc/'+ PrjSetting.fld_prj_base
-		+'/';
-		this.#lenPrjBase = this.#fnPrjBase.length;
-
-		this.#fnReadme4Freem = this.#pathWs +'/build/include/readme.txt';
+		this.#PATH_README4FREEM = this.#PATH_WS +'/build/include/readme.txt';
 		const path_ext = ctx.extensionPath;
-		if (! existsSync(this.#fnReadme4Freem)) a.push(async ()=> {
-			await ensureFile(this.#fnReadme4Freem);
-			await copyFile(path_ext +'/res/readme.txt', this.#fnReadme4Freem);
+		const a: (()=> Promise<void>)[] = [];
+		if (! existsSync(this.#PATH_README4FREEM)) a.push(async ()=> {
+			await ensureFile(this.#PATH_README4FREEM);
+			await copyFile(path_ext +'/res/readme.txt', this.#PATH_README4FREEM);
 		});
 
-		this.#fnInsNsh = this.#pathWs +'/build/installer.nsh';
-		if (! existsSync(this.#fnInsNsh)) a.push(()=> copyFile(
-			path_ext +'/res/installer.nsh', this.#fnInsNsh
+		this.#PATH_INS_NSH = this.#PATH_WS +'/build/installer.nsh';
+		if (! existsSync(this.#PATH_INS_NSH)) a.push(()=> copyFile(
+			path_ext +'/res/installer.nsh', this.#PATH_INS_NSH
 		));;
 
-		this.#fnIcon = this.#pathWs +'/build/icon.png';
-		if (! existsSync(this.#fnIcon)) a.push(()=> copyFile(
-			path_ext +'/res/img/icon.png', this.#fnIcon
+		this.#PATH_ICON = this.#PATH_WS +'/build/icon.png';
+		if (! existsSync(this.#PATH_ICON)) a.push(()=> copyFile(
+			path_ext +'/res/img/icon.png', this.#PATH_ICON
 		));
 
-		const fnLaunchJs = this.#pathWs +'/.vscode/launch.json';
+		const fnLaunchJs = this.#PATH_WS +'/.vscode/launch.json';
 		if (! existsSync(fnLaunchJs)) a.push(()=> copyFile(
 			path_ext +'/res/launch.json', fnLaunchJs
 		));
 
 //		setEscape();	// 非同期禁止
 
-		this.#fnOptPic = this.#pathWs +'/build/cnv_mat_pic.json';
-		this.#fnOptSnd = this.#pathWs +'/build/cnv_mat_snd.json';
+		this.#PATH_OPT_PIC = this.#PATH_WS +'/build/cnv_mat_pic.json';
+		this.#PATH_OPT_SND = this.#PATH_WS +'/build/cnv_mat_snd.json';
 
 		const path_vue_root = path_ext +`/views/`;
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
@@ -94,15 +98,15 @@ export class PrjSetting {
 				chgTitle(this.cfg.oCfg.book.title);
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.cfg.oCfg.debuger_token;
 
-				if (existsSync(this.#fnOptPic)) this.#oOptPic = readJsonSync(this.#fnOptPic, {encoding: 'utf8'});
-				else writeJsonSync(this.#fnOptPic, this.#oOptPic = DEF_OPTIMG);
+				if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+				else writeJsonSync(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTIMG);
 
-				if (existsSync(this.#fnOptSnd)) this.#oOptSnd = readJsonSync(this.#fnOptSnd, {encoding: 'utf8'});
-				else writeJsonSync(this.#fnOptSnd, this.#oOptSnd = DEF_OPTSND);
+				if (existsSync(this.#PATH_OPT_SND)) this.#oOptSnd = readJsonSync(this.#PATH_OPT_SND, {encoding: 'utf8'});
+				else writeJsonSync(this.#PATH_OPT_SND, this.#oOptSnd = DEF_OPTSND);
 			},
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
-				foldProc(this.#fnPrj, ()=> {}, nm=> {
+				foldProc(this.#PATH_PRJ, ()=> {}, nm=> {
 					if (nm in this.cfg.oCfg.code) return;
 					this.cfg.oCfg.code[nm] = false;
 				});
@@ -121,7 +125,7 @@ export class PrjSetting {
 			},
 
 			async ()=> {
-				treeProc(this.#fnPrj, path=> {
+				treeProc(this.#PATH_PRJ, path=> {
 					if (path.slice(-11) !== '/setting.sn') return;
 					this.#aPathSettingSn.push(path);
 				});
@@ -134,8 +138,8 @@ export class PrjSetting {
 
 
 	getLocalSNVer(): {verSN: string, verTemp: string} {
-		const oPkg = readJsonSync(this.#fnPkgJs, {encoding: 'utf8'});
-		const fnCngLog = this.#pathWs +'/CHANGELOG.md';
+		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
+		const fnCngLog = this.#PATH_WS +'/CHANGELOG.md';
 		return {
 			verSN	: oPkg.dependencies['@famibee/skynovel']?.slice(1) ?? '',
 			verTemp	: existsSync(fnCngLog)
@@ -150,7 +154,7 @@ export class PrjSetting {
 		return PrjSetting.#hWsFld2token[wsFld.uri.path]() ?? '';
 	}
 
-	onCreDir(path: string) {
+	onCreDir({path}: Uri) {
 		if (! statSync(path).isDirectory()) return;
 
 		this.cfg.oCfg.code[basename(path)] = false;
@@ -158,7 +162,7 @@ export class PrjSetting {
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
 		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
 	}
-	onDelDir(path: string) {
+	onDelDir({path}: Uri) {
 		delete this.cfg.oCfg.code[basename(path)];
 		this.#writePrjJs();
 		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
@@ -169,16 +173,16 @@ export class PrjSetting {
 		for (const [nm, v] of Object.entries(this.cfg.oCfg.code)) {
 			if (v) o.code[nm] = true;
 		}
-		return writeFile(this.#fnPrjJs, JSON.stringify(o, null , '\t'));
+		return writeFile(this.#PATH_PRJ_JSON, JSON.stringify(o, null , '\t'));
 	}
 
 	// 複数マッチチェック用
 	#aPathSettingSn		: string[] = [];
-	onCreSettingSn(path: string) {
+	onCreSettingSn({path}: Uri) {
 		this.#aPathSettingSn.push(path);
 		this.#chkMultiMatch_SettingSn();
 	}
-	onDelSettingSn(path: string) {
+	onDelSettingSn({path}: Uri) {
 		this.#aPathSettingSn = this.#aPathSettingSn.filter(v=> v !== path);
 	}
 	#chkMultiMatch_SettingSn() {
@@ -250,20 +254,22 @@ export class PrjSetting {
 	#aTemp	: T_TEMP[]	= [];
 
 
-	async	onCreChgOptSnd(_url: string) {}
-	async	onDelOptSnd(_url: string) {}
-	#disableOnOptSnd() {
+	async	onCreChgOptSnd(_url: Uri) {}
+	async	onDelOptSnd(_url: Uri) {}
+	#unsetOnOptSnd() {
 		this.onCreChgOptSnd = async ()=> {};
 		this.onDelOptSnd = async ()=> {};
 	}
 	#setOnOptSnd() {
-		if (! this.#oWss['cnv.mat.snd']) {this.#disableOnOptSnd(); return;}
+		if (! this.#oWss['cnv.mat.snd']) {this.#unsetOnOptSnd(); return;}
 
-		this.onCreChgOptSnd = async url=> {
-			// prj（変換後フォルダ）への drop か prj_base（退避素材ファイル）操作か判定
-			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
+		this.onCreChgOptSnd = async ({path})=> {
+			path = v2fp(path);
+			if (this.#REG_EXT_SND_REST.test(path)) return;
+
 			// mp3・wavファイルを追加・更新時、退避に上書き移動して aac化
-			if (! isBase) this.#disableOnOptSnd();
+			const isBase = this.#isBaseUrl(path);
+			this.#unsetOnOptSnd();
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.snd', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
@@ -271,60 +277,73 @@ export class PrjSetting {
 			await this.exeTask(
 				'cnv_mat_snd',
 				`"${isBase
-					? url.replace(this.#fnPrjBase, this.#fnPrj)
-					: url
-				}" '{"codec":"${
-					this.#oWss['cnv.mat.snd.codec']
-				}"}' "${
+					? path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
+					: path
+				}" '{"codec":"${ this.#oWss['cnv.mat.snd.codec'] }"}' "${
 					isBase
-					? url
-					: url.replace(this.#fnPrj, this.#fnPrjBase)
+					? path
+					: path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE)
 				}" ${isBase ?'no_move' :''}`,
 			);
-			if (! isBase) this.#setOnOptSnd();
 
 			o.mode = 'comp';
 			this.#cmd2Vue(o);
 
-			this.#oOptSnd = await readJson(this.#fnOptSnd, {encoding: 'utf8'});
-			this.#updOptSnd();
-		};
-		this.onDelOptSnd = async url=> {
-			// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
-			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
-			if (! isBase) return;
+			this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
+			this.#dispOptSnd();
 
-			// 退避素材ファイルを削除時、変換後 aac ファイルも削除
-			await remove(
-				url.replace(this.#fnPrjBase, this.#fnPrj)
-				.replace(this.#REG_CNV_AAC, '.'+ this.#oWss['cnv.mat.snd.codec'])
-			)
-			const {name} = parse(url);
-			const {baseSize, optSize} = this.#oOptSnd.hSize[name];
-			this.#oOptSnd.sum.baseSize -= baseSize;
-			this.#oOptSnd.sum.optSize -= optSize;
-			delete this.#oOptSnd.hSize[name];
-			await writeJson(this.#fnOptSnd, this.#oOptSnd, {encoding: 'utf8'});
-			this.#updOptSnd();
+			this.#setOnOptSnd();
+		};
+		this.onDelOptSnd = async ({path})=> {
+			path = v2fp(path);
+			const isBase = this.#isBaseUrl(path);
+			this.#unsetOnOptSnd();
+			if (! isBase) {
+				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
+				for (const ext of ['mp3','wav']) {
+					await remove(path2.replace(/(m4a|aac|ogg)$/, ext));
+				}
+				this.#setOnOptSnd();
+				return;
+			}
+
+			// 退避を消したら変換後  aac... も削除
+			for (const ext of ['m4a','aac','ogg']) await remove(
+				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
+				.replace(this.#REG_EXT_SND_CNV, '.'+ ext)
+			);
+			const fn = getFn(path);
+			if (fn in this.#oOptSnd.hSize) {
+				const {baseSize, optSize} = this.#oOptSnd.hSize[fn];
+				this.#oOptSnd.sum.baseSize -= baseSize;
+				this.#oOptSnd.sum.optSize -= optSize;
+				delete this.#oOptSnd.hSize[fn];
+				await writeJson(this.#PATH_OPT_SND, this.#oOptSnd, {encoding: 'utf8'});
+				this.#dispOptSnd();
+			}
+			this.#setOnOptSnd();
 		};
 	}
-	readonly	#REG_CNV_AAC	= /\.(mp3|wav)$/;
+		readonly	#REG_EXT_SND_REST	= /\.(m4a|aac|ogg)$/;
+		readonly	#REG_EXT_SND_CNV	= /\.(mp3|wav)$/;
 
 
-	async	onCreChgOptPic(_url: string) {}
-	async	onDelOptPic(_url: string) {}
-	#disableOnOptPic() {
+	async	onCreChgOptPic(_url: Uri) {}
+	async	onDelOptPic(_url: Uri) {}
+	#unsetOnOptPic() {
 		this.onCreChgOptPic = async ()=> {};
 		this.onDelOptPic = async ()=> {};
 	}
 	#setOnOptPic() {
-		if (! this.#oWss['cnv.mat.pic']) {this.#disableOnOptPic(); return;}
+		if (! this.#oWss['cnv.mat.pic']) {this.#unsetOnOptPic(); return;}
 
-		this.onCreChgOptPic = async url=> {
-			// prj（変換後フォルダ）への drop か prj_base（退避素材ファイル）操作か判定
-			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
+		this.onCreChgOptPic = async ({path})=> {
+			path = v2fp(path);
+			if (this.#REG_EXT_PIC_REST.test(path)) return;
+
 			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
-			if (! isBase) this.#disableOnOptPic();
+			const isBase = this.#isBaseUrl(path);
+			this.#unsetOnOptPic();
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
@@ -332,50 +351,63 @@ export class PrjSetting {
 			await this.exeTask(
 				'cnv_mat_pic',
 				`"${isBase
-					? url.replace(this.#fnPrjBase, this.#fnPrj)
-					: url
-				}" ${this.oWss['cnv.mat.webp_quality']} "${
+					? path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
+					: path
+				}" ${ this.oWss['cnv.mat.webp_quality'] } "${
 					isBase
-					? url
-					: url.replace(this.#fnPrj, this.#fnPrjBase)
+					? path
+					: path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE)
 				}" ${isBase ?'no_move' :''}`,
 			);
-			if (! isBase) this.#setOnOptPic();
 
 			o.mode = 'comp';
 			this.#cmd2Vue(o);
 
-			this.#oOptPic = await readJson(this.#fnOptPic, {encoding: 'utf8'});
-			this.#updOptPic();
-		};
-		this.onDelOptPic = async url=> {
-			// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
-			const isBase = url.slice(0, this.#lenPrjBase) === this.#fnPrjBase;
-			if (! isBase) return;
+			this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+			this.#dispOptPic();
 
-			// 退避素材ファイルを削除時、変換後 WebP ファイルも削除
+			this.#setOnOptPic();
+		};
+		this.onDelOptPic = async ({path})=> {
+			path = v2fp(path);
+			const isBase = this.#isBaseUrl(path);
+			this.#unsetOnOptPic();
+			if (! isBase) {
+				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
+				for (const ext of ['jpeg','jpg','png']) {
+					await remove(path2.replace(/webp$/, ext));
+				}
+				this.#setOnOptPic();
+				return;
+			}
+
+			// 退避を消したら変換後 WebP も削除
 			await remove(
-				url.replace(this.#fnPrjBase, this.#fnPrj)
-				.replace(this.#REG_CNV_WEBP, '.webp')
+				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
+				.replace(this.#REG_EXT_PIC_CNV, '.webp')
 			);
-			const {name} = parse(url);
-			const {baseSize, webpSize} = this.#oOptPic.hSize[name];
-			this.#oOptPic.sum.baseSize -= baseSize;
-			this.#oOptPic.sum.webpSize -= webpSize;
-			delete this.#oOptPic.hSize[name];
-			await writeJson(this.#fnOptPic, this.#oOptPic, {encoding: 'utf8'});
-			this.#updOptPic();
+			// 退避を消したケースでのみ上方 json 更新（このメソッドが多重発生）
+			const fn = getFn(path);
+			if (fn in this.#oOptPic.hSize) {
+				const {baseSize, webpSize} = this.#oOptPic.hSize[fn];
+				this.#oOptPic.sum.baseSize -= baseSize;
+				this.#oOptPic.sum.webpSize -= webpSize;
+				delete this.#oOptPic.hSize[fn];
+				await writeJson(this.#PATH_OPT_PIC, this.#oOptPic, {encoding: 'utf8'});
+				this.#dispOptPic();
+			}
+			this.#setOnOptPic();
 		};
 	}
-	readonly	#lenPrjBase;
-	readonly	#fnPrjBase;
-	static readonly	fld_prj_base	= 'prj_base';
-	readonly	#REG_CNV_WEBP	= /\.(jpe?g|png)$/;
+		readonly	#REG_EXT_PIC_REST	= /\.webp$/;
+		readonly	#REG_EXT_PIC_CNV	= /\.(jpe?g|png)$/;
+		// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
+		#isBaseUrl(url :string): boolean {return url.slice(0, this.#LEN_PATH_PRJ_BASE) === this.#PATH_PRJ_BASE;}
 
 
 	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
-	#cmd2Vue = (mes: any)=> {};
+	#cmd2Vue = (_mes: T_E2V_CFG | T_E2V_INIT | T_E2V_TEMP | T_E2V_NOTICE_COMPONENT | T_E2V_SELECT_ICON_INFO | T_E2V_CNVFONT | T_E2V_OPTIMG | T_E2V_OPTSND)=> {};
 	#wvuWs		: Uri;
 	#pathIcon	: string;
 	open() {
@@ -393,12 +425,12 @@ export class PrjSetting {
 		//	retainContextWhenHidden: true,	// 楽だがメモリオーバーヘッド高らしい
 			localResourceRoots	: [
 				this.#localExtensionResRoots,
-				Uri.file(this.#pathWs),
+				Uri.file(this.#PATH_WS),
 			],
 		});
 		p.onDidDispose(()=> this.#pnlWV = undefined, undefined, this.ctx.subscriptions);
 		const wv = this.#pnlWV!.webview;
-		this.#wvuWs = wv.asWebviewUri(Uri.file(this.#pathWs));
+		this.#wvuWs = wv.asWebviewUri(Uri.file(this.#PATH_WS));
 		this.#pathIcon = `${this.#wvuWs}/build/icon.png`;
 
 		const {username} = userInfo();
@@ -411,9 +443,9 @@ export class PrjSetting {
 				oWss	: this.#oWss,
 				pathIcon: this.#pathIcon,
 			});
-			this.updFontInfo();
-			this.#updOptPic();
-			this.#updOptSnd();
+			this.dispFontInfo();
+			this.#dispOptPic();
+			this.#dispOptSnd();
 			this.#chkMultiMatch_SettingSn();
 			break;
 
@@ -430,7 +462,7 @@ export class PrjSetting {
 			const CopyrightYear = String((new Date()).getFullYear());
 			Promise.allSettled([
 				(async ()=> {
-					const p = await readJson(this.#fnPkgJs, {encoding:'utf8'});
+					const p = await readJson(this.#PATH_PKG_JSON, {encoding:'utf8'});
 					p.name = cfg.save_ns;
 					p.appBundleId = p.appId
 					= `com.fc2.blog.famibee.skynovel.${cfg.save_ns}`;
@@ -441,10 +473,10 @@ export class PrjSetting {
 					p.appCopyright = `(c)${cfg.book.creator}`;
 					p.homepage = cfg.book.pub_url;
 					p.description = cfg.book.detail;
-					writeFile(this.#fnPkgJs, JSON.stringify(p, null , '\t'));
+					writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null , '\t'));
 				})(),
 
-				(async ()=> replaceRegsFile(this.#fnAppJs, [
+				(async ()=> replaceRegsFile(this.#PATH_APP_JS, [
 					[/(width\s*: ).*(,)/,	`$1${cfg.window.width}$2`],
 					[/(height\s*: ).*(,)/,	`$1${cfg.window.height}$2`],
 					[
@@ -455,9 +487,9 @@ export class PrjSetting {
 						/(pkg.appCopyright \+' )\d+/,
 						`$1${CopyrightYear}`
 					],
-				]))(),
+				], false))(),
 
-				(async ()=> replaceRegsFile(this.#fnReadme4Freem, [
+				(async ()=> replaceRegsFile(this.#PATH_README4FREEM, [
 					[/(【Version】)[^\n]+/g, `$1${cfg.book.version}`],
 					[/(【タイトル】)[^\n]+/g, `$1${cfg.book.title}`],
 					[/(【著 作 者】)[^\n]+/g, `$1${cfg.book.creator}`],
@@ -467,11 +499,11 @@ export class PrjSetting {
 						`$1${CopyrightYear} "${cfg.book.publisher}"`
 					],
 					[/(　　　　　　ＷＥＢ： )[^\n]+/g, `$1${cfg.book.pub_url}`],
-				]))(),
+				], false))(),
 
-				(async ()=> replaceRegsFile(this.#fnInsNsh, [
+				(async ()=> replaceRegsFile(this.#PATH_INS_NSH, [
 					[/(!define PUBLISHER ").+"/, `$1${cfg.book.publisher}"`],
-				]))(),
+				], false))(),
 			]);
 		}	break;
 
@@ -482,15 +514,15 @@ export class PrjSetting {
 			const e: T_E2V_CHG_RANGE_WEBP_Q_DEF = m;
 			this.#wss.update('cnv.mat.webp_quality', this.#oWss['cnv.mat.webp_quality'] = e.webp_q);
 
-			this.#disableOnOptPic();
+			this.#unsetOnOptPic();
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
 			this.cmd('cnv.mat.webp_quality', 'all_no_move')
 			.then(()=> {
-				this.#oOptPic = readJsonSync(this.#fnOptPic, {encoding: 'utf8'});
-				this.#updOptPic();
+				this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+				this.#dispOptPic();
 
 				o.mode = 'comp';
 				this.#cmd2Vue(o);
@@ -506,10 +538,10 @@ export class PrjSetting {
 			const fi = this.#oOptPic.hSize[o.nm];
 			if (o.no_def) fi.webp_q = o.webp_q;
 			else delete fi.webp_q;
-			writeJsonSync(this.#fnOptPic, this.#oOptPic);
+			writeJsonSync(this.#PATH_OPT_PIC, this.#oOptPic);
 
 			// Baseフォルダを渡す事で再変換
-			this.onCreChgOptPic(this.#fnPrjBase + fi.fld_nm +'.'+ fi.ext);
+			this.onCreChgOptPic(Uri.file(this.#PATH_PRJ_BASE + fi.fld_nm +'.'+ fi.ext));
 		}	break;
 
 		case 'update.oWss':{
@@ -537,14 +569,14 @@ export class PrjSetting {
 					if (go) {
 						switch (id) {
 							case 'cnv.mat.pic':
-								this.#oOptPic = readJsonSync(this.#fnOptPic, {encoding: 'utf8'});
-								this.#updOptPic();
+								this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+								this.#dispOptPic();
 								break;
 
 							case 'cnv.mat.snd':
 							case 'cnv.mat.snd.codec':
-								this.#oOptSnd = readJsonSync(this.#fnOptSnd, {encoding: 'utf8'});
-								this.#updOptSnd();
+								this.#oOptSnd = readJsonSync(this.#PATH_OPT_SND, {encoding: 'utf8'});
+								this.#dispOptSnd();
 								break;
 						}
 						o.mode = 'comp';
@@ -556,8 +588,8 @@ export class PrjSetting {
 					this.#cmd2Vue(o);
 				}));
 			}
-			this.#disableOnOptPic();
-			this.#disableOnOptSnd();
+			this.#unsetOnOptPic();
+			this.#unsetOnOptSnd();
 			Promise.allSettled(aP.map(t=> t())).then(()=> {
 				this.#setOnOptPic();
 				this.#setOnOptSnd();
@@ -576,7 +608,7 @@ export class PrjSetting {
 		case 'info':	window.showInformationMessage(m.mes); break;
 		case 'warn':	window.showWarningMessage(m.mes); break;
 
-		case 'openURL':	openURL(Uri.parse(m.url), this.#pathWs);	break;
+		case 'openURL':	openURL(Uri.parse(m.url), this.#PATH_WS);	break;
 
 		case 'copyTxt':{
 			if (m.id !== 'copy.folder_save_app') break;
@@ -601,7 +633,7 @@ export class PrjSetting {
 	}
 	#openSub() {
 		const a: string[] = [];
-		foldProc(this.#fnPrj, ()=> {}, nm=> a.push(nm));
+		foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));
 
 		const wv = this.#pnlWV!.webview;
 		wv.html = this.#htmSrc
@@ -630,7 +662,7 @@ export class PrjSetting {
 				pathIcon: this.#pathIcon,
 				err_mes	: exit_code === 0
 					? ''
-					: (()=> readJsonSync(this.#pathWs +'/build/cut_round.json', {encoding: 'utf8'}).err)()
+					: (()=> readJsonSync(this.#PATH_WS +'/build/cut_round.json', {encoding: 'utf8'}).err)()
 			});
 		})
 	}
@@ -640,10 +672,10 @@ export class PrjSetting {
 		'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
 		'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
 	};
-	updFontInfo() {
+	dispFontInfo() {
 		if (! this.#pnlWV) return;
 
-		const fn = this.#pathWs +'/core/font/subset_font.json';
+		const fn = this.#PATH_WS +'/core/font/subset_font.json';
 		if (! existsSync(fn)) {
 			this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: []});
 			return;
@@ -661,23 +693,23 @@ export class PrjSetting {
 		this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: aFontInfo});
 	}
 
-	#updOptPic() {
+	#dispOptPic() {
 		this.#cmd2Vue(<T_E2V_OPTIMG>{
 			cmd: 'update.optImg',
 			oOptImg: <T_OPTIMG>{...this.#oOptPic, sum: {
 				...this.#oOptPic.sum,
 				pathImgCmpWebP	: this.#wvuWs +'/doc/prj/',
-				pathImgCmpBase	: this.#wvuWs +`/doc/`+ PrjSetting.fld_prj_base +'/',
+				pathImgCmpBase	: this.#wvuWs +`/doc/${FLD_PRJ_BASE}/`,
 			}},
 		});
 	}
-	#updOptSnd() {
+	#dispOptSnd() {
 		this.#cmd2Vue(<T_E2V_OPTSND>{
 			cmd: 'update.optSnd',
 			oOptSnd: <T_OPTSND>{...this.#oOptSnd, sum: {
 				...this.#oOptSnd.sum,
 				pathSndOpt	: this.#wvuWs +'/doc/prj/',
-				pathSndBase	: this.#wvuWs +'/doc/'+ PrjSetting.fld_prj_base +'/',
+				pathSndBase	: this.#wvuWs +`/doc/${FLD_PRJ_BASE}/`,
 			}},
 		});
 	}

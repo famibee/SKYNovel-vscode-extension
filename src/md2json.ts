@@ -61,7 +61,8 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 }
 
 writeFileSync('./src/md.json', JSON.stringify(hMd));
-copy('./src/md.json', './server/dist/md.json');		// 2 LSP
+copy('./src/md.json', './server/src/md.json');	// 2 LSP
+copy('./src/md.json', './dist/md.json');		// 2 LSP
 
 	/* === OK、美しい or 役立つ
 - 列挙
