@@ -28,7 +28,7 @@
 - [Coding assistance](#coding-assistance) / [コーディング補助](#コーディング補助)
 - [Outline view and symbol search](#outline-view-and-symbol-search) / [アウトライン表示とシンボル検索](#アウトライン表示とシンボル検索)
 - [Reference search palette / リファレンス検索パレット](#Reference-search-palette--リファレンス検索パレット)
-- [Overview of Macros, Declaration of Types of Arguments](#overview-of-macros-declaration-of-types-of-arguments) / [マクロの概要説明・引数の型宣言](#マクロの概要説明・引数の型宣言)
+- [Overview of Macros, Declaration of Types of Arguments](#overview-of-macros-declaration-of-types-of-arguments) / [マクロの概要説明と引数の型宣言](#マクロの概要説明と引数の型宣言)
 
 - [Debugger](#Debugger) / [デバッガー](#デバッガー)
 - [shortcut key / ショートカットキー](#shortcut-key--ショートカットキー)
@@ -413,7 +413,7 @@
 			+ Three items: Overview
 
 
-## マクロの概要説明・引数の型宣言
+## マクロの概要説明と引数の型宣言
 - [macro]定義で、マクロの概要や引数の説明や詳細説明を記述できる
 
 	このような定義をすると、
