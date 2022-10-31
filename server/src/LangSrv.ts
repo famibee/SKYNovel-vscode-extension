@@ -284,7 +284,7 @@ conn.onDocumentLinks((prm=> {
 /*
 	let wfDocumentLinks: LspWs;
 	conn.onDocumentLinkResolve(prm=> {
-	console.log(`fn:LangSrv.ts line:272 prm:${JSON.stringify(prm)}`);
+console.log(`fn:LangSrv.ts line:272 prm:${JSON.stringify(prm)}`);
 		return wfDocumentLinks.onDocumentLinkResolve(prm)
 	});
 	//conn.onDocumentLinkResolve(prm=> wfDocumentLinks.onDocumentLinkResolve(prm));

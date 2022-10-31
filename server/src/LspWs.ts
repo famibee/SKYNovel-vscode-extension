@@ -565,16 +565,15 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 	#sFpNeedScan	= new Set<string>;	// 派生スキャン必要sn（単体ファイル走査時）
 
 	// === ファイル変更イベント（手入力以外が対象） ===
-	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
+	// LanguageClientOptions.synchronize.fileEvents（ActivityBar.ts）での設定による
 	//	// Changed は保存時に発生する
 	onDidChangeWatchedFiles({changes}: DidChangeWatchedFilesParams) {
 		const {uri} = changes[0];	// 'file://'付き
+//console.log(`fn:LspWs.ts onDidChangeWatchedFiles uri=${uri}=`);
 		if (! this.#checkRelated(uri)) return;
-//console.log(`fn:LspWs.ts onDidChangeWatchedFiles !`);
 
 		for (const {type, uri} of changes) {
-			const fp = this.#fullSchPath2fp(uri);
-			const pp = this.#fp2pp(fp);
+			const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 			if (pp === 'path.json'
 			&& (type === FileChangeType.Created ||
 				type === FileChangeType.Changed)) {this.#fullScan(); continue;}
@@ -1019,7 +1018,8 @@ ${
 		const {uri} = prm.textDocument;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return null;
 
-		return this.#Uri2Links[uri] ?? [];
+		const fp = this.#fullSchPath2fp(uri);
+		return this.#Uri2Links[fp] ?? [];
 	}
 /*
 	onDocumentLinkResolve(prm: DocumentLink): DocumentLink | null {
@@ -1420,7 +1420,7 @@ WorkspaceEdit
 	#hDoc2InlayHint	: {[pp: PROJECT_PATH]: InlayHint[]}	= {};
 
 	#fp2Diag	: {[fp: FULL_PATH]: Diagnostic[]}	= {};
-	#Uri2Links	: {[uri: string]: DocumentLink[]}	= {};
+	#Uri2Links	: {[fp: string]: DocumentLink[]}	= {};
 
 	#scanInitAll() {
 		this.#hDefMacro = {};

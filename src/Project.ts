@@ -250,7 +250,7 @@ export class Project {
 		};
 		this.dspCryptoMode();
 
-		this.#updPathJson();
+		this.#updPathJson();	// 開かれる前にファイル追加・削除されている場合の対応
 
 
 		debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
@@ -441,7 +441,7 @@ export class Project {
 	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
 		defaultFontName	: '',
 		hSn2Font2Str	: {},
-		hFp2FontErr	: {},
+		hFp2FontErr		: {},
 	};
 	readonly	#aPlaceFont;
 
@@ -918,10 +918,10 @@ export class Project {
 		const {pathCn, pp} = this.#path2cn(path);
 		if (pathCn) removeSync(pathCn);
 
-		this.#updPathJson();
-
 		delete this.#hDiff[pp];
 		this.#updDiffJson();
+
+		this.#updPathJson();
 	}
 		#path2cn(fp: string) {
 			fp = v2fp(Uri.file(fp).path);
@@ -1046,6 +1046,7 @@ export class Project {
 	async #encFile(fp: string) {
 		try {
 			const pp = this.#fp2pp(fp);
+//console.error(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]}`);
 			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp].cn;
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});

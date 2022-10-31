@@ -12,7 +12,7 @@ import {TreeDPDoc} from './TreeDPDoc';
 import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages} from 'vscode';
+import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
@@ -93,7 +93,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			synchronize: {
 				fileEvents: [
 //					workspace.createFileSystemWatcher('**/.clientrc'),
-//					workspace.createFileSystemWatcher('**/doc/prj/**/*.json'),
+					workspace.createFileSystemWatcher('**/doc/prj/path.json'),
+						// LSPへファイル名キーワード更新のための情報提供
 				],
 			},
 		};
