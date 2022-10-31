@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.6.1",
+	"version": "4.6.2",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -14,14 +14,14 @@
 	"categories": [
 		"Programming Languages",
 		"Snippets",
+		"Linters",
 		"Debuggers",
 		"Other"
 	],
 	"keywords": [
 		"skynovel",
-		"vscode",
 		"vscode-extension",
-		"vscode-plugin",
+		"game engine",
 		"typescript",
 		"multi-root ready"
 	],

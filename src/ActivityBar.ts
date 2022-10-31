@@ -128,13 +128,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
+		ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
 		Promise.allSettled([
 			lsp.start(),
 			this.#chkEnv(()=> {
 				ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
 				ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
-				ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
 				this.#tlBox = new ToolBox(ctx);
 				ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
@@ -143,6 +143,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			}),
 		]).then(()=> {
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
+			this.#canTempWizard = true;
 
 			this.#workSps.start((cmd, uriWs, o)=> {
 				// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
@@ -354,7 +355,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// プロジェクトフォルダ名（半角英数記号）を指定
 				this.#save_ns = m.val;
-//console.log(`fn:ActivityBar.ts line:201 id:${m.id} v:${m.val}`);
+//console.error(`fn:ActivityBar.ts #openTempWizard id:${m.id} v:${m.val} chk:${this.#chkSave_ns()}`);
 				wv.webview.postMessage({cmd: 'vld', o: {
 					id		: 'save_ns',
 					valid	: this.#chkSave_ns(),
@@ -365,6 +366,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			case 'tmp_uc':
 			case 'tmp_sample':
 				if (! this.#chkSave_ns()) break;
+				if (! this.#canTempWizard) {
+					window.showInformationMessage('拡張機能の起動中です。しばしお待ち下さい');
+					break;
+				}
 
 				// プロジェクトフォルダを置くパスを選んでもらう
 				window.showOpenDialog({
@@ -400,6 +405,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
 		});
 	}
+		#canTempWizard	= false;
 	readonly	#crePrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト作成',
