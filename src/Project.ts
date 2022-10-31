@@ -321,11 +321,11 @@ export class Project {
 					if (! /\.(ss?n|json)$/.test(path)) return;
 
 					path = v2fp(Uri.file(path).path);
+					// まだセーブしてない Dirty状態の場合があるので doc優先
+					const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === path);
 					const pp = path.slice(this.#LEN_PATH_PRJ);
-					if (! pp) return;
-					pp2s[pp] = readFileSync(path, {encoding: 'utf8'});
+					pp2s[pp] = td?.getText() ?? readFileSync(path, {encoding: 'utf8'});
 				});
-
 				this.#sendRequest2LSP(hd.cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg,});
 			}	break;
 
@@ -350,6 +350,8 @@ export class Project {
 
 				this.#InfFont = hd.o.InfFont;
 
+				this.#hK2Snp = hd.o.hK2Snp;
+
 				this.#clDiag.clear();
 				for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
 					const aD: Diagnostic[] = [];
@@ -373,19 +375,21 @@ export class Project {
 			}	break;
 		}
 	}
+		#hK2Snp: {[key: string]: string}	= {};
 
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		const vfp = doc.uri.path;
 //console.error(`fn:Project.ts provideHover path=${vfp}=`);
-		return new Promise<Hover>(rs=> {
+		return new Promise<Hover>((rs, rj)=> {
 			// ホバーイベントを伝え、文字列加工だけ任せ文字列を返してもらい、ここで表示
 			this.#hPath2Proc[vfp] = o=> {
-//console.error(`fn:Project.ts Hover OK!`);
+//console.error(`fn:Project.ts Hover OK! o:${JSON.stringify(o)}:`);
 				delete this.#hPath2Proc[vfp];
 
 				let value = String(o.value);
-				if (! value) return;
+				if (! value) {rj(); return;}
+
 				const a = value.split(/(?=\n---\n)/);
 				if (a.length === 3) {
 					// 中央部分のみ置換。SQLジャンクション的なものの対策
@@ -394,7 +398,6 @@ export class Project {
 						/<!-- ({.+?}) -->/g,
 						(_, e1)=> {
 	const o = JSON.parse(e1);
-//console.error(`fn:Project.ts line:379 o:${JSON.stringify(o)}:`);
 	const {name, val} = o;
 	const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
 
@@ -1230,6 +1233,8 @@ export class Project {
 	}
 
 	async	drop(td: TextDocument, pos: Position, aUri: Uri[]): Promise<DocumentDropEdit | null | undefined> {
+		// td.fileName	=c:\Users\[略]]\doc\prj\mat\main.sn=
+		// td.uri.path	=/c:/Users/[略]/doc/prj/mat/main.sn=
 		const aFpNew: string[] = [];
 		for (const uri of aUri) {
 			const {path, scheme} = uri;
@@ -1255,22 +1260,10 @@ export class Project {
 				// プロジェクト外からのドラッグ
 				// ファイルコピー
 				switch (aコピー先候補.length) {
-					case 0:		// 候補もなし、コピー先を選ばせる
-						const ans = await window.showOpenDialog({
-							canSelectFolders	: true,
-							defaultUri	: Uri.file(this.#PATH_PRJ),
-							openLabel	: basename(fp) +' のコピー先',
-							title		: 'ファイルを保存',	// macOSは非表示
-						});
-						if (! ans || ans.length === 0) return undefined;
-
-						const uriCopy = ans[0].path;
-						if (uriCopy.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ
-						|| uriCopy === this.#PATH_PRJ) {	// 直下は禁止
-							window.showErrorMessage('プロジェクト外へのコピーはできません');
-							return undefined;
-						}
-						fpNew = uriCopy + fn_ext;
+					case 0:		// 候補もなし、スクリプトと同じフォルダにコピー
+						fpNew = v2fp(
+							td.uri.path.slice(0, -basename(td.uri.path).length) + basename(fp)
+						);
 						break;
 
 					case 1:		// 選ぶまでもなく確定
@@ -1343,8 +1336,9 @@ export class Project {
 
 			// スニペット挿入
 			const sni = snippet.replace('...', fn)
-			.replaceAll(/\${\d\|([^,]+)\|}/g, '$1');
+			.replaceAll(/\${\d\|([^,]+)\|}/g, '$1')
 				// https://regex101.com/r/QAiATp/1
+			.replaceAll(/{{([^\}]+)}}/g, (_, key)=> this.#hK2Snp[key]);
 //console.log(`fn:Project.ts sni=${sni}=`);
 			return {insertText: new SnippetString(sni)};
 		}
@@ -1382,7 +1376,7 @@ export class Project {
 			return {hit: '', range: new Range(0, 0, 0, 0), nm: '', val: ''};
 		}
 		#mExt2Snippet: Map<SEARCH_PATH_ARG_EXT, string> = new Map([
-			[SEARCH_PATH_ARG_EXT.SP_GSM	, '[${1|lay|} fn=...]$0'],
+			[SEARCH_PATH_ARG_EXT.SP_GSM	, '[${1|lay|} layer=${2{{画像レイヤ名}}} fn=...]$0'],
 			[SEARCH_PATH_ARG_EXT.SOUND	, '[${1|playse,playbgm|} fn=...]$0'],
 			[SEARCH_PATH_ARG_EXT.FONT	, "[span style='font-family: ...;']$0"],
 			[SEARCH_PATH_ARG_EXT.SCRIPT	, '[${1|jump,call|} fn=...]$0'],

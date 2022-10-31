@@ -444,18 +444,18 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		this.#hTagProc.return = this.#hTagProc.s;
 		this.#hTagProc.else = this.#hTagProc.elsif;
 
-		for (const [k, v] of Object.entries(this.#hK2Snp)) {
-			const re = v.slice(1, -1)
+		for (const [key, sn] of Object.entries(this.#hK2Snp)) {
+			const re = sn.slice(1, -1)
 			.replaceAll(/([|\.+])/g, '\\$1')	// 正規表現のエスケープ
 			.replaceAll('<ワンキー>', '\\w+')
 			.replaceAll('👾\\', '')		// 特殊文字処理だけど初期値なので問題なし
 			.replaceAll('\n', '|');
-			this.#hRegPreWords[k] = new RegExp(
+			this.#hRegPreWords[key] = new RegExp(
 				`^(${re})$`,
-				k === 'イベント名' ?'i': ''
+				key === 'イベント名' ?'i': ''
 			);
 
-			this.#hK2Snp[k] = v
+			this.#hK2Snp[key] = sn
 			.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
 			.replaceAll('\n', ',');
 		}
@@ -798,7 +798,7 @@ ${
 
 		return ci;
 	}
-	#cnvSnippet	= (s: string, _fn_cur_sn: string)=> s;
+	#cnvSnippet	= (sn: string, _fn_cur_sn: string)=> sn;
 	#aCITagMacro		: CompletionItem[]	= [];
 	#hFn2JumpSnippet	: {[fn: string]: string}	= {};
 	#prepareSnippet() {
@@ -859,7 +859,7 @@ ${
 
 		// NOTE: マクロやプラグインのスニペットは未実装。優先順位低い
 		this.#hFn2JumpSnippet = {};
-		this.#cnvSnippet = (s, fn_cur_sn)=> {
+		this.#cnvSnippet = (sn, fn_cur_sn)=> {
 			const jsn = this.#hFn2JumpSnippet[fn_cur_sn];
 			if (jsn) this.#hK2Snp.ジャンプ先 = jsn;
 			else {
@@ -874,7 +874,7 @@ ${
 				= `|${(cur_sn + sn).slice(0, -1)}|`;
 			}
 
-			return s.replace(/{{([^\}]+)}}/g, (_, p)=> this.#hK2Snp[p]);
+			return sn.replaceAll(/{{([^\}]+)}}/g, (_, key)=> this.#hK2Snp[key]);
 		};
 	}
 
@@ -1148,7 +1148,7 @@ WorkspaceEdit
 		//console.log(`fn:LspWs.ts #scanAll() 2: #scanInitAll()`);
 		this.#scanInitAll();
 		//console.log(`fn:LspWs.ts #scanAll() 3: #updPath()`);
-		this.#updPath(o.pp2s['path.json'] ?? '{}');		// 必ず #scanInitAll() 後
+		this.#updPath(o.pp2s['path.json'] ?? '{}');	// 必ず #scanInitAll() 後
 		//console.log(`fn:LspWs.ts #scanAll() 4: #scanScript()`);
 		for (const [pp, s] of Object.entries(o.pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
@@ -1336,6 +1336,8 @@ WorkspaceEdit
 				//detail,	// 別の行になる
 				uri	: `ws-file://${this.#fp2wp(uri)}`,
 			})),
+
+			hK2Snp	: this.#hK2Snp,
 		});
 
 		this.conn.languages.inlayHint.refresh();
