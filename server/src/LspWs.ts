@@ -10,7 +10,8 @@ import {Grammar, Script} from './Grammar';
 import {AnalyzeTagArg, HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
-import {TFONT2STR, TINF_INTFONT, T_QuickPickItemEx} from '../../src/Project';
+import {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
+import {IExts, IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
 import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
@@ -67,25 +68,26 @@ type ArgDesc = {[name: string]: {
 
 type TH_FN2LBLRNG = {[label: string]: Range};
 
-export interface IExts { [ext: string]: string; };
-export interface IFn2Path { [fn: string]: IExts; };
-
-const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
-	DEFAULT	= '',
-	SP_GSM	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
-		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
-	SCRIPT	= 'sn|ssn',
-	FONT	= 'woff2|woff|otf|ttf',
-	SOUND	= 'mp3|m4a|ogg|aac|flac|wav',
-	HTML	= 'htm|html',
-};
-
 
 type MAP_KW2ALOC = Map<string, Location[]>;
 
 type T_DIAG = {
 	mes	: string;
 	sev	: DiagnosticSeverity;
+};
+
+
+const	AA_EXT2SNIP: T_aExt2Snip	= [
+	[SEARCH_PATH_ARG_EXT.SP_GSM	, '[${1|lay|} layer=${2{{画像レイヤ名}}} fn=...]$0'],
+	[SEARCH_PATH_ARG_EXT.SOUND	, '[${1|playse,playbgm|} fn=...]$0'],
+	[SEARCH_PATH_ARG_EXT.FONT	, "[span style='font-family: ...;']$0"],
+	[SEARCH_PATH_ARG_EXT.SCRIPT	, '[${1|jump,call|} fn=...]$0'],
+];
+const H_SPAE2IDX: {[spae: string]: number}	= {
+	'SP_GSM'	: 0,
+	'SOUND'		: 1,
+	'FONT'		: 2,
+	'SCRIPT'	: 3,
 };
 
 
@@ -1302,18 +1304,25 @@ WorkspaceEdit
 		}
 
 		const hMacArgDesc: ArgDesc	= {};
-		for (const [mac_nm, {sum}] of Object.entries(this.#hDefMacro)) {
+		const aaExt2Snip = [...AA_EXT2SNIP];
+		const aaSnipAdd: string[][] = aaExt2Snip.map(_=> []);
+		for (const [mac_nm, {sum, hPrm}] of Object.entries(this.#hDefMacro)) {
 			// 重複後の解消時対策としてここでやる
 			//（重複時はどれともいえないが、一つならそれが正解・最初の一個を取ればいい）
 			hMacArgDesc[mac_nm] = {
 				label	: `[${mac_nm} ...]`,
 				doc		: sum ?? '',
 			};
+
+			const {snippet_ext} = hPrm;
+			if (snippet_ext) {
+				const i = H_SPAE2IDX[snippet_ext.val];
+				if (i !== undefined) aaSnipAdd[i].push(mac_nm);
+			}
 		}
 		this.#hArgDesc = {...LspWs.#hTagArgDesc, ...hMacArgDesc};
 
 		this.#prepareSnippet();
-
 
 		// == 結果を通知系
 		this.#sendRequest('analyze_inf', {
@@ -1337,7 +1346,12 @@ WorkspaceEdit
 				uri	: `ws-file://${this.#fp2wp(uri)}`,
 			})),
 
-			hK2Snp	: this.#hK2Snp,
+			aExt2Snip		: aaExt2Snip.map(([spae, snip], i)=> [
+				spae,
+				snip
+				.replace('[${1|', `$&${aaSnipAdd[i].sort().reverse().join(',')},`)
+				.replaceAll(/{{([^\}]+)}}/g, (_, key)=> this.#hK2Snp[key] ?? '')
+			]),
 		});
 
 		this.conn.languages.inlayHint.refresh();
@@ -1400,6 +1414,10 @@ WorkspaceEdit
 		改行64行超: {
 			mes	: '改行タグが64行を超えています',
 			sev	: DiagnosticSeverity.Information,
+		},
+		snippet_ext属性異常: {
+			mes	: '指定できる値は【SP_GSM, SOUND, FONT, SCRIPT】のいずれかです',
+			sev	: DiagnosticSeverity.Error,
 		},
 	};
 
@@ -1885,13 +1903,13 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			for (const [aNm, {val}] of Object.entries(hArg)) {
 				if (aNm.at(0) !== '%') continue;
 
-				const required = aNm.slice(-1) !== '?';
-				const name = aNm.slice(1, required ?undefined :-1);
+				const isRequired = aNm.slice(-1) !== '?';
+				const name = aNm.slice(1, isRequired ?undefined :-1);
 				const [rangetype, def, comment] = val.split('|');
 //console.log(`fn:LspWs.ts [macro] nm:${nm} name:${name}= rangetype:${rangetype} def:${def} comment:${comment}`);
 				param.push({
 					name,
-					required	: required ?'y' :'',
+					required	: isRequired ?'y' :'',
 					def,
 					rangetype,
 					comment,
@@ -1903,15 +1921,29 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 				p.line, p.character,
 			);
 			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');	
+			const {v_ln, v_ch} = hRng.name;
 			this.#hDefMacro[nm] = {
 				loc		: Location.create(uri, rng2),
 				hPrm	: hArg,
 				sum,
 				param,
 				detail	: hArg.detail?.val.replaceAll('\\n', '  \n'),
-				name_v_ln	: hRng.name.v_ln,
-				name_v_ch	: hRng.name.v_ch,
+				name_v_ln	: v_ln,
+				name_v_ch	: v_ch,
 			};
+
+			const {snippet_ext} = hArg;
+			if (snippet_ext) {
+				if (H_SPAE2IDX[snippet_ext.val] === undefined) {
+					const {mes, sev} = this.#hDiag.snippet_ext属性異常;
+					const {k_ln, k_ch, v_ln, v_ch, v_len} = hRng.snippet_ext;
+					aDi.push(Diagnostic.create(Range.create(
+						k_ln, k_ch,
+						v_ln, v_ch +v_len,
+					), mes.replace('$', nm), sev));
+					return;
+				}
+			}
 
 			const ds = DocumentSymbol.create(nm, 'マクロ定義', SymbolKind.Class, rng2, rng2, sum ?[
 				DocumentSymbol.create(sum.split(' ')[0], undefined, SymbolKind.String, rng2, rng2),
@@ -1941,10 +1973,10 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			this.#recDefKw('一文字マクロ定義', 'char', arg);
 			if (use_nm in LspWs.#hTag || use_nm in this.#hDefPlugin) return;
 
-			const {v_ln, v_ch} = hRng.name;
+			const {v_ln, v_ch, v_len} = hRng.name;
 			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(uri, Range.create(
 				v_ln, v_ch,
-				v_ln, v_ch +use_nm.length,
+				v_ln, v_ch +v_len,
 			)));
 		},
 

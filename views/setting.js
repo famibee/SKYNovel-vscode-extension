@@ -5413,7 +5413,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.7.1
+  * vee-validate v4.7.2
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -7057,9 +7057,12 @@ function useForm(opts) {
     });
   }
   async function validate2(opts2) {
-    mutateAllFields((f) => f.meta.validated = true);
+    const mode = (opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) || "force";
+    if (mode === "force") {
+      mutateAllFields((f) => f.meta.validated = true);
+    }
     if (formCtx.validateSchema) {
-      return formCtx.validateSchema((opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) || "force");
+      return formCtx.validateSchema(mode);
     }
     const validations = await Promise.all(Object.values(fieldsByPath.value).map((field) => {
       const fieldInstance = Array.isArray(field) ? field[0] : field;

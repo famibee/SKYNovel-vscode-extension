@@ -59,6 +59,10 @@ export type TINF_INTFONT = {
 export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
 
+export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
+export type T_aExt2Snip = T_Ext2Snip[];
+
+
 export class Project {
 	readonly	#PATH_WS;
 	readonly	#PATH_PRJ;
@@ -350,7 +354,8 @@ export class Project {
 
 				this.#InfFont = hd.o.InfFont;
 
-				this.#hK2Snp = hd.o.hK2Snp;
+				this.#mExt2Snip = new Map(<T_aExt2Snip>hd.o.aExt2Snip);
+//console.log(`fn:Project.ts mExt2Snip ${JSON.stringify(<T_aExt2Snip>hd.o.aExt2Snip)}`);
 
 				this.#clDiag.clear();
 				for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
@@ -375,7 +380,6 @@ export class Project {
 			}	break;
 		}
 	}
-		#hK2Snp: {[key: string]: string}	= {};
 
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
@@ -1324,7 +1328,7 @@ export class Project {
 		const fp = aFpNew[0];
 		const ext = extname(fp).slice(1);
 		const fn = getFn(fp);
-		for (const [spae, snippet] of this.#mExt2Snippet.entries()) {
+		for (const [spae, snip] of this.#mExt2Snip.entries()) {
 			if (! new RegExp(spae).test(ext)) continue;
 
 			// 属性値にドロップした場合は、値部を書き換える
@@ -1335,16 +1339,17 @@ export class Project {
 			}
 
 			// スニペット挿入
-			const sni = snippet.replace('...', fn)
-			.replaceAll(/\${\d\|([^,]+)\|}/g, '$1')
+			const sni = snip.replace('...', fn)
+			.replaceAll(/\${\d\|([^,]+)\|}/g, '$1');
 				// https://regex101.com/r/QAiATp/1
-			.replaceAll(/{{([^\}]+)}}/g, (_, key)=> this.#hK2Snp[key]);
 //console.log(`fn:Project.ts sni=${sni}=`);
 			return {insertText: new SnippetString(sni)};
 		}
 
 		return undefined;
 	}
+		#mExt2Snip: Map<SEARCH_PATH_ARG_EXT, string> = new Map();
+
 		readonly	#REG_FIELD	= /(?<=\s)[^\s=[\]]+(?:=(?:[^"'#\s;\]]+|(["'#]).*?\1)?)?/g;	// https://regex101.com/r/1m4Hgp/1 7 matches 95 steps, 0.4ms
 		#createWsEd_repVal(uri: Uri, range: Range, nm: string, val: string) {
 			const we = new WorkspaceEdit;
@@ -1375,11 +1380,5 @@ export class Project {
 			}
 			return {hit: '', range: new Range(0, 0, 0, 0), nm: '', val: ''};
 		}
-		#mExt2Snippet: Map<SEARCH_PATH_ARG_EXT, string> = new Map([
-			[SEARCH_PATH_ARG_EXT.SP_GSM	, '[${1|lay|} layer=${2{{画像レイヤ名}}} fn=...]$0'],
-			[SEARCH_PATH_ARG_EXT.SOUND	, '[${1|playse,playbgm|} fn=...]$0'],
-			[SEARCH_PATH_ARG_EXT.FONT	, "[span style='font-family: ...;']$0"],
-			[SEARCH_PATH_ARG_EXT.SCRIPT	, '[${1|jump,call|} fn=...]$0'],
-		]);
 
 }

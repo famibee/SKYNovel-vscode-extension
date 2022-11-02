@@ -8,6 +8,9 @@
 - stepin		true	Boolean	false：デバッグモード時、ステップインしない（マクロ内で停止させない）
 - sum		概要説明	String	拡張機能で表示する概要説明
 - detail		詳細説明	String	拡張機能で表示する詳細説明
+- snippet_ext		詳細説明	SP_GSM、SOUND、FONT、SCRIPT	指定するとスニペット候補に追加できる
+- %(属性名)		属性の詳細説明	型名|省略値|概要	属性名末尾に「?」を書くと【省略可能な属性】であると示す
+
 
 ***
 name=${1:マクロ名}
