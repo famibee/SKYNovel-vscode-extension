@@ -1,6 +1,6 @@
 {
 	"name": "skynovel",
-	"version": "4.8.0",
+	"version": "4.9.0",
 	"publisher": "famibee",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.72.0"
+		"vscode": "^1.73.0"
 	},
 	"categories": [
 		"Programming Languages",
@@ -409,8 +409,8 @@
 				}
 			},
 			{
-				"command": "skynovel.edPrjJson",
-				"title": "SKYNovel GUIで編集する"
+				"command": "skynovel.opView",
+				"title": "SKYNovel GUIで開く"
 			},
 			{
 				"command": "skynovel.TempWizard",
@@ -628,8 +628,23 @@
 			],
 			"explorer/context": [
 				{
-					"command": "skynovel.edPrjJson",
-					"when": "resourceFilename == prj.json",
+					"command": "skynovel.opView",
+					"when": "isMac && resourceDirname =~ //doc/prj$/ && resourceFilename == prj.json",
+					"group": "7_modification"
+				},
+				{
+					"command": "skynovel.opView",
+					"when": "isMac && resourceDirname =~ //doc/prj$/ && explorerResourceIsFolder",
+					"group": "7_modification"
+				},
+				{
+					"command": "skynovel.opView",
+					"when": "isWindows && resourceDirname =~ /\\\\doc\\\\prj$/ && resourceFilename == prj.json",
+					"group": "7_modification"
+				},
+				{
+					"command": "skynovel.opView",
+					"when": "isWindows && resourceDirname =~ /\\\\doc\\\\prj$/ && explorerResourceIsFolder",
 					"group": "7_modification"
 				}
 			]
@@ -685,9 +700,9 @@
 	},
 	"dependencies": {
 		"@img-comparison-slider/vue": "^7.7.0",
-		"@vscode/debugadapter": "^1.57.0",
-		"@vscode/debugadapter-testsupport": "^1.57.0",
-		"@vscode/debugprotocol": "^1.57.0",
+		"@vscode/debugadapter": "^1.58.0",
+		"@vscode/debugadapter-testsupport": "^1.58.0",
+		"@vscode/debugprotocol": "^1.58.0",
 		"adm-zip": "^0.5.9",
 		"archiver": "^5.3.1",
 		"await-notify": "^1.0.1",
@@ -718,15 +733,15 @@
 		"@types/node-fetch": "^2.6.2",
 		"@types/power-assert": "^1.5.8",
 		"@types/uuid": "^8.3.4",
-		"@types/vscode": "^1.72.0",
+		"@types/vscode": "^1.73.0",
 		"@types/vscode-webview": "^1.57.0",
 		"@typescript-eslint/eslint-plugin": "^5.42.0",
 		"@typescript-eslint/parser": "^5.42.0",
 		"@vitejs/plugin-vue": "^3.2.0",
 		"@vscode/test-electron": "^2.2.0",
 		"@vue/eslint-config-typescript": "^11.0.2",
-		"electron": "^21.2.1",
-		"esbuild": "^0.15.12",
+		"electron": "^21.2.2",
+		"esbuild": "^0.15.13",
 		"esbuild-jest": "^0.5.0",
 		"esbuild-register": "^3.3.3",
 		"eslint": "^8.26.0",

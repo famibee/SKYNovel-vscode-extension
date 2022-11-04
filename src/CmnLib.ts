@@ -27,6 +27,21 @@ export const is_mac = process.platform === 'darwin';
 export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
 	// TODO: v2fp() いずれなくす
+/*
+console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
+
+fn:Project.ts drop scheme:file
+	fp		:/Users/[]/doc/prj/rule:
+	uri		:file:///Users/[]/doc/prj/rule:
+	path	=/Users/[]/doc/prj/rule=
+	fsPath	-/Users/[]/doc/prj/rule-
+
+fn:Project.ts drop scheme:file
+	fp		:/Users/[]/doc/prj/rule:
+	uri		:file:///c%3A/Users/[]/doc/prj/rule:
+	path	=/C:/Users/[]/doc/prj/rule=
+	fsPath	-c:\Users\[]\doc\prj\rule-
+*/
 
 
 // 階層フォルダ逐次処理

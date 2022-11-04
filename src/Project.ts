@@ -8,14 +8,14 @@
 import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
-import {ActivityBar, eTreeEnv} from './ActivityBar';
+import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE, statBreak} from './PrjTreeItem';
 import {aPickItems, QuickPickItemEx, openURL} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern} from 'vscode';
+import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern, ViewColumn, WebviewPanel} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {extname} from 'path';
 import img_size from 'image-size';
@@ -105,14 +105,14 @@ export class Project {
 		}	// 値を壊してボタン消去
 	}
 
-	readonly	#fwPrjOptPic;
-	readonly	#fwPrjOptSnd;
-
 	readonly	#sendRequest2LSP: (cmd: string, o?: any)=> void;
 
 	readonly	#clDiag;
 
 	readonly	#cfg;
+
+	readonly	#localExtensionResRoots: Uri;
+	readonly	#htmOpFolder;
 
 
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void) {
@@ -120,12 +120,21 @@ export class Project {
 		this.#PATH_WS = v2fp(vfp);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
-//console.error(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
+//console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 		this.#PATH_PLG = this.#PATH_WS +'/core/plugin/';
 		ensureDirSync(this.#PATH_PLG);	// 無ければ作る
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
 		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
+
+		const path_view_root = ctx.extensionPath +'/views/';
+		this.#localExtensionResRoots = Uri.file(path_view_root);
+		this.#htmOpFolder = readFileSync(
+			path_view_root +'folder.htm', {encoding: 'utf8'}
+		)
+		.replace('<meta_autooff ', '<meta ')// ローカルデバッグしたいので
+		.replaceAll('${nonce}', getNonce())
+		.replace('.ts"></script>', '.js"></script>');
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
@@ -155,7 +164,7 @@ export class Project {
 		// プロジェクト管理系
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: false, dip: ''});
 		this.#cfg = new Config(sr);
-		this.#cfg.loadEx(fp=> this.#encFile(fp), this.#clDiag);	// use #encry
+		this.#basePathJson();	// use #encry、開かれる前にファイル追加・削除の対応
 
 		this.#ps = new PrjSetting(
 			ctx,
@@ -181,7 +190,7 @@ export class Project {
 		// ファイル増減を監視し、path.json を自動更新など各種処理
 			// 第一引数は new RelativePattern() 必須とする。win対応にも
 		const fwPrj = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, 'doc/prj/*/**/*.[a-zA-Z][a-zA-Z0-9]*')
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/*/**/*.[a-zA-Z][a-zA-Z0-9]*`)
 		);	// sn,jpen,png などの他に woff2,mp3,m4a
 		const fwPrjJs = workspace.createFileSystemWatcher(
 			new RelativePattern(wsFld, 'doc/prj/prj.json')
@@ -190,47 +199,102 @@ export class Project {
 		const fwFld = workspace.createFileSystemWatcher(
 			new RelativePattern(wsFld, 'doc/prj/[a-zA-Z0-9]*')
 		);	// '.' 始まりフォルダを除外
-		const fwStgSn = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, 'doc/prj/**/setting.sn')
-		);
-		this.#fwPrjOptPic = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{jpg,jpeg,png,webp}`)
-		);
-		this.#fwPrjOptSnd = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{mp3,wav,m4a,aac,ogg}`)
-		);
+
+		const regSetting = new RegExp(`^${wsFld.uri.path}\/doc\/prj\/.+\/setting.sn$`);	// 最適化変換対象
+
 		this.#aFSW = [
 			fwPrj.onDidCreate(uri=> {
+//console.log(`fn:Project.ts fwPrj CRE path=${uri.path}=`);
+				if (this.#regCnvGrp.test(uri.path)) {
+					this.#chkWVFolder(uri, 'CRE');
+					this.#ps.onCreChgOptPic(uri);
+					this.#updPathJson();
+					return;
+				}
+				if (this.#regCnvSnd.test(uri.path)) {
+					this.#chkWVFolder(uri, 'CRE');
+					this.#ps.onCreChgOptSnd(uri);
+					this.#updPathJson();
+					return;
+				}
+				if (regSetting.test(uri.path)) {
+					this.#ps.onCreSettingSn(uri);
+					this.#updPathJson();
+					return;
+				}
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				this.#crePrj(uri);
+				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+
+				// Cre
+				this.#encIfNeeded(uri);
+				this.#updPathJson();
 			}),
 			fwPrj.onDidChange(uri=> {
+//console.log(`fn:Project.ts fwPrj CHG path=${uri.path}=`);
+				if (this.#regCnvGrp.test(uri.path)) {
+					this.#chkWVFolder(uri, 'CHG');
+					this.#ps.onCreChgOptPic(uri);
+					return;
+				}
+				if (this.#regCnvSnd.test(uri.path)) {
+					this.#chkWVFolder(uri, 'CHG');
+					this.#ps.onCreChgOptSnd(uri);
+					return;
+				}
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				this.#chgPrj(uri);
+				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+
+				// Chg
+				this.#encIfNeeded(uri);
 			}),
 			fwPrj.onDidDelete(uri=> {
+//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
+				if (this.#regCnvGrp.test(uri.path)) {
+					this.#chkWVFolder(uri, 'DEL');
+					this.#ps.onDelOptPic(uri);
+					this.#updPathJson();
+					return;
+				}
+				if (this.#regCnvSnd.test(uri.path)) {
+					this.#chkWVFolder(uri, 'DEL');
+					this.#ps.onDelOptSnd(uri);
+					this.#updPathJson();
+					return;
+				}
+				if (regSetting.test(uri.path)) {
+					this.#ps.onDelSettingSn(uri);
+					this.#updPathJson();
+					return;
+				}
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				this.#delPrj(uri);
+				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+
+				// Del
+				const {pathCn, pp} = this.#path2cn(uri.path);
+				if (pathCn) removeSync(pathCn);
+		
+				delete this.#hDiff[pp];
+				this.#updDiffJson();
+		
+				this.#updPathJson();
 			}),
 
-			fwPrjJs.onDidChange(uri=> this.#chgPrj(uri)),
+			fwPrjJs.onDidChange(uri=> this.#encIfNeeded(uri)),
 
 			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri)),
 			/*fwFld.onDidChange(uri=> {
-				// NOTE: フォルダ名ではこれが発生せず、Cre & Del（いつ時点？）
+				// フォルダ名では Change が発生せず、Cre → Del。fwPrj は「発生しない」
 			}),*/
-			fwFld.onDidDelete(uri=> this.#ps.onDelDir(uri)),
+			fwFld.onDidDelete(uri=> {
+//console.log(`fn:Project.ts fwFld D path=${uri.path}=`);
+				if (this.#pnlWVFolder) {
+					this.#pnlWVFolder?.dispose();
+					this.#pnlWVFolder = undefined;
+					this.#uriOpFolder = null;
+				}
 
-			fwStgSn.onDidCreate(uri=> this.#ps.onCreSettingSn(uri)),
-			fwStgSn.onDidDelete(uri=> this.#ps.onDelSettingSn(uri)),
-
-			this.#fwPrjOptPic.onDidCreate(uri=> this.#ps.onCreChgOptPic(uri)),
-			this.#fwPrjOptPic.onDidChange(uri=> this.#ps.onCreChgOptPic(uri)),
-			this.#fwPrjOptPic.onDidDelete(uri=> this.#ps.onDelOptPic(uri)),
-
-			this.#fwPrjOptSnd.onDidCreate(uri=> this.#ps.onCreChgOptSnd(uri)),
-			this.#fwPrjOptSnd.onDidChange(uri=> this.#ps.onCreChgOptSnd(uri)),
-			this.#fwPrjOptSnd.onDidDelete(uri=> this.#ps.onDelOptSnd(uri)),
+				this.#ps.onDelDir(uri)
+			}),
 		];
 
 		const aTi = pti.children;
@@ -253,8 +317,6 @@ export class Project {
 			emPrjTD.fire(tiDevCrypto);
 		};
 		this.dspCryptoMode();
-
-		this.#updPathJson();	// 開かれる前にファイル追加・削除されている場合の対応
 
 
 		debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
@@ -290,8 +352,27 @@ export class Project {
 
 		this.#sendRequest2LSP('ready');
 	}
-	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
+		readonly #regCnvGrp = /\.(jpg|jpeg|png|webp)$/;		// 最適化変換対象
+			// 2 matches (56 steps, 0.1ms) https://regex101.com/r/bAB2wH/1
+		readonly #regCnvSnd = /\.(mp3|wav|m4a|aac|ogg)$/;	// 最適化変換対象
+
+		#path2cn(fp: string) {
+			fp = v2fp(Uri.file(fp).path);
+			const pp = this.#fp2pp(fp);
+			const diff = this.#hDiff[pp];
+			return {
+				pathCn: diff
+					? fp.replace(/\/prj\/.+$/, `/${FLD_CRYPT_PRJ}/${diff.cn}`)
+					: undefined,
+				diff,
+				pp,
+			};
+		}
+		#fp2pp(fp: string): string {return fp.slice(this.#LEN_PATH_PRJ)}
+
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
+	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
+
 	readonly	getLocalSNVer	: ()=> {verSN: string, verTemp: string};
 				#aDbgSS			: DebugSession[]	= [];
 	#onDidTermDbgSS = ()=> {}
@@ -321,14 +402,14 @@ export class Project {
 		switch (hd.cmd) {
 			case 'init':{
 				const pp2s: {[pp: string]: string} = {};
-				treeProc(this.#PATH_PRJ, path=> {
-					if (! /\.(ss?n|json)$/.test(path)) return;
+				treeProc(this.#PATH_PRJ, fp=> {
+					if (! /\.(ss?n|json)$/.test(fp)) return;
 
-					path = v2fp(Uri.file(path).path);
+					fp = v2fp(Uri.file(fp).path);
 					// まだセーブしてない Dirty状態の場合があるので doc優先
-					const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === path);
-					const pp = path.slice(this.#LEN_PATH_PRJ);
-					pp2s[pp] = td?.getText() ?? readFileSync(path, {encoding: 'utf8'});
+					const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
+					const pp = fp.slice(this.#LEN_PATH_PRJ);
+					pp2s[pp] = td?.getText() ?? readFileSync(fp, {encoding: 'utf8'});
 				});
 				this.#sendRequest2LSP(hd.cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg,});
 			}	break;
@@ -360,7 +441,7 @@ export class Project {
 				this.#clDiag.clear();
 				for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
 					const aD: Diagnostic[] = [];
-//console.error(`080 fn:Project.ts analyze_inf uri:${uri}:`);
+//console.log(`080 fn:Project.ts analyze_inf uri:${uri}:`);
 					for (const {err, nm, sl, sc, el, ec} of a) {
 						if (this.#getFontNm2path(nm)) continue;
 
@@ -375,7 +456,7 @@ export class Project {
 
 			case 'hover.res':	{
 				const {path} = Uri.parse(hd.o?.uri);
-//console.error(`fn:Project.ts hover.res path:${path}: hd.o=${JSON.stringify(hd.o)}`);
+//console.log(`fn:Project.ts hover.res path:${path}: hd.o=${JSON.stringify(hd.o)}`);
 				this.#hPath2Proc[path]?.(hd.o);
 			}	break;
 		}
@@ -384,11 +465,10 @@ export class Project {
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		const vfp = doc.uri.path;
-//console.error(`fn:Project.ts provideHover path=${vfp}=`);
 		return new Promise<Hover>((rs, rj)=> {
 			// ホバーイベントを伝え、文字列加工だけ任せ文字列を返してもらい、ここで表示
 			this.#hPath2Proc[vfp] = o=> {
-//console.error(`fn:Project.ts Hover OK! o:${JSON.stringify(o)}:`);
+//console.log(`fn:Project.ts Hover OK! o:${JSON.stringify(o)}:`);
 				delete this.#hPath2Proc[vfp];
 
 				let value = String(o.value);
@@ -463,9 +543,112 @@ export class Project {
 	}
 
 
+	opView(uri: Uri) {
+		const vfp = uri.path;
+		const fp = v2fp(vfp);
+		if (fp === this.#PATH_PRJ +'prj.json') {this.#ps.open(); return;}
+
+		this.#opFolder(uri);
+	}
+	#opFolder(uri: Uri) {
+		// フォルダビュー
+		const column = window.activeTextEditor?.viewColumn;
+		const wp = this.#pnlWVFolder;
+		if (this.#uriOpFolder === uri && wp) {wp.reveal(column); return;}
+
+		if (! wp) {
+			const wp = this.#pnlWVFolder = window.createWebviewPanel('SKYNovel-folder', '', column || ViewColumn.One, {
+				enableScripts		: true,
+			//	retainContextWhenHidden: true,	// 楽だがメモリオーバーヘッド高らしい
+				localResourceRoots	: [
+					this.#localExtensionResRoots,
+					Uri.file(this.#PATH_WS),
+				],
+			});
+			wp.onDidDispose(()=> this.#pnlWVFolder = undefined, undefined, this.ctx.subscriptions);	// 閉じられたとき
+			wp.webview.onDidReceiveMessage(m=> {
+				switch (m.cmd) {
+					case 'info':	window.showInformationMessage(m.text); break;
+					case 'warn':	window.showWarningMessage(m.text); break;
+				}
+			}, false);
+		}
+		this.#uriOpFolder = uri;
+
+		this.#updWVFolder(uri);
+	}
+		#pnlWVFolder	: WebviewPanel | undefined	= undefined;
+		#uriOpFolder	: Uri | null				= null;
+		#uriWvPrj		: Uri | null				= null;
+
+	#updWVFolder(uri: Uri) {
+		const vfp = uri.path;
+		const fp = v2fp(vfp);
+		const pp = this.#fp2pp(fp);
+		this.#pnlWVFolder!.title = pp +' フォルダ';
+
+		let htm = '';
+		const wv = this.#pnlWVFolder!.webview;
+		this.#uriWvPrj = wv.asWebviewUri(Uri.file(this.#PATH_PRJ));
+		foldProc(fp, (vfp2, nm)=> {
+			const fp2 = v2fp(Uri.file(vfp2).path);
+			const pp2 = this.#fp2pp(fp2);
+			if (this.#regWVFolderMov.test(fp2)) {	// GrpよりMovを先に
+				htm +=
+`<div class="col">
+	<h2><a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます">${nm}</a></h2>
+	<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${this.#uriWvPrj}${pp2}"></video>
+</div>`;
+				return;
+			}
+
+			if (this.#regWVFolderGrp.test(pp2)) {
+				htm +=
+`<div class="col">
+	<img loading="lazy" src="${this.#uriWvPrj}${pp2}" title="${nm}"/>
+</div>`;
+				return;
+			}
+
+			if (this.#regWVFolderSnd.test(pp2)) {
+				htm +=
+`<div class="col">
+	<h2><a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます">${nm}</a></h2>
+	<audio controls src="${this.#uriWvPrj}${pp2}"></audio>
+</div>`;
+				return;
+			}
+
+		}, ()=> {});
+
+		wv.html = this.#htmOpFolder
+			.replaceAll('${webview.cspSource}', wv.cspSource)
+			.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
+			.replace(/<!--SOL-->.+?<!--EOL-->/s, htm);
+				// https://regex101.com/r/8RaTsD/1
+		wv.postMessage({cmd: 'refresh', o: {}});
+	}
+		readonly #regWVFolderMov = /\.(mp4|webm)$/;
+		readonly #regWVFolderGrp = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SP_GSM}$`);
+		readonly #regWVFolderSnd = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SOUND}$`);
+
+		#chkWVFolder({path}: Uri, _sEvt: 'CRE'|'CHG'|'DEL') {
+//console.log(`fn:Project.ts #chkWVFolder sEvt:${sEvt} path=${path}=`);
+			const uriOF = this.#uriOpFolder;
+			if (! this.#pnlWVFolder || ! uriOF) return;
+			const fp = v2fp(path);			// /c:/
+			const fpOF = v2fp(uriOF.path);	// /C:/
+			if (fp.slice(0, fpOF.length) !== fpOF) return;
+
+			if (this.#tiDelayFolder) clearTimeout(this.#tiDelayFolder);	// 遅延
+			this.#tiDelayFolder = setTimeout(()=> this.#updWVFolder(uriOF), 500);
+		}
+		#tiDelayFolder: NodeJS.Timer | null = null;
+
+
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
 	async #cmd(nm: string, val: string): Promise<boolean> {
-//console.error(`fn:Project.ts #cmd nm:${nm} val:${val}`);
+//console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
 // await (new Promise((re: any)=> setTimeout(re, 2000)));
 		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
 		switch (nm) {
@@ -579,8 +762,8 @@ export class Project {
 		// 旧フォントファイルはすべて一度削除
 		foldProc(
 			this.#PATH_PRJ +'script/',
-			(url, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(url)},
-			_=> {},
+			(fp, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(fp)},
+			()=> {},
 		);
 
 		if (! minify) {
@@ -756,8 +939,8 @@ export class Project {
 				this.#termDbgSS();
 
 				let find_ng = false;
-				treeProc(this.#PATH_PRJ, path=> {
-					if (find_ng || path.slice(-4) !== '.svg') return;
+				treeProc(this.#PATH_PRJ, fp=> {
+					if (find_ng || fp.slice(-4) !== '.svg') return;
 
 					find_ng = true;
 					window.showErrorMessage(
@@ -765,7 +948,7 @@ export class Project {
 					)
 					.then(a=> {switch (a) {
 						case 'フォルダを開く':
-							env.openExternal(Uri.file(dirname(path)));	break;
+							env.openExternal(Uri.file(dirname(fp)));	break;
 						case 'Online Converter':
 							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
 							break;
@@ -824,7 +1007,7 @@ export class Project {
 					? readJsonSync(fnUcJs, {encoding: 'utf8'})
 					: {};
 
-//console.error(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
+//console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
 				const isMacBld = btn_nm.slice(4, 7) === 'Mac';
 				const isLinBld = btn_nm.slice(4, 7) === 'Lin';
 				const fnYml = pathPkg +`/latest${
@@ -834,7 +1017,7 @@ export class Project {
 				const mv = /version: (.+)/.exec(sYml);
 				if (! mv) throw `[Pack...] .yml に version が見つかりません`;
 				const ver = mv[1];
-//console.error(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
+//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
 				if (oUc.version != ver || oUc.name != oPkg.name) {
 					oUc = {};
 					removeSync(pathUpd);
@@ -867,8 +1050,8 @@ export class Project {
 
 				// 古い（暗号化ファイル名）更新ファイルを削除
 				const REG_OLD_SAMEKEY = new RegExp('^'+ key +'-');
-				foldProc(pathUpd, (url, nm)=> {
-					if (REG_OLD_SAMEKEY.test(nm)) removeSync(url);
+				foldProc(pathUpd, (fp, nm)=> {
+					if (REG_OLD_SAMEKEY.test(nm)) removeSync(fp);
 				}, ()=> {});
 
 				// （暗号化ファイル名）更新ファイルをコピー
@@ -919,48 +1102,28 @@ export class Project {
 	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
 
 
-	#crePrj(uri: Uri) {this.#encIfNeeded(uri); this.#updPathJson();}
-	#chgPrj(uri: Uri) {this.#encIfNeeded(uri);}
-	#delPrj({path}: Uri) {
-		const {pathCn, pp} = this.#path2cn(path);
-		if (pathCn) removeSync(pathCn);
-
-		delete this.#hDiff[pp];
-		this.#updDiffJson();
-
-		this.#updPathJson();
-	}
-		#path2cn(fp: string) {
-			fp = v2fp(Uri.file(fp).path);
-			const pp = this.#fp2pp(fp);
-			const diff = this.#hDiff[pp];
-			return {
-				pathCn: diff
-					? fp.replace(/\/prj\/.+$/, `/${FLD_CRYPT_PRJ}/${diff.cn}`)
-					: undefined,
-				diff,
-				pp,
-			};
-		}
-		#fp2pp(fp: string): string {return fp.slice(this.#LEN_PATH_PRJ)}
-
 	// 暗号化
 	#initCrypto() {
 		const fnc: (fp: string)=> void = this.#isCryptoMode
-			? fp=> {if (this.#isDiff(fp)) this.#encFile(fp);}
-			: fp=> this.#isDiff(fp);
+			? fp=> {
+				const uri = Uri.file(fp);
+				if (this.#isDiff(uri)) this.#encFile(uri);
+			}
+			: fp=> {
+				const uri = Uri.file(fp);
+				this.#isDiff(uri);
+			};
 		treeProc(this.#PATH_PRJ, fnc);
 		this.#updDiffJson();
 	}
-	#encIfNeeded({path}: Uri) {
-//console.error(`fn:Project.ts #encIfNeeded path=${path}= ! ${v2fp(path)}`);
-		path = v2fp(path);
-		if (this.#isCryptoMode && this.#isDiff(path)) this.#encFile(path);
+	#encIfNeeded(uri: Uri) {
+		if (this.#isCryptoMode && this.#isDiff(uri)) this.#encFile(uri);
 		this.#updDiffJson();
 	}
 	#updDiffJson() {writeJsonSync(this.#fnDiff, this.#hDiff);}
 
-	#isDiff(fp: string): boolean {
+	#isDiff({path}: Uri): boolean {
+		const fp = v2fp(path);
 		const {pathCn, diff, pp} = this.#path2cn(fp);
 		if (pathCn && ! existsSync(pathCn)) return true;
 
@@ -1050,10 +1213,11 @@ export class Project {
 		this.#initCrypto();
 	}
 
-	async #encFile(fp: string) {
+	async #encFile({path}: Uri) {
+		const fp = v2fp(path);
+		const pp = this.#fp2pp(fp);
+//console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]}`);
 		try {
-			const pp = this.#fp2pp(fp);
-//console.error(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]}`);
 			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp].cn;
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});
@@ -1205,9 +1369,11 @@ export class Project {
 	#tiDelayPathJson: NodeJS.Timer | null = null;
 	#updPathJson() {
 		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
-		this.#tiDelayPathJson = setTimeout(()=> {
+		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
+	}
+		#basePathJson() {
 			// path.json 更新（暗号化もここ「のみ」で）
-			this.#cfg.loadEx(fp=> this.#encFile(fp), this.#clDiag);
+			this.#cfg.loadEx(uri=> this.#encFile(uri), this.#clDiag);
 
 			// ドロップ時コピー先候補
 			for (const [spae, aFld] of this.#mExt2Folders) {
@@ -1215,8 +1381,7 @@ export class Project {
 				for (const nmFolder of aFld) if (existsSync(this.#PATH_WS +`/doc/prj/${nmFolder}/`)) aPath.push(nmFolder);
 				this.#mExt2ToPath.set(spae, aPath);
 			}
-		}, 100);
-	}
+		}
 	readonly	#mExt2Folders: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
 		[SEARCH_PATH_ARG_EXT.SP_GSM, ['bg','image']],
 		[SEARCH_PATH_ARG_EXT.SOUND, ['music','sound']],
@@ -1243,10 +1408,9 @@ export class Project {
 		for (const uri of aUri) {
 			const {path, scheme} = uri;
 			const ext = extname(path).slice(1);
-			if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
-
 			const fp = v2fp(path);
-//console.error(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}:`);
+//console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
+
 			let fpNew = fp;
 			const fn_ext = '/'+ basename(fp);
 			const aコピー先候補 = this.#getコピー先候補(ext);
@@ -1255,11 +1419,12 @@ export class Project {
 				if (statSync(fp).isDirectory()) {	// フォルダドロップ
 					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return undefined;	// プロジェクト外なら鼻も引っ掛けない
 
-					// TODO: フォルダペーストでフォルダビュー
+					this.opView(uri);
 					return undefined;
 				}
+				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
 
-				if (fp.slice(0, this.#PATH_PRJ.length) === this.#PATH_PRJ) break;
+				if (fp.slice(0, this.#PATH_PRJ.length) === this.#PATH_PRJ) break;	// プロジェクト内からのドラッグ
 
 				// プロジェクト外からのドラッグ
 				// ファイルコピー
@@ -1290,8 +1455,16 @@ export class Project {
 
 			case 'http':
 			case 'https':{	// webブラウザ画像やURLリンクの場合はダウンロード
+				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
+
+				// webviewからのドラッグ
+				if (this.#uriWvPrj) {
+					const pp = this.#uriWvPrj.path;
+					if (path.slice(0, pp.length) === pp) break;	// from WV
+				}
+
 				const uriDL = uri.toString();
-//console.error(`fn:Project.ts urlDL=${uriDL}=`);
+//console.log(`fn:Project.ts urlDL=${uriDL}=`);
 				const res = await fetch(uriDL);
 				if (! res.ok) {
 					window.showErrorMessage(`ダウンロードに失敗しました。手動でローカルにコピーして下さい uri=${uriDL}`);

@@ -226,6 +226,13 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#refresh();
 
 		this.ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()));
+		this.ctx.subscriptions.push(commands.registerCommand('skynovel.opView', uri=> {
+			const {path} = uri;
+			for (const [vfpWs, prj] of this.#mPrj.entries()) {
+				if (path.slice(0, vfpWs.length) !== vfpWs) continue;
+				prj.opView(uri);
+			}
+		}));
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
@@ -247,9 +254,9 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			return;
 		}
 
-		const pathDoc = at.document.uri.path;
+		const vfp = at.document.uri.path;	// /c:/
 		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			if (pathDoc.slice(0, vfpWs.length) !== vfpWs) continue;
+			if (vfp.slice(0, vfpWs.length) !== vfpWs) continue;
 			prj.openReferencePallet();
 		}
 	}
@@ -314,7 +321,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 
 	onRequest(hd: any): any | undefined {
-//console.error(`070 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
+//console.log(`070 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
 		// TODO: 辱コード
 		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
 //		const prj = this.#mPrj.get(hd.pathWs);
@@ -334,7 +341,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	#makePrj(wsFld: WorkspaceFolder) {
 		const vfpWs = wsFld.uri.path;
 		const pathWs = v2fp(vfpWs);
-//console.error(`010 fn:WorkSpaces.ts #makePrj vfpWs=${vfpWs}=`);
+//console.log(`010 fn:WorkSpaces.ts #makePrj vfpWs=${vfpWs}=`);
 		if (! existsSync(pathWs +'/package.json')
 		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;
 

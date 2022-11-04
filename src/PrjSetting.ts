@@ -91,7 +91,7 @@ export class PrjSetting {
 		this.#PATH_OPT_PIC = this.#PATH_WS +'/build/cnv_mat_pic.json';
 		this.#PATH_OPT_SND = this.#PATH_WS +'/build/cnv_mat_snd.json';
 
-		const path_vue_root = path_ext +`/views/`;
+		const path_vue_root = path_ext +'/views/';
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
@@ -125,9 +125,9 @@ export class PrjSetting {
 			},
 
 			async ()=> {
-				treeProc(this.#PATH_PRJ, path=> {
-					if (path.slice(-11) !== '/setting.sn') return;
-					this.#aPathSettingSn.push(path);
+				treeProc(this.#PATH_PRJ, fp=> {
+					if (fp.slice(-11) !== '/setting.sn') return;
+					this.#aPathSettingSn.push(fp);
 				});
 				this.#chkMultiMatch_SettingSn();
 			},

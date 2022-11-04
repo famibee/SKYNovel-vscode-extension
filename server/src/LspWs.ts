@@ -370,7 +370,7 @@ sys:TextLayer.Back.Alpha`.split('\n');
 			// wf.uri=file:///Users/[略]/mac=
 		this.#PATH_WS = this.#fp2wp( this.#fullSchPath2fp(wf.uri) );
 		this.#LEN_PATH_WS = this.#PATH_WS.length;
-//console.error(`005 fn:LspWs.ts constructor      u2p=${this.#PATH_WS}= wf.uri=${wf.uri}=`);
+//console.log(`005 fn:LspWs.ts constructor      u2p=${this.#PATH_WS}= wf.uri=${wf.uri}=`);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 
@@ -481,11 +481,11 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 	// =======================================
 	static readonly REQ_ID = ':SKYNovel:';
 	#sendRequest(cmd: string, o = {}) {
-//console.error(`050 fn:LspWs.ts ⬇ #sendRequest cmd:${cmd} o:${JSON.stringify(o).slice(0, 200)}`);
+//console.log(`050 fn:LspWs.ts ⬇ #sendRequest cmd:${cmd} o:${JSON.stringify(o).slice(0, 200)}`);
 		this.conn.sendRequest(LspWs.REQ_ID, {cmd, pathWs: this.#PATH_WS, o});
 	}
 	onRequest({cmd, pathWs, o}: {cmd: string, pathWs: string, o: any}) {
-//console.error(`040 fn:LspWs.ts ⬆ onRequest cmd:${cmd} pathWs=${pathWs}= #PATH_WS=${this.#PATH_WS}= o:${Object.keys(o)}:`);
+//console.log(`040 fn:LspWs.ts ⬆ onRequest cmd:${cmd} pathWs=${pathWs}= #PATH_WS=${this.#PATH_WS}= o:${Object.keys(o)}:`);
 		if (pathWs === this.#PATH_WS) this.#hCmd2ReqProc[cmd]?.(o);
 	}
 	#hCmd2ReqProc: {[cmd: string]: (o: any)=> void}	= {
@@ -1941,7 +1941,6 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 						k_ln, k_ch,
 						v_ln, v_ch +v_len,
 					), mes.replace('$', nm), sev));
-					return;
 				}
 			}
 

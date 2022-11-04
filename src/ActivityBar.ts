@@ -115,7 +115,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
 				case 'error':	console.error(hd.txt);	return;
 			}
-//console.error(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
+//console.log(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
 			this.#workSps.onRequest(hd);
 		});
 
@@ -147,7 +147,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			this.#workSps.start((cmd, uriWs, o)=> {
 				// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
-//console.error(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${u2p(uriWs.path)}=`);
+//console.log(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${u2p(uriWs.path)}=`);
 				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
 			});
 		});
@@ -314,21 +314,21 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
 
-		const path_doc = this.ctx.extensionPath +'/views';
-		const uf_path_doc = Uri.file(path_doc);
+		const pathDoc = this.ctx.extensionPath +'/views';
+		const uriDoc = Uri.file(pathDoc);
 		this.#pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
 			enableScripts: false,
-			localResourceRoots: [uf_path_doc],
+			localResourceRoots: [uriDoc],
 		});
 		this.#pnlWV.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
-		readFile(path_doc +'/envinfo.htm', 'utf-8', (e, data)=> {
+		readFile(pathDoc +'/envinfo.htm', 'utf-8', (e, data)=> {
 			if (e) throw e;
 
 			const wv = this.#pnlWV!.webview;
 			this.#pnlWV!.webview.html = data
 			.replaceAll('${webview.cspSource}', wv.cspSource)
-			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
+			.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uriDoc)}/`);
 		});
 	}
 
@@ -338,16 +338,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		const path_doc = this.ctx.extensionPath +'/views';
 		const uf_path_doc = Uri.file(path_doc);
-		const wv = this.#pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
+		const wp = this.#pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [uf_path_doc],
 		});
-		wv.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
+		wp.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
-		wv.webview.onDidReceiveMessage(m=> {
+		wp.webview.onDidReceiveMessage(m=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
 			switch (m.cmd) {
-			case 'get':		wv.webview.postMessage({cmd: 'res', o: {}});	break;
+			case 'get':		wp.webview.postMessage({cmd: 'res', o: {}});	break;
 			case 'info':	window.showInformationMessage(m.text); break;
 
 			case 'input':
@@ -355,8 +355,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// プロジェクトフォルダ名（半角英数記号）を指定
 				this.#save_ns = m.val;
-//console.error(`fn:ActivityBar.ts #openTempWizard id:${m.id} v:${m.val} chk:${this.#chkSave_ns()}`);
-				wv.webview.postMessage({cmd: 'vld', o: {
+//console.log(`fn:ActivityBar.ts #openTempWizard id:${m.id} v:${m.val} chk:${this.#chkSave_ns()}`);
+				wp.webview.postMessage({cmd: 'vld', o: {
 					id		: 'save_ns',
 					valid	: this.#chkSave_ns(),
 				}});

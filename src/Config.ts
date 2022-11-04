@@ -50,7 +50,7 @@ export class SysExtension implements ISysRoots {
 export class Config extends ConfigBase {
 	constructor(override readonly sys: SysExtension) {super(sys)}
 
-	async loadEx(encFile: (fp: string)=> Promise<void>, clDiag: DiagnosticCollection) {
+	async loadEx(encFile: (uri: Uri)=> Promise<void>, clDiag: DiagnosticCollection) {
 		const fpPrj = this.sys.cur +'prj.json';
 		const fpPath = this.sys.cur +'path.json';
 		try {
@@ -70,7 +70,7 @@ export class Config extends ConfigBase {
 			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.cur, clDiag);
 			outputJson(fpPath, this.hPathFn2Exts);
 
-			if (this.sys.crypto) encFile(fpPath);
+			if (this.sys.crypto) encFile(Uri.file(fpPath));
 
 //			this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
 		}
@@ -93,14 +93,14 @@ export class Config extends ConfigBase {
 		const aD: Diagnostic[] = [];
 		foldProc($cur, ()=> {}, dir=> {
 			const wd = resolve($cur, dir);
-			foldProc(wd, (url, nm)=> {
+			foldProc(wd, (fp, nm)=> {
 				this.#addPath(hFn2Path, dir, nm, aD);
 
 				// スプライトシート用json自動生成機能
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
-					const s = readFileSync(url, {encoding: 'utf8'});
+					const s = readFileSync(fp, {encoding: 'utf8'});
 					const h = RIPEMD160(s).toString(enc.Hex);
 					const snm = nm.slice(0, -a2[0].length);
 					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
@@ -111,7 +111,7 @@ export class Config extends ConfigBase {
 				const fnJs = resolve(wd, a[1] +'.json');
 				if (existsSync(fnJs)) return;
 
-				const {width = 0, height = 0} = img_size(url);
+				const {width = 0, height = 0} = img_size(fp);
 				const xLen = uint(a[2]);
 				const yLen = uint(a[3]);
 				const w = width /xLen;
