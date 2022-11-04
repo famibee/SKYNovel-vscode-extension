@@ -595,16 +595,20 @@ export class Project {
 			const pp2 = this.#fp2pp(fp2);
 			if (this.#regWVFolderMov.test(fp2)) {	// GrpよりMovを先に
 				htm +=
-`<div class="col">
-	<h2><a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます">${nm}</a></h2>
-	<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${this.#uriWvPrj}${pp2}"></video>
+`<div class="col pe-0">
+	<div class="card text-bg-secondary">
+		<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${this.#uriWvPrj}${pp2}" class="card-img-top"></video>
+		<div class="card-body">
+			<a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
+		</div>
+	</div>
 </div>`;
 				return;
 			}
 
 			if (this.#regWVFolderGrp.test(pp2)) {
 				htm +=
-`<div class="col">
+`<div class="col pe-0">
 	<img loading="lazy" src="${this.#uriWvPrj}${pp2}" title="${nm}"/>
 </div>`;
 				return;
@@ -612,9 +616,13 @@ export class Project {
 
 			if (this.#regWVFolderSnd.test(pp2)) {
 				htm +=
-`<div class="col">
-	<h2><a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます">${nm}</a></h2>
-	<audio controls src="${this.#uriWvPrj}${pp2}"></audio>
+`<div class="col pe-0">
+	<div class="card text-bg-secondary">
+		<audio controls src="${this.#uriWvPrj}${pp2}" class="card-img-top"></audio>
+		<div class="card-body">
+			<a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
+		</div>
+	</div>
 </div>`;
 				return;
 			}
