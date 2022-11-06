@@ -621,7 +621,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 }
 ---
 ${
-	sum.replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
+	(sum +' \n').replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ loc.range.start.line +1 })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
 }`
 			};
 		}
@@ -688,8 +688,8 @@ ${
 		readonly	#checkRelated = (uri: string)=> this.#PATH_PRJ === this.#fullSchPath2fp(uri).slice(0, this.#LEN_PATH_PRJ);
 		readonly	#genPrm2Md = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
-			? `【必須】${this.#escHighlight(rangetype)}`
-			: `${this.#escHighlight(rangetype)}|${this.#escHighlight(def)}`
+			? ('【必須】'+ this.#escHighlight(rangetype))
+			: (this.#escHighlight(rangetype) +'|'+ this.#escHighlight(def))
 		}`;
 		readonly	#escHighlight = (s = '')=> {
 			if (s.at(0) === `'` && s.at(-1) === `'`) return s;
