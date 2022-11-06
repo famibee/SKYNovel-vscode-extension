@@ -471,14 +471,14 @@ export class Project {
 //console.log(`fn:Project.ts Hover OK! o:${JSON.stringify(o)}:`);
 				delete this.#hPath2Proc[vfp];
 
-				let value = String(o.value);
-				if (! value) {rj(); return;}
+				let v = String(o.value);
+				if (v == 'undefined') {rj(); return;}
 
-				const a = value.split(/(?=\n---\n)/);
+				const a = v.split(/(?=\n---\n)/);
 				if (a.length === 3) {
 					// 中央部分のみ置換。SQLジャンクション的なものの対策
 					const [args, ...detail] = a;
-					value = args + detail.join('').replaceAll(
+					v = args + detail.join('').replaceAll(
 						/<!-- ({.+?}) -->/g,
 						(_, e1)=> {
 	const o = JSON.parse(e1);
@@ -503,7 +503,7 @@ export class Project {
 					);
 				}
 
-				const ms = new MarkdownString(value);
+				const ms = new MarkdownString(v);
 			//	const ms = new MarkdownString(value, o.range);// 表示されない
 				ms.isTrusted = true;
 			//	ms.supportHtml = true;
@@ -559,19 +559,27 @@ export class Project {
 		if (! wp) {
 			const wp = this.#pnlWVFolder = window.createWebviewPanel('SKYNovel-folder', '', column || ViewColumn.One, {
 				enableScripts		: true,
-			//	retainContextWhenHidden: true,	// 楽だがメモリオーバーヘッド高らしい
+			//	retainContextWhenHidden: true,// 楽だがメモリオーバーヘッド高らしい
 				localResourceRoots	: [
 					this.#localExtensionResRoots,
 					Uri.file(this.#PATH_WS),
 				],
 			});
-			wp.onDidDispose(()=> this.#pnlWVFolder = undefined, undefined, this.ctx.subscriptions);	// 閉じられたとき
-			wp.webview.onDidReceiveMessage(m=> {
-				switch (m.cmd) {
-					case 'info':	window.showInformationMessage(m.text); break;
-					case 'warn':	window.showWarningMessage(m.text); break;
-				}
-			}, false);
+			const wv = wp.webview;
+			this.ctx.subscriptions.push(
+				wp.onDidDispose(()=> this.#pnlWVFolder = undefined, undefined, this.ctx.subscriptions),	// 閉じられたとき
+
+				wv.onDidReceiveMessage(m=> {switch (m.cmd) {
+					case 'info': window.showInformationMessage(m.text); break;
+					case 'warn': window.showWarningMessage(m.text); break;
+				}}, false),
+			);
+
+			wv.html = this.#htmOpFolder
+				.replaceAll('${webview.cspSource}', wv.cspSource)
+				.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
+				.replace(/<!--SOL-->.+?<!--EOL-->/s, '');
+					// https://regex101.com/r/8RaTsD/1
 		}
 		this.#uriOpFolder = uri;
 
@@ -628,13 +636,7 @@ export class Project {
 			}
 
 		}, ()=> {});
-
-		wv.html = this.#htmOpFolder
-			.replaceAll('${webview.cspSource}', wv.cspSource)
-			.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
-			.replace(/<!--SOL-->.+?<!--EOL-->/s, htm);
-				// https://regex101.com/r/8RaTsD/1
-		wv.postMessage({cmd: 'refresh', o: {}});
+		wv.postMessage({cmd: 'refresh', o: {htm}});
 	}
 		readonly #regWVFolderMov = /\.(mp4|webm)$/;
 		readonly #regWVFolderGrp = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SP_GSM}$`);
