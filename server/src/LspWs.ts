@@ -584,17 +584,17 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 
 
 	// === 識別子上にマウスホバーしたとき表示するヒント ===
-	#genHover(uri: string, p: Position): {value: string, range: Range} | undefined {	// uri ... 'file://'付き
+	#genHover(uri: string, p: Position): {value: string, range: Range} | null {	// uri ... 'file://'付き
 		const fp = this.#fullSchPath2fp(uri);
 		const pp = this.#fp2pp(fp);
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
-		if (! aUse) return undefined;
+		if (! aUse) return null;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
-		if (! u) return undefined;
+		if (! u) return null;
 //console.log(`fn:LspWs.ts #genHover ::${this.docs.keys().join(',')}::`);
 
 		const d = this.docs.get(uri);
-		if (! d) return undefined;
+		if (! d) return null;
 		const token = d.getText(u.rng);
 		const hVal: {[nm: string]: string} = {};
 		const args = token.slice(1 +u.nm.length, -1);
@@ -657,16 +657,16 @@ ${
 [定義位置：${ getFn(pd.uri) }](${ pd.uri }#L${ pd.sl +1 })`
 		};
 
-		return undefined;
+		return null;
 	}
 	readonly	#属性表示最大数 = 5;
-		#p_prm2md(p: Position, hRng: {[key: string]: PRM_RANGE}, param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string | undefined {
+		#p_prm2md(p: Position, hRng: {[key: string]: PRM_RANGE}, param: MD_PARAM_DETAILS[], hVal: {[nm: string]: string}): string | null {
 			const pr = Object.entries(hRng).find(([, prm])=> this.#contains(this.#genPrm2Rng(prm), p));
-			if (! pr) return undefined;
+			if (! pr) return null;
 
 			const [prK] = pr;
 			const mpd = param.find(({name})=> name === prK);
-			if (! mpd) return undefined;
+			if (! mpd) return null;
 
 			return this.#genPrm2Md(mpd) +` ...以下略]
 ~~~

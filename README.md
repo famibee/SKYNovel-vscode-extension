@@ -6,7 +6,9 @@
 
 <img src="res/img/icon.png" width="256" loading="lazy">
 
-[SKYNovel - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=famibee.skynovel)
+> [SKYNovel - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=famibee2.skynovel2)
+> 
+> 2022/11/25 リンク変更(link change) famibee2.skynovel2
 
 [CHANGELOG.md](CHANGELOG.md)
 

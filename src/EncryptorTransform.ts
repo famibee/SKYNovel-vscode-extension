@@ -13,7 +13,7 @@ import {extname} from 'path';
 export class EncryptorTransform extends Transform {
 	static	readonly #LEN_ENC	= 1024 *10;
 	#cnt_code	= EncryptorTransform.#LEN_ENC;
-	#ite_buf		= 2;
+	#ite_buf	= 2;
 	#bh			: Buffer;
 
 	readonly	#hExt2N: {[name: string]: number} = {

@@ -110,14 +110,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		this.#workSps = new WorkSpaces(ctx, this);
 
 		// link WorkSpaces & LSP
-		lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
+		ctx.subscriptions.push(lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
 			switch (hd.cmd) {
 				case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
 				case 'error':	console.error(hd.txt);	return;
 			}
 //console.log(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
 			this.#workSps.onRequest(hd);
-		});
+		}));
 
 		// 環境設定チェック
 		this.#aTiEnv = this.#aEnv.map(v=> {

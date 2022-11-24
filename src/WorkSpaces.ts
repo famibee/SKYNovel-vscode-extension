@@ -43,7 +43,7 @@ export	function openURL(url: Uri, pathWs: string) {
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
-	#mPrj	: Map<string, Project>	= new Map();
+	#mPrj	= new Map<string, Project>();
 
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
 		const itmStt = this.#addStatusItem('init');
@@ -181,25 +181,25 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		// データ転送をチェックして、uris のリストを削除したかどうかを確認します
 		const dti = dataTransfer.get('text/uri-list');
 			// L3,5 というフラグメントをサポートするらしい（3 は行番号、5 は列番号）
-		if (! dti) return undefined;
+		if (! dti) return null;
 
 		// 'text/uri-list' には改行で区切られた URI のリストが含まれる
 		const urlList = await dti.asString();
-		if (tkn.isCancellationRequested) return undefined;
+		if (tkn.isCancellationRequested) return null;
 		const aUri: Uri[] = [];
 		for (const res of urlList.split('\n')) {
 			try { aUri.push(Uri.parse(res)); } catch {/* noop */}
 		}
-		if (aUri.length === 0) return undefined;
+		if (aUri.length === 0) return null;
 
 		for (const [vfpWs ,prj] of this.#mPrj.entries()) {
 			const cp = vfpWs +'/doc/prj/';
 			if (td.uri.path.slice(0, cp.length) !== cp) continue;
 
 			return await prj.drop(td, pos, aUri) ?? {insertText: ''};
-				// なにもさせない（undefined だと簡易な文字列が挿入される）
+				// なにもさせない（null だと簡易な文字列が挿入される）
 		}
-		return undefined;
+		return null;
 	}
 
 
@@ -320,16 +320,16 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	readonly onDidChangeTreeData = this.#emPrjTD.event;
 
 
-	onRequest(hd: any): any | undefined {
+	onRequest(hd: any) {
 //console.log(`070 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
 		// TODO: 辱コード
 		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
 //		const prj = this.#mPrj.get(hd.pathWs);
 		if (! prj) {
 			console.error(`fn:WorkSpaces.ts onRequest 'project ${hd.pathWs} does not exist'`);	// 本番でも【出力】-【ログ（ウインドウ）】に出力される
-			return undefined;
+			return;
 		}
-		return prj.onRequest(hd);
+		prj.onRequest(hd);
 	}
 
 

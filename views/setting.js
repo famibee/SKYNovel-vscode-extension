@@ -6,11 +6,6 @@ function makeMap(str, expectsLowerCase) {
   }
   return expectsLowerCase ? (val) => !!map2[val.toLowerCase()] : (val) => !!map2[val];
 }
-const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`;
-const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
-function includeBooleanAttr(value) {
-  return !!value || value === "";
-}
 function normalizeStyle(value) {
   if (isArray$9(value)) {
     const res = {};
@@ -31,10 +26,11 @@ function normalizeStyle(value) {
   }
 }
 const listDelimiterRE = /;(?![^(]*\))/g;
-const propertyDelimiterRE = /:(.+)/;
+const propertyDelimiterRE = /:([^]+)/;
+const styleCommentRE = /\/\*.*?\*\//gs;
 function parseStringStyle(cssText) {
   const ret = {};
-  cssText.split(listDelimiterRE).forEach((item) => {
+  cssText.replace(styleCommentRE, "").split(listDelimiterRE).forEach((item) => {
     if (item) {
       const tmp = item.split(propertyDelimiterRE);
       tmp.length > 1 && (ret[tmp[0].trim()] = tmp[1].trim());
@@ -61,6 +57,11 @@ function normalizeClass(value) {
     }
   }
   return res.trim();
+}
+const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`;
+const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
+function includeBooleanAttr(value) {
+  return !!value || value === "";
 }
 function looseCompareArrays(a, b) {
   if (a.length !== b.length)
@@ -272,6 +273,14 @@ function recordEffectScope(effect, scope = activeEffectScope) {
     scope.effects.push(effect);
   }
 }
+function getCurrentScope() {
+  return activeEffectScope;
+}
+function onScopeDispose(fn) {
+  if (activeEffectScope) {
+    activeEffectScope.cleanups.push(fn);
+  }
+}
 const createDep = (effects) => {
   const dep = new Set(effects);
   dep.w = 0;
@@ -424,8 +433,9 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
   if (type === "clear") {
     deps = [...depsMap.values()];
   } else if (key === "length" && isArray$9(target)) {
+    const newLength = toNumber$1(newValue);
     depsMap.forEach((dep, key2) => {
-      if (key2 === "length" || key2 >= newValue) {
+      if (key2 === "length" || key2 >= newLength) {
         deps.push(dep);
       }
     });
@@ -1085,91 +1095,8 @@ function computed$1(getterOrOptions, debugOptions, isSSR = false) {
   const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR);
   return cRef;
 }
-const stack = [];
-function warn$2(msg, ...args) {
-  pauseTracking();
-  const instance = stack.length ? stack[stack.length - 1].component : null;
-  const appWarnHandler = instance && instance.appContext.config.warnHandler;
-  const trace = getComponentTrace();
-  if (appWarnHandler) {
-    callWithErrorHandling(appWarnHandler, instance, 11, [
-      msg + args.join(""),
-      instance && instance.proxy,
-      trace.map(({ vnode }) => `at <${formatComponentName(instance, vnode.type)}>`).join("\n"),
-      trace
-    ]);
-  } else {
-    const warnArgs = [`[Vue warn]: ${msg}`, ...args];
-    if (trace.length && true) {
-      warnArgs.push(`
-`, ...formatTrace(trace));
-    }
-    console.warn(...warnArgs);
-  }
-  resetTracking();
-}
-function getComponentTrace() {
-  let currentVNode = stack[stack.length - 1];
-  if (!currentVNode) {
-    return [];
-  }
-  const normalizedStack = [];
-  while (currentVNode) {
-    const last = normalizedStack[0];
-    if (last && last.vnode === currentVNode) {
-      last.recurseCount++;
-    } else {
-      normalizedStack.push({
-        vnode: currentVNode,
-        recurseCount: 0
-      });
-    }
-    const parentInstance = currentVNode.component && currentVNode.component.parent;
-    currentVNode = parentInstance && parentInstance.vnode;
-  }
-  return normalizedStack;
-}
-function formatTrace(trace) {
-  const logs = [];
-  trace.forEach((entry, i) => {
-    logs.push(...i === 0 ? [] : [`
-`], ...formatTraceEntry(entry));
-  });
-  return logs;
-}
-function formatTraceEntry({ vnode, recurseCount }) {
-  const postfix = recurseCount > 0 ? `... (${recurseCount} recursive calls)` : ``;
-  const isRoot = vnode.component ? vnode.component.parent == null : false;
-  const open = ` at <${formatComponentName(vnode.component, vnode.type, isRoot)}`;
-  const close = `>` + postfix;
-  return vnode.props ? [open, ...formatProps(vnode.props), close] : [open + close];
-}
-function formatProps(props) {
-  const res = [];
-  const keys2 = Object.keys(props);
-  keys2.slice(0, 3).forEach((key) => {
-    res.push(...formatProp(key, props[key]));
-  });
-  if (keys2.length > 3) {
-    res.push(` ...`);
-  }
-  return res;
-}
-function formatProp(key, value, raw) {
-  if (isString(value)) {
-    value = JSON.stringify(value);
-    return raw ? value : [`${key}=${value}`];
-  } else if (typeof value === "number" || typeof value === "boolean" || value == null) {
-    return raw ? value : [`${key}=${value}`];
-  } else if (isRef(value)) {
-    value = formatProp(key, toRaw(value.value), true);
-    return raw ? value : [`${key}=Ref<`, value, `>`];
-  } else if (isFunction$3(value)) {
-    return [`${key}=fn${value.name ? `<${value.name}>` : ``}`];
-  } else {
-    value = toRaw(value);
-    return raw ? value : [`${key}=`, value];
-  }
+function warn$1(msg, ...args) {
+  return;
 }
 function callWithErrorHandling(fn, instance, type, args) {
   let res;
@@ -1355,7 +1282,7 @@ function emit$1(instance, event, ...rawArgs) {
     const modifiersKey = `${modelArg === "modelValue" ? "model" : modelArg}Modifiers`;
     const { number: number2, trim: trim2 } = props[modifiersKey] || EMPTY_OBJ;
     if (trim2) {
-      args = rawArgs.map((a) => a.trim());
+      args = rawArgs.map((a) => isString(a) ? a.trim() : a);
     }
     if (number2) {
       args = rawArgs.map(toNumber$1);
@@ -1697,6 +1624,7 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
       callWithErrorHandling(fn, instance, 4);
     };
   };
+  let ssrCleanup;
   if (isInSSRComponentSetup) {
     onCleanup = NOOP;
     if (!cb) {
@@ -1708,9 +1636,14 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
         onCleanup
       ]);
     }
-    return NOOP;
+    if (flush === "sync") {
+      const ctx = useSSRContext();
+      ssrCleanup = ctx.__watcherHandles || (ctx.__watcherHandles = []);
+    } else {
+      return NOOP;
+    }
   }
-  let oldValue = isMultiSource ? [] : INITIAL_WATCHER_VALUE;
+  let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
   const job = () => {
     if (!effect.active) {
       return;
@@ -1723,7 +1656,7 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
         }
         callWithAsyncErrorHandling(cb, instance, 3, [
           newValue,
-          oldValue === INITIAL_WATCHER_VALUE ? void 0 : oldValue,
+          oldValue === INITIAL_WATCHER_VALUE ? void 0 : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE ? [] : oldValue,
           onCleanup
         ]);
         oldValue = newValue;
@@ -1756,12 +1689,15 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
   } else {
     effect.run();
   }
-  return () => {
+  const unwatch = () => {
     effect.stop();
     if (instance && instance.scope) {
       remove(instance.scope.effects, effect);
     }
   };
+  if (ssrCleanup)
+    ssrCleanup.push(unwatch);
+  return unwatch;
 }
 function instanceWatch(source, value, options) {
   const publicThis = this.proxy;
@@ -1902,23 +1838,25 @@ function withDirectives(vnode, directives) {
   const bindings = vnode.dirs || (vnode.dirs = []);
   for (let i = 0; i < directives.length; i++) {
     let [dir, value, arg, modifiers = EMPTY_OBJ] = directives[i];
-    if (isFunction$3(dir)) {
-      dir = {
-        mounted: dir,
-        updated: dir
-      };
+    if (dir) {
+      if (isFunction$3(dir)) {
+        dir = {
+          mounted: dir,
+          updated: dir
+        };
+      }
+      if (dir.deep) {
+        traverse(value);
+      }
+      bindings.push({
+        dir,
+        instance,
+        value,
+        oldValue: void 0,
+        arg,
+        modifiers
+      });
     }
-    if (dir.deep) {
-      traverse(value);
-    }
-    bindings.push({
-      dir,
-      instance,
-      value,
-      oldValue: void 0,
-      arg,
-      modifiers
-    });
   }
   return vnode;
 }
@@ -2027,6 +1965,7 @@ const publicPropertiesMap = /* @__PURE__ */ extend(/* @__PURE__ */ Object.create
   $nextTick: (i) => i.n || (i.n = nextTick.bind(i.proxy)),
   $watch: (i) => instanceWatch.bind(i)
 });
+const hasSetupBinding = (state, key) => state !== EMPTY_OBJ && !state.__isScriptSetup && hasOwn(state, key);
 const PublicInstanceProxyHandlers = {
   get({ _: instance }, key) {
     const { ctx, setupState, data, props, accessCache, type, appContext } = instance;
@@ -2044,7 +1983,7 @@ const PublicInstanceProxyHandlers = {
           case 3:
             return props[key];
         }
-      } else if (setupState !== EMPTY_OBJ && hasOwn(setupState, key)) {
+      } else if (hasSetupBinding(setupState, key)) {
         accessCache[key] = 1;
         return setupState[key];
       } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
@@ -2081,7 +2020,7 @@ const PublicInstanceProxyHandlers = {
   },
   set({ _: instance }, key, value) {
     const { data, setupState, ctx } = instance;
-    if (setupState !== EMPTY_OBJ && hasOwn(setupState, key)) {
+    if (hasSetupBinding(setupState, key)) {
       setupState[key] = value;
       return true;
     } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
@@ -2101,7 +2040,7 @@ const PublicInstanceProxyHandlers = {
   },
   has({ _: { data, setupState, accessCache, ctx, appContext, propsOptions } }, key) {
     let normalizedProps;
-    return !!accessCache[key] || data !== EMPTY_OBJ && hasOwn(data, key) || setupState !== EMPTY_OBJ && hasOwn(setupState, key) || (normalizedProps = propsOptions[0]) && hasOwn(normalizedProps, key) || hasOwn(ctx, key) || hasOwn(publicPropertiesMap, key) || hasOwn(appContext.config.globalProperties, key);
+    return !!accessCache[key] || data !== EMPTY_OBJ && hasOwn(data, key) || hasSetupBinding(setupState, key) || (normalizedProps = propsOptions[0]) && hasOwn(normalizedProps, key) || hasOwn(ctx, key) || hasOwn(publicPropertiesMap, key) || hasOwn(appContext.config.globalProperties, key);
   },
   defineProperty(target, key, descriptor) {
     if (descriptor.get != null) {
@@ -2605,7 +2544,7 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
       const normalizedKey = camelize(key);
       if (validatePropName(normalizedKey)) {
         const opt = raw[key];
-        const prop = normalized[normalizedKey] = isArray$9(opt) || isFunction$3(opt) ? { type: opt } : opt;
+        const prop = normalized[normalizedKey] = isArray$9(opt) || isFunction$3(opt) ? { type: opt } : Object.assign({}, opt);
         if (prop) {
           const booleanIndex = getTypeIndex(Boolean, prop.type);
           const stringIndex = getTypeIndex(String, prop.type);
@@ -3723,6 +3662,9 @@ function traverseStaticChildren(n1, n2, shallow = false) {
         if (!shallow)
           traverseStaticChildren(c1, c2);
       }
+      if (c2.type === Text) {
+        c2.el = c1.el;
+      }
     }
   }
 }
@@ -3835,7 +3777,8 @@ function createBaseVNode(type, props = null, children = null, patchFlag = 0, dyn
     patchFlag,
     dynamicProps,
     dynamicChildren: null,
-    appContext: null
+    appContext: null,
+    ctx: currentRenderingInstance
   };
   if (needFullChildrenNormalization) {
     normalizeChildren$1(vnode, children);
@@ -3922,7 +3865,8 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
     ssContent: vnode.ssContent && cloneVNode(vnode.ssContent),
     ssFallback: vnode.ssFallback && cloneVNode(vnode.ssFallback),
     el: vnode.el,
-    anchor: vnode.anchor
+    anchor: vnode.anchor,
+    ctx: vnode.ctx
   };
   return cloned;
 }
@@ -4229,34 +4173,15 @@ function getExposeProxy(instance) {
         } else if (key in publicPropertiesMap) {
           return publicPropertiesMap[key](instance);
         }
+      },
+      has(target, key) {
+        return key in target || key in publicPropertiesMap;
       }
     }));
   }
 }
-const classifyRE = /(?:^|[-_])(\w)/g;
-const classify = (str) => str.replace(classifyRE, (c) => c.toUpperCase()).replace(/[-_]/g, "");
 function getComponentName(Component, includeInferred = true) {
   return isFunction$3(Component) ? Component.displayName || Component.name : Component.name || includeInferred && Component.__name;
-}
-function formatComponentName(instance, Component, isRoot = false) {
-  let name = getComponentName(Component);
-  if (!name && Component.__file) {
-    const match = Component.__file.match(/([^/\\]+)\.\w+$/);
-    if (match) {
-      name = match[1];
-    }
-  }
-  if (!name && instance && instance.parent) {
-    const inferFromRegistry = (registry) => {
-      for (const key in registry) {
-        if (registry[key] === Component) {
-          return key;
-        }
-      }
-    };
-    name = inferFromRegistry(instance.components || instance.parent.type.components) || inferFromRegistry(instance.appContext.components);
-  }
-  return name ? classify(name) : isRoot ? `App` : `Anonymous`;
 }
 function isClassComponent(value) {
   return isFunction$3(value) && "__vccOpts" in value;
@@ -4284,7 +4209,14 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.2.41";
+const ssrContextKey = Symbol(``);
+const useSSRContext = () => {
+  {
+    const ctx = inject(ssrContextKey);
+    return ctx;
+  }
+};
+const version = "3.2.45";
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
 const templateContainer = doc && /* @__PURE__ */ doc.createElement("template");
@@ -4831,7 +4763,7 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.23
+  * pinia v2.0.26
   * (c) 2022 Eduardo San Martin Morote
   * @license MIT
   */
@@ -4890,8 +4822,8 @@ function addSubscription(subscriptions, callback, detached, onCleanup = noop) {
       onCleanup();
     }
   };
-  if (!detached && getCurrentInstance()) {
-    onUnmounted(removeSubscription);
+  if (!detached && getCurrentScope()) {
+    onScopeDispose(removeSubscription);
   }
   return removeSubscription;
 }
@@ -5353,14 +5285,14 @@ const useWss = defineStore("workspaceState", {
 const vscode = "acquireVsCodeApi" in window ? acquireVsCodeApi() : void 0;
 const isVSCode = vscode !== void 0;
 const cmd2Ex = vscode ? (o) => vscode.postMessage(o) : (o) => console.log(`cmd2Ex:%o`, o);
-const warn$1 = (mes) => cmd2Ex({ cmd: "warn", mes });
+const warn = (mes) => cmd2Ex({ cmd: "warn", mes });
 const openURL = (url) => cmd2Ex({ cmd: "openURL", url });
 const copyTxt = (id) => cmd2Ex({ cmd: "copyTxt", id });
 const aHook = [];
 const on = (nm, fnc) => aHook.push({ nm, fnc });
 window.addEventListener("message", (e) => {
   if (!e.isTrusted) {
-    warn$1("Setting.vue isTrusted=false");
+    warn("Setting.vue isTrusted=false");
     return;
   }
   go(e.data.cmd, e.data);
@@ -5413,7 +5345,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
   }
 });
 /**
-  * vee-validate v4.7.2
+  * vee-validate v4.7.3
   * (c) 2022 Abdelrahman Awad
   * @license MIT
   */
@@ -5708,9 +5640,6 @@ function keysOf(record) {
 function injectWithSelf(symbol, def2 = void 0) {
   const vm = getCurrentInstance();
   return (vm === null || vm === void 0 ? void 0 : vm.provides[symbol]) || inject(symbol, def2);
-}
-function warn(message) {
-  warn$2(`[vee-validate]: ${message}`);
 }
 function resolveNextCheckboxValue(currentValue, checkedValue, uncheckedValue) {
   if (Array.isArray(currentValue)) {
@@ -6901,7 +6830,7 @@ function useForm(opts) {
       setInPath(formValues, field, newValue2);
       return;
     }
-    let newValue = value;
+    let newValue = clonedValue;
     if (!isFieldGroup(fieldInstance) && fieldInstance.type === "checkbox" && !force && !RESET_LOCK) {
       newValue = klona(resolveNextCheckboxValue(getFromPath(formValues, field), value, unref(fieldInstance.uncheckedValue)));
     }
@@ -6948,13 +6877,9 @@ function useForm(opts) {
   function resetForm(state) {
     RESET_LOCK = true;
     mutateAllFields((f) => f.resetField());
-    if (state === null || state === void 0 ? void 0 : state.values) {
-      setInitialValues(state.values);
-      setValues(state === null || state === void 0 ? void 0 : state.values);
-    } else {
-      setInitialValues(originalInitialValues.value);
-      setValues(originalInitialValues.value);
-    }
+    const newValues = (state === null || state === void 0 ? void 0 : state.values) ? state.values : originalInitialValues.value;
+    setInitialValues(newValues);
+    setValues(newValues);
     if (state === null || state === void 0 ? void 0 : state.touched) {
       setTouched(state.touched);
     }
@@ -7097,7 +7022,6 @@ function useForm(opts) {
   async function validateField(field) {
     const fieldInstance = fieldsByPath.value[field];
     if (!fieldInstance) {
-      warn$2(`field with name ${field} was not found`);
       return Promise.resolve({ errors: [], valid: true });
     }
     if (Array.isArray(fieldInstance)) {
@@ -7384,11 +7308,9 @@ function useFieldArray(arrayPath) {
     move: noOp
   };
   if (!form) {
-    warn("FieldArray requires being a child of `<Form/>` or `useForm` being called before it. Array fields may not work correctly");
     return noOpApi;
   }
   if (!unref(arrayPath)) {
-    warn("FieldArray requires a field path to be provided, did you forget to pass the `name` prop?");
     return noOpApi;
   }
   const alreadyExists = form.fieldArrays.find((a) => unref(a.path) === unref(arrayPath));
@@ -7423,7 +7345,6 @@ function useFieldArray(arrayPath) {
         set(value2) {
           const idx = fields.value.findIndex((e) => e.key === key);
           if (idx === -1) {
-            warn(`Attempting to update a non-existent array item`);
             return;
           }
           update(idx, value2);
@@ -8697,23 +8618,23 @@ function cacheHas$1(cache, key) {
 var _cacheHas = cacheHas$1;
 var SetCache = _SetCache, arraySome = _arraySome, cacheHas = _cacheHas;
 var COMPARE_PARTIAL_FLAG$5 = 1, COMPARE_UNORDERED_FLAG$3 = 2;
-function equalArrays$2(array2, other, bitmask, customizer, equalFunc, stack2) {
+function equalArrays$2(array2, other, bitmask, customizer, equalFunc, stack) {
   var isPartial = bitmask & COMPARE_PARTIAL_FLAG$5, arrLength = array2.length, othLength = other.length;
   if (arrLength != othLength && !(isPartial && othLength > arrLength)) {
     return false;
   }
-  var arrStacked = stack2.get(array2);
-  var othStacked = stack2.get(other);
+  var arrStacked = stack.get(array2);
+  var othStacked = stack.get(other);
   if (arrStacked && othStacked) {
     return arrStacked == other && othStacked == array2;
   }
   var index = -1, result = true, seen = bitmask & COMPARE_UNORDERED_FLAG$3 ? new SetCache() : void 0;
-  stack2.set(array2, other);
-  stack2.set(other, array2);
+  stack.set(array2, other);
+  stack.set(other, array2);
   while (++index < arrLength) {
     var arrValue = array2[index], othValue = other[index];
     if (customizer) {
-      var compared = isPartial ? customizer(othValue, arrValue, index, other, array2, stack2) : customizer(arrValue, othValue, index, array2, other, stack2);
+      var compared = isPartial ? customizer(othValue, arrValue, index, other, array2, stack) : customizer(arrValue, othValue, index, array2, other, stack);
     }
     if (compared !== void 0) {
       if (compared) {
@@ -8724,20 +8645,20 @@ function equalArrays$2(array2, other, bitmask, customizer, equalFunc, stack2) {
     }
     if (seen) {
       if (!arraySome(other, function(othValue2, othIndex) {
-        if (!cacheHas(seen, othIndex) && (arrValue === othValue2 || equalFunc(arrValue, othValue2, bitmask, customizer, stack2))) {
+        if (!cacheHas(seen, othIndex) && (arrValue === othValue2 || equalFunc(arrValue, othValue2, bitmask, customizer, stack))) {
           return seen.push(othIndex);
         }
       })) {
         result = false;
         break;
       }
-    } else if (!(arrValue === othValue || equalFunc(arrValue, othValue, bitmask, customizer, stack2))) {
+    } else if (!(arrValue === othValue || equalFunc(arrValue, othValue, bitmask, customizer, stack))) {
       result = false;
       break;
     }
   }
-  stack2["delete"](array2);
-  stack2["delete"](other);
+  stack["delete"](array2);
+  stack["delete"](other);
   return result;
 }
 var _equalArrays = equalArrays$2;
@@ -8765,7 +8686,7 @@ var COMPARE_PARTIAL_FLAG$4 = 1, COMPARE_UNORDERED_FLAG$2 = 2;
 var boolTag = "[object Boolean]", dateTag = "[object Date]", errorTag = "[object Error]", mapTag$1 = "[object Map]", numberTag = "[object Number]", regexpTag = "[object RegExp]", setTag$1 = "[object Set]", stringTag = "[object String]", symbolTag = "[object Symbol]";
 var arrayBufferTag = "[object ArrayBuffer]", dataViewTag$1 = "[object DataView]";
 var symbolProto = Symbol$1 ? Symbol$1.prototype : void 0, symbolValueOf = symbolProto ? symbolProto.valueOf : void 0;
-function equalByTag$1(object2, other, tag, bitmask, customizer, equalFunc, stack2) {
+function equalByTag$1(object2, other, tag, bitmask, customizer, equalFunc, stack) {
   switch (tag) {
     case dataViewTag$1:
       if (object2.byteLength != other.byteLength || object2.byteOffset != other.byteOffset) {
@@ -8795,14 +8716,14 @@ function equalByTag$1(object2, other, tag, bitmask, customizer, equalFunc, stack
       if (object2.size != other.size && !isPartial) {
         return false;
       }
-      var stacked = stack2.get(object2);
+      var stacked = stack.get(object2);
       if (stacked) {
         return stacked == other;
       }
       bitmask |= COMPARE_UNORDERED_FLAG$2;
-      stack2.set(object2, other);
-      var result = equalArrays$1(convert(object2), convert(other), bitmask, customizer, equalFunc, stack2);
-      stack2["delete"](object2);
+      stack.set(object2, other);
+      var result = equalArrays$1(convert(object2), convert(other), bitmask, customizer, equalFunc, stack);
+      stack["delete"](object2);
       return result;
     case symbolTag:
       if (symbolValueOf) {
@@ -8864,7 +8785,7 @@ var getAllKeys = _getAllKeys;
 var COMPARE_PARTIAL_FLAG$3 = 1;
 var objectProto$1 = Object.prototype;
 var hasOwnProperty$1 = objectProto$1.hasOwnProperty;
-function equalObjects$1(object2, other, bitmask, customizer, equalFunc, stack2) {
+function equalObjects$1(object2, other, bitmask, customizer, equalFunc, stack) {
   var isPartial = bitmask & COMPARE_PARTIAL_FLAG$3, objProps = getAllKeys(object2), objLength = objProps.length, othProps = getAllKeys(other), othLength = othProps.length;
   if (objLength != othLength && !isPartial) {
     return false;
@@ -8876,22 +8797,22 @@ function equalObjects$1(object2, other, bitmask, customizer, equalFunc, stack2) 
       return false;
     }
   }
-  var objStacked = stack2.get(object2);
-  var othStacked = stack2.get(other);
+  var objStacked = stack.get(object2);
+  var othStacked = stack.get(other);
   if (objStacked && othStacked) {
     return objStacked == other && othStacked == object2;
   }
   var result = true;
-  stack2.set(object2, other);
-  stack2.set(other, object2);
+  stack.set(object2, other);
+  stack.set(other, object2);
   var skipCtor = isPartial;
   while (++index < objLength) {
     key = objProps[index];
     var objValue = object2[key], othValue = other[key];
     if (customizer) {
-      var compared = isPartial ? customizer(othValue, objValue, key, other, object2, stack2) : customizer(objValue, othValue, key, object2, other, stack2);
+      var compared = isPartial ? customizer(othValue, objValue, key, other, object2, stack) : customizer(objValue, othValue, key, object2, other, stack);
     }
-    if (!(compared === void 0 ? objValue === othValue || equalFunc(objValue, othValue, bitmask, customizer, stack2) : compared)) {
+    if (!(compared === void 0 ? objValue === othValue || equalFunc(objValue, othValue, bitmask, customizer, stack) : compared)) {
       result = false;
       break;
     }
@@ -8903,8 +8824,8 @@ function equalObjects$1(object2, other, bitmask, customizer, equalFunc, stack2) 
       result = false;
     }
   }
-  stack2["delete"](object2);
-  stack2["delete"](other);
+  stack["delete"](object2);
+  stack["delete"](other);
   return result;
 }
 var _equalObjects = equalObjects$1;
@@ -8951,7 +8872,7 @@ var COMPARE_PARTIAL_FLAG$2 = 1;
 var argsTag = "[object Arguments]", arrayTag = "[object Array]", objectTag = "[object Object]";
 var objectProto = Object.prototype;
 var hasOwnProperty = objectProto.hasOwnProperty;
-function baseIsEqualDeep$1(object2, other, bitmask, customizer, equalFunc, stack2) {
+function baseIsEqualDeep$1(object2, other, bitmask, customizer, equalFunc, stack) {
   var objIsArr = isArray$1(object2), othIsArr = isArray$1(other), objTag = objIsArr ? arrayTag : getTag(object2), othTag = othIsArr ? arrayTag : getTag(other);
   objTag = objTag == argsTag ? objectTag : objTag;
   othTag = othTag == argsTag ? objectTag : othTag;
@@ -8964,33 +8885,33 @@ function baseIsEqualDeep$1(object2, other, bitmask, customizer, equalFunc, stack
     objIsObj = false;
   }
   if (isSameTag && !objIsObj) {
-    stack2 || (stack2 = new Stack$1());
-    return objIsArr || isTypedArray(object2) ? equalArrays(object2, other, bitmask, customizer, equalFunc, stack2) : equalByTag(object2, other, objTag, bitmask, customizer, equalFunc, stack2);
+    stack || (stack = new Stack$1());
+    return objIsArr || isTypedArray(object2) ? equalArrays(object2, other, bitmask, customizer, equalFunc, stack) : equalByTag(object2, other, objTag, bitmask, customizer, equalFunc, stack);
   }
   if (!(bitmask & COMPARE_PARTIAL_FLAG$2)) {
     var objIsWrapped = objIsObj && hasOwnProperty.call(object2, "__wrapped__"), othIsWrapped = othIsObj && hasOwnProperty.call(other, "__wrapped__");
     if (objIsWrapped || othIsWrapped) {
       var objUnwrapped = objIsWrapped ? object2.value() : object2, othUnwrapped = othIsWrapped ? other.value() : other;
-      stack2 || (stack2 = new Stack$1());
-      return equalFunc(objUnwrapped, othUnwrapped, bitmask, customizer, stack2);
+      stack || (stack = new Stack$1());
+      return equalFunc(objUnwrapped, othUnwrapped, bitmask, customizer, stack);
     }
   }
   if (!isSameTag) {
     return false;
   }
-  stack2 || (stack2 = new Stack$1());
-  return equalObjects(object2, other, bitmask, customizer, equalFunc, stack2);
+  stack || (stack = new Stack$1());
+  return equalObjects(object2, other, bitmask, customizer, equalFunc, stack);
 }
 var _baseIsEqualDeep = baseIsEqualDeep$1;
 var baseIsEqualDeep = _baseIsEqualDeep, isObjectLike = isObjectLike_1;
-function baseIsEqual$2(value, other, bitmask, customizer, stack2) {
+function baseIsEqual$2(value, other, bitmask, customizer, stack) {
   if (value === other) {
     return true;
   }
   if (value == null || other == null || !isObjectLike(value) && !isObjectLike(other)) {
     return value !== value && other !== other;
   }
-  return baseIsEqualDeep(value, other, bitmask, customizer, baseIsEqual$2, stack2);
+  return baseIsEqualDeep(value, other, bitmask, customizer, baseIsEqual$2, stack);
 }
 var _baseIsEqual = baseIsEqual$2;
 var Stack = _Stack, baseIsEqual$1 = _baseIsEqual;
@@ -9015,11 +8936,11 @@ function baseIsMatch$1(object2, source, matchData, customizer) {
         return false;
       }
     } else {
-      var stack2 = new Stack();
+      var stack = new Stack();
       if (customizer) {
-        var result = customizer(objValue, srcValue, key, object2, source, stack2);
+        var result = customizer(objValue, srcValue, key, object2, source, stack);
       }
-      if (!(result === void 0 ? baseIsEqual$1(srcValue, objValue, COMPARE_PARTIAL_FLAG$1 | COMPARE_UNORDERED_FLAG$1, customizer, stack2) : result)) {
+      if (!(result === void 0 ? baseIsEqual$1(srcValue, objValue, COMPARE_PARTIAL_FLAG$1 | COMPARE_UNORDERED_FLAG$1, customizer, stack) : result)) {
         return false;
       }
     }

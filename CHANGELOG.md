@@ -1,5 +1,12 @@
+## v4.9.4
+- info: 拡張機能公開先を新アカウントに
+	- https://marketplace.visualstudio.com/items?itemName=famibee2.skynovel2
+	- Visual Studio Marketplace Publisher 旧アカウントにログインできないため
+- fix: 【return undefined】をなるべく【return null】に
+	- 【参考】JavaScript の undefined と null を完全に理解する http://nmi.jp/2022-10-17-Understanding-Undefined-And-Null
+- fix: ライブラリ更新
 ## v4.9.3
-- fix: ホバー：マクロ定義の	sumに \n（改行）が入ってないと、【定義位置〜】リンクが表示されない件
+- fix: ホバー：マクロ定義の sumに \n（改行）が入ってないと、【定義位置〜】リンクが表示されない件
 ## v4.9.2
 - fix: ホバー：タブなどにホバーすると【undefined】表示されるのを抑制
 - fix: フォルダビュー：表示まわりやや手直し

@@ -379,9 +379,6 @@ export class Project {
 
 	readonly	#ps;
 
-	get title() {return this.#cfg.oCfg.book.title}
-	get version() {return this.#cfg.oCfg.book.version}
-
 	dispose() {for (const f of this.#aFSW) f.dispose();}
 
 
@@ -1427,10 +1424,10 @@ export class Project {
 			switch (scheme) {
 			case 'file':
 				if (statSync(fp).isDirectory()) {	// フォルダドロップ
-					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return undefined;	// プロジェクト外なら鼻も引っ掛けない
+					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return null;	// プロジェクト外なら鼻も引っ掛けない
 
 					this.opView(uri);
-					return undefined;
+					return null;
 				}
 				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
 
@@ -1455,7 +1452,7 @@ export class Project {
 							basename(fp) +' のコピー先を選んでください',
 							...aコピー先候補,
 						);
-						if (ans === 'キャンセル') return undefined;
+						if (ans === 'キャンセル') return null;
 
 						fpNew = this.#PATH_PRJ + ans + fn_ext;
 					}	break;
@@ -1478,13 +1475,13 @@ export class Project {
 				const res = await fetch(uriDL);
 				if (! res.ok) {
 					window.showErrorMessage(`ダウンロードに失敗しました。手動でローカルにコピーして下さい uri=${uriDL}`);
-					return undefined;
+					return null;
 				}
 
 				let ppNew = '';
 				switch (aコピー先候補.length) {
 					case 0:		// 候補もなし
-						return undefined;	// サポートしないものとする
+						return null;	// サポートしないものとする
 
 				//	case 1:		// 選ぶまでもなく確定
 					default:	// 決め打ち
@@ -1500,14 +1497,14 @@ export class Project {
 
 			}	break;
 
-			default:	return undefined;
+			default:	return null;
 			}
 
 			aFpNew.push(fpNew);
 		}
 
 		// スニペット挿入・値部を書き換え
-		if (aFpNew.length === 0) return undefined;
+		if (aFpNew.length === 0) return null;
 		const fp = aFpNew[0];
 		const ext = extname(fp).slice(1);
 		const fn = getFn(fp);
@@ -1529,7 +1526,7 @@ export class Project {
 			return {insertText: new SnippetString(sni)};
 		}
 
-		return undefined;
+		return null;
 	}
 		#mExt2Snip: Map<SEARCH_PATH_ARG_EXT, string> = new Map();
 
