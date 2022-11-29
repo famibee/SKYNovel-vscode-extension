@@ -4763,7 +4763,7 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.26
+  * pinia v2.0.27
   * (c) 2022 Eduardo San Martin Morote
   * @license MIT
   */

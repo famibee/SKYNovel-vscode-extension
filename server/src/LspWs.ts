@@ -110,6 +110,7 @@ const hInfKw: {[key in T_CHK重複_KEY]: T_KW_VAR} = {
 	文字出現演出定義	: '文字出現演出名',
 	文字消去演出定義	: '文字消去演出名',
 	一文字マクロ定義	: '一文字マクロ文字',
+	サウンドバッファ宣言	: 'サウンドバッファ',
 };
 
 
@@ -134,6 +135,7 @@ const KW_VAR = [
 	'文字出現演出名',	// 〃
 	'文字消去演出名',	// 〃
 	'一文字マクロ文字',	// 〃
+	'サウンドバッファ',	// 〃
 
 	// 以外
 	'代入変数名',	// & 変数操作、[let_ml][let]
@@ -1214,6 +1216,10 @@ WorkspaceEdit
 		this.#hKey2KW.文字出現演出名.add('default');
 		this.#hKey2KW.文字消去演出名.add('default');
 
+		this.#hKey2KW.サウンドバッファ.add('BGM');
+		this.#hKey2KW.サウンドバッファ.add('SE');
+		this.#hKey2KW.サウンドバッファ.add('SYS');
+
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		for (const j of this.#aEndingJob) j();
@@ -1851,6 +1857,12 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	readonly	#hTagProc: {[nm: string]: (arg: ARG_TAG_PROC)=> void}	= {
 		// constructor で上書きしているので注意
 
+		link: arg=> {
+			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
+		},
+
 		let_ml: ({hArg, pp})=> {
 			this.#procToken = (p, token)=> {
 				const len2 = token.length;
@@ -1864,8 +1876,10 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 				this.#procToken = this.#procTokenBase;
 			};
 
-			const v = hArg.name?.val;
-			if (v && v.at(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
+			const nm = hArg.name?.val;
+			if (! nm || this.#REG_IS_VAL.test(nm)) return;
+
+			this.#hT2Pp2Kw['代入変数名'][pp].add(nm);
 		},
 
 		macro: arg=> {
@@ -1994,6 +2008,12 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		// else:  = elsif
 		endif: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
+		button: arg=> {
+			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
+		},
+
 		// event:  = s
 		// jump:  = s
 		call: arg=> {
@@ -2017,8 +2037,10 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		},
 
 		let: ({hArg, pp})=> {
-			const v = hArg.name?.val;
-			if (v && v.at(0) !== '&') this.#hT2Pp2Kw['代入変数名'][pp].add(v);
+			const nm = hArg.name?.val;
+			if (! nm || this.#REG_IS_VAL.test(nm)) return;
+
+			this.#hT2Pp2Kw['代入変数名'][pp].add(nm);
 		},
 		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
 		// button = s
@@ -2041,7 +2063,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		add_face: arg=> {
 			const {hArg} = arg;
 			const nm = hArg.name?.val;
-			if (! nm || nm.at(0) === '&') return;
+			if (! nm || this.#REG_IS_VAL.test(nm)) return;
 
 			this.#recDefKw('差分名称', 'name', arg);
 		},
@@ -2057,6 +2079,19 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			const s = this.#getFonts2ANm(fonts, uri, rng);
 			if (! s) this.#nowFontNm = s;
 		},
+
+		fadeoutse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		fadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		playse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		stopfadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		stopse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		volume: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		wf: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		ws: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		xchgbuf: arg=> {
+			this.#recAddKw('サウンドバッファ', 'buf', arg);
+			this.#recAddKw('サウンドバッファ', 'buf2', arg);
+		},
 	}	
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];
 		#cnvFnWildcard2A(fn: string): string[] {
@@ -2065,10 +2100,19 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		}
 
 
+	readonly	#REG_IS_VAL	= /^[%&]/;
+	#recAddKw(i: T_KW_VAR, nmArg: string, {hArg, pp}: ARG_TAG_PROC) {
+		const kw = hArg[nmArg]?.val;
+		if (! kw || this.#REG_IS_VAL.test(kw)) return;
+
+		this.#hT2Pp2Kw[i][pp].add(kw);
+	}
+
+
 	// === 重複チェック系 ===
 	#recDefKw(i: T_CHK重複_KEY, nmArg: string, {hArg, uri, hRng, pp}: ARG_TAG_PROC) {
 		const kw = hArg[nmArg]?.val;
-		if (! kw || kw.at(0) === '&') return;
+		if (! kw || this.#REG_IS_VAL.test(kw)) return;
 
 		const m = this.#hT2DefKw2ALoc[i];
 		const a = m.get(kw) ?? [];

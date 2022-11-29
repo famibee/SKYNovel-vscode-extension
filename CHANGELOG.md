@@ -1,3 +1,20 @@
+## v4.9.5
+- fix: コード補完機能：「=」起動で正しい属性判定をしない場合があった件
+	- AnalyzeTagArg.ts parseinDetail() の修正
+- fix: コード補完機能：属性値が %始まりのマクロ引数の場合はキーワード候補に含まないように
+- fix: コード補完機能：「サウンドバッファ」関連のコード補完を作り忘れていたのを修正
+	- 対象タグ
+		- [button]
+		- [fadeoutse]
+		- [fadese]
+		- [link]
+		- [playse]
+		- [stopfadese]
+		- [stopse]
+		- [volume]
+		- [wf]
+		- [ws]
+		- [xchgbuf]
 ## v4.9.4
 - info: 拡張機能公開先を新アカウントに
 	- https://marketplace.visualstudio.com/items?itemName=famibee2.skynovel2
