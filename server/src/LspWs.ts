@@ -1532,14 +1532,14 @@ WorkspaceEdit
 		}
 		this.#hDoc2TagMacUse[pp] = [];
 
-		for (const pp2s of Object.values(this.#hT2Pp2Kw)) pp2s[pp] ??= new Set;
+		for (const pp2s of Object.values(this.#hT2Pp2Kw)) pp2s[pp] = new Set;
 		this.#InfFont.hFp2FontErr[fp] = [];
 
 		this.#hDoc2InlayHint[pp] = [];
 
 
 		const fn = getFn(pp);
-		this.#hT2Pp2Kw['ジャンプ先'][pp].add(`fn=${fn}`);
+		this.#hT2Pp2Kw.ジャンプ先[pp].add(`fn=${fn}`);
 
 		const sJumpFn = new Set();	// ジャンプ元から先(fn)への関連
 		let sJoinLabel = '';	// ラベル変更検知用、jump情報・ラベル名結合文字列
@@ -1575,7 +1575,7 @@ WorkspaceEdit
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
 					if (name.at(0) !== '&') {
 						const kw = name.trimEnd();
-						this.#hT2Pp2Kw['代入変数名'][pp].add(kw);
+						this.#hT2Pp2Kw.代入変数名[pp].add(kw);
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
@@ -1586,7 +1586,7 @@ WorkspaceEdit
 			if ((uc === 42) && (token.length > 1)) {	// * ラベル
 				p.character += len;
 
-				this.#hT2Pp2Kw['ジャンプ先'][pp].add(`fn=${fn} label=${token}`);
+				this.#hT2Pp2Kw.ジャンプ先[pp].add(`fn=${fn} label=${token}`);
 
 				const [lbl] = token.split('|');
 					// 吉里吉里仕様のセーブラベル名にあたる機能は無いが、属性指定時に
@@ -1877,9 +1877,9 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			};
 
 			const nm = hArg.name?.val;
-			if (! nm || this.#REG_IS_VAL.test(nm)) return;
+			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
 
-			this.#hT2Pp2Kw['代入変数名'][pp].add(nm);
+			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
 		},
 
 		macro: arg=> {
@@ -2038,9 +2038,9 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 		let: ({hArg, pp})=> {
 			const nm = hArg.name?.val;
-			if (! nm || this.#REG_IS_VAL.test(nm)) return;
+			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
 
-			this.#hT2Pp2Kw['代入変数名'][pp].add(nm);
+			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
 		},
 		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
 		// button = s
@@ -2063,7 +2063,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		add_face: arg=> {
 			const {hArg} = arg;
 			const nm = hArg.name?.val;
-			if (! nm || this.#REG_IS_VAL.test(nm)) return;
+			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
 
 			this.#recDefKw('差分名称', 'name', arg);
 		},
@@ -2100,10 +2100,10 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		}
 
 
-	readonly	#REG_IS_VAL	= /^[%&]/;
+	readonly	#REG_NO_LITERAL	= /^[%&]/;
 	#recAddKw(i: T_KW_VAR, nmArg: string, {hArg, pp}: ARG_TAG_PROC) {
 		const kw = hArg[nmArg]?.val;
-		if (! kw || this.#REG_IS_VAL.test(kw)) return;
+		if (! kw || this.#REG_NO_LITERAL.test(kw)) return;
 
 		this.#hT2Pp2Kw[i][pp].add(kw);
 	}
@@ -2112,7 +2112,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	// === 重複チェック系 ===
 	#recDefKw(i: T_CHK重複_KEY, nmArg: string, {hArg, uri, hRng, pp}: ARG_TAG_PROC) {
 		const kw = hArg[nmArg]?.val;
-		if (! kw || this.#REG_IS_VAL.test(kw)) return;
+		if (! kw || this.#REG_NO_LITERAL.test(kw)) return;
 
 		const m = this.#hT2DefKw2ALoc[i];
 		const a = m.get(kw) ?? [];
