@@ -47,9 +47,9 @@ const REG_CNV_HTML	= /\.(htm|html)$/;
 const REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
 const REG_CNV_JSON	= /\.json$/;
 
-const REG_REP_JSON_CNV	= /("image":")([^.]+\.\d+x\d+).*\.(jpe?g|png)"/;
+const REG_REP_JSON_CNV	= /("image"\s*:\s*")([^.]+(?:\.\d+x\d+)?).*\.(jpe?g|png)"/;
 const DEST_REP_JSON_CNV	= '$1$2.webp","image_bkup":"$2.$3"';
-	// https://regex101.com/r/JE6RKV/1	テスト用に /g をつけている
+	// https://regex101.com/r/Vd8HQp/1	テスト用に /g をつけている
 
 const REG_REP_JSON_RESTORE	= /webp","image_bkup":".+(jpe?g|png)"/;
 const DEST_REP_JSON_RESTORE	= '$1"';
@@ -132,6 +132,7 @@ switch (pathInp) {
 						url,
 						REG_REP_WEBPFLAG,
 						'false/*WEBP*/',
+						false,
 					));
 					return;
 				}
@@ -181,11 +182,15 @@ switch (pathInp) {
 				if (REG_CNV_WEBP.test(name)) {cnv(url, resolve(wdBase, name)); return;}
 
 				// htm置換（true/*WEBP*/）
-				if (REG_CNV_HTML.test(name)) a.push(async ()=> replaceFile(
-					url,
-					REG_REP_WEBPFLAG,
-					'true/*WEBP*/',
-				));
+				if (REG_CNV_HTML.test(name)) {
+					a.push(async ()=> replaceFile(
+						url,
+						REG_REP_WEBPFLAG,
+						'true/*WEBP*/',
+						false,
+					));
+					return;
+				}
 
 				// json置換（アニメpng）
 				if (REG_CNV_JSON.test(name)) a.push(async ()=> replaceFile(
