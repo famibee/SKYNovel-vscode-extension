@@ -715,12 +715,14 @@ export class Project {
 		'cnv_mat_pic': {
 			title		: '画像ファイル最適化',
 			pathCpyTo	: 'build',
-			aNeedLib	: ['sharp'],
+			aNeedLib	: ['sharp','p-queue@6.6.2'],
 		},
 		'cnv_mat_snd': {
 			title		: '音声ファイル最適化',
 			pathCpyTo	: 'build',
-			aNeedLib	: ['@ffmpeg-installer/ffmpeg','fluent-ffmpeg'],
+			aNeedLib	: ['@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
+				// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
+				// https://aminevsky.github.io/blog/posts/pqueue-sample/
 		},
 	};
 	#exeTask(nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {

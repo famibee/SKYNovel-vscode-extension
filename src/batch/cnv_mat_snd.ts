@@ -44,12 +44,39 @@ let oLog: T_OPTSND = {
 	hSize	: {},
 };
 const log_exit = (exit_code = -1)=> {
+	const a = Object.entries(oLog.hSize);
+	a.sort((p1, p2)=> {
+		const k1 = p1[0], k2 = p2[0];
+		if (k1 < k2) return -1;
+		if (k1 > k2) return 1;
+		return 0;
+	})
+	oLog.hSize = Object.fromEntries(a);
+
 	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
 }
 
 
-const a: (()=> Promise<void>)[] = [];
+import PQueue from 'p-queue';
+const queue = new PQueue({concurrency: 20, autoStart: false});
+let start_cnt = 0;
+const go = async ()=> {
+	start_cnt = queue.size;
+	console.error(`fn:cnv_mat_snd.ts start: ${start_cnt} tasks`);	// log
+
+	queue.start();
+	await queue.onIdle();
+	log_exit(0);
+};
+let cnt = ()=> {
+	const s = queue.size;
+	if (s % 20 > 0) return;
+	if (s === 0) {cnt = ()=> {}; return;}
+
+	console.error(`fn:cnv_mat_snd.ts ${s}/${start_cnt} tasks`);	// log
+};
+
 
 /**
  * 
@@ -66,37 +93,37 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
 	ogg		(.ogg) Vorbis
 */
 function cnv(pathInp: string, pathBase: string, no_move: string = ''): void {
-	a.push(
-		async ()=> {
-			const {dir, name, ext} = parse(pathInp);
-			if (no_move === 'no_move') await Promise.allSettled(
-				['m4a','aac','ogg']
-				.map(ext=> remove(dir +'/'+ name +'.'+ ext))
-			);
-			else await move(pathInp, pathBase, {overwrite: true});
+	queue.add(async ()=> {
+		const {dir, name, ext} = parse(pathInp);
+		if (no_move === 'no_move') await Promise.allSettled(
+			['m4a','aac','ogg']
+			.map(ext=> remove(dir +'/'+ name +'.'+ ext))
+		);
+		else await move(pathInp, pathBase, {overwrite: true});
 
-			// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-			const {dir: dirBase} = parse(pathBase);
-			const pathWk = dirBase +'/'+ name + extCnv;
-			const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, optSize: 0, ext: <any>'',};
+		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+		const {dir: dirBase} = parse(pathBase);
+		const pathWk = dirBase +'/'+ name + extCnv;
+		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, optSize: 0, ext: <any>'',};
 
-			await new Promise<void>(re=> ffmpeg(pathBase)
-			.save(pathWk)	// 一度作業中ファイルは退避先に作る
-		//	.on('start', (cl: any)=> console.log(`@@ ${cl} @@`))
-			.on('error', (err: any)=> console.error(err))
-			.on('end', async (_stdout: any, _stderr: any)=> {
-				const baseSize = statSync(pathBase).size;
-				const optSize = statSync(pathWk).size;
-				oLog.hSize[name] = {...fi, baseSize, optSize, ext: <any>ext.slice(1),};
-				oLog.sum.baseSize += baseSize;
-				oLog.sum.optSize += optSize;
+		await new Promise<void>(re=> ffmpeg(pathBase)
+		.save(pathWk)	// 一度作業中ファイルは退避先に作る
+	//	.on('start', (cl: any)=> console.log(`@@ ${cl} @@`))
+		.on('error', (err: any)=> console.error(err))
+		.on('end', async (_stdout: any, _stderr: any)=> {
+			const baseSize = statSync(pathBase).size;
+			const optSize = statSync(pathWk).size;
+			oLog.hSize[name] = {...fi, baseSize, optSize, ext: <any>ext.slice(1),};
+			oLog.sum.baseSize += baseSize;
+			oLog.sum.optSize += optSize;
 
-				await move(pathWk, dir +'/'+ name + extOut, {overwrite: true});
-				re();
-			}));
-		},
-	);
+			await move(pathWk, dir +'/'+ name + extOut, {overwrite: true});
+			cnt();
+			re();
+		}));
+	});
 }
+
 
 switch (pathInp) {
 	case 'restore':	// ファイル最適化 解除
@@ -106,15 +133,14 @@ switch (pathInp) {
 
 				// 対応する素材ファイルが無い場合、削除しないように
 				const urlPrj = resolve(curPrj, dir, nm);
-				a.push(()=> move(url, urlPrj, {overwrite: true}));
+				queue.add(async ()=> {await move(url, urlPrj, {overwrite: true}); cnt();});
 				const urlOut = urlPrj.slice(0, -3);
 				['m4a','aac','ogg'].
-				forEach(ext=> a.push(()=>remove(urlOut + ext)));
+				forEach(ext=> queue.add(async ()=> {await remove(urlOut + ext); cnt();}));
 			}, ()=> {});
 		});
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 		break;
 
 	case 'all_no_move':
@@ -135,8 +161,7 @@ switch (pathInp) {
 			);
 		}
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 		break;
 
 	case 'all':{	// ファイル最適化
@@ -151,8 +176,7 @@ switch (pathInp) {
 			}, ()=> {});
 		});
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 	}	break;
 
 	default:{
@@ -173,7 +197,6 @@ switch (pathInp) {
 			// 第四引数（moveする/しない）
 		cnv(pathInp, curPrj, curPrjBase);
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 	}	break;
 }

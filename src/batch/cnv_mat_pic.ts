@@ -67,12 +67,39 @@ let oLog: T_OPTIMG = {
 	hSize	: {},
 };
 const log_exit = (exit_code = -1)=> {
+	const a = Object.entries(oLog.hSize);
+	a.sort((p1, p2)=> {
+		const k1 = p1[0], k2 = p2[0];
+		if (k1 < k2) return -1;
+		if (k1 > k2) return 1;
+		return 0;
+	})
+	oLog.hSize = Object.fromEntries(a);
+
 	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
 }
 
 
-const a: (()=> Promise<void>)[] = [];
+import PQueue from 'p-queue';
+const queue = new PQueue({concurrency: 50, autoStart: false});
+let start_cnt = 0;
+const go = async ()=> {
+	start_cnt = queue.size;
+	console.error(`fn:cnv_mat_pic.ts start: ${start_cnt} tasks`);	// log
+
+	queue.start();
+	await queue.onIdle();
+	log_exit(0);
+};
+let cnt = ()=> {
+	const s = queue.size;
+	if (s % 50 > 0) return;
+	if (s === 0) {cnt = ()=> {}; return;}
+
+	console.error(`fn:cnv_mat_pic.ts ${s}/${start_cnt} tasks`);	// log
+};
+
 
 /**
  * 
@@ -82,30 +109,29 @@ const a: (()=> Promise<void>)[] = [];
  * @returns {void} 返り値
  */
 function cnv(pathInp: string, pathBase: string, no_move: string = ''): void {
-	a.push(
-		async ()=> {
-			if (no_move !== 'no_move') await move(pathInp, pathBase, {overwrite: true});
+	queue.add(async ()=> {
+		if (no_move !== 'no_move') await move(pathInp, pathBase, {overwrite: true});
 
-			// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-			const {dir, name, ext} = parse(pathInp);
-			const {dir: dirBase} = parse(pathBase);
-			const pathWk = dirBase +'/'+ name +'.webp';
-			const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
+		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+		const {dir, name, ext} = parse(pathInp);
+		const {dir: dirBase} = parse(pathBase);
+		const pathWk = dirBase +'/'+ name +'.webp';
+		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
-			const info = await sharp(pathBase)
-			//.greyscale()	// TEST
-			.webp({quality: Number(fi.webp_q ?? quality)})
-			.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
+		const info = await sharp(pathBase)
+		//.greyscale()	// TEST
+		.webp({quality: Number(fi.webp_q ?? quality)})
+		.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
+		await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
 
-			const baseSize = statSync(pathBase).size;
-			const webpSize = info.size;
-			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
-			oLog.sum.baseSize += baseSize;
-			oLog.sum.webpSize += webpSize;
-		},
-	);
+		const baseSize = statSync(pathBase).size;
+		const webpSize = info.size;
+		oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
+		oLog.sum.baseSize += baseSize;
+		oLog.sum.webpSize += webpSize;
+		cnt();
+	});
 }
 
 switch (pathInp) {
@@ -116,10 +142,10 @@ switch (pathInp) {
 
 				// 対応する素材ファイルが無い場合、削除しないように
 				const urlPrj = resolve(curPrj, dir, nm);
-				a.push(()=> move(url, urlPrj, {overwrite: true}));
+				queue.add(async ()=> {await move(url, urlPrj, {overwrite: true}); cnt();});
 				const {name} = parse(nm);
 				const urlOut = resolve(curPrj, dir, name +'.webp');
-				a.push(()=> remove(urlOut));
+				queue.add(async ()=> {await remove(urlOut); cnt();});
 			}, ()=> {});
 		});
 
@@ -128,26 +154,25 @@ switch (pathInp) {
 				// htm置換・(true/*WEBP*/)
 				if (REG_CNV_HTML.test(nm)) {
 					REG_REP_WEBPFLAG.lastIndex = 0;	// /gなので必要
-					a.push(async ()=> replaceFile(
+					queue.add(()=> {replaceFile(
 						url,
 						REG_REP_WEBPFLAG,
 						'false/*WEBP*/',
 						false,
-					));
+					); cnt();});
 					return;
 				}
 
 				// json置換（アニメpng）
-				if (REG_CNV_JSON.test(nm)) a.push(async ()=> replaceFile(
+				if (REG_CNV_JSON.test(nm)) queue.add(()=> {replaceFile(
 					url,
 					REG_REP_JSON_RESTORE,
 					DEST_REP_JSON_RESTORE,
-				));
+				); cnt();});
 			}, ()=> {});
 		});
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 		break;
 
 	case 'all_no_move':
@@ -168,8 +193,7 @@ switch (pathInp) {
 			);
 		}
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 		break;
 
 	case 'all':{	// ファイル最適化
@@ -183,26 +207,25 @@ switch (pathInp) {
 
 				// htm置換（true/*WEBP*/）
 				if (REG_CNV_HTML.test(name)) {
-					a.push(async ()=> replaceFile(
+					queue.add(()=> {replaceFile(
 						url,
 						REG_REP_WEBPFLAG,
 						'true/*WEBP*/',
 						false,
-					));
+					); cnt();});
 					return;
 				}
 
 				// json置換（アニメpng）
-				if (REG_CNV_JSON.test(name)) a.push(async ()=> replaceFile(
+				if (REG_CNV_JSON.test(name)) queue.add(()=> {replaceFile(
 					url,
 					REG_REP_JSON_CNV,
 					DEST_REP_JSON_CNV,
-				));
+				); cnt();});
 			}, ()=> {});
 		});
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 	}	break;
 
 	default:{
@@ -223,7 +246,6 @@ switch (pathInp) {
 			// 第四引数（moveする/しない）
 		cnv(pathInp, curPrj, curPrjBase);
 
-		Promise.allSettled(a.map(t=> t()))
-		.then(()=> log_exit(0));
+		go();
 	}	break;
 }
