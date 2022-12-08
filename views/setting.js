@@ -5263,19 +5263,19 @@ const useWss = defineStore("workspaceState", {
           return;
         cmd2Ex({ cmd: "update.oWss", oWss: toRaw(this.oWss) });
       });
-      on("notice.Component", (d) => {
-        if (d.id === "cnv.mat.snd.codec")
+      on("notice.Component", ({ id, mode }) => {
+        if (id === "cnv.mat.snd.codec")
           return;
-        switch (d.mode) {
+        switch (mode) {
           case "wait":
-            hDisabled.value[d.id] = true;
+            hDisabled.value[id] = true;
             break;
           case "cancel":
-            this.oWss[d.id] = !this.oWss[d.id];
-            hDisabled.value[d.id] = false;
+            this.oWss[id] = !this.oWss[id];
+            hDisabled.value[id] = false;
             break;
           case "comp":
-            hDisabled.value[d.id] = false;
+            hDisabled.value[id] = false;
             break;
         }
       });
@@ -5316,10 +5316,10 @@ const useVSCode = () => {
     init$2 = true;
     st.$subscribe(() => vscode?.setState(oVSCode));
     const stCfg = useCfg();
-    on("!", (data) => {
-      stCfg.init(data.oCfg);
+    on("!", ({ oCfg, oWss }) => {
+      stCfg.init(oCfg);
       const stWss = useWss();
-      stWss.init(data.oWss);
+      stWss.init(oWss);
       go("init", {});
     });
   }
@@ -5337,7 +5337,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
     init(oCfg) {
       this.oCfg = oCfg;
       this.$subscribe(() => this.subscribe(toRaw(this.oCfg)));
-      on("update.oCfg", (data) => this.oCfg = data.oCfg);
+      on("update.oCfg", ({ oCfg: oCfg2 }) => this.oCfg = oCfg2);
     },
     subscribe(oCfg) {
       cmd2Ex({ cmd: "update.oCfg", oCfg });
@@ -10905,21 +10905,21 @@ const useTemp = () => {
     init$1 = true;
     st.$subscribe(() => cmd2Ex({
       cmd: "update.aTemp",
-      aRes: st.aTemp.map((v) => {
-        switch (v.type) {
+      aRes: st.aTemp.map(({ type, nm, val, num, bol }) => {
+        switch (type) {
           case "txt":
-            return { nm: v.nm, val: toRaw(v.val) };
+            return { nm, val: toRaw(val) };
           case "rng":
-            return { nm: v.nm, val: String(v.num) };
+            return { nm, val: String(num) };
           case "chk":
-            return { nm: v.nm, val: String(v.bol) };
+            return { nm, val: String(bol) };
           default:
-            return { nm: v.nm, val: toRaw(v.val) };
+            return { nm, val: toRaw(val) };
         }
       })
     }));
-    on("update.aTemp", (data) => {
-      st.aTemp = data.aTemp.map((v) => {
+    on("update.aTemp", ({ aTemp, err }) => {
+      st.aTemp = aTemp.map((v) => {
         switch (v.type) {
           case "txt":
             return v;
@@ -10931,7 +10931,7 @@ const useTemp = () => {
             return v;
         }
       });
-      st.err = data.err;
+      st.err = err;
     });
   }
   return st;
@@ -11202,9 +11202,9 @@ const useOInfo = () => {
   })();
   if (!init) {
     init = true;
-    on("update.cnvFont", (d) => st.setACnvFont(d.aCnvFont));
-    on("update.optImg", (d) => st.setOptImg(d.oOptImg));
-    on("update.optSnd", (d) => st.setOptSnd(d.oOptSnd));
+    on("update.cnvFont", ({ aCnvFont }) => st.setACnvFont(aCnvFont));
+    on("update.optImg", ({ oOptImg }) => st.setOptImg(oOptImg));
+    on("update.optSnd", ({ oOptSnd }) => st.setOptSnd(oOptSnd));
   }
   return st;
 };

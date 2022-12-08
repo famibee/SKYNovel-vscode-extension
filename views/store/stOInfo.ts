@@ -30,9 +30,9 @@ export const useOInfo = ()=> {
 	if (! init) {
 		init = true;
 		// 拡張機能メインから値取得
-		on('update.cnvFont', (d: T_E2V_CNVFONT)=> st.setACnvFont(d.aCnvFont));
-		on('update.optImg', (d: T_E2V_OPTIMG)=> st.setOptImg(d.oOptImg));
-		on('update.optSnd', (d: T_E2V_OPTSND)=> st.setOptSnd(d.oOptSnd));
+		on('update.cnvFont', ({aCnvFont}: T_E2V_CNVFONT)=> st.setACnvFont(aCnvFont));
+		on('update.optImg', ({oOptImg}: T_E2V_OPTIMG)=> st.setOptImg(oOptImg));
+		on('update.optSnd', ({oOptSnd}: T_E2V_OPTSND)=> st.setOptSnd(oOptSnd));
 	}
 
 	return st;

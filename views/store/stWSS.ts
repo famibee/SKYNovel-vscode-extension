@@ -26,21 +26,21 @@ export const useWss = defineStore('workspaceState', {
 				if (hDisabled.value['cnv.font.subset']) return;
 				if (hDisabled.value['cnv.mat.pic']) return;
 				if (hDisabled.value['cnv.mat.snd']) return;
-				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss:toRaw(this.oWss)});
+				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss: toRaw(this.oWss)});
 			});
 
-			on('notice.Component', (d: T_E2V_NOTICE_COMPONENT)=> {
-				if (d.id === 'cnv.mat.snd.codec') return;
+			on('notice.Component', ({id, mode}: T_E2V_NOTICE_COMPONENT)=> {
+				if (id === 'cnv.mat.snd.codec') return;
 
-				switch (d.mode) {
-				case 'wait':	hDisabled.value[d.id] = true;	break;
+				switch (mode) {
+				case 'wait':	hDisabled.value[id] = true;	break;
 
 				case 'cancel':
-					this.oWss[d.id] = ! this.oWss[d.id];
-					hDisabled.value[d.id] = false;
+					this.oWss[id] = ! this.oWss[id];
+					hDisabled.value[id] = false;
 					break;
 
-				case 'comp':	hDisabled.value[d.id] = false;	break;
+				case 'comp':	hDisabled.value[id] = false;	break;
 			}});
 		},
 	},

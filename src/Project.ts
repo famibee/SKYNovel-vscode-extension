@@ -241,6 +241,10 @@ export class Project {
 					this.#ps.onCreChgOptSnd(uri);
 					return;
 				}
+				if (regSetting.test(uri.path)) {
+					this.#ps.onChgSettingSn(uri);
+					return;
+				}
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
 				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
 

@@ -56,11 +56,11 @@ export const useVSCode = ()=> {
 		st.$subscribe(()=> vscode?.setState(oVSCode));
 		const stCfg = useCfg();
 		// 拡張機能メインから初期値取得	// 必ず st.$subscribe()以後に
-		on('!', (data: T_E2V_INIT)=> {
-			stCfg.init(data.oCfg);
+		on('!', ({oCfg, oWss}: T_E2V_INIT)=> {
+			stCfg.init(oCfg);
 
 			const stWss = useWss();
-			stWss.init(data.oWss);
+			stWss.init(oWss);
 
 			go('init', {});
 		});

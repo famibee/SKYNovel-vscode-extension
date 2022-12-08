@@ -182,11 +182,12 @@ export class PrjSetting {
 		this.#aPathSettingSn.push(path);
 		this.#chkMultiMatch_SettingSn();
 	}
+	onChgSettingSn(_: Uri) {this.#chkMultiMatch_SettingSn();}
 	onDelSettingSn({path}: Uri) {
 		this.#aPathSettingSn = this.#aPathSettingSn.filter(v=> v !== path);
 	}
 	#chkMultiMatch_SettingSn() {
-		this.#aTemp = [];
+		const aTemp	: T_TEMP[]	= [];
 		const cntSn = this.#aPathSettingSn.length;
 		if (cntSn !== 1) {
 			this.#fnSetting = '';
@@ -198,7 +199,7 @@ export class PrjSetting {
 							+ this.#aPathSettingSn.map(v=> `ファイル位置：${v}`)
 							.join('<br/>\n')
 						),
-				aTemp	: [],
+				aTemp,
 			});
 			return;
 		}
@@ -237,21 +238,16 @@ export class PrjSetting {
 		*/
 
 				default:
-					if (val === 'true' || val === 'false') {
-						o.type = 'chk';
-						break;
-					}
+					if (val === 'true' || val === 'false') o.type = 'chk';
 			}
-			this.#aTemp.push(o);
+			aTemp.push(o);
 		}
-//console.log(`fn:PrjSetting.ts line:237 this.#aTemp:%o`, this.#aTemp);
 		this.#cmd2Vue(<T_E2V_TEMP>{
 			cmd		: 'update.aTemp',
 			err		: '',
-			aTemp	: this.#aTemp,
-		});
+			aTemp,
+		});	// この結果更新【case 'update.aTemp':】が発生しても、差分チェックで止まる
 	}
-	#aTemp	: T_TEMP[]	= [];
 
 
 	async	onCreChgOptSnd(_url: Uri) {}
@@ -597,12 +593,16 @@ export class PrjSetting {
 		}	break;
 
 		case 'update.aTemp':{
-			const e: T_V2E_TEMP = m;
-			for (const v of e.aRes) {
-				this.#fnSetting,
-				new RegExp(`(&${v.nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
-				`$1$3${v.val}$3`	// https://regex101.com/r/jD2znK/1
-			}
+			if (this.#tiDelayUpdTemp) clearTimeout(this.#tiDelayUpdTemp);// 遅延
+			this.#tiDelayUpdTemp = setTimeout(()=> {
+				const e: T_V2E_TEMP = m;
+				const a: [r: RegExp, rep: string][] = [];
+				for (const {nm, val} of e.aRes) a.push([
+					new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
+					`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
+				]);
+				replaceRegsFile(this.#fnSetting, a, false);
+			}, 500);
 		}	break;
 
 		case 'info':	window.showInformationMessage(m.mes); break;
@@ -631,6 +631,7 @@ export class PrjSetting {
 		}}, undefined, this.ctx.subscriptions);
 		this.#openSub();
 	}
+	#tiDelayUpdTemp: NodeJS.Timer | null = null;
 	#openSub() {
 		const a: string[] = [];
 		foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));

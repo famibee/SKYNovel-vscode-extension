@@ -32,22 +32,22 @@ export const useTemp = ()=> {
 		// useField を使うと $subscribe が効かない
 		st.$subscribe(()=> cmd2Ex(<T_V2E_TEMP>{
 			cmd	: 'update.aTemp',
-			aRes: st.aTemp.map(v=> {switch (v.type) {
-				case 'txt':	return {nm: v.nm, val: toRaw(v.val)};
-				case 'rng':	return {nm: v.nm, val: String(v.num)}
-				case 'chk':	return {nm: v.nm, val: String(v.bol)}
-				default:	return {nm: v.nm, val: toRaw(v.val)};
+			aRes: st.aTemp.map(({type, nm, val, num, bol})=> {switch (type) {
+				case 'txt':	return {nm, val: toRaw(val)};
+				case 'rng':	return {nm, val: String(num)};
+				case 'chk':	return {nm, val: String(bol)};
+				default:	return {nm, val: toRaw(val)};
 			}}),
 		}));
 		// 拡張機能メインから値取得	// 必ず st.$subscribe()以後に
-		on('update.aTemp', (data: T_E2V_TEMP)=> {
-			st.aTemp = data.aTemp.map(v=> {switch (v.type) {
+		on('update.aTemp', ({aTemp, err}: T_E2V_TEMP)=> {
+			st.aTemp = aTemp.map(v=> {switch (v.type) {
 				case 'txt':	return v;
 				case 'rng':	return {...v, num: Number(v.val)};
 				case 'chk':	return {...v, bol: Boolean('false')};
 				default:	return v;
 			}});
-			st.err = data.err;
+			st.err = err;
 		});
 	}
 
