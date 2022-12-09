@@ -1,3 +1,5 @@
+## v4.10.1
+- fix: script/setting.sn の変更が暗号化されない件
 ## v4.10.0
 - feat: script/setting.sn の変更が（設定画面を開き直さなくても）GUI変更に追従するように
 - fix: script/setting.sn の音量がGUIで変更できない件

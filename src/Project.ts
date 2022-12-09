@@ -219,6 +219,7 @@ export class Project {
 				}
 				if (regSetting.test(uri.path)) {
 					this.#ps.onCreSettingSn(uri);
+					this.#encIfNeeded(uri);
 					this.#updPathJson();
 					return;
 				}
@@ -243,6 +244,7 @@ export class Project {
 				}
 				if (regSetting.test(uri.path)) {
 					this.#ps.onChgSettingSn(uri);
+					this.#encIfNeeded(uri);
 					return;
 				}
 				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
