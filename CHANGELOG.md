@@ -1,3 +1,9 @@
+## v4.10.2
+- fix: 設定：【基本情報】で【作品タイトル】などを変更しても package.json の build が更新されない件
+	- 以下の三項目（v3.21.0 でのデグレード）
+		- appId
+		- productName
+		- artifactName
 ## v4.10.1
 - fix: script/setting.sn の変更が暗号化されない件
 ## v4.10.0

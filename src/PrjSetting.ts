@@ -469,6 +469,10 @@ export class PrjSetting {
 					p.appCopyright = `(c)${cfg.book.creator}`;
 					p.homepage = cfg.book.pub_url;
 					p.description = cfg.book.detail;
+
+					p.build.appId = p.appId;
+					p.build.productName = cfg.book.title;
+					p.build.artifactName = `${cfg.save_ns}-\${version}-\${arch}.\${ext}`;
 					writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null , '\t'));
 				})(),
 

@@ -4763,7 +4763,7 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.27
+  * pinia v2.0.28
   * (c) 2022 Eduardo San Martin Morote
   * @license MIT
   */
@@ -5075,7 +5075,7 @@ function defineStore(idOrOptions, setup, setupOptions) {
   }
   function useStore(pinia, hot) {
     const currentInstance2 = getCurrentInstance();
-    pinia = pinia || currentInstance2 && inject(piniaSymbol);
+    pinia = pinia || currentInstance2 && inject(piniaSymbol, null);
     if (pinia)
       setActivePinia(pinia);
     pinia = activePinia;
