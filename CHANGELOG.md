@@ -1,3 +1,6 @@
+## v4.10.3
+- fix: 設定：【テンプレ】でチェックボックスを変更しても戻されてしまう件
+- fix: [link]に enabled, style_disable, r_style_disable 属性追加
 ## v4.10.2
 - fix: 設定：【基本情報】で【作品タイトル】などを変更しても package.json の build が更新されない件
 	- 以下の三項目（v3.21.0 でのデグレード）

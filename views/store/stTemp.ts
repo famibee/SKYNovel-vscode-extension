@@ -44,7 +44,7 @@ export const useTemp = ()=> {
 			st.aTemp = aTemp.map(v=> {switch (v.type) {
 				case 'txt':	return v;
 				case 'rng':	return {...v, num: Number(v.val)};
-				case 'chk':	return {...v, bol: Boolean('false')};
+				case 'chk':	return {...v, bol: v.val != 'false'};
 				default:	return v;
 			}});
 			st.err = err;

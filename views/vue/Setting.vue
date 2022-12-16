@@ -5,7 +5,7 @@
 		:class="{
 			'nav-link'	: true,
 			active		: t.id === active_tab,
-		}" data-bs-toggle="tab" role="tab" aria-selected="false"
+		}" data-bs-toggle="tab" role="tab"
 		:aria-selected="t.id === active_tab ?'true' :undefined"
 		@click="active_tab = t.id" v-text="t.nm">
 	</a>

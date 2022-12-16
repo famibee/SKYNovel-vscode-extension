@@ -243,7 +243,7 @@ export class Project {
 					return;
 				}
 				if (regSetting.test(uri.path)) {
-					this.#ps.onChgSettingSn(uri);
+				//	this.#ps.onChgSettingSn(uri);	// ここでやると変更が戻るループ
 					this.#encIfNeeded(uri);
 					return;
 				}

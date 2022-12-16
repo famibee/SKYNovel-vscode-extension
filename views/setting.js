@@ -4762,11 +4762,6 @@ function normalizeContainer(container) {
   return container;
 }
 var isVue2 = false;
-/*!
-  * pinia v2.0.28
-  * (c) 2022 Eduardo San Martin Morote
-  * @license MIT
-  */
 let activePinia;
 const setActivePinia = (pinia) => activePinia = pinia;
 const piniaSymbol = Symbol();
@@ -5150,12 +5145,12 @@ const DEF_CFG = {
 };
 const DEF_CFG4TST = {
   book: {
-    title: "(\u4F5C\u54C1\u30BF\u30A4\u30C8\u30EB)",
-    creator: "(\u8457\u4F5C\u8005)",
+    title: "(作品タイトル)",
+    creator: "(著作者)",
     cre_url: "ugainovel@gmail.com",
-    publisher: "(\u51FA\u7248\u8005)",
+    publisher: "(出版者)",
     pub_url: "https://ugainovel.blog.fc2.com/",
-    detail: "(\u5185\u5BB9\u7D39\u4ECB)",
+    detail: "(内容紹介)",
     version: "1.2.3"
   },
   save_ns: "tst_save_ns",
@@ -5184,8 +5179,8 @@ const DEF_CFG4TST = {
   debuger_token: ""
 };
 const DEF_CNVFONT = [
-  { nm: "KFhimajihoso", mes: "OS\uFF08\u30E6\u30FC\u30B6\u30FC\u5225\uFF09\u3078\u306E\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u6E08\u307F\u30D5\u30A9\u30F3\u30C8", iSize: 1e4, oSize: 3e3, err: "" },
-  { nm: "ipamjm", mes: "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u5185\uFF08core/font/ \u4E0B\uFF09", iSize: 2e4, oSize: 4e3, err: "\u5909\u63DB\u5931\u6557\u3067\u3059\u3002\u5165\u529B\u30D5\u30A1\u30A4\u30EB ipamjm.ttf \u304C\u5B58\u5728\u3059\u308B\u304B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044" }
+  { nm: "KFhimajihoso", mes: "OS（ユーザー別）へのインストール済みフォント", iSize: 1e4, oSize: 3e3, err: "" },
+  { nm: "ipamjm", mes: "プロジェクト内（core/font/ 下）", iSize: 2e4, oSize: 4e3, err: "変換失敗です。入力ファイル ipamjm.ttf が存在するか確認してください" }
 ];
 const DEF_OPTIMG = {
   sum: {
@@ -5233,15 +5228,15 @@ const DEF_OPTSND4TST = {
 };
 const DEF_TEMP = [];
 const DEF_TEMP4TST = [
-  { id: "/setting.sn:sys:TextLayer.Back.Alpha", nm: "sys:TextLayer.Back.Alpha", lbl: "\u30E1\u30C3\u30BB\u30FC\u30B8\u80CC\u666F\u4E0D\u900F\u660E\u5EA6", type: "rng", val: "0.7", num: 0.7, max: 1, min: 0, step: 0.05 },
-  { id: "/setting.sn:sysse_ok1", nm: "sysse_ok1", lbl: "\u8EFD\u3044\u6C7A\u5B9A\u97F3", type: "txt", val: "BurstB_11" },
-  { id: "/setting.sn:sysse_ok2", nm: "sysse_ok2", lbl: "\u91CD\u3044\u6C7A\u5B9A\u97F3", type: "txt", val: "BellA_16" },
-  { id: "/setting.sn:sysse_ok2_long", nm: "sysse_ok2_long", lbl: "\u3082\u3063\u3068\u91CD\u3044\u6C7A\u5B9A\u97F3", type: "txt", val: "BellB_11" },
-  { id: "/setting.sn:sysse_cancel", nm: "sysse_cancel", lbl: "\u30AD\u30E3\u30F3\u30BB\u30EB\u97F3", type: "txt", val: "bell05" },
-  { id: "/setting.sn:sysse_choice", nm: "sysse_choice", lbl: "\u30DE\u30A6\u30B9\u30AA\u30FC\u30D0\u30FC\u30FB\u9078\u629E\u97F3", type: "txt", val: "wood04" },
-  { id: "/setting.sn:useSysMenu", nm: "useSysMenu", lbl: "\u30E1\u30C3\u30BB\u30FC\u30B8\u306B\u30B7\u30B9\u30C6\u30E0\u30DC\u30BF\u30F3\u3092\u914D\u7F6E\u3059\u308B\u304B", type: "chk", val: "false", bol: false },
-  { id: "/setting.sn:def_fonts", nm: "def_fonts", lbl: "\u30C7\u30D5\u30A9\u30EB\u30C8\u30D5\u30A9\u30F3\u30C8", type: "txt", val: "ipamjm, QuiMi_mincho" },
-  { id: "/setting.sn:autoResume", nm: "autoResume", lbl: "\uFF08\u958B\u767A\u7528\u30D6\u30E9\u30A6\u30B6\u7248\u3067\uFF09\u81EA\u52D5\u30EC\u30B8\u30E5\u30FC\u30E0\u3059\u308B\u304B", type: "chk", val: "true", bol: true }
+  { id: "/setting.sn:sys:TextLayer.Back.Alpha", nm: "sys:TextLayer.Back.Alpha", lbl: "メッセージ背景不透明度", type: "rng", val: "0.7", num: 0.7, max: 1, min: 0, step: 0.05 },
+  { id: "/setting.sn:sysse_ok1", nm: "sysse_ok1", lbl: "軽い決定音", type: "txt", val: "BurstB_11" },
+  { id: "/setting.sn:sysse_ok2", nm: "sysse_ok2", lbl: "重い決定音", type: "txt", val: "BellA_16" },
+  { id: "/setting.sn:sysse_ok2_long", nm: "sysse_ok2_long", lbl: "もっと重い決定音", type: "txt", val: "BellB_11" },
+  { id: "/setting.sn:sysse_cancel", nm: "sysse_cancel", lbl: "キャンセル音", type: "txt", val: "bell05" },
+  { id: "/setting.sn:sysse_choice", nm: "sysse_choice", lbl: "マウスオーバー・選択音", type: "txt", val: "wood04" },
+  { id: "/setting.sn:useSysMenu", nm: "useSysMenu", lbl: "メッセージにシステムボタンを配置するか", type: "chk", val: "false", bol: false },
+  { id: "/setting.sn:def_fonts", nm: "def_fonts", lbl: "デフォルトフォント", type: "txt", val: "ipamjm, QuiMi_mincho" },
+  { id: "/setting.sn:autoResume", nm: "autoResume", lbl: "（開発用ブラウザ版で）自動レジュームするか", type: "chk", val: "true", bol: true }
 ];
 const hDisabled = ref({
   "cnv.font.subset": false,
@@ -5344,11 +5339,6 @@ const useCfg = defineStore("doc/prj/prj.json", {
     }
   }
 });
-/**
-  * vee-validate v4.7.3
-  * (c) 2022 Abdelrahman Awad
-  * @license MIT
-  */
 function isCallable(fn) {
   return typeof fn === "function";
 }
@@ -10317,41 +10307,41 @@ const _hoisted_1$7 = { class: "row" };
 const _hoisted_2$7 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.title",
   class: "form-label"
-}, "\u4F5C\u54C1\u30BF\u30A4\u30C8\u30EB\u540D", -1);
+}, "作品タイトル名", -1);
 const _hoisted_3$7 = ["textContent"];
 const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode("label", {
   for: "save_ns",
   class: "form-label"
-}, "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u540D", -1);
+}, "プロジェクト名", -1);
 const _hoisted_5$7 = ["textContent"];
 const _hoisted_6$7 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.creator",
   class: "form-label"
-}, "\u8457\u4F5C\u8005", -1);
+}, "著作者", -1);
 const _hoisted_7$6 = ["textContent"];
 const _hoisted_8$6 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.cre_url",
   class: "form-label"
-}, "\u9023\u7D61\u5148URL\u30FBmail", -1);
+}, "連絡先URL・mail", -1);
 const _hoisted_9$6 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_10$6 = ["disabled"];
 const _hoisted_11$5 = ["textContent"];
 const _hoisted_12$5 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.publisher",
   class: "form-label"
-}, "\u51FA\u7248\u8005", -1);
+}, "出版者", -1);
 const _hoisted_13$5 = ["textContent"];
 const _hoisted_14$5 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.pub_url",
   class: "form-label"
-}, "\u51FA\u7248\u8005URL", -1);
+}, "出版者URL", -1);
 const _hoisted_15$5 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_16$5 = ["disabled"];
 const _hoisted_17$5 = ["textContent"];
 const _hoisted_18$5 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.detail",
   class: "form-label"
-}, "\u5185\u5BB9\uFF1A\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E\u8AAC\u660E", -1);
+}, "内容：プロジェクトの説明", -1);
 const _hoisted_19$4 = ["textContent"];
 const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "StgBasic",
@@ -10360,40 +10350,40 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     const { oCfg } = storeToRefs(stCfg);
     setLocale({
       mixed: {
-        required: "\u5FC5\u9808\u5165\u529B\u9805\u76EE\u3067\u3059",
-        notOneOf: "\u3042\u306A\u305F\u306E\u4F5C\u54C1\u60C5\u5831\u306B\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044"
+        required: "必須入力項目です",
+        notOneOf: "あなたの作品情報に変更してください"
       },
       string: {
-        url: "URL\u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093"
+        url: "URL形式ではありません"
       }
     });
     const { value: v_save_ns, errorMessage: em_save_ns, meta: mv_save_ns } = useField(
       "oCfg.save_ns",
-      create$1().required().matches(/^[\w\.]+$/, "\u82F1\u6570\u5B57\u304B[_.]\u306E\u307F\u3067\u3059").notOneOf(["hatsune", "uc"]),
+      create$1().required().matches(/^[\w\.]+$/, "英数字か[_.]のみです").notOneOf(["hatsune", "uc"]),
       { initialValue: oCfg.value.save_ns }
     );
     const { value: v_title, errorMessage: em_title, meta: mv_title } = useField(
       "oCfg.book.title",
-      create$1().required().notOneOf(["\u521D\u97F3\u9928\u306B\u3066", "\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F"]),
+      create$1().required().notOneOf(["初音館にて", "桜の樹の下には"]),
       { initialValue: oCfg.value.book.title }
     );
     const { value: v_creator, errorMessage: em_creator, meta: mv_creator } = useField(
       "oCfg.book.creator",
-      create$1().required().notOneOf(["\u3075\u3041\u307F\u3079\u3047"]),
+      create$1().required().notOneOf(["ふぁみべぇ"]),
       { initialValue: oCfg.value.book.creator }
     );
     const { value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url } = useField(
       "oCfg.book.cre_url",
       create$1().required().notOneOf(["https://twitter.com/famibee", "https://twitter.com/ugainovel"]).test(
         "is-url_or_mail",
-        () => "URL\uFF08https:\u301C\uFF09\u304B\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044",
+        () => "URL（https:〜）かメールアドレスを指定してください",
         (v = "") => /https?:\/\//.test(v) ? create$1().url().isValid(v) : create$1().email().isValid(v)
       ),
       { initialValue: oCfg.value.book.cre_url }
     );
     const { value: v_publisher, errorMessage: em_publisher, meta: mv_publisher } = useField(
       "oCfg.book.publisher",
-      create$1().required().notOneOf(["\u96FB\u5B50\u6F14\u5287\u90E8"]),
+      create$1().required().notOneOf(["電子演劇部"]),
       { initialValue: oCfg.value.book.publisher }
     );
     const { value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url } = useField(
@@ -10404,8 +10394,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     const { value: v_detail, errorMessage: em_detail, meta: mv_detail } = useField(
       "oCfg.book.detail",
       create$1().required().notOneOf([
-        "\u6C5F\u6238\u5DDD\u4E71\u6B69\u300C\u5B64\u5CF6\u306E\u9B3C\u300D\u4E8C\u6B21\u5275\u4F5C\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u30B5\u30F3\u30D7\u30EB\u3067\u3059\u3002",
-        "\u68B6\u4E95\u57FA\u6B21\u90CE\u300C\u685C\u306E\u6A39\u306E\u4E0B\u306B\u306F\u300D\u3092\u30CE\u30D9\u30EB\u30B2\u30FC\u30E0\u5316\u3057\u305F\u3082\u306E\u3067\u3059\u3002"
+        "江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。",
+        "梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。"
       ]),
       { initialValue: oCfg.value.book.detail }
     );
@@ -10448,8 +10438,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_title) ? v_title.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_title).valid }]),
             onInput: subscribe,
-            placeholder: "\uFF08\u65E5\u672C\u8A9E\u540D\u3067\uFF2F\uFF2B\uFF09",
-            "aria-label": "\u4F5C\u54C1\u30BF\u30A4\u30C8\u30EB\u540D",
+            placeholder: "（日本語名でＯＫ）",
+            "aria-label": "作品タイトル名",
             "aria-describedby": "Title"
           }, null, 34), [
             [vModelText, unref(v_title)]
@@ -10469,8 +10459,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_save_ns) ? v_save_ns.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_save_ns).valid }]),
             onInput: subscribe,
-            placeholder: "com.fc2.blog.famibee \u7684\u306A\u51FA\u7248\u8005\uFF35\uFF32\uFF2C\u306E\u9006\u9806\u30C9\u30E1\u30A4\u30F3\u63A8\u5968",
-            "aria-label": "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u540D",
+            placeholder: "com.fc2.blog.famibee 的な出版者ＵＲＬの逆順ドメイン推奨",
+            "aria-label": "プロジェクト名",
             "aria-describedby": "Project name"
           }, null, 34), [
             [vModelText, unref(v_save_ns)]
@@ -10490,8 +10480,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_creator) ? v_creator.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_creator).valid }]),
             onInput: subscribe,
-            placeholder: "\u30DA\u30F3\u30CD\u30FC\u30E0\u3001\u30CF\u30F3\u30C9\u30EB\u540D\u306A\u3069",
-            "aria-label": "\u8457\u4F5C\u8005",
+            placeholder: "ペンネーム、ハンドル名など",
+            "aria-label": "著作者",
             "aria-describedby": "Contact"
           }, null, 34), [
             [vModelText, unref(v_creator)]
@@ -10512,8 +10502,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
               "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_cre_url) ? v_cre_url.value = $event : null),
               class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_cre_url).valid }]),
               onInput: subscribe,
-              placeholder: "\u30E1\u30A2\u30C9\u3001SNS\u306A\u3069",
-              "aria-label": "\u9023\u7D61\u5148\uFF35\uFF32\uFF2C",
+              placeholder: "メアド、SNSなど",
+              "aria-label": "連絡先ＵＲＬ",
               "aria-describedby": "Contact URL"
             }, null, 34), [
               [vModelText, unref(v_cre_url)]
@@ -10540,8 +10530,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_publisher) ? v_publisher.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_publisher).valid }]),
             onInput: subscribe,
-            placeholder: "\u30B5\u30FC\u30AF\u30EB\u540D\u3001\u56E3\u4F53\u540D\u306A\u3069",
-            "aria-label": "\u51FA\u7248\u8005",
+            placeholder: "サークル名、団体名など",
+            "aria-label": "出版者",
             "aria-describedby": "Publisher"
           }, null, 34), [
             [vModelText, unref(v_publisher)]
@@ -10562,8 +10552,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
               "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_pub_url) ? v_pub_url.value = $event : null),
               class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_pub_url).valid }]),
               onInput: subscribe,
-              placeholder: "\u3054\u81EA\u8EAB\u306E\u516C\u5F0F\u30B5\u30A4\u30C8\u306A\u3069",
-              "aria-label": "\u51FA\u7248\u8005\uFF35\uFF32\uFF2C",
+              placeholder: "ご自身の公式サイトなど",
+              "aria-label": "出版者ＵＲＬ",
               "aria-describedby": "Publisher URL"
             }, null, 34), [
               [vModelText, unref(v_pub_url)]
@@ -10589,8 +10579,8 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_detail).valid }]),
             "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => isRef(v_detail) ? v_detail.value = $event : null),
             onInput: subscribe,
-            placeholder: "\u30A4\u30F3\u30B9\u30C8\u30FC\u30E9\u30FC\u306B\u8868\u793A\u3059\u308B\u5185\u5BB9\u8AAC\u660E",
-            "aria-label": "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E\u8AAC\u660E",
+            placeholder: "インストーラーに表示する内容説明",
+            "aria-label": "プロジェクトの説明",
             "aria-describedby": "Project description"
           }, null, 34), [
             [vModelText, unref(v_detail)]
@@ -10608,46 +10598,46 @@ const _hoisted_1$6 = { class: "row" };
 const _hoisted_2$6 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.width",
   class: "form-label"
-}, "\u30A2\u30D7\u30EA\u306E\u6A2A\u5E45", -1);
+}, "アプリの横幅", -1);
 const _hoisted_3$6 = ["textContent"];
 const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.height",
   class: "form-label"
-}, "\u30A2\u30D7\u30EA\u306E\u7E26\u5E45", -1);
+}, "アプリの縦幅", -1);
 const _hoisted_5$6 = ["textContent"];
 const _hoisted_6$6 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.version",
   class: "form-label"
-}, "\u30D0\u30FC\u30B8\u30E7\u30F3", -1);
+}, "バージョン", -1);
 const _hoisted_7$5 = ["textContent"];
 const _hoisted_8$5 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.max_len",
   class: "form-label"
-}, "\u30ED\u30B0\u4FDD\u5B58\u9577", -1);
+}, "ログ保存長", -1);
 const _hoisted_9$5 = ["textContent"];
 const _hoisted_10$5 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "\u521D\u671F\u5024")
+  /* @__PURE__ */ createBaseVNode("h5", null, "初期値")
 ], -1);
 const _hoisted_11$4 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.tagch_msecwait",
   class: "form-label"
-}, "\u6587\u5B57\u8868\u793A\u5F85\u3061\u6642\u9593(ms)", -1);
+}, "文字表示待ち時間(ms)", -1);
 const _hoisted_12$4 = ["textContent"];
 const _hoisted_13$4 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.auto_msecpagewait",
   class: "form-label"
-}, "\u81EA\u52D5\u8AAD\u307F\u6642\u6587\u5B57\u8868\u793A\u5F85\u3061(ms)", -1);
+}, "自動読み時文字表示待ち(ms)", -1);
 const _hoisted_14$4 = ["textContent"];
 const _hoisted_15$4 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.escape",
   class: "form-label"
-}, "\u30A8\u30B9\u30B1\u30FC\u30D7\u6587\u5B57", -1);
+}, "エスケープ文字", -1);
 const _hoisted_16$4 = ["textContent"];
 const _hoisted_17$4 = { class: "col-6 col-sm-3 px-1 py-2" };
 const _hoisted_18$4 = /* @__PURE__ */ createBaseVNode("label", {
   for: "book.bg_color",
   class: "form-label"
-}, "\u80CC\u666F\u8272", -1);
+}, "背景色", -1);
 const _sfc_main$6 = /* @__PURE__ */ defineComponent({
   __name: "StgApp",
   setup(__props) {
@@ -10655,42 +10645,42 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
     const { oCfg } = storeToRefs(stCfg);
     const { value: v_width, errorMessage: em_width, meta: mv_width } = useField(
       "oCfg.window.width",
-      create().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").integer("\u6574\u6570\u306B\u3057\u3066\u4E0B\u3055\u3044").min(300, "\u6700\u5C0F\u5024 300 \u4EE5\u4E0A\u306B\u3057\u3066\u4E0B\u3055\u3044"),
+      create().required("必須の項目です").integer("整数にして下さい").min(300, "最小値 300 以上にして下さい"),
       { initialValue: oCfg.value.window.width }
     );
     const { value: v_height, errorMessage: em_height, meta: mv_height } = useField(
       "oCfg.window.height",
-      create().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").integer("\u6574\u6570\u306B\u3057\u3066\u4E0B\u3055\u3044").min(300, "\u6700\u5C0F\u5024 300 \u4EE5\u4E0A\u306B\u3057\u3066\u4E0B\u3055\u3044"),
+      create().required("必須の項目です").integer("整数にして下さい").min(300, "最小値 300 以上にして下さい"),
       { initialValue: oCfg.value.window.height }
     );
     const { value: v_version, errorMessage: em_version, meta: mv_version } = useField(
       "oCfg.version",
-      create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").matches(/^[\w\.\-]+$/, "\u82F1\u6570\u5B57\u304B[_-.]\u306E\u307F\u3067\u3059"),
+      create$1().required("必須の項目です").matches(/^[\w\.\-]+$/, "英数字か[_-.]のみです"),
       { initialValue: oCfg.value.book.version }
     );
     const { value: v_max_len, errorMessage: em_max_len, meta: mv_max_len } = useField(
       "oCfg.window.max_len",
-      create().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").integer("\u6574\u6570\u306B\u3057\u3066\u4E0B\u3055\u3044").min(10, "\u6700\u5C0F\u5024 10 \u4EE5\u4E0A\u306B\u3057\u3066\u4E0B\u3055\u3044"),
+      create().required("必須の項目です").integer("整数にして下さい").min(10, "最小値 10 以上にして下さい"),
       { initialValue: oCfg.value.log.max_len }
     );
     const { value: v_tagch_msecwait, errorMessage: em_tagch_msecwait, meta: mv_tagch_msecwait } = useField(
       "oCfg.window.tagch_msecwait",
-      create().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").integer("\u6574\u6570\u306B\u3057\u3066\u4E0B\u3055\u3044").min(1, "\u6700\u5C0F\u5024 1 \u4EE5\u4E0A\u306B\u3057\u3066\u4E0B\u3055\u3044"),
+      create().required("必須の項目です").integer("整数にして下さい").min(1, "最小値 1 以上にして下さい"),
       { initialValue: oCfg.value.init.tagch_msecwait }
     );
     const { value: v_auto_msecpagewait, errorMessage: em_auto_msecpagewait, meta: mv_auto_msecpagewait } = useField(
       "oCfg.window.auto_msecpagewait",
-      create().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").integer("\u6574\u6570\u306B\u3057\u3066\u4E0B\u3055\u3044").min(1, "\u6700\u5C0F\u5024 1 \u4EE5\u4E0A\u306B\u3057\u3066\u4E0B\u3055\u3044"),
+      create().required("必須の項目です").integer("整数にして下さい").min(1, "最小値 1 以上にして下さい"),
       { initialValue: oCfg.value.init.auto_msecpagewait }
     );
     const { value: v_escape, errorMessage: em_escape, meta: mv_escape } = useField(
       "oCfg.escape",
-      create$1().ensure().matches(/^[^ &()*;[\]]*$/, "\u63A8\u5968\u3055\u308C\u306A\u3044\u6587\u5B57\u3067\u3059"),
+      create$1().ensure().matches(/^[^ &()*;[\]]*$/, "推奨されない文字です"),
       { initialValue: oCfg.value.init.escape }
     );
     const { value: v_bg_color } = useField(
       "oCfg.window.bg_color",
-      create$1().required("\u5FC5\u9808\u306E\u9805\u76EE\u3067\u3059").matches(/#\d{6}/, "#000000 \u5F62\u5F0F\u3067\u306F\u3042\u308A\u307E\u305B\u3093"),
+      create$1().required("必須の項目です").matches(/#\d{6}/, "#000000 形式ではありません"),
       { initialValue: oCfg.value.init.bg_color }
     );
     on("init", () => {
@@ -10735,8 +10725,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_width) ? v_width.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_width).valid }]),
             onInput: subscribe,
-            placeholder: "\u6A2A\u5E45\u30C9\u30C3\u30C8\u6570",
-            "aria-label": "\u30A2\u30D7\u30EA\u306E\u6A2A\u5E45",
+            placeholder: "横幅ドット数",
+            "aria-label": "アプリの横幅",
             "aria-describedby": "Width of application display area"
           }, null, 34), [
             [vModelText, unref(v_width)]
@@ -10756,8 +10746,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_height) ? v_height.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_height).valid }]),
             onInput: subscribe,
-            placeholder: "\u7E26\u5E45\u30C9\u30C3\u30C8\u6570",
-            "aria-label": "\u30A2\u30D7\u30EA\u306E\u7E26\u5E45",
+            placeholder: "縦幅ドット数",
+            "aria-label": "アプリの縦幅",
             "aria-describedby": "Weight of application display area"
           }, null, 34), [
             [vModelText, unref(v_height)]
@@ -10777,8 +10767,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_version) ? v_version.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_version).valid }]),
             onInput: subscribe,
-            placeholder: "1.0.0 \u306A\u3069",
-            "aria-label": "\u30D0\u30FC\u30B8\u30E7\u30F3",
+            placeholder: "1.0.0 など",
+            "aria-label": "バージョン",
             "aria-describedby": "version"
           }, null, 34), [
             [vModelText, unref(v_version)]
@@ -10798,8 +10788,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_max_len) ? v_max_len.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_max_len).valid }]),
             onInput: subscribe,
-            placeholder: "\u4F55\u30DA\u30FC\u30B8\u5206\u4FDD\u5B58\u3059\u308B\u304B",
-            "aria-label": "\u30ED\u30B0\u4FDD\u5B58\u9577",
+            placeholder: "何ページ分保存するか",
+            "aria-label": "ログ保存長",
             "aria-describedby": "Log retention length"
           }, null, 34), [
             [vModelText, unref(v_max_len)]
@@ -10820,8 +10810,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => isRef(v_tagch_msecwait) ? v_tagch_msecwait.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_tagch_msecwait).valid }]),
             onInput: subscribe,
-            placeholder: "\u30DF\u30EA\u79D2\u5358\u4F4D\u3067\u6307\u5B9A",
-            "aria-label": "\u6587\u5B57\u8868\u793A\u5F85\u3061\u6642\u9593(ms)",
+            placeholder: "ミリ秒単位で指定",
+            "aria-label": "文字表示待ち時間(ms)",
             "aria-describedby": "Character display waiting time"
           }, null, 34), [
             [vModelText, unref(v_tagch_msecwait)]
@@ -10841,8 +10831,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_auto_msecpagewait) ? v_auto_msecpagewait.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_auto_msecpagewait).valid }]),
             onInput: subscribe,
-            placeholder: "\u30DF\u30EA\u79D2\u5358\u4F4D\u3067\u6307\u5B9A",
-            "aria-label": "\u81EA\u52D5\u8AAD\u307F\u6642\u6587\u5B57\u8868\u793A\u5F85\u3061\u6642\u9593(ms)",
+            placeholder: "ミリ秒単位で指定",
+            "aria-label": "自動読み時文字表示待ち時間(ms)",
             "aria-describedby": "Waiting time for character display during automatic reading"
           }, null, 34), [
             [vModelText, unref(v_auto_msecpagewait)]
@@ -10862,8 +10852,8 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_escape) ? v_escape.value = $event : null),
             class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_escape).valid }]),
             onInput: subscribe,
-            placeholder: "\u534A\u89D2\u8A18\u53F7\u63A8\u5968",
-            "aria-label": "\u30A8\u30B9\u30B1\u30FC\u30D7\u6587\u5B57",
+            placeholder: "半角記号推奨",
+            "aria-label": "エスケープ文字",
             "aria-describedby": "Escape character"
           }, null, 34), [
             [vModelText, unref(v_escape)]
@@ -10881,7 +10871,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => isRef(v_bg_color) ? v_bg_color.value = $event : null),
             class: "form-control form-control-sm form-control-color",
             onInput: subscribe,
-            "aria-label": "\u80CC\u666F\u8272",
+            "aria-label": "背景色",
             "aria-describedby": "Background color"
           }, null, 544), [
             [vModelText, unref(v_bg_color)]
@@ -10926,7 +10916,7 @@ const useTemp = () => {
           case "rng":
             return { ...v, num: Number(v.val) };
           case "chk":
-            return { ...v, bol: Boolean("false") };
+            return { ...v, bol: v.val != "false" };
           default:
             return v;
         }
@@ -11045,45 +11035,45 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
 });
 const _hoisted_1$4 = { class: "row" };
 const _hoisted_2$4 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "\u6697\u53F7\u5316\u3057\u306A\u3044\u30D5\u30A9\u30EB\u30C0")
+  /* @__PURE__ */ createBaseVNode("h5", null, "暗号化しないフォルダ")
 ], -1);
 const _hoisted_3$4 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
 const _hoisted_4$4 = { class: "form-check" };
 const _hoisted_5$4 = ["id", "onUpdate:modelValue"];
 const _hoisted_6$4 = ["textContent"];
 const _hoisted_7$3 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "\u30C7\u30D0\u30C3\u30B0\u30B9\u30A4\u30C3\u30C1")
+  /* @__PURE__ */ createBaseVNode("h5", null, "デバッグスイッチ")
 ], -1);
 const _hoisted_8$3 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
 const _hoisted_9$3 = { class: "form-check" };
 const _hoisted_10$3 = ["id", "onUpdate:modelValue"];
 const _hoisted_11$3 = ["for", "textContent"];
 const _hoisted_12$3 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "\u30BB\u30FC\u30D6\u30C7\u30FC\u30BF\u4FDD\u5B58\u5148\u3092\u958B\u304F")
+  /* @__PURE__ */ createBaseVNode("h5", null, "セーブデータ保存先を開く")
 ], -1);
 const _hoisted_13$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_14$3 = { class: "form-check" };
 const _hoisted_15$3 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-label",
   for: "open.dev.save_path"
-}, "\u53C2\u8003\u8CC7\u6599\uFF1A\u958B\u767A\u8005\u5411\u3051\u60C5\u5831", -1);
+}, "参考資料：開発者向け情報", -1);
 const _hoisted_16$3 = { class: "input-group input-group-sm" };
-const _hoisted_17$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "\u3010\u30BB\u30FC\u30D6\u30C7\u30FC\u30BF\u306E\u4FDD\u5B58\u5834\u6240\u3011", -1);
-const _hoisted_18$3 = /* @__PURE__ */ createStaticVNode('<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check"><label class="form-label">\u30D6\u30E9\u30A6\u30B6\u7248</label><div class="input-group input-group-sm"><span class="input-group-text">\u30D6\u30E9\u30A6\u30B6\u306E\u30ED\u30FC\u30AB\u30EB\u30B9\u30C8\u30EC\u30FC\u30B8\u306B\u4FDD\u5B58\u3055\u308C\u307E\u3059</span></div></form></div>', 1);
+const _hoisted_17$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "【セーブデータの保存場所】", -1);
+const _hoisted_18$3 = /* @__PURE__ */ createStaticVNode('<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check"><label class="form-label">ブラウザ版</label><div class="input-group input-group-sm"><span class="input-group-text">ブラウザのローカルストレージに保存されます</span></div></form></div>', 1);
 const _hoisted_19$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_20$3 = { class: "form-check" };
 const _hoisted_21$3 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-label",
   for: "copy.folder_save_app"
-}, "\u30A2\u30D7\u30EA\u7248\uFF08\u901A\u5E38\u5B9F\u884C\uFF09", -1);
+}, "アプリ版（通常実行）", -1);
 const _hoisted_22$3 = { class: "input-group input-group-sm" };
-const _hoisted_23$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "\u624B\u52D5\u3067\u958B\u3044\u3066\u4E0B\u3055\u3044", -1);
+const _hoisted_23$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "手動で開いて下さい", -1);
 const _hoisted_24$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_25$3 = { class: "form-check" };
 const _hoisted_26$3 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-label",
   for: "open.folder_save_dbg"
-}, "\u30A2\u30D7\u30EA\u7248\uFF08\u30C7\u30D0\u30C3\u30B0\u5B9F\u884C\uFF09", -1);
+}, "アプリ版（デバッグ実行）", -1);
 const _hoisted_27$2 = { class: "input-group input-group-sm" };
 const _hoisted_28$2 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, ".vscode/storage/", -1);
 const _sfc_main$4 = /* @__PURE__ */ defineComponent({
@@ -11393,14 +11383,14 @@ const _hoisted_3$3 = ["disabled"];
 const _hoisted_4$3 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.mat.pic",
   class: "form-check-label"
-}, "jpg\u30FBpng \u3092 WebP \u306B\u5909\u63DB", -1);
+}, "jpg・png を WebP に変換", -1);
 const _hoisted_5$3 = { class: "col-6 col-sm-3 px-1" };
 const _hoisted_6$3 = { class: "range-wrap" };
 const _hoisted_7$2 = ["textContent"];
 const _hoisted_8$2 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.mat.webp_quality",
   class: "form-label"
-}, "\u57FA\u672C\u306E\u5909\u63DB\u753B\u8CEA", -1);
+}, "基本の変換画質", -1);
 const _hoisted_9$2 = ["disabled"];
 const _hoisted_10$2 = {
   key: 0,
@@ -11409,9 +11399,9 @@ const _hoisted_10$2 = {
 const _hoisted_11$2 = { class: "table table-striped" };
 const _hoisted_12$2 = /* @__PURE__ */ createBaseVNode("thead", null, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA\u5408\u8A08"),
-    /* @__PURE__ */ createBaseVNode("th", null, "webp\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "元画像サイズ合計"),
+    /* @__PURE__ */ createBaseVNode("th", null, "webp変換後"),
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
   ])
 ], -1);
 const _hoisted_13$2 = ["textContent"];
@@ -11432,11 +11422,11 @@ const _hoisted_19$2 = {
 };
 const _hoisted_20$2 = /* @__PURE__ */ createBaseVNode("thead", { class: "sticky-top" }, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "\u30D5\u30A1\u30A4\u30EB\u540D"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u5909\u63DB\u753B\u8CEA"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "\u5143\u753B\u50CF\u30B5\u30A4\u30BA"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
+    /* @__PURE__ */ createBaseVNode("th", null, "変換画質"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元画像サイズ"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp変換後"),
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
   ])
 ], -1);
 const _hoisted_21$2 = ["href", "data-bs-target", "aria-controls"];
@@ -11597,7 +11587,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                             textContent: toDisplayString(e.nm)
                           }, null, 8, _hoisted_22$2),
                           createBaseVNode("td", {
-                            textContent: toDisplayString(e.webp_q ?? `${unref(oWss)["cnv.mat.webp_quality"]} (\u57FA\u672C\u306E\u5024)`)
+                            textContent: toDisplayString(e.webp_q ?? `${unref(oWss)["cnv.mat.webp_quality"]} (基本の値)`)
                           }, null, 8, _hoisted_23$2),
                           createBaseVNode("td", {
                             style: { "text-align": "right" },
@@ -11632,7 +11622,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                   createBaseVNode("label", {
                                     for: "cnv.mat.pic." + e.id,
                                     class: "form-check-label text-white"
-                                  }, "\u753B\u8CEA\u3092\u500B\u5225\u8A2D\u5B9A", 8, _hoisted_33$1)
+                                  }, "画質を個別設定", 8, _hoisted_33$1)
                                 ])
                               ]),
                               createBaseVNode("div", _hoisted_34$1, [
@@ -11710,12 +11700,12 @@ const _hoisted_3$2 = ["disabled"];
 const _hoisted_4$2 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.mat.snd",
   class: "form-check-label"
-}, "mp3\u30FBwav \u3092\u30B3\u30FC\u30C7\u30C3\u30AF\u5909\u63DB", -1);
+}, "mp3・wav をコーデック変換", -1);
 const _hoisted_5$2 = { class: "col-6 col-sm-3 px-1 sn_select" };
 const _hoisted_6$2 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.mat.snd.codec",
   class: "form-label"
-}, "\u97F3\u58F0\u30B3\u30FC\u30C7\u30C3\u30AF", -1);
+}, "音声コーデック", -1);
 const _hoisted_7$1 = /* @__PURE__ */ createBaseVNode("i", { class: "fas fa-angle-down sn_select_v" }, null, -1);
 const _hoisted_8$1 = /* @__PURE__ */ createBaseVNode("option", {
   value: "opus",
@@ -11735,9 +11725,9 @@ const _hoisted_12$1 = {
 const _hoisted_13$1 = { class: "table table-striped" };
 const _hoisted_14$1 = /* @__PURE__ */ createBaseVNode("thead", null, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "\u5143\u97F3\u58F0\u30B5\u30A4\u30BA\u5408\u8A08"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "元音声サイズ合計"),
+    /* @__PURE__ */ createBaseVNode("th", null, "変換後"),
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
   ])
 ], -1);
 const _hoisted_15$1 = ["textContent"];
@@ -11751,10 +11741,10 @@ const _hoisted_19$1 = { class: "p-0 tbody_scroll" };
 const _hoisted_20$1 = { class: "table table-striped bg-secondary" };
 const _hoisted_21$1 = /* @__PURE__ */ createBaseVNode("thead", { class: "sticky-top" }, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "\u30D5\u30A1\u30A4\u30EB\u540D"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "\u5143\u97F3\u58F0\u30B5\u30A4\u30BA"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "\u5909\u63DB\u5F8C"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元音声サイズ"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "変換後"),
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
   ])
 ], -1);
 const _hoisted_22$1 = ["href", "data-bs-target", "aria-controls"];
@@ -11865,27 +11855,27 @@ const _hoisted_2$1 = { class: "col-6 col-sm-8 px-1 py-2" };
 const _hoisted_3$1 = /* @__PURE__ */ createBaseVNode("label", {
   for: "open.readme.txt",
   class: "form-label"
-}, "readme.txt\u3092\u958B\u304F", -1);
+}, "readme.txtを開く", -1);
 const _hoisted_4$1 = { class: "input-group input-group-sm" };
-const _hoisted_5$1 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "\u3010build/include/readme.txt\u3011", -1);
+const _hoisted_5$1 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "【build/include/readme.txt】", -1);
 const _hoisted_6$1 = { class: "col-6 col-sm-4 px-1 py-2" };
-const _hoisted_7 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "\u30D5\u30A9\u30F3\u30C8\u30B5\u30A4\u30BA\u6700\u9069\u5316", -1);
+const _hoisted_7 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "フォントサイズ最適化", -1);
 const _hoisted_8 = { class: "form-check form-switch mb-1" };
 const _hoisted_9 = ["disabled"];
 const _hoisted_10 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.font.subset",
   class: "form-check-label"
-}, "\u5FC5\u8981\u6700\u5C0F\u9650\u306B\u3059\u308B", -1);
+}, "必要最小限にする", -1);
 const _hoisted_11 = { class: "col-12 px-1 py-3" };
-const _hoisted_12 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "\u30D5\u30A9\u30F3\u30C8\u60C5\u5831", -1);
+const _hoisted_12 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "フォント情報", -1);
 const _hoisted_13 = { class: "table table-striped" };
 const _hoisted_14 = /* @__PURE__ */ createBaseVNode("thead", null, [
   /* @__PURE__ */ createBaseVNode("tr", null, [
     /* @__PURE__ */ createBaseVNode("th", null, "Filename"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u5143\u30D5\u30A1\u30A4\u30EB\u306E\u5834\u6240"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size\uFF08\u5143\u30D5\u30A1\u30A4\u30EB\uFF09"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size\uFF08\u51FA\u529B\u7D50\u679C\uFF09"),
-    /* @__PURE__ */ createBaseVNode("th", null, "\u524A\u6E1B\u7387")
+    /* @__PURE__ */ createBaseVNode("th", null, "元ファイルの場所"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
+    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
   ])
 ], -1);
 const _hoisted_15 = ["textContent"];
@@ -11897,7 +11887,7 @@ const _hoisted_20 = { key: 0 };
 const _hoisted_21 = /* @__PURE__ */ createBaseVNode("td", null, null, -1);
 const _hoisted_22 = ["textContent"];
 const _hoisted_23 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3")
+  /* @__PURE__ */ createBaseVNode("h5", null, "アプリアイコン")
 ], -1);
 const _hoisted_24 = { class: "container" };
 const _hoisted_25 = { class: "row" };
@@ -11906,7 +11896,7 @@ const _hoisted_27 = ["src"];
 const _hoisted_28 = { class: "col-6 col-lg-2 col-xxl-1" };
 const _hoisted_29 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
   /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-    /* @__PURE__ */ createBaseVNode("h6", null, "\u753B\u50CF\u304B\u3089\u81EA\u52D5\u4F5C\u6210")
+    /* @__PURE__ */ createBaseVNode("h6", null, "画像から自動作成")
   ])
 ], -1);
 const _hoisted_30 = { class: "row" };
@@ -11919,7 +11909,7 @@ const _hoisted_36 = { class: "input-group input-group-sm" };
 const _hoisted_37 = /* @__PURE__ */ createBaseVNode("label", {
   for: "cnv.icon.cut_round",
   class: "form-check-label"
-}, "\u4E38\u304F\u5207\u308A\u629C\u304F\u304B", -1);
+}, "丸く切り抜くか", -1);
 const _sfc_main$1 = /* @__PURE__ */ defineComponent({
   __name: "StgPkg",
   setup(__props) {
@@ -11929,8 +11919,8 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
     const { oWss } = storeToRefs(stWss);
     const qselectIcon = {
       cmd: "selectFile",
-      title: "\u30A2\u30D7\u30EA\u30A2\u30A4\u30B3\u30F3",
-      openlabel: "\u7D20\u6750\u753B\u50CF\u3092\u9078\u629E",
+      title: "アプリアイコン",
+      openlabel: "素材画像を選択",
       path: "build/icon.png"
     };
     const selectIcon = () => cmd2Ex(qselectIcon);
@@ -12034,7 +12024,7 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       type: "button",
                       onClick: selectIcon,
                       class: "btn btn-info btn-lg"
-                    }, "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E"),
+                    }, "ファイルを選択"),
                     withDirectives(createBaseVNode("span", {
                       class: "alert alert-danger",
                       role: "alert",
@@ -12085,13 +12075,13 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
     const stVSCode = useVSCode();
     const { active_tab } = storeToRefs(stVSCode);
     const aTab = [
-      { id: "basic", nm: "\u57FA\u672C\u60C5\u5831", cmp: _sfc_main$7 },
-      { id: "app", nm: "\u30A2\u30D7\u30EA", cmp: _sfc_main$6 },
-      { id: "temp", nm: "\u30C6\u30F3\u30D7\u30EC", cmp: _sfc_main$5 },
-      { id: "debug", nm: "\u30C7\u30D0\u30C3\u30B0", cmp: _sfc_main$4 },
-      { id: "imgopt", nm: "\u753B\u50CF\u6700\u9069\u5316", cmp: _sfc_main$3 },
-      { id: "sndopt", nm: "\u97F3\u58F0\u6700\u9069\u5316", cmp: _sfc_main$2 },
-      { id: "pkg", nm: "\u30D1\u30C3\u30B1\u30FC\u30B8", cmp: _sfc_main$1 }
+      { id: "basic", nm: "基本情報", cmp: _sfc_main$7 },
+      { id: "app", nm: "アプリ", cmp: _sfc_main$6 },
+      { id: "temp", nm: "テンプレ", cmp: _sfc_main$5 },
+      { id: "debug", nm: "デバッグ", cmp: _sfc_main$4 },
+      { id: "imgopt", nm: "画像最適化", cmp: _sfc_main$3 },
+      { id: "sndopt", nm: "音声最適化", cmp: _sfc_main$2 },
+      { id: "pkg", nm: "パッケージ", cmp: _sfc_main$1 }
     ];
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock(Fragment, null, [
@@ -12108,7 +12098,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
                 }),
                 "data-bs-toggle": "tab",
                 role: "tab",
-                "aria-selected": "false",
+                "aria-selected": t.id === unref(active_tab) ? "true" : void 0,
                 onClick: ($event) => active_tab.value = t.id,
                 textContent: toDisplayString(t.nm)
               }, null, 10, _hoisted_2);
