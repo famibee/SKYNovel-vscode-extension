@@ -183,7 +183,7 @@ export class Project {
 		// updPlugin で goAll() が走る
 		if (existsSync(this.#PATH_WS +'/node_modules')) this.#updPlugin(false);
 		else {
-			this.#build();
+			this.#updPlugin();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 
@@ -1368,7 +1368,6 @@ export class Project {
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
 				this.enableBtn(true);
-				this.#updPlugin();
 				done();
 			};
 			tasks.onDidEndTaskProcess(fnc);
