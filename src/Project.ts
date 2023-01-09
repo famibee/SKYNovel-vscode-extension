@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2022 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2023 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -181,11 +181,12 @@ export class Project {
 		this.#initCrypto();
 
 		// updPlugin で goAll() が走る
-		if (existsSync(this.#PATH_WS +'/node_modules')) this.#updPlugin(false);
-		else {
+		const firstInit = ! existsSync(this.#PATH_WS +'/node_modules');
+		if (firstInit) {
 			this.#updPlugin();
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
+		else this.#updPlugin(false);
 
 		// ファイル増減を監視し、path.json を自動更新など各種処理
 			// 第一引数は new RelativePattern() 必須とする。win対応にも
@@ -315,7 +316,7 @@ export class Project {
 			emPrjTD.fire(tiDevSnUpd);
 			return o;
 		};
-		actBar.chkLastSNVer([this.getLocalSNVer()]);
+		if (! firstInit) actBar.chkLastSNVer([this.getLocalSNVer()]);
 
 		const tiDevCrypto = aTi[Project.#idxDevCrypto];
 		this.dspCryptoMode = ()=> {
