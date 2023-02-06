@@ -1,3 +1,7 @@
+## v4.10.6
+- chore: build.ts での esbuild v0.17.0 対応
+- fix: package.json：不要になった activationEvents を削除
+- fix: ライブラリ更新
 ## v4.10.5
 - docs: コードブロックライセンス年更新
 - fix: テンプレ初回オープン時、更新確認処理をしないように

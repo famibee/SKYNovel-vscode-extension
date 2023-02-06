@@ -151,8 +151,8 @@ const remove = (arr, el) => {
     arr.splice(i, 1);
   }
 };
-const hasOwnProperty$a = Object.prototype.hasOwnProperty;
-const hasOwn = (val, key) => hasOwnProperty$a.call(val, key);
+const hasOwnProperty$b = Object.prototype.hasOwnProperty;
+const hasOwn = (val, key) => hasOwnProperty$b.call(val, key);
 const isArray$9 = Array.isArray;
 const isMap = (val) => toTypeString(val) === "[object Map]";
 const isSet = (val) => toTypeString(val) === "[object Set]";
@@ -203,7 +203,7 @@ const def = (obj, key, value) => {
     value
   });
 };
-const toNumber$1 = (val) => {
+const looseToNumber = (val) => {
   const n = parseFloat(val);
   return isNaN(n) ? val : n;
 };
@@ -215,7 +215,7 @@ let activeEffectScope;
 class EffectScope {
   constructor(detached = false) {
     this.detached = detached;
-    this.active = true;
+    this._active = true;
     this.effects = [];
     this.cleanups = [];
     this.parent = activeEffectScope;
@@ -223,8 +223,11 @@ class EffectScope {
       this.index = (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(this) - 1;
     }
   }
+  get active() {
+    return this._active;
+  }
   run(fn) {
-    if (this.active) {
+    if (this._active) {
       const currentEffectScope = activeEffectScope;
       try {
         activeEffectScope = this;
@@ -249,7 +252,7 @@ class EffectScope {
     activeEffectScope = this.parent;
   }
   stop(fromParent) {
-    if (this.active) {
+    if (this._active) {
       let i, l;
       for (i = 0, l = this.effects.length; i < l; i++) {
         this.effects[i].stop();
@@ -270,7 +273,7 @@ class EffectScope {
         }
       }
       this.parent = void 0;
-      this.active = false;
+      this._active = false;
     }
   }
 }
@@ -442,7 +445,7 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
   if (type === "clear") {
     deps = [...depsMap.values()];
   } else if (key === "length" && isArray$9(target)) {
-    const newLength = toNumber$1(newValue);
+    const newLength = Number(newValue);
     depsMap.forEach((dep, key2) => {
       if (key2 === "length" || key2 >= newLength) {
         deps.push(dep);
@@ -518,11 +521,15 @@ function triggerEffect(effect, debuggerEventExtraInfo) {
     }
   }
 }
+function getDepFromReactive(object2, key) {
+  var _a;
+  return (_a = targetMap.get(object2)) === null || _a === void 0 ? void 0 : _a.get(key);
+}
 const isNonTrackableKeys = /* @__PURE__ */ makeMap(`__proto__,__v_isRef,__isVue`);
 const builtInSymbols = new Set(
   /* @__PURE__ */ Object.getOwnPropertyNames(Symbol).filter((key) => key !== "arguments" && key !== "caller").map((key) => Symbol[key]).filter(isSymbol$4)
 );
-const get$2 = /* @__PURE__ */ createGetter();
+const get$1$1 = /* @__PURE__ */ createGetter();
 const shallowGet = /* @__PURE__ */ createGetter(false, true);
 const readonlyGet = /* @__PURE__ */ createGetter(true);
 const arrayInstrumentations = /* @__PURE__ */ createArrayInstrumentations();
@@ -552,6 +559,11 @@ function createArrayInstrumentations() {
   });
   return instrumentations;
 }
+function hasOwnProperty$a(key) {
+  const obj = toRaw(this);
+  track(obj, "has", key);
+  return obj.hasOwnProperty(key);
+}
 function createGetter(isReadonly2 = false, shallow = false) {
   return function get2(target, key, receiver) {
     if (key === "__v_isReactive") {
@@ -564,8 +576,13 @@ function createGetter(isReadonly2 = false, shallow = false) {
       return target;
     }
     const targetIsArray = isArray$9(target);
-    if (!isReadonly2 && targetIsArray && hasOwn(arrayInstrumentations, key)) {
-      return Reflect.get(arrayInstrumentations, key, receiver);
+    if (!isReadonly2) {
+      if (targetIsArray && hasOwn(arrayInstrumentations, key)) {
+        return Reflect.get(arrayInstrumentations, key, receiver);
+      }
+      if (key === "hasOwnProperty") {
+        return hasOwnProperty$a;
+      }
     }
     const res = Reflect.get(target, key, receiver);
     if (isSymbol$4(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
@@ -586,7 +603,7 @@ function createGetter(isReadonly2 = false, shallow = false) {
     return res;
   };
 }
-const set$2 = /* @__PURE__ */ createSetter();
+const set$1$1 = /* @__PURE__ */ createSetter();
 const shallowSet = /* @__PURE__ */ createSetter(true);
 function createSetter(shallow = false) {
   return function set2(target, key, value, receiver) {
@@ -637,8 +654,8 @@ function ownKeys(target) {
   return Reflect.ownKeys(target);
 }
 const mutableHandlers = {
-  get: get$2,
-  set: set$2,
+  get: get$1$1,
+  set: set$1$1,
   deleteProperty,
   has: has$1,
   ownKeys
@@ -658,7 +675,7 @@ const shallowReactiveHandlers = /* @__PURE__ */ extend({}, mutableHandlers, {
 });
 const toShallow = (value) => value;
 const getProto = (v) => Reflect.getPrototypeOf(v);
-function get$1$1(target, key, isReadonly2 = false, isShallow2 = false) {
+function get$2(target, key, isReadonly2 = false, isShallow2 = false) {
   target = target[
     "__v_raw"
     /* ReactiveFlags.RAW */
@@ -681,7 +698,7 @@ function get$1$1(target, key, isReadonly2 = false, isShallow2 = false) {
     target.get(key);
   }
 }
-function has$1$1(key, isReadonly2 = false) {
+function has$2(key, isReadonly2 = false) {
   const target = this[
     "__v_raw"
     /* ReactiveFlags.RAW */
@@ -715,7 +732,7 @@ function add(value) {
   }
   return this;
 }
-function set$1$1(key, value) {
+function set$2(key, value) {
   value = toRaw(value);
   const target = toRaw(this);
   const { has: has2, get: get2 } = getProto(target);
@@ -809,41 +826,41 @@ function createReadonlyMethod(type) {
 function createInstrumentations() {
   const mutableInstrumentations2 = {
     get(key) {
-      return get$1$1(this, key);
+      return get$2(this, key);
     },
     get size() {
       return size(this);
     },
-    has: has$1$1,
+    has: has$2,
     add,
-    set: set$1$1,
+    set: set$2,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, false)
   };
   const shallowInstrumentations2 = {
     get(key) {
-      return get$1$1(this, key, false, true);
+      return get$2(this, key, false, true);
     },
     get size() {
       return size(this);
     },
-    has: has$1$1,
+    has: has$2,
     add,
-    set: set$1$1,
+    set: set$2,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, true)
   };
   const readonlyInstrumentations2 = {
     get(key) {
-      return get$1$1(this, key, true);
+      return get$2(this, key, true);
     },
     get size() {
       return size(this, true);
     },
     has(key) {
-      return has$1$1.call(this, key, true);
+      return has$2.call(this, key, true);
     },
     add: createReadonlyMethod(
       "add"
@@ -865,13 +882,13 @@ function createInstrumentations() {
   };
   const shallowReadonlyInstrumentations2 = {
     get(key) {
-      return get$1$1(this, key, true, true);
+      return get$2(this, key, true, true);
     },
     get size() {
       return size(this, true);
     },
     has(key) {
-      return has$1$1.call(this, key, true);
+      return has$2.call(this, key, true);
     },
     add: createReadonlyMethod(
       "add"
@@ -1039,9 +1056,10 @@ function trackRefValue(ref2) {
 }
 function triggerRefValue(ref2, newVal) {
   ref2 = toRaw(ref2);
-  if (ref2.dep) {
+  const dep = ref2.dep;
+  if (dep) {
     {
-      triggerEffects(ref2.dep);
+      triggerEffects(dep);
     }
   }
 }
@@ -1118,18 +1136,21 @@ class ObjectRefImpl {
   set value(newVal) {
     this._object[this._key] = newVal;
   }
+  get dep() {
+    return getDepFromReactive(toRaw(this._object), this._key);
+  }
 }
 function toRef(object2, key, defaultValue) {
   const val = object2[key];
   return isRef(val) ? val : new ObjectRefImpl(object2, key, defaultValue);
 }
-var _a;
+var _a$1;
 class ComputedRefImpl {
   constructor(getter, _setter, isReadonly2, isSSR) {
     this._setter = _setter;
     this.dep = void 0;
     this.__v_isRef = true;
-    this[_a] = false;
+    this[_a$1] = false;
     this._dirty = true;
     this.effect = new ReactiveEffect(getter, () => {
       if (!this._dirty) {
@@ -1157,7 +1178,7 @@ class ComputedRefImpl {
     this._setter(newValue);
   }
 }
-_a = "__v_isReadonly";
+_a$1 = "__v_isReadonly";
 function computed$1(getterOrOptions, debugOptions, isSSR = false) {
   let getter;
   let setter;
@@ -1353,7 +1374,7 @@ function flushJobs(seen) {
     }
   }
 }
-function emit$1(instance, event, ...rawArgs) {
+function emit(instance, event, ...rawArgs) {
   if (instance.isUnmounted)
     return;
   const props = instance.vnode.props || EMPTY_OBJ;
@@ -1367,7 +1388,7 @@ function emit$1(instance, event, ...rawArgs) {
       args = rawArgs.map((a) => isString(a) ? a.trim() : a);
     }
     if (number2) {
-      args = rawArgs.map(toNumber$1);
+      args = rawArgs.map(looseToNumber);
     }
   }
   let handlerName;
@@ -1478,7 +1499,7 @@ function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
 function markAttrsAccessed() {
 }
 function renderComponentRoot(instance) {
-  const { type: Component, vnode, proxy, withProxy, props, propsOptions: [propsOptions], slots, attrs, emit, render, renderCache, data, setupState, ctx, inheritAttrs } = instance;
+  const { type: Component, vnode, proxy, withProxy, props, propsOptions: [propsOptions], slots, attrs, emit: emit2, render, renderCache, data, setupState, ctx, inheritAttrs } = instance;
   let result;
   let fallthroughAttrs;
   const prev = setCurrentRenderingInstance(instance);
@@ -1497,8 +1518,8 @@ function renderComponentRoot(instance) {
           return attrs;
         },
         slots,
-        emit
-      } : { attrs, slots, emit }) : render2(
+        emit: emit2
+      } : { attrs, slots, emit: emit2 }) : render2(
         props,
         null
         /* we know it doesn't need it */
@@ -1666,7 +1687,7 @@ function watch(source, cb, options) {
   return doWatch(source, cb, options);
 }
 function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EMPTY_OBJ) {
-  const instance = currentInstance;
+  const instance = getCurrentScope() === (currentInstance === null || currentInstance === void 0 ? void 0 : currentInstance.scope) ? currentInstance : null;
   let getter;
   let forceTrigger = false;
   let isMultiSource = false;
@@ -1933,7 +1954,10 @@ function injectHook(type, hook, target = currentInstance, prepend = false) {
     return wrappedHook;
   }
 }
-const createHook = (lifecycle) => (hook, target = currentInstance) => (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, (...args) => hook(...args), target);
+const createHook = (lifecycle) => (hook, target = currentInstance) => (
+  // post-create lifecycle registrations are noops during SSR (except for serverPrefetch)
+  (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, (...args) => hook(...args), target)
+);
 const onBeforeMount = createHook(
   "bm"
   /* LifecycleHooks.BEFORE_MOUNT */
@@ -2146,7 +2170,11 @@ const PublicInstanceProxyHandlers = {
       } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
         accessCache[key] = 2;
         return data[key];
-      } else if ((normalizedProps = instance.propsOptions[0]) && hasOwn(normalizedProps, key)) {
+      } else if (
+        // only cache other properties when instance has declared (thus stable)
+        // props
+        (normalizedProps = instance.propsOptions[0]) && hasOwn(normalizedProps, key)
+      ) {
         accessCache[key] = 3;
         return props[key];
       } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
@@ -2163,12 +2191,18 @@ const PublicInstanceProxyHandlers = {
         track(instance, "get", key);
       }
       return publicGetter(instance);
-    } else if ((cssModule = type.__cssModules) && (cssModule = cssModule[key])) {
+    } else if (
+      // css module (injected by vue-loader)
+      (cssModule = type.__cssModules) && (cssModule = cssModule[key])
+    ) {
       return cssModule;
     } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
       accessCache[key] = 4;
       return ctx[key];
-    } else if (globalProperties = appContext.config.globalProperties, hasOwn(globalProperties, key)) {
+    } else if (
+      // global properties
+      globalProperties = appContext.config.globalProperties, hasOwn(globalProperties, key)
+    ) {
       {
         return globalProperties[key];
       }
@@ -2559,7 +2593,12 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
   const rawCurrentProps = toRaw(props);
   const [options] = instance.propsOptions;
   let hasAttrsChanged = false;
-  if ((optimized || patchFlag > 0) && !(patchFlag & 16)) {
+  if (
+    // always force full diff in dev
+    // - #1942 if hmr is enabled with sfc component
+    // - vite#872 non-sfc component used by sfc component
+    (optimized || patchFlag > 0) && !(patchFlag & 16)
+  ) {
     if (patchFlag & 8) {
       const propsToUpdate = instance.vnode.dynamicProps;
       for (let i = 0; i < propsToUpdate.length; i++) {
@@ -2600,9 +2639,13 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
     }
     let kebabKey;
     for (const key in rawCurrentProps) {
-      if (!rawProps || !hasOwn(rawProps, key) && ((kebabKey = hyphenate(key)) === key || !hasOwn(rawProps, kebabKey))) {
+      if (!rawProps || // for camelCase
+      !hasOwn(rawProps, key) && // it's possible the original props was passed in as kebab-case
+      // and converted to camelCase (#955)
+      ((kebabKey = hyphenate(key)) === key || !hasOwn(rawProps, kebabKey))) {
         if (options) {
-          if (rawPrevProps && (rawPrevProps[key] !== void 0 || // for kebab-case
+          if (rawPrevProps && // for camelCase
+          (rawPrevProps[key] !== void 0 || // for kebab-case
           rawPrevProps[kebabKey] !== void 0)) {
             props[key] = resolvePropValue(
               options,
@@ -2780,8 +2823,8 @@ function validatePropName(key) {
   return false;
 }
 function getType(ctor) {
-  const match = ctor && ctor.toString().match(/^\s*function (\w+)/);
-  return match ? match[1] : ctor === null ? "null" : "";
+  const match = ctor && ctor.toString().match(/^\s*(function|class) (\w+)/);
+  return match ? match[2] : ctor === null ? "null" : "";
 }
 function isSameType(a, b) {
   return getType(a) === getType(b);
@@ -2896,7 +2939,7 @@ function createAppContext() {
     emitsCache: /* @__PURE__ */ new WeakMap()
   };
 }
-let uid = 0;
+let uid$1 = 0;
 function createAppAPI(render, hydrate) {
   return function createApp2(rootComponent, rootProps = null) {
     if (!isFunction$3(rootComponent)) {
@@ -2909,7 +2952,7 @@ function createAppAPI(render, hydrate) {
     const installedPlugins = /* @__PURE__ */ new Set();
     let isMounted = false;
     const app = context.app = {
-      _uid: uid++,
+      _uid: uid$1++,
       _component: rootComponent,
       _props: rootProps,
       _container: null,
@@ -3169,6 +3212,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     if (dirs) {
       invokeDirectiveHook(vnode, null, parentComponent, "created");
     }
+    setScopeId(el, vnode, vnode.scopeId, slotScopeIds, parentComponent);
     if (props) {
       for (const key in props) {
         if (key !== "value" && !isReservedProp(key)) {
@@ -3182,7 +3226,6 @@ function baseCreateRenderer(options, createHydrationFns) {
         invokeVNodeHook(vnodeHook, parentComponent, vnode);
       }
     }
-    setScopeId(el, vnode, vnode.scopeId, slotScopeIds, parentComponent);
     if (dirs) {
       invokeDirectiveHook(vnode, null, parentComponent, "beforeMount");
     }
@@ -3289,7 +3332,9 @@ function baseCreateRenderer(options, createHydrationFns) {
       const container = (
         // oldVNode may be an errored async setup() component inside Suspense
         // which will not have a mounted element
-        oldVNode.el && (oldVNode.type === Fragment || // - In the case of different nodes, there is going to be a replacement
+        oldVNode.el && // - In the case of a Fragment, we need to provide the actual parent
+        // of the Fragment itself so it can move its children.
+        (oldVNode.type === Fragment || // - In the case of different nodes, there is going to be a replacement
         // which also requires the correct parent container
         !isSameVNodeType(oldVNode, newVNode) || // - In the case of a component, it could contain anything.
         oldVNode.shapeFlag & (6 | 64)) ? hostParentNode(oldVNode.el) : (
@@ -3340,11 +3385,13 @@ function baseCreateRenderer(options, createHydrationFns) {
       // of renderSlot() with no valid children
       n1.dynamicChildren) {
         patchBlockChildren(n1.dynamicChildren, dynamicChildren, container, parentComponent, parentSuspense, isSVG, slotScopeIds);
-        if (// #2080 if the stable fragment has a key, it's a <template v-for> that may
-        //  get moved around. Make sure all root level vnodes inherit el.
-        // #2134 or if it's a component root, it may also get moved around
-        // as the component is being moved.
-        n2.key != null || parentComponent && n2 === parentComponent.subTree) {
+        if (
+          // #2080 if the stable fragment has a key, it's a <template v-for> that may
+          //  get moved around. Make sure all root level vnodes inherit el.
+          // #2134 or if it's a component root, it may also get moved around
+          // as the component is being moved.
+          n2.key != null || parentComponent && n2 === parentComponent.subTree
+        ) {
           traverseStaticChildren(
             n1,
             n2,
@@ -3762,7 +3809,8 @@ function baseCreateRenderer(options, createHydrationFns) {
       }
       if (shapeFlag & 64) {
         vnode.type.remove(vnode, parentComponent, parentSuspense, optimized, internals, doRemove);
-      } else if (dynamicChildren && (type !== Fragment || patchFlag > 0 && patchFlag & 64)) {
+      } else if (dynamicChildren && // #1153: fast path should not be taken for non-stable (v-for) fragments
+      (type !== Fragment || patchFlag > 0 && patchFlag & 64)) {
         unmountChildren(dynamicChildren, parentComponent, parentSuspense, false, true);
       } else if (type === Fragment && patchFlag & (128 | 256) || !optimized && shapeFlag & 16) {
         unmountChildren(children, parentComponent, parentSuspense);
@@ -4052,7 +4100,11 @@ function createBaseVNode(type, props = null, children = null, patchFlag = 0, dyn
   }
   if (isBlockTreeEnabled > 0 && // avoid a block node from tracking itself
   !isBlockNode && // has current parent block
-  currentBlock && (vnode.patchFlag > 0 || shapeFlag & 6) && // the EVENTS flag is only for hydration and if it is the only flag, the
+  currentBlock && // presence of a patch flag indicates this node needs patching on updates.
+  // component nodes also should always be patched, because even if the
+  // component doesn't need to update, it needs to persist the instance on to
+  // the next vnode so that it can be properly unmounted later.
+  (vnode.patchFlag > 0 || shapeFlag & 6) && // the EVENTS flag is only for hydration and if it is the only flag, the
   // vnode should not be considered dynamic due to handler caching.
   vnode.patchFlag !== 32) {
     currentBlock.push(vnode);
@@ -4150,7 +4202,8 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
     ssFallback: vnode.ssFallback && cloneVNode(vnode.ssFallback),
     el: vnode.el,
     anchor: vnode.anchor,
-    ctx: vnode.ctx
+    ctx: vnode.ctx,
+    ce: vnode.ce
   };
   return cloned;
 }
@@ -4260,12 +4313,12 @@ function invokeVNodeHook(hook, instance, vnode, prevVNode = null) {
   ]);
 }
 const emptyAppContext = createAppContext();
-let uid$1 = 0;
+let uid = 0;
 function createComponentInstance(vnode, parent, suspense) {
   const type = vnode.type;
   const appContext = (parent ? parent.appContext : vnode.appContext) || emptyAppContext;
   const instance = {
-    uid: uid$1++,
+    uid: uid++,
     vnode,
     type,
     parent,
@@ -4338,7 +4391,7 @@ function createComponentInstance(vnode, parent, suspense) {
     instance.ctx = { _: instance };
   }
   instance.root = parent ? parent.root : instance;
-  instance.emit = emit$1.bind(null, instance);
+  instance.emit = emit.bind(null, instance);
   if (vnode.ce) {
     vnode.ce(instance);
   }
@@ -4518,7 +4571,7 @@ const useSSRContext = () => {
     return ctx;
   }
 };
-const version = "3.2.45";
+const version = "3.2.47";
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
 const templateContainer = doc && /* @__PURE__ */ doc.createElement("template");
@@ -4602,15 +4655,15 @@ function patchStyle(el, prev, next) {
   const style = el.style;
   const isCssString = isString(next);
   if (next && !isCssString) {
-    for (const key in next) {
-      setStyle(style, key, next[key]);
-    }
     if (prev && !isString(prev)) {
       for (const key in prev) {
         if (next[key] == null) {
           setStyle(style, key, "");
         }
       }
+    }
+    for (const key in next) {
+      setStyle(style, key, next[key]);
     }
   } else {
     const currentDisplay = style.display;
@@ -4862,7 +4915,7 @@ const vModelText = {
         domValue = domValue.trim();
       }
       if (castToNumber) {
-        domValue = toNumber$1(domValue);
+        domValue = looseToNumber(domValue);
       }
       el._assign(domValue);
     });
@@ -4892,7 +4945,7 @@ const vModelText = {
       if (trim2 && el.value.trim() === value) {
         return;
       }
-      if ((number2 || el.type === "number") && toNumber$1(el.value) === value) {
+      if ((number2 || el.type === "number") && looseToNumber(el.value) === value) {
         return;
       }
     }
@@ -4958,7 +5011,7 @@ const vModelSelect = {
   created(el, { value, modifiers: { number: number2 } }, vnode) {
     const isSetModel = isSet(value);
     addEventListener(el, "change", () => {
-      const selectedVal = Array.prototype.filter.call(el.options, (o) => o.selected).map((o) => number2 ? toNumber$1(getValue$2(o)) : getValue$2(o));
+      const selectedVal = Array.prototype.filter.call(el.options, (o) => o.selected).map((o) => number2 ? looseToNumber(getValue$2(o)) : getValue$2(o));
       el._assign(el.multiple ? isSetModel ? new Set(selectedVal) : selectedVal : selectedVal[0]);
     });
     el._assign = getModelAssigner(vnode);
@@ -5081,8 +5134,8 @@ function normalizeContainer(container) {
 }
 var isVue2 = false;
 /*!
-  * pinia v2.0.28
-  * (c) 2022 Eduardo San Martin Morote
+  * pinia v2.0.30
+  * (c) 2023 Eduardo San Martin Morote
   * @license MIT
   */
 let activePinia;
@@ -5403,7 +5456,9 @@ function defineStore(idOrOptions, setup, setupOptions) {
   }
   function useStore(pinia, hot) {
     const currentInstance2 = getCurrentInstance();
-    pinia = pinia || currentInstance2 && inject(piniaSymbol, null);
+    pinia = // in test mode, ignore the argument provided as we can always retrieve a
+    // pinia instance with getActivePinia()
+    pinia || currentInstance2 && inject(piniaSymbol, null);
     if (pinia)
       setActivePinia(pinia);
     pinia = activePinia;
@@ -6063,8 +6118,8 @@ const normalizeChildren = (tag, context, slotProps) => {
   }
   return {
     default: () => {
-      var _a2, _b;
-      return (_b = (_a2 = context.slots).default) === null || _b === void 0 ? void 0 : _b.call(_a2, slotProps());
+      var _a, _b;
+      return (_b = (_a = context.slots).default) === null || _b === void 0 ? void 0 : _b.call(_a, slotProps());
     }
   };
 };
@@ -6270,9 +6325,9 @@ async function _validate(field, value) {
   };
 }
 async function validateFieldWithYup(value, validator, opts) {
-  var _a2;
+  var _a;
   const errors = await validator.validate(value, {
-    abortEarly: (_a2 = opts.bails) !== null && _a2 !== void 0 ? _a2 : true
+    abortEarly: (_a = opts.bails) !== null && _a !== void 0 ? _a : true
   }).then(() => []).catch((err) => {
     if (err.name === "ValidationError") {
       return err.errors;
@@ -6352,9 +6407,9 @@ async function validateYupSchema(schema, values) {
 async function validateObjectSchema(schema, values, opts) {
   const paths = keysOf(schema);
   const validations = paths.map(async (path) => {
-    var _a2, _b, _c;
+    var _a, _b, _c;
     const fieldResult = await validate(getFromPath(values, path), schema[path], {
-      name: ((_a2 = opts === null || opts === void 0 ? void 0 : opts.names) === null || _a2 === void 0 ? void 0 : _a2[path]) || path,
+      name: ((_a = opts === null || opts === void 0 ? void 0 : opts.names) === null || _a === void 0 ? void 0 : _a[path]) || path,
       values,
       bails: (_c = (_b = opts === null || opts === void 0 ? void 0 : opts.bailsMap) === null || _b === void 0 ? void 0 : _b[path]) !== null && _c !== void 0 ? _c : true
     });
@@ -6387,7 +6442,7 @@ function useFieldState(path, init2) {
   const meta = _useFieldMeta(value, initialValue, errors);
   const id = ID_COUNTER >= Number.MAX_SAFE_INTEGER ? 0 : ++ID_COUNTER;
   function setState(state) {
-    var _a2;
+    var _a;
     if ("value" in state) {
       value.value = state.value;
     }
@@ -6395,7 +6450,7 @@ function useFieldState(path, init2) {
       setErrors(state.errors);
     }
     if ("touched" in state) {
-      meta.touched = (_a2 = state.touched) !== null && _a2 !== void 0 ? _a2 : meta.touched;
+      meta.touched = (_a = state.touched) !== null && _a !== void 0 ? _a : meta.touched;
     }
     if ("initialValue" in state) {
       setInitialValue(state.initialValue);
@@ -6530,9 +6585,9 @@ function _useField(name, rules, opts) {
     return normalizeRules(rulesValue);
   });
   async function validateCurrentValue(mode) {
-    var _a2, _b;
+    var _a, _b;
     if (form === null || form === void 0 ? void 0 : form.validateSchema) {
-      return (_a2 = (await form.validateSchema(mode)).results[unref(name)]) !== null && _a2 !== void 0 ? _a2 : { valid: true, errors: [] };
+      return (_a = (await form.validateSchema(mode)).results[unref(name)]) !== null && _a !== void 0 ? _a : { valid: true, errors: [] };
     }
     return validate(value.value, normalizedRules.value, {
       name: unref(label) || unref(name),
@@ -6602,13 +6657,13 @@ function _useField(name, rules, opts) {
   }
   watchValue();
   function resetField(state) {
-    var _a2;
+    var _a;
     unwatchValue === null || unwatchValue === void 0 ? void 0 : unwatchValue();
     const newValue = state && "value" in state ? state.value : initialValue.value;
     setState({
       value: klona(newValue),
       initialValue: klona(newValue),
-      touched: (_a2 = state === null || state === void 0 ? void 0 : state.touched) !== null && _a2 !== void 0 ? _a2 : false,
+      touched: (_a = state === null || state === void 0 ? void 0 : state.touched) !== null && _a !== void 0 ? _a : false,
       errors: (state === null || state === void 0 ? void 0 : state.errors) || []
     });
     meta.pending = false;
@@ -6731,8 +6786,8 @@ function useCheckboxField(name, rules, opts) {
       return Array.isArray(currentValue) ? currentValue.findIndex((v) => isEqual(v, checkedVal)) >= 0 : isEqual(checkedVal, currentValue);
     });
     function handleCheckboxChange(e, shouldValidate = true) {
-      var _a2;
-      if (checked.value === ((_a2 = e === null || e === void 0 ? void 0 : e.target) === null || _a2 === void 0 ? void 0 : _a2.checked)) {
+      var _a;
+      if (checked.value === ((_a = e === null || e === void 0 ? void 0 : e.target) === null || _a === void 0 ? void 0 : _a.checked)) {
         if (shouldValidate) {
           field.validate();
         }
@@ -6947,10 +7002,10 @@ function resolveTag(props, ctx) {
   return tag;
 }
 function resolveValidationTriggers(props) {
-  var _a2, _b, _c, _d;
+  var _a, _b, _c, _d;
   const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = getConfig();
   return {
-    validateOnInput: (_a2 = props.validateOnInput) !== null && _a2 !== void 0 ? _a2 : validateOnInput,
+    validateOnInput: (_a = props.validateOnInput) !== null && _a !== void 0 ? _a : validateOnInput,
     validateOnChange: (_b = props.validateOnChange) !== null && _b !== void 0 ? _b : validateOnChange,
     validateOnBlur: (_c = props.validateOnBlur) !== null && _c !== void 0 ? _c : validateOnBlur,
     validateOnModelUpdate: (_d = props.validateOnModelUpdate) !== null && _d !== void 0 ? _d : validateOnModelUpdate
@@ -6965,7 +7020,7 @@ function resolveInitialValue(props, ctx) {
 const Field = FieldImpl;
 let FORM_COUNTER = 0;
 function useForm(opts) {
-  var _a2;
+  var _a;
   const formId = FORM_COUNTER++;
   const controlledModelPaths = /* @__PURE__ */ new Set();
   let RESET_LOCK = false;
@@ -7002,16 +7057,16 @@ function useForm(opts) {
   });
   const fieldBailsMap = computed(() => {
     return keysOf(fieldsByPath.value).reduce((map2, path) => {
-      var _a3;
+      var _a2;
       const field = getFirstFieldAtPath(path);
       if (field) {
-        map2[path] = (_a3 = field.bails) !== null && _a3 !== void 0 ? _a3 : true;
+        map2[path] = (_a2 = field.bails) !== null && _a2 !== void 0 ? _a2 : true;
       }
       return map2;
     }, {});
   });
   const initialErrors = Object.assign({}, (opts === null || opts === void 0 ? void 0 : opts.initialErrors) || {});
-  const keepValuesOnUnmount = (_a2 = opts === null || opts === void 0 ? void 0 : opts.keepValuesOnUnmount) !== null && _a2 !== void 0 ? _a2 : false;
+  const keepValuesOnUnmount = (_a = opts === null || opts === void 0 ? void 0 : opts.keepValuesOnUnmount) !== null && _a !== void 0 ? _a : false;
   const { initialValues, originalInitialValues, setInitialValues } = useFormInitialValues(fieldsByPath, formValues, opts === null || opts === void 0 ? void 0 : opts.initialValues);
   const meta = useFormMeta(fieldsByPath, formValues, originalInitialValues, errors);
   const controlledValues = computed(() => {
@@ -7165,14 +7220,14 @@ function useForm(opts) {
     setErrorBag(fields);
   }
   function setFieldValue(field, value, { force } = { force: false }) {
-    var _a3;
+    var _a2;
     const fieldInstance = fieldsByPath.value[field];
     const clonedValue = klona(value);
     if (!fieldInstance) {
       setInPath(formValues, field, clonedValue);
       return;
     }
-    if (isFieldGroup(fieldInstance) && ((_a3 = fieldInstance[0]) === null || _a3 === void 0 ? void 0 : _a3.type) === "checkbox" && !Array.isArray(value)) {
+    if (isFieldGroup(fieldInstance) && ((_a2 = fieldInstance[0]) === null || _a2 === void 0 ? void 0 : _a2.type) === "checkbox" && !Array.isArray(value)) {
       const newValue2 = klona(resolveNextCheckboxValue(getFromPath(formValues, field) || [], value, void 0));
       setInPath(formValues, field, newValue2);
       return;
@@ -7300,8 +7355,8 @@ function useForm(opts) {
     const isGroup = !!fieldInstance && isFieldGroup(fieldInstance);
     removeFieldFromPath(field, fieldName);
     nextTick(() => {
-      var _a3;
-      const shouldKeepValue = (_a3 = unref(field.keepValueOnUnmount)) !== null && _a3 !== void 0 ? _a3 : unref(keepValuesOnUnmount);
+      var _a2;
+      const shouldKeepValue = (_a2 = unref(field.keepValueOnUnmount)) !== null && _a2 !== void 0 ? _a2 : unref(keepValuesOnUnmount);
       const currentGroupValue = getFromPath(formValues, fieldName);
       const isSameGroup = isGroup && (fieldInstance === fieldsByPath.value[fieldName] || !fieldsByPath.value[fieldName]);
       if (isSameGroup && !shouldKeepValue) {
@@ -7422,8 +7477,8 @@ function useForm(opts) {
   });
   if (isRef(schema)) {
     watch(schema, () => {
-      var _a3;
-      (_a3 = formCtx.validateSchema) === null || _a3 === void 0 ? void 0 : _a3.call(formCtx, "validated-only");
+      var _a2;
+      (_a2 = formCtx.validateSchema) === null || _a2 === void 0 ? void 0 : _a2.call(formCtx, "validated-only");
     });
   }
   provide(FormContextKey, formCtx);
@@ -8844,7 +8899,9 @@ function arrayLikeKeys$1(value, inherited) {
   var isArr = isArray$3(value), isArg = !isArr && isArguments(value), isBuff = !isArr && !isArg && isBuffer$1(value), isType = !isArr && !isArg && !isBuff && isTypedArray$1(value), skipIndexes = isArr || isArg || isBuff || isType, result = skipIndexes ? baseTimes(value.length, String) : [], length = result.length;
   for (var key in value) {
     if ((inherited || hasOwnProperty$3.call(value, key)) && !(skipIndexes && // Safari 9 has enumerable `arguments.length` in strict mode.
-    (key == "length" || isBuff && (key == "offset" || key == "parent") || isType && (key == "buffer" || key == "byteLength" || key == "byteOffset") || // Skip index properties.
+    (key == "length" || // Node.js 0.10 has enumerable non-index properties on buffers.
+    isBuff && (key == "offset" || key == "parent") || // PhantomJS 2 has enumerable non-index properties on typed arrays.
+    isType && (key == "buffer" || key == "byteLength" || key == "byteOffset") || // Skip index properties.
     isIndex(key, length)))) {
       result.push(key);
     }
