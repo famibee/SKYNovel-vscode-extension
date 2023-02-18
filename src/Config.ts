@@ -68,7 +68,7 @@ export class Config extends ConfigBase {
 			await super.load(o);
 
 			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.cur, clDiag);
-			outputJson(fpPath, this.hPathFn2Exts);
+			await outputJson(fpPath, this.hPathFn2Exts);
 
 			if (this.sys.crypto) encFile(Uri.file(fpPath));
 

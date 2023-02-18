@@ -147,7 +147,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			this.#workSps.start((cmd, uriWs, o)=> {
 				// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
-//console.log(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${u2p(uriWs.path)}=`);
+//console.log(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${v2fp(uriWs.path)}=`);
 				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
 			});
 		});
@@ -246,7 +246,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				return;
 			}
 			ActivityBar.aReady[eTreeEnv.NPM] = true;
-			tiNpm.description = `-- ${stdout}`;
+			tiNpm.description = `-- ${stdout.trimEnd()}`;
 			tiNpm.iconPath = oIcon('npm-brands');
 			this.#onDidChangeTreeData.fire(tiNpm);
 			re();

@@ -13,7 +13,7 @@ const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import {IExts, IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
-import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, FileChangeType, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
@@ -441,8 +441,6 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		this.#hTagProc.let_substr = this.#hTagProc.let;
 		this.#hTagProc.set_frame = this.#hTagProc.let_frame;
 
-		this.#hTagProc.button =
-		this.#hTagProc.link =
 		this.#hTagProc.event =
 		this.#hTagProc.jump =
 		this.#hTagProc.return = this.#hTagProc.s;
@@ -502,6 +500,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		'init.res'		: o=> this.#scanAll(o),
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
 		'def_esc.upd'	: ()=> this.#fullScan(),
+		'credel_sn'		: ()=> this.#fullScan(),
 		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.#genHover(uri, pos)}),
 	};
 	#fullScan() {this.#sendRequest('init');}
@@ -576,12 +575,15 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 //console.log(`fn:LspWs.ts onDidChangeWatchedFiles uri=${uri}=`);
 		if (! this.#checkRelated(uri)) return;
 
+/*
 		for (const {type, uri} of changes) {
 			const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
 			if (pp === 'path.json'
 			&& (type === FileChangeType.Created ||
 				type === FileChangeType.Changed)) {this.#fullScan(); continue;}
+					// ここでさせない、Project.ts 主導で
 		}
+*/
 	}
 
 
@@ -1166,6 +1168,7 @@ WorkspaceEdit
 		//console.log(`fn:LspWs.ts #scanAll() 9:`);
 	}
 		#updPath(sJson: string) {
+			this.#hPathFn2Exts = {};
 			const oJs = JSON.parse(sJson);
 			for (const [nm, v] of Object.entries(oJs)) {
 				const h = this.#hPathFn2Exts[nm] = <any>v;
@@ -1554,6 +1557,7 @@ WorkspaceEdit
 		// メッセージをクリア
 		const aDi: Diagnostic[] = this.#fp2Diag[fp] = [];
 		this.#Uri2Links[fp] = [];
+		const setUri2Links = new Set<string>();
 		this.#hChkDup = {};
 
 		// procTokenBase を定義、procToken も同値で始める
@@ -1688,12 +1692,15 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 	if (this.#chkLiteral4lbl(argLbl) && ! this.#hFn2label[argFn][argLbl]) {
 		// 変数・文字列操作系ならチェック不能
-		const {mes, sev} = this.#hDiag.ラベル不明;
-		aDi.push(Diagnostic.create(
-			this.#genPrm2Rng(hRng[name]),
-			mes.replace('$', argLbl),
-			sev
-		));
+		const prm = hRng[name];
+		if (prm) {
+			const {mes, sev} = this.#hDiag.ラベル不明;
+			aDi.push(Diagnostic.create(
+				this.#genPrm2Rng(prm),
+				mes.replace('$', argLbl),
+				sev
+			));
+		}
 	}
 	else {
 		const to_uri = this.#searchPath(argFn, SEARCH_PATH_ARG_EXT.SCRIPT);
@@ -1701,10 +1708,16 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		for (const nmArg of ['fn', 'label']) {
 			const prm = hRng[nmArg];
 			if (! prm) continue;
+
+			const lbl = argLbl ?'ラベル '+ argLbl :'冒頭';
+			const fn_lbl = argFn +':'+ lbl;
+			if (setUri2Links.has(fn_lbl)) continue;	// 重複弾き
+
+			setUri2Links.add(fn_lbl);
 			(this.#Uri2Links[fp] ??= []).push({
 				range	: this.#genPrm2Rng(prm),
 				target	: to_uri +`#L${lnOpen}`,
-				tooltip	: `${argFn}.sn の${argLbl ?'ラベル '+ argLbl :'冒頭'} を開く`,
+				tooltip	: `${argFn}.sn の${lbl} を開く`,
 			});
 		}
 	}
@@ -1857,12 +1870,6 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 	readonly	#hTagProc: {[nm: string]: (arg: ARG_TAG_PROC)=> void}	= {
 		// constructor で上書きしているので注意
 
-		link: arg=> {
-			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
-			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
-			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
-		},
-
 		let_ml: ({hArg, pp})=> {
 			this.#procToken = (p, token)=> {
 				const len2 = token.length;
@@ -1882,6 +1889,102 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
 		},
 
+		let: ({hArg, pp})=> {
+			const nm = hArg.name?.val;
+			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
+
+			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
+		},
+
+		link: arg=> {
+			this.#hTagProc.s(arg);
+
+			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
+		},
+
+		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
+
+		s: arg=> {
+			const {token, rng} = arg;
+			arg.aDsOutline.push(DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng));
+		},
+
+		fadeoutse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		fadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		playse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		stopfadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		stopse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		volume: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		wf: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		ws: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
+		xchgbuf: arg=> {
+			this.#recAddKw('サウンドバッファ', 'buf', arg);
+			this.#recAddKw('サウンドバッファ', 'buf2', arg);
+		},
+
+		if: arg=> {
+			const {token, rng} = arg;
+			const ds = DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng);
+			arg.aDsOutline.push(ds);
+			this.#aDsOutlineStack.push(arg.aDsOutline);
+			arg.aDsOutline = ds.children ?? [];
+		},
+		elsif: arg=> {	
+			this.#hTagProc.if(arg);
+
+			arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [];
+		},
+		// else:  = elsif
+		endif: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+
+		// event:  = s
+
+		button: arg=> {
+			this.#hTagProc.s(arg);
+
+			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
+			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
+		},
+		call: arg=> {
+			this.#hTagProc.s(arg);
+
+			const {pp, hArg, p} = arg;
+			const fn = hArg.fn?.val ?? getFn(pp);
+			if (!fn || fn.at(-1) !== '*') return;
+
+			const a = this.#cnvFnWildcard2A(fn);
+			const i = InlayHint.create({...p}, a.length === 0 ?'対象なし' :a.join(','), InlayHintKind.Parameter);
+			i.paddingLeft = true;
+			i.paddingRight = true;
+			i.tooltip = 'ワイルドカード表現で対象となるスクリプト名';
+			(this.#hDoc2InlayHint[pp] ??= []).push(i);
+		},
+		// jump:  = s
+
+		// return:  = s
+
+		char2macro: arg=> {
+			const {uri, rng, aDi, hArg, hRng} = arg;
+			const char = hArg.char?.val ?? '';
+			const use_nm = hArg.name?.val ?? '';
+			if (! char || ! use_nm) {	// [macro name=]など
+				const {mes, sev} = this.#hDiag.一文字マクロ定義_属性異常;
+				aDi.push(Diagnostic.create(rng, mes.replace('$', use_nm), sev));
+				return;
+			}
+			this.#recDefKw('一文字マクロ定義', 'char', arg);
+			if (use_nm in LspWs.#hTag || use_nm in this.#hDefPlugin) return;
+
+			const {v_ln, v_ch, v_len} = hRng.name;
+			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(uri, Range.create(
+				v_ln, v_ch,
+				v_ln, v_ch +v_len,
+			)));
+		},
+		endmacro: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 		macro: arg=> {
 			const {uri, token, rng, aDi, pBefore, p, hArg, hRng} = arg;
 			const nm = hArg.name?.val;
@@ -1972,80 +2075,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			}
 */
 		},
-		endmacro: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
 
-		char2macro: arg=> {
-			const {uri, rng, aDi, hArg, hRng} = arg;
-			const char = hArg.char?.val ?? '';
-			const use_nm = hArg.name?.val ?? '';
-			if (! char || ! use_nm) {	// [macro name=]など
-				const {mes, sev} = this.#hDiag.一文字マクロ定義_属性異常;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', use_nm), sev));
-				return;
-			}
-			this.#recDefKw('一文字マクロ定義', 'char', arg);
-			if (use_nm in LspWs.#hTag || use_nm in this.#hDefPlugin) return;
-
-			const {v_ln, v_ch, v_len} = hRng.name;
-			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(uri, Range.create(
-				v_ln, v_ch,
-				v_ln, v_ch +v_len,
-			)));
-		},
-
-		if: arg=> {
-			const {token, rng} = arg;
-			const ds = DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng);
-			arg.aDsOutline.push(ds);
-			this.#aDsOutlineStack.push(arg.aDsOutline);
-			arg.aDsOutline = ds.children ?? [];
-		},
-		elsif: arg=> {	
-			this.#hTagProc.if(arg);
-
-			arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [];
-		},
-		// else:  = elsif
-		endif: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
-
-		button: arg=> {
-			this.#recAddKw('サウンドバッファ', 'clicksebuf', arg);
-			this.#recAddKw('サウンドバッファ', 'entersebuf', arg);
-			this.#recAddKw('サウンドバッファ', 'leavesebuf', arg);
-		},
-
-		// event:  = s
-		// jump:  = s
-		call: arg=> {
-			this.#hTagProc.event(arg);
-
-			const {pp, hArg, p} = arg;
-			const fn = hArg.fn?.val ?? getFn(pp);
-			if (!fn || fn.at(-1) !== '*') return;
-
-			const a = this.#cnvFnWildcard2A(fn);
-			const i = InlayHint.create({...p}, a.length === 0 ?'対象なし' :a.join(','), InlayHintKind.Parameter);
-			i.paddingLeft = true;
-			i.paddingRight = true;
-			i.tooltip = 'ワイルドカード表現で対象となるスクリプト名';
-			(this.#hDoc2InlayHint[pp] ??= []).push(i);
-		},
-		// return:  = s
-		s: arg=> {
-			const {token, rng} = arg;
-			arg.aDsOutline.push(DocumentSymbol.create(token, '', SymbolKind.Function, rng, rng));
-		},
-
-		let: ({hArg, pp})=> {
-			const nm = hArg.name?.val;
-			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
-
-			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
-		},
-		add_frame: arg=> this.#recDefKw('フレーム定義', 'id', arg),
-		// button = s
-
-		// link = s
 		ch_in_style: arg=> this.#recDefKw('文字出現演出定義', 'name', arg),
 		ch_out_style: arg=> this.#recDefKw('文字消去演出定義', 'name', arg),
 		add_lay: arg=> {
@@ -2078,19 +2108,6 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 			const s = this.#getFonts2ANm(fonts, uri, rng);
 			if (! s) this.#nowFontNm = s;
-		},
-
-		fadeoutse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		fadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		playse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		stopfadese: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		stopse: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		volume: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		wf: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		ws: arg=> {this.#recAddKw('サウンドバッファ', 'buf', arg);},
-		xchgbuf: arg=> {
-			this.#recAddKw('サウンドバッファ', 'buf', arg);
-			this.#recAddKw('サウンドバッファ', 'buf2', arg);
 		},
 	}	
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];

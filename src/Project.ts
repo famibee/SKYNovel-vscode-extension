@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp} from './CmnLib';
+import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
@@ -17,7 +17,7 @@ import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern, ViewColumn, WebviewPanel} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
-import {extname} from 'path';
+import {extname, resolve} from 'path';
 import img_size from 'image-size';
 import {lib} from 'crypto-js';
 import {v4 as uuidv4} from 'uuid';
@@ -164,7 +164,6 @@ export class Project {
 		// プロジェクト管理系
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: false, dip: ''});
 		this.#cfg = new Config(sr);
-		this.#basePathJson();	// use #encry、開かれる前にファイル追加・削除の対応
 
 		this.#ps = new PrjSetting(
 			ctx,
@@ -203,9 +202,55 @@ export class Project {
 
 		const regSetting = new RegExp(`^${wsFld.uri.path}\/doc\/prj\/.+\/setting.sn$`);	// 最適化変換対象
 
+
+		const hFld2hFile: {[fld_nm: string]: {[fp: string]: 0}} = {};
+		foldProc(this.#PATH_PRJ, ()=> {}, fld_nm=> {
+			hFld2hFile[fld_nm] = {};
+
+			foldProc(resolve(this.#PATH_PRJ, fld_nm), (vfp, _nm)=> {
+				const fp = v2fp(Uri.file(vfp).path);
+				hFld2hFile[fld_nm][fp] = 0;
+			}, ()=> {});
+		});
+		const onDidDelete = (uri: Uri)=> {
+//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
+			if (this.#regCnvGrp.test(uri.path)) {
+				this.#chkWVFolder(uri, 'DEL');
+				this.#ps.onDelOptPic(uri);
+				this.#updPathJson();
+				return;
+			}
+			if (this.#regCnvSnd.test(uri.path)) {
+				this.#chkWVFolder(uri, 'DEL');
+				this.#ps.onDelOptSnd(uri);
+				this.#updPathJson();
+				return;
+			}
+			if (regSetting.test(uri.path)) {
+				this.#ps.onDelSettingSn(uri);
+				this.#updPathJson();
+				return;
+			}
+			if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
+			if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+
+			// Del
+			const {pathCn, pp} = this.#path2cn(uri.path);
+			if (pathCn) removeSync(pathCn);
+	
+			delete this.#hDiff[pp];
+			this.#updDiffJson();
+	
+			this.#updPathJson();
+		};
 		this.#aFSW = [
-			fwPrj.onDidCreate(uri=> {
+			fwPrj.onDidCreate(uri=> {	// フォルダごと追加でも発生する（こちらが先）
 //console.log(`fn:Project.ts fwPrj CRE path=${uri.path}=`);
+				const fp = v2fp(uri.path);
+				const pp = this.#fp2pp(fp);
+				const fld_nm = dirname(pp);
+				(hFld2hFile[fld_nm] ??= {})[fp] = 0;
+
 				if (this.#regCnvGrp.test(uri.path)) {
 					this.#chkWVFolder(uri, 'CRE');
 					this.#ps.onCreChgOptPic(uri);
@@ -254,46 +299,33 @@ export class Project {
 				// Chg
 				this.#encIfNeeded(uri);
 			}),
-			fwPrj.onDidDelete(uri=> {
-//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
-				if (this.#regCnvGrp.test(uri.path)) {
-					this.#chkWVFolder(uri, 'DEL');
-					this.#ps.onDelOptPic(uri);
-					this.#updPathJson();
-					return;
-				}
-				if (this.#regCnvSnd.test(uri.path)) {
-					this.#chkWVFolder(uri, 'DEL');
-					this.#ps.onDelOptSnd(uri);
-					this.#updPathJson();
-					return;
-				}
-				if (regSetting.test(uri.path)) {
-					this.#ps.onDelSettingSn(uri);
-					this.#updPathJson();
-					return;
-				}
-				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
-
-				// Del
-				const {pathCn, pp} = this.#path2cn(uri.path);
-				if (pathCn) removeSync(pathCn);
-		
-				delete this.#hDiff[pp];
-				this.#updDiffJson();
-		
-				this.#updPathJson();
-			}),
+			fwPrj.onDidDelete(uri=> onDidDelete(uri)),
+				// フォルダごと削除すると、発生しない！
 
 			fwPrjJs.onDidChange(uri=> this.#encIfNeeded(uri)),
 
-			fwFld.onDidCreate(uri=> this.#ps.onCreDir(uri)),
+			fwFld.onDidCreate(uri=> {
+				if (! statSync(uri.path).isDirectory()) return;
+//console.log(`fn:Project.ts fwFld CRE:${uri.path.slice(this.#LEN_PATH_PRJ)}:`);
+
+				this.#ps.onCreDir(uri);
+			}),
 			/*fwFld.onDidChange(uri=> {
 				// フォルダ名では Change が発生せず、Cre → Del。fwPrj は「発生しない」
+				// path.json, prj.json のみ発生する
 			}),*/
 			fwFld.onDidDelete(uri=> {
-//console.log(`fn:Project.ts fwFld D path=${uri.path}=`);
+				//if (! statSync(uri.path).isDirectory()) return;
+					// すでに削除されてしまっているので
+
+				const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
+//console.log(`fn:Project.ts fwFld DEL:${fld_nm}:`);
+				for (const fp of Object.keys(hFld2hFile[fld_nm])) onDidDelete(Uri.file(fp));
+				delete hFld2hFile[fld_nm];
+
+				if (this.#isCryptoMode) removeSync(this.#PATH_CRYPT + fld_nm);
+				removeSync(this.#PATH_PRJ_BASE + fld_nm);
+
 				if (this.#pnlWVFolder) {
 					this.#pnlWVFolder?.dispose();
 					this.#pnlWVFolder = undefined;
@@ -357,7 +389,9 @@ export class Project {
 		// 診断機能
 		this.#clDiag = languages.createDiagnosticCollection(docsel.language);
 
-		this.#sendRequest2LSP('ready');
+		// use #encry、開かれる前にファイル追加・削除の対応
+		this.#basePathJson()
+		.then(()=> this.#sendRequest2LSP('ready'));
 	}
 		readonly #regCnvGrp = /\.(jpg|jpeg|png|webp)$/;		// 最適化変換対象
 			// 2 matches (56 steps, 0.1ms) https://regex101.com/r/bAB2wH/1
@@ -413,7 +447,8 @@ export class Project {
 					// まだセーブしてない Dirty状態の場合があるので doc優先
 					const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
 					const pp = fp.slice(this.#LEN_PATH_PRJ);
-					pp2s[pp] = td?.getText() ?? readFileSync(fp, {encoding: 'utf8'});
+					pp2s[pp] = (REG_SCRIPT.test(fp) ?td?.getText() :undefined)
+						?? readFileSync(fp, {encoding: 'utf8'});
 				});
 				this.#sendRequest2LSP(hd.cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg,});
 			}	break;
@@ -456,6 +491,8 @@ export class Project {
 					}
 					this.#clDiag.set(Uri.file(fp), aD);
 				}
+
+				this.#basePathJsonAfter = ()=> this.#sendRequest2LSP('credel_sn');
 			}	break;
 
 			case 'hover.res':	{
@@ -476,7 +513,7 @@ export class Project {
 				delete this.#hPath2Proc[vfp];
 
 				let v = String(o.value);
-				if (v == 'undefined') {rj(); return;}
+				if (v === 'undefined') {rj(); return;}
 
 				const a = v.split(/(?=\n---\n)/);
 				if (a.length === 3) {
@@ -493,6 +530,8 @@ export class Project {
 	const srcEx = `${vfpImg}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
 	const {width = 0, height = 0} = img_size(this.#PATH_PRJ + ppImg);
 	const exImg = encodeURIComponent(JSON.stringify([Uri.parse(vfpImg)]));
+//	const timestamp = new Date().getTime();
+//console.log(`fn:Project.ts line:531 timestamp:${timestamp}`);
 
 	return `- ${name} = ${val} (${width}x${height}) ${
 		`[ファイルを見る](${vfpImg} "ファイルを見る")`
@@ -502,13 +541,15 @@ export class Project {
 	[フォルダを開く](${
 		Uri.parse(`command:revealFileInOS?${exImg}`)
 	} "フォルダを開く")  \n`
+//	+ `<img src="${vfpImg}?t=${timestamp}" title="${val}" width="${this.#whThumbnail}" height="${this.#whThumbnail *height /width}">`;
+		// TODO: 画像ファイルを更新してもサムネイルが更新されない
+//	+ `![${val}](${srcEx}?t=${timestamp} "${val}")`;
 	+ `![${val}](${srcEx} "${val}")`;
 						}
 					);
 				}
 
 				const ms = new MarkdownString(v);
-			//	const ms = new MarkdownString(value, o.range);// 表示されない
 				ms.isTrusted = true;
 			//	ms.supportHtml = true;
 				rs(new Hover(ms));
@@ -1386,18 +1427,21 @@ export class Project {
 		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
 		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
 	}
-		#basePathJson() {
+		async #basePathJson() {		// 初期化冒頭で直接呼ばれる
 			// path.json 更新（暗号化もここ「のみ」で）
-			this.#cfg.loadEx(uri=> this.#encFile(uri), this.#clDiag);
+			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#clDiag);
 
 			// ドロップ時コピー先候補
-			for (const [spae, aFld] of this.#mExt2Folders) {
+			for (const [spae, aFld] of this.#mExt2aFld) {
 				const aPath: string[] = [];
-				for (const nmFolder of aFld) if (existsSync(this.#PATH_WS +`/doc/prj/${nmFolder}/`)) aPath.push(nmFolder);
+				for (const fld_nm of aFld) if (existsSync(this.#PATH_WS +`/doc/prj/${fld_nm}/`)) aPath.push(fld_nm);
 				this.#mExt2ToPath.set(spae, aPath);
 			}
+
+			this.#basePathJsonAfter();
 		}
-	readonly	#mExt2Folders: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
+		#basePathJsonAfter = ()=> {};
+	readonly	#mExt2aFld: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
 		[SEARCH_PATH_ARG_EXT.SP_GSM, ['bg','image']],
 		[SEARCH_PATH_ARG_EXT.SOUND, ['music','sound']],
 		[SEARCH_PATH_ARG_EXT.FONT, ['script']],
