@@ -26,7 +26,7 @@ function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm
 function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
-			console.error(`replaceFile no exists src:${src}`);
+			console.error(`No change, No replace src:${src}`);
 			return;
 		}
 
@@ -175,7 +175,7 @@ switch (pathInp) {
 		go();
 		break;
 
-	case 'all_no_move':
+	case 'all_recnv':
 		if (existsSync(fnLog)) {
 			oLog = readJsonSync(fnLog, {encoding: 'utf8'});
 			oLog.sum.baseSize = 
@@ -192,6 +192,38 @@ switch (pathInp) {
 				'no_move',
 			);
 		}
+
+		go();
+		break;
+
+	case 'minimum_of_all':
+		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+
+		foldProc(curPrjBase, ()=> {}, dir=> {
+			const wdBase = resolve(curPrjBase, dir);
+			ensureDir(wdBase);
+			const wdPrj = resolve(curPrj, dir);
+			foldProc(wdBase, (url, name)=> {
+				if (! REG_CNV_WEBP.test(url)) return;
+
+				const toPath = resolve(wdPrj, name.replace(REG_CNV_WEBP, '.webp'));
+				if (existsSync(toPath)) {	// 存在しても古い場合は処理
+					const tsFr = statSync(url).mtimeMs;
+					const tsTo = statSync(toPath).mtimeMs;
+					if (tsFr < tsTo) return;	// to が新しい
+				}
+
+				// 最適化処理する
+				const nm = parse(toPath).name;
+				if (nm in oLog.hSize) {
+					const {baseSize=0, webpSize=0} = oLog.hSize[nm];
+					oLog.sum.baseSize -= baseSize;
+					oLog.sum.webpSize -= webpSize;
+				}
+
+				cnv(toPath, url, 'no_move');
+			}, ()=> {});
+		});
 
 		go();
 		break;

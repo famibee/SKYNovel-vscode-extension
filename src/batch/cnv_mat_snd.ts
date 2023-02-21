@@ -143,7 +143,7 @@ switch (pathInp) {
 		go();
 		break;
 
-	case 'all_no_move':
+	case 'all_recnv':
 		if (existsSync(fnLog)) {
 			oLog = readJsonSync(fnLog, {encoding: 'utf8'});
 			oLog.sum.baseSize = 
@@ -164,6 +164,38 @@ switch (pathInp) {
 		go();
 		break;
 
+	case 'minimum_of_all':
+		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+
+		foldProc(curPrjBase, ()=> {}, dir=> {
+			const wdBase = resolve(curPrjBase, dir);
+			ensureDir(wdBase);
+			const wdPrj = resolve(curPrj, dir);
+			foldProc(wdBase, (url, name)=> {
+				if (! REG_CNV_AAC.test(url)) return;
+
+				const toPath = resolve(wdPrj, name.replace(REG_CNV_AAC, extOut));
+				if (existsSync(toPath)) {	// 存在しても古い場合は処理
+					const tsFr = statSync(url).mtimeMs;
+					const tsTo = statSync(toPath).mtimeMs;
+					if (tsFr < tsTo) return;	// to が新しい
+				}
+
+				// 最適化処理する
+				const nm = parse(toPath).name;
+				if (nm in oLog.hSize) {
+					const {baseSize=0, optSize=0} = oLog.hSize[nm];
+					oLog.sum.baseSize -= baseSize;
+					oLog.sum.optSize -= optSize;
+				}
+
+				cnv(toPath, url, 'no_move');
+			}, ()=> {});
+		});
+
+		go();
+		break;
+
 	case 'all':{	// ファイル最適化
 		ensureDir(curPrjBase);
 		foldProc(curPrj, ()=> {}, dir=> {
@@ -171,8 +203,7 @@ switch (pathInp) {
 			ensureDir(wdBase);
 			foldProc(resolve(curPrj, dir), (url, name)=> {
 				// 退避素材フォルダに元素材を移動
-				if (! REG_CNV_AAC.test(name)) return;
-				cnv(url, resolve(wdBase, name));
+				if (REG_CNV_AAC.test(name)) {cnv(url, resolve(wdBase, name)); return;}
 			}, ()=> {});
 		});
 

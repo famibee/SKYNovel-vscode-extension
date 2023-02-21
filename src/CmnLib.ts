@@ -79,7 +79,7 @@ export function foldProc(wd: string, fnc: (fp: string, nm: string)=> void, fncFl
 export function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
-			console.error(`replaceFile no exists src:${src}`);
+			console.error(`No change, No replace src:${src}`);
 			return;
 		}
 		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので
@@ -97,7 +97,7 @@ export function replaceFile(src: string, r: RegExp, rep: string, verbose = true,
 export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verbose = true, dest = src) {
 	try {
 		if (! existsSync(src)) {
-			console.error(`replaceFile no exists src:${src}`);
+			console.error(`No change, No replace src:${src}`);
 			return;
 		}
 		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので

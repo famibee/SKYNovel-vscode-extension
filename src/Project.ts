@@ -720,7 +720,7 @@ export class Project {
 		case 'cnv.mat.webp_quality':
 			if (! this.#ps.oWss['cnv.mat.pic']) break;
 
-			await this.#cnv_mat_pic('all_no_move');
+			await this.#cnv_mat_pic('all_recnv');
 			break;
 
 		case 'cnv.mat.snd':
@@ -730,7 +730,7 @@ export class Project {
 		case 'cnv.mat.snd.codec':
 			if (! this.#ps.oWss['cnv.mat.snd']) break;
 
-			await this.#cnv_mat_snd('all_no_move');
+			await this.#cnv_mat_snd('all_recnv');
 			break;
 		}
 
@@ -782,6 +782,7 @@ export class Project {
 			cancellable	: false,
 		}, prg=> new Promise<void>(async donePrg=> {
 			const pathJs = this.#PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
+			const isFirst = ! existsSync(pathJs);
 			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
 
 			const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
@@ -796,7 +797,7 @@ export class Project {
 				'SKYNovel',		// source
 				new ShellExecution(
 					`cd "${this.#PATH_WS}" ${statBreak} ${
-						sNeedInst ?`npm i -D ${sNeedInst} ${statBreak} ` :''
+						isFirst ?`npm i -D ${sNeedInst} ${statBreak} ` :''
 					}node ./${inf.pathCpyTo}/${nm}.js ${arg}`
 				),
 			))

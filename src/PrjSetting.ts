@@ -271,21 +271,16 @@ export class PrjSetting {
 
 			// mp3・wavファイルを追加・更新時、退避に上書き移動して aac化
 			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptSnd();
+			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.snd', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
 			await this.exeTask(
 				'cnv_mat_snd',
-				`"${isBase
-					? path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
-					: path
-				}" '{"codec":"${ this.#oWss['cnv.mat.snd.codec'] }"}' "${
-					isBase
-					? path
-					: path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE)
-				}" ${isBase ?'no_move' :''}`,
+				`${ isBase ?'minimum_of_all' :'all'
+				} '{"codec":"${ this.#oWss['cnv.mat.snd.codec'] }"}' "${
+					this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 			);
 
 			o.mode = 'comp';
@@ -297,10 +292,12 @@ export class PrjSetting {
 			this.#setOnOptSnd();
 		};
 		this.onDelOptSnd = async ({path})=> {
+			if (! this.#oWss['cnv.mat.snd']) return;
+
 			path = v2fp(path);
 			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptSnd();
-			if (! isBase) {
+			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
+			if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
 				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
 				for (const ext of ['mp3','wav']) {
 					await remove(path2.replace(/(m4a|aac|ogg)$/, ext));
@@ -309,7 +306,7 @@ export class PrjSetting {
 				return;
 			}
 
-			// 退避を消したら変換後  aac... も削除
+			// 退避ファイルを消したら変換後  aac... も削除
 			for (const ext of ['m4a','aac','ogg']) await remove(
 				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
 				.replace(this.#REG_EXT_SND_CNV, '.'+ ext)
@@ -345,21 +342,16 @@ export class PrjSetting {
 
 			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
 			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptPic();
+			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
 			await this.exeTask(
 				'cnv_mat_pic',
-				`"${isBase
-					? path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
-					: path
-				}" ${ this.oWss['cnv.mat.webp_quality'] } "${
-					isBase
-					? path
-					: path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE)
-				}" ${isBase ?'no_move' :''}`,
+				`${ isBase ?'minimum_of_all' :'all'
+				} ${ this.oWss['cnv.mat.webp_quality']
+				} "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 			);
 
 			o.mode = 'comp';
@@ -371,10 +363,12 @@ export class PrjSetting {
 			this.#setOnOptPic();
 		};
 		this.onDelOptPic = async ({path})=> {
+			if (! this.#oWss['cnv.mat.pic']) return;
+
 			path = v2fp(path);
 			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptPic();
-			if (! isBase) {
+			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
+			if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
 				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
 				for (const ext of ['jpeg','jpg','png']) {
 					await remove(path2.replace(/webp$/, ext));
@@ -383,7 +377,7 @@ export class PrjSetting {
 				return;
 			}
 
-			// 退避を消したら変換後 WebP も削除
+			// 退避ファイルを消したら変換後ファイルも削除
 			await remove(
 				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
 				.replace(this.#REG_EXT_PIC_CNV, '.webp')
@@ -520,12 +514,12 @@ export class PrjSetting {
 			const e: T_E2V_CHG_RANGE_WEBP_Q_DEF = m;
 			this.#wss.update('cnv.mat.webp_quality', this.#oWss['cnv.mat.webp_quality'] = e.webp_q);
 
-			this.#unsetOnOptPic();
+			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
 
 			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
-			this.cmd('cnv.mat.webp_quality', 'all_no_move')
+			this.cmd('cnv.mat.webp_quality', 'all_recnv')
 			.then(()=> {
 				this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
 				this.#dispOptPic();
@@ -594,8 +588,8 @@ export class PrjSetting {
 					this.#cmd2Vue(o);
 				}));
 			}
-			this.#unsetOnOptPic();
-			this.#unsetOnOptSnd();
+			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
+			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
 			Promise.allSettled(aP.map(t=> t())).then(()=> {
 				this.#setOnOptPic();
 				this.#setOnOptSnd();
