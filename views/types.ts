@@ -7,7 +7,8 @@
 
 export type T_WSS = {
 	'cnv.font.subset'		: boolean,
-	'cnv.icon.cut_round'	: boolean,
+//	'cnv.icon.cut_round'	: boolean,		// 使用廃止、cnv.icon.shape に切り替え
+	'cnv.icon.shape'		: number,
 	'cnv.mat.pic'			: boolean,
 	'cnv.mat.webp_quality'	: number,
 	'cnv.mat.snd'			: boolean,
@@ -16,7 +17,7 @@ export type T_WSS = {
 
 export const DEF_WSS: T_WSS = {
 	'cnv.font.subset'		: false,
-	'cnv.icon.cut_round'	: false,
+	'cnv.icon.shape'		: 0,
 	'cnv.mat.pic'			: false,
 	'cnv.mat.webp_quality'	: 90,
 	'cnv.mat.snd'			: false,

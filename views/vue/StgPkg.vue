@@ -54,17 +54,27 @@
 
 	</div><div class="row">
 		<div class="col form-check mb-3">
-			<div class="input-group input-group-sm">
-				<button type="button" @click="selectIcon" class="btn btn-info btn-lg">ファイルを選択</button>
-				<span class="alert alert-danger" role="alert" v-text="select_icon_err" v-show="select_icon_err !== ''"></span>
-			</div>
+			<ul class="list-group">
+				<li class="list-group-item">
+					<input type="radio" class="form-check-input" name="rgCnvIconShape" value="0" v-model="oWss['cnv.icon.shape']" id="rgCnvIconShape0" checked>
+					<label class="form-check-label stretched-link" for="rgCnvIconShape0">加工しない</label>
+				</li>
+				<li class="list-group-item">
+					<input type="radio" class="form-check-input" name="rgCnvIconShape" value="1" v-model="oWss['cnv.icon.shape']" id="rgCnvIconShape1">
+					<label class="form-check-label stretched-link" for="rgCnvIconShape1">丸に</label>
+				</li>
+				<li class="list-group-item">
+					<input type="radio" class="form-check-input" name="rgCnvIconShape" value="2" v-model="oWss['cnv.icon.shape']" id="rgCnvIconShape2">
+					<label class="form-check-label stretched-link" for="rgCnvIconShape2">角丸に</label>
+				</li>
+			</ul>
 		</div>
 
 	</div><div class="row">
-		<div class="col form-check">
+		<div class="col form-check mb-3">
 			<div class="input-group input-group-sm">
-				<input type="checkbox" id="cnv.icon.cut_round" v-model="oWss['cnv.icon.cut_round']" class="form-check-input mb-3 sn_checkbox sn-chk">
-				<label for="cnv.icon.cut_round" class="form-check-label">丸く切り抜くか</label>
+				<button type="button" @click="selectIcon" class="btn btn-info">ファイルを選択</button>
+				<span class="alert alert-danger" role="alert" v-text="select_icon_err" v-show="select_icon_err !== ''"></span>
 			</div>
 		</div>
 

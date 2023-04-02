@@ -99,6 +99,7 @@ const CHK重複_KEY = [
 	'文字出現演出定義',
 	'文字消去演出定義',
 	'一文字マクロ定義',
+	'サウンドバッファ宣言',
 ] as const;
 type T_CHK重複_KEY = typeof CHK重複_KEY[number]; // union type
 

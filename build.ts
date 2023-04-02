@@ -58,7 +58,7 @@ import vue from '@vitejs/plugin-vue';
 		plugins: [vue()],
 		optimizeDeps: {
 			entries	: ['/setting.htm'],
-			include	: ['./lib/bootstrap.min.js', './lib/fontawesome/all.min.js'],
+			include	: ['./lib/bootstrap.bundle.min.js', './lib/fontawesome/all.min.js'],
 		},
 	//	assetsInclude: ['./lib/ * * / *.woff2'],
 	});

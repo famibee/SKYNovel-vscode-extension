@@ -555,7 +555,7 @@ export class PrjSetting {
 				(<any>this.#oWss)[id] = val;
 				switch (id) {
 					case 'cnv.font.subset'		: break;
-				//	case 'cnv.icon.cut_round'	: continue;
+				//	case 'cnv.icon.shape'		: continue;
 					case 'cnv.mat.pic'			: break;
 				//	case 'cnv.mat.webp_quality'	: continue;		//===
 					case 'cnv.mat.snd'			: break;
@@ -662,7 +662,7 @@ export class PrjSetting {
 
 			const exit_code = await this.exeTask(
 				'cut_round',
-				`"${src}" ${this.#oWss['cnv.icon.cut_round']} "${path}"`,
+				`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}"`,
 			);
 			this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
 				cmd		: 'updimg',

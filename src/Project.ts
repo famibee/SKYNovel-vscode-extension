@@ -782,13 +782,15 @@ export class Project {
 			cancellable	: false,
 		}, prg=> new Promise<void>(async donePrg=> {
 			const pathJs = this.#PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
-			const isFirst = ! existsSync(pathJs);
+			let init = '';
+			if (! existsSync(pathJs)) {
+				const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
+				const sNeedInst = inf.aNeedLib
+				.filter(nm=> ! oPkg.devDependencies[nm])
+				.join(' ');
+				init = `npm i -D ${sNeedInst} ${statBreak} `;
+			}
 			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
-
-			const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
-			const sNeedInst = inf.aNeedLib
-			.filter(nm=> ! oPkg.devDependencies[nm])
-			.join(' ');
 
 			tasks.executeTask(new Task(
 				{type: 'SKYNovel TaskSys'},	// タスクの一意性
@@ -796,9 +798,7 @@ export class Project {
 				inf.title,		// UIに表示
 				'SKYNovel',		// source
 				new ShellExecution(
-					`cd "${this.#PATH_WS}" ${statBreak} ${
-						isFirst ?`npm i -D ${sNeedInst} ${statBreak} ` :''
-					}node ./${inf.pathCpyTo}/${nm}.js ${arg}`
+					`cd "${this.#PATH_WS}" ${statBreak} ${ init } node ./${inf.pathCpyTo}/${nm}.js ${arg}`
 				),
 			))
 			.then(

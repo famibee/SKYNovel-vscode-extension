@@ -38,8 +38,7 @@ body {
 .list-group-item {
 	color: var(--vscode-list-inactive-selection-foreground);
 	background-color: var(--vscode-list-inactive-selection-background);
-/* 	border-color: var(--vscode-list-inactive-focus-outline); */
-	border: none;
+	border-color: var(--vscode-list-inactive-focus-outline);
 	padding: 0.2em .5em;
 }
 .list-group-item:hover {

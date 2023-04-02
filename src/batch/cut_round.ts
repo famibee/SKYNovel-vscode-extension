@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , src, isCut, path] = process.argv;
+const [, , src, shape, path] = process.argv;
 
 const sharp = require('sharp');
 import {copy, ensureDir, existsSync, readFile, stat, writeFile, writeJsonSync} from 'fs-extra';
@@ -19,25 +19,38 @@ sharp(src).metadata().then((info: any)=> {
 	}
 	log_exit();
 
-	if (info.width < 1024 || info.height < 1024) {
-		oLog.err = `元画像のサイズは 1024 x 1024 以上にして下さい。（width:${info.width} height:${info.height}）`;
+	const wh = 1024;
+	if (info.width < wh || info.height < wh) {
+		oLog.err = `元画像のサイズは ${wh} x ${wh} 以上にして下さい。（width:${info.width} height:${info.height}）`;
 		log_exit(10);
 	}
 
 	const pathWs = process.cwd() +'/';
 	const s = sharp(src).png().resize({
-		width	: 1024,
-		height	: 1024,
+		width	: wh,
+		height	: wh,
 		fit		: 'cover',
 		background	: {r: 0, g: 0, b: 0, alpha: 0},
 	});
-	if (isCut == 'true') {
-		const r = 1024 /2;
-		s.composite([{
-			input	: Buffer.from(`<svg><circle cx="${r}" cy="${r}" r="${r}"/></svg>`),
-			blend	: 'dest-in',
-		}]);
+
+	switch (parseInt(shape)) {
+		case 1:		// 丸
+			s.composite([{
+				input	: Buffer.from(`<svg><circle cx="${wh /2}" cy="${wh /2}" r="${wh /2}"/></svg>`),
+				blend	: 'dest-in',
+			}]);
+			break;
+
+		case 2:		// 角丸
+			s.composite([{
+				input	: Buffer.from(`<svg><rect width="${wh}" height="${wh}" rx="${wh/4.5}" ry="${wh/4.5}"/></svg>`),
+				blend	: 'dest-in',
+			}]);
+			break;
+
+	//	default:
 	}
+
 	s.toFile(pathWs + path)
 	.then(async ()=> {
 		const fnIcon = pathWs +'build/icon.png';

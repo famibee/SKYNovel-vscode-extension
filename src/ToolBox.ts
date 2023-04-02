@@ -95,7 +95,7 @@ export class ToolBox implements WebviewViewProvider {
 	}
 	.btn {text-transform: none; font-size: 14px;}
 </style>
-<script defer nonce="${nonce}" src="${uri}/lib/bootstrap.min.js"></script>
+<script defer nonce="${nonce}" src="${uri}/lib/bootstrap.bundle.min.js"></script>
 <script defer nonce="${nonce}" src="${uri}/lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="${uri}/toolbox.js"></script>
 </head>
