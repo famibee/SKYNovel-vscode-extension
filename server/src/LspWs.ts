@@ -25,17 +25,18 @@ type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
 
 
 type ARG_TAG_PROC = {
-	hArg	: HPRM,
-	uri		: string,
-	pp		: string,
-	token	: string,
-	rng		: Range,
-	aDi		: Diagnostic[],
-	pBefore	: Position,
-	p		: Position,
-	rng_nm	: Range,
+	hArg	: HPRM;
+	uri		: string;
+	pp		: string;
+	token	: string;
+	rng		: Range;
+	aDi		: Diagnostic[];
+	pBefore	: Position;
+	p		: Position;
+	rng_nm	: Range;
 	aDsOutline	: DocumentSymbol[];
-	hRng	: {[key: string]: PRM_RANGE}
+	hRng	: {[key: string]: PRM_RANGE};
+	f2s		: TFONT2STR;
 };
 interface MacroDef {
 	loc		: Location;
@@ -173,6 +174,8 @@ Backspace
 Enter
 =
 dom=\\S👾+
+sn:chgDarkMode
+sn:chgNavLang
 sn:exported
 sn:imported
 <ワンキー>
@@ -298,9 +301,11 @@ const.sn.lay.（レイヤ名）.（foreかback）.x
 const.sn.lay.（レイヤ名）.（foreかback）.y
 const.sn.log.json
 const.sn.Math.PI
+const.sn.navigator.language
 const.sn.needClick2Play
 const.sn.platform
 const.sn.sound.codecs
+const.sn.sound.【buf】.playing
 const.sn.vctCallStk.length
 save:const.sn.autowc.enabled
 save:const.sn.autowc.text
@@ -1483,6 +1488,7 @@ WorkspaceEdit
 		const aNm = fonts.split(',')
 		.map(nm=> /^["'\s]*(?<text>[^,;"']+)/.exec(nm)?.groups?.text ?? '');
 			// https://regex101.com/r/TA5y7N/1
+			// fonts = Meiryo, "Hiragino Sans", sans-serif;
 
 		for (const nm of aNm) {
 			(this.#InfFont.hFp2FontErr[fp] ??= []).push({
@@ -1504,7 +1510,9 @@ WorkspaceEdit
 	static	readonly	#regValName
 		= /(?<=name\s*=\s*)([^"'#;\]]+|(["'#])(.*?)\2)/m;
 	static	readonly	DEF_FONT = ':DEF_FONT:';
-	#nowFontNm = LspWs.DEF_FONT;
+	#nowFontNm			= LspWs.DEF_FONT;
+	#nowModeVal2font	= false;
+	#nowModeVal2fontNm	= LspWs.DEF_FONT;
 	#scanScript(fp: string) {
 		const pp = this.#fp2pp(fp);
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) {
@@ -1554,6 +1562,8 @@ WorkspaceEdit
 
 		const f2s: TFONT2STR = this.#InfFont.hSn2Font2Str[pp] = {};
 		this.#nowFontNm = LspWs.DEF_FONT;
+		this.#nowModeVal2font = false;
+		this.#nowModeVal2fontNm	= LspWs.DEF_FONT;
 
 		// メッセージをクリア
 		const aDi: Diagnostic[] = this.#fp2Diag[fp] = [];
@@ -1579,11 +1589,14 @@ WorkspaceEdit
 				try {
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
 					if (name.at(0) !== '&') {
-						const kw = name.trimEnd();
+						const kw = name.trim();
 						this.#hT2Pp2Kw.代入変数名[pp].add(kw);
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
+
+						// 変数代入文字列をフォント生成対象とする機能
+						if (this.#nowModeVal2font) f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + kw;
 					}
 				} catch (e) {console.error(`fn:LspWs.ts #scanScriptSrc & %o`, e);}
 				return;
@@ -1796,7 +1809,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 				}
 			});
 
-			const arg = {hArg, uri: fp, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng};
+			const arg = {hArg, uri: fp, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng, f2s};
 			if (use_nm in LspWs.#hTag) {this.#hTagProc[use_nm]?.(arg); return;}
 
 			// ここからマクロのみ
@@ -1890,11 +1903,20 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
 		},
 
-		let: ({hArg, pp})=> {
+		let: ({hArg, pp, f2s})=> {
 			const nm = hArg.name?.val;
 			if (! nm || this.#REG_NO_LITERAL.test(nm)) return;
 
 			this.#hT2Pp2Kw.代入変数名[pp].add(nm);
+
+			// 変数代入文字列をフォント生成対象とする／しない切り替える機能
+			if ('val2font' in hArg) this.#nowModeVal2font = Boolean(hArg.val2font.val);
+			if ('val2fontNm' in hArg) this.#nowModeVal2fontNm = hArg.val2fontNm.val ?? LspWs.DEF_FONT;
+
+			if (this.#nowModeVal2font) {
+				const tx = (hArg.text?.val ?? '').trim();
+				f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx;
+			}
 		},
 
 		link: arg=> {
@@ -2108,7 +2130,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			if (! fonts) {this.#nowFontNm = LspWs.DEF_FONT; return;}
 
 			const s = this.#getFonts2ANm(fonts, uri, rng);
-			if (! s) this.#nowFontNm = s;
+			if (s) this.#nowFontNm = s;
 		},
 	}	
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];

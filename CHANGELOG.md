@@ -1,3 +1,11 @@
+## v4.12.1
+- feat: 変数代入文字列をフォント生成対象とする／しない切り替える機能
+	- AIRNovelの【;#VAL2FONT】にあたる機能
+	- [macro]の nowarn_unused 属性のように、[let]文の「SKYNovelゲーム中では無視される属性」として表現し、拡張機能が使う
+	- 属性 val2font …… これ以降（〜スクリプト終端）での変数代入文字列をフォント生成対象とする／しない切り替え
+	- 属性 val2fontNm …… これ以降フォント生成対象とする際のフォント名
+- fix: イベント名に「sn:chgDarkMode」「sn:chgNavLang」追加
+- fix: 組み込み変数「const.sn.navigator.language」「const.sn.sound.【buf】.playing」追加
 ## v4.12.0
 - feat: [設定]画面-[パッケージ]-[アプリアイコン]画像から自動作成、角丸もサポート
 ## v4.11.0
