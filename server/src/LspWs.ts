@@ -361,7 +361,7 @@ sys:TextLayer.Back.Alpha`.split('\n');
 
 
 	#fullSchPath2fp(fsp: FULL_SCH_PATH): FULL_PATH {
-		return fsp.replace(/file:\/\/(\/\w%3A)?/, '');
+		return decodeURIComponent(fsp.replace(/file:\/\/(\/\w%3A)?/, ''));
 	}	// 似たような名前のメソッドになるので目立たせる
 		// 逆方向は難しそう、変換前の値は保存必要か
 
@@ -1140,7 +1140,7 @@ WorkspaceEdit
 		if (! this.#checkRelated(uri)) return null;
 
 		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
-		return this.#hDoc2InlayHint[pp] ?? [];
+		return [this.#hDoc2InlayHint[pp], this.#pp2AQuoteInlayHint[pp]].flat();
 	}
 
 
@@ -1238,6 +1238,36 @@ WorkspaceEdit
 		// == 情報集積ここまで、結果からDB作成系
 		for (const i of CHK重複_KEY) this.#chkDupDefKw(i);
 
+		// @@@引用
+		for (const [ppBase, setPp] of Object.entries(this.#pp2SetQuotePp)) {
+			setPp.forEach(pp=> {
+				const scr = this.#hScript[ppBase];
+				if (! scr) {delete this.#pp2AQuoteInlayHint[pp]; return;}
+
+				this.#pp2AQuoteInlayHint[pp] = this.#pp2AQuoteLine[pp].flatMap(ln=> {
+					let h = '';
+					const len = scr.aToken.length;
+					for (let i=0; i<len; ++i) {
+						if (scr.aLNum[i] +1 < ln) continue;
+						if (scr.aLNum[i] +1 > ln) break;
+
+						const token = scr.aToken[i];
+						const uc = token.charCodeAt(0);	// TokenTopUnicode
+						if (uc === 10) break;	// \n 改行
+						h += token;
+					}
+					h = h.trim();
+					if (! h) return [];
+
+					const i = InlayHint.create(Position.create(ln -1, 0), '<継承> '+ h, InlayHintKind.Parameter);
+					i.paddingLeft = true;
+					i.paddingRight = true;
+					i.tooltip = '基底スクリプトからの継承';
+					return [i];
+				});
+			});
+		}
+//this.conn.languages.inlayHint.refresh();
 
 		const {mes, sev} = this.#hDiag.未使用マクロ;
 		for (const [nm, {hPrm, loc}] of Object.entries(this.#hDefMacro)) {
@@ -1368,8 +1398,6 @@ WorkspaceEdit
 				.replaceAll(/{{([^\}]+)}}/g, (_, key)=> this.#hK2Snp[key] ?? '')
 			]),
 		});
-
-		this.conn.languages.inlayHint.refresh();
 	}
 
 
@@ -1457,6 +1485,10 @@ WorkspaceEdit
 	#fp2Diag	: {[fp: FULL_PATH]: Diagnostic[]}	= {};
 	#Uri2Links	: {[fp: string]: DocumentLink[]}	= {};
 
+	#pp2AQuoteLine	: {[pp: PROJECT_PATH]: number[]}			= {};
+	#pp2SetQuotePp	: {[pp: PROJECT_PATH]: Set<PROJECT_PATH>}	= {};
+	#pp2AQuoteInlayHint: {[pp: PROJECT_PATH]: InlayHint[]}		= {};
+
 	#scanInitAll() {
 		this.#hDefMacro = {};
 		this.#hMacro2aLocUse = {};
@@ -1475,6 +1507,10 @@ WorkspaceEdit
 		this.#Uri2Links = {};
 
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) m.clear();
+
+		this.#pp2AQuoteLine = {};
+		this.#pp2SetQuotePp = {};
+		this.#pp2AQuoteInlayHint = {};
 	}
 
 
@@ -1549,6 +1585,21 @@ WorkspaceEdit
 
 		this.#hDoc2InlayHint[pp] = [];
 
+		this.#pp2AQuoteInlayHint[pp] = [];
+		let fncCR = (_line: number, _len: number)=> {};
+		const mQuoteSn = /([^@.]+)@@@([^@]+)\.sn$/.exec(pp);
+			// https://regex101.com/r/RNiWBm/1
+		if (mQuoteSn) {
+			this.#pp2AQuoteLine[pp] = [];
+			fncCR = (line: number, len: number)=> {
+				if (line === 0) this.#pp2AQuoteLine[pp].push(1);
+				if (len < 2) return;
+				for (let i=line +1; i<line +len; ++i) this.#pp2AQuoteLine[pp].push(i +1);
+			};
+
+			const ppBase = mQuoteSn[1] +'.sn';
+			(this.#pp2SetQuotePp[ppBase] ??= new Set).add(pp);
+		}
 
 		const fn = getFn(pp);
 		this.#hT2Pp2Kw.ジャンプ先[pp].add(`fn=${fn}`);
@@ -1576,7 +1627,7 @@ WorkspaceEdit
 			const uc = token.charCodeAt(0);	// TokenTopUnicode
 			const len = token.length;
 			if (uc === 9) {p.character += len; return;}	// \t タブ
-			if (uc === 10) {p.line += len; p.character = 0; return;}// \n 改行
+			if (uc === 10) {fncCR(p.line, len); p.line += len; p.character = 0; return;}// \n 改行
 			if (uc === 59) {p.character += len; return;}	// ; コメント
 			const rng = Range.create(
 				p.line, p.character,
@@ -1818,7 +1869,11 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 		const p = {line: 0, character: 0};
 		try {
-			for (const token of this.#hScript[pp].aToken) this.#procToken(p, token);
+			const aLNum = this.#hScript[pp].aLNum;
+			this.#hScript[pp].aToken.forEach((token, i)=> {
+				aLNum[i] = p.line;
+				this.#procToken(p, token);
+			});
 		} catch (e) {
 			console.error(`#scanScript Err ${pp}(${p.line},${p.character}) e:${e.message}`);
 		}
