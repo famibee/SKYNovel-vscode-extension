@@ -26,7 +26,7 @@ const fnc: (log: LOG, str: string)=> Promise<void> = minify
 	? async (log, str)=> {
 		try {
 			str = str.replaceAll('\"', '\\"');
-			await new Promise<void>((re, rj)=> exec(`pyftsubset ${log.inp} --text="${str}" --layout-features='*' --flavor=woff2 --output-file=${log.out}`, e=> {
+			await new Promise<void>((re, rj)=> exec(`pyftsubset "${log.inp}" --text="${str}" --layout-features='*' --flavor=woff2 --output-file="${log.out}"`, e=> {
 				if (e) {
 					const m = e.message.replace(/--text=[^\n]+/, '...');
 					console.error(m);

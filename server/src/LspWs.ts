@@ -532,7 +532,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 				const sl = c.range.start.line;
 				const el = c.range.end.line;
 //console.log(`fn:LspWs.ts line:294 * (${sl},${c.range.start.character})(${el},${c.range.end.character})=${c.text}=`);
-				const text = (sl === el && c.text.slice(-1) !== '\n')
+				const text = (sl === el && c.text.at(-1) !== '\n')
 					? doc.lineAt(sl).text
 					: c.text;
 				hUpdScore[uri] ||= this.#cteScore.updLine(doc, c.range, text, this.#resolveScript(text).aToken);
@@ -1635,7 +1635,7 @@ WorkspaceEdit
 			);
 			if (uc === 38) {	// & 変数操作・変数表示
 				p.character += len;
-				if (token.slice(-1) === '&') return;
+				if (token.at(-1) === '&') return;
 				//変数操作
 				try {
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
@@ -1645,9 +1645,13 @@ WorkspaceEdit
 
 						// doc/prj/script/setting.sn の デフォルトフォント
 						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
-
-						// 変数代入文字列をフォント生成対象とする機能
-						if (this.#nowModeVal2font) f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + kw;
+						else {
+							// 変数代入文字列をフォント生成対象とする機能
+							const tx = text.trim();
+							if (`"'#`.includes(tx.at(0) ?? '')) {
+								if (this.#nowModeVal2font) f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx.slice(1, -1);
+							}
+						}
 					}
 				} catch (e) {console.error(`fn:LspWs.ts #scanScriptSrc & %o`, e);}
 				return;
@@ -1970,7 +1974,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 			if (this.#nowModeVal2font) {
 				const tx = (hArg.text?.val ?? '').trim();
-				f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx;
+				if (tx.at(0) !== '&') f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx;
 			}
 		},
 
@@ -2095,11 +2099,11 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			}
 
 			const param: MD_PARAM_DETAILS[] = [];
-			for (const [aNm, {val}] of Object.entries(hArg)) {
-				if (aNm.at(0) !== '%') continue;
+			for (const [nm, {val}] of Object.entries(hArg)) {
+				if (nm.at(0) !== '%') continue;
 
-				const isRequired = aNm.slice(-1) !== '?';
-				const name = aNm.slice(1, isRequired ?undefined :-1);
+				const isRequired = nm.at(-1) !== '?';
+				const name = nm.slice(1, isRequired ?undefined :-1);
 				const [rangetype, def, comment] = val.split('|');
 //console.log(`fn:LspWs.ts [macro] nm:${nm} name:${name}= rangetype:${rangetype} def:${def} comment:${comment}`);
 				param.push({
@@ -2182,10 +2186,13 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			// [span style='font-family: my_himajihoso; color: skyblue;']
 			const fonts = /font-family\s*:\s+(?<fonts>[^;]+)/.exec(v)
 			?.groups?.fonts ?? '';	// https://regex101.com/r/b93jbp/1
-			if (! fonts) {this.#nowFontNm = LspWs.DEF_FONT; return;}
+			if (! fonts || fonts.slice(0, 2) === '#{') {this.#nowFontNm = LspWs.DEF_FONT; return;}
 
 			const s = this.#getFonts2ANm(fonts, uri, rng);
 			if (s) this.#nowFontNm = s;
+		},
+		lay: arg=> {
+			this.#hTagProc.span(arg);
 		},
 	}	
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];

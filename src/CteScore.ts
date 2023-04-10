@@ -139,7 +139,7 @@ export class CteScore {
 		if (txt === '') {wv.postMessage({cmd: 'del', ln: sl}); return false;}
 
 		wv.postMessage({
-			cmd	: (sl === el && txt.slice(-1) === '\n') ?'ins' :'rep',
+			cmd	: (sl === el && txt.at(-1) === '\n') ?'ins' :'rep',
 			ln	: sl,
 			htm	: (txt === '\n'
 				? this.#token2html({line: sl +1}, '\n\n', -1)
@@ -341,7 +341,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 
 			case 38:	// & 変数操作・変数表示
 				// NOTE: [let]があるので不要かも
-				const is_dsp = (token.slice(-1) === '&');
+				const is_dsp = (token.at(-1) === '&');
 				tds = this.#make_tds(
 					0, stt.line, 'btn-secondary dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-calculator',

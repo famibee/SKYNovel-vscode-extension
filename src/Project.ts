@@ -370,7 +370,7 @@ export class Project {
 				const txt = doc.getText(r);
 				const hc = txt.at(0);
 				if (hc === '[' || hc === '*' || hc === ';'
-				|| txt.slice(-1)=== '=') return Promise.reject('No word here.');
+				|| txt.at(-1)=== '=') return Promise.reject('No word here.');
 				return new EvaluatableExpression(r, txt);
 			},
 		}));
@@ -839,8 +839,16 @@ export class Project {
 		oFont[Project.DEF_FONT] = {inp: '', txt: ''};
 
 		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
-			inp: this.#getFontNm2path(font_nm),
-			txt: '',
+			inp	: this.#getFontNm2path(font_nm)
+				.replace(/^.+\/core\/font/, '::PATH_PRJ_FONTS::')
+				.replace(
+					is_win
+					? /C:\/Users\/[^\/]+\/AppData\/Local\/Microsoft\/Windows\/Fonts/
+					: /\/Users\/[^\/]+\/Library\/Fonts/,
+					'::PATH_USER_FONTS::'
+				)
+				.replace(is_win ?`C:/Windows/Fonts` :`/Library/Fonts`, '::PATH_OS_FONTS::'),
+			txt	: '',
 		};
 		const o = this.#InfFont;
 		for (const f2s of Object.values(o.hSn2Font2Str)) {

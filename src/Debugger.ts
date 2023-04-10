@@ -242,7 +242,7 @@ export class Debugger extends EventEmitter {
 				const n = e.document.getText(di.rng);
 				di[':token'] = n;
 
-				if (n.at(0) !== '[' || n.slice(-1) !== ']') continue;
+				if (n.at(0) !== '[' || n.at(-1) !== ']') continue;
 				hRepTkn[id_tag] = {...di, ':id_tag': id_tag,};
 			}
 		}
