@@ -9,7 +9,7 @@ const [, , ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
 import {exec} from 'child_process';
-import {statSync, writeJsonSync, existsSync, copy} from 'fs-extra';
+import {statSync, writeFile, writeJsonSync, existsSync, copy} from 'fs-extra';
 const is_win = process.platform === 'win32';
 import {userInfo} from 'os';
 import {extname} from 'path';
@@ -22,21 +22,27 @@ const log_exit = (exit_code = -1)=> {
 	if (exit_code > -1) process.exit(exit_code);
 }
 
-const fnc: (log: LOG, str: string)=> Promise<void> = minify
-	? async (log, str)=> {
+const fnc: (log: LOG, nm: string, str: string)=> Promise<void> = minify
+	? async (log, nm, str)=> {
 		try {
+			const fnTmp = __filename.slice(0, -3) +'_'+ nm +'.txt';
+			await writeFile(fnTmp, str, {encoding: 'utf8'});
+
 			str = str.replaceAll('\"', '\\"');
-			await new Promise<void>((re, rj)=> exec(`pyftsubset "${log.inp}" --text="${str}" --layout-features='*' --flavor=woff2 --output-file="${log.out}"`, e=> {
+			await new Promise<void>((re, rj)=> exec(`pyftsubset "${log.inp}" --text-file="${fnTmp}" --layout-features='*' --flavor=woff2 --output-file="${log.out}" --verbose`, async (e, _stdout, stderr)=> {
 				if (e) {
-					const m = e.message.replace(/--text=[^\n]+/, '...');
+					const m = `${nm} 出力エラー：`+ e.message.replace(/--text-file=[^\n]+/, '...');
 					console.error(m);
 					log.err += m +'\n';
 					rj();	// 必須。ないとログエラーが出ない
 					return;
 				}
+
+				await writeFile(fnTmp, stderr, {encoding: 'utf8'});
+				if (stderr.includes('Missing glyphs for requested Unicodes:')) log.err += `${nm} 出力警告：フォントファイルに含まれない文字がありました。ログを確認（Missing glyphs ...）して下さい。\n`;
 				re();
 			}));
-		} catch (e) {log.err += e.message.replace(/--text=[^\n]+/, '...') +'\n';}
+		} catch (e) {log.err += e.message.replace(/--text-file=[^\n]+/, '...') +'\n';}
 	}
 	: log=> copy(log.inp, log.out);
 
@@ -63,7 +69,7 @@ for (const [nm, v] of Object.entries(o)) {
 		log.err = `変換失敗です。入力ファイル ${o[nm].inp.slice(20)} が存在するか確認してください`;
 		continue;
 	}
-	a.push(fnc(log, o[nm].txt));
+	a.push(fnc(log, nm, o[nm].txt));
 }
 Promise.allSettled(a)
 .then(()=> {

@@ -24,6 +24,7 @@
 	<th style="text-align: right;">Size（元ファイル）</th>
 	<th style="text-align: right;">Size（出力結果）</th>
 	<th>削減率</th>
+	<th>ログ</th>
 </tr></thead><tbody>
 <template v-for="e in aCnvFont" :key="e.nm">
 	<tr :style="{borderBottom: (e.err) ?'hidden' :'inherit'}">
@@ -32,10 +33,13 @@
 		<td style="text-align: right;" v-text="e.iSize.toLocaleString('ja-JP') +' byte'"/>
 		<td style="text-align: right;" v-text="e.oSize.toLocaleString('ja-JP') +' byte'"/>
 		<td v-text="(e.oSize / e.iSize).toLocaleString('ja-JP')"/>
+		<td>
+			<button type="button" id="open.readme.txt" class="btn btn-info btn-sm" @click="openURL('ws-file:///core/font/subset_font_'+ e.nm +'.txt')">Open</button>
+		</td>
 	</tr>
 	<tr v-if="e.err">
 		<td/>
-		<td v-text="e.err" colspan="4" style="color: red"/>
+		<td v-text="e.err" colspan="5" style="color: red"/>
 	</tr>
 </template>
 </tbody></table>

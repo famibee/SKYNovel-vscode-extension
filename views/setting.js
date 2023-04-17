@@ -6942,7 +6942,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.8.4
+  * vee-validate v4.8.6
   * (c) 2023 Abdelrahman Awad
   * @license MIT
   */
@@ -7876,7 +7876,7 @@ function _useFieldValue(path, modelValue, form) {
     // otherwise use the configured initial value if it exists.
     // prioritize model value over form values
     // #3429
-    const currentValue = modelValue ? unref(modelValue) : getFromPath(form.values, unref(path), unref(initialValue));
+    const currentValue = resolveModelValue(modelValue, form, initialValue, path);
     form.stageInitialValue(unref(path), currentValue, true);
     // otherwise use a computed setter that triggers the `setFieldValue`
     const value = computed({
@@ -7892,6 +7892,21 @@ function _useFieldValue(path, modelValue, form) {
         initialValue,
         setInitialValue,
     };
+}
+/*
+  to set the initial value, first check if there is a current value, if there is then use it.
+  otherwise use the configured initial value if it exists.
+  prioritize model value over form values
+  #3429
+*/
+function resolveModelValue(modelValue, form, initialValue, path) {
+    if (isRef(modelValue)) {
+        return unref(modelValue);
+    }
+    if (modelValue !== undefined) {
+        return modelValue;
+    }
+    return getFromPath(form.values, unref(path), unref(initialValue));
 }
 /**
  * Creates meta flags state and some associated effects with them
@@ -10464,10 +10479,10 @@ class Schema {
     }
     return result;
   }
-  _cast(rawValue, _options) {
+  _cast(rawValue, options) {
     let value = rawValue === undefined ? rawValue : this.transforms.reduce((prevValue, fn) => fn.call(this, prevValue, rawValue, this), rawValue);
     if (value === undefined) {
-      value = this.getDefault();
+      value = this.getDefault(options);
     }
     return value;
   }
@@ -10626,7 +10641,7 @@ class Schema {
       throw err;
     }
   }
-  _getDefault() {
+  _getDefault(_options) {
     let defaultValue = this.spec.default;
     if (defaultValue == null) {
       return defaultValue;
@@ -10637,7 +10652,7 @@ class Schema {
   // If schema is defaulted we know it's at least not undefined
   ) {
     let schema = this.resolve(options || {});
-    return schema._getDefault();
+    return schema._getDefault(options);
   }
   default(def) {
     if (arguments.length === 0) {
@@ -10777,8 +10792,9 @@ class Schema {
     next.internalTests.typeError = createValidation({
       message,
       name: 'typeError',
+      skipAbsent: true,
       test(value) {
-        if (!isAbsent(value) && !this.schema._typeCheck(value)) return this.createError({
+        if (!this.schema._typeCheck(value)) return this.createError({
           params: {
             type: this.schema.type
           }
@@ -11086,7 +11102,10 @@ class NumberSchema extends Schema {
           // don't use parseFloat to avoid positives on alpha-numeric strings
           parsed = +parsed;
         }
-        if (ctx.isType(parsed)) return parsed;
+
+        // null -> NaN isn't useful; treat all nulls as null and let it fail on
+        // nullability check vs TypeErrors
+        if (ctx.isType(parsed) || parsed === null) return parsed;
         return parseFloat(parsed);
       });
     });
@@ -11233,7 +11252,9 @@ class DateSchema extends Schema {
     });
     this.withMutation(() => {
       this.transform((value, _raw, ctx) => {
-        if (!ctx.spec.coerce || ctx.isType(value)) return value;
+        // null -> InvalidDate isn't useful; treat all nulls as null and let it fail on
+        // nullability check vs TypeErrors
+        if (!ctx.spec.coerce || ctx.isType(value) || value === null) return value;
         value = parseIsoDate(value);
 
         // 0 is a valid timestamp equivalent to 1970-01-01T00:00:00Z(unix epoch) or before.
@@ -12323,7 +12344,7 @@ const _hoisted_42$1 = /* @__PURE__ */ createBaseVNode("svg", {
     "vector-effect": "non-scaling-stroke"
   })
 ], -1);
-const _hoisted_43 = /* @__PURE__ */ createBaseVNode("button", {
+const _hoisted_43$1 = /* @__PURE__ */ createBaseVNode("button", {
   type: "button",
   class: "btn btn-light position-absolute top-50 start-0",
   disabled: ""
@@ -12525,7 +12546,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                     ]),
                                     _: 2
                                   }, 1024),
-                                  _hoisted_43,
+                                  _hoisted_43$1,
                                   createBaseVNode("button", {
                                     type: "button",
                                     class: "btn btn-light position-absolute bottom-50 end-0",
@@ -12734,7 +12755,8 @@ const _hoisted_14 = /* @__PURE__ */ createBaseVNode("thead", null, [
     /* @__PURE__ */ createBaseVNode("th", null, "元ファイルの場所"),
     /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
     /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
+    /* @__PURE__ */ createBaseVNode("th", null, "削減率"),
+    /* @__PURE__ */ createBaseVNode("th", null, "ログ")
   ])
 ], -1);
 const _hoisted_15 = ["textContent"];
@@ -12742,44 +12764,45 @@ const _hoisted_16 = ["textContent"];
 const _hoisted_17 = ["textContent"];
 const _hoisted_18 = ["textContent"];
 const _hoisted_19 = ["textContent"];
-const _hoisted_20 = { key: 0 };
-const _hoisted_21 = /* @__PURE__ */ createBaseVNode("td", null, null, -1);
-const _hoisted_22 = ["textContent"];
-const _hoisted_23 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
+const _hoisted_20 = ["onClick"];
+const _hoisted_21 = { key: 0 };
+const _hoisted_22 = /* @__PURE__ */ createBaseVNode("td", null, null, -1);
+const _hoisted_23 = ["textContent"];
+const _hoisted_24 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
   /* @__PURE__ */ createBaseVNode("h5", null, "アプリアイコン")
 ], -1);
-const _hoisted_24 = { class: "container" };
-const _hoisted_25 = { class: "row" };
-const _hoisted_26 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_27 = ["src"];
-const _hoisted_28 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_29 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
+const _hoisted_25 = { class: "container" };
+const _hoisted_26 = { class: "row" };
+const _hoisted_27 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_28 = ["src"];
+const _hoisted_29 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_30 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
   /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
     /* @__PURE__ */ createBaseVNode("h6", null, "画像から自動作成")
   ])
 ], -1);
-const _hoisted_30 = { class: "row" };
-const _hoisted_31 = { class: "col form-check mb-3" };
-const _hoisted_32 = { class: "list-group" };
-const _hoisted_33 = { class: "list-group-item" };
-const _hoisted_34 = /* @__PURE__ */ createBaseVNode("label", {
+const _hoisted_31 = { class: "row" };
+const _hoisted_32 = { class: "col form-check mb-3" };
+const _hoisted_33 = { class: "list-group" };
+const _hoisted_34 = { class: "list-group-item" };
+const _hoisted_35 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-check-label stretched-link",
   for: "rgCnvIconShape0"
 }, "加工しない", -1);
-const _hoisted_35 = { class: "list-group-item" };
-const _hoisted_36 = /* @__PURE__ */ createBaseVNode("label", {
+const _hoisted_36 = { class: "list-group-item" };
+const _hoisted_37 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-check-label stretched-link",
   for: "rgCnvIconShape1"
 }, "丸に", -1);
-const _hoisted_37 = { class: "list-group-item" };
-const _hoisted_38 = /* @__PURE__ */ createBaseVNode("label", {
+const _hoisted_38 = { class: "list-group-item" };
+const _hoisted_39 = /* @__PURE__ */ createBaseVNode("label", {
   class: "form-check-label stretched-link",
   for: "rgCnvIconShape2"
 }, "角丸に", -1);
-const _hoisted_39 = { class: "row" };
-const _hoisted_40 = { class: "col form-check mb-3" };
-const _hoisted_41 = { class: "input-group input-group-sm" };
-const _hoisted_42 = ["textContent"];
+const _hoisted_40 = { class: "row" };
+const _hoisted_41 = { class: "col form-check mb-3" };
+const _hoisted_42 = { class: "input-group input-group-sm" };
+const _hoisted_43 = ["textContent"];
 const _sfc_main$1 = /* @__PURE__ */ defineComponent({
   __name: "StgPkg",
   setup(__props) {
@@ -12859,38 +12882,46 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                     }, null, 8, _hoisted_18),
                     createBaseVNode("td", {
                       textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
-                    }, null, 8, _hoisted_19)
+                    }, null, 8, _hoisted_19),
+                    createBaseVNode("td", null, [
+                      createBaseVNode("button", {
+                        type: "button",
+                        id: "open.readme.txt",
+                        class: "btn btn-info btn-sm",
+                        onClick: ($event) => unref(openURL)("ws-file:///core/font/subset_font_" + e.nm + ".txt")
+                      }, "Open", 8, _hoisted_20)
+                    ])
                   ], 4),
-                  e.err ? (openBlock(), createElementBlock("tr", _hoisted_20, [
-                    _hoisted_21,
+                  e.err ? (openBlock(), createElementBlock("tr", _hoisted_21, [
+                    _hoisted_22,
                     createBaseVNode("td", {
                       textContent: toDisplayString(e.err),
-                      colspan: "4",
+                      colspan: "5",
                       style: { "color": "red" }
-                    }, null, 8, _hoisted_22)
+                    }, null, 8, _hoisted_23)
                   ])) : createCommentVNode("", true)
                 ], 64);
               }), 128))
             ])
           ])
         ]),
-        _hoisted_23,
-        createBaseVNode("div", _hoisted_24, [
-          createBaseVNode("div", _hoisted_25, [
-            createBaseVNode("div", _hoisted_26, [
+        _hoisted_24,
+        createBaseVNode("div", _hoisted_25, [
+          createBaseVNode("div", _hoisted_26, [
+            createBaseVNode("div", _hoisted_27, [
               createBaseVNode("img", {
                 loading: "lazy",
                 src: srcIcon.value,
                 onClick: selectIcon,
                 class: "img-fluid sn-dragdrop"
-              }, null, 8, _hoisted_27)
+              }, null, 8, _hoisted_28)
             ]),
-            createBaseVNode("div", _hoisted_28, [
-              _hoisted_29,
-              createBaseVNode("div", _hoisted_30, [
-                createBaseVNode("div", _hoisted_31, [
-                  createBaseVNode("ul", _hoisted_32, [
-                    createBaseVNode("li", _hoisted_33, [
+            createBaseVNode("div", _hoisted_29, [
+              _hoisted_30,
+              createBaseVNode("div", _hoisted_31, [
+                createBaseVNode("div", _hoisted_32, [
+                  createBaseVNode("ul", _hoisted_33, [
+                    createBaseVNode("li", _hoisted_34, [
                       withDirectives(createBaseVNode("input", {
                         type: "radio",
                         class: "form-check-input",
@@ -12902,9 +12933,9 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       }, null, 512), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_34
+                      _hoisted_35
                     ]),
-                    createBaseVNode("li", _hoisted_35, [
+                    createBaseVNode("li", _hoisted_36, [
                       withDirectives(createBaseVNode("input", {
                         type: "radio",
                         class: "form-check-input",
@@ -12915,9 +12946,9 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       }, null, 512), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_36
+                      _hoisted_37
                     ]),
-                    createBaseVNode("li", _hoisted_37, [
+                    createBaseVNode("li", _hoisted_38, [
                       withDirectives(createBaseVNode("input", {
                         type: "radio",
                         class: "form-check-input",
@@ -12928,14 +12959,14 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       }, null, 512), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_38
+                      _hoisted_39
                     ])
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_39, [
-                createBaseVNode("div", _hoisted_40, [
-                  createBaseVNode("div", _hoisted_41, [
+              createBaseVNode("div", _hoisted_40, [
+                createBaseVNode("div", _hoisted_41, [
+                  createBaseVNode("div", _hoisted_42, [
                     createBaseVNode("button", {
                       type: "button",
                       onClick: selectIcon,
@@ -12945,7 +12976,7 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       class: "alert alert-danger",
                       role: "alert",
                       textContent: toDisplayString(select_icon_err.value)
-                    }, null, 8, _hoisted_42), [
+                    }, null, 8, _hoisted_43), [
                       [vShow, select_icon_err.value !== ""]
                     ])
                   ])
