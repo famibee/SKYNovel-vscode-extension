@@ -11,7 +11,7 @@
 		"vscode-languageserver": "^8.1.0"
 	},
 	"devDependencies": {
-		"vscode-languageserver-textdocument": "^1.0.9"
+		"vscode-languageserver-textdocument": "^1.0.10"
 	},
 	"scripts": {},
 	"repository": {

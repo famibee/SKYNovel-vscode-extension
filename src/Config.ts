@@ -34,6 +34,7 @@ export class SysExtension implements ISysRoots {
 
 	get cur() {return this.arg.cur};
 	get crypto() {return this.arg.crypto};
+	set crypto(v: boolean) {this.arg.crypto = v;}
 	async	fetch(url: string) {
 		const str = await readJson(url, {encoding: 'utf8'});
 		return new Response(str);
@@ -49,6 +50,7 @@ export class SysExtension implements ISysRoots {
 
 export class Config extends ConfigBase {
 	constructor(override readonly sys: SysExtension) {super(sys)}
+	setCryptoMode(v: boolean) {this.sys.crypto = v;}
 
 	async loadEx(encFile: (uri: Uri)=> Promise<void>, clDiag: DiagnosticCollection) {
 		const fpPrj = this.sys.cur +'prj.json';

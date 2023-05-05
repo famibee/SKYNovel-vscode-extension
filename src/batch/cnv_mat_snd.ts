@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , pathInp, setting, curPrj, curPrjBase=''] = process.argv;
+const [, , modeInp, setting, curPrj, curPrjBase=''] = process.argv;
 
 const {codec} = JSON.parse(setting);
 
@@ -30,7 +30,7 @@ function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm
 }
 
 
-const REG_CNV_AAC	= /\.(mp3|wav)$/;	// (mp3|opus|m4a|ogg|aac|flac|wav)
+const REG_EXT_ORG	= /\.(mp3|wav)$/;	// (mp3|opus|m4a|ogg|aac|flac|wav)
 
 
 const fnLog = __filename +'on';
@@ -42,6 +42,25 @@ let oLog: T_OPTSND = {
 		pathSndBase	: '',
 	},
 	hSize	: {},
+};
+const log_enter = ()=> {
+	if (! existsSync(fnLog)) return;
+
+	// 元素材がなければログ削除
+	const o = {...oLog};
+	oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+	o.sum = {...oLog.sum};
+	for (const name in oLog.hSize) {
+		const {fld_nm, ext, baseSize, optSize} = oLog.hSize[name];
+		const pp = fld_nm + '.'+ ext;
+		if (existsSync(resolve(curPrj, pp))
+		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name];
+		else {
+			o.sum.baseSize -= baseSize;
+			o.sum.optSize -= optSize;
+		}
+	}
+	oLog = o;
 };
 const log_exit = (exit_code = -1)=> {
 	const a = Object.entries(oLog.hSize);
@@ -78,13 +97,6 @@ let cnt = ()=> {
 };
 
 
-/**
- * 
- * @param {string} urlInp	退避元パス (mp3|wav)
- * @param {string} urlBase	退避先パス (mp3|wav)
- * @param {string} no_move	退避moveする/しない
- * @returns {void} 返り値
- */
 const extCnv = '.'+ codec;
 const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
 /*
@@ -92,17 +104,24 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
 	aac		(.aac) Advanced Audio Coding
 	ogg		(.ogg) Vorbis
 */
-function cnv(pathInp: string, pathBase: string, no_move: string = ''): void {
+/**
+ * 
+ * @param {string} pathInp	退避元パス (mp3|wav)
+ * @param {string} pathBase	退避先パス (mp3|wav)
+ * @param {boolean} do_move	退避moveするか
+ * @returns {void} 返り値
+ */
+function cnv(pathInp: string, pathBase: string, do_move = true): void {
 	queue.add(async ()=> {
-		const {dir, name, ext} = parse(pathInp);
-		if (no_move === 'no_move') await Promise.allSettled(
+		const {dir, name} = parse(pathInp);
+		if (do_move) await move(pathInp, pathBase, {overwrite: true});
+		else await Promise.allSettled(
 			['m4a','aac','ogg']
 			.map(ext=> remove(dir +'/'+ name +'.'+ ext))
 		);
-		else await move(pathInp, pathBase, {overwrite: true});
 
 		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-		const {dir: dirBase} = parse(pathBase);
+		const {dir: dirBase, ext} = parse(pathBase);
 		const pathWk = dirBase +'/'+ name + extCnv;
 		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, optSize: 0, ext: <any>'',};
 
@@ -125,11 +144,25 @@ function cnv(pathInp: string, pathBase: string, no_move: string = ''): void {
 }
 
 
-switch (pathInp) {
-	case 'restore':	// ファイル最適化 解除
+switch (modeInp) {
+	case 'enable':		// 変換有効化
+		ensureDir(curPrjBase);
+		foldProc(curPrj, ()=> {}, dir=> {
+			const wdBase = resolve(curPrjBase, dir);
+			ensureDir(wdBase);
+			foldProc(resolve(curPrj, dir), (url, name)=> {
+				// 退避素材フォルダに元素材を移動
+				if (REG_EXT_ORG.test(name)) {cnv(url, resolve(wdBase, name)); return;}
+			}, ()=> {});
+		});
+
+		go();
+		break;
+
+	case 'disable':		// 変換無効化
 		foldProc(curPrjBase, ()=> {}, dir=> {
 			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
-				if (! REG_CNV_AAC.test(nm)) return;
+				if (! REG_EXT_ORG.test(nm)) return;
 
 				// 対応する素材ファイルが無い場合、削除しないように
 				const urlPrj = resolve(curPrj, dir, nm);
@@ -143,45 +176,57 @@ switch (pathInp) {
 		go();
 		break;
 
-	case 'all_recnv':
-		if (existsSync(fnLog)) {
-			oLog = readJsonSync(fnLog, {encoding: 'utf8'});
-			oLog.sum.baseSize = 
-			oLog.sum.optSize = 0;
-		}
+	case 'reconv':		// 再変換
+		// 現状、UI的に「常にエンコーダー変更」なので、旧全生成物削除（cnv()内でやってる）→全変換
+		log_enter();
+		oLog.sum.baseSize = 
+		oLog.sum.optSize = 0;
 
-		for (const e of Object.values(oLog.hSize)) {
-			const ext = '.'+ e.ext;
-			if (! REG_CNV_AAC.test(ext)) continue;
-
+		for (const {ext, fld_nm} of Object.values(oLog.hSize)) {
 			cnv(
-				resolve(curPrj, e.fld_nm + ext),
-				resolve(curPrjBase, e.fld_nm + ext),
-				'no_move',
+				resolve(curPrj, fld_nm + '.'+ ext),
+				resolve(curPrjBase, fld_nm + '.'+ ext),
+				false,
 			);
 		}
 
 		go();
 		break;
 
-	case 'minimum_of_all':
-		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+	case 'prj_scan':	// prjフォルダ走査
+		log_enter();
+
+		ensureDir(curPrjBase);
+		foldProc(curPrj, ()=> {}, dir=> {
+			const wdBase = resolve(curPrjBase, dir);
+			ensureDir(wdBase);
+			foldProc(resolve(curPrj, dir), (url, name)=> {
+				// 退避素材フォルダに元素材を移動
+				if (REG_EXT_ORG.test(name)) {cnv(url, resolve(wdBase, name)); return;}
+			}, ()=> {});
+		});
+
+		go();
+		break;
+
+	case 'base_scan':	// baseフォルダ走査
+		log_enter();
 
 		foldProc(curPrjBase, ()=> {}, dir=> {
 			const wdBase = resolve(curPrjBase, dir);
 			ensureDir(wdBase);
 			const wdPrj = resolve(curPrj, dir);
 			foldProc(wdBase, (url, name)=> {
-				if (! REG_CNV_AAC.test(url)) return;
+				if (! REG_EXT_ORG.test(url)) return;
 
-				const toPath = resolve(wdPrj, name.replace(REG_CNV_AAC, extOut));
+				const toPath = resolve(wdPrj, name.replace(REG_EXT_ORG, extOut));
 				if (existsSync(toPath)) {	// 存在しても古い場合は処理
 					const tsFr = statSync(url).mtimeMs;
 					const tsTo = statSync(toPath).mtimeMs;
 					if (tsFr < tsTo) return;	// to が新しい
 				}
 
-				// 最適化処理する
+				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 				const nm = parse(toPath).name;
 				if (nm in oLog.hSize) {
 					const {baseSize=0, optSize=0} = oLog.hSize[nm];
@@ -189,31 +234,17 @@ switch (pathInp) {
 					oLog.sum.optSize -= optSize;
 				}
 
-				cnv(toPath, url, 'no_move');
+				cnv(toPath, url, false);
 			}, ()=> {});
 		});
 
 		go();
 		break;
 
-	case 'all':{	// ファイル最適化
-		ensureDir(curPrjBase);
-		foldProc(curPrj, ()=> {}, dir=> {
-			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
-			foldProc(resolve(curPrj, dir), (url, name)=> {
-				// 退避素材フォルダに元素材を移動
-				if (REG_CNV_AAC.test(name)) {cnv(url, resolve(wdBase, name)); return;}
-			}, ()=> {});
-		});
-
-		go();
-	}	break;
-
 	default:{
-		if (existsSync(fnLog)) oLog = readJsonSync(fnLog, {encoding: 'utf8'});
+		log_enter();
 
-		const {dir, name, ext} = parse(pathInp);
+		const {dir, name, ext} = parse(modeInp);
 		const o: T_OPTSND_FILE = {
 			...oLog.hSize[name],
 			fld_nm	: basename(dir) +'/'+ name,
@@ -226,7 +257,7 @@ switch (pathInp) {
 			// 第一引数（退避元パス）
 			// 第三引数（退避先パス）
 			// 第四引数（moveする/しない）
-		cnv(pathInp, curPrj, curPrjBase);
+		cnv(modeInp, curPrj, Boolean(curPrjBase));
 
 		go();
 	}	break;

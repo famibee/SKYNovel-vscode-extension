@@ -1564,6 +1564,8 @@ function flushJobs(seen) {
         }
     }
 }
+new Set();
+new Map();
 
 function emit(instance, event, ...rawArgs) {
     if (instance.isUnmounted)
@@ -5876,6 +5878,9 @@ function shouldSetAsProp(el, key, value, isSVG) {
     return key in el;
 }
 
+new WeakMap();
+new WeakMap();
+
 const getModelAssigner = (vnode) => {
     const fn = vnode.props['onUpdate:modelValue'] ||
         (false );
@@ -6176,7 +6181,7 @@ function normalizeContainer(container) {
 var isVue2 = false;
 
 /*!
-  * pinia v2.0.34
+  * pinia v2.0.35
   * (c) 2023 Eduardo San Martin Morote
   * @license MIT
   */
@@ -6192,6 +6197,7 @@ let activePinia;
  *
  * @param pinia - Pinia instance
  */
+// @ts-expect-error: cannot constrain the type of the return
 const setActivePinia = (pinia) => (activePinia = pinia);
 const piniaSymbol = (/* istanbul ignore next */ Symbol());
 
@@ -9780,11 +9786,7 @@ function shouldBeQuoted(part) {
   return !isQuoted(part) && (hasLeadingNumber(part) || hasSpecialChars(part))
 }
 
-var toposortExports = {};
-var toposort$1 = {
-  get exports(){ return toposortExports; },
-  set exports(v){ toposortExports = v; },
-};
+var toposort$1 = {exports: {}};
 
 /**
  * Topological sorting function
@@ -9797,7 +9799,7 @@ toposort$1.exports = function(edges) {
   return toposort(uniqueNodes(edges), edges)
 };
 
-toposortExports.array = toposort;
+toposort$1.exports.array = toposort;
 
 function toposort(nodes, edges) {
   var cursor = nodes.length

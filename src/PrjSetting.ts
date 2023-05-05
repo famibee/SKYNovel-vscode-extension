@@ -278,7 +278,7 @@ export class PrjSetting {
 
 			await this.exeTask(
 				'cnv_mat_snd',
-				`${ isBase ?'minimum_of_all' :'all'
+				`${ isBase ?'base_scan' :'prj_scan'
 				} '{"codec":"${ this.#oWss['cnv.mat.snd.codec'] }"}' "${
 					this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 			);
@@ -349,7 +349,7 @@ export class PrjSetting {
 
 			await this.exeTask(
 				'cnv_mat_pic',
-				`${ isBase ?'minimum_of_all' :'all'
+				`${ isBase ?'base_scan' :'prj_scan'
 				} ${ this.oWss['cnv.mat.webp_quality']
 				} "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 			);

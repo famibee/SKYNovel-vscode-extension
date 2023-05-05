@@ -16,7 +16,7 @@ import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern, ViewColumn, WebviewPanel} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {extname, resolve} from 'path';
 import img_size from 'image-size';
 import {lib} from 'crypto-js';
@@ -162,7 +162,7 @@ export class Project {
 		} catch (e) {this.#hDiff = Object.create(null);}	// diff破損対策
 
 		// プロジェクト管理系
-		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: false, dip: ''});
+		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
 		this.#cfg = new Config(sr);
 
 		this.#ps = new PrjSetting(
@@ -212,17 +212,35 @@ export class Project {
 				hFld2hFile[fld_nm][fp] = 0;
 			}, ()=> {});
 		});
-		const onDidDelete = (uri: Uri)=> {
+
+		const REG_CnvGrp = /\.(jpg|jpeg|png|webp)$/;		// 最適化変換対象
+			// 2 matches (56 steps, 0.1ms) https://regex101.com/r/bAB2wH/1
+		const REG_CnvSnd = /\.(mp3|wav|m4a|aac|ogg)$/;
+		const onDidDelete = async (uri: Uri)=> {
 //console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
-			if (this.#regCnvGrp.test(uri.path)) {
+			if (REG_CnvGrp.test(uri.path)) {
+				if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+				&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) {
+					const {pathCn} = this.#path2cn(uri.path);
+					if (pathCn) remove(pathCn);
+				}
+				if (this.#preventFileWatch) return;
+
 				this.#chkWVFolder(uri, 'DEL');
-				this.#ps.onDelOptPic(uri);
+				await this.#ps.onDelOptPic(uri);
 				this.#updPathJson();
 				return;
 			}
-			if (this.#regCnvSnd.test(uri.path)) {
+			if (REG_CnvSnd.test(uri.path)) {
+				if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+				&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) {
+					const {pathCn} = this.#path2cn(uri.path);
+					if (pathCn) remove(pathCn);
+				}
+				if (this.#preventFileWatch) return;
+
 				this.#chkWVFolder(uri, 'DEL');
-				this.#ps.onDelOptSnd(uri);
+				await this.#ps.onDelOptSnd(uri);
 				this.#updPathJson();
 				return;
 			}
@@ -236,30 +254,42 @@ export class Project {
 
 			// Del
 			const {pathCn, pp} = this.#path2cn(uri.path);
-			if (pathCn) removeSync(pathCn);
+			if (pathCn) remove(pathCn);
 	
 			delete this.#hDiff[pp];
 			this.#updDiffJson();
 	
 			this.#updPathJson();
 		};
+		const REG_CnvGrpOut = /\.(webp)$/;			// 最適化変換後
+		const REG_CnvSndOut = /\.(m4a|aac|ogg)$/;
 		this.#aFSW = [
-			fwPrj.onDidCreate(uri=> {	// フォルダごと追加でも発生する（こちらが先）
+			fwPrj.onDidCreate(async uri=> {	// フォルダごと追加でも発生する（こちらが先）
 //console.log(`fn:Project.ts fwPrj CRE path=${uri.path}=`);
 				const fp = v2fp(uri.path);
 				const pp = this.#fp2pp(fp);
 				const fld_nm = dirname(pp);
 				(hFld2hFile[fld_nm] ??= {})[fp] = 0;
 
-				if (this.#regCnvGrp.test(uri.path)) {
+				if (REG_CnvGrp.test(uri.path)) {
+					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+					&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) this.#encIfNeeded(uri);
+					if (this.#preventFileWatch) return;
+
 					this.#chkWVFolder(uri, 'CRE');
-					this.#ps.onCreChgOptPic(uri);
+					await this.#ps.onCreChgOptPic(uri);
 					this.#updPathJson();
 					return;
 				}
-				if (this.#regCnvSnd.test(uri.path)) {
+				if (REG_CnvSnd.test(uri.path)) {
+					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+					&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) this.#encIfNeeded(uri);
+					if (this.#preventFileWatch) return;
+
 					this.#chkWVFolder(uri, 'CRE');
-					this.#ps.onCreChgOptSnd(uri);
+					await this.#ps.onCreChgOptSnd(uri);
 					this.#updPathJson();
 					return;
 				}
@@ -276,16 +306,26 @@ export class Project {
 				this.#encIfNeeded(uri);
 				this.#updPathJson();
 			}),
-			fwPrj.onDidChange(uri=> {
+			fwPrj.onDidChange(async uri=> {
 //console.log(`fn:Project.ts fwPrj CHG path=${uri.path}=`);
-				if (this.#regCnvGrp.test(uri.path)) {
+				if (REG_CnvGrp.test(uri.path)) {
+					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+					&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) this.#encIfNeeded(uri);
+					if (this.#preventFileWatch) return;
+
 					this.#chkWVFolder(uri, 'CHG');
-					this.#ps.onCreChgOptPic(uri);
+					await this.#ps.onCreChgOptPic(uri);
 					return;
 				}
-				if (this.#regCnvSnd.test(uri.path)) {
+				if (REG_CnvSnd.test(uri.path)) {
+					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
+					&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) this.#encIfNeeded(uri);
+					if (this.#preventFileWatch) return;
+
 					this.#chkWVFolder(uri, 'CHG');
-					this.#ps.onCreChgOptSnd(uri);
+					await this.#ps.onCreChgOptSnd(uri);
 					return;
 				}
 				if (regSetting.test(uri.path)) {
@@ -393,9 +433,6 @@ export class Project {
 		this.#basePathJson()
 		.then(()=> this.#sendRequest2LSP('ready'));
 	}
-		readonly #regCnvGrp = /\.(jpg|jpeg|png|webp)$/;		// 最適化変換対象
-			// 2 matches (56 steps, 0.1ms) https://regex101.com/r/bAB2wH/1
-		readonly #regCnvSnd = /\.(mp3|wav|m4a|aac|ogg)$/;	// 最適化変換対象
 
 		#path2cn(fp: string) {
 			fp = v2fp(Uri.file(fp).path);
@@ -403,13 +440,15 @@ export class Project {
 			const diff = this.#hDiff[pp];
 			return {
 				pathCn: diff
-					? fp.replace(/\/prj\/.+$/, `/${FLD_CRYPT_PRJ}/${diff.cn}`)
+					? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_PRJ}/${diff.cn}`)
 					: undefined,
 				diff,
 				pp,
 			};
 		}
-		#fp2pp(fp: string): string {return fp.slice(this.#LEN_PATH_PRJ)}
+		readonly	#REG_path2cn = new RegExp(`\\/(${FLD_PRJ_BASE}|prj)\\/.+$`);
+		readonly	#REG_fp2pp	= new RegExp(`^.+\\/(${FLD_PRJ_BASE}|prj)\\/`);
+		#fp2pp(fp: string): string {return fp.replace(this.#REG_fp2pp, '')}
 
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
@@ -715,36 +754,76 @@ export class Project {
 
 		case 'cnv.mat.pic':
 			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-			await this.#cnv_mat_pic(chkBoolean(val) ?'all' :'restore');
+
+			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
+			if (this.#isCryptoMode) {
+				for (const pp in this.#hDiff) {
+					if (! this.#REG_DiffExtPic.test(pp)) continue;
+
+					const diff = this.#hDiff[pp];
+					remove(`${this.#PATH_CRYPT}${diff.cn}`);
+				}
+			}
+
+			await this.#cnv_mat_pic(chkBoolean(val) ?'enable' :'disable');
+			this.#updPathJson();
 			break;
 		case 'cnv.mat.webp_quality':
 			if (! this.#ps.oWss['cnv.mat.pic']) break;
 
-			await this.#cnv_mat_pic('all_recnv');
+			await this.#cnv_mat_pic('reconv');
+		//	this.#updPathJson();	// 現状、別拡張子に変わらないので不要
 			break;
 
 		case 'cnv.mat.snd':
 			if (await window.showInformationMessage('音声ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-			await this.#cnv_mat_snd(chkBoolean(val) ?'all' :'restore');
+
+			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
+			if (this.#isCryptoMode) {
+				for (const pp in this.#hDiff) {
+					if (! this.#REG_DiffExtSnd.test(pp)) continue;
+
+					const diff = this.#hDiff[pp];
+					remove(`${this.#PATH_CRYPT}${diff.cn}`);
+				}
+			}
+
+			await this.#cnv_mat_snd(chkBoolean(val) ?'enable' :'disable');
+			this.#updPathJson();
 			break;
 		case 'cnv.mat.snd.codec':
 			if (! this.#ps.oWss['cnv.mat.snd']) break;
 
-			await this.#cnv_mat_snd('all_recnv');
+			// 現状、UI的に「常にエンコーダー変更」なので、旧全生成物削除→全変換
+			// 暗号化状態でのエンコーダー変更の場合、変更前の暗号化ファイルを削除
+			if (this.#isCryptoMode) {
+				for (const pp in this.#hDiff) {
+					if (! this.#REG_DiffExtSnd.test(pp)) continue;
+
+					const diff = this.#hDiff[pp];
+					remove(`${this.#PATH_CRYPT}${diff.cn}`);
+				}
+			}
+
+			await this.#cnv_mat_snd('reconv');
+			this.#updPathJson();
 			break;
 		}
 
 		return true;
 	}
-	readonly	#cnv_mat_pic = (pathInp: string)=> this.#exeTask(
+		readonly	#REG_DiffExtPic	= /\.(jpe?g|png|svg|webp)$/;
+		readonly	#REG_DiffExtSnd	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
+
+	readonly	#cnv_mat_pic = (modeInp: string)=> this.#exeTask(
 		'cnv_mat_pic',
-		`${pathInp
+		`${modeInp
 		} ${this.#ps.oWss['cnv.mat.webp_quality']
 		} "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 	);
-	readonly	#cnv_mat_snd = (pathInp: string)=> this.#exeTask(
+	readonly	#cnv_mat_snd = (modeInp: string)=> this.#exeTask(
 		'cnv_mat_snd',
-		`${pathInp} '{"codec":"${
+		`${modeInp} '{"codec":"${
 			this.#ps.oWss['cnv.mat.snd.codec']
 		}"}' "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 	);
@@ -773,7 +852,9 @@ export class Project {
 				// https://aminevsky.github.io/blog/posts/pqueue-sample/
 		},
 	};
+	#preventFileWatch = false;	// バッチ実行中のファイル変更検知を抑制
 	#exeTask(nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {
+		this.#preventFileWatch = true;
 		const inf = this.#hTask2Inf[nm];
 
 		return new Promise(fin=> window.withProgress({
@@ -807,6 +888,7 @@ export class Project {
 			);
 			this.hOnEndTask.set('Sys', e=> {
 				fin(e.exitCode ?? 0);
+				this.#preventFileWatch = false;
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);
 			});
@@ -1191,6 +1273,7 @@ export class Project {
 	#isDiff({path}: Uri): boolean {
 		const fp = v2fp(path);
 		const {pathCn, diff, pp} = this.#path2cn(fp);
+//console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
 		if (pathCn && ! existsSync(pathCn)) return true;
 
 		let hash = 0;
@@ -1204,6 +1287,7 @@ export class Project {
 			closeSync(fd);
 			hash = crc32.buf(b);
 		}
+//console.log(`fn:Project.ts      B:${diff?.hash !== hash} b0:${diff?.hash} b1:${hash}`);
 		if (diff?.hash === hash) return false;
 
 		this.#hDiff[pp] = {
@@ -1218,7 +1302,9 @@ export class Project {
 		};
 		return true;
 	}
-		readonly	#LEN_CHKDIFF	= 1024;
+		readonly	#LEN_CHKDIFF	= 1024 *20;		// o
+//		readonly	#LEN_CHKDIFF	= 1024 *10;		// x 変更を検知しない場合があった
+//		readonly	#LEN_CHKDIFF	= 1024;			// x 変更を検知しない場合があった
 		readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
 
 
@@ -1229,6 +1315,7 @@ export class Project {
 	#tglCryptoMode() {
 		const pathPre = this.#PATH_PLG +'snsys_pre/';
 		this.#isCryptoMode = ! this.#isCryptoMode;
+		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
 			removeSync(this.#PATH_CRYPT);
 
@@ -1246,7 +1333,7 @@ export class Project {
 				new RegExp(`"doc/${FLD_CRYPT_PRJ}\\/",`),
 				`"doc/prj/",`,
 			);
-			this.#updPlugin();	// doc/prj/prj.json 更新＆ビルド
+			this.#updPlugin();
 
 			return;
 		}
@@ -1273,7 +1360,7 @@ export class Project {
 			true,
 			pathPre +'index.js',
 		);
-		this.#updPlugin();	// doc/prj/prj.json 更新＆ビルド
+		this.#updPlugin();
 
 		this.#hDiff = Object.create(null);
 		this.#initCrypto();
@@ -1282,7 +1369,7 @@ export class Project {
 	async #encFile({path}: Uri) {
 		const fp = v2fp(path);
 		const pp = this.#fp2pp(fp);
-//console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]}`);
+//console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp].cn}`);
 		try {
 			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp].cn;
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
@@ -1305,13 +1392,13 @@ export class Project {
 					// ファイル名匿名化
 					const hPath: IFn2Path = readJsonSync(fp, {encoding: 'utf8'});
 					for (const hExt2N of Object.values(hPath)) {
-						for (const [ext, path] of Object.entries(hExt2N)) {
+						for (const [ext, pp2] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-10) === ':RIPEMD160') continue;
-							const dir = this.#REG_DIR.exec(path);
+							const dir = this.#REG_DIR.exec(pp2);
 							if (dir && this.#cfg.oCfg.code[dir[1]]) continue;
 
-							hExt2N[ext] = this.#hDiff[path].cn;
+							hExt2N[ext] = this.#hDiff[pp2].cn;
 						}
 					}
 					const sNew = JSON.stringify(hPath);
