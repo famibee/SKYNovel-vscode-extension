@@ -22,6 +22,7 @@
 - call		false	Boolean	trueの場合は[call]、falseは[jump]。<br/>ただしcall=trueによりサブルーチンコールした場合、[return]によって「コールする前のイベント予約状態＆待ち状態」に戻る
 - fn		処理中のスクリプト	スクリプトファイル名	クリック時にジャンプする先
 - label		スクリプトの先頭	ラベル名	コール先のスクリプトにあるラベル	クリック時ジャンプ先で「&sn.eventLabel」にて値を受け取れる
+- url	y	fn・label によるスクリプトジャンプ	ブラウザで開けるURL	クリック時にURLを開く。指定時は fn・label を無視する
 - global		false	Boolean	詳細は[event]と同様。<br/>ボタンを[trans]する場合はtrueにしておく
 - arg			String	指定した場合、クリック時ジャンプ先で「&sn.eventArg」にて値を受け取れる
 - onenter		何もしない	ラベル名	マウス重なり（フォーカス取得）時、指定したラベルをコールする。 必ず[return]で戻ること

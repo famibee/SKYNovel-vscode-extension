@@ -6,7 +6,7 @@
 - page		fore	fore、back	ページの裏表
 - time	y		ミリ秒数	トゥイーンにかける時間
 - delay		0	ミリ秒数	トゥイーンを始める前の、何もしない待ち時間- 
-- repeat		1	0〜	繰返し回数。0 で無限ループ。1を設定すると「繰り返しなし」、2を設定すると「二回同じ動き」を行なう。
+- repeat		1	0〜	繰返し回数。0か負の値 で無限ループ。1を設定すると「繰り返しなし」、2を設定すると「二回同じ動き」を行なう。
 - arrive		false	Boolean	trueならクリックキャンセルでアニメ終端までSkip。falseならその場で停止
 - backlay		false	Boolean	trueならトゥイーン終了時、fore→backへ属性をコピーする。<br/>コピーする属性はalpha, height, rotation, scale_x, scale_y, width, left, top。
 - ease		Linear.None	イージング名	揺れのイージング（値の変化の仕方）を指定する。[イージングの変化はこちらの図](https://createjs.com/demos/tweenjs/tween_sparktable)（または[こちら](https://sole.github.io/tween.js/examples/03_graphs.html)）が分かりやすい。指定できる値は[tsy]を参照

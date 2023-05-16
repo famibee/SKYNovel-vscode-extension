@@ -832,22 +832,22 @@ export class Project {
 		'cut_round': {
 			title		: 'アイコン生成・丸く切り抜く',
 			pathCpyTo	: 'build',
-			aNeedLib	: ['sharp', 'png2icons'],
+			aNeedLib	: ['fs-extra','sharp', 'png2icons'],
 		},
 		'subset_font': {
 			title		: 'フォントサイズ最適化',
 			pathCpyTo	: 'core/font',
-			aNeedLib	: [],
+			aNeedLib	: ['fs-extra'],
 		},
 		'cnv_mat_pic': {
 			title		: '画像ファイル最適化',
 			pathCpyTo	: 'build',
-			aNeedLib	: ['sharp','p-queue@6.6.2'],
+			aNeedLib	: ['fs-extra','sharp','p-queue@6.6.2'],
 		},
 		'cnv_mat_snd': {
 			title		: '音声ファイル最適化',
 			pathCpyTo	: 'build',
-			aNeedLib	: ['@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
+			aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
 				// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
 				// https://aminevsky.github.io/blog/posts/pqueue-sample/
 		},
@@ -864,13 +864,13 @@ export class Project {
 		}, prg=> new Promise<void>(async donePrg=> {
 			const pathJs = this.#PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
 			let init = '';
-			if (! existsSync(pathJs)) {
+		//	if (! existsSync(pathJs)) {		// 後から fs-extra を追加したので互換性のため
 				const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
 				const sNeedInst = inf.aNeedLib
 				.filter(nm=> ! oPkg.devDependencies[nm])
 				.join(' ');
 				init = `npm i -D ${sNeedInst} ${statBreak} `;
-			}
+		//	}
 			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
 
 			tasks.executeTask(new Task(

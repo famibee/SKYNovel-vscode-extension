@@ -7,11 +7,11 @@
 - style		'background-color: rgba(255,0,0,0.5);'	CSS style	リンク上にマウスカーソルが乗っていない状態のCSS スタイル
 - style_hover		'background-color: rgba(255,0,0,0.9);'	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしていない）のCSS スタイル
 - style_clicked		styleの値	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしている）のCSS スタイル
-- style_disable		''	CSS style	enabled=false 状態のCSS スタイル
+- style_disable		'color: gray;'	CSS style	enabled=false 状態のCSS スタイル
 - r_style		styleの値	CSS style	リンク上にマウスカーソルが乗っていない状態のルビのCSS スタイル
 - r_style_hover		style_hoverの値	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしていない）のルビのCSS スタイル
 - r_style_clicked		r_styleの値	CSS style	文字ボタン上にマウスカーソルが乗っている状態（クリックしている）のルビのCSS スタイル
-- r_style_disable		r_styleの値	CSS style	enabled=false 状態のルビのCSS スタイル
+- r_style_disable		'color: gray;'	CSS style	enabled=false 状態のルビのCSS スタイル
 - ch_in_style		何もしない	文字出現演出名	[ch_in_style]で定義した文字出現演出名
 - ch_out_style		何もしない	文字消去演出名	[ch_out_style]で定義した文字消去演出名
 - wait		現在の文字表示速度	ミリ秒	一時的な文字表示速度。0で瞬時
@@ -19,6 +19,7 @@
 - call		false	Boolean	trueの場合は[call]、falseは[jump]。<br/>ただしcall=trueによりサブルーチンコールした場合、[return]によって「コールする前のイベント予約状態＆待ち状態」に戻る
 - fn		処理中のスクリプト	スクリプトファイル名	クリック時にジャンプする先
 - label		スクリプトの先頭	ラベル名	コール先のスクリプトにあるラベル	クリック時ジャンプ先で「&sn.eventLabel」にて値を受け取れる
+- url	y	fn・label によるスクリプトジャンプ	ブラウザで開けるURL	クリック時にURLを開く。指定時は fn・label を無視する
 - global		false	Boolean	詳細は[event]と同様。<br/>※ボタンを[trans]する場合はtrueにしておく
 - arg			String	指定した場合、クリック時ジャンプ先で「&sn.eventArg」にて値を受け取れる
 - onenter		何もしない	ラベル名	マウス重なり（フォーカス取得）時、指定したラベルをコールする。 必ず[return]で戻ること

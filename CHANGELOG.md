@@ -1,3 +1,12 @@
+## v4.14.2
+- fix: フォント最適化機能などバッチ処理系でエラー【Error: Cannot find module 'fs-extra'】になる件
+	- 今までできてたプロジェクトでもダメになった？　ので、明確に devDependencies ライブラリに追加
+- fix: [event]スニペットなどでkey属性の候補が正しく表示されない件
+- fix: タグリファレンスの変更を拡張機能 md に反映
+	- [button][link]に url 属性を追記、[event]には既にあったが更新
+	- [quake][tsy][tsy_frame]の repeat属性で、0だけでなく負の値を指定した場合は無限ループとするように
+	- [quake]に属性 delay、repeat、yoyo の追記
+	- [link]の style_disable, r_style_disable 属性デフォルト値を【color: gray;】に
 ## v4.14.1
 - fix: 暗号化と画像・音声最適化での連携処理の全面再チェック・修正
 	- fix: 暗号化状態でスクリプトファイルを追加時、path.jsonは更新するがその暗号化をしない件

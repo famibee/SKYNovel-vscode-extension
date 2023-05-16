@@ -463,9 +463,9 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 				key === 'イベント名' ?'i': ''
 			);
 
-			this.#hK2Snp[key] = sn
+			this.#hK2Snp[key] = `|${sn.slice(1, -1)
 			.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
-			.replaceAll('\n', ',');
+			.replaceAll('\n', ',')}|`;
 		}
 
 		this.#hT2DefKw2ALoc = <{[key in T_CHK重複_KEY]: MAP_KW2ALOC}>Object
