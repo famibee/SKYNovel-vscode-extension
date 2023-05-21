@@ -1,3 +1,5 @@
+## v4.14.3
+- fix: [l][p]の新属性をコードヒントに追加
 ## v4.14.2
 - fix: フォント最適化機能などバッチ処理系でエラー【Error: Cannot find module 'fs-extra'】になる件
 	- 今までできてたプロジェクトでもダメになった？　ので、明確に devDependencies ライブラリに追加

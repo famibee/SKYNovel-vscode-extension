@@ -110,7 +110,7 @@ function normalizeStyle(value) {
 }
 const listDelimiterRE = /;(?![^(]*\))/g;
 const propertyDelimiterRE = /:([^]+)/;
-const styleCommentRE = new RegExp("\\/\\*.*?\\*\\/", "gs");
+const styleCommentRE = /\/\*[^]*?\*\//g;
 function parseStringStyle(cssText) {
   const ret = {};
   cssText.replace(styleCommentRE, "").split(listDelimiterRE).forEach((item) => {
@@ -1410,7 +1410,7 @@ function flushJobs(seen) {
     for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {
       const job = queue[flushIndex];
       if (job && job.active !== false) {
-        if ("production" !== "production" && check(job)) ;
+        if (!!("production" !== "production") && check(job)) ;
         callWithErrorHandling(job, null, 14);
       }
     }
@@ -1599,11 +1599,11 @@ function renderComponentRoot(instance) {
       fallthroughAttrs = attrs;
     } else {
       const render2 = Component;
-      if ("production" !== "production" && attrs === props) ;
+      if (!!("production" !== "production") && attrs === props) ;
       result = normalizeVNode(
         render2.length > 1 ? render2(
           props,
-          "production" !== "production" ? {
+          !!("production" !== "production") ? {
             get attrs() {
               markAttrsAccessed();
               return attrs;
@@ -2777,6 +2777,9 @@ function inject(key, defaultValue, treatDefaultAsFactory = false) {
     } else ;
   }
 }
+function hasInjectionContext() {
+  return !!(currentInstance || currentRenderingInstance || currentApp);
+}
 
 function initProps(instance, rawProps, isStateful, isSSR = false) {
   const props = {};
@@ -3059,7 +3062,7 @@ const normalizeSlot = (key, rawSlot, ctx) => {
     return rawSlot;
   }
   const normalized = withCtx((...args) => {
-    if ("production" !== "production" && currentInstance) ;
+    if (!!("production" !== "production") && currentInstance) ;
     return normalizeSlotValue(rawSlot(...args));
   }, ctx);
   normalized._c = false;
@@ -5159,7 +5162,7 @@ const useSSRContext = () => {
   }
 };
 
-const version = "3.3.2";
+const version = "3.3.4";
 
 const svgNS = "http://www.w3.org/2000/svg";
 const doc = typeof document !== "undefined" ? document : null;
@@ -5769,7 +5772,7 @@ function normalizeContainer(container) {
 var isVue2 = false;
 
 /*!
-  * pinia v2.0.36
+  * pinia v2.1.3
   * (c) 2023 Eduardo San Martin Morote
   * @license MIT
   */
@@ -5892,6 +5895,7 @@ function triggerSubscriptions(subscriptions, ...args) {
     });
 }
 
+const fallbackRunWithContext = (fn) => fn();
 function mergeReactiveObjects(target, patchToApply) {
     // Handle Map instances
     if (target instanceof Map && patchToApply instanceof Map) {
@@ -5978,8 +5982,8 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
     // internal state
     let isListening; // set to true at the end
     let isSyncListening; // set to true at the end
-    let subscriptions = markRaw([]);
-    let actionSubscriptions = markRaw([]);
+    let subscriptions = [];
+    let actionSubscriptions = [];
     let debuggerEvents;
     const initialState = pinia.state.value[$id];
     // avoid setting the state for option stores if it is set
@@ -6119,10 +6123,11 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
     // store the partial store now so the setup of stores can instantiate each other before they are finished without
     // creating infinite loops.
     pinia._s.set($id, store);
+    const runWithContext = (pinia._a && pinia._a.runWithContext) || fallbackRunWithContext;
     // TODO: idea create skipSerialize that marks properties as non serializable and they are skipped
     const setupStore = pinia._e.run(() => {
         scope = effectScope();
-        return scope.run(() => setup());
+        return runWithContext(() => scope.run(setup));
     });
     // overwrite existing actions to support $onAction
     for (const key in setupStore) {
@@ -6222,12 +6227,12 @@ idOrOptions, setup, setupOptions) {
         id = idOrOptions.id;
     }
     function useStore(pinia, hot) {
-        const currentInstance = getCurrentInstance();
+        const hasContext = hasInjectionContext();
         pinia =
             // in test mode, ignore the argument provided as we can always retrieve a
             // pinia instance with getActivePinia()
             (pinia) ||
-                (currentInstance && inject(piniaSymbol, null));
+                (hasContext ? inject(piniaSymbol, null) : null);
         if (pinia)
             setActivePinia(pinia);
         pinia = activePinia;
@@ -6536,7 +6541,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.9.3
+  * vee-validate v4.9.4
   * (c) 2023 Abdelrahman Awad
   * @license MIT
   */
@@ -7927,7 +7932,7 @@ function getCurrentModelValue(vm, propName) {
     return vm.props[propName];
 }
 
-const FieldImpl = defineComponent({
+const FieldImpl = /** #__PURE__ */ defineComponent({
     name: 'Field',
     inheritAttrs: false,
     props: {
@@ -8153,7 +8158,9 @@ function useForm(opts) {
     function setFieldError(field, message) {
         const state = findPathState(field);
         if (!state) {
-            extraErrorsBag.value[field] = normalizeErrorItem(message);
+            if (typeof field === 'string') {
+                extraErrorsBag.value[field] = normalizeErrorItem(message);
+            }
             return;
         }
         state.errors = normalizeErrorItem(message);
@@ -8849,7 +8856,9 @@ function useFormInitialValues(pathsState, formValues, opts) {
     }
     if (isRef(providedValues)) {
         watch(providedValues, value => {
-            setInitialValues(value, true);
+            if (value) {
+                setInitialValues(value, true);
+            }
         }, {
             deep: true,
         });
@@ -8861,7 +8870,7 @@ function useFormInitialValues(pathsState, formValues, opts) {
     };
 }
 
-const FormImpl = defineComponent({
+const FormImpl = /** #__PURE__ */ defineComponent({
     name: 'Form',
     inheritAttrs: false,
     props: {
@@ -9007,7 +9016,7 @@ const FormImpl = defineComponent({
 });
 const Form = FormImpl;
 
-const ErrorMessageImpl = defineComponent({
+const ErrorMessageImpl = /** #__PURE__ */ defineComponent({
     name: 'ErrorMessage',
     props: {
         as: {
