@@ -4,4 +4,4 @@ loop=true（[playbgm]のデフォルト値）なら待たない。
 利用時は【音声再生[playbgm]がjoin=true(ちなみにデフォルト)であること】を必須条件とします
 
 ***
-- global		false	Boolean	グローバルイベント待ちを有効にするか<br/>※canskipと同時にtrueにするとエラー
+- global		true	Boolean	グローバルイベント待ちを有効にするか

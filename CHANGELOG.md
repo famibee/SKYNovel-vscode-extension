@@ -1,5 +1,14 @@
+## v4.14.4
+- docs: タグリファレンス・コードヒントの変更
+	- [ws]にクリックキャンセルで再生停止しない機能 stop=false （デフォルト=true）追加
+	- BREAKING CHANGE: [wt][l][p][s]に global 属性（デフォルト=true）追加
+	- BREAKING CHANGE: [wait_tsy][wv][ws][wl][wf][wb] の global 属性デフォルト血を true に
+	- canskipとglobalを同時にtrue指定できない制限を撤廃
+	- [wait]の global 属性を廃止、イベント発生待ちを行わない仕様で無意味につき
+	- [set_cancel_skip] スキップ中断予約 を廃止、不要に
+- fix: ライブラリ更新、リビルド
 ## v4.14.3
-- fix: [l][p]の新属性をコードヒントに追加
+- fix: [l][p]の新属性 x,y,width,height をコードヒントに追加
 ## v4.14.2
 - fix: フォント最適化機能などバッチ処理系でエラー【Error: Cannot find module 'fs-extra'】になる件
 	- 今までできてたプロジェクトでもダメになった？　ので、明確に devDependencies ライブラリに追加

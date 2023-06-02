@@ -3,6 +3,7 @@
 
 ***
 - canskip		true	Boolean	trueでクリックキャンセル可能にする
+- global		true	Boolean	グローバルイベント待ちを有効にするか
 
 ***
 canskip=${1|true,false|}

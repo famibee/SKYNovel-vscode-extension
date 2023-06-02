@@ -3,7 +3,7 @@
 
 ***
 - canskip		true	Boolean	クリックなど（→詳細は[waitclick]）でウエイトをキャンセルできるか
-- global		false	Boolean	グローバルイベント待ちを有効にするか<br/>※canskipと同時にtrueにするとエラー
+- global		true	Boolean	グローバルイベント待ちを有効にするか
 
 ***
 canskip=${1|true,false|}

@@ -40,7 +40,7 @@ const toTypeString = (value) => objectToString.call(value);
 const toRawType = (value) => {
   return toTypeString(value).slice(8, -1);
 };
-const isPlainObject$1 = (val) => toTypeString(val) === "[object Object]";
+const isPlainObject$2 = (val) => toTypeString(val) === "[object Object]";
 const isIntegerKey = (key) => isString(key) && key !== "NaN" && key[0] !== "-" && "" + parseInt(key, 10) === key;
 const isReservedProp = /* @__PURE__ */ makeMap(
   // the leading comma is intentional so empty string "" is also included
@@ -217,7 +217,7 @@ const replacer = (_key, val) => {
     return {
       [`Set(${val.size})`]: [...val.values()]
     };
-  } else if (isObject$1(val) && !isArray(val) && !isPlainObject$1(val)) {
+  } else if (isObject$1(val) && !isArray(val) && !isPlainObject$2(val)) {
     return String(val);
   }
   return val;
@@ -1941,7 +1941,7 @@ function traverse(value, seen) {
     value.forEach((v) => {
       traverse(v, seen);
     });
-  } else if (isPlainObject$1(value)) {
+  } else if (isPlainObject$2(value)) {
     for (const key in value) {
       traverse(value[key], seen);
     }
@@ -5792,7 +5792,7 @@ let activePinia;
 const setActivePinia = (pinia) => (activePinia = pinia);
 const piniaSymbol = (/* istanbul ignore next */ Symbol());
 
-function isPlainObject(
+function isPlainObject$1(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 o) {
     return (o &&
@@ -5911,8 +5911,8 @@ function mergeReactiveObjects(target, patchToApply) {
             continue;
         const subPatch = patchToApply[key];
         const targetValue = target[key];
-        if (isPlainObject(targetValue) &&
-            isPlainObject(subPatch) &&
+        if (isPlainObject$1(targetValue) &&
+            isPlainObject$1(subPatch) &&
             target.hasOwnProperty(key) &&
             !isRef(subPatch) &&
             !isReactive(subPatch)) {
@@ -5936,7 +5936,7 @@ const skipHydrateSymbol = /* istanbul ignore next */ Symbol();
  * @returns true if `obj` should be hydrated
  */
 function shouldHydrate(obj) {
-    return !isPlainObject(obj) || !obj.hasOwnProperty(skipHydrateSymbol);
+    return !isPlainObject$1(obj) || !obj.hasOwnProperty(skipHydrateSymbol);
 }
 const { assign } = Object;
 function isComputed(o) {
@@ -6541,7 +6541,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.9.4
+  * vee-validate v4.9.6
   * (c) 2023 Abdelrahman Awad
   * @license MIT
   */
@@ -6560,9 +6560,32 @@ function toNumber(value) {
     const n = parseFloat(value);
     return isNaN(n) ? value : n;
 }
+function isObjectLike(value) {
+    return typeof value === 'object' && value !== null;
+}
+function getTag(value) {
+    if (value == null) {
+        return value === undefined ? '[object Undefined]' : '[object Null]';
+    }
+    return Object.prototype.toString.call(value);
+}
+// Reference: https://github.com/lodash/lodash/blob/master/isPlainObject.js
+function isPlainObject(value) {
+    if (!isObjectLike(value) || getTag(value) !== '[object Object]') {
+        return false;
+    }
+    if (Object.getPrototypeOf(value) === null) {
+        return true;
+    }
+    let proto = value;
+    while (Object.getPrototypeOf(proto) !== null) {
+        proto = Object.getPrototypeOf(proto);
+    }
+    return Object.getPrototypeOf(value) === proto;
+}
 function merge(target, source) {
     Object.keys(source).forEach(key => {
-        if (isObject(source[key])) {
+        if (isPlainObject(source[key])) {
             if (!target[key]) {
                 target[key] = {};
             }
@@ -8025,7 +8048,7 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
             handleChange(e, shouldValidate);
             ctx.emit('update:modelValue', value.value);
         };
-        const fieldProps = computed(() => {
+        const sharedProps = computed(() => {
             const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = resolveValidationTriggers(props);
             function baseOnBlur(e) {
                 handleBlur(e);
@@ -8055,6 +8078,10 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
                 onChange: baseOnChange,
             };
             attrs['onUpdate:modelValue'] = e => onChangeHandler(e, validateOnModelUpdate);
+            return attrs;
+        });
+        const fieldProps = computed(() => {
+            const attrs = Object.assign({}, sharedProps.value);
             if (hasCheckedAttr(ctx.attrs.type) && checked) {
                 attrs.checked = checked.value;
             }
@@ -8064,9 +8091,13 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
             }
             return attrs;
         });
+        const componentProps = computed(() => {
+            return Object.assign(Object.assign({}, sharedProps.value), { modelValue: value.value });
+        });
         function slotProps() {
             return {
                 field: fieldProps.value,
+                componentField: componentProps.value,
                 value: value.value,
                 meta,
                 errors: errors.value,
@@ -8076,7 +8107,7 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
                 handleChange: onChangeHandler,
                 handleInput: e => onChangeHandler(e, false),
                 handleReset,
-                handleBlur,
+                handleBlur: sharedProps.value.onBlur,
                 setTouched,
                 setErrors,
             };
@@ -8164,6 +8195,7 @@ function useForm(opts) {
             return;
         }
         state.errors = normalizeErrorItem(message);
+        state.valid = !state.errors.length;
     }
     /**
      * Sets errors for the fields specified in the object
@@ -10075,12 +10107,12 @@ class Schema {
       throw err;
     }
   }
-  _getDefault(_options) {
+  _getDefault(options) {
     let defaultValue = this.spec.default;
     if (defaultValue == null) {
       return defaultValue;
     }
-    return typeof defaultValue === 'function' ? defaultValue.call(this) : clone(defaultValue);
+    return typeof defaultValue === 'function' ? defaultValue.call(this, options) : clone(defaultValue);
   }
   getDefault(options
   // If schema is defaulted we know it's at least not undefined
