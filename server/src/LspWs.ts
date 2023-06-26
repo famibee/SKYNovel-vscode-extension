@@ -253,6 +253,7 @@ screen|`,
 	static readonly	#aPredefWrtVar	=
 `const.Date.getDateStr
 const.Date.getTime
+const.sn.aIfStk.length
 const.sn.bookmark.json
 const.sn.config.book.title
 const.sn.config.book.creator
@@ -291,6 +292,7 @@ const.sn.key.command
 const.sn.key.control
 const.sn.key.end
 const.sn.key.escape
+const.sn.last_page_plain_text
 const.sn.last_page_text
 const.sn.lay.（レイヤ名）
 const.sn.lay.（レイヤ名）.（foreかback）.alpha

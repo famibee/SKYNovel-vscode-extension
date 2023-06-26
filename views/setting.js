@@ -1123,6 +1123,9 @@ class RefImpl {
 function unref(ref2) {
   return isRef(ref2) ? ref2.value : ref2;
 }
+function toValue(source) {
+  return isFunction(source) ? source() : unref(source);
+}
 const shallowUnwrapHandlers = {
   get: (target, key, receiver) => unref(Reflect.get(target, key, receiver)),
   set: (target, key, value, receiver) => {
@@ -5772,7 +5775,7 @@ function normalizeContainer(container) {
 var isVue2 = false;
 
 /*!
-  * pinia v2.1.3
+  * pinia v2.1.4
   * (c) 2023 Eduardo San Martin Morote
   * @license MIT
   */
@@ -6541,7 +6544,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.9.6
+  * vee-validate v4.10.2
   * (c) 2023 Abdelrahman Awad
   * @license MIT
   */
@@ -6997,14 +7000,8 @@ function withLatest(fn, onDone) {
         return result;
     };
 }
-function unravel(value) {
-    if (isCallable(value)) {
-        return value();
-    }
-    return unref(value);
-}
 function lazyToRef(value) {
-    return computed(() => unravel(value));
+    return computed(() => toValue(value));
 }
 function normalizeErrorItem(message) {
     return Array.isArray(message) ? message : message ? [message] : [];
@@ -7049,6 +7046,12 @@ function hasValueBinding(el) {
     return '_value' in el;
 }
 
+function parseInputValue(el) {
+    if (el.type === 'number') {
+        return Number.isNaN(el.valueAsNumber) ? el.value : el.valueAsNumber;
+    }
+    return el.value;
+}
 function normalizeEventValue(value) {
     if (!isEvent(value)) {
         return value;
@@ -7074,7 +7077,7 @@ function normalizeEventValue(value) {
         const selectedOption = Array.from(input.options).find(opt => opt.selected);
         return selectedOption ? getBoundValue(selectedOption) : input.value;
     }
-    return input.value;
+    return parseInputValue(input);
 }
 
 /**
@@ -7237,12 +7240,17 @@ async function _validate(field, value) {
         for (let i = 0; i < length; i++) {
             const rule = pipeline[i];
             const result = await rule(value, ctx);
-            const isValid = typeof result !== 'string' && result;
+            const isValid = typeof result !== 'string' && !Array.isArray(result) && result;
             if (isValid) {
                 continue;
             }
-            const message = typeof result === 'string' ? result : _generateFieldError(ctx);
-            errors.push(message);
+            if (Array.isArray(result)) {
+                errors.push(...result);
+            }
+            else {
+                const message = typeof result === 'string' ? result : _generateFieldError(ctx);
+                errors.push(message);
+            }
             if (field.bails) {
                 return {
                     errors,
@@ -7545,7 +7553,7 @@ function _useFieldValue(path, modelValue, form) {
             return getFromPath(form.values, unref(path));
         },
         set(newVal) {
-            form.setFieldValue(unref(path), newVal);
+            form.setFieldValue(unref(path), newVal, false);
         },
     });
     return {
@@ -7614,7 +7622,7 @@ function useField(path, rules, opts) {
     return _useField(path, rules, opts);
 }
 function _useField(path, rules, opts) {
-    const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, controlled, keepValueOnUnmount, modelPropName, syncVModel, form: controlForm, } = normalizeOptions(opts);
+    const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, controlled, keepValueOnUnmount, syncVModel, form: controlForm, } = normalizeOptions(opts);
     const injectedForm = controlled ? injectWithSelf(FormContextKey) : undefined;
     const form = controlForm || injectedForm;
     const name = lazyToRef(path);
@@ -7642,13 +7650,16 @@ function _useField(path, rules, opts) {
     });
     const errorMessage = computed(() => errors.value[0]);
     if (syncVModel) {
-        useVModel({ value, prop: modelPropName, handleChange });
+        useVModel({ value, prop: syncVModel, handleChange });
     }
     /**
      * Handles common onBlur meta update
      */
-    const handleBlur = () => {
+    const handleBlur = (evt, shouldValidate = false) => {
         meta.touched = true;
+        if (shouldValidate) {
+            validateWithStateMutation();
+        }
     };
     async function validateCurrentValue(mode) {
         var _a, _b;
@@ -7724,10 +7735,6 @@ function _useField(path, rules, opts) {
     }
     function setValue(newValue, shouldValidate = true) {
         value.value = newValue;
-        if (!shouldValidate) {
-            validateValidStateOnly();
-            return;
-        }
         const validateFn = shouldValidate ? validateWithStateMutation : validateValidStateOnly;
         validateFn();
     }
@@ -7820,7 +7827,7 @@ function _useField(path, rules, opts) {
     onBeforeUnmount(() => {
         var _a;
         const shouldKeepValue = (_a = unref(field.keepValueOnUnmount)) !== null && _a !== void 0 ? _a : unref(form.keepValuesOnUnmount);
-        const path = unravel(name);
+        const path = toValue(name);
         if (shouldKeepValue || !form || flags.pendingUnmount[field.id]) {
             form === null || form === void 0 ? void 0 : form.removePathState(path, id);
             return;
@@ -7845,7 +7852,7 @@ function _useField(path, rules, opts) {
             }
         }
         else {
-            form.unsetPathValue(unravel(name));
+            form.unsetPathValue(toValue(name));
         }
         form.removePathState(path, id);
     });
@@ -7855,7 +7862,6 @@ function _useField(path, rules, opts) {
  * Normalizes partial field options to include the full options
  */
 function normalizeOptions(opts) {
-    var _a;
     const defaults = () => ({
         initialValue: undefined,
         validateOnMount: false,
@@ -7863,13 +7869,13 @@ function normalizeOptions(opts) {
         label: undefined,
         validateOnValueUpdate: true,
         keepValueOnUnmount: undefined,
-        modelPropName: 'modelValue',
-        syncVModel: true,
+        syncVModel: false,
         controlled: true,
     });
-    const isVModelSynced = (_a = opts === null || opts === void 0 ? void 0 : opts.syncVModel) !== null && _a !== void 0 ? _a : true;
+    const isVModelSynced = !!(opts === null || opts === void 0 ? void 0 : opts.syncVModel);
+    const modelPropName = typeof (opts === null || opts === void 0 ? void 0 : opts.syncVModel) === 'string' ? opts.syncVModel : (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || 'modelValue';
     const initialValue = isVModelSynced && !('initialValue' in (opts || {}))
-        ? getCurrentModelValue(getCurrentInstance(), (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || 'modelValue')
+        ? getCurrentModelValue(getCurrentInstance(), modelPropName)
         : opts === null || opts === void 0 ? void 0 : opts.initialValue;
     if (!opts) {
         return Object.assign(Object.assign({}, defaults()), { initialValue });
@@ -7877,7 +7883,9 @@ function normalizeOptions(opts) {
     // TODO: Deprecate this in next major release
     const checkedValue = 'valueProp' in opts ? opts.valueProp : opts.checkedValue;
     const controlled = 'standalone' in opts ? !opts.standalone : opts.controlled;
-    return Object.assign(Object.assign(Object.assign({}, defaults()), (opts || {})), { initialValue, controlled: controlled !== null && controlled !== void 0 ? controlled : true, checkedValue });
+    const syncVModel = (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || (opts === null || opts === void 0 ? void 0 : opts.syncVModel) || false;
+    return Object.assign(Object.assign(Object.assign({}, defaults()), (opts || {})), { initialValue, controlled: controlled !== null && controlled !== void 0 ? controlled : true, checkedValue,
+        syncVModel });
 }
 function useFieldWithChecked(name, rules, opts) {
     const form = !(opts === null || opts === void 0 ? void 0 : opts.standalone) ? injectWithSelf(FormContextKey) : undefined;
@@ -7893,23 +7901,22 @@ function useFieldWithChecked(name, rules, opts) {
                 : isEqual(checkedVal, currentValue);
         });
         function handleCheckboxChange(e, shouldValidate = true) {
-            var _a;
+            var _a, _b;
             if (checked.value === ((_a = e === null || e === void 0 ? void 0 : e.target) === null || _a === void 0 ? void 0 : _a.checked)) {
                 if (shouldValidate) {
                     field.validate();
                 }
                 return;
             }
-            const path = unravel(name);
+            const path = toValue(name);
             const pathState = form === null || form === void 0 ? void 0 : form.getPathState(path);
             const value = normalizeEventValue(e);
-            let newValue;
+            let newValue = (_b = unref(checkedValue)) !== null && _b !== void 0 ? _b : value;
             if (form && (pathState === null || pathState === void 0 ? void 0 : pathState.multiple) && pathState.type === 'checkbox') {
-                newValue = resolveNextCheckboxValue(getFromPath(form.values, path) || [], value, undefined);
+                newValue = resolveNextCheckboxValue(getFromPath(form.values, path) || [], newValue, undefined);
             }
-            else {
-                // Single checkbox field without a form to toggle it's value
-                newValue = resolveNextCheckboxValue(unref(field.value), unref(checkedValue), unref(uncheckedValue));
+            else if ((opts === null || opts === void 0 ? void 0 : opts.type) === 'checkbox') {
+                newValue = resolveNextCheckboxValue(unref(field.value), newValue, unref(uncheckedValue));
             }
             handleChange(newValue, shouldValidate);
         }
@@ -7922,10 +7929,10 @@ function useFieldWithChecked(name, rules, opts) {
 function useVModel({ prop, value, handleChange }) {
     const vm = getCurrentInstance();
     /* istanbul ignore next */
-    if (!vm) {
+    if (!vm || !prop) {
         return;
     }
-    const propName = prop || 'modelValue';
+    const propName = typeof prop === 'string' ? prop : 'modelValue';
     const emitName = `update:${propName}`;
     // Component doesn't have a model prop setup (must be defined on the props)
     if (!(propName in vm.props)) {
@@ -8042,6 +8049,7 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
             label,
             validateOnValueUpdate: false,
             keepValueOnUnmount: keepValue,
+            syncVModel: true,
         });
         // If there is a v-model applied on the component we need to emit the `update:modelValue` whenever the value binding changes
         const onChangeHandler = function handleChangeWithModel(e, shouldValidate = true) {
@@ -8051,12 +8059,9 @@ const FieldImpl = /** #__PURE__ */ defineComponent({
         const sharedProps = computed(() => {
             const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = resolveValidationTriggers(props);
             function baseOnBlur(e) {
-                handleBlur(e);
+                handleBlur(e, validateOnBlur);
                 if (isCallable(ctx.attrs.onBlur)) {
                     ctx.attrs.onBlur(e);
-                }
-                if (validateOnBlur) {
-                    validateField();
                 }
             }
             function baseOnInput(e) {
@@ -8261,7 +8266,7 @@ function useForm(opts) {
     const schema = opts === null || opts === void 0 ? void 0 : opts.validationSchema;
     function createPathState(path, config) {
         var _a, _b;
-        const initialValue = computed(() => getFromPath(initialValues.value, unravel(path)));
+        const initialValue = computed(() => getFromPath(initialValues.value, toValue(path)));
         const pathStateExists = pathStates.value.find(state => state.path === unref(path));
         if (pathStateExists) {
             if ((config === null || config === void 0 ? void 0 : config.type) === 'checkbox' || (config === null || config === void 0 ? void 0 : config.type) === 'radio') {
@@ -8278,8 +8283,8 @@ function useForm(opts) {
             pathStateExists.__flags.pendingUnmount[id] = false;
             return pathStateExists;
         }
-        const currentValue = computed(() => getFromPath(formValues, unravel(path)));
-        const pathValue = unravel(path);
+        const currentValue = computed(() => getFromPath(formValues, toValue(path)));
+        const pathValue = toValue(path);
         const id = FIELD_ID_COUNTER++;
         const state = reactive({
             id,
@@ -8531,7 +8536,7 @@ function useForm(opts) {
     /**
      * Sets a single field value
      */
-    function setFieldValue(field, value) {
+    function setFieldValue(field, value, shouldValidate = true) {
         const clonedValue = klona(value);
         const path = typeof field === 'string' ? field : field.path;
         const pathState = findPathState(path);
@@ -8539,6 +8544,9 @@ function useForm(opts) {
             createPathState(path);
         }
         setInPath(formValues, path, clonedValue);
+        if (shouldValidate) {
+            validateField(path);
+        }
     }
     /**
      * Sets multiple fields values
@@ -8556,7 +8564,7 @@ function useForm(opts) {
             },
             set(value) {
                 const pathValue = unref(path);
-                setFieldValue(pathValue, value);
+                setFieldValue(pathValue, value, false);
                 pathState.validated = true;
                 pathState.pending = true;
                 validateField(pathValue).then(() => {
@@ -8592,7 +8600,7 @@ function useForm(opts) {
         var _a;
         const newValue = state && 'value' in state ? state.value : getFromPath(initialValues.value, field);
         setFieldInitialValue(field, klona(newValue));
-        setFieldValue(field, newValue);
+        setFieldValue(field, newValue, false);
         setFieldTouched(field, (_a = state === null || state === void 0 ? void 0 : state.touched) !== null && _a !== void 0 ? _a : false);
         setFieldError(field, (state === null || state === void 0 ? void 0 : state.errors) || []);
     }
@@ -8602,14 +8610,14 @@ function useForm(opts) {
     function resetForm(resetState) {
         const newValues = (resetState === null || resetState === void 0 ? void 0 : resetState.values) ? resetState.values : originalInitialValues.value;
         setInitialValues(newValues);
-        setValues(newValues);
         mutateAllPathState(state => {
             var _a;
             state.validated = false;
             state.touched = ((_a = resetState === null || resetState === void 0 ? void 0 : resetState.touched) === null || _a === void 0 ? void 0 : _a[state.path]) || false;
-            setFieldValue(state.path, getFromPath(newValues, state.path));
+            setFieldValue(state.path, getFromPath(newValues, state.path), false);
             setFieldError(state.path, undefined);
         });
+        setValues(newValues);
         setErrors((resetState === null || resetState === void 0 ? void 0 : resetState.errors) || {});
         submitCount.value = (resetState === null || resetState === void 0 ? void 0 : resetState.submitCount) || 0;
         nextTick(() => {
@@ -8738,7 +8746,7 @@ function useForm(opts) {
     // Provide injections
     provide(FormContextKey, formCtx);
     function defineComponentBinds(path, config) {
-        const pathState = findPathState(unravel(path)) || createPathState(path);
+        const pathState = findPathState(toValue(path)) || createPathState(path);
         const evalConfig = () => (isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {});
         function onBlur() {
             var _a;
@@ -8757,23 +8765,25 @@ function useForm(opts) {
             }
         }
         const props = computed(() => {
-            const base = {
-                modelValue: pathState.value,
-                'onUpdate:modelValue': onUpdateModelValue,
-                onBlur,
-            };
             if (isCallable(config)) {
-                return Object.assign(Object.assign({}, base), (config(pathState).props || {}));
+                const configVal = config(pathState);
+                const model = configVal.model || 'modelValue';
+                return Object.assign({ onBlur, [model]: pathState.value, [`onUpdate:${model}`]: onUpdateModelValue }, (configVal.props || {}));
             }
+            const model = (config === null || config === void 0 ? void 0 : config.model) || 'modelValue';
+            const base = {
+                [model]: pathState.value,
+                [`onUpdate:${model}`]: onUpdateModelValue,
+            };
             if (config === null || config === void 0 ? void 0 : config.mapProps) {
-                return Object.assign(Object.assign({}, base), config.mapProps(omit(pathState, PRIVATE_PATH_STATE_KEYS)));
+                return Object.assign(Object.assign({ onBlur }, base), config.mapProps(omit(pathState, PRIVATE_PATH_STATE_KEYS)));
             }
             return base;
         });
         return props;
     }
     function defineInputBinds(path, config) {
-        const pathState = (findPathState(unravel(path)) || createPathState(path));
+        const pathState = (findPathState(toValue(path)) || createPathState(path));
         const evalConfig = () => (isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {});
         function onBlur() {
             var _a;
@@ -8786,20 +8796,14 @@ function useForm(opts) {
         function onInput(e) {
             var _a;
             const value = normalizeEventValue(e);
-            setFieldValue(pathState.path, value);
             const validateOnInput = (_a = evalConfig().validateOnInput) !== null && _a !== void 0 ? _a : getConfig().validateOnInput;
-            if (validateOnInput) {
-                validateField(pathState.path);
-            }
+            setFieldValue(pathState.path, value, validateOnInput);
         }
         function onChange(e) {
             var _a;
             const value = normalizeEventValue(e);
-            setFieldValue(pathState.path, value);
             const validateOnChange = (_a = evalConfig().validateOnChange) !== null && _a !== void 0 ? _a : getConfig().validateOnChange;
-            if (validateOnChange) {
-                validateField(pathState.path);
-            }
+            setFieldValue(pathState.path, value, validateOnChange);
         }
         const props = computed(() => {
             const base = {
@@ -8818,7 +8822,7 @@ function useForm(opts) {
         });
         return props;
     }
-    return Object.assign(Object.assign({}, formCtx), { handleReset: () => resetForm(), submitForm,
+    return Object.assign(Object.assign({}, formCtx), { values: readonly(formValues), handleReset: () => resetForm(), submitForm,
         defineComponentBinds,
         defineInputBinds });
 }
@@ -8868,8 +8872,8 @@ function useFormInitialValues(pathsState, formValues, opts) {
     // these only change when the user explicitly changes the initial values or when the user resets them with new values.
     const originalInitialValues = ref(klona(values));
     function setInitialValues(values, updateFields = false) {
-        initialValues.value = klona(values);
-        originalInitialValues.value = klona(values);
+        initialValues.value = merge(klona(initialValues.value) || {}, klona(values));
+        originalInitialValues.value = merge(klona(originalInitialValues.value) || {}, klona(values));
         if (!updateFields) {
             return;
         }

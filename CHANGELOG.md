@@ -1,3 +1,7 @@
+## v4.14.6
+- fix: Uint8Array.slice 使用箇所を subarray に
+- docs: 組み込み変数：IFスタックの深さを返す const.sn.aIfStk.length 追加
+- docs: 組み込み変数 const.sn.last_page_plain_text 追加
 ## v4.14.5
 - docs: タグリファレンス・コードヒントの変更（[page]にstyle追加、等）
 ## v4.14.4

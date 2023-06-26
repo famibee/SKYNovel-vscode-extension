@@ -76,7 +76,7 @@ export class EncryptorTransform extends Transform {
 		if (this.#cnt_code === 0) return;
 		this.#cnt_code = 0;
 
-		const e = this.encry.enc(this.#bh.slice(0, this.#ite_buf).toString('base64'));
+		const e = this.encry.enc(this.#bh.subarray(0, this.#ite_buf).toString('base64'));
 //const d = Buffer.from(this.encry.dec(e), 'base64').toString('hex');
 //console.log(`fn:EncryptorTransform.ts line:88 ++%o --%o`, d.slice(0, 32), d.slice(-32));
 
