@@ -1,13 +1,12 @@
 ## v4.15.0
 - feat(src/Encryptor.ts ほか): brix/crypto-js 使用廃止、Web Crypto API へ移行
-- feat(src/Encryptor.ts ほか): 暗号利用モードを CBC から GCM、SHA-512 へ変更、より強固に
+	- 暗号利用モードを CBC から GCM、SHA-512 へ変更、より強固に
+	- RIPEMD-160 の使用廃止、SHA-512 ハッシュや UUID v5（SHA-1を使用）に
 	- BREAKING CHANGE: 暗号化データに互換性なし、再生成必須
-- feat: RIPEMD-160 の使用廃止、SHA-512 ハッシュや UUID v5（SHA-1を使用）に
 - feat(IPluginInitArg): setDec(), setEnc() I/Fを async化
-- fix(IPluginInitArg): async setDec()は string 専用とする
-- feat(IPluginInitArg): async setDecAB()追加、ArrayBuffer 専用とする
-- fix(src/Encryptor.ts ほか): 初期化・enc()・enc()などを非同期・ArrayBuffer入出力I/Fに
-- fix: crc32 は使用継続、ライブラリページのベストプラクティスに従い記述変更
+	- crc32 は使用継続、ライブラリページのベストプラクティスに従い記述変更
+	- async setDec()は string 専用とする
+	- async setDecAB()追加、ArrayBuffer 専用とする
 - fix: 暗号化ファイルサイズをやや削減（以下はテストデータでの一例）
 	- main.sn ... 3031 to 3047(1.00527879)
 	- wood04.mp3 ... 3995 to 4017(1.00550688), until to 7132(1.78523154)
@@ -16,6 +15,7 @@
 	- _yesno.png ... 18722 to 18744(1.00117509), until to 26706(1.42645017)
 	- title.jpg ... 406121 to 406143(1.00005417), until to 414105(1.01965917)
 	- nc10889.mp4 ... 369411 to 369433(1.00005955), until to 377395(1.02161278)
+- fix(src/Encryptor.ts ほか): 初期化・enc()・enc()などを非同期・ArrayBuffer入出力I/Fに
 - fix(test/Encryptor.test.ts): 暗号処理のテスト不合格状態を解消
 - fix(ActivityBar.ts): NodeJS LTS 更新につき、v20.11.0 LTS 推奨に更新
 - fix(envinfo.htm): NodeJS DLリンクが切れてたのでサイトトップに修正
