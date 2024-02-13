@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -15,7 +15,7 @@ import {DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E
 import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, writeFile, writeJson, writeJsonSync} from 'fs-extra';
 import {basename} from 'path';
-import {v4 as uuidv4} from 'uuid';
+import {randomUUID} from 'crypto';
 import {userInfo} from 'os';
 
 
@@ -450,7 +450,7 @@ export class PrjSetting {
 			const escOld = this.cfg.oCfg.init.escape;
 			const cfg = this.cfg.oCfg = e.oCfg
 			if (cfg.init.escape !== escOld) this.setEscape();
-			cfg.debuger_token ||= uuidv4();
+			cfg.debuger_token ||= randomUUID();
 			this.#writePrjJs();
 
 			this.chgTitle(cfg.book.title);
@@ -637,7 +637,7 @@ export class PrjSetting {
 		}}, undefined, this.ctx.subscriptions);
 		this.#openSub();
 	}
-	#tiDelayUpdTemp: NodeJS.Timer | null = null;
+	#tiDelayUpdTemp: NodeJS.Timeout | undefined = undefined;
 	#openSub() {
 		const a: string[] = [];
 		foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));

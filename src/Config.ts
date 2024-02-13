@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2022-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2022-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -8,9 +8,9 @@
 import {foldProc, uint} from './CmnLib';
 import {ConfigBase, HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
 import {DEF_CFG} from '../views/types';
+import {Encryptor} from './Encryptor';
 
 import img_size from 'image-size';
-import {RIPEMD160, enc} from 'crypto-js';
 import {readJson, existsSync, outputJson, readFileSync, writeJsonSync} from 'fs-extra';
 import {parse, resolve} from 'path';
 import {Diagnostic, Uri, DiagnosticSeverity, window, DiagnosticCollection, Range} from 'vscode';
@@ -49,7 +49,7 @@ export class SysExtension implements ISysRoots {
 
 
 export class Config extends ConfigBase {
-	constructor(override readonly sys: SysExtension) {super(sys)}
+	constructor(override readonly sys: SysExtension, private encry: Encryptor) {super(sys)}
 	setCryptoMode(v: boolean) {this.sys.crypto = v;}
 
 	async loadEx(encFile: (uri: Uri)=> Promise<void>, clDiag: DiagnosticCollection) {
@@ -103,9 +103,8 @@ export class Config extends ConfigBase {
 				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
 					const s = readFileSync(fp, {encoding: 'utf8'});
-					const h = RIPEMD160(s).toString(enc.Hex);
-					const snm = nm.slice(0, -a2[0].length);
-					hFn2Path[snm][a2[1] +':RIPEMD160'] = h;
+					const snm = nm.slice(0, -a2[0].length);	// 拡張子を外したもの
+					hFn2Path[snm][a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
 				}
 				const a = nm.match(this.#REG_SPRSHEETIMG);
 				if (! a) return;

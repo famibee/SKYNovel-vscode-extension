@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -9,7 +9,6 @@ import {docsel, is_win, replaceRegsFile, v2fp} from './CmnLib';
 import {WorkSpaces} from './WorkSpaces';
 import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
-import fetch from 'node-fetch';
 const AdmZip = require('adm-zip');
 
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
@@ -220,8 +219,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			const nVNode = Number(splVNode[0]) *1000000
 				+Number(splVNode[1]) *1000 +Number(splVNode[2]);
 				// compare-versions だと windows10 で不具合になるので手作りに
-			if (nVNode < 16009000) {
-				tiNode.description = `-- ${vNode} (16.9.0 以上必須)`;
+			if (nVNode < 20011000) {
+				tiNode.description = `-- ${vNode} (20.11.0 以上必須)`;
 				tiNode.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNode);
 
@@ -423,7 +422,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			prg.report({increment: 10, message: 'ダウンロード中',});
 			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
 			.then(async res=> {
-				const buf = await res.buffer();
+				const buf = await res.arrayBuffer();
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 50, message: 'ZIP解凍中',});
@@ -501,7 +500,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			prg.report({increment: 10, message: 'ダウンロード中',});
 			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
 			.then(async res=> {
-				const buf = await res.buffer();
+				const buf = await res.arrayBuffer();
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
 				prg.report({increment: 50, message: 'ZIP解凍中',});

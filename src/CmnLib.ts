@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2018-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2018-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -140,21 +140,24 @@ export interface ILayerFactory {
 	(): any;
 }
 
-export type PLUGIN_PRE_RET = {
-	ret		: string;
+export type PLUGIN_DECAB_RET = {
 	ext_num	: number;
+	ab		: ArrayBuffer;
 };
+
 export type IPluginInitArg = {
+//	getInfo(): T_PLUGIN_INFO;
 //	addTag(tag_name: string, tag_fnc: ITag): void;
 //	addLayCls(cls: string, fnc: ILayerFactory): void;
 //	searchPath(fn: string, extptn?: string): string;
 //	getVal(arg_name: string, def?: number | string): object;
 //	resume(fnc?: ()=> void): void;
-//	render(dsp: any, renTx?: any, clear?: boolean): void;
-	setDec(fnc: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET): void;
-	setEnc(fnc: (d: string)=> string): void;
+//	render(dsp: DisplayObject, renTx?: RenderTexture, clear?: boolean): void;
+	setDec(fnc: (ext: string, tx: string)=> Promise<string>): void;
+	setDecAB(fnc: (ab: ArrayBuffer)=> Promise<PLUGIN_DECAB_RET>): void;
+	setEnc(fnc: (tx: string)=> Promise<string>): void;
 	getStK(fnc: ()=> string): void;
-	getHash(fnc: (data: string)=> string): void;
+	getHash(fnc: (str: string)=> string): void;
 
 	tstDecryptInfo(): IDecryptInfo,		// 拡張機能のみに存在するテスト用
 }

@@ -1,115 +1,194 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2021-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2021-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {Encryptor} from '../src/Encryptor';
+import {Encryptor, encAbBase64, decBase64Ab, encStrBase64, decBase64Str, ab2hexStr, hexStr2ab} from '../src/Encryptor';
 import {EncryptorTransform} from '../src/EncryptorTransform';
-import {IPluginInitArg, PLUGIN_PRE_RET} from '../src/CmnLib';
+import {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
 import {readFileSync, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
+const {subtle} = require('crypto').webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 
 let	encry: Encryptor;
 const infDecrypt = {
 	pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
 	salt	: '70a7c0b81cc31a8849cacdab8ed90163',
 	iv		: '493f19a60e5f03f55576a98bfc892a13',
-	keySize	: 16,
+	keySize	: 16,	// 未使用
 	ite		: 513,
-	stk		: '3d01197ce022b188696791cf903cd197',
+	stk		: '3d01197ce022b188696791cf903cd197',	// SysApp.#setStore() で使用
 };
 
-beforeEach(()=> {
-	encry = new Encryptor({
-		pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
-		salt	: '70a7c0b81cc31a8849cacdab8ed90163',
-		iv		: '493f19a60e5f03f55576a98bfc892a13',
-		keySize	: 16,
-		ite		: 513,
-		stk		: '3d01197ce022b188696791cf903cd197',
-	});
+let fncDec: (ext: string, tx: string)=> Promise<string> = ()=> Promise.resolve('');
+let fncDecAB: (ab: ArrayBuffer)=> Promise<PLUGIN_DECAB_RET>;
+let hSN: IPluginInitArg;
+
+jest.setTimeout(2000);
+beforeEach(async ()=> {
+	encry = new Encryptor(infDecrypt, subtle);
+	await encry.init();
+
+	fncDec = ()=> Promise.resolve('');
+	fncDecAB = ()=> Promise.resolve({ext_num: 0, ab: new ArrayBuffer(0)});
+	hSN = {
+		setDec	: fnc=> fncDec = fnc,
+		setDecAB	: fnc=> fncDecAB = fnc,
+		setEnc	: ()=> {},
+		getStK	: ()=> {},
+		getHash	: ()=> {},	// infDecrypt.stk,
+		tstDecryptInfo	: ()=> infDecrypt,
+	};
 });
 
-it('main_sn_full',()=> {
-	const src = readFileSync('test/mat/main.sn', {encoding: 'utf8'});
+
+it('hexStr', ()=> {
+	const a = '68657820737472696e6720e382a8e383b3e382b3e383bce38389e383bbe38387e382b3e383bce38389';
+	const b = 'hex string エンコード・デコード';
+		// 16進数バイナリ文字列変換 日本語変換 Online - DenCode https://dencode.com/ja/string/hex
+
+	const ab = hexStr2ab(a);
+	expect(Buffer.from(ab).toString('hex')).toBe(a);
+
+	const c = Buffer.from([0x68, 0x65, 0x78, 0x20, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x20, 0xe3, 0x82, 0xa8, 0xe3, 0x83, 0xb3, 0xe3, 0x82, 0xb3, 0xe3, 0x83, 0xbc, 0xe3, 0x83, 0x89, 0xe3, 0x83, 0xbb, 0xe3, 0x83, 0x87, 0xe3, 0x82, 0xb3, 0xe3, 0x83, 0xbc, 0xe3, 0x83, 0x89]);
+	expect(c.compare(new Uint8Array(ab))).toBe(0);	// 0 if they are equal
+
+	expect(ab2hexStr(ab)).toBe(a);
+
+	expect(Buffer.from(ab).toString()).toBe(b);
+});
+
+
+it('enc dec AbBase64', ()=> {
+	const a = 'Base64 エンコード・デコード';
+	const b = 'QmFzZTY0IOOCqOODs+OCs+ODvOODieODu+ODh+OCs+ODvOODiQ==';
+	expect(encStrBase64(a)).toBe(b);
+	expect(decBase64Str(b)).toBe(a);
+		// Base64 エンコード・デコード：画像などのデータをBase64文字列に変換、逆変換 | ラッコツールズ🔧 https://rakko.tools/tools/24/
+
+	const b2 = 'n++gHsN5YofNGF5t02lkUw==';
+	expect(encAbBase64(decBase64Ab(b2))).toBe(b2);
+});
+
+
+it('main_sn_full', async ()=> {
+	const path_src = 'test/mat/main.sn';
+	const stt = statSync(path_src);	// ファイルサイズ
+	expect(stt.size).toBe(3031);
+
+	const src = readFileSync(path_src, {encoding: 'utf8'});
 	const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
-	expect(srcH).toBe('095b6164645f6c6179206c617965723d');
-	const stt = statSync('test/mat/main.sn');
-	expect(stt.size).toBe(3031);	// ファイルサイズ
+	const chk_hex = '095b6164645f6c6179206c617965723d';
+	expect(srcH).toBe(chk_hex);
 
-	const enc = encry.enc(src);	// 暗号化
-	expect(enc.slice(0, 16)).toBe('xoVYiz0bdPtPhkDA');
+	const enc = await encry.encAb(new TextEncoder().encode(src));	// 暗号化
+	expect(enc.byteLength).toBe(3047);	// ファイルサイズ
 
-	const dec = encry.dec(enc);	// 復号化
+	expect(Buffer.from(enc.slice(0, 16)).toString('hex')).toBe('9fc4783607f28259dbb25787738e9881');
+	const bb = encAbBase64(enc.slice(0, 16));
+	expect(bb).toBe('n8R4NgfyglnbsleHc46YgQ==');
+
+	const dec = await encry.decAb(enc);	// 復号化
 	const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
-	expect(decH).toBe('095b6164645f6c6179206c617965723d');
-	expect(src).toBe(dec);
+	expect(decH).toBe(chk_hex);
+	expect(src).toBe(Buffer.from(dec).toString('utf8'));
 });
 
-it('wood04_mp3_full_simple',()=> {
-	const src0 = readFileSync('test/mat/wood04.mp3', {encoding: 'hex'});
+
+it('main_sn_full2', async ()=> {
+	const src = readFileSync('test/mat/main.sn', {encoding: 'utf8'});
+
+	const enc = await encry.enc(src);	// 暗号化
+	expect(enc.slice(0, 32)).toBe('n8R4NgfyglnbsleHc46YgW6TiKpMNHzd');
+
+	const dec = await encry.dec(enc);	// 復号化
+	expect(dec).toBe(src);
+});
+
+
+it('wood04_mp3_full_simple', async ()=> {
+	const path_src = 'test/mat/wood04.mp3';
+	const stt = statSync(path_src);	// ファイルサイズ
+	expect(stt.size).toBe(3995);
+
+	const src0 = readFileSync(path_src, {encoding: 'hex'});
 	const src0H = src0.slice(0, 32);
 	expect(src0H).toBe('49443303000000000061434f4d4d0000');
-	const stt = statSync('test/mat/wood04.mp3');
-	expect(stt.size).toBe(3995);	// ファイルサイズ
 
-	const src = readFileSync('test/mat/wood04.mp3', {encoding: 'utf8'});
+	const src = readFileSync(path_src, {encoding: 'utf8'});
 	const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
 	expect(srcH).toBe('49443303000000000061434f4d4d0000');
 
-	const enc = encry.enc(src);	// 暗号化
+	const enc = await encry.enc(src);	// 暗号化
 	const encH = enc.slice(0, 32);
-	expect(encH).toBe('xq+5mAwQFuMUz5a4neR73Ya7RYEhGYdk');
+	expect(encH).toBe('39sqUWOt7jii83ipR6bqvAy2+89tMn7b');
 
-	const dec = encry.dec(enc);	// 復号化
+	const dec = await encry.dec(enc);	// 復号化
 	const decH = Buffer.from(dec.slice(0, 16)).toString('hex');
 	expect(decH).toBe('49443303000000000061434f4d4d0000');
 	expect(src).toBe(dec);
 });
 
+
 it('prj_json_simple', async ()=> {
 	const path_src = 'test/mat/prj.json';
-	const stt = statSync(path_src);
-	expect(stt.size).toBe(650);	// ファイルサイズ
+	const stt = statSync(path_src);	// ファイルサイズ
+	expect(stt.size).toBe(650);
 
 	// 暗号化
 	const src = readFileSync(path_src, {encoding: 'utf8'});
-	const enc = encry.enc(src);
-	expect(enc).toBe('AxBoGNF1tJwzKdCZOXXGevZuuFmA1qrx/JA/f9mIb+MnzKKH70MzLwM+EDh/TeAeM8ggg/ONU7LgCl3jEfNTw/dsMBO1MfCsqFJiNWRTuB9khZXv2kp5tJclL6sZXYtAh9uPrPTXwCNIkmeKXmL5t0mzH+MwuXl88Ni9mt5Qlc3ir7YjgKSWqv2fmhAb74apsjc12DjxJSpJtZ6Q7E6Nuv/tFNo9lYPtoY3QLgHmdLHppHVIjUlMkGJ+M9mieyKBKZhiqmL+LZ6Vap6xs8vQFmpJsDGoWyFOtE/ph4K9x1xnpdDWR0YwUjSZ6RC3SX/faqVCAYJQn8/UsNHZa/O9ECHVNvPqgT+dZEuEG5OOt8q7Nfn+PzzJS/A9gaN+QkmVJmzwy8wtLK5UU1H11770Mp5Goln+dE8PeR7nliUp9R8P0zTgKW1gpXjwkB0qvyOf8Y+III5qsxTmUB94obSABeSFCcb98RJ72qKLUxOqTvElOMFkytsuyiBtDoR+Vce1BIjvhGGIu8uBlBVH+ySRzlwQqpB6mmZ4mkSqJwvNvW4lH77MtewkHNRpqv/xPerslc0788d24PEDuJ3NNoWi1QUKhNIdS141PMtTFCPMVNPeiQO6HFhXnRBDzxZ/R8qX0a0WF4Z+5+X8OhPsMUpRxeyvkgI5yKTRaCN9Y/kStNXY0dTIrly7QddXKfpAPvMNz3YINjJ0+sbXM0SS5q+fIpIkBAaaVxTM0TIlvBQVaMKcTfE0AytNgviXEVdAWh1zvx99euaa46k/btgKDH4fRv7wDaPks7+T8yKTml0ucMfZ7A8w/bl14YCTgwVfC9eYJpl5TZv831sZIh1/hAU5ZIWZk57B5Ps4d6dnG1nEPwU=');
+	const enc = await encry.enc(src);
+	expect(enc).toBe('7b17PQzGzALZsE+PfoePnjbQHW7wtJES6j5KZBPPxL+RqPcKMKrU/kmSjHQ0zBKg2tH6iNM9gbJEW7ZolMlIpfPW/+jEaNM9NrwQYpHrAtSQPh7NJDrsvvtAaIHIlZE2JcQ8xm7jNJbmz46vOceiASzB/2KqIAdNJ32gNUA8v8cMzVT1l5dIBTxVHmdKnPh/hVe9dfaE9shM/SXeMraocfciCpFYYs5o6VeANlITz5U0IGLKFFLFTe/qz/enbvoLUIVFKYXqBxfkcrcZ+ezEt8c+PKT9ZyzSslXHs7wdRp9gC6MUu3DZbkla2qnvVCKARwZK8vK7zuFiawuxGudShOyya/i40kueD+mTOqq0BJ6gOgVg34gswIfDHG1Kl1ic0dnYa7t8ukJPuVp/c9sX/6pSZBhTZ8nybNZjyk7pmGOxZ5c51dZR1OPXY0ZV9Od1VOpSqE+vWsJ4dAbjwMGydvPVxVCAnhk82daemZB3fK2Bsp4DWuAduGDVB73K2XAgtF7Cbz7xLIRGJo4rs93UDQ22ksUP9uJKw2YbURTV70bOzqRCBBf8ISTGrjXz48m5TkOvrLZ28PFvFNKdVoEDpLxSVhwflBIkqi7Ik8Kf7fmXQPsY/P89A8XglOiR43ABT685kpoiUxnf5Sjpjo8jMudQ0tKsdLJcjhLYKgbBkDfd1yvNgF7f3c6oMaJTlbFx8yHGe1alCwBj0TGpxE0WnO1QOh39AVp5zRvHfxrAfzzucwlua3ltG5IZHoXqPliG8Rf4ewhic2bZjIk40uiM0DDTpn2RhcRBUR+y3npCLyLZh2qicldG2SYRkTKRHvsT8UcA8hja4qk/yAbsHF2E0h1m/iI9gRTA4avDij0Gr90BzuD9mLIRahTv');
+	expect(enc.length).toBe(888);	// ファイルサイズ
 
 	// 復号化
-	const dec = encry.dec(enc);
+	const dec = await encry.dec(enc);
 	expect(dec).toBe(src);
 	expect(dec).toBe(`{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
 `);
+});
 
-try {
-		// 復号化（本番方式）
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
-			// jestがESM対応できてないので
-		await init(hSN);
 
-		const {ret, ext_num} = fncDec('json', enc);
-		expect(ext_num).toBe(0);	// other
-		const preUtf8 = Buffer.from(ret).toString('utf8');
+it('prj_json_simple by Plugin', async ()=> {
+	// 暗号化
+	const path_src = 'test/mat/prj.json';
+	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const enc = await encry.enc(src);
 
-		expect(src.length).toBe(preUtf8.length);
-		expect(src).toBe(preUtf8);
-		expect(preUtf8).toBe(`{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
+	// 復号化（本番方式）
+	const {init} = require('../src/snsys_pre');
+//	const {init} = await import('../src/snsys_pre');
+		// jestがESM対応できてないので
+	await init(hSN);
+
+	const ret = await fncDec('json', enc);
+	const preUtf8 = Buffer.from(ret).toString('utf8');
+
+	expect(src.length).toBe(preUtf8.length);
+	expect(src).toBe(preUtf8);
+	expect(preUtf8).toBe(`{"book":{"title":"桜の樹の下には1","creator":"ふぁみべぇ","cre_url":"https://twitter.com/ugainovel","publisher":"電子演劇部","pub_url":"https://ugainovel.blog.fc2.com/","detail":"梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。","version":"1.0.0"},"save_ns":"uc1","window":{"width":1024,"height":768},"log":{"max_len":1024},"init":{"bg_color":"#000000","tagch_msecwait":10,"auto_msecpagewait":3500},"debug":{"devtool":true,"token":false,"tag":false,"putCh":false,"baseTx":false,"masume":false,"variable":false,"debugLog":false},"code":{},"debuger_token":"10a95e72-c862-4faa-bfec-26cf28f03ecc"}
 `);
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 
 });
+
+
+it('prj_json_simple by Plugin unknown ext', async ()=> {
+	// 暗号化
+	const path_src = 'test/mat/prj.json';
+	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const srcAb = new TextEncoder().encode(src);
+
+	// 復号化（本番方式）
+	const {init} = require('../src/snsys_pre');
+//	const {init} = await import('../src/snsys_pre');
+		// jestがESM対応できてないので
+	await init(hSN);
+
+	const ret = await fncDec('知らない拡張子', src);
+	expect(ret).toBe(src);		// そのまま返す
+});
+
 
 // B,C
 it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
@@ -130,8 +209,6 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(3995);	// ファイルサイズ
 
-	const srcH = readFileSync(path_src, {encoding: 'hex'});
-
 	const rs = createReadStream(path_src)
 	.on('error', e=> console.error(`encrypter rs=%o`, e));
 
@@ -139,43 +216,41 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('d81b00004f426a66395939456b654f59');
+		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
 
 		const stt_bin = statSync(path_enc);
-		expect(stt_bin.size).toBe(7132);	// ファイルサイズ
+		expect(stt_bin.size).toBe(4017);	// ファイルサイズ
 
-try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
 		const {init} = require('../src/snsys_pre');
 //		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
-		const encAB = readFileSync(path_enc).buffer;
-		const {ret, ext_num} = fncDec('bin', encAB);
+
+		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		//const encAB = readFileSync(path_enc).buffer;	// NG、多分この不具合になる
+			// fs.readFileSync returns corrupt ArrayBuffer (fs.readFile works as expected) · Issue #11132 · nodejs/node https://github.com/nodejs/node/issues/11132
+		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
+
+		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(10);	// mp3
-		const preH = Buffer.from(ret).toString('hex');
+		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		expect(srcH.length).toBe(preH.length);
-		expect(srcH).toBe(preH);
-		expect(preH.slice(0, 32)).toBe('49443303000000000061434f4d4d0000');
-		expect(preH.slice(-32)).toBe('62697320492032303034303632000094');
+		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const decH = ab2hexStr(ab);
+		expect(srcH.length).toBe(decH.length);
+		expect(srcH).toBe(decH);
+		expect(decH.slice(0, 32)).toBe('49443303000000000061434f4d4d0000');
+		expect(decH.slice(-32)).toBe('62697320492032303034303632000094');
 
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 		done();
 	})
-	.on('error', e=> console.error(`encrypter ws=%o`, e));
+	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
 });});
+
 
 // B,a,A*n
 it('free0509_mp3_stream_transform', done=> {
@@ -184,8 +259,6 @@ it('free0509_mp3_stream_transform', done=> {
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(1796953);	// ファイルサイズ
 
-	const srcH = readFileSync(path_src, {encoding: 'hex'});
-
 	const rs = createReadStream(path_src)
 	.on('error', e=> console.error(`encrypter rs=%o`, e));
 
@@ -193,44 +266,39 @@ it('free0509_mp3_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('2c4700005a2b6f2f6f6d34514f744832');
+		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
 
 		const stt_bin = statSync(path_enc);
-		expect(stt_bin.size).toBe(1804937);	// ファイルサイズ
+		expect(stt_bin.size).toBe(1796975);	// ファイルサイズ
 
-try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
 		const {init} = require('../src/snsys_pre');
 //		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = readFileSync(path_enc).buffer;
-		const {ret, ext_num} = fncDec('bin', encAB);
+		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
+
+		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(10);	// mp3
-		const preH = Buffer.from(ret).toString('hex');
+		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		expect(srcH.length).toBe(preH.length);
-		expect(srcH).toBe(preH);
-		expect(preH.slice(0, 32)).toBe('49443303000000001000544954320000');
-		expect(preH.slice(-32)).toBe('766581408179687474703a2f2f777700');
+		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const decH = ab2hexStr(ab);
+		expect(srcH.length).toBe(decH.length);
+		expect(srcH).toBe(decH);
+		expect(decH.slice(0, 32)).toBe('49443303000000001000544954320000');
+		expect(decH.slice(-32)).toBe('766581408179687474703a2f2f777700');
 
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 		done();
 	})
-	.on('error', e=> console.error(`encrypter ws=%o`, e));
+	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
 });
+
 
 // B,a
 it('_yesno_png_stream_transform', done=> {
@@ -239,8 +307,6 @@ it('_yesno_png_stream_transform', done=> {
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(18722);	// ファイルサイズ
 
-	const srcH = readFileSync(path_src, {encoding: 'hex'});
-
 	const rs = createReadStream(path_src)
 	.on('error', e=> console.error(`encrypter rs=%o`, e));
 
@@ -248,44 +314,39 @@ it('_yesno_png_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('2c47000043434a786f736c6d55644979');
+		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
 
 		const stt_bin = statSync(path_enc);
-		expect(stt_bin.size).toBe(26706);	// ファイルサイズ
+		expect(stt_bin.size).toBe(18744);	// ファイルサイズ
 
-try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
 		const {init} = require('../src/snsys_pre');
 //		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = readFileSync(path_enc).buffer;
-		const {ret, ext_num} = fncDec('bin', encAB);
+		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
+
+		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(2);	// png
-		const preH = Buffer.from(ret).toString('hex');
+		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		expect(srcH.length).toBe(preH.length);
-		expect(srcH).toBe(preH);
-		expect(preH.slice(0, 32)).toBe('89504e470d0a1a0a0000000d49484452');
-		expect(preH.slice(-32)).toBe('53f9df960000000049454e44ae426082');
+		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const decH = ab2hexStr(ab);
+		expect(srcH.length).toBe(decH.length);
+		expect(srcH).toBe(decH);
+		expect(decH.slice(0, 32)).toBe('89504e470d0a1a0a0000000d49484452');
+		expect(decH.slice(-32)).toBe('53f9df960000000049454e44ae426082');
 
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 		done();
 	})
-	.on('error', e=> console.error(`encrypter ws=%o`, e));
+	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
 });
+
 
 // B,a,A*n
 it('title_jpg_stream_transform', done=> {
@@ -294,8 +355,6 @@ it('title_jpg_stream_transform', done=> {
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(406121);	// ファイルサイズ
 
-	const srcH = readFileSync(path_src, {encoding: 'hex'});
-
 	const rs = createReadStream(path_src)
 	.on('error', e=> console.error(`encrypter rs=%o`, e));
 
@@ -303,44 +362,39 @@ it('title_jpg_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('2c4700006f5672344c6f6b36456b744f');
+		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
 
 		const stt_bin = statSync(path_enc);
-		expect(stt_bin.size).toBe(414105);	// ファイルサイズ
+		expect(stt_bin.size).toBe(406143);	// ファイルサイズ
 
-try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
 		const {init} = require('../src/snsys_pre');
 //		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = readFileSync(path_enc).buffer;
-		const {ret, ext_num} = fncDec('bin', encAB);
+		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
+
+		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(1);	// jpeg
-		const preH = Buffer.from(ret).toString('hex');
+		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		expect(srcH.length).toBe(preH.length);
-		expect(srcH).toBe(preH);
-		expect(preH.slice(0, 32)).toBe('ffd8ffe000104a464946000102010048');
-		expect(preH.slice(-32)).toBe('211a108d084684234211a108d085ffd9');
+		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const decH = ab2hexStr(ab);
+		expect(srcH.length).toBe(decH.length);
+		expect(srcH).toBe(decH);
+		expect(decH.slice(0, 32)).toBe('ffd8ffe000104a464946000102010048');
+		expect(decH.slice(-32)).toBe('211a108d084684234211a108d085ffd9');
 
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 		done();
 	})
-	.on('error', e=> console.error(`encrypter ws=%o`, e));
+	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
 });
+
 
 // B,a,A*n
 it('nc10889_mp4_stream_transform', done=> {
@@ -349,8 +403,6 @@ it('nc10889_mp4_stream_transform', done=> {
 	const stt = statSync(path_src);
 	expect(stt.size).toBe(369411);	// ファイルサイズ
 
-	const srcH = readFileSync(path_src, {encoding: 'hex'});
-
 	const rs = createReadStream(path_src)
 	.on('error', e=> console.error(`encrypter rs=%o`, e));
 
@@ -358,39 +410,34 @@ it('nc10889_mp4_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('2c47000034456a2f6836367549685061');
+		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
 
 		const stt_bin = statSync(path_enc);
-		expect(stt_bin.size).toBe(377395);	// ファイルサイズ
+		expect(stt_bin.size).toBe(369433);	// ファイルサイズ
 
-try {
 		// 復号化
-		let fncDec: (ext: string, d: string | ArrayBuffer)=> PLUGIN_PRE_RET = (_, _2)=> ({ret: '', ext_num: 0,});
-		const hSN: IPluginInitArg = {
-			setDec	: fnc=> fncDec = fnc,
-			setEnc	: ()=> {},
-			getStK	: ()=> {},
-			getHash	: ()=> {},
-			tstDecryptInfo	: ()=> infDecrypt,
-		};
 		const {init} = require('../src/snsys_pre');
 //		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
-		const encAB = readFileSync(path_enc).buffer;
-		const {ret, ext_num} = fncDec('bin', encAB);
+
+		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
+
+		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(20);	// mp4
-		const preH = Buffer.from(ret).toString('hex');
+		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		expect(srcH.length).toBe(preH.length);
-		expect(srcH).toBe(preH);
-		expect(preH.slice(0, 32)).toBe('00000018667479706d70343200000001');
-		expect(preH.slice(-32)).toBe('7061636b657420656e643d2277223f3e');
+		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const decH = ab2hexStr(ab);
+		expect(srcH.length).toBe(decH.length);
+		expect(srcH).toBe(decH);
+		expect(decH.slice(0, 32)).toBe('00000018667479706d70343200000001');
+		expect(decH.slice(-32)).toBe('7061636b657420656e643d2277223f3e');
 
-} catch (error) {console.error(`fn:Encryptor.test.ts %o`, error);}
 		done();
 	})
-	.on('error', e=> console.error(`encrypter ws=%o`, e));
+	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);

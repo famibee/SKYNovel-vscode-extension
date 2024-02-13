@@ -1,56 +1,42 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2021-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2021-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
 import {IPluginInitArg} from './CmnLib';
+import {Encryptor} from './Encryptor';
+const {subtle} = crypto;
 
 export async function init(pia: IPluginInitArg): Promise<void> {
-	const p = pia.tstDecryptInfo();	// 変更したら生成ファイルを開いて要動作確認
+	const p = pia.tstDecryptInfo();	// この行変更したら生成ファイルを開いて要動作確認
+	const encry = new Encryptor(p, subtle);
+	await encry.init();
 
-	const {enc, AES, PBKDF2, RIPEMD160} = require('crypto-js');
-//	const {enc, AES, PBKDF2, RIPEMD160} = await import('crypto-js');
-		// jestがESM対応できてないので
-	const iv = enc.Hex.parse(p.iv);
-	const pbkdf2 = PBKDF2(
-		enc.Utf8.parse(p.pass),
-		enc.Hex.parse(p.salt),
-		{keySize: p.keySize, iterations: p.ite}
-	);
-
+	pia.setDec(async (ext, tx)=> REG_FULL_CRYPTO.test(ext) ?await encry.dec(tx) :tx);
 	const REG_FULL_CRYPTO = /(^|\.)(sn|ssn|json|html?)$/;
-	const {Buffer} = require('buffer');
-	pia.setDec((ext, d)=> {
-		if (typeof d === 'string') return {
-			ret: REG_FULL_CRYPTO.test(ext)
-				? AES.decrypt(d, pbkdf2, {iv},).toString(enc.Utf8)
-				: d,
-			ext_num: 0
-		};
-//		if (ext !== 'bin') return {ret: d, ext_num: 0};
 
-		const cl = new DataView(d).getUint32(0, true);
-		const b6 = d.slice(4, 4+cl);
-//const code2hex = Buffer.from(b6, 'binary').toString('hex');
-//console.log(`fn:index.ts line:31         bin: +:%o -:%o       cl:${cl}`, code2hex.slice(0, 32), code2hex.slice(-32));
+	pia.setDecAB(async iab=> {
+		const el = new DataView(iab.slice(0, 4)).getUint32(0, true);
+		const e = iab.slice(4, 4+el);
+//console.log(`fn:snsys_pre.ts setDec      = bin: +:%o -:%o     elen:${el} size:${iad.byteLength}`, ab2hexStr(e.slice(0, 16)), ab2hexStr(e.slice(-16)));
 
-		const q = AES.decrypt(Buffer.from(b6, 'binary').toString('utf8'), pbkdf2, {iv}).toString(enc.Utf8);
-		const b = Buffer.from(q, 'base64');
-//console.log(`fn:index.ts line:34    original: ++%o --%o`, b.toString('hex').slice(0, 32), b.toString('hex').slice(-32));
+		const b = await encry.decAb(e);
 
-	//	const v = b.readUInt8(0);
-	//	const en = b.readUInt8(1);
+	//	const v = new DataView(b.slice(0, 1)).getUint8(0);
+		const ext_num = new DataView(b.slice(1, 2)).getUint8(0);
+//console.log(`fn:snsys_pre.ts                    s:${ab2hexStr(b.slice(0, 16))} ext_num:${ext_num}`);
+
 		const b1 = b.slice(2);
-		const b2 = Buffer.from(d.slice(4+cl), 'binary');
-		const ab = Buffer.concat([b1, b2]);
-//console.log(`fn:index.ts line:41 === b1len:${b1.length} + b2len:${b2.length} = full_len:${ab.length}`);
+		const b2 = iab.slice(4+el);
+		const ab = await new Blob([b1, b2]).arrayBuffer();
+//console.log(`fn:snsys_pre.ts setDec      - b1len:${b1.byteLength} + b2len:${b2.byteLength} = full_len:${ab.byteLength}`);
 
-		return {ret: ab, ext_num: b.readUInt8(1)};
+		return {ext_num, ab};
 	});
 
-	pia.setEnc(d=> String(AES.encrypt(d, pbkdf2, {iv})));
+	pia.setEnc(tx=> encry.enc(tx));
 	pia.getStK(()=> p.stk);
-	pia.getHash(d=> RIPEMD160(d).toString(enc.Hex));
+	pia.getHash(str=> encry.uuidv5(str));
 }

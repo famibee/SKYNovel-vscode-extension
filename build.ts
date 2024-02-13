@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2022-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2022-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -68,6 +68,8 @@ import vue from '@vitejs/plugin-vue';
 			entryPoints	: ['./src/snsys_pre'],
 			outdir		: 'dist',
 			minify		: true,
+			bundle		: true,
+			format		: 'esm',
 		});
 		if (watch) ctx.watch(); else {
 			await ctx.rebuild();

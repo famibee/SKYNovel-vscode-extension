@@ -1,3 +1,30 @@
+## v4.15.0
+- feat(src/Encryptor.ts ほか): brix/crypto-js 使用廃止、Web Crypto API へ移行
+- feat(src/Encryptor.ts ほか): 暗号利用モードを CBC から GCM、SHA-512 へ変更、より強固に
+	- BREAKING CHANGE: 暗号化データに互換性なし、再生成必須
+- feat: RIPEMD-160 の使用廃止、SHA-512 ハッシュや UUID v5（SHA-1を使用）に
+- feat(IPluginInitArg): setDec(), setEnc() I/Fを async化
+- fix(IPluginInitArg): async setDec()は string 専用とする
+- feat(IPluginInitArg): async setDecAB()追加、ArrayBuffer 専用とする
+- fix(src/Encryptor.ts ほか): 初期化・enc()・enc()などを非同期・ArrayBuffer入出力I/Fに
+- fix: crc32 は使用継続、ライブラリページのベストプラクティスに従い記述変更
+- fix: 暗号化ファイルサイズをやや削減（以下はテストデータでの一例）
+	- main.sn ... 3031 to 3047(1.00527879)
+	- wood04.mp3 ... 3995 to 4017(1.00550688), until to 7132(1.78523154)
+	- prj.json ... 650 to 888(1.36615385)
+	- free0509.mp3 ... 1796953 to 1796975(1.00001224), until to 1804937(1.00444308)
+	- _yesno.png ... 18722 to 18744(1.00117509), until to 26706(1.42645017)
+	- title.jpg ... 406121 to 406143(1.00005417), until to 414105(1.01965917)
+	- nc10889.mp4 ... 369411 to 369433(1.00005955), until to 377395(1.02161278)
+- fix(test/Encryptor.test.ts): 暗号処理のテスト不合格状態を解消
+- fix(ActivityBar.ts): NodeJS LTS 更新につき、v20.11.0 LTS 推奨に更新
+- fix(envinfo.htm): NodeJS DLリンクが切れてたのでサイトトップに修正
+- fix(tsconfig.json): suppressImplicitAnyIndexErrors・newLine 削除（TypeScript 5.5 以降は完全に削除されるので）
+- fix(brix/crypto-js, node-fetch): 不要になったライブラリ削除、お世話になりました
+- fix(src/Project.ts): removeSync、ensureDirSync、outputJsonSync、outputFileSync など Sync系をなるべく await に統一
+- fix: ライブラリ更新
+- fix: @vue/eslint-config-typescript 削除、@typescript-eslint/eslint-plugin か @typescript-eslint/parser インストールで干渉するので
+- docs: コードブロックライセンス年更新
 ## v4.14.6
 - fix: Uint8Array.slice 使用箇所を subarray に
 - docs: 組み込み変数：IFスタックの深さを返す const.sn.aIfStk.length 追加

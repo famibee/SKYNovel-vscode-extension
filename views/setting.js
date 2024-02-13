@@ -1,19 +1,19 @@
+/**
+* @vue/shared v3.4.18
+* (c) 2018-present Yuxi (Evan) You and Vue contributors
+* @license MIT
+**/
 function makeMap(str, expectsLowerCase) {
-  const map = /* @__PURE__ */ Object.create(null);
-  const list = str.split(",");
-  for (let i = 0; i < list.length; i++) {
-    map[list[i]] = true;
-  }
-  return expectsLowerCase ? (val) => !!map[val.toLowerCase()] : (val) => !!map[val];
+  const set = new Set(str.split(","));
+  return expectsLowerCase ? (val) => set.has(val.toLowerCase()) : (val) => set.has(val);
 }
-
 const EMPTY_OBJ = {};
 const EMPTY_ARR = [];
 const NOOP = () => {
 };
 const NO = () => false;
-const onRE = /^on[^a-z]/;
-const isOn = (key) => onRE.test(key);
+const isOn = (key) => key.charCodeAt(0) === 111 && key.charCodeAt(1) === 110 && // uppercase letter
+(key.charCodeAt(2) > 122 || key.charCodeAt(2) < 97);
 const isModelListener = (key) => key.startsWith("onUpdate:");
 const extend = Object.assign;
 const remove = (arr, el) => {
@@ -33,7 +33,7 @@ const isString = (val) => typeof val === "string";
 const isSymbol = (val) => typeof val === "symbol";
 const isObject$1 = (val) => val !== null && typeof val === "object";
 const isPromise = (val) => {
-  return isObject$1(val) && isFunction(val.then) && isFunction(val.catch);
+  return (isObject$1(val) || isFunction(val)) && isFunction(val.then) && isFunction(val.catch);
 };
 const objectToString = Object.prototype.toString;
 const toTypeString = (value) => objectToString.call(value);
@@ -61,12 +61,13 @@ const hyphenateRE = /\B([A-Z])/g;
 const hyphenate = cacheStringFunction(
   (str) => str.replace(hyphenateRE, "-$1").toLowerCase()
 );
-const capitalize = cacheStringFunction(
-  (str) => str.charAt(0).toUpperCase() + str.slice(1)
-);
-const toHandlerKey = cacheStringFunction(
-  (str) => str ? `on${capitalize(str)}` : ``
-);
+const capitalize = cacheStringFunction((str) => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+});
+const toHandlerKey = cacheStringFunction((str) => {
+  const s = str ? `on${capitalize(str)}` : ``;
+  return s;
+});
 const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 const invokeArrayFns = (fns, arg) => {
   for (let i = 0; i < fns.length; i++) {
@@ -88,7 +89,6 @@ let _globalThis;
 const getGlobalThis = () => {
   return _globalThis || (_globalThis = typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : {});
 };
-
 function normalizeStyle(value) {
   if (isArray(value)) {
     const res = {};
@@ -102,9 +102,7 @@ function normalizeStyle(value) {
       }
     }
     return res;
-  } else if (isString(value)) {
-    return value;
-  } else if (isObject$1(value)) {
+  } else if (isString(value) || isObject$1(value)) {
     return value;
   }
 }
@@ -141,13 +139,11 @@ function normalizeClass(value) {
   }
   return res.trim();
 }
-
 const specialBooleanAttrs = `itemscope,allowfullscreen,formnovalidate,ismap,nomodule,novalidate,readonly`;
 const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
 function includeBooleanAttr(value) {
   return !!value || value === "";
 }
-
 function looseCompareArrays(a, b) {
   if (a.length !== b.length)
     return false;
@@ -199,7 +195,6 @@ function looseEqual(a, b) {
 function looseIndexOf(arr, val) {
   return arr.findIndex((item) => looseEqual(item, val));
 }
-
 const toDisplayString = (val) => {
   return isString(val) ? val : val == null ? "" : isArray(val) || isObject$1(val) && (val.toString === objectToString || !isFunction(val.toString)) ? JSON.stringify(val, replacer, 2) : String(val);
 };
@@ -208,36 +203,41 @@ const replacer = (_key, val) => {
     return replacer(_key, val.value);
   } else if (isMap(val)) {
     return {
-      [`Map(${val.size})`]: [...val.entries()].reduce((entries, [key, val2]) => {
-        entries[`${key} =>`] = val2;
-        return entries;
-      }, {})
+      [`Map(${val.size})`]: [...val.entries()].reduce(
+        (entries, [key, val2], i) => {
+          entries[stringifySymbol(key, i) + " =>"] = val2;
+          return entries;
+        },
+        {}
+      )
     };
   } else if (isSet(val)) {
     return {
-      [`Set(${val.size})`]: [...val.values()]
+      [`Set(${val.size})`]: [...val.values()].map((v) => stringifySymbol(v))
     };
+  } else if (isSymbol(val)) {
+    return stringifySymbol(val);
   } else if (isObject$1(val) && !isArray(val) && !isPlainObject$2(val)) {
     return String(val);
   }
   return val;
 };
+const stringifySymbol = (v, i = "") => {
+  var _a;
+  return isSymbol(v) ? `Symbol(${(_a = v.description) != null ? _a : i})` : v;
+};
 
+/**
+* @vue/reactivity v3.4.18
+* (c) 2018-present Yuxi (Evan) You and Vue contributors
+* @license MIT
+**/
 let activeEffectScope;
 class EffectScope {
   constructor(detached = false) {
     this.detached = detached;
-    /**
-     * @internal
-     */
     this._active = true;
-    /**
-     * @internal
-     */
     this.effects = [];
-    /**
-     * @internal
-     */
     this.cleanups = [];
     this.parent = activeEffectScope;
     if (!detached && activeEffectScope) {
@@ -303,9 +303,9 @@ class EffectScope {
 function effectScope(detached) {
   return new EffectScope(detached);
 }
-function recordEffectScope(effect, scope = activeEffectScope) {
+function recordEffectScope(effect2, scope = activeEffectScope) {
   if (scope && scope.active) {
-    scope.effects.push(effect);
+    scope.effects.push(effect2);
   }
 }
 function getCurrentScope() {
@@ -316,114 +316,100 @@ function onScopeDispose(fn) {
     activeEffectScope.cleanups.push(fn);
   }
 }
-
-const createDep = (effects) => {
-  const dep = new Set(effects);
-  dep.w = 0;
-  dep.n = 0;
-  return dep;
-};
-const wasTracked = (dep) => (dep.w & trackOpBit) > 0;
-const newTracked = (dep) => (dep.n & trackOpBit) > 0;
-const initDepMarkers = ({ deps }) => {
-  if (deps.length) {
-    for (let i = 0; i < deps.length; i++) {
-      deps[i].w |= trackOpBit;
-    }
-  }
-};
-const finalizeDepMarkers = (effect) => {
-  const { deps } = effect;
-  if (deps.length) {
-    let ptr = 0;
-    for (let i = 0; i < deps.length; i++) {
-      const dep = deps[i];
-      if (wasTracked(dep) && !newTracked(dep)) {
-        dep.delete(effect);
-      } else {
-        deps[ptr++] = dep;
-      }
-      dep.w &= ~trackOpBit;
-      dep.n &= ~trackOpBit;
-    }
-    deps.length = ptr;
-  }
-};
-
-const targetMap = /* @__PURE__ */ new WeakMap();
-let effectTrackDepth = 0;
-let trackOpBit = 1;
-const maxMarkerBits = 30;
 let activeEffect;
-const ITERATE_KEY = Symbol("");
-const MAP_KEY_ITERATE_KEY = Symbol("");
 class ReactiveEffect {
-  constructor(fn, scheduler = null, scope) {
+  constructor(fn, trigger2, scheduler, scope) {
     this.fn = fn;
+    this.trigger = trigger2;
     this.scheduler = scheduler;
     this.active = true;
     this.deps = [];
-    this.parent = void 0;
+    this._dirtyLevel = 4;
+    this._trackId = 0;
+    this._runnings = 0;
+    this._shouldSchedule = false;
+    this._depsLength = 0;
     recordEffectScope(this, scope);
   }
+  get dirty() {
+    if (this._dirtyLevel === 2 || this._dirtyLevel === 3) {
+      this._dirtyLevel = 1;
+      pauseTracking();
+      for (let i = 0; i < this._depsLength; i++) {
+        const dep = this.deps[i];
+        if (dep.computed) {
+          triggerComputed(dep.computed);
+          if (this._dirtyLevel >= 4) {
+            break;
+          }
+        }
+      }
+      if (this._dirtyLevel === 1) {
+        this._dirtyLevel = 0;
+      }
+      resetTracking();
+    }
+    return this._dirtyLevel >= 4;
+  }
+  set dirty(v) {
+    this._dirtyLevel = v ? 4 : 0;
+  }
   run() {
+    this._dirtyLevel = 0;
     if (!this.active) {
       return this.fn();
     }
-    let parent = activeEffect;
     let lastShouldTrack = shouldTrack;
-    while (parent) {
-      if (parent === this) {
-        return;
-      }
-      parent = parent.parent;
-    }
+    let lastEffect = activeEffect;
     try {
-      this.parent = activeEffect;
-      activeEffect = this;
       shouldTrack = true;
-      trackOpBit = 1 << ++effectTrackDepth;
-      if (effectTrackDepth <= maxMarkerBits) {
-        initDepMarkers(this);
-      } else {
-        cleanupEffect(this);
-      }
+      activeEffect = this;
+      this._runnings++;
+      preCleanupEffect(this);
       return this.fn();
     } finally {
-      if (effectTrackDepth <= maxMarkerBits) {
-        finalizeDepMarkers(this);
-      }
-      trackOpBit = 1 << --effectTrackDepth;
-      activeEffect = this.parent;
+      postCleanupEffect(this);
+      this._runnings--;
+      activeEffect = lastEffect;
       shouldTrack = lastShouldTrack;
-      this.parent = void 0;
-      if (this.deferStop) {
-        this.stop();
-      }
     }
   }
   stop() {
-    if (activeEffect === this) {
-      this.deferStop = true;
-    } else if (this.active) {
-      cleanupEffect(this);
-      if (this.onStop) {
-        this.onStop();
-      }
+    var _a;
+    if (this.active) {
+      preCleanupEffect(this);
+      postCleanupEffect(this);
+      (_a = this.onStop) == null ? void 0 : _a.call(this);
       this.active = false;
     }
   }
 }
-function cleanupEffect(effect2) {
-  const { deps } = effect2;
-  if (deps.length) {
-    for (let i = 0; i < deps.length; i++) {
-      deps[i].delete(effect2);
+function triggerComputed(computed2) {
+  return computed2.value;
+}
+function preCleanupEffect(effect2) {
+  effect2._trackId++;
+  effect2._depsLength = 0;
+}
+function postCleanupEffect(effect2) {
+  if (effect2.deps.length > effect2._depsLength) {
+    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
+      cleanupDepEffect(effect2.deps[i], effect2);
     }
-    deps.length = 0;
+    effect2.deps.length = effect2._depsLength;
+  }
+}
+function cleanupDepEffect(dep, effect2) {
+  const trackId = dep.get(effect2);
+  if (trackId !== void 0 && effect2._trackId !== trackId) {
+    dep.delete(effect2);
+    if (dep.size === 0) {
+      dep.cleanup();
+    }
   }
 }
 let shouldTrack = true;
+let pauseScheduleStack = 0;
 const trackStack = [];
 function pauseTracking() {
   trackStack.push(shouldTrack);
@@ -433,6 +419,59 @@ function resetTracking() {
   const last = trackStack.pop();
   shouldTrack = last === void 0 ? true : last;
 }
+function pauseScheduling() {
+  pauseScheduleStack++;
+}
+function resetScheduling() {
+  pauseScheduleStack--;
+  while (!pauseScheduleStack && queueEffectSchedulers.length) {
+    queueEffectSchedulers.shift()();
+  }
+}
+function trackEffect(effect2, dep, debuggerEventExtraInfo) {
+  if (dep.get(effect2) !== effect2._trackId) {
+    dep.set(effect2, effect2._trackId);
+    const oldDep = effect2.deps[effect2._depsLength];
+    if (oldDep !== dep) {
+      if (oldDep) {
+        cleanupDepEffect(oldDep, effect2);
+      }
+      effect2.deps[effect2._depsLength++] = dep;
+    } else {
+      effect2._depsLength++;
+    }
+  }
+}
+const queueEffectSchedulers = [];
+function triggerEffects(dep, dirtyLevel, debuggerEventExtraInfo) {
+  pauseScheduling();
+  for (const effect2 of dep.keys()) {
+    let tracking;
+    if (effect2._dirtyLevel < dirtyLevel && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
+      effect2._shouldSchedule || (effect2._shouldSchedule = effect2._dirtyLevel === 0);
+      effect2._dirtyLevel = dirtyLevel;
+    }
+    if (effect2._shouldSchedule && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
+      effect2.trigger();
+      if ((!effect2._runnings || effect2.allowRecurse) && effect2._dirtyLevel !== 2) {
+        effect2._shouldSchedule = false;
+        if (effect2.scheduler) {
+          queueEffectSchedulers.push(effect2.scheduler);
+        }
+      }
+    }
+  }
+  resetScheduling();
+}
+const createDep = (cleanup, computed2) => {
+  const dep = /* @__PURE__ */ new Map();
+  dep.cleanup = cleanup;
+  dep.computed = computed2;
+  return dep;
+};
+const targetMap = /* @__PURE__ */ new WeakMap();
+const ITERATE_KEY = Symbol("");
+const MAP_KEY_ITERATE_KEY = Symbol("");
 function track(target, type, key) {
   if (shouldTrack && activeEffect) {
     let depsMap = targetMap.get(target);
@@ -441,24 +480,11 @@ function track(target, type, key) {
     }
     let dep = depsMap.get(key);
     if (!dep) {
-      depsMap.set(key, dep = createDep());
+      depsMap.set(key, dep = createDep(() => depsMap.delete(key)));
     }
-    trackEffects(dep);
-  }
-}
-function trackEffects(dep, debuggerEventExtraInfo) {
-  let shouldTrack2 = false;
-  if (effectTrackDepth <= maxMarkerBits) {
-    if (!newTracked(dep)) {
-      dep.n |= trackOpBit;
-      shouldTrack2 = !wasTracked(dep);
-    }
-  } else {
-    shouldTrack2 = !dep.has(activeEffect);
-  }
-  if (shouldTrack2) {
-    dep.add(activeEffect);
-    activeEffect.deps.push(dep);
+    trackEffect(
+      activeEffect,
+      dep);
   }
 }
 function trigger(target, type, key, newValue, oldValue, oldTarget) {
@@ -472,7 +498,7 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
   } else if (key === "length" && isArray(target)) {
     const newLength = Number(newValue);
     depsMap.forEach((dep, key2) => {
-      if (key2 === "length" || key2 >= newLength) {
+      if (key2 === "length" || !isSymbol(key2) && key2 >= newLength) {
         deps.push(dep);
       }
     });
@@ -506,58 +532,24 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
         break;
     }
   }
-  if (deps.length === 1) {
-    if (deps[0]) {
-      {
-        triggerEffects(deps[0]);
-      }
-    }
-  } else {
-    const effects = [];
-    for (const dep of deps) {
-      if (dep) {
-        effects.push(...dep);
-      }
-    }
-    {
-      triggerEffects(createDep(effects));
+  pauseScheduling();
+  for (const dep of deps) {
+    if (dep) {
+      triggerEffects(
+        dep,
+        4);
     }
   }
-}
-function triggerEffects(dep, debuggerEventExtraInfo) {
-  const effects = isArray(dep) ? dep : [...dep];
-  for (const effect2 of effects) {
-    if (effect2.computed) {
-      triggerEffect(effect2);
-    }
-  }
-  for (const effect2 of effects) {
-    if (!effect2.computed) {
-      triggerEffect(effect2);
-    }
-  }
-}
-function triggerEffect(effect2, debuggerEventExtraInfo) {
-  if (effect2 !== activeEffect || effect2.allowRecurse) {
-    if (effect2.scheduler) {
-      effect2.scheduler();
-    } else {
-      effect2.run();
-    }
-  }
+  resetScheduling();
 }
 function getDepFromReactive(object, key) {
   var _a;
   return (_a = targetMap.get(object)) == null ? void 0 : _a.get(key);
 }
-
 const isNonTrackableKeys = /* @__PURE__ */ makeMap(`__proto__,__v_isRef,__isVue`);
 const builtInSymbols = new Set(
   /* @__PURE__ */ Object.getOwnPropertyNames(Symbol).filter((key) => key !== "arguments" && key !== "caller").map((key) => Symbol[key]).filter(isSymbol)
 );
-const get$1 = /* @__PURE__ */ createGetter();
-const shallowGet = /* @__PURE__ */ createGetter(false, true);
-const readonlyGet = /* @__PURE__ */ createGetter(true);
 const arrayInstrumentations = /* @__PURE__ */ createArrayInstrumentations();
 function createArrayInstrumentations() {
   const instrumentations = {};
@@ -578,7 +570,9 @@ function createArrayInstrumentations() {
   ["push", "pop", "shift", "unshift", "splice"].forEach((key) => {
     instrumentations[key] = function(...args) {
       pauseTracking();
+      pauseScheduling();
       const res = toRaw(this)[key].apply(this, args);
+      resetScheduling();
       resetTracking();
       return res;
     };
@@ -590,16 +584,26 @@ function hasOwnProperty(key) {
   track(obj, "has", key);
   return obj.hasOwnProperty(key);
 }
-function createGetter(isReadonly2 = false, shallow = false) {
-  return function get2(target, key, receiver) {
+class BaseReactiveHandler {
+  constructor(_isReadonly = false, _shallow = false) {
+    this._isReadonly = _isReadonly;
+    this._shallow = _shallow;
+  }
+  get(target, key, receiver) {
+    const isReadonly2 = this._isReadonly, shallow = this._shallow;
     if (key === "__v_isReactive") {
       return !isReadonly2;
     } else if (key === "__v_isReadonly") {
       return isReadonly2;
     } else if (key === "__v_isShallow") {
       return shallow;
-    } else if (key === "__v_raw" && receiver === (isReadonly2 ? shallow ? shallowReadonlyMap : readonlyMap : shallow ? shallowReactiveMap : reactiveMap).get(target)) {
-      return target;
+    } else if (key === "__v_raw") {
+      if (receiver === (isReadonly2 ? shallow ? shallowReadonlyMap : readonlyMap : shallow ? shallowReactiveMap : reactiveMap).get(target) || // receiver is not the reactive proxy, but has the same prototype
+      // this means the reciever is a user proxy of the reactive proxy
+      Object.getPrototypeOf(target) === Object.getPrototypeOf(receiver)) {
+        return target;
+      }
+      return;
     }
     const targetIsArray = isArray(target);
     if (!isReadonly2) {
@@ -627,24 +631,27 @@ function createGetter(isReadonly2 = false, shallow = false) {
       return isReadonly2 ? readonly(res) : reactive(res);
     }
     return res;
-  };
+  }
 }
-const set$1 = /* @__PURE__ */ createSetter();
-const shallowSet = /* @__PURE__ */ createSetter(true);
-function createSetter(shallow = false) {
-  return function set2(target, key, value, receiver) {
+class MutableReactiveHandler extends BaseReactiveHandler {
+  constructor(shallow = false) {
+    super(false, shallow);
+  }
+  set(target, key, value, receiver) {
     let oldValue = target[key];
-    if (isReadonly(oldValue) && isRef(oldValue) && !isRef(value)) {
-      return false;
-    }
-    if (!shallow) {
+    if (!this._shallow) {
+      const isOldValueReadonly = isReadonly(oldValue);
       if (!isShallow(value) && !isReadonly(value)) {
         oldValue = toRaw(oldValue);
         value = toRaw(value);
       }
       if (!isArray(target) && isRef(oldValue) && !isRef(value)) {
-        oldValue.value = value;
-        return true;
+        if (isOldValueReadonly) {
+          return false;
+        } else {
+          oldValue.value = value;
+          return true;
+        }
       }
     }
     const hadKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
@@ -657,67 +664,62 @@ function createSetter(shallow = false) {
       }
     }
     return result;
-  };
-}
-function deleteProperty(target, key) {
-  const hadKey = hasOwn(target, key);
-  target[key];
-  const result = Reflect.deleteProperty(target, key);
-  if (result && hadKey) {
-    trigger(target, "delete", key, void 0);
   }
-  return result;
-}
-function has$1(target, key) {
-  const result = Reflect.has(target, key);
-  if (!isSymbol(key) || !builtInSymbols.has(key)) {
-    track(target, "has", key);
+  deleteProperty(target, key) {
+    const hadKey = hasOwn(target, key);
+    target[key];
+    const result = Reflect.deleteProperty(target, key);
+    if (result && hadKey) {
+      trigger(target, "delete", key, void 0);
+    }
+    return result;
   }
-  return result;
+  has(target, key) {
+    const result = Reflect.has(target, key);
+    if (!isSymbol(key) || !builtInSymbols.has(key)) {
+      track(target, "has", key);
+    }
+    return result;
+  }
+  ownKeys(target) {
+    track(
+      target,
+      "iterate",
+      isArray(target) ? "length" : ITERATE_KEY
+    );
+    return Reflect.ownKeys(target);
+  }
 }
-function ownKeys(target) {
-  track(target, "iterate", isArray(target) ? "length" : ITERATE_KEY);
-  return Reflect.ownKeys(target);
-}
-const mutableHandlers = {
-  get: get$1,
-  set: set$1,
-  deleteProperty,
-  has: has$1,
-  ownKeys
-};
-const readonlyHandlers = {
-  get: readonlyGet,
+class ReadonlyReactiveHandler extends BaseReactiveHandler {
+  constructor(shallow = false) {
+    super(true, shallow);
+  }
   set(target, key) {
     return true;
-  },
+  }
   deleteProperty(target, key) {
     return true;
   }
-};
-const shallowReactiveHandlers = /* @__PURE__ */ extend(
-  {},
-  mutableHandlers,
-  {
-    get: shallowGet,
-    set: shallowSet
-  }
+}
+const mutableHandlers = /* @__PURE__ */ new MutableReactiveHandler();
+const readonlyHandlers = /* @__PURE__ */ new ReadonlyReactiveHandler();
+const shallowReactiveHandlers = /* @__PURE__ */ new MutableReactiveHandler(
+  true
 );
-
 const toShallow = (value) => value;
 const getProto = (v) => Reflect.getPrototypeOf(v);
-function get(target, key, isReadonly = false, isShallow = false) {
+function get(target, key, isReadonly2 = false, isShallow2 = false) {
   target = target["__v_raw"];
   const rawTarget = toRaw(target);
   const rawKey = toRaw(key);
-  if (!isReadonly) {
-    if (key !== rawKey) {
+  if (!isReadonly2) {
+    if (hasChanged(key, rawKey)) {
       track(rawTarget, "get", key);
     }
     track(rawTarget, "get", rawKey);
   }
   const { has: has2 } = getProto(rawTarget);
-  const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive;
+  const wrap = isShallow2 ? toShallow : isReadonly2 ? toReadonly : toReactive;
   if (has2.call(rawTarget, key)) {
     return wrap(target.get(key));
   } else if (has2.call(rawTarget, rawKey)) {
@@ -726,21 +728,21 @@ function get(target, key, isReadonly = false, isShallow = false) {
     target.get(key);
   }
 }
-function has(key, isReadonly = false) {
+function has(key, isReadonly2 = false) {
   const target = this["__v_raw"];
   const rawTarget = toRaw(target);
   const rawKey = toRaw(key);
-  if (!isReadonly) {
-    if (key !== rawKey) {
+  if (!isReadonly2) {
+    if (hasChanged(key, rawKey)) {
       track(rawTarget, "has", key);
     }
     track(rawTarget, "has", rawKey);
   }
   return key === rawKey ? target.has(key) : target.has(key) || target.has(rawKey);
 }
-function size(target, isReadonly = false) {
+function size(target, isReadonly2 = false) {
   target = target["__v_raw"];
-  !isReadonly && track(toRaw(target), "iterate", ITERATE_KEY);
+  !isReadonly2 && track(toRaw(target), "iterate", ITERATE_KEY);
   return Reflect.get(target, "size", target);
 }
 function add(value) {
@@ -754,7 +756,7 @@ function add(value) {
   }
   return this;
 }
-function set$2(key, value) {
+function set$1(key, value) {
   value = toRaw(value);
   const target = toRaw(this);
   const { has: has2, get: get2 } = getProto(target);
@@ -796,19 +798,19 @@ function clear() {
   }
   return result;
 }
-function createForEach(isReadonly, isShallow) {
+function createForEach(isReadonly2, isShallow2) {
   return function forEach(callback, thisArg) {
     const observed = this;
     const target = observed["__v_raw"];
     const rawTarget = toRaw(target);
-    const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive;
-    !isReadonly && track(rawTarget, "iterate", ITERATE_KEY);
+    const wrap = isShallow2 ? toShallow : isReadonly2 ? toReadonly : toReactive;
+    !isReadonly2 && track(rawTarget, "iterate", ITERATE_KEY);
     return target.forEach((value, key) => {
       return callback.call(thisArg, wrap(value), wrap(key), observed);
     });
   };
 }
-function createIterableMethod(method, isReadonly, isShallow) {
+function createIterableMethod(method, isReadonly2, isShallow2) {
   return function(...args) {
     const target = this["__v_raw"];
     const rawTarget = toRaw(target);
@@ -816,8 +818,8 @@ function createIterableMethod(method, isReadonly, isShallow) {
     const isPair = method === "entries" || method === Symbol.iterator && targetIsMap;
     const isKeyOnly = method === "keys" && targetIsMap;
     const innerIterator = target[method](...args);
-    const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive;
-    !isReadonly && track(
+    const wrap = isShallow2 ? toShallow : isReadonly2 ? toReadonly : toReactive;
+    !isReadonly2 && track(
       rawTarget,
       "iterate",
       isKeyOnly ? MAP_KEY_ITERATE_KEY : ITERATE_KEY
@@ -840,7 +842,7 @@ function createIterableMethod(method, isReadonly, isShallow) {
 }
 function createReadonlyMethod(type) {
   return function(...args) {
-    return type === "delete" ? false : this;
+    return type === "delete" ? false : type === "clear" ? void 0 : this;
   };
 }
 function createInstrumentations() {
@@ -853,7 +855,7 @@ function createInstrumentations() {
     },
     has,
     add,
-    set: set$2,
+    set: set$1,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, false)
@@ -867,7 +869,7 @@ function createInstrumentations() {
     },
     has,
     add,
-    set: set$2,
+    set: set$1,
     delete: deleteEntry,
     clear,
     forEach: createForEach(false, true)
@@ -940,13 +942,13 @@ const [
   shallowInstrumentations,
   shallowReadonlyInstrumentations
 ] = /* @__PURE__ */ createInstrumentations();
-function createInstrumentationGetter(isReadonly, shallow) {
-  const instrumentations = shallow ? isReadonly ? shallowReadonlyInstrumentations : shallowInstrumentations : isReadonly ? readonlyInstrumentations : mutableInstrumentations;
+function createInstrumentationGetter(isReadonly2, shallow) {
+  const instrumentations = shallow ? isReadonly2 ? shallowReadonlyInstrumentations : shallowInstrumentations : isReadonly2 ? readonlyInstrumentations : mutableInstrumentations;
   return (target, key, receiver) => {
     if (key === "__v_isReactive") {
-      return !isReadonly;
+      return !isReadonly2;
     } else if (key === "__v_isReadonly") {
-      return isReadonly;
+      return isReadonly2;
     } else if (key === "__v_raw") {
       return target;
     }
@@ -966,7 +968,6 @@ const shallowCollectionHandlers = {
 const readonlyCollectionHandlers = {
   get: /* @__PURE__ */ createInstrumentationGetter(true, false)
 };
-
 const reactiveMap = /* @__PURE__ */ new WeakMap();
 const shallowReactiveMap = /* @__PURE__ */ new WeakMap();
 const readonlyMap = /* @__PURE__ */ new WeakMap();
@@ -975,18 +976,18 @@ function targetTypeMap(rawType) {
   switch (rawType) {
     case "Object":
     case "Array":
-      return 1 /* COMMON */;
+      return 1;
     case "Map":
     case "Set":
     case "WeakMap":
     case "WeakSet":
-      return 2 /* COLLECTION */;
+      return 2;
     default:
-      return 0 /* INVALID */;
+      return 0;
   }
 }
 function getTargetType(value) {
-  return value["__v_skip"] || !Object.isExtensible(value) ? 0 /* INVALID */ : targetTypeMap(toRawType(value));
+  return value["__v_skip"] || !Object.isExtensible(value) ? 0 : targetTypeMap(toRawType(value));
 }
 function reactive(target) {
   if (isReadonly(target)) {
@@ -1030,12 +1031,12 @@ function createReactiveObject(target, isReadonly2, baseHandlers, collectionHandl
     return existingProxy;
   }
   const targetType = getTargetType(target);
-  if (targetType === 0 /* INVALID */) {
+  if (targetType === 0) {
     return target;
   }
   const proxy = new Proxy(
     target,
-    targetType === 2 /* COLLECTION */ ? collectionHandlers : baseHandlers
+    targetType === 2 ? collectionHandlers : baseHandlers
   );
   proxyMap.set(target, proxy);
   return proxy;
@@ -1060,27 +1061,86 @@ function toRaw(observed) {
   return raw ? toRaw(raw) : observed;
 }
 function markRaw(value) {
-  def(value, "__v_skip", true);
+  if (Object.isExtensible(value)) {
+    def(value, "__v_skip", true);
+  }
   return value;
 }
 const toReactive = (value) => isObject$1(value) ? reactive(value) : value;
 const toReadonly = (value) => isObject$1(value) ? readonly(value) : value;
-
+class ComputedRefImpl {
+  constructor(getter, _setter, isReadonly2, isSSR) {
+    this._setter = _setter;
+    this.dep = void 0;
+    this.__v_isRef = true;
+    this["__v_isReadonly"] = false;
+    this.effect = new ReactiveEffect(
+      () => getter(this._value),
+      () => triggerRefValue(
+        this,
+        this.effect._dirtyLevel === 2 ? 2 : 3
+      )
+    );
+    this.effect.computed = this;
+    this.effect.active = this._cacheable = !isSSR;
+    this["__v_isReadonly"] = isReadonly2;
+  }
+  get value() {
+    const self = toRaw(this);
+    if ((!self._cacheable || self.effect.dirty) && hasChanged(self._value, self._value = self.effect.run())) {
+      triggerRefValue(self, 4);
+    }
+    trackRefValue(self);
+    if (self.effect._dirtyLevel >= 2) {
+      triggerRefValue(self, 2);
+    }
+    return self._value;
+  }
+  set value(newValue) {
+    this._setter(newValue);
+  }
+  // #region polyfill _dirty for backward compatibility third party code for Vue <= 3.3.x
+  get _dirty() {
+    return this.effect.dirty;
+  }
+  set _dirty(v) {
+    this.effect.dirty = v;
+  }
+  // #endregion
+}
+function computed$1(getterOrOptions, debugOptions, isSSR = false) {
+  let getter;
+  let setter;
+  const onlyGetter = isFunction(getterOrOptions);
+  if (onlyGetter) {
+    getter = getterOrOptions;
+    setter = NOOP;
+  } else {
+    getter = getterOrOptions.get;
+    setter = getterOrOptions.set;
+  }
+  const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR);
+  return cRef;
+}
 function trackRefValue(ref2) {
+  var _a;
   if (shouldTrack && activeEffect) {
     ref2 = toRaw(ref2);
-    {
-      trackEffects(ref2.dep || (ref2.dep = createDep()));
-    }
+    trackEffect(
+      activeEffect,
+      (_a = ref2.dep) != null ? _a : ref2.dep = createDep(
+        () => ref2.dep = void 0,
+        ref2 instanceof ComputedRefImpl ? ref2 : void 0
+      ));
   }
 }
-function triggerRefValue(ref2, newVal) {
+function triggerRefValue(ref2, dirtyLevel = 4, newVal) {
   ref2 = toRaw(ref2);
   const dep = ref2.dep;
   if (dep) {
-    {
-      triggerEffects(dep);
-    }
+    triggerEffects(
+      dep,
+      dirtyLevel);
   }
 }
 function isRef(r) {
@@ -1116,7 +1176,7 @@ class RefImpl {
     if (hasChanged(newVal, this._rawValue)) {
       this._rawValue = newVal;
       this._value = useDirectValue ? newVal : toReactive(newVal);
-      triggerRefValue(this);
+      triggerRefValue(this, 4);
     }
   }
 }
@@ -1189,60 +1249,111 @@ function toRef(source, key, defaultValue) {
 }
 function propertyToRef(source, key, defaultValue) {
   const val = source[key];
-  return isRef(val) ? val : new ObjectRefImpl(
-    source,
-    key,
-    defaultValue
-  );
+  return isRef(val) ? val : new ObjectRefImpl(source, key, defaultValue);
 }
 
-class ComputedRefImpl {
-  constructor(getter, _setter, isReadonly, isSSR) {
-    this._setter = _setter;
-    this.dep = void 0;
-    this.__v_isRef = true;
-    this["__v_isReadonly"] = false;
-    this._dirty = true;
-    this.effect = new ReactiveEffect(getter, () => {
-      if (!this._dirty) {
-        this._dirty = true;
-        triggerRefValue(this);
-      }
-    });
-    this.effect.computed = this;
-    this.effect.active = this._cacheable = !isSSR;
-    this["__v_isReadonly"] = isReadonly;
-  }
-  get value() {
-    const self = toRaw(this);
-    trackRefValue(self);
-    if (self._dirty || !self._cacheable) {
-      self._dirty = false;
-      self._value = self.effect.run();
-    }
-    return self._value;
-  }
-  set value(newValue) {
-    this._setter(newValue);
-  }
-}
-function computed$1(getterOrOptions, debugOptions, isSSR = false) {
-  let getter;
-  let setter;
-  const onlyGetter = isFunction(getterOrOptions);
-  if (onlyGetter) {
-    getter = getterOrOptions;
-    setter = NOOP;
-  } else {
-    getter = getterOrOptions.get;
-    setter = getterOrOptions.set;
-  }
-  const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR);
-  return cRef;
-}
-
+/**
+* @vue/runtime-core v3.4.18
+* (c) 2018-present Yuxi (Evan) You and Vue contributors
+* @license MIT
+**/
+const stack = [];
 function warn$1(msg, ...args) {
-  return;
+  pauseTracking();
+  const instance = stack.length ? stack[stack.length - 1].component : null;
+  const appWarnHandler = instance && instance.appContext.config.warnHandler;
+  const trace = getComponentTrace();
+  if (appWarnHandler) {
+    callWithErrorHandling(
+      appWarnHandler,
+      instance,
+      11,
+      [
+        msg + args.join(""),
+        instance && instance.proxy,
+        trace.map(
+          ({ vnode }) => `at <${formatComponentName(instance, vnode.type)}>`
+        ).join("\n"),
+        trace
+      ]
+    );
+  } else {
+    const warnArgs = [`[Vue warn]: ${msg}`, ...args];
+    if (trace.length && // avoid spamming console during tests
+    true) {
+      warnArgs.push(`
+`, ...formatTrace(trace));
+    }
+    console.warn(...warnArgs);
+  }
+  resetTracking();
+}
+function getComponentTrace() {
+  let currentVNode = stack[stack.length - 1];
+  if (!currentVNode) {
+    return [];
+  }
+  const normalizedStack = [];
+  while (currentVNode) {
+    const last = normalizedStack[0];
+    if (last && last.vnode === currentVNode) {
+      last.recurseCount++;
+    } else {
+      normalizedStack.push({
+        vnode: currentVNode,
+        recurseCount: 0
+      });
+    }
+    const parentInstance = currentVNode.component && currentVNode.component.parent;
+    currentVNode = parentInstance && parentInstance.vnode;
+  }
+  return normalizedStack;
+}
+function formatTrace(trace) {
+  const logs = [];
+  trace.forEach((entry, i) => {
+    logs.push(...i === 0 ? [] : [`
+`], ...formatTraceEntry(entry));
+  });
+  return logs;
+}
+function formatTraceEntry({ vnode, recurseCount }) {
+  const postfix = recurseCount > 0 ? `... (${recurseCount} recursive calls)` : ``;
+  const isRoot = vnode.component ? vnode.component.parent == null : false;
+  const open = ` at <${formatComponentName(
+    vnode.component,
+    vnode.type,
+    isRoot
+  )}`;
+  const close = `>` + postfix;
+  return vnode.props ? [open, ...formatProps(vnode.props), close] : [open + close];
+}
+function formatProps(props) {
+  const res = [];
+  const keys = Object.keys(props);
+  keys.slice(0, 3).forEach((key) => {
+    res.push(...formatProp(key, props[key]));
+  });
+  if (keys.length > 3) {
+    res.push(` ...`);
+  }
+  return res;
+}
+function formatProp(key, value, raw) {
+  if (isString(value)) {
+    value = JSON.stringify(value);
+    return raw ? value : [`${key}=${value}`];
+  } else if (typeof value === "number" || typeof value === "boolean" || value == null) {
+    return raw ? value : [`${key}=${value}`];
+  } else if (isRef(value)) {
+    value = formatProp(key, toRaw(value.value), true);
+    return raw ? value : [`${key}=Ref<`, value, `>`];
+  } else if (isFunction(value)) {
+    return [`${key}=fn${value.name ? `<${value.name}>` : ``}`];
+  } else {
+    value = toRaw(value);
+    return raw ? value : [`${key}=`, value];
+  }
 }
 function callWithErrorHandling(fn, instance, type, args) {
   let res;
@@ -1274,7 +1385,7 @@ function handleError(err, instance, type, throwInDev = true) {
   if (instance) {
     let cur = instance.parent;
     const exposedInstance = instance.proxy;
-    const errorInfo = type;
+    const errorInfo = `https://vuejs.org/error-reference/#runtime-${type}`;
     while (cur) {
       const errorCapturedHooks = cur.ec;
       if (errorCapturedHooks) {
@@ -1304,7 +1415,6 @@ function logError(err, type, contextVNode, throwInDev = true) {
     console.error(err);
   }
 }
-
 let isFlushing = false;
 let isFlushPending = false;
 const queue = [];
@@ -1323,8 +1433,13 @@ function findInsertionIndex(id) {
   let end = queue.length;
   while (start < end) {
     const middle = start + end >>> 1;
-    const middleJobId = getId(queue[middle]);
-    middleJobId < id ? start = middle + 1 : end = middle;
+    const middleJob = queue[middle];
+    const middleJobId = getId(middleJob);
+    if (middleJobId < id || middleJobId === id && middleJob.pre) {
+      start = middle + 1;
+    } else {
+      end = middle;
+    }
   }
   return start;
 }
@@ -1366,10 +1481,13 @@ function queuePostFlushCb(cb) {
   }
   queueFlush();
 }
-function flushPreFlushCbs(seen, i = isFlushing ? flushIndex + 1 : 0) {
+function flushPreFlushCbs(instance, seen, i = isFlushing ? flushIndex + 1 : 0) {
   for (; i < queue.length; i++) {
     const cb = queue[i];
     if (cb && cb.pre) {
+      if (instance && cb.id !== instance.uid) {
+        continue;
+      }
       queue.splice(i, 1);
       i--;
       cb();
@@ -1378,14 +1496,15 @@ function flushPreFlushCbs(seen, i = isFlushing ? flushIndex + 1 : 0) {
 }
 function flushPostFlushCbs(seen) {
   if (pendingPostFlushCbs.length) {
-    const deduped = [...new Set(pendingPostFlushCbs)];
+    const deduped = [...new Set(pendingPostFlushCbs)].sort(
+      (a, b) => getId(a) - getId(b)
+    );
     pendingPostFlushCbs.length = 0;
     if (activePostFlushCbs) {
       activePostFlushCbs.push(...deduped);
       return;
     }
     activePostFlushCbs = deduped;
-    activePostFlushCbs.sort((a, b) => getId(a) - getId(b));
     for (postFlushIndex = 0; postFlushIndex < activePostFlushCbs.length; postFlushIndex++) {
       activePostFlushCbs[postFlushIndex]();
     }
@@ -1408,12 +1527,11 @@ function flushJobs(seen) {
   isFlushPending = false;
   isFlushing = true;
   queue.sort(comparator);
-  const check = NOOP;
   try {
     for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {
       const job = queue[flushIndex];
       if (job && job.active !== false) {
-        if (!!("production" !== "production") && check(job)) ;
+        if (false) ;
         callWithErrorHandling(job, null, 14);
       }
     }
@@ -1428,14 +1546,13 @@ function flushJobs(seen) {
     }
   }
 }
-
 function emit(instance, event, ...rawArgs) {
   if (instance.isUnmounted)
     return;
   const props = instance.vnode.props || EMPTY_OBJ;
   let args = rawArgs;
-  const isModelListener = event.startsWith("update:");
-  const modelArg = isModelListener && event.slice(7);
+  const isModelListener2 = event.startsWith("update:");
+  const modelArg = isModelListener2 && event.slice(7);
   if (modelArg && modelArg in props) {
     const modifiersKey = `${modelArg === "modelValue" ? "model" : modelArg}Modifiers`;
     const { number, trim } = props[modifiersKey] || EMPTY_OBJ;
@@ -1449,7 +1566,7 @@ function emit(instance, event, ...rawArgs) {
   let handlerName;
   let handler = props[handlerName = toHandlerKey(event)] || // also try camelCase event handler (#2249)
   props[handlerName = toHandlerKey(camelize(event))];
-  if (!handler && isModelListener) {
+  if (!handler && isModelListener2) {
     handler = props[handlerName = toHandlerKey(hyphenate(event))];
   }
   if (handler) {
@@ -1526,7 +1643,6 @@ function isEmitListener(options, key) {
   key = key.slice(2).replace(/Once$/, "");
   return hasOwn(options, key[0].toLowerCase() + key.slice(1)) || hasOwn(options, hyphenate(key)) || hasOwn(options, key);
 }
-
 let currentRenderingInstance = null;
 let currentScopeId = null;
 function setCurrentRenderingInstance(instance) {
@@ -1574,7 +1690,7 @@ function renderComponentRoot(instance) {
     propsOptions: [propsOptions],
     slots,
     attrs,
-    emit,
+    emit: emit2,
     render,
     renderCache,
     data,
@@ -1588,9 +1704,19 @@ function renderComponentRoot(instance) {
   try {
     if (vnode.shapeFlag & 4) {
       const proxyToUse = withProxy || proxy;
+      const thisProxy = false ? new Proxy(proxyToUse, {
+        get(target, key, receiver) {
+          warn$1(
+            `Property '${String(
+              key
+            )}' was accessed via 'this'. Avoid using 'this' in templates.`
+          );
+          return Reflect.get(target, key, receiver);
+        }
+      }) : proxyToUse;
       result = normalizeVNode(
         render.call(
-          proxyToUse,
+          thisProxy,
           proxyToUse,
           renderCache,
           props,
@@ -1602,18 +1728,18 @@ function renderComponentRoot(instance) {
       fallthroughAttrs = attrs;
     } else {
       const render2 = Component;
-      if (!!("production" !== "production") && attrs === props) ;
+      if (false) ;
       result = normalizeVNode(
         render2.length > 1 ? render2(
           props,
-          !!("production" !== "production") ? {
+          false ? {
             get attrs() {
               markAttrsAccessed();
               return attrs;
             },
             slots,
-            emit
-          } : { attrs, slots, emit }
+            emit: emit2
+          } : { attrs, slots, emit: emit2 }
         ) : render2(
           props,
           null
@@ -1732,12 +1858,56 @@ function hasPropsChanged(prevProps, nextProps, emitsOptions) {
   return false;
 }
 function updateHOCHostEl({ vnode, parent }, el) {
-  while (parent && parent.subTree === vnode) {
-    (vnode = parent.vnode).el = el;
-    parent = parent.parent;
+  while (parent) {
+    const root = parent.subTree;
+    if (root.suspense && root.suspense.activeBranch === vnode) {
+      root.el = vnode.el;
+    }
+    if (root === vnode) {
+      (vnode = parent.vnode).el = el;
+      parent = parent.parent;
+    } else {
+      break;
+    }
   }
 }
-
+const COMPONENTS = "components";
+const NULL_DYNAMIC_COMPONENT = Symbol.for("v-ndc");
+function resolveDynamicComponent(component) {
+  if (isString(component)) {
+    return resolveAsset(COMPONENTS, component, false) || component;
+  } else {
+    return component || NULL_DYNAMIC_COMPONENT;
+  }
+}
+function resolveAsset(type, name, warnMissing = true, maybeSelfReference = false) {
+  const instance = currentRenderingInstance || currentInstance;
+  if (instance) {
+    const Component = instance.type;
+    if (type === COMPONENTS) {
+      const selfName = getComponentName(
+        Component,
+        false
+      );
+      if (selfName && (selfName === name || selfName === camelize(name) || selfName === capitalize(camelize(name)))) {
+        return Component;
+      }
+    }
+    const res = (
+      // local registration
+      // check instance[type] first which is resolved for options API
+      resolve(instance[type] || Component[type], name) || // global registration
+      resolve(instance.appContext[type], name)
+    );
+    if (!res && maybeSelfReference) {
+      return Component;
+    }
+    return res;
+  }
+}
+function resolve(registry, name) {
+  return registry && (registry[name] || registry[camelize(name)] || registry[capitalize(camelize(name))]);
+}
 const isSuspense = (type) => type.__isSuspense;
 function queueEffectWithSuspense(fn, suspense) {
   if (suspense && suspense.pendingBranch) {
@@ -1750,17 +1920,40 @@ function queueEffectWithSuspense(fn, suspense) {
     queuePostFlushCb(fn);
   }
 }
-
-function watchEffect(effect, options) {
-  return doWatch(effect, null, options);
+const ssrContextKey = Symbol.for("v-scx");
+const useSSRContext = () => {
+  {
+    const ctx = inject(ssrContextKey);
+    return ctx;
+  }
+};
+function watchEffect(effect2, options) {
+  return doWatch(effect2, null, options);
 }
 const INITIAL_WATCHER_VALUE = {};
 function watch(source, cb, options) {
   return doWatch(source, cb, options);
 }
-function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EMPTY_OBJ) {
-  var _a;
-  const instance = getCurrentScope() === ((_a = currentInstance) == null ? void 0 : _a.scope) ? currentInstance : null;
+function doWatch(source, cb, {
+  immediate,
+  deep,
+  flush,
+  once,
+  onTrack,
+  onTrigger
+} = EMPTY_OBJ) {
+  if (cb && once) {
+    const _cb = cb;
+    cb = (...args) => {
+      _cb(...args);
+      unwatch();
+    };
+  }
+  const instance = currentInstance;
+  const reactiveGetter = (source2) => deep === true ? source2 : (
+    // for deep: false, only traverse root-level properties
+    traverse(source2, deep === false ? 1 : void 0)
+  );
   let getter;
   let forceTrigger = false;
   let isMultiSource = false;
@@ -1768,8 +1961,8 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
     getter = () => source.value;
     forceTrigger = isShallow(source);
   } else if (isReactive(source)) {
-    getter = () => source;
-    deep = true;
+    getter = () => reactiveGetter(source);
+    forceTrigger = true;
   } else if (isArray(source)) {
     isMultiSource = true;
     forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
@@ -1777,7 +1970,7 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
       if (isRef(s)) {
         return s.value;
       } else if (isReactive(s)) {
-        return traverse(s);
+        return reactiveGetter(s);
       } else if (isFunction(s)) {
         return callWithErrorHandling(s, instance, 2);
       } else ;
@@ -1787,9 +1980,6 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
       getter = () => callWithErrorHandling(source, instance, 2);
     } else {
       getter = () => {
-        if (instance && instance.isUnmounted) {
-          return;
-        }
         if (cleanup) {
           cleanup();
         }
@@ -1810,8 +2000,9 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
   }
   let cleanup;
   let onCleanup = (fn) => {
-    cleanup = effect.onStop = () => {
+    cleanup = effect2.onStop = () => {
       callWithErrorHandling(fn, instance, 4);
+      cleanup = effect2.onStop = void 0;
     };
   };
   let ssrCleanup;
@@ -1835,14 +2026,12 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
   }
   let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
   const job = () => {
-    if (!effect.active) {
+    if (!effect2.active || !effect2.dirty) {
       return;
     }
     if (cb) {
-      const newValue = effect.run();
-      if (deep || forceTrigger || (isMultiSource ? newValue.some(
-        (v, i) => hasChanged(v, oldValue[i])
-      ) : hasChanged(newValue, oldValue)) || false) {
+      const newValue = effect2.run();
+      if (deep || forceTrigger || (isMultiSource ? newValue.some((v, i) => hasChanged(v, oldValue[i])) : hasChanged(newValue, oldValue)) || false) {
         if (cleanup) {
           cleanup();
         }
@@ -1855,7 +2044,7 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
         oldValue = newValue;
       }
     } else {
-      effect.run();
+      effect2.run();
     }
   };
   job.allowRecurse = !!cb;
@@ -1870,27 +2059,28 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
       job.id = instance.uid;
     scheduler = () => queueJob(job);
   }
-  const effect = new ReactiveEffect(getter, scheduler);
+  const effect2 = new ReactiveEffect(getter, NOOP, scheduler);
+  const scope = getCurrentScope();
+  const unwatch = () => {
+    effect2.stop();
+    if (scope) {
+      remove(scope.effects, effect2);
+    }
+  };
   if (cb) {
     if (immediate) {
       job();
     } else {
-      oldValue = effect.run();
+      oldValue = effect2.run();
     }
   } else if (flush === "post") {
     queuePostRenderEffect(
-      effect.run.bind(effect),
+      effect2.run.bind(effect2),
       instance && instance.suspense
     );
   } else {
-    effect.run();
+    effect2.run();
   }
-  const unwatch = () => {
-    effect.stop();
-    if (instance && instance.scope) {
-      remove(instance.scope.effects, effect);
-    }
-  };
   if (ssrCleanup)
     ssrCleanup.push(unwatch);
   return unwatch;
@@ -1905,14 +2095,9 @@ function instanceWatch(source, value, options) {
     cb = value.handler;
     options = value;
   }
-  const cur = currentInstance;
-  setCurrentInstance(this);
+  const reset = setCurrentInstance(this);
   const res = doWatch(getter, cb.bind(publicThis), options);
-  if (cur) {
-    setCurrentInstance(cur);
-  } else {
-    unsetCurrentInstance();
-  }
+  reset();
   return res;
 }
 function createPathGetter(ctx, path) {
@@ -1925,9 +2110,15 @@ function createPathGetter(ctx, path) {
     return cur;
   };
 }
-function traverse(value, seen) {
+function traverse(value, depth, currentDepth = 0, seen) {
   if (!isObject$1(value) || value["__v_skip"]) {
     return value;
+  }
+  if (depth && depth > 0) {
+    if (currentDepth >= depth) {
+      return value;
+    }
+    currentDepth++;
   }
   seen = seen || /* @__PURE__ */ new Set();
   if (seen.has(value)) {
@@ -1935,28 +2126,27 @@ function traverse(value, seen) {
   }
   seen.add(value);
   if (isRef(value)) {
-    traverse(value.value, seen);
+    traverse(value.value, depth, currentDepth, seen);
   } else if (isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      traverse(value[i], seen);
+      traverse(value[i], depth, currentDepth, seen);
     }
   } else if (isSet(value) || isMap(value)) {
     value.forEach((v) => {
-      traverse(v, seen);
+      traverse(v, depth, currentDepth, seen);
     });
   } else if (isPlainObject$2(value)) {
     for (const key in value) {
-      traverse(value[key], seen);
+      traverse(value[key], depth, currentDepth, seen);
     }
   }
   return value;
 }
 function withDirectives(vnode, directives) {
-  const internalInstance = currentRenderingInstance;
-  if (internalInstance === null) {
+  if (currentRenderingInstance === null) {
     return vnode;
   }
-  const instance = getExposeProxy(internalInstance) || internalInstance.proxy;
+  const instance = getExposeProxy(currentRenderingInstance) || currentRenderingInstance.proxy;
   const bindings = vnode.dirs || (vnode.dirs = []);
   for (let i = 0; i < directives.length; i++) {
     let [dir, value, arg, modifiers = EMPTY_OBJ] = directives[i];
@@ -2003,7 +2193,8 @@ function invokeDirectiveHook(vnode, prevVNode, instance, name) {
     }
   }
 }
-
+/*! #__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
 function defineComponent(options, extraOptions) {
   return isFunction(options) ? (
     // #8326: extend call and options.name access are considered side-effects
@@ -2011,9 +2202,7 @@ function defineComponent(options, extraOptions) {
     /* @__PURE__ */ (() => extend({ name: options.name }, extraOptions, { setup: options }))()
   ) : options;
 }
-
 const isAsyncWrapper = (i) => !!i.type.__asyncLoader;
-
 const isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
 function onActivated(hook, target) {
   registerKeepAliveHook(hook, "a", target);
@@ -2055,7 +2244,6 @@ function injectToKeepAliveRoot(hook, type, target, keepAliveRoot) {
     remove(keepAliveRoot[type], injected);
   }, target);
 }
-
 function injectHook(type, hook, target = currentInstance, prepend = false) {
   if (target) {
     const hooks = target[type] || (target[type] = []);
@@ -2064,9 +2252,9 @@ function injectHook(type, hook, target = currentInstance, prepend = false) {
         return;
       }
       pauseTracking();
-      setCurrentInstance(target);
+      const reset = setCurrentInstance(target);
       const res = callWithAsyncErrorHandling(hook, target, type, args);
-      unsetCurrentInstance();
+      reset();
       resetTracking();
       return res;
     });
@@ -2098,46 +2286,6 @@ const onRenderTracked = createHook(
 function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
-
-const COMPONENTS = "components";
-const NULL_DYNAMIC_COMPONENT = Symbol.for("v-ndc");
-function resolveDynamicComponent(component) {
-  if (isString(component)) {
-    return resolveAsset(COMPONENTS, component, false) || component;
-  } else {
-    return component || NULL_DYNAMIC_COMPONENT;
-  }
-}
-function resolveAsset(type, name, warnMissing = true, maybeSelfReference = false) {
-  const instance = currentRenderingInstance || currentInstance;
-  if (instance) {
-    const Component = instance.type;
-    if (type === COMPONENTS) {
-      const selfName = getComponentName(
-        Component,
-        false
-        /* do not include inferred name to avoid breaking existing code */
-      );
-      if (selfName && (selfName === name || selfName === camelize(name) || selfName === capitalize(camelize(name)))) {
-        return Component;
-      }
-    }
-    const res = (
-      // local registration
-      // check instance[type] first which is resolved for options API
-      resolve(instance[type] || Component[type], name) || // global registration
-      resolve(instance.appContext[type], name)
-    );
-    if (!res && maybeSelfReference) {
-      return Component;
-    }
-    return res;
-  }
-}
-function resolve(registry, name) {
-  return registry && (registry[name] || registry[camelize(name)] || registry[capitalize(camelize(name))]);
-}
-
 function renderList(source, renderItem, cache, index) {
   let ret;
   const cached = cache && cache[index];
@@ -2173,7 +2321,6 @@ function renderList(source, renderItem, cache, index) {
   }
   return ret;
 }
-
 const getPublicInstance = (i) => {
   if (!i)
     return null;
@@ -2196,7 +2343,10 @@ const publicPropertiesMap = (
     $root: (i) => getPublicInstance(i.root),
     $emit: (i) => i.emit,
     $options: (i) => resolveMergedOptions(i) ,
-    $forceUpdate: (i) => i.f || (i.f = () => queueJob(i.update)),
+    $forceUpdate: (i) => i.f || (i.f = () => {
+      i.effect.dirty = true;
+      queueJob(i.update);
+    }),
     $nextTick: (i) => i.n || (i.n = nextTick.bind(i.proxy)),
     $watch: (i) => instanceWatch.bind(i) 
   })
@@ -2210,33 +2360,33 @@ const PublicInstanceProxyHandlers = {
       const n = accessCache[key];
       if (n !== void 0) {
         switch (n) {
-          case 1 /* SETUP */:
+          case 1:
             return setupState[key];
-          case 2 /* DATA */:
+          case 2:
             return data[key];
-          case 4 /* CONTEXT */:
+          case 4:
             return ctx[key];
-          case 3 /* PROPS */:
+          case 3:
             return props[key];
         }
       } else if (hasSetupBinding(setupState, key)) {
-        accessCache[key] = 1 /* SETUP */;
+        accessCache[key] = 1;
         return setupState[key];
       } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
-        accessCache[key] = 2 /* DATA */;
+        accessCache[key] = 2;
         return data[key];
       } else if (
         // only cache other properties when instance has declared (thus stable)
         // props
         (normalizedProps = instance.propsOptions[0]) && hasOwn(normalizedProps, key)
       ) {
-        accessCache[key] = 3 /* PROPS */;
+        accessCache[key] = 3;
         return props[key];
       } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
-        accessCache[key] = 4 /* CONTEXT */;
+        accessCache[key] = 4;
         return ctx[key];
       } else if (shouldCacheAccess) {
-        accessCache[key] = 0 /* OTHER */;
+        accessCache[key] = 0;
       }
     }
     const publicGetter = publicPropertiesMap[key];
@@ -2252,7 +2402,7 @@ const PublicInstanceProxyHandlers = {
     ) {
       return cssModule;
     } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
-      accessCache[key] = 4 /* CONTEXT */;
+      accessCache[key] = 4;
       return ctx[key];
     } else if (
       // global properties
@@ -2454,7 +2604,6 @@ function resolveInjections(injectOptions, ctx, checkDuplicateProperties = NOOP) 
           opt.from || key,
           opt.default,
           true
-          /* treat default function as factory */
         );
       } else {
         injected = inject(opt.from || key);
@@ -2476,7 +2625,7 @@ function resolveInjections(injectOptions, ctx, checkDuplicateProperties = NOOP) 
 }
 function callHook(hook, instance, type) {
   callWithAsyncErrorHandling(
-    isArray(hook) ? hook.map((h) => h.bind(instance.proxy)) : hook.bind(instance.proxy),
+    isArray(hook) ? hook.map((h2) => h2.bind(instance.proxy)) : hook.bind(instance.proxy),
     instance,
     type
   );
@@ -2588,7 +2737,7 @@ function mergeDataFn(to, from) {
     return from;
   }
   return function mergedDataFn() {
-    return (extend)(
+    return extend(
       isFunction(to) ? to.call(this, this) : to,
       isFunction(from) ? from.call(this, this) : from
     );
@@ -2638,7 +2787,6 @@ function mergeWatchOptions(to, from) {
   }
   return merged;
 }
-
 function createAppContext() {
   return {
     app: null,
@@ -2670,7 +2818,7 @@ function createAppAPI(render, hydrate) {
       rootProps = null;
     }
     const context = createAppContext();
-    const installedPlugins = /* @__PURE__ */ new Set();
+    const installedPlugins = /* @__PURE__ */ new WeakSet();
     let isMounted = false;
     const app = context.app = {
       _uid: uid$1++,
@@ -2717,17 +2865,19 @@ function createAppAPI(render, hydrate) {
         context.directives[name] = directive;
         return app;
       },
-      mount(rootContainer, isHydrate, isSVG) {
+      mount(rootContainer, isHydrate, namespace) {
         if (!isMounted) {
-          const vnode = createVNode(
-            rootComponent,
-            rootProps
-          );
+          const vnode = createVNode(rootComponent, rootProps);
           vnode.appContext = context;
+          if (namespace === true) {
+            namespace = "svg";
+          } else if (namespace === false) {
+            namespace = void 0;
+          }
           if (isHydrate && hydrate) {
             hydrate(vnode, rootContainer);
           } else {
-            render(vnode, rootContainer, isSVG);
+            render(vnode, rootContainer, namespace);
           }
           isMounted = true;
           app._container = rootContainer;
@@ -2746,11 +2896,12 @@ function createAppAPI(render, hydrate) {
         return app;
       },
       runWithContext(fn) {
+        const lastApp = currentApp;
         currentApp = app;
         try {
           return fn();
         } finally {
-          currentApp = null;
+          currentApp = lastApp;
         }
       }
     };
@@ -2758,7 +2909,6 @@ function createAppAPI(render, hydrate) {
   };
 }
 let currentApp = null;
-
 function provide(key, value) {
   if (!currentInstance) ; else {
     let provides = currentInstance.provides;
@@ -2783,7 +2933,6 @@ function inject(key, defaultValue, treatDefaultAsFactory = false) {
 function hasInjectionContext() {
   return !!(currentInstance || currentRenderingInstance || currentApp);
 }
-
 function initProps(instance, rawProps, isStateful, isSSR = false) {
   const props = {};
   const attrs = {};
@@ -2844,7 +2993,6 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
               value,
               instance,
               false
-              /* isAbsent */
             );
           }
         } else {
@@ -2876,7 +3024,6 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
               void 0,
               instance,
               true
-              /* isAbsent */
             );
           }
         } else {
@@ -2950,21 +3097,27 @@ function resolvePropValue(options, props, key, value, instance, isAbsent) {
         if (key in propsDefaults) {
           value = propsDefaults[key];
         } else {
-          setCurrentInstance(instance);
+          const reset = setCurrentInstance(instance);
           value = propsDefaults[key] = defaultValue.call(
             null,
             props
           );
-          unsetCurrentInstance();
+          reset();
         }
       } else {
         value = defaultValue;
       }
     }
-    if (opt[0 /* shouldCast */]) {
+    if (opt[
+      0
+      /* shouldCast */
+    ]) {
       if (isAbsent && !hasDefault) {
         value = false;
-      } else if (opt[1 /* shouldCastTrue */] && (value === "" || value === hyphenate(key))) {
+      } else if (opt[
+        1
+        /* shouldCastTrue */
+      ] && (value === "" || value === hyphenate(key))) {
         value = true;
       }
     }
@@ -3021,8 +3174,14 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
         if (prop) {
           const booleanIndex = getTypeIndex(Boolean, prop.type);
           const stringIndex = getTypeIndex(String, prop.type);
-          prop[0 /* shouldCast */] = booleanIndex > -1;
-          prop[1 /* shouldCastTrue */] = stringIndex < 0 || booleanIndex < stringIndex;
+          prop[
+            0
+            /* shouldCast */
+          ] = booleanIndex > -1;
+          prop[
+            1
+            /* shouldCastTrue */
+          ] = stringIndex < 0 || booleanIndex < stringIndex;
           if (booleanIndex > -1 || hasOwn(prop, "default")) {
             needCastKeys.push(normalizedKey);
           }
@@ -3037,7 +3196,7 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
   return res;
 }
 function validatePropName(key) {
-  if (key[0] !== "$") {
+  if (key[0] !== "$" && !isReservedProp(key)) {
     return true;
   }
   return false;
@@ -3057,7 +3216,6 @@ function getTypeIndex(type, expectedTypes) {
   }
   return -1;
 }
-
 const isInternalKey = (key) => key[0] === "_" || key === "$stable";
 const normalizeSlotValue = (value) => isArray(value) ? value.map(normalizeVNode) : [normalizeVNode(value)];
 const normalizeSlot = (key, rawSlot, ctx) => {
@@ -3065,7 +3223,7 @@ const normalizeSlot = (key, rawSlot, ctx) => {
     return rawSlot;
   }
   const normalized = withCtx((...args) => {
-    if (!!("production" !== "production") && currentInstance) ;
+    if (false) ;
     return normalizeSlotValue(rawSlot(...args));
   }, ctx);
   normalized._c = false;
@@ -3098,7 +3256,8 @@ const initSlots = (instance, children) => {
     } else {
       normalizeObjectSlots(
         children,
-        instance.slots = {});
+        instance.slots = {}
+      );
     }
   } else {
     instance.slots = {};
@@ -3134,13 +3293,12 @@ const updateSlots = (instance, children, optimized) => {
   }
   if (needDeletionCheck) {
     for (const key in slots) {
-      if (!isInternalKey(key) && !(key in deletionComparisonTarget)) {
+      if (!isInternalKey(key) && deletionComparisonTarget[key] == null) {
         delete slots[key];
       }
     }
   }
 };
-
 function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
   if (isArray(rawRef)) {
     rawRef.forEach(
@@ -3159,11 +3317,11 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
   }
   const refValue = vnode.shapeFlag & 4 ? getExposeProxy(vnode.component) || vnode.component.proxy : vnode.el;
   const value = isUnmount ? null : refValue;
-  const { i: owner, r: ref } = rawRef;
+  const { i: owner, r: ref3 } = rawRef;
   const oldRef = oldRawRef && oldRawRef.r;
   const refs = owner.refs === EMPTY_OBJ ? owner.refs = {} : owner.refs;
   const setupState = owner.setupState;
-  if (oldRef != null && oldRef !== ref) {
+  if (oldRef != null && oldRef !== ref3) {
     if (isString(oldRef)) {
       refs[oldRef] = null;
       if (hasOwn(setupState, oldRef)) {
@@ -3173,40 +3331,40 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
       oldRef.value = null;
     }
   }
-  if (isFunction(ref)) {
-    callWithErrorHandling(ref, owner, 12, [value, refs]);
+  if (isFunction(ref3)) {
+    callWithErrorHandling(ref3, owner, 12, [value, refs]);
   } else {
-    const _isString = isString(ref);
-    const _isRef = isRef(ref);
+    const _isString = isString(ref3);
+    const _isRef = isRef(ref3);
     if (_isString || _isRef) {
       const doSet = () => {
         if (rawRef.f) {
-          const existing = _isString ? hasOwn(setupState, ref) ? setupState[ref] : refs[ref] : ref.value;
+          const existing = _isString ? hasOwn(setupState, ref3) ? setupState[ref3] : refs[ref3] : ref3.value;
           if (isUnmount) {
             isArray(existing) && remove(existing, refValue);
           } else {
             if (!isArray(existing)) {
               if (_isString) {
-                refs[ref] = [refValue];
-                if (hasOwn(setupState, ref)) {
-                  setupState[ref] = refs[ref];
+                refs[ref3] = [refValue];
+                if (hasOwn(setupState, ref3)) {
+                  setupState[ref3] = refs[ref3];
                 }
               } else {
-                ref.value = [refValue];
+                ref3.value = [refValue];
                 if (rawRef.k)
-                  refs[rawRef.k] = ref.value;
+                  refs[rawRef.k] = ref3.value;
               }
             } else if (!existing.includes(refValue)) {
               existing.push(refValue);
             }
           }
         } else if (_isString) {
-          refs[ref] = value;
-          if (hasOwn(setupState, ref)) {
-            setupState[ref] = value;
+          refs[ref3] = value;
+          if (hasOwn(setupState, ref3)) {
+            setupState[ref3] = value;
           }
         } else if (_isRef) {
-          ref.value = value;
+          ref3.value = value;
           if (rawRef.k)
             refs[rawRef.k] = value;
         } else ;
@@ -3220,8 +3378,7 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
     }
   }
 }
-
-const queuePostRenderEffect = queueEffectWithSuspense ;
+const queuePostRenderEffect = queueEffectWithSuspense;
 function createRenderer(options) {
   return baseCreateRenderer(options);
 }
@@ -3242,7 +3399,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     setScopeId: hostSetScopeId = NOOP,
     insertStaticContent: hostInsertStaticContent
   } = options;
-  const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, isSVG = false, slotScopeIds = null, optimized = !!n2.dynamicChildren) => {
+  const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, namespace = void 0, slotScopeIds = null, optimized = !!n2.dynamicChildren) => {
     if (n1 === n2) {
       return;
     }
@@ -3255,7 +3412,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       optimized = false;
       n2.dynamicChildren = null;
     }
-    const { type, ref, shapeFlag } = n2;
+    const { type, ref: ref3, shapeFlag } = n2;
     switch (type) {
       case Text:
         processText(n1, n2, container, anchor);
@@ -3265,7 +3422,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         break;
       case Static:
         if (n1 == null) {
-          mountStaticNode(n2, container, anchor, isSVG);
+          mountStaticNode(n2, container, anchor, namespace);
         }
         break;
       case Fragment:
@@ -3276,7 +3433,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           anchor,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
@@ -3290,7 +3447,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -3302,7 +3459,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -3314,7 +3471,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized,
             internals
@@ -3327,15 +3484,15 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized,
             internals
           );
         } else ;
     }
-    if (ref != null && parentComponent) {
-      setRef(ref, n1 && n1.ref, parentSuspense, n2 || n1, !n2);
+    if (ref3 != null && parentComponent) {
+      setRef(ref3, n1 && n1.ref, parentSuspense, n2 || n1, !n2);
     }
   };
   const processText = (n1, n2, container, anchor) => {
@@ -3363,12 +3520,12 @@ function baseCreateRenderer(options, createHydrationFns) {
       n2.el = n1.el;
     }
   };
-  const mountStaticNode = (n2, container, anchor, isSVG) => {
+  const mountStaticNode = (n2, container, anchor, namespace) => {
     [n2.el, n2.anchor] = hostInsertStaticContent(
       n2.children,
       container,
       anchor,
-      isSVG,
+      namespace,
       n2.el,
       n2.anchor
     );
@@ -3391,8 +3548,12 @@ function baseCreateRenderer(options, createHydrationFns) {
     }
     hostRemove(anchor);
   };
-  const processElement = (n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
-    isSVG = isSVG || n2.type === "svg";
+  const processElement = (n1, n2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
+    if (n2.type === "svg") {
+      namespace = "svg";
+    } else if (n2.type === "math") {
+      namespace = "mathml";
+    }
     if (n1 == null) {
       mountElement(
         n2,
@@ -3400,7 +3561,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         anchor,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized
       );
@@ -3410,19 +3571,19 @@ function baseCreateRenderer(options, createHydrationFns) {
         n2,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized
       );
     }
   };
-  const mountElement = (vnode, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const mountElement = (vnode, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     let el;
     let vnodeHook;
-    const { type, props, shapeFlag, transition, dirs } = vnode;
+    const { props, shapeFlag, transition, dirs } = vnode;
     el = vnode.el = hostCreateElement(
       vnode.type,
-      isSVG,
+      namespace,
       props && props.is,
       props
     );
@@ -3435,7 +3596,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         null,
         parentComponent,
         parentSuspense,
-        isSVG && type !== "foreignObject",
+        resolveChildrenNamespace(vnode, namespace),
         slotScopeIds,
         optimized
       );
@@ -3452,7 +3613,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             key,
             null,
             props[key],
-            isSVG,
+            namespace,
             vnode.children,
             parentComponent,
             parentSuspense,
@@ -3461,7 +3622,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
       }
       if ("value" in props) {
-        hostPatchProp(el, "value", null, props.value);
+        hostPatchProp(el, "value", null, props.value, namespace);
       }
       if (vnodeHook = props.onVnodeBeforeMount) {
         invokeVNodeHook(vnodeHook, parentComponent, vnode);
@@ -3470,7 +3631,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     if (dirs) {
       invokeDirectiveHook(vnode, null, parentComponent, "beforeMount");
     }
-    const needCallTransitionHooks = (!parentSuspense || parentSuspense && !parentSuspense.pendingBranch) && transition && !transition.persisted;
+    const needCallTransitionHooks = needTransition(parentSuspense, transition);
     if (needCallTransitionHooks) {
       transition.beforeEnter(el);
     }
@@ -3506,7 +3667,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       }
     }
   };
-  const mountChildren = (children, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized, start = 0) => {
+  const mountChildren = (children, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized, start = 0) => {
     for (let i = start; i < children.length; i++) {
       const child = children[i] = optimized ? cloneIfMounted(children[i]) : normalizeVNode(children[i]);
       patch(
@@ -3516,13 +3677,13 @@ function baseCreateRenderer(options, createHydrationFns) {
         anchor,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized
       );
     }
   };
-  const patchElement = (n1, n2, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const patchElement = (n1, n2, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     const el = n2.el = n1.el;
     let { patchFlag, dynamicChildren, dirs } = n2;
     patchFlag |= n1.patchFlag & 16;
@@ -3537,7 +3698,6 @@ function baseCreateRenderer(options, createHydrationFns) {
       invokeDirectiveHook(n2, n1, parentComponent, "beforeUpdate");
     }
     parentComponent && toggleRecurse(parentComponent, true);
-    const areChildrenSVG = isSVG && n2.type !== "foreignObject";
     if (dynamicChildren) {
       patchBlockChildren(
         n1.dynamicChildren,
@@ -3545,7 +3705,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         el,
         parentComponent,
         parentSuspense,
-        areChildrenSVG,
+        resolveChildrenNamespace(n2, namespace),
         slotScopeIds
       );
     } else if (!optimized) {
@@ -3556,7 +3716,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         null,
         parentComponent,
         parentSuspense,
-        areChildrenSVG,
+        resolveChildrenNamespace(n2, namespace),
         slotScopeIds,
         false
       );
@@ -3570,16 +3730,16 @@ function baseCreateRenderer(options, createHydrationFns) {
           newProps,
           parentComponent,
           parentSuspense,
-          isSVG
+          namespace
         );
       } else {
         if (patchFlag & 2) {
           if (oldProps.class !== newProps.class) {
-            hostPatchProp(el, "class", null, newProps.class, isSVG);
+            hostPatchProp(el, "class", null, newProps.class, namespace);
           }
         }
         if (patchFlag & 4) {
-          hostPatchProp(el, "style", oldProps.style, newProps.style, isSVG);
+          hostPatchProp(el, "style", oldProps.style, newProps.style, namespace);
         }
         if (patchFlag & 8) {
           const propsToUpdate = n2.dynamicProps;
@@ -3593,7 +3753,7 @@ function baseCreateRenderer(options, createHydrationFns) {
                 key,
                 prev,
                 next,
-                isSVG,
+                namespace,
                 n1.children,
                 parentComponent,
                 parentSuspense,
@@ -3616,7 +3776,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         newProps,
         parentComponent,
         parentSuspense,
-        isSVG
+        namespace
       );
     }
     if ((vnodeHook = newProps.onVnodeUpdated) || dirs) {
@@ -3626,7 +3786,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       }, parentSuspense);
     }
   };
-  const patchBlockChildren = (oldChildren, newChildren, fallbackContainer, parentComponent, parentSuspense, isSVG, slotScopeIds) => {
+  const patchBlockChildren = (oldChildren, newChildren, fallbackContainer, parentComponent, parentSuspense, namespace, slotScopeIds) => {
     for (let i = 0; i < newChildren.length; i++) {
       const oldVNode = oldChildren[i];
       const newVNode = newChildren[i];
@@ -3651,13 +3811,13 @@ function baseCreateRenderer(options, createHydrationFns) {
         null,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         true
       );
     }
   };
-  const patchProps = (el, vnode, oldProps, newProps, parentComponent, parentSuspense, isSVG) => {
+  const patchProps = (el, vnode, oldProps, newProps, parentComponent, parentSuspense, namespace) => {
     if (oldProps !== newProps) {
       if (oldProps !== EMPTY_OBJ) {
         for (const key in oldProps) {
@@ -3667,7 +3827,7 @@ function baseCreateRenderer(options, createHydrationFns) {
               key,
               oldProps[key],
               null,
-              isSVG,
+              namespace,
               vnode.children,
               parentComponent,
               parentSuspense,
@@ -3687,7 +3847,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             key,
             prev,
             next,
-            isSVG,
+            namespace,
             vnode.children,
             parentComponent,
             parentSuspense,
@@ -3696,11 +3856,11 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
       }
       if ("value" in newProps) {
-        hostPatchProp(el, "value", oldProps.value, newProps.value);
+        hostPatchProp(el, "value", oldProps.value, newProps.value, namespace);
       }
     }
   };
-  const processFragment = (n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const processFragment = (n1, n2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     const fragmentStartAnchor = n2.el = n1 ? n1.el : hostCreateText("");
     const fragmentEndAnchor = n2.anchor = n1 ? n1.anchor : hostCreateText("");
     let { patchFlag, dynamicChildren, slotScopeIds: fragmentSlotScopeIds } = n2;
@@ -3711,12 +3871,16 @@ function baseCreateRenderer(options, createHydrationFns) {
       hostInsert(fragmentStartAnchor, container, anchor);
       hostInsert(fragmentEndAnchor, container, anchor);
       mountChildren(
-        n2.children,
+        // #10007
+        // such fragment like `<></>` will be compiled into
+        // a fragment which doesn't have a children.
+        // In this case fallback to an empty array
+        n2.children || [],
         container,
         fragmentEndAnchor,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized
       );
@@ -3730,7 +3894,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           container,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds
         );
         if (
@@ -3755,14 +3919,14 @@ function baseCreateRenderer(options, createHydrationFns) {
           fragmentEndAnchor,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
       }
     }
   };
-  const processComponent = (n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const processComponent = (n1, n2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     n2.slotScopeIds = slotScopeIds;
     if (n1 == null) {
       if (n2.shapeFlag & 512) {
@@ -3770,7 +3934,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           n2,
           container,
           anchor,
-          isSVG,
+          namespace,
           optimized
         );
       } else {
@@ -3780,7 +3944,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           anchor,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           optimized
         );
       }
@@ -3788,12 +3952,12 @@ function baseCreateRenderer(options, createHydrationFns) {
       updateComponent(n1, n2, optimized);
     }
   };
-  const mountComponent = (initialVNode, container, anchor, parentComponent, parentSuspense, isSVG, optimized) => {
-    const instance = (initialVNode.component = createComponentInstance(
+  const mountComponent = (initialVNode, container, anchor, parentComponent, parentSuspense, namespace, optimized) => {
+    const instance = initialVNode.component = createComponentInstance(
       initialVNode,
       parentComponent,
       parentSuspense
-    ));
+    );
     if (isKeepAlive(initialVNode)) {
       instance.ctx.renderer = internals;
     }
@@ -3806,17 +3970,17 @@ function baseCreateRenderer(options, createHydrationFns) {
         const placeholder = instance.subTree = createVNode(Comment);
         processCommentNode(null, placeholder, container, anchor);
       }
-      return;
+    } else {
+      setupRenderEffect(
+        instance,
+        initialVNode,
+        container,
+        anchor,
+        parentSuspense,
+        namespace,
+        optimized
+      );
     }
-    setupRenderEffect(
-      instance,
-      initialVNode,
-      container,
-      anchor,
-      parentSuspense,
-      isSVG,
-      optimized
-    );
   };
   const updateComponent = (n1, n2, optimized) => {
     const instance = n2.component = n1.component;
@@ -3827,6 +3991,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       } else {
         instance.next = n2;
         invalidateJob(instance.update);
+        instance.effect.dirty = true;
         instance.update();
       }
     } else {
@@ -3834,7 +3999,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       instance.vnode = n2;
     }
   };
-  const setupRenderEffect = (instance, initialVNode, container, anchor, parentSuspense, isSVG, optimized) => {
+  const setupRenderEffect = (instance, initialVNode, container, anchor, parentSuspense, namespace, optimized) => {
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
         let vnodeHook;
@@ -3880,7 +4045,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             instance,
             parentSuspense,
-            isSVG
+            namespace
           );
           initialVNode.el = subTree.el;
         }
@@ -3901,6 +4066,21 @@ function baseCreateRenderer(options, createHydrationFns) {
         initialVNode = container = anchor = null;
       } else {
         let { next, bu, u, parent, vnode } = instance;
+        {
+          const nonHydratedAsyncRoot = locateNonHydratedAsyncRoot(instance);
+          if (nonHydratedAsyncRoot) {
+            if (next) {
+              next.el = vnode.el;
+              updateComponentPreRender(instance, next, optimized);
+            }
+            nonHydratedAsyncRoot.asyncDep.then(() => {
+              if (!instance.isUnmounted) {
+                componentUpdateFn();
+              }
+            });
+            return;
+          }
+        }
         let originNext = next;
         let vnodeHook;
         toggleRecurse(instance, false);
@@ -3929,7 +4109,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           getNextHostNode(prevTree),
           instance,
           parentSuspense,
-          isSVG
+          namespace
         );
         next.el = nextTree.el;
         if (originNext === null) {
@@ -3946,13 +4126,18 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
       }
     };
-    const effect = instance.effect = new ReactiveEffect(
+    const effect2 = instance.effect = new ReactiveEffect(
       componentUpdateFn,
+      NOOP,
       () => queueJob(update),
       instance.scope
       // track it in component's effect scope
     );
-    const update = instance.update = () => effect.run();
+    const update = instance.update = () => {
+      if (effect2.dirty) {
+        effect2.run();
+      }
+    };
     update.id = instance.uid;
     toggleRecurse(instance, true);
     update();
@@ -3965,10 +4150,10 @@ function baseCreateRenderer(options, createHydrationFns) {
     updateProps(instance, nextVNode.props, prevProps, optimized);
     updateSlots(instance, nextVNode.children, optimized);
     pauseTracking();
-    flushPreFlushCbs();
+    flushPreFlushCbs(instance);
     resetTracking();
   };
-  const patchChildren = (n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized = false) => {
+  const patchChildren = (n1, n2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized = false) => {
     const c1 = n1 && n1.children;
     const prevShapeFlag = n1 ? n1.shapeFlag : 0;
     const c2 = n2.children;
@@ -3982,7 +4167,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           anchor,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
@@ -3995,7 +4180,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           anchor,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
@@ -4019,7 +4204,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -4037,7 +4222,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -4045,7 +4230,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       }
     }
   };
-  const patchUnkeyedChildren = (c1, c2, container, anchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const patchUnkeyedChildren = (c1, c2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     c1 = c1 || EMPTY_ARR;
     c2 = c2 || EMPTY_ARR;
     const oldLength = c1.length;
@@ -4061,7 +4246,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         null,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized
       );
@@ -4082,14 +4267,14 @@ function baseCreateRenderer(options, createHydrationFns) {
         anchor,
         parentComponent,
         parentSuspense,
-        isSVG,
+        namespace,
         slotScopeIds,
         optimized,
         commonLength
       );
     }
   };
-  const patchKeyedChildren = (c1, c2, container, parentAnchor, parentComponent, parentSuspense, isSVG, slotScopeIds, optimized) => {
+  const patchKeyedChildren = (c1, c2, container, parentAnchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized) => {
     let i = 0;
     const l2 = c2.length;
     let e1 = c1.length - 1;
@@ -4105,7 +4290,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           null,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
@@ -4125,7 +4310,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           null,
           parentComponent,
           parentSuspense,
-          isSVG,
+          namespace,
           slotScopeIds,
           optimized
         );
@@ -4147,7 +4332,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -4210,7 +4395,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             null,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -4231,7 +4416,7 @@ function baseCreateRenderer(options, createHydrationFns) {
             anchor,
             parentComponent,
             parentSuspense,
-            isSVG,
+            namespace,
             slotScopeIds,
             optimized
           );
@@ -4271,23 +4456,23 @@ function baseCreateRenderer(options, createHydrationFns) {
       moveStaticNode(vnode, container, anchor);
       return;
     }
-    const needTransition = moveType !== 2 && shapeFlag & 1 && transition;
-    if (needTransition) {
+    const needTransition2 = moveType !== 2 && shapeFlag & 1 && transition;
+    if (needTransition2) {
       if (moveType === 0) {
         transition.beforeEnter(el);
         hostInsert(el, container, anchor);
         queuePostRenderEffect(() => transition.enter(el), parentSuspense);
       } else {
         const { leave, delayLeave, afterLeave } = transition;
-        const remove2 = () => hostInsert(el, container, anchor);
+        const remove22 = () => hostInsert(el, container, anchor);
         const performLeave = () => {
           leave(el, () => {
-            remove2();
+            remove22();
             afterLeave && afterLeave();
           });
         };
         if (delayLeave) {
-          delayLeave(el, remove2, performLeave);
+          delayLeave(el, remove22, performLeave);
         } else {
           performLeave();
         }
@@ -4300,15 +4485,15 @@ function baseCreateRenderer(options, createHydrationFns) {
     const {
       type,
       props,
-      ref,
+      ref: ref3,
       children,
       dynamicChildren,
       shapeFlag,
       patchFlag,
       dirs
     } = vnode;
-    if (ref != null) {
-      setRef(ref, null, parentSuspense, vnode, true);
+    if (ref3 != null) {
+      setRef(ref3, null, parentSuspense, vnode, true);
     }
     if (shapeFlag & 256) {
       parentComponent.ctx.deactivate(vnode);
@@ -4352,7 +4537,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         unmountChildren(children, parentComponent, parentSuspense);
       }
       if (doRemove) {
-        remove(vnode);
+        remove2(vnode);
       }
     }
     if (shouldInvokeVnodeHook && (vnodeHook = props && props.onVnodeUnmounted) || shouldInvokeDirs) {
@@ -4362,7 +4547,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       }, parentSuspense);
     }
   };
-  const remove = (vnode) => {
+  const remove2 = (vnode) => {
     const { type, el, anchor, transition } = vnode;
     if (type === Fragment) {
       {
@@ -4438,23 +4623,36 @@ function baseCreateRenderer(options, createHydrationFns) {
     }
     return hostNextSibling(vnode.anchor || vnode.el);
   };
-  const render = (vnode, container, isSVG) => {
+  let isFlushing2 = false;
+  const render = (vnode, container, namespace) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null, null, true);
       }
     } else {
-      patch(container._vnode || null, vnode, container, null, null, null, isSVG);
+      patch(
+        container._vnode || null,
+        vnode,
+        container,
+        null,
+        null,
+        null,
+        namespace
+      );
     }
-    flushPreFlushCbs();
-    flushPostFlushCbs();
+    if (!isFlushing2) {
+      isFlushing2 = true;
+      flushPreFlushCbs();
+      flushPostFlushCbs();
+      isFlushing2 = false;
+    }
     container._vnode = vnode;
   };
   const internals = {
     p: patch,
     um: unmount,
     m: move,
-    r: remove,
+    r: remove2,
     mt: mountComponent,
     mc: mountChildren,
     pc: patchChildren,
@@ -4475,8 +4673,14 @@ function baseCreateRenderer(options, createHydrationFns) {
     createApp: createAppAPI(render, hydrate)
   };
 }
-function toggleRecurse({ effect, update }, allowed) {
-  effect.allowRecurse = update.allowRecurse = allowed;
+function resolveChildrenNamespace({ type, props }, currentNamespace) {
+  return currentNamespace === "svg" && type === "foreignObject" || currentNamespace === "mathml" && type === "annotation-xml" && props && props.encoding && props.encoding.includes("html") ? void 0 : currentNamespace;
+}
+function toggleRecurse({ effect: effect2, update }, allowed) {
+  effect2.allowRecurse = update.allowRecurse = allowed;
+}
+function needTransition(parentSuspense, transition) {
+  return (!parentSuspense || parentSuspense && !parentSuspense.pendingBranch) && transition && !transition.persisted;
 }
 function traverseStaticChildren(n1, n2, shallow = false) {
   const ch1 = n1.children;
@@ -4539,9 +4743,17 @@ function getSequence(arr) {
   }
   return result;
 }
-
+function locateNonHydratedAsyncRoot(instance) {
+  const subComponent = instance.subTree.component;
+  if (subComponent) {
+    if (subComponent.asyncDep && !subComponent.asyncResolved) {
+      return subComponent;
+    } else {
+      return locateNonHydratedAsyncRoot(subComponent);
+    }
+  }
+}
 const isTeleport = (type) => type.__isTeleport;
-
 const Fragment = Symbol.for("v-fgt");
 const Text = Symbol.for("v-txt");
 const Comment = Symbol.for("v-cmt");
@@ -4577,7 +4789,6 @@ function createElementBlock(type, props, children, patchFlag, dynamicProps, shap
       dynamicProps,
       shapeFlag,
       true
-      /* isBlock */
     )
   );
 }
@@ -4590,7 +4801,6 @@ function createBlock(type, props, children, patchFlag, dynamicProps) {
       patchFlag,
       dynamicProps,
       true
-      /* isBlock: prevent a block from tracking itself */
     )
   );
 }
@@ -4603,14 +4813,14 @@ function isSameVNodeType(n1, n2) {
 const InternalObjectKey = `__vInternal`;
 const normalizeKey = ({ key }) => key != null ? key : null;
 const normalizeRef = ({
-  ref,
+  ref: ref3,
   ref_key,
   ref_for
 }) => {
-  if (typeof ref === "number") {
-    ref = "" + ref;
+  if (typeof ref3 === "number") {
+    ref3 = "" + ref3;
   }
-  return ref != null ? isString(ref) || isRef(ref) || isFunction(ref) ? { i: currentRenderingInstance, r: ref, k: ref_key, f: !!ref_for } : ref : null;
+  return ref3 != null ? isString(ref3) || isRef(ref3) || isFunction(ref3) ? { i: currentRenderingInstance, r: ref3, k: ref_key, f: !!ref_for } : ref3 : null;
 };
 function createBaseVNode(type, props = null, children = null, patchFlag = 0, dynamicProps = null, shapeFlag = type === Fragment ? 0 : 1, isBlockNode = false, needFullChildrenNormalization = false) {
   const vnode = {
@@ -4721,7 +4931,7 @@ function guardReactiveProps(props) {
   return isProxy(props) || InternalObjectKey in props ? extend({}, props) : props;
 }
 function cloneVNode(vnode, extraProps, mergeRef = false) {
-  const { props, ref, patchFlag, children } = vnode;
+  const { props, ref: ref3, patchFlag, children } = vnode;
   const mergedProps = extraProps ? mergeProps(props || {}, extraProps) : props;
   const cloned = {
     __v_isVNode: true,
@@ -4733,8 +4943,8 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
       // #2078 in the case of <component :is="vnode" ref="extra"/>
       // if the vnode itself already has a ref, cloneVNode will need to merge
       // the refs so the single vnode can be set on multiple refs
-      mergeRef && ref ? isArray(ref) ? ref.concat(normalizeRef(extraProps)) : [ref, normalizeRef(extraProps)] : normalizeRef(extraProps)
-    ) : ref,
+      mergeRef && ref3 ? isArray(ref3) ? ref3.concat(normalizeRef(extraProps)) : [ref3, normalizeRef(extraProps)] : normalizeRef(extraProps)
+    ) : ref3,
     scopeId: vnode.scopeId,
     slotScopeIds: vnode.slotScopeIds,
     children: children,
@@ -4872,7 +5082,6 @@ function invokeVNodeHook(hook, instance, vnode, prevVNode = null) {
     prevVNode
   ]);
 }
-
 const emptyAppContext = createAppContext();
 let uid = 0;
 function createComponentInstance(vnode, parent, suspense) {
@@ -4967,24 +5176,38 @@ function createComponentInstance(vnode, parent, suspense) {
 let currentInstance = null;
 const getCurrentInstance = () => currentInstance || currentRenderingInstance;
 let internalSetCurrentInstance;
-let globalCurrentInstanceSetters;
-let settersKey = "__VUE_INSTANCE_SETTERS__";
+let setInSSRSetupState;
 {
-  if (!(globalCurrentInstanceSetters = getGlobalThis()[settersKey])) {
-    globalCurrentInstanceSetters = getGlobalThis()[settersKey] = [];
-  }
-  globalCurrentInstanceSetters.push((i) => currentInstance = i);
-  internalSetCurrentInstance = (instance) => {
-    if (globalCurrentInstanceSetters.length > 1) {
-      globalCurrentInstanceSetters.forEach((s) => s(instance));
-    } else {
-      globalCurrentInstanceSetters[0](instance);
-    }
+  const g = getGlobalThis();
+  const registerGlobalSetter = (key, setter) => {
+    let setters;
+    if (!(setters = g[key]))
+      setters = g[key] = [];
+    setters.push(setter);
+    return (v) => {
+      if (setters.length > 1)
+        setters.forEach((set) => set(v));
+      else
+        setters[0](v);
+    };
   };
+  internalSetCurrentInstance = registerGlobalSetter(
+    `__VUE_INSTANCE_SETTERS__`,
+    (v) => currentInstance = v
+  );
+  setInSSRSetupState = registerGlobalSetter(
+    `__VUE_SSR_SETTERS__`,
+    (v) => isInSSRComponentSetup = v
+  );
 }
 const setCurrentInstance = (instance) => {
+  const prev = currentInstance;
   internalSetCurrentInstance(instance);
   instance.scope.on();
+  return () => {
+    instance.scope.off();
+    internalSetCurrentInstance(prev);
+  };
 };
 const unsetCurrentInstance = () => {
   currentInstance && currentInstance.scope.off();
@@ -4995,13 +5218,13 @@ function isStatefulComponent(instance) {
 }
 let isInSSRComponentSetup = false;
 function setupComponent(instance, isSSR = false) {
-  isInSSRComponentSetup = isSSR;
+  isSSR && setInSSRSetupState(isSSR);
   const { props, children } = instance.vnode;
   const isStateful = isStatefulComponent(instance);
   initProps(instance, props, isStateful, isSSR);
   initSlots(instance, children);
   const setupResult = isStateful ? setupStatefulComponent(instance, isSSR) : void 0;
-  isInSSRComponentSetup = false;
+  isSSR && setInSSRSetupState(false);
   return setupResult;
 }
 function setupStatefulComponent(instance, isSSR) {
@@ -5011,16 +5234,19 @@ function setupStatefulComponent(instance, isSSR) {
   const { setup } = Component;
   if (setup) {
     const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
-    setCurrentInstance(instance);
+    const reset = setCurrentInstance(instance);
     pauseTracking();
     const setupResult = callWithErrorHandling(
       setup,
       instance,
       0,
-      [instance.props, setupContext]
+      [
+        instance.props,
+        setupContext
+      ]
     );
     resetTracking();
-    unsetCurrentInstance();
+    reset();
     if (isPromise(setupResult)) {
       setupResult.then(unsetCurrentInstance, unsetCurrentInstance);
       if (isSSR) {
@@ -5076,11 +5302,14 @@ function finishComponentSetup(instance, isSSR, skipOptions) {
     instance.render = Component.render || NOOP;
   }
   {
-    setCurrentInstance(instance);
+    const reset = setCurrentInstance(instance);
     pauseTracking();
-    applyOptions(instance);
-    resetTracking();
-    unsetCurrentInstance();
+    try {
+      applyOptions(instance);
+    } finally {
+      resetTracking();
+      reset();
+    }
   }
 }
 function getAttrsProxy(instance) {
@@ -5125,17 +5354,39 @@ function getExposeProxy(instance) {
     }));
   }
 }
+const classifyRE = /(?:^|[-_])(\w)/g;
+const classify = (str) => str.replace(classifyRE, (c) => c.toUpperCase()).replace(/[-_]/g, "");
 function getComponentName(Component, includeInferred = true) {
   return isFunction(Component) ? Component.displayName || Component.name : Component.name || includeInferred && Component.__name;
+}
+function formatComponentName(instance, Component, isRoot = false) {
+  let name = getComponentName(Component);
+  if (!name && Component.__file) {
+    const match = Component.__file.match(/([^/\\]+)\.\w+$/);
+    if (match) {
+      name = match[1];
+    }
+  }
+  if (!name && instance && instance.parent) {
+    const inferFromRegistry = (registry) => {
+      for (const key in registry) {
+        if (registry[key] === Component) {
+          return key;
+        }
+      }
+    };
+    name = inferFromRegistry(
+      instance.components || instance.parent.type.components
+    ) || inferFromRegistry(instance.appContext.components);
+  }
+  return name ? classify(name) : isRoot ? `App` : `Anonymous`;
 }
 function isClassComponent(value) {
   return isFunction(value) && "__vccOpts" in value;
 }
-
 const computed = (getterOrOptions, debugOptions) => {
   return computed$1(getterOrOptions, debugOptions, isInSSRComponentSetup);
 };
-
 function h(type, propsOrChildren, children) {
   const l = arguments.length;
   if (l === 2) {
@@ -5156,18 +5407,15 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
+const version = "3.4.18";
 
-const ssrContextKey = Symbol.for("v-scx");
-const useSSRContext = () => {
-  {
-    const ctx = inject(ssrContextKey);
-    return ctx;
-  }
-};
-
-const version = "3.3.4";
-
+/**
+* @vue/runtime-dom v3.4.18
+* (c) 2018-present Yuxi (Evan) You and Vue contributors
+* @license MIT
+**/
 const svgNS = "http://www.w3.org/2000/svg";
+const mathmlNS = "http://www.w3.org/1998/Math/MathML";
 const doc = typeof document !== "undefined" ? document : null;
 const templateContainer = doc && /* @__PURE__ */ doc.createElement("template");
 const nodeOps = {
@@ -5180,8 +5428,8 @@ const nodeOps = {
       parent.removeChild(child);
     }
   },
-  createElement: (tag, isSVG, is, props) => {
-    const el = isSVG ? doc.createElementNS(svgNS, tag) : doc.createElement(tag, is ? { is } : void 0);
+  createElement: (tag, namespace, is, props) => {
+    const el = namespace === "svg" ? doc.createElementNS(svgNS, tag) : namespace === "mathml" ? doc.createElementNS(mathmlNS, tag) : doc.createElement(tag, is ? { is } : void 0);
     if (tag === "select" && props && props.multiple != null) {
       el.setAttribute("multiple", props.multiple);
     }
@@ -5205,7 +5453,7 @@ const nodeOps = {
   // Reason: innerHTML.
   // Static content here can only come from compiled templates.
   // As long as the user only uses trusted templates, this is safe.
-  insertStaticContent(content, parent, anchor, isSVG, start, end) {
+  insertStaticContent(content, parent, anchor, namespace, start, end) {
     const before = anchor ? anchor.previousSibling : parent.lastChild;
     if (start && (start === end || start.nextSibling)) {
       while (true) {
@@ -5214,9 +5462,9 @@ const nodeOps = {
           break;
       }
     } else {
-      templateContainer.innerHTML = isSVG ? `<svg>${content}</svg>` : content;
+      templateContainer.innerHTML = namespace === "svg" ? `<svg>${content}</svg>` : namespace === "mathml" ? `<math>${content}</math>` : content;
       const template = templateContainer.content;
-      if (isSVG) {
+      if (namespace === "svg" || namespace === "mathml") {
         const wrapper = template.firstChild;
         while (wrapper.firstChild) {
           template.appendChild(wrapper.firstChild);
@@ -5233,9 +5481,9 @@ const nodeOps = {
     ];
   }
 };
-
+const vtcKey = Symbol("_vtc");
 function patchClass(el, value, isSVG) {
-  const transitionClasses = el._vtc;
+  const transitionClasses = el[vtcKey];
   if (transitionClasses) {
     value = (value ? [value, ...transitionClasses] : [...transitionClasses]).join(" ");
   }
@@ -5247,10 +5495,52 @@ function patchClass(el, value, isSVG) {
     el.className = value;
   }
 }
-
+const vShowOldKey = Symbol("_vod");
+const vShow = {
+  beforeMount(el, { value }, { transition }) {
+    el[vShowOldKey] = el.style.display === "none" ? "" : el.style.display;
+    if (transition && value) {
+      transition.beforeEnter(el);
+    } else {
+      setDisplay(el, value);
+    }
+  },
+  mounted(el, { value }, { transition }) {
+    if (transition && value) {
+      transition.enter(el);
+    }
+  },
+  updated(el, { value, oldValue }, { transition }) {
+    if (!value === !oldValue && el.style.display === el[vShowOldKey])
+      return;
+    if (transition) {
+      if (value) {
+        transition.beforeEnter(el);
+        setDisplay(el, true);
+        transition.enter(el);
+      } else {
+        transition.leave(el, () => {
+          setDisplay(el, false);
+        });
+      }
+    } else {
+      setDisplay(el, value);
+    }
+  },
+  beforeUnmount(el, { value }) {
+    setDisplay(el, value);
+  }
+};
+function setDisplay(el, value) {
+  el.style.display = value ? el[vShowOldKey] : "none";
+}
+const CSS_VAR_TEXT = Symbol("");
+const displayRE = /(^|;)\s*display\s*:/;
 function patchStyle(el, prev, next) {
   const style = el.style;
   const isCssString = isString(next);
+  const currentDisplay = style.display;
+  let hasControlledDisplay = false;
   if (next && !isCssString) {
     if (prev && !isString(prev)) {
       for (const key in prev) {
@@ -5260,20 +5550,28 @@ function patchStyle(el, prev, next) {
       }
     }
     for (const key in next) {
+      if (key === "display") {
+        hasControlledDisplay = true;
+      }
       setStyle(style, key, next[key]);
     }
   } else {
-    const currentDisplay = style.display;
     if (isCssString) {
       if (prev !== next) {
+        const cssVarText = style[CSS_VAR_TEXT];
+        if (cssVarText) {
+          next += ";" + cssVarText;
+        }
         style.cssText = next;
+        hasControlledDisplay = displayRE.test(next);
       }
     } else if (prev) {
       el.removeAttribute("style");
     }
-    if ("_vod" in el) {
-      style.display = currentDisplay;
-    }
+  }
+  if (vShowOldKey in el) {
+    el[vShowOldKey] = hasControlledDisplay ? style.display : "";
+    style.display = currentDisplay;
   }
 }
 const importantRE = /\s*!important$/;
@@ -5319,7 +5617,6 @@ function autoPrefix(style, rawName) {
   }
   return rawName;
 }
-
 const xlinkNS = "http://www.w3.org/1999/xlink";
 function patchAttr(el, key, value, isSVG, instance) {
   if (isSVG && key.startsWith("xlink:")) {
@@ -5337,7 +5634,6 @@ function patchAttr(el, key, value, isSVG, instance) {
     }
   }
 }
-
 function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspense, unmountChildren) {
   if (key === "innerHTML" || key === "textContent") {
     if (prevChildren) {
@@ -5379,15 +5675,15 @@ function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspe
   }
   needRemove && el.removeAttribute(key);
 }
-
 function addEventListener(el, event, handler, options) {
   el.addEventListener(event, handler, options);
 }
 function removeEventListener(el, event, handler, options) {
   el.removeEventListener(event, handler, options);
 }
+const veiKey = Symbol("_vei");
 function patchEvent(el, rawName, prevValue, nextValue, instance = null) {
-  const invokers = el._vei || (el._vei = {});
+  const invokers = el[veiKey] || (el[veiKey] = {});
   const existingInvoker = invokers[rawName];
   if (nextValue && existingInvoker) {
     existingInvoker.value = nextValue;
@@ -5449,9 +5745,10 @@ function patchStopImmediatePropagation(e, value) {
     return value;
   }
 }
-
-const nativeOnRE = /^on[a-z]/;
-const patchProp = (el, key, prevValue, nextValue, isSVG = false, prevChildren, parentComponent, parentSuspense, unmountChildren) => {
+const isNativeOn = (key) => key.charCodeAt(0) === 111 && key.charCodeAt(1) === 110 && // lowercase letter
+key.charCodeAt(2) > 96 && key.charCodeAt(2) < 123;
+const patchProp = (el, key, prevValue, nextValue, namespace, prevChildren, parentComponent, parentSuspense, unmountChildren) => {
+  const isSVG = namespace === "svg";
   if (key === "class") {
     patchClass(el, nextValue, isSVG);
   } else if (key === "style") {
@@ -5484,7 +5781,7 @@ function shouldSetAsProp(el, key, value, isSVG) {
     if (key === "innerHTML" || key === "textContent") {
       return true;
     }
-    if (key in el && nativeOnRE.test(key) && isFunction(value)) {
+    if (key in el && isNativeOn(key) && isFunction(value)) {
       return true;
     }
     return false;
@@ -5501,12 +5798,17 @@ function shouldSetAsProp(el, key, value, isSVG) {
   if (key === "type" && el.tagName === "TEXTAREA") {
     return false;
   }
-  if (nativeOnRE.test(key) && isString(value)) {
+  if (key === "width" || key === "height") {
+    const tag = el.tagName;
+    if (tag === "IMG" || tag === "VIDEO" || tag === "CANVAS" || tag === "SOURCE") {
+      return false;
+    }
+  }
+  if (isNativeOn(key) && isString(value)) {
     return false;
   }
   return key in el;
 }
-
 const getModelAssigner = (vnode) => {
   const fn = vnode.props["onUpdate:modelValue"] || false;
   return isArray(fn) ? (value) => invokeArrayFns(fn, value) : fn;
@@ -5521,9 +5823,10 @@ function onCompositionEnd(e) {
     target.dispatchEvent(new Event("input"));
   }
 }
+const assignKey = Symbol("_assign");
 const vModelText = {
   created(el, { modifiers: { lazy, trim, number } }, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     const castToNumber = number || vnode.props && vnode.props.type === "number";
     addEventListener(el, lazy ? "change" : "input", (e) => {
       if (e.target.composing)
@@ -5535,7 +5838,7 @@ const vModelText = {
       if (castToNumber) {
         domValue = looseToNumber(domValue);
       }
-      el._assign(domValue);
+      el[assignKey](domValue);
     });
     if (trim) {
       addEventListener(el, "change", () => {
@@ -5553,36 +5856,35 @@ const vModelText = {
     el.value = value == null ? "" : value;
   },
   beforeUpdate(el, { value, modifiers: { lazy, trim, number } }, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     if (el.composing)
       return;
+    const elValue = number || el.type === "number" ? looseToNumber(el.value) : el.value;
+    const newValue = value == null ? "" : value;
+    if (elValue === newValue) {
+      return;
+    }
     if (document.activeElement === el && el.type !== "range") {
       if (lazy) {
         return;
       }
-      if (trim && el.value.trim() === value) {
-        return;
-      }
-      if ((number || el.type === "number") && looseToNumber(el.value) === value) {
+      if (trim && el.value.trim() === newValue) {
         return;
       }
     }
-    const newValue = value == null ? "" : value;
-    if (el.value !== newValue) {
-      el.value = newValue;
-    }
+    el.value = newValue;
   }
 };
 const vModelCheckbox = {
   // #4096 array checkboxes need to be deep traversed
   deep: true,
   created(el, _, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     addEventListener(el, "change", () => {
       const modelValue = el._modelValue;
       const elementValue = getValue(el);
       const checked = el.checked;
-      const assign = el._assign;
+      const assign = el[assignKey];
       if (isArray(modelValue)) {
         const index = looseIndexOf(modelValue, elementValue);
         const found = index !== -1;
@@ -5609,7 +5911,7 @@ const vModelCheckbox = {
   // set initial checked on mount to wait for true-value/false-value
   mounted: setChecked,
   beforeUpdate(el, binding, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     setChecked(el, binding, vnode);
   }
 };
@@ -5626,13 +5928,13 @@ function setChecked(el, { value, oldValue }, vnode) {
 const vModelRadio = {
   created(el, { value }, vnode) {
     el.checked = looseEqual(value, vnode.props.value);
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     addEventListener(el, "change", () => {
-      el._assign(getValue(el));
+      el[assignKey](getValue(el));
     });
   },
   beforeUpdate(el, { value, oldValue }, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
     if (value !== oldValue) {
       el.checked = looseEqual(value, vnode.props.value);
     }
@@ -5647,35 +5949,49 @@ const vModelSelect = {
       const selectedVal = Array.prototype.filter.call(el.options, (o) => o.selected).map(
         (o) => number ? looseToNumber(getValue(o)) : getValue(o)
       );
-      el._assign(
+      el[assignKey](
         el.multiple ? isSetModel ? new Set(selectedVal) : selectedVal : selectedVal[0]
       );
+      el._assigning = true;
+      nextTick(() => {
+        el._assigning = false;
+      });
     });
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
   },
   // set value in mounted & updated because <select> relies on its children
   // <option>s.
-  mounted(el, { value }) {
-    setSelected(el, value);
+  mounted(el, { value, oldValue, modifiers: { number } }) {
+    setSelected(el, value, oldValue, number);
   },
   beforeUpdate(el, _binding, vnode) {
-    el._assign = getModelAssigner(vnode);
+    el[assignKey] = getModelAssigner(vnode);
   },
-  updated(el, { value }) {
-    setSelected(el, value);
+  updated(el, { value, oldValue, modifiers: { number } }) {
+    if (!el._assigning) {
+      setSelected(el, value, oldValue, number);
+    }
   }
 };
-function setSelected(el, value) {
+function setSelected(el, value, oldValue, number) {
   const isMultiple = el.multiple;
-  if (isMultiple && !isArray(value) && !isSet(value)) {
+  const isArrayValue = isArray(value);
+  if (isMultiple && !isArrayValue && !isSet(value)) {
     return;
   }
   for (let i = 0, l = el.options.length; i < l; i++) {
     const option = el.options[i];
     const optionValue = getValue(option);
     if (isMultiple) {
-      if (isArray(value)) {
-        option.selected = looseIndexOf(value, optionValue) > -1;
+      if (isArrayValue) {
+        const optionType = typeof optionValue;
+        if (optionType === "string" || optionType === "number") {
+          option.selected = value.includes(
+            number ? looseToNumber(optionValue) : optionValue
+          );
+        } else {
+          option.selected = looseIndexOf(value, optionValue) > -1;
+        }
       } else {
         option.selected = value.has(optionValue);
       }
@@ -5698,46 +6014,6 @@ function getCheckboxValue(el, checked) {
   const key = checked ? "_trueValue" : "_falseValue";
   return key in el ? el[key] : checked;
 }
-
-const vShow = {
-  beforeMount(el, { value }, { transition }) {
-    el._vod = el.style.display === "none" ? "" : el.style.display;
-    if (transition && value) {
-      transition.beforeEnter(el);
-    } else {
-      setDisplay(el, value);
-    }
-  },
-  mounted(el, { value }, { transition }) {
-    if (transition && value) {
-      transition.enter(el);
-    }
-  },
-  updated(el, { value, oldValue }, { transition }) {
-    if (!value === !oldValue)
-      return;
-    if (transition) {
-      if (value) {
-        transition.beforeEnter(el);
-        setDisplay(el, true);
-        transition.enter(el);
-      } else {
-        transition.leave(el, () => {
-          setDisplay(el, false);
-        });
-      }
-    } else {
-      setDisplay(el, value);
-    }
-  },
-  beforeUnmount(el, { value }) {
-    setDisplay(el, value);
-  }
-};
-function setDisplay(el, value) {
-  el.style.display = value ? el._vod : "none";
-}
-
 const rendererOptions = /* @__PURE__ */ extend({ patchProp }, nodeOps);
 let renderer;
 function ensureRenderer() {
@@ -5755,7 +6031,7 @@ const createApp = (...args) => {
       component.template = container.innerHTML;
     }
     container.innerHTML = "";
-    const proxy = mount(container, false, container instanceof SVGElement);
+    const proxy = mount(container, false, resolveRootNamespace(container));
     if (container instanceof Element) {
       container.removeAttribute("v-cloak");
       container.setAttribute("data-v-app", "");
@@ -5764,6 +6040,14 @@ const createApp = (...args) => {
   };
   return app;
 };
+function resolveRootNamespace(container) {
+  if (container instanceof SVGElement) {
+    return "svg";
+  }
+  if (typeof MathMLElement === "function" && container instanceof MathMLElement) {
+    return "mathml";
+  }
+}
 function normalizeContainer(container) {
   if (isString(container)) {
     const res = document.querySelector(container);
@@ -5775,512 +6059,361 @@ function normalizeContainer(container) {
 var isVue2 = false;
 
 /*!
-  * pinia v2.1.4
-  * (c) 2023 Eduardo San Martin Morote
-  * @license MIT
-  */
-
-/**
- * setActivePinia must be called to handle SSR at the top of functions like
- * `fetch`, `setup`, `serverPrefetch` and others
+ * pinia v2.1.7
+ * (c) 2023 Eduardo San Martin Morote
+ * @license MIT
  */
 let activePinia;
-/**
- * Sets or unsets the active pinia. Used in SSR and internally when calling
- * actions and getters
- *
- * @param pinia - Pinia instance
- */
-// @ts-expect-error: cannot constrain the type of the return
-const setActivePinia = (pinia) => (activePinia = pinia);
-const piniaSymbol = (/* istanbul ignore next */ Symbol());
-
-function isPlainObject$1(
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-o) {
-    return (o &&
-        typeof o === 'object' &&
-        Object.prototype.toString.call(o) === '[object Object]' &&
-        typeof o.toJSON !== 'function');
+const setActivePinia = (pinia) => activePinia = pinia;
+const piniaSymbol = (
+  /* istanbul ignore next */
+  Symbol()
+);
+function isPlainObject$1(o) {
+  return o && typeof o === "object" && Object.prototype.toString.call(o) === "[object Object]" && typeof o.toJSON !== "function";
 }
-// type DeepReadonly<T> = { readonly [P in keyof T]: DeepReadonly<T[P]> }
-// TODO: can we change these to numbers?
-/**
- * Possible types for SubscriptionCallback
- */
 var MutationType;
-(function (MutationType) {
-    /**
-     * Direct mutation of the state:
-     *
-     * - `store.name = 'new name'`
-     * - `store.$state.name = 'new name'`
-     * - `store.list.push('new item')`
-     */
-    MutationType["direct"] = "direct";
-    /**
-     * Mutated the state with `$patch` and an object
-     *
-     * - `store.$patch({ name: 'newName' })`
-     */
-    MutationType["patchObject"] = "patch object";
-    /**
-     * Mutated the state with `$patch` and a function
-     *
-     * - `store.$patch(state => state.name = 'newName')`
-     */
-    MutationType["patchFunction"] = "patch function";
-    // maybe reset? for $state = {} and $reset
+(function(MutationType2) {
+  MutationType2["direct"] = "direct";
+  MutationType2["patchObject"] = "patch object";
+  MutationType2["patchFunction"] = "patch function";
 })(MutationType || (MutationType = {}));
-
-/**
- * Creates a Pinia instance to be used by the application
- */
 function createPinia() {
-    const scope = effectScope(true);
-    // NOTE: here we could check the window object for a state and directly set it
-    // if there is anything like it with Vue 3 SSR
-    const state = scope.run(() => ref({}));
-    let _p = [];
-    // plugins added before calling app.use(pinia)
-    let toBeInstalled = [];
-    const pinia = markRaw({
-        install(app) {
-            // this allows calling useStore() outside of a component setup after
-            // installing pinia's plugin
-            setActivePinia(pinia);
-            {
-                pinia._a = app;
-                app.provide(piniaSymbol, pinia);
-                app.config.globalProperties.$pinia = pinia;
-                toBeInstalled.forEach((plugin) => _p.push(plugin));
-                toBeInstalled = [];
-            }
-        },
-        use(plugin) {
-            if (!this._a && !isVue2) {
-                toBeInstalled.push(plugin);
-            }
-            else {
-                _p.push(plugin);
-            }
-            return this;
-        },
-        _p,
-        // it's actually undefined here
-        // @ts-expect-error
-        _a: null,
-        _e: scope,
-        _s: new Map(),
-        state,
-    });
-    return pinia;
+  const scope = effectScope(true);
+  const state = scope.run(() => ref({}));
+  let _p = [];
+  let toBeInstalled = [];
+  const pinia = markRaw({
+    install(app) {
+      setActivePinia(pinia);
+      {
+        pinia._a = app;
+        app.provide(piniaSymbol, pinia);
+        app.config.globalProperties.$pinia = pinia;
+        toBeInstalled.forEach((plugin) => _p.push(plugin));
+        toBeInstalled = [];
+      }
+    },
+    use(plugin) {
+      if (!this._a && !isVue2) {
+        toBeInstalled.push(plugin);
+      } else {
+        _p.push(plugin);
+      }
+      return this;
+    },
+    _p,
+    // it's actually undefined here
+    // @ts-expect-error
+    _a: null,
+    _e: scope,
+    _s: /* @__PURE__ */ new Map(),
+    state
+  });
+  return pinia;
 }
-
-const noop = () => { };
+const noop = () => {
+};
 function addSubscription(subscriptions, callback, detached, onCleanup = noop) {
-    subscriptions.push(callback);
-    const removeSubscription = () => {
-        const idx = subscriptions.indexOf(callback);
-        if (idx > -1) {
-            subscriptions.splice(idx, 1);
-            onCleanup();
-        }
-    };
-    if (!detached && getCurrentScope()) {
-        onScopeDispose(removeSubscription);
+  subscriptions.push(callback);
+  const removeSubscription = () => {
+    const idx = subscriptions.indexOf(callback);
+    if (idx > -1) {
+      subscriptions.splice(idx, 1);
+      onCleanup();
     }
-    return removeSubscription;
+  };
+  if (!detached && getCurrentScope()) {
+    onScopeDispose(removeSubscription);
+  }
+  return removeSubscription;
 }
 function triggerSubscriptions(subscriptions, ...args) {
-    subscriptions.slice().forEach((callback) => {
-        callback(...args);
-    });
+  subscriptions.slice().forEach((callback) => {
+    callback(...args);
+  });
 }
-
 const fallbackRunWithContext = (fn) => fn();
 function mergeReactiveObjects(target, patchToApply) {
-    // Handle Map instances
-    if (target instanceof Map && patchToApply instanceof Map) {
-        patchToApply.forEach((value, key) => target.set(key, value));
+  if (target instanceof Map && patchToApply instanceof Map) {
+    patchToApply.forEach((value, key) => target.set(key, value));
+  }
+  if (target instanceof Set && patchToApply instanceof Set) {
+    patchToApply.forEach(target.add, target);
+  }
+  for (const key in patchToApply) {
+    if (!patchToApply.hasOwnProperty(key))
+      continue;
+    const subPatch = patchToApply[key];
+    const targetValue = target[key];
+    if (isPlainObject$1(targetValue) && isPlainObject$1(subPatch) && target.hasOwnProperty(key) && !isRef(subPatch) && !isReactive(subPatch)) {
+      target[key] = mergeReactiveObjects(targetValue, subPatch);
+    } else {
+      target[key] = subPatch;
     }
-    // Handle Set instances
-    if (target instanceof Set && patchToApply instanceof Set) {
-        patchToApply.forEach(target.add, target);
-    }
-    // no need to go through symbols because they cannot be serialized anyway
-    for (const key in patchToApply) {
-        if (!patchToApply.hasOwnProperty(key))
-            continue;
-        const subPatch = patchToApply[key];
-        const targetValue = target[key];
-        if (isPlainObject$1(targetValue) &&
-            isPlainObject$1(subPatch) &&
-            target.hasOwnProperty(key) &&
-            !isRef(subPatch) &&
-            !isReactive(subPatch)) {
-            // NOTE: here I wanted to warn about inconsistent types but it's not possible because in setup stores one might
-            // start the value of a property as a certain type e.g. a Map, and then for some reason, during SSR, change that
-            // to `undefined`. When trying to hydrate, we want to override the Map with `undefined`.
-            target[key] = mergeReactiveObjects(targetValue, subPatch);
-        }
-        else {
-            // @ts-expect-error: subPatch is a valid value
-            target[key] = subPatch;
-        }
-    }
-    return target;
+  }
+  return target;
 }
-const skipHydrateSymbol = /* istanbul ignore next */ Symbol();
-/**
- * Returns whether a value should be hydrated
- *
- * @param obj - target variable
- * @returns true if `obj` should be hydrated
- */
+const skipHydrateSymbol = (
+  /* istanbul ignore next */
+  Symbol()
+);
 function shouldHydrate(obj) {
-    return !isPlainObject$1(obj) || !obj.hasOwnProperty(skipHydrateSymbol);
+  return !isPlainObject$1(obj) || !obj.hasOwnProperty(skipHydrateSymbol);
 }
 const { assign } = Object;
 function isComputed(o) {
-    return !!(isRef(o) && o.effect);
+  return !!(isRef(o) && o.effect);
 }
 function createOptionsStore(id, options, pinia, hot) {
-    const { state, actions, getters } = options;
-    const initialState = pinia.state.value[id];
-    let store;
-    function setup() {
-        if (!initialState && (!("production" !== 'production') )) {
-            /* istanbul ignore if */
-            {
-                pinia.state.value[id] = state ? state() : {};
-            }
-        }
-        // avoid creating a state in pinia.state.value
-        const localState = toRefs(pinia.state.value[id]);
-        return assign(localState, actions, Object.keys(getters || {}).reduce((computedGetters, name) => {
-            computedGetters[name] = markRaw(computed(() => {
-                setActivePinia(pinia);
-                // it was created just before
-                const store = pinia._s.get(id);
-                // @ts-expect-error
-                // return getters![name].call(context, context)
-                // TODO: avoid reading the getter while assigning with a global variable
-                return getters[name].call(store, store);
-            }));
-            return computedGetters;
-        }, {}));
+  const { state, actions, getters } = options;
+  const initialState = pinia.state.value[id];
+  let store;
+  function setup() {
+    if (!initialState && true) {
+      {
+        pinia.state.value[id] = state ? state() : {};
+      }
     }
-    store = createSetupStore(id, setup, options, pinia, hot, true);
-    return store;
+    const localState = toRefs(pinia.state.value[id]);
+    return assign(localState, actions, Object.keys(getters || {}).reduce((computedGetters, name) => {
+      computedGetters[name] = markRaw(computed(() => {
+        setActivePinia(pinia);
+        const store2 = pinia._s.get(id);
+        return getters[name].call(store2, store2);
+      }));
+      return computedGetters;
+    }, {}));
+  }
+  store = createSetupStore(id, setup, options, pinia, hot, true);
+  return store;
 }
 function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) {
-    let scope;
-    const optionsForPlugin = assign({ actions: {} }, options);
-    // watcher options for $subscribe
-    const $subscribeOptions = {
-        deep: true,
-        // flush: 'post',
-    };
-    // internal state
-    let isListening; // set to true at the end
-    let isSyncListening; // set to true at the end
-    let subscriptions = [];
-    let actionSubscriptions = [];
-    let debuggerEvents;
-    const initialState = pinia.state.value[$id];
-    // avoid setting the state for option stores if it is set
-    // by the setup
-    if (!isOptionsStore && !initialState && (!("production" !== 'production') )) {
-        /* istanbul ignore if */
-        {
-            pinia.state.value[$id] = {};
-        }
-    }
-    ref({});
-    // avoid triggering too many listeners
-    // https://github.com/vuejs/pinia/issues/1129
-    let activeListener;
-    function $patch(partialStateOrMutator) {
-        let subscriptionMutation;
-        isListening = isSyncListening = false;
-        if (typeof partialStateOrMutator === 'function') {
-            partialStateOrMutator(pinia.state.value[$id]);
-            subscriptionMutation = {
-                type: MutationType.patchFunction,
-                storeId: $id,
-                events: debuggerEvents,
-            };
-        }
-        else {
-            mergeReactiveObjects(pinia.state.value[$id], partialStateOrMutator);
-            subscriptionMutation = {
-                type: MutationType.patchObject,
-                payload: partialStateOrMutator,
-                storeId: $id,
-                events: debuggerEvents,
-            };
-        }
-        const myListenerId = (activeListener = Symbol());
-        nextTick().then(() => {
-            if (activeListener === myListenerId) {
-                isListening = true;
-            }
-        });
-        isSyncListening = true;
-        // because we paused the watcher, we need to manually call the subscriptions
-        triggerSubscriptions(subscriptions, subscriptionMutation, pinia.state.value[$id]);
-    }
-    const $reset = isOptionsStore
-        ? function $reset() {
-            const { state } = options;
-            const newState = state ? state() : {};
-            // we use a patch to group all changes into one single subscription
-            this.$patch(($state) => {
-                assign($state, newState);
-            });
-        }
-        : /* istanbul ignore next */
-            noop;
-    function $dispose() {
-        scope.stop();
-        subscriptions = [];
-        actionSubscriptions = [];
-        pinia._s.delete($id);
-    }
-    /**
-     * Wraps an action to handle subscriptions.
-     *
-     * @param name - name of the action
-     * @param action - action to wrap
-     * @returns a wrapped action to handle subscriptions
-     */
-    function wrapAction(name, action) {
-        return function () {
-            setActivePinia(pinia);
-            const args = Array.from(arguments);
-            const afterCallbackList = [];
-            const onErrorCallbackList = [];
-            function after(callback) {
-                afterCallbackList.push(callback);
-            }
-            function onError(callback) {
-                onErrorCallbackList.push(callback);
-            }
-            // @ts-expect-error
-            triggerSubscriptions(actionSubscriptions, {
-                args,
-                name,
-                store,
-                after,
-                onError,
-            });
-            let ret;
-            try {
-                ret = action.apply(this && this.$id === $id ? this : store, args);
-                // handle sync errors
-            }
-            catch (error) {
-                triggerSubscriptions(onErrorCallbackList, error);
-                throw error;
-            }
-            if (ret instanceof Promise) {
-                return ret
-                    .then((value) => {
-                    triggerSubscriptions(afterCallbackList, value);
-                    return value;
-                })
-                    .catch((error) => {
-                    triggerSubscriptions(onErrorCallbackList, error);
-                    return Promise.reject(error);
-                });
-            }
-            // trigger after callbacks
-            triggerSubscriptions(afterCallbackList, ret);
-            return ret;
-        };
-    }
-    const partialStore = {
-        _p: pinia,
-        // _s: scope,
-        $id,
-        $onAction: addSubscription.bind(null, actionSubscriptions),
-        $patch,
-        $reset,
-        $subscribe(callback, options = {}) {
-            const removeSubscription = addSubscription(subscriptions, callback, options.detached, () => stopWatcher());
-            const stopWatcher = scope.run(() => watch(() => pinia.state.value[$id], (state) => {
-                if (options.flush === 'sync' ? isSyncListening : isListening) {
-                    callback({
-                        storeId: $id,
-                        type: MutationType.direct,
-                        events: debuggerEvents,
-                    }, state);
-                }
-            }, assign({}, $subscribeOptions, options)));
-            return removeSubscription;
-        },
-        $dispose,
-    };
-    const store = reactive(partialStore);
-    // store the partial store now so the setup of stores can instantiate each other before they are finished without
-    // creating infinite loops.
-    pinia._s.set($id, store);
-    const runWithContext = (pinia._a && pinia._a.runWithContext) || fallbackRunWithContext;
-    // TODO: idea create skipSerialize that marks properties as non serializable and they are skipped
-    const setupStore = pinia._e.run(() => {
-        scope = effectScope();
-        return runWithContext(() => scope.run(setup));
-    });
-    // overwrite existing actions to support $onAction
-    for (const key in setupStore) {
-        const prop = setupStore[key];
-        if ((isRef(prop) && !isComputed(prop)) || isReactive(prop)) {
-            // mark it as a piece of state to be serialized
-            if (!isOptionsStore) {
-                // in setup stores we must hydrate the state and sync pinia state tree with the refs the user just created
-                if (initialState && shouldHydrate(prop)) {
-                    if (isRef(prop)) {
-                        prop.value = initialState[key];
-                    }
-                    else {
-                        // probably a reactive object, lets recursively assign
-                        // @ts-expect-error: prop is unknown
-                        mergeReactiveObjects(prop, initialState[key]);
-                    }
-                }
-                // transfer the ref to the pinia state to keep everything in sync
-                /* istanbul ignore if */
-                {
-                    pinia.state.value[$id][key] = prop;
-                }
-            }
-            // action
-        }
-        else if (typeof prop === 'function') {
-            // @ts-expect-error: we are overriding the function we avoid wrapping if
-            const actionValue = wrapAction(key, prop);
-            // this a hot module replacement store because the hotUpdate method needs
-            // to do it with the right context
-            /* istanbul ignore if */
-            {
-                // @ts-expect-error
-                setupStore[key] = actionValue;
-            }
-            // list actions so they can be used in plugins
-            // @ts-expect-error
-            optionsForPlugin.actions[key] = prop;
-        }
-        else ;
-    }
-    // add the state, getters, and action properties
-    /* istanbul ignore if */
+  let scope;
+  const optionsForPlugin = assign({ actions: {} }, options);
+  const $subscribeOptions = {
+    deep: true
+    // flush: 'post',
+  };
+  let isListening;
+  let isSyncListening;
+  let subscriptions = [];
+  let actionSubscriptions = [];
+  let debuggerEvents;
+  const initialState = pinia.state.value[$id];
+  if (!isOptionsStore && !initialState && true) {
     {
-        assign(store, setupStore);
-        // allows retrieving reactive objects with `storeToRefs()`. Must be called after assigning to the reactive object.
-        // Make `storeToRefs()` work with `reactive()` #799
-        assign(toRaw(store), setupStore);
+      pinia.state.value[$id] = {};
     }
-    // use this instead of a computed with setter to be able to create it anywhere
-    // without linking the computed lifespan to wherever the store is first
-    // created.
-    Object.defineProperty(store, '$state', {
-        get: () => (pinia.state.value[$id]),
-        set: (state) => {
-            $patch(($state) => {
-                assign($state, state);
-            });
-        },
-    });
-    // apply all plugins
-    pinia._p.forEach((extender) => {
-        /* istanbul ignore else */
-        {
-            assign(store, scope.run(() => extender({
-                store,
-                app: pinia._a,
-                pinia,
-                options: optionsForPlugin,
-            })));
-        }
-    });
-    // only apply hydrate to option stores with an initial state in pinia
-    if (initialState &&
-        isOptionsStore &&
-        options.hydrate) {
-        options.hydrate(store.$state, initialState);
+  }
+  ref({});
+  let activeListener;
+  function $patch(partialStateOrMutator) {
+    let subscriptionMutation;
+    isListening = isSyncListening = false;
+    if (typeof partialStateOrMutator === "function") {
+      partialStateOrMutator(pinia.state.value[$id]);
+      subscriptionMutation = {
+        type: MutationType.patchFunction,
+        storeId: $id,
+        events: debuggerEvents
+      };
+    } else {
+      mergeReactiveObjects(pinia.state.value[$id], partialStateOrMutator);
+      subscriptionMutation = {
+        type: MutationType.patchObject,
+        payload: partialStateOrMutator,
+        storeId: $id,
+        events: debuggerEvents
+      };
     }
-    isListening = true;
+    const myListenerId = activeListener = Symbol();
+    nextTick().then(() => {
+      if (activeListener === myListenerId) {
+        isListening = true;
+      }
+    });
     isSyncListening = true;
-    return store;
-}
-function defineStore(
-// TODO: add proper types from above
-idOrOptions, setup, setupOptions) {
-    let id;
-    let options;
-    const isSetupStore = typeof setup === 'function';
-    if (typeof idOrOptions === 'string') {
-        id = idOrOptions;
-        // the option store setup will contain the actual options in this case
-        options = isSetupStore ? setupOptions : setup;
-    }
-    else {
-        options = idOrOptions;
-        id = idOrOptions.id;
-    }
-    function useStore(pinia, hot) {
-        const hasContext = hasInjectionContext();
-        pinia =
-            // in test mode, ignore the argument provided as we can always retrieve a
-            // pinia instance with getActivePinia()
-            (pinia) ||
-                (hasContext ? inject(piniaSymbol, null) : null);
-        if (pinia)
-            setActivePinia(pinia);
-        pinia = activePinia;
-        if (!pinia._s.has(id)) {
-            // creating the store registers it in `pinia._s`
-            if (isSetupStore) {
-                createSetupStore(id, setup, options, pinia);
-            }
-            else {
-                createOptionsStore(id, options, pinia);
-            }
+    triggerSubscriptions(subscriptions, subscriptionMutation, pinia.state.value[$id]);
+  }
+  const $reset = isOptionsStore ? function $reset2() {
+    const { state } = options;
+    const newState = state ? state() : {};
+    this.$patch(($state) => {
+      assign($state, newState);
+    });
+  } : (
+    /* istanbul ignore next */
+    noop
+  );
+  function $dispose() {
+    scope.stop();
+    subscriptions = [];
+    actionSubscriptions = [];
+    pinia._s.delete($id);
+  }
+  function wrapAction(name, action) {
+    return function() {
+      setActivePinia(pinia);
+      const args = Array.from(arguments);
+      const afterCallbackList = [];
+      const onErrorCallbackList = [];
+      function after(callback) {
+        afterCallbackList.push(callback);
+      }
+      function onError(callback) {
+        onErrorCallbackList.push(callback);
+      }
+      triggerSubscriptions(actionSubscriptions, {
+        args,
+        name,
+        store,
+        after,
+        onError
+      });
+      let ret;
+      try {
+        ret = action.apply(this && this.$id === $id ? this : store, args);
+      } catch (error) {
+        triggerSubscriptions(onErrorCallbackList, error);
+        throw error;
+      }
+      if (ret instanceof Promise) {
+        return ret.then((value) => {
+          triggerSubscriptions(afterCallbackList, value);
+          return value;
+        }).catch((error) => {
+          triggerSubscriptions(onErrorCallbackList, error);
+          return Promise.reject(error);
+        });
+      }
+      triggerSubscriptions(afterCallbackList, ret);
+      return ret;
+    };
+  }
+  const partialStore = {
+    _p: pinia,
+    // _s: scope,
+    $id,
+    $onAction: addSubscription.bind(null, actionSubscriptions),
+    $patch,
+    $reset,
+    $subscribe(callback, options2 = {}) {
+      const removeSubscription = addSubscription(subscriptions, callback, options2.detached, () => stopWatcher());
+      const stopWatcher = scope.run(() => watch(() => pinia.state.value[$id], (state) => {
+        if (options2.flush === "sync" ? isSyncListening : isListening) {
+          callback({
+            storeId: $id,
+            type: MutationType.direct,
+            events: debuggerEvents
+          }, state);
         }
-        const store = pinia._s.get(id);
-        // StoreGeneric cannot be casted towards Store
-        return store;
+      }, assign({}, $subscribeOptions, options2)));
+      return removeSubscription;
+    },
+    $dispose
+  };
+  const store = reactive(partialStore);
+  pinia._s.set($id, store);
+  const runWithContext = pinia._a && pinia._a.runWithContext || fallbackRunWithContext;
+  const setupStore = runWithContext(() => pinia._e.run(() => (scope = effectScope()).run(setup)));
+  for (const key in setupStore) {
+    const prop = setupStore[key];
+    if (isRef(prop) && !isComputed(prop) || isReactive(prop)) {
+      if (!isOptionsStore) {
+        if (initialState && shouldHydrate(prop)) {
+          if (isRef(prop)) {
+            prop.value = initialState[key];
+          } else {
+            mergeReactiveObjects(prop, initialState[key]);
+          }
+        }
+        {
+          pinia.state.value[$id][key] = prop;
+        }
+      }
+    } else if (typeof prop === "function") {
+      const actionValue = wrapAction(key, prop);
+      {
+        setupStore[key] = actionValue;
+      }
+      optionsForPlugin.actions[key] = prop;
+    } else ;
+  }
+  {
+    assign(store, setupStore);
+    assign(toRaw(store), setupStore);
+  }
+  Object.defineProperty(store, "$state", {
+    get: () => pinia.state.value[$id],
+    set: (state) => {
+      $patch(($state) => {
+        assign($state, state);
+      });
     }
-    useStore.$id = id;
-    return useStore;
-}
-
-/**
- * Creates an object of references with all the state, getters, and plugin-added
- * state properties of the store. Similar to `toRefs()` but specifically
- * designed for Pinia stores so methods and non reactive properties are
- * completely ignored.
- *
- * @param store - store to extract the refs from
- */
-function storeToRefs(store) {
-    // See https://github.com/vuejs/pinia/issues/852
-    // It's easier to just use toRefs() even if it includes more stuff
+  });
+  pinia._p.forEach((extender) => {
     {
-        store = toRaw(store);
-        const refs = {};
-        for (const key in store) {
-            const value = store[key];
-            if (isRef(value) || isReactive(value)) {
-                // @ts-expect-error: the key is state or getter
-                refs[key] =
-                    // ---
-                    toRef(store, key);
-            }
-        }
-        return refs;
+      assign(store, scope.run(() => extender({
+        store,
+        app: pinia._a,
+        pinia,
+        options: optionsForPlugin
+      })));
     }
+  });
+  if (initialState && isOptionsStore && options.hydrate) {
+    options.hydrate(store.$state, initialState);
+  }
+  isListening = true;
+  isSyncListening = true;
+  return store;
+}
+function defineStore(idOrOptions, setup, setupOptions) {
+  let id;
+  let options;
+  const isSetupStore = typeof setup === "function";
+  if (typeof idOrOptions === "string") {
+    id = idOrOptions;
+    options = isSetupStore ? setupOptions : setup;
+  } else {
+    options = idOrOptions;
+    id = idOrOptions.id;
+  }
+  function useStore(pinia, hot) {
+    const hasContext = hasInjectionContext();
+    pinia = // in test mode, ignore the argument provided as we can always retrieve a
+    // pinia instance with getActivePinia()
+    (pinia) || (hasContext ? inject(piniaSymbol, null) : null);
+    if (pinia)
+      setActivePinia(pinia);
+    pinia = activePinia;
+    if (!pinia._s.has(id)) {
+      if (isSetupStore) {
+        createSetupStore(id, setup, options, pinia);
+      } else {
+        createOptionsStore(id, options, pinia);
+      }
+    }
+    const store = pinia._s.get(id);
+    return store;
+  }
+  useStore.$id = id;
+  return useStore;
+}
+function storeToRefs(store) {
+  {
+    store = toRaw(store);
+    const refs = {};
+    for (const key in store) {
+      const value = store[key];
+      if (isRef(value) || isReactive(value)) {
+        refs[key] = // ---
+        toRef(store, key);
+      }
+    }
+    return refs;
+  }
 }
 
 const DEF_WSS = {
@@ -6544,2557 +6677,2429 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.10.2
-  * (c) 2023 Abdelrahman Awad
+  * vee-validate v4.12.5
+  * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
-
 function isCallable(fn) {
-    return typeof fn === 'function';
+  return typeof fn === "function";
 }
 function isNullOrUndefined(value) {
-    return value === null || value === undefined;
+  return value === null || value === void 0;
 }
-const isObject = (obj) => obj !== null && !!obj && typeof obj === 'object' && !Array.isArray(obj);
+const isObject = (obj) => obj !== null && !!obj && typeof obj === "object" && !Array.isArray(obj);
 function isIndex(value) {
-    return Number(value) >= 0;
+  return Number(value) >= 0;
 }
-function toNumber(value) {
-    const n = parseFloat(value);
-    return isNaN(n) ? value : n;
+function toNumber$1(value) {
+  const n = parseFloat(value);
+  return isNaN(n) ? value : n;
 }
 function isObjectLike(value) {
-    return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
 function getTag(value) {
-    if (value == null) {
-        return value === undefined ? '[object Undefined]' : '[object Null]';
-    }
-    return Object.prototype.toString.call(value);
+  if (value == null) {
+    return value === void 0 ? "[object Undefined]" : "[object Null]";
+  }
+  return Object.prototype.toString.call(value);
 }
-// Reference: https://github.com/lodash/lodash/blob/master/isPlainObject.js
 function isPlainObject(value) {
-    if (!isObjectLike(value) || getTag(value) !== '[object Object]') {
-        return false;
-    }
-    if (Object.getPrototypeOf(value) === null) {
-        return true;
-    }
-    let proto = value;
-    while (Object.getPrototypeOf(proto) !== null) {
-        proto = Object.getPrototypeOf(proto);
-    }
-    return Object.getPrototypeOf(value) === proto;
+  if (!isObjectLike(value) || getTag(value) !== "[object Object]") {
+    return false;
+  }
+  if (Object.getPrototypeOf(value) === null) {
+    return true;
+  }
+  let proto = value;
+  while (Object.getPrototypeOf(proto) !== null) {
+    proto = Object.getPrototypeOf(proto);
+  }
+  return Object.getPrototypeOf(value) === proto;
 }
 function merge(target, source) {
-    Object.keys(source).forEach(key => {
-        if (isPlainObject(source[key])) {
-            if (!target[key]) {
-                target[key] = {};
-            }
-            merge(target[key], source[key]);
-            return;
-        }
-        target[key] = source[key];
-    });
-    return target;
+  Object.keys(source).forEach((key) => {
+    if (isPlainObject(source[key]) && isPlainObject(target[key])) {
+      if (!target[key]) {
+        target[key] = {};
+      }
+      merge(target[key], source[key]);
+      return;
+    }
+    target[key] = source[key];
+  });
+  return target;
 }
-
+function normalizeFormPath(path) {
+  const pathArr = path.split(".");
+  if (!pathArr.length) {
+    return "";
+  }
+  let fullPath = String(pathArr[0]);
+  for (let i = 1; i < pathArr.length; i++) {
+    if (isIndex(pathArr[i])) {
+      fullPath += `[${pathArr[i]}]`;
+      continue;
+    }
+    fullPath += `.${pathArr[i]}`;
+  }
+  return fullPath;
+}
 const RULES = {};
-/**
- * Gets an already defined rule
- */
 function resolveRule(id) {
-    return RULES[id];
+  return RULES[id];
 }
-
-const FormContextKey = Symbol('vee-validate-form');
-const FieldContextKey = Symbol('vee-validate-field-instance');
-const IS_ABSENT = Symbol('Default empty value');
-
-const isClient = typeof window !== 'undefined';
+function set(obj, key, val) {
+  if (typeof val.value === "object")
+    val.value = klona(val.value);
+  if (!val.enumerable || val.get || val.set || !val.configurable || !val.writable || key === "__proto__") {
+    Object.defineProperty(obj, key, val);
+  } else
+    obj[key] = val.value;
+}
+function klona(x) {
+  if (typeof x !== "object")
+    return x;
+  var i = 0, k, list, tmp, str = Object.prototype.toString.call(x);
+  if (str === "[object Object]") {
+    tmp = Object.create(x.__proto__ || null);
+  } else if (str === "[object Array]") {
+    tmp = Array(x.length);
+  } else if (str === "[object Set]") {
+    tmp = /* @__PURE__ */ new Set();
+    x.forEach(function(val) {
+      tmp.add(klona(val));
+    });
+  } else if (str === "[object Map]") {
+    tmp = /* @__PURE__ */ new Map();
+    x.forEach(function(val, key) {
+      tmp.set(klona(key), klona(val));
+    });
+  } else if (str === "[object Date]") {
+    tmp = /* @__PURE__ */ new Date(+x);
+  } else if (str === "[object RegExp]") {
+    tmp = new RegExp(x.source, x.flags);
+  } else if (str === "[object DataView]") {
+    tmp = new x.constructor(klona(x.buffer));
+  } else if (str === "[object ArrayBuffer]") {
+    tmp = x.slice(0);
+  } else if (str.slice(-6) === "Array]") {
+    tmp = new x.constructor(x);
+  }
+  if (tmp) {
+    for (list = Object.getOwnPropertySymbols(x); i < list.length; i++) {
+      set(tmp, list[i], Object.getOwnPropertyDescriptor(x, list[i]));
+    }
+    for (i = 0, list = Object.getOwnPropertyNames(x); i < list.length; i++) {
+      if (Object.hasOwnProperty.call(tmp, k = list[i]) && tmp[k] === x[k])
+        continue;
+      set(tmp, k, Object.getOwnPropertyDescriptor(x, k));
+    }
+  }
+  return tmp || x;
+}
+const FormContextKey = Symbol("vee-validate-form");
+const FieldContextKey = Symbol("vee-validate-field-instance");
+const IS_ABSENT = Symbol("Default empty value");
+const isClient = typeof window !== "undefined";
 function isLocator(value) {
-    return isCallable(value) && !!value.__locatorRef;
+  return isCallable(value) && !!value.__locatorRef;
 }
 function isTypedSchema(value) {
-    return !!value && isCallable(value.parse) && value.__type === 'VVTypedSchema';
+  return !!value && isCallable(value.parse) && value.__type === "VVTypedSchema";
 }
 function isYupValidator(value) {
-    return !!value && isCallable(value.validate);
+  return !!value && isCallable(value.validate);
 }
 function hasCheckedAttr(type) {
-    return type === 'checkbox' || type === 'radio';
+  return type === "checkbox" || type === "radio";
 }
 function isContainerValue(value) {
-    return isObject(value) || Array.isArray(value);
+  return isObject(value) || Array.isArray(value);
 }
-/**
- * True if the value is an empty object or array
- */
 function isEmptyContainer(value) {
-    if (Array.isArray(value)) {
-        return value.length === 0;
-    }
-    return isObject(value) && Object.keys(value).length === 0;
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return isObject(value) && Object.keys(value).length === 0;
 }
-/**
- * Checks if the path opted out of nested fields using `[fieldName]` syntax
- */
 function isNotNestedPath(path) {
-    return /^\[.+\]$/i.test(path);
+  return /^\[.+\]$/i.test(path);
 }
-/**
- * Checks if an element is a native HTML5 multi-select input element
- */
 function isNativeMultiSelect(el) {
-    return isNativeSelect(el) && el.multiple;
+  return isNativeSelect(el) && el.multiple;
 }
-/**
- * Checks if an element is a native HTML5 select input element
- */
 function isNativeSelect(el) {
-    return el.tagName === 'SELECT';
+  return el.tagName === "SELECT";
 }
-/**
- * Checks if a tag name with attrs object will render a native multi-select element
- */
 function isNativeMultiSelectNode(tag, attrs) {
-    // The falsy value array is the values that Vue won't add the `multiple` prop if it has one of these values
-    const hasTruthyBindingValue = ![false, null, undefined, 0].includes(attrs.multiple) && !Number.isNaN(attrs.multiple);
-    return tag === 'select' && 'multiple' in attrs && hasTruthyBindingValue;
+  const hasTruthyBindingValue = ![false, null, void 0, 0].includes(attrs.multiple) && !Number.isNaN(attrs.multiple);
+  return tag === "select" && "multiple" in attrs && hasTruthyBindingValue;
 }
-/**
- * Checks if a node should have a `:value` binding or not
- *
- * These nodes should not have a value binding
- * For files, because they are not reactive
- * For multi-selects because the value binding will reset the value
- */
 function shouldHaveValueBinding(tag, attrs) {
-    return !isNativeMultiSelectNode(tag, attrs) && attrs.type !== 'file' && !hasCheckedAttr(attrs.type);
+  return !isNativeMultiSelectNode(tag, attrs) && attrs.type !== "file" && !hasCheckedAttr(attrs.type);
 }
 function isFormSubmitEvent(evt) {
-    return isEvent(evt) && evt.target && 'submit' in evt.target;
+  return isEvent(evt) && evt.target && "submit" in evt.target;
 }
 function isEvent(evt) {
-    if (!evt) {
-        return false;
-    }
-    if (typeof Event !== 'undefined' && isCallable(Event) && evt instanceof Event) {
-        return true;
-    }
-    // this is for IE and Cypress #3161
-    /* istanbul ignore next */
-    if (evt && evt.srcElement) {
-        return true;
-    }
+  if (!evt) {
     return false;
+  }
+  if (typeof Event !== "undefined" && isCallable(Event) && evt instanceof Event) {
+    return true;
+  }
+  if (evt && evt.srcElement) {
+    return true;
+  }
+  return false;
 }
 function isPropPresent(obj, prop) {
-    return prop in obj && obj[prop] !== IS_ABSENT;
+  return prop in obj && obj[prop] !== IS_ABSENT;
 }
-/**
- * Compares if two values are the same borrowed from:
- * https://github.com/epoberezkin/fast-deep-equal
- * We added a case for file matching since `Object.keys` doesn't work with Files.
- * */
 function isEqual(a, b) {
-    if (a === b)
-        return true;
-    if (a && b && typeof a === 'object' && typeof b === 'object') {
-        if (a.constructor !== b.constructor)
-            return false;
-        // eslint-disable-next-line no-var
-        var length, i, keys;
-        if (Array.isArray(a)) {
-            length = a.length;
-            // eslint-disable-next-line eqeqeq
-            if (length != b.length)
-                return false;
-            for (i = length; i-- !== 0;)
-                if (!isEqual(a[i], b[i]))
-                    return false;
-            return true;
-        }
-        if (a instanceof Map && b instanceof Map) {
-            if (a.size !== b.size)
-                return false;
-            for (i of a.entries())
-                if (!b.has(i[0]))
-                    return false;
-            for (i of a.entries())
-                if (!isEqual(i[1], b.get(i[0])))
-                    return false;
-            return true;
-        }
-        // We added this part for file comparison, arguably a little naive but should work for most cases.
-        // #3911
-        if (isFile(a) && isFile(b)) {
-            if (a.size !== b.size)
-                return false;
-            if (a.name !== b.name)
-                return false;
-            if (a.lastModified !== b.lastModified)
-                return false;
-            if (a.type !== b.type)
-                return false;
-            return true;
-        }
-        if (a instanceof Set && b instanceof Set) {
-            if (a.size !== b.size)
-                return false;
-            for (i of a.entries())
-                if (!b.has(i[0]))
-                    return false;
-            return true;
-        }
-        if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
-            length = a.length;
-            // eslint-disable-next-line eqeqeq
-            if (length != b.length)
-                return false;
-            for (i = length; i-- !== 0;)
-                if (a[i] !== b[i])
-                    return false;
-            return true;
-        }
-        if (a.constructor === RegExp)
-            return a.source === b.source && a.flags === b.flags;
-        if (a.valueOf !== Object.prototype.valueOf)
-            return a.valueOf() === b.valueOf();
-        if (a.toString !== Object.prototype.toString)
-            return a.toString() === b.toString();
-        keys = Object.keys(a);
-        length = keys.length;
-        if (length !== Object.keys(b).length)
-            return false;
-        for (i = length; i-- !== 0;)
-            if (!Object.prototype.hasOwnProperty.call(b, keys[i]))
-                return false;
-        for (i = length; i-- !== 0;) {
-            // eslint-disable-next-line no-var
-            var key = keys[i];
-            if (!isEqual(a[key], b[key]))
-                return false;
-        }
-        return true;
+  if (a === b)
+    return true;
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    if (a.constructor !== b.constructor)
+      return false;
+    var length, i, keys;
+    if (Array.isArray(a)) {
+      length = a.length;
+      if (length != b.length)
+        return false;
+      for (i = length; i-- !== 0; )
+        if (!isEqual(a[i], b[i]))
+          return false;
+      return true;
     }
-    // true if both NaN, false otherwise
-    // eslint-disable-next-line no-self-compare
-    return a !== a && b !== b;
-}
-function isFile(a) {
-    if (!isClient) {
+    if (a instanceof Map && b instanceof Map) {
+      if (a.size !== b.size)
+        return false;
+      for (i of a.entries())
+        if (!b.has(i[0]))
+          return false;
+      for (i of a.entries())
+        if (!isEqual(i[1], b.get(i[0])))
+          return false;
+      return true;
+    }
+    if (isFile(a) && isFile(b)) {
+      if (a.size !== b.size)
+        return false;
+      if (a.name !== b.name)
+        return false;
+      if (a.lastModified !== b.lastModified)
+        return false;
+      if (a.type !== b.type)
+        return false;
+      return true;
+    }
+    if (a instanceof Set && b instanceof Set) {
+      if (a.size !== b.size)
+        return false;
+      for (i of a.entries())
+        if (!b.has(i[0]))
+          return false;
+      return true;
+    }
+    if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
+      length = a.length;
+      if (length != b.length)
+        return false;
+      for (i = length; i-- !== 0; )
+        if (a[i] !== b[i])
+          return false;
+      return true;
+    }
+    if (a.constructor === RegExp)
+      return a.source === b.source && a.flags === b.flags;
+    if (a.valueOf !== Object.prototype.valueOf)
+      return a.valueOf() === b.valueOf();
+    if (a.toString !== Object.prototype.toString)
+      return a.toString() === b.toString();
+    keys = Object.keys(a);
+    length = keys.length;
+    for (i = length; i-- !== 0; ) {
+      var key = keys[i];
+      if (!isEqual(a[key], b[key]))
         return false;
     }
-    return a instanceof File;
+    return true;
+  }
+  return a !== a && b !== b;
 }
-
-function set(obj, key, val) {
-	if (typeof val.value === 'object') val.value = klona(val.value);
-	if (!val.enumerable || val.get || val.set || !val.configurable || !val.writable || key === '__proto__') {
-		Object.defineProperty(obj, key, val);
-	} else obj[key] = val.value;
+function isFile(a) {
+  if (!isClient) {
+    return false;
+  }
+  return a instanceof File;
 }
-
-function klona(x) {
-	if (typeof x !== 'object') return x;
-
-	var i=0, k, list, tmp, str=Object.prototype.toString.call(x);
-
-	if (str === '[object Object]') {
-		tmp = Object.create(x.__proto__ || null);
-	} else if (str === '[object Array]') {
-		tmp = Array(x.length);
-	} else if (str === '[object Set]') {
-		tmp = new Set;
-		x.forEach(function (val) {
-			tmp.add(klona(val));
-		});
-	} else if (str === '[object Map]') {
-		tmp = new Map;
-		x.forEach(function (val, key) {
-			tmp.set(klona(key), klona(val));
-		});
-	} else if (str === '[object Date]') {
-		tmp = new Date(+x);
-	} else if (str === '[object RegExp]') {
-		tmp = new RegExp(x.source, x.flags);
-	} else if (str === '[object DataView]') {
-		tmp = new x.constructor( klona(x.buffer) );
-	} else if (str === '[object ArrayBuffer]') {
-		tmp = x.slice(0);
-	} else if (str.slice(-6) === 'Array]') {
-		// ArrayBuffer.isView(x)
-		// ~> `new` bcuz `Buffer.slice` => ref
-		tmp = new x.constructor(x);
-	}
-
-	if (tmp) {
-		for (list=Object.getOwnPropertySymbols(x); i < list.length; i++) {
-			set(tmp, list[i], Object.getOwnPropertyDescriptor(x, list[i]));
-		}
-
-		for (i=0, list=Object.getOwnPropertyNames(x); i < list.length; i++) {
-			if (Object.hasOwnProperty.call(tmp, k=list[i]) && tmp[k] === x[k]) continue;
-			set(tmp, k, Object.getOwnPropertyDescriptor(x, k));
-		}
-	}
-
-	return tmp || x;
-}
-
 function cleanupNonNestedPath(path) {
-    if (isNotNestedPath(path)) {
-        return path.replace(/\[|\]/gi, '');
-    }
-    return path;
+  if (isNotNestedPath(path)) {
+    return path.replace(/\[|\]/gi, "");
+  }
+  return path;
 }
 function getFromPath(object, path, fallback) {
-    if (!object) {
-        return fallback;
+  if (!object) {
+    return fallback;
+  }
+  if (isNotNestedPath(path)) {
+    return object[cleanupNonNestedPath(path)];
+  }
+  const resolvedValue = (path || "").split(/\.|\[(\d+)\]/).filter(Boolean).reduce((acc, propKey) => {
+    if (isContainerValue(acc) && propKey in acc) {
+      return acc[propKey];
     }
-    if (isNotNestedPath(path)) {
-        return object[cleanupNonNestedPath(path)];
-    }
-    const resolvedValue = (path || '')
-        .split(/\.|\[(\d+)\]/)
-        .filter(Boolean)
-        .reduce((acc, propKey) => {
-        if (isContainerValue(acc) && propKey in acc) {
-            return acc[propKey];
-        }
-        return fallback;
-    }, object);
-    return resolvedValue;
+    return fallback;
+  }, object);
+  return resolvedValue;
 }
-/**
- * Sets a nested property value in a path, creates the path properties if it doesn't exist
- */
 function setInPath(object, path, value) {
-    if (isNotNestedPath(path)) {
-        object[cleanupNonNestedPath(path)] = value;
-        return;
+  if (isNotNestedPath(path)) {
+    object[cleanupNonNestedPath(path)] = value;
+    return;
+  }
+  const keys = path.split(/\.|\[(\d+)\]/).filter(Boolean);
+  let acc = object;
+  for (let i = 0; i < keys.length; i++) {
+    if (i === keys.length - 1) {
+      acc[keys[i]] = value;
+      return;
     }
-    const keys = path.split(/\.|\[(\d+)\]/).filter(Boolean);
-    let acc = object;
-    for (let i = 0; i < keys.length; i++) {
-        // Last key, set it
-        if (i === keys.length - 1) {
-            acc[keys[i]] = value;
-            return;
-        }
-        // Key does not exist, create a container for it
-        if (!(keys[i] in acc) || isNullOrUndefined(acc[keys[i]])) {
-            // container can be either an object or an array depending on the next key if it exists
-            acc[keys[i]] = isIndex(keys[i + 1]) ? [] : {};
-        }
-        acc = acc[keys[i]];
+    if (!(keys[i] in acc) || isNullOrUndefined(acc[keys[i]])) {
+      acc[keys[i]] = isIndex(keys[i + 1]) ? [] : {};
     }
+    acc = acc[keys[i]];
+  }
 }
 function unset(object, key) {
-    if (Array.isArray(object) && isIndex(key)) {
-        object.splice(Number(key), 1);
-        return;
-    }
-    if (isObject(object)) {
-        delete object[key];
-    }
+  if (Array.isArray(object) && isIndex(key)) {
+    object.splice(Number(key), 1);
+    return;
+  }
+  if (isObject(object)) {
+    delete object[key];
+  }
 }
-/**
- * Removes a nested property from object
- */
 function unsetPath(object, path) {
-    if (isNotNestedPath(path)) {
-        delete object[cleanupNonNestedPath(path)];
-        return;
+  if (isNotNestedPath(path)) {
+    delete object[cleanupNonNestedPath(path)];
+    return;
+  }
+  const keys = path.split(/\.|\[(\d+)\]/).filter(Boolean);
+  let acc = object;
+  for (let i = 0; i < keys.length; i++) {
+    if (i === keys.length - 1) {
+      unset(acc, keys[i]);
+      break;
     }
-    const keys = path.split(/\.|\[(\d+)\]/).filter(Boolean);
-    let acc = object;
-    for (let i = 0; i < keys.length; i++) {
-        // Last key, unset it
-        if (i === keys.length - 1) {
-            unset(acc, keys[i]);
-            break;
-        }
-        // Key does not exist, exit
-        if (!(keys[i] in acc) || isNullOrUndefined(acc[keys[i]])) {
-            break;
-        }
-        acc = acc[keys[i]];
+    if (!(keys[i] in acc) || isNullOrUndefined(acc[keys[i]])) {
+      break;
     }
-    const pathValues = keys.map((_, idx) => {
-        return getFromPath(object, keys.slice(0, idx).join('.'));
-    });
-    for (let i = pathValues.length - 1; i >= 0; i--) {
-        if (!isEmptyContainer(pathValues[i])) {
-            continue;
-        }
-        if (i === 0) {
-            unset(object, keys[0]);
-            continue;
-        }
-        unset(pathValues[i - 1], keys[i - 1]);
+    acc = acc[keys[i]];
+  }
+  const pathValues = keys.map((_, idx) => {
+    return getFromPath(object, keys.slice(0, idx).join("."));
+  });
+  for (let i = pathValues.length - 1; i >= 0; i--) {
+    if (!isEmptyContainer(pathValues[i])) {
+      continue;
     }
+    if (i === 0) {
+      unset(object, keys[0]);
+      continue;
+    }
+    unset(pathValues[i - 1], keys[i - 1]);
+  }
 }
-/**
- * A typed version of Object.keys
- */
 function keysOf(record) {
-    return Object.keys(record);
+  return Object.keys(record);
 }
-// Uses same component provide as its own injections
-// Due to changes in https://github.com/vuejs/vue-next/pull/2424
-function injectWithSelf(symbol, def = undefined) {
-    const vm = getCurrentInstance();
-    return (vm === null || vm === void 0 ? void 0 : vm.provides[symbol]) || inject(symbol, def);
+function injectWithSelf(symbol, def = void 0) {
+  const vm = getCurrentInstance();
+  return (vm === null || vm === void 0 ? void 0 : vm.provides[symbol]) || inject(symbol, def);
 }
 function resolveNextCheckboxValue(currentValue, checkedValue, uncheckedValue) {
-    if (Array.isArray(currentValue)) {
-        const newVal = [...currentValue];
-        // Use isEqual since checked object values can possibly fail the equality check #3883
-        const idx = newVal.findIndex(v => isEqual(v, checkedValue));
-        idx >= 0 ? newVal.splice(idx, 1) : newVal.push(checkedValue);
-        return newVal;
-    }
-    return isEqual(currentValue, checkedValue) ? uncheckedValue : checkedValue;
+  if (Array.isArray(currentValue)) {
+    const newVal = [...currentValue];
+    const idx = newVal.findIndex((v) => isEqual(v, checkedValue));
+    idx >= 0 ? newVal.splice(idx, 1) : newVal.push(checkedValue);
+    return newVal;
+  }
+  return isEqual(currentValue, checkedValue) ? uncheckedValue : checkedValue;
 }
 function debounceAsync(inner, ms = 0) {
-    let timer = null;
-    let resolves = [];
-    return function (...args) {
-        // Run the function after a certain amount of time
-        if (timer) {
-            window.clearTimeout(timer);
-        }
-        timer = window.setTimeout(() => {
-            // Get the result of the inner function, then apply it to the resolve function of
-            // each promise that has been created since the last time the inner function was run
-            const result = inner(...args);
-            resolves.forEach(r => r(result));
-            resolves = [];
-        }, ms);
-        return new Promise(resolve => resolves.push(resolve));
-    };
+  let timer = null;
+  let resolves = [];
+  return function(...args) {
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => {
+      const result = inner(...args);
+      resolves.forEach((r) => r(result));
+      resolves = [];
+    }, ms);
+    return new Promise((resolve) => resolves.push(resolve));
+  };
 }
 function applyModelModifiers(value, modifiers) {
-    if (!isObject(modifiers)) {
-        return value;
-    }
-    if (modifiers.number) {
-        return toNumber(value);
-    }
+  if (!isObject(modifiers)) {
     return value;
+  }
+  if (modifiers.number) {
+    return toNumber$1(value);
+  }
+  return value;
 }
 function withLatest(fn, onDone) {
-    let latestRun;
-    return async function runLatest(...args) {
-        const pending = fn(...args);
-        latestRun = pending;
-        const result = await pending;
-        if (pending !== latestRun) {
-            return result;
-        }
-        latestRun = undefined;
-        onDone(result, args);
-        return result;
-    };
-}
-function lazyToRef(value) {
-    return computed(() => toValue(value));
+  let latestRun;
+  return async function runLatest(...args) {
+    const pending = fn(...args);
+    latestRun = pending;
+    const result = await pending;
+    if (pending !== latestRun) {
+      return result;
+    }
+    latestRun = void 0;
+    return onDone(result, args);
+  };
 }
 function normalizeErrorItem(message) {
-    return Array.isArray(message) ? message : message ? [message] : [];
+  return Array.isArray(message) ? message : message ? [message] : [];
 }
 function omit(obj, keys) {
-    const target = {};
-    for (const key in obj) {
-        if (!keys.includes(key)) {
-            target[key] = obj[key];
-        }
+  const target = {};
+  for (const key in obj) {
+    if (!keys.includes(key)) {
+      target[key] = obj[key];
     }
-    return target;
+  }
+  return target;
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const normalizeChildren = (tag, context, slotProps) => {
-    if (!context.slots.default) {
-        return context.slots.default;
+function debounceNextTick(inner) {
+  let lastTick = null;
+  let resolves = [];
+  return function(...args) {
+    const thisTick = nextTick(() => {
+      if (lastTick !== thisTick) {
+        return;
+      }
+      const result = inner(...args);
+      resolves.forEach((r) => r(result));
+      resolves = [];
+      lastTick = null;
+    });
+    lastTick = thisTick;
+    return new Promise((resolve) => resolves.push(resolve));
+  };
+}
+function normalizeChildren(tag, context, slotProps) {
+  if (!context.slots.default) {
+    return context.slots.default;
+  }
+  if (typeof tag === "string" || !tag) {
+    return context.slots.default(slotProps());
+  }
+  return {
+    default: () => {
+      var _a, _b;
+      return (_b = (_a = context.slots).default) === null || _b === void 0 ? void 0 : _b.call(_a, slotProps());
     }
-    if (typeof tag === 'string' || !tag) {
-        return context.slots.default(slotProps());
-    }
-    return {
-        default: () => { var _a, _b; return (_b = (_a = context.slots).default) === null || _b === void 0 ? void 0 : _b.call(_a, slotProps()); },
-    };
-};
-/**
- * Vue adds a `_value` prop at the moment on the input elements to store the REAL value on them, real values are different than the `value` attribute
- * as they do not get casted to strings unlike `el.value` which preserves user-code behavior
- */
+  };
+}
 function getBoundValue(el) {
-    if (hasValueBinding(el)) {
-        return el._value;
-    }
-    return undefined;
+  if (hasValueBinding(el)) {
+    return el._value;
+  }
+  return void 0;
 }
-/**
- * Vue adds a `_value` prop at the moment on the input elements to store the REAL value on them, real values are different than the `value` attribute
- * as they do not get casted to strings unlike `el.value` which preserves user-code behavior
- */
 function hasValueBinding(el) {
-    return '_value' in el;
+  return "_value" in el;
 }
-
 function parseInputValue(el) {
-    if (el.type === 'number') {
-        return Number.isNaN(el.valueAsNumber) ? el.value : el.valueAsNumber;
-    }
-    return el.value;
+  if (el.type === "number") {
+    return Number.isNaN(el.valueAsNumber) ? el.value : el.valueAsNumber;
+  }
+  if (el.type === "range") {
+    return Number.isNaN(el.valueAsNumber) ? el.value : el.valueAsNumber;
+  }
+  return el.value;
 }
 function normalizeEventValue(value) {
-    if (!isEvent(value)) {
-        return value;
-    }
-    const input = value.target;
-    // Vue sets the current bound value on `_value` prop
-    // for checkboxes it it should fetch the value binding type as is (boolean instead of string)
-    if (hasCheckedAttr(input.type) && hasValueBinding(input)) {
-        return getBoundValue(input);
-    }
-    if (input.type === 'file' && input.files) {
-        const files = Array.from(input.files);
-        return input.multiple ? files : files[0];
-    }
-    if (isNativeMultiSelect(input)) {
-        return Array.from(input.options)
-            .filter(opt => opt.selected && !opt.disabled)
-            .map(getBoundValue);
-    }
-    // makes sure we get the actual `option` bound value
-    // #3440
-    if (isNativeSelect(input)) {
-        const selectedOption = Array.from(input.options).find(opt => opt.selected);
-        return selectedOption ? getBoundValue(selectedOption) : input.value;
-    }
-    return parseInputValue(input);
+  if (!isEvent(value)) {
+    return value;
+  }
+  const input = value.target;
+  if (hasCheckedAttr(input.type) && hasValueBinding(input)) {
+    return getBoundValue(input);
+  }
+  if (input.type === "file" && input.files) {
+    const files = Array.from(input.files);
+    return input.multiple ? files : files[0];
+  }
+  if (isNativeMultiSelect(input)) {
+    return Array.from(input.options).filter((opt) => opt.selected && !opt.disabled).map(getBoundValue);
+  }
+  if (isNativeSelect(input)) {
+    const selectedOption = Array.from(input.options).find((opt) => opt.selected);
+    return selectedOption ? getBoundValue(selectedOption) : input.value;
+  }
+  return parseInputValue(input);
 }
-
-/**
- * Normalizes the given rules expression.
- */
 function normalizeRules(rules) {
-    const acc = {};
-    Object.defineProperty(acc, '_$$isNormalized', {
-        value: true,
-        writable: false,
-        enumerable: false,
-        configurable: false,
-    });
-    if (!rules) {
-        return acc;
-    }
-    // Object is already normalized, skip.
-    if (isObject(rules) && rules._$$isNormalized) {
-        return rules;
-    }
-    if (isObject(rules)) {
-        return Object.keys(rules).reduce((prev, curr) => {
-            const params = normalizeParams(rules[curr]);
-            if (rules[curr] !== false) {
-                prev[curr] = buildParams(params);
-            }
-            return prev;
-        }, acc);
-    }
-    /* istanbul ignore if */
-    if (typeof rules !== 'string') {
-        return acc;
-    }
-    return rules.split('|').reduce((prev, rule) => {
-        const parsedRule = parseRule(rule);
-        if (!parsedRule.name) {
-            return prev;
-        }
-        prev[parsedRule.name] = buildParams(parsedRule.params);
-        return prev;
+  const acc = {};
+  Object.defineProperty(acc, "_$$isNormalized", {
+    value: true,
+    writable: false,
+    enumerable: false,
+    configurable: false
+  });
+  if (!rules) {
+    return acc;
+  }
+  if (isObject(rules) && rules._$$isNormalized) {
+    return rules;
+  }
+  if (isObject(rules)) {
+    return Object.keys(rules).reduce((prev, curr) => {
+      const params = normalizeParams(rules[curr]);
+      if (rules[curr] !== false) {
+        prev[curr] = buildParams(params);
+      }
+      return prev;
     }, acc);
+  }
+  if (typeof rules !== "string") {
+    return acc;
+  }
+  return rules.split("|").reduce((prev, rule) => {
+    const parsedRule = parseRule(rule);
+    if (!parsedRule.name) {
+      return prev;
+    }
+    prev[parsedRule.name] = buildParams(parsedRule.params);
+    return prev;
+  }, acc);
 }
-/**
- * Normalizes a rule param.
- */
 function normalizeParams(params) {
-    if (params === true) {
-        return [];
-    }
-    if (Array.isArray(params)) {
-        return params;
-    }
-    if (isObject(params)) {
-        return params;
-    }
-    return [params];
+  if (params === true) {
+    return [];
+  }
+  if (Array.isArray(params)) {
+    return params;
+  }
+  if (isObject(params)) {
+    return params;
+  }
+  return [params];
 }
 function buildParams(provided) {
-    const mapValueToLocator = (value) => {
-        // A target param using interpolation
-        if (typeof value === 'string' && value[0] === '@') {
-            return createLocator(value.slice(1));
-        }
-        return value;
-    };
-    if (Array.isArray(provided)) {
-        return provided.map(mapValueToLocator);
+  const mapValueToLocator = (value) => {
+    if (typeof value === "string" && value[0] === "@") {
+      return createLocator(value.slice(1));
     }
-    // #3073
-    if (provided instanceof RegExp) {
-        return [provided];
-    }
-    return Object.keys(provided).reduce((prev, key) => {
-        prev[key] = mapValueToLocator(provided[key]);
-        return prev;
-    }, {});
+    return value;
+  };
+  if (Array.isArray(provided)) {
+    return provided.map(mapValueToLocator);
+  }
+  if (provided instanceof RegExp) {
+    return [provided];
+  }
+  return Object.keys(provided).reduce((prev, key) => {
+    prev[key] = mapValueToLocator(provided[key]);
+    return prev;
+  }, {});
 }
-/**
- * Parses a rule string expression.
- */
 const parseRule = (rule) => {
-    let params = [];
-    const name = rule.split(':')[0];
-    if (rule.includes(':')) {
-        params = rule.split(':').slice(1).join(':').split(',');
-    }
-    return { name, params };
+  let params = [];
+  const name = rule.split(":")[0];
+  if (rule.includes(":")) {
+    params = rule.split(":").slice(1).join(":").split(",");
+  }
+  return { name, params };
 };
 function createLocator(value) {
-    const locator = (crossTable) => {
-        const val = getFromPath(crossTable, value) || crossTable[value];
-        return val;
-    };
-    locator.__locatorRef = value;
-    return locator;
+  const locator = (crossTable) => {
+    const val = getFromPath(crossTable, value) || crossTable[value];
+    return val;
+  };
+  locator.__locatorRef = value;
+  return locator;
 }
 function extractLocators(params) {
-    if (Array.isArray(params)) {
-        return params.filter(isLocator);
-    }
-    return keysOf(params)
-        .filter(key => isLocator(params[key]))
-        .map(key => params[key]);
+  if (Array.isArray(params)) {
+    return params.filter(isLocator);
+  }
+  return keysOf(params).filter((key) => isLocator(params[key])).map((key) => params[key]);
 }
-
 const DEFAULT_CONFIG = {
-    generateMessage: ({ field }) => `${field} is not valid.`,
-    bails: true,
-    validateOnBlur: true,
-    validateOnChange: true,
-    validateOnInput: false,
-    validateOnModelUpdate: true,
+  generateMessage: ({ field }) => `${field} is not valid.`,
+  bails: true,
+  validateOnBlur: true,
+  validateOnChange: true,
+  validateOnInput: false,
+  validateOnModelUpdate: true
 };
 let currentConfig = Object.assign({}, DEFAULT_CONFIG);
 const getConfig = () => currentConfig;
 const setConfig = (newConf) => {
-    currentConfig = Object.assign(Object.assign({}, currentConfig), newConf);
+  currentConfig = Object.assign(Object.assign({}, currentConfig), newConf);
 };
 const configure = setConfig;
-
-/**
- * Validates a value against the rules.
- */
 async function validate(value, rules, options = {}) {
-    const shouldBail = options === null || options === void 0 ? void 0 : options.bails;
-    const field = {
-        name: (options === null || options === void 0 ? void 0 : options.name) || '{field}',
-        rules,
-        label: options === null || options === void 0 ? void 0 : options.label,
-        bails: shouldBail !== null && shouldBail !== void 0 ? shouldBail : true,
-        formData: (options === null || options === void 0 ? void 0 : options.values) || {},
-    };
-    const result = await _validate(field, value);
-    const errors = result.errors;
-    return {
-        errors,
-        valid: !errors.length,
-    };
+  const shouldBail = options === null || options === void 0 ? void 0 : options.bails;
+  const field = {
+    name: (options === null || options === void 0 ? void 0 : options.name) || "{field}",
+    rules,
+    label: options === null || options === void 0 ? void 0 : options.label,
+    bails: shouldBail !== null && shouldBail !== void 0 ? shouldBail : true,
+    formData: (options === null || options === void 0 ? void 0 : options.values) || {}
+  };
+  const result = await _validate(field, value);
+  const errors = result.errors;
+  return {
+    errors,
+    valid: !errors.length
+  };
 }
-/**
- * Starts the validation process.
- */
 async function _validate(field, value) {
-    if (isTypedSchema(field.rules) || isYupValidator(field.rules)) {
-        return validateFieldWithTypedSchema(value, field.rules);
-    }
-    // if a generic function or chain of generic functions
-    if (isCallable(field.rules) || Array.isArray(field.rules)) {
-        const ctx = {
-            field: field.label || field.name,
-            name: field.name,
-            label: field.label,
-            form: field.formData,
-            value,
-        };
-        // Normalize the pipeline
-        const pipeline = Array.isArray(field.rules) ? field.rules : [field.rules];
-        const length = pipeline.length;
-        const errors = [];
-        for (let i = 0; i < length; i++) {
-            const rule = pipeline[i];
-            const result = await rule(value, ctx);
-            const isValid = typeof result !== 'string' && !Array.isArray(result) && result;
-            if (isValid) {
-                continue;
-            }
-            if (Array.isArray(result)) {
-                errors.push(...result);
-            }
-            else {
-                const message = typeof result === 'string' ? result : _generateFieldError(ctx);
-                errors.push(message);
-            }
-            if (field.bails) {
-                return {
-                    errors,
-                };
-            }
-        }
+  if (isTypedSchema(field.rules) || isYupValidator(field.rules)) {
+    return validateFieldWithTypedSchema(value, field.rules);
+  }
+  if (isCallable(field.rules) || Array.isArray(field.rules)) {
+    const ctx = {
+      field: field.label || field.name,
+      name: field.name,
+      label: field.label,
+      form: field.formData,
+      value
+    };
+    const pipeline = Array.isArray(field.rules) ? field.rules : [field.rules];
+    const length2 = pipeline.length;
+    const errors2 = [];
+    for (let i = 0; i < length2; i++) {
+      const rule = pipeline[i];
+      const result = await rule(value, ctx);
+      const isValid = typeof result !== "string" && !Array.isArray(result) && result;
+      if (isValid) {
+        continue;
+      }
+      if (Array.isArray(result)) {
+        errors2.push(...result);
+      } else {
+        const message = typeof result === "string" ? result : _generateFieldError(ctx);
+        errors2.push(message);
+      }
+      if (field.bails) {
         return {
-            errors,
+          errors: errors2
         };
-    }
-    const normalizedContext = Object.assign(Object.assign({}, field), { rules: normalizeRules(field.rules) });
-    const errors = [];
-    const rulesKeys = Object.keys(normalizedContext.rules);
-    const length = rulesKeys.length;
-    for (let i = 0; i < length; i++) {
-        const rule = rulesKeys[i];
-        const result = await _test(normalizedContext, value, {
-            name: rule,
-            params: normalizedContext.rules[rule],
-        });
-        if (result.error) {
-            errors.push(result.error);
-            if (field.bails) {
-                return {
-                    errors,
-                };
-            }
-        }
+      }
     }
     return {
-        errors,
+      errors: errors2
     };
+  }
+  const normalizedContext = Object.assign(Object.assign({}, field), { rules: normalizeRules(field.rules) });
+  const errors = [];
+  const rulesKeys = Object.keys(normalizedContext.rules);
+  const length = rulesKeys.length;
+  for (let i = 0; i < length; i++) {
+    const rule = rulesKeys[i];
+    const result = await _test(normalizedContext, value, {
+      name: rule,
+      params: normalizedContext.rules[rule]
+    });
+    if (result.error) {
+      errors.push(result.error);
+      if (field.bails) {
+        return {
+          errors
+        };
+      }
+    }
+  }
+  return {
+    errors
+  };
 }
 function isYupError(err) {
-    return !!err && err.name === 'ValidationError';
+  return !!err && err.name === "ValidationError";
 }
 function yupToTypedSchema(yupSchema) {
-    const schema = {
-        __type: 'VVTypedSchema',
-        async parse(values) {
-            var _a;
-            try {
-                const output = await yupSchema.validate(values, { abortEarly: false });
-                return {
-                    output,
-                    errors: [],
-                };
-            }
-            catch (err) {
-                // Yup errors have a name prop one them.
-                // https://github.com/jquense/yup#validationerrorerrors-string--arraystring-value-any-path-string
-                if (!isYupError(err)) {
-                    throw err;
-                }
-                if (!((_a = err.inner) === null || _a === void 0 ? void 0 : _a.length) && err.errors.length) {
-                    return { errors: [{ path: err.path, errors: err.errors }] };
-                }
-                const errors = err.inner.reduce((acc, curr) => {
-                    const path = curr.path || '';
-                    if (!acc[path]) {
-                        acc[path] = { errors: [], path };
-                    }
-                    acc[path].errors.push(...curr.errors);
-                    return acc;
-                }, {});
-                return { errors: Object.values(errors) };
-            }
-        },
-    };
-    return schema;
-}
-/**
- * Handles yup validation
- */
-async function validateFieldWithTypedSchema(value, schema) {
-    const typedSchema = isTypedSchema(schema) ? schema : yupToTypedSchema(schema);
-    const result = await typedSchema.parse(value);
-    const messages = [];
-    for (const error of result.errors) {
-        if (error.errors.length) {
-            messages.push(...error.errors);
-        }
-    }
-    return {
-        errors: messages,
-    };
-}
-/**
- * Tests a single input value against a rule.
- */
-async function _test(field, value, rule) {
-    const validator = resolveRule(rule.name);
-    if (!validator) {
-        throw new Error(`No such validator '${rule.name}' exists.`);
-    }
-    const params = fillTargetValues(rule.params, field.formData);
-    const ctx = {
-        field: field.label || field.name,
-        name: field.name,
-        label: field.label,
-        value,
-        form: field.formData,
-        rule: Object.assign(Object.assign({}, rule), { params }),
-    };
-    const result = await validator(value, params, ctx);
-    if (typeof result === 'string') {
+  const schema = {
+    __type: "VVTypedSchema",
+    async parse(values) {
+      var _a;
+      try {
+        const output = await yupSchema.validate(values, { abortEarly: false });
         return {
-            error: result,
+          output,
+          errors: []
         };
+      } catch (err) {
+        if (!isYupError(err)) {
+          throw err;
+        }
+        if (!((_a = err.inner) === null || _a === void 0 ? void 0 : _a.length) && err.errors.length) {
+          return { errors: [{ path: err.path, errors: err.errors }] };
+        }
+        const errors = err.inner.reduce((acc, curr) => {
+          const path = curr.path || "";
+          if (!acc[path]) {
+            acc[path] = { errors: [], path };
+          }
+          acc[path].errors.push(...curr.errors);
+          return acc;
+        }, {});
+        return { errors: Object.values(errors) };
+      }
     }
-    return {
-        error: result ? undefined : _generateFieldError(ctx),
-    };
+  };
+  return schema;
 }
-/**
- * Generates error messages.
- */
-function _generateFieldError(fieldCtx) {
-    const message = getConfig().generateMessage;
-    if (!message) {
-        return 'Field is invalid';
+async function validateFieldWithTypedSchema(value, schema) {
+  const typedSchema = isTypedSchema(schema) ? schema : yupToTypedSchema(schema);
+  const result = await typedSchema.parse(value);
+  const messages = [];
+  for (const error of result.errors) {
+    if (error.errors.length) {
+      messages.push(...error.errors);
     }
-    return message(fieldCtx);
+  }
+  return {
+    errors: messages
+  };
+}
+async function _test(field, value, rule) {
+  const validator = resolveRule(rule.name);
+  if (!validator) {
+    throw new Error(`No such validator '${rule.name}' exists.`);
+  }
+  const params = fillTargetValues(rule.params, field.formData);
+  const ctx = {
+    field: field.label || field.name,
+    name: field.name,
+    label: field.label,
+    value,
+    form: field.formData,
+    rule: Object.assign(Object.assign({}, rule), { params })
+  };
+  const result = await validator(value, params, ctx);
+  if (typeof result === "string") {
+    return {
+      error: result
+    };
+  }
+  return {
+    error: result ? void 0 : _generateFieldError(ctx)
+  };
+}
+function _generateFieldError(fieldCtx) {
+  const message = getConfig().generateMessage;
+  if (!message) {
+    return "Field is invalid";
+  }
+  return message(fieldCtx);
 }
 function fillTargetValues(params, crossTable) {
-    const normalize = (value) => {
-        if (isLocator(value)) {
-            return value(crossTable);
-        }
-        return value;
-    };
-    if (Array.isArray(params)) {
-        return params.map(normalize);
+  const normalize = (value) => {
+    if (isLocator(value)) {
+      return value(crossTable);
     }
-    return Object.keys(params).reduce((acc, param) => {
-        acc[param] = normalize(params[param]);
-        return acc;
-    }, {});
+    return value;
+  };
+  if (Array.isArray(params)) {
+    return params.map(normalize);
+  }
+  return Object.keys(params).reduce((acc, param) => {
+    acc[param] = normalize(params[param]);
+    return acc;
+  }, {});
 }
 async function validateTypedSchema(schema, values) {
-    const typedSchema = isTypedSchema(schema) ? schema : yupToTypedSchema(schema);
-    const validationResult = await typedSchema.parse(values);
-    const results = {};
-    const errors = {};
-    for (const error of validationResult.errors) {
-        const messages = error.errors;
-        // Fixes issue with path mapping with Yup 1.0 including quotes around array indices
-        const path = (error.path || '').replace(/\["(\d+)"\]/g, (_, m) => {
-            return `[${m}]`;
-        });
-        results[path] = { valid: !messages.length, errors: messages };
-        if (messages.length) {
-            errors[path] = messages[0];
-        }
+  const typedSchema = isTypedSchema(schema) ? schema : yupToTypedSchema(schema);
+  const validationResult = await typedSchema.parse(klona(values));
+  const results = {};
+  const errors = {};
+  for (const error of validationResult.errors) {
+    const messages = error.errors;
+    const path = (error.path || "").replace(/\["(\d+)"\]/g, (_, m) => {
+      return `[${m}]`;
+    });
+    results[path] = { valid: !messages.length, errors: messages };
+    if (messages.length) {
+      errors[path] = messages[0];
     }
-    return {
-        valid: !validationResult.errors.length,
-        results,
-        errors,
-        values: validationResult.value,
-    };
+  }
+  return {
+    valid: !validationResult.errors.length,
+    results,
+    errors,
+    values: validationResult.value
+  };
 }
 async function validateObjectSchema(schema, values, opts) {
-    const paths = keysOf(schema);
-    const validations = paths.map(async (path) => {
-        var _a, _b, _c;
-        const strings = (_a = opts === null || opts === void 0 ? void 0 : opts.names) === null || _a === void 0 ? void 0 : _a[path];
-        const fieldResult = await validate(getFromPath(values, path), schema[path], {
-            name: (strings === null || strings === void 0 ? void 0 : strings.name) || path,
-            label: strings === null || strings === void 0 ? void 0 : strings.label,
-            values: values,
-            bails: (_c = (_b = opts === null || opts === void 0 ? void 0 : opts.bailsMap) === null || _b === void 0 ? void 0 : _b[path]) !== null && _c !== void 0 ? _c : true,
-        });
-        return Object.assign(Object.assign({}, fieldResult), { path });
+  const paths = keysOf(schema);
+  const validations = paths.map(async (path) => {
+    var _a, _b, _c;
+    const strings = (_a = opts === null || opts === void 0 ? void 0 : opts.names) === null || _a === void 0 ? void 0 : _a[path];
+    const fieldResult = await validate(getFromPath(values, path), schema[path], {
+      name: (strings === null || strings === void 0 ? void 0 : strings.name) || path,
+      label: strings === null || strings === void 0 ? void 0 : strings.label,
+      values,
+      bails: (_c = (_b = opts === null || opts === void 0 ? void 0 : opts.bailsMap) === null || _b === void 0 ? void 0 : _b[path]) !== null && _c !== void 0 ? _c : true
     });
-    let isAllValid = true;
-    const validationResults = await Promise.all(validations);
-    const results = {};
-    const errors = {};
-    for (const result of validationResults) {
-        results[result.path] = {
-            valid: result.valid,
-            errors: result.errors,
-        };
-        if (!result.valid) {
-            isAllValid = false;
-            errors[result.path] = result.errors[0];
-        }
-    }
-    return {
-        valid: isAllValid,
-        results,
-        errors,
+    return Object.assign(Object.assign({}, fieldResult), { path });
+  });
+  let isAllValid = true;
+  const validationResults = await Promise.all(validations);
+  const results = {};
+  const errors = {};
+  for (const result of validationResults) {
+    results[result.path] = {
+      valid: result.valid,
+      errors: result.errors
     };
+    if (!result.valid) {
+      isAllValid = false;
+      errors[result.path] = result.errors[0];
+    }
+  }
+  return {
+    valid: isAllValid,
+    results,
+    errors
+  };
 }
-
 let ID_COUNTER = 0;
 function useFieldState(path, init) {
-    const { value, initialValue, setInitialValue } = _useFieldValue(path, init.modelValue, init.form);
-    if (!init.form) {
-        const { errors, setErrors } = createFieldErrors();
-        const id = ID_COUNTER >= Number.MAX_SAFE_INTEGER ? 0 : ++ID_COUNTER;
-        const meta = createFieldMeta(value, initialValue, errors);
-        function setState(state) {
-            var _a;
-            if ('value' in state) {
-                value.value = state.value;
-            }
-            if ('errors' in state) {
-                setErrors(state.errors);
-            }
-            if ('touched' in state) {
-                meta.touched = (_a = state.touched) !== null && _a !== void 0 ? _a : meta.touched;
-            }
-            if ('initialValue' in state) {
-                setInitialValue(state.initialValue);
-            }
-        }
-        return {
-            id,
-            path,
-            value,
-            initialValue,
-            meta,
-            flags: { pendingUnmount: { [id]: false } },
-            errors,
-            setState,
-        };
-    }
-    const state = init.form.createPathState(path, {
-        bails: init.bails,
-        label: init.label,
-        type: init.type,
-        validate: init.validate,
-    });
-    const errors = computed(() => state.errors);
-    function setState(state) {
-        var _a, _b, _c;
-        if ('value' in state) {
-            value.value = state.value;
-        }
-        if ('errors' in state) {
-            (_a = init.form) === null || _a === void 0 ? void 0 : _a.setFieldError(unref(path), state.errors);
-        }
-        if ('touched' in state) {
-            (_b = init.form) === null || _b === void 0 ? void 0 : _b.setFieldTouched(unref(path), (_c = state.touched) !== null && _c !== void 0 ? _c : false);
-        }
-        if ('initialValue' in state) {
-            setInitialValue(state.initialValue);
-        }
-    }
-    return {
-        id: Array.isArray(state.id) ? state.id[state.id.length - 1] : state.id,
-        path,
-        value,
-        errors,
-        meta: state,
-        initialValue,
-        flags: state.__flags,
-        setState,
+  const { value, initialValue, setInitialValue } = _useFieldValue(path, init.modelValue, init.form);
+  if (!init.form) {
+    let setState2 = function(state2) {
+      var _a;
+      if ("value" in state2) {
+        value.value = state2.value;
+      }
+      if ("errors" in state2) {
+        setErrors(state2.errors);
+      }
+      if ("touched" in state2) {
+        meta.touched = (_a = state2.touched) !== null && _a !== void 0 ? _a : meta.touched;
+      }
+      if ("initialValue" in state2) {
+        setInitialValue(state2.initialValue);
+      }
     };
+    const { errors: errors2, setErrors } = createFieldErrors();
+    const id = ID_COUNTER >= Number.MAX_SAFE_INTEGER ? 0 : ++ID_COUNTER;
+    const meta = createFieldMeta(value, initialValue, errors2, init.schema);
+    return {
+      id,
+      path,
+      value,
+      initialValue,
+      meta,
+      flags: { pendingUnmount: { [id]: false }, pendingReset: false },
+      errors: errors2,
+      setState: setState2
+    };
+  }
+  const state = init.form.createPathState(path, {
+    bails: init.bails,
+    label: init.label,
+    type: init.type,
+    validate: init.validate,
+    schema: init.schema
+  });
+  const errors = computed(() => state.errors);
+  function setState(state2) {
+    var _a, _b, _c;
+    if ("value" in state2) {
+      value.value = state2.value;
+    }
+    if ("errors" in state2) {
+      (_a = init.form) === null || _a === void 0 ? void 0 : _a.setFieldError(unref(path), state2.errors);
+    }
+    if ("touched" in state2) {
+      (_b = init.form) === null || _b === void 0 ? void 0 : _b.setFieldTouched(unref(path), (_c = state2.touched) !== null && _c !== void 0 ? _c : false);
+    }
+    if ("initialValue" in state2) {
+      setInitialValue(state2.initialValue);
+    }
+  }
+  return {
+    id: Array.isArray(state.id) ? state.id[state.id.length - 1] : state.id,
+    path,
+    value,
+    errors,
+    meta: state,
+    initialValue,
+    flags: state.__flags,
+    setState
+  };
 }
-/**
- * Creates the field value and resolves the initial value
- */
 function _useFieldValue(path, modelValue, form) {
-    const modelRef = ref(unref(modelValue));
-    function resolveInitialValue() {
-        if (!form) {
-            return unref(modelRef);
-        }
-        return getFromPath(form.initialValues.value, unref(path), unref(modelRef));
-    }
-    function setInitialValue(value) {
-        if (!form) {
-            modelRef.value = value;
-            return;
-        }
-        form.stageInitialValue(unref(path), value, true);
-    }
-    const initialValue = computed(resolveInitialValue);
-    // if no form is associated, use a regular ref.
+  const modelRef = ref(unref(modelValue));
+  function resolveInitialValue2() {
     if (!form) {
-        const value = ref(resolveInitialValue());
-        return {
-            value,
-            initialValue,
-            setInitialValue,
-        };
+      return unref(modelRef);
     }
-    // to set the initial value, first check if there is a current value, if there is then use it.
-    // otherwise use the configured initial value if it exists.
-    // prioritize model value over form values
-    // #3429
-    const currentValue = resolveModelValue(modelValue, form, initialValue, path);
-    form.stageInitialValue(unref(path), currentValue, true);
-    // otherwise use a computed setter that triggers the `setFieldValue`
-    const value = computed({
-        get() {
-            return getFromPath(form.values, unref(path));
-        },
-        set(newVal) {
-            form.setFieldValue(unref(path), newVal, false);
-        },
-    });
+    return getFromPath(form.initialValues.value, unref(path), unref(modelRef));
+  }
+  function setInitialValue(value2) {
+    if (!form) {
+      modelRef.value = value2;
+      return;
+    }
+    form.setFieldInitialValue(unref(path), value2, true);
+  }
+  const initialValue = computed(resolveInitialValue2);
+  if (!form) {
+    const value2 = ref(resolveInitialValue2());
     return {
-        value,
-        initialValue,
-        setInitialValue,
+      value: value2,
+      initialValue,
+      setInitialValue
     };
+  }
+  const currentValue = resolveModelValue(modelValue, form, initialValue, path);
+  form.stageInitialValue(unref(path), currentValue, true);
+  const value = computed({
+    get() {
+      return getFromPath(form.values, unref(path));
+    },
+    set(newVal) {
+      form.setFieldValue(unref(path), newVal, false);
+    }
+  });
+  return {
+    value,
+    initialValue,
+    setInitialValue
+  };
 }
-/*
-  to set the initial value, first check if there is a current value, if there is then use it.
-  otherwise use the configured initial value if it exists.
-  prioritize model value over form values
-  #3429
-*/
 function resolveModelValue(modelValue, form, initialValue, path) {
-    if (isRef(modelValue)) {
-        return unref(modelValue);
-    }
-    if (modelValue !== undefined) {
-        return modelValue;
-    }
-    return getFromPath(form.values, unref(path), unref(initialValue));
+  if (isRef(modelValue)) {
+    return unref(modelValue);
+  }
+  if (modelValue !== void 0) {
+    return modelValue;
+  }
+  return getFromPath(form.values, unref(path), unref(initialValue));
 }
-/**
- * Creates meta flags state and some associated effects with them
- */
-function createFieldMeta(currentValue, initialValue, errors) {
-    const meta = reactive({
-        touched: false,
-        pending: false,
-        valid: true,
-        validated: !!unref(errors).length,
-        initialValue: computed(() => unref(initialValue)),
-        dirty: computed(() => {
-            return !isEqual(unref(currentValue), unref(initialValue));
-        }),
-    });
-    watch(errors, value => {
-        meta.valid = !value.length;
-    }, {
-        immediate: true,
-        flush: 'sync',
-    });
-    return meta;
+function createFieldMeta(currentValue, initialValue, errors, schema) {
+  var _a, _b;
+  const isRequired = (_b = (_a = schema === null || schema === void 0 ? void 0 : schema.describe) === null || _a === void 0 ? void 0 : _a.call(schema).required) !== null && _b !== void 0 ? _b : false;
+  const meta = reactive({
+    touched: false,
+    pending: false,
+    valid: true,
+    required: isRequired,
+    validated: !!unref(errors).length,
+    initialValue: computed(() => unref(initialValue)),
+    dirty: computed(() => {
+      return !isEqual(unref(currentValue), unref(initialValue));
+    })
+  });
+  watch(errors, (value) => {
+    meta.valid = !value.length;
+  }, {
+    immediate: true,
+    flush: "sync"
+  });
+  return meta;
 }
-/**
- * Creates the error message state for the field state
- */
 function createFieldErrors() {
-    const errors = ref([]);
-    return {
-        errors,
-        setErrors: (messages) => {
-            errors.value = normalizeErrorItem(messages);
-        },
-    };
-}
-
-/**
- * Creates a field composite.
- */
-function useField(path, rules, opts) {
-    if (hasCheckedAttr(opts === null || opts === void 0 ? void 0 : opts.type)) {
-        return useFieldWithChecked(path, rules, opts);
+  const errors = ref([]);
+  return {
+    errors,
+    setErrors: (messages) => {
+      errors.value = normalizeErrorItem(messages);
     }
-    return _useField(path, rules, opts);
+  };
+}
+function useField(path, rules, opts) {
+  if (hasCheckedAttr(opts === null || opts === void 0 ? void 0 : opts.type)) {
+    return useFieldWithChecked(path, rules, opts);
+  }
+  return _useField(path, rules, opts);
 }
 function _useField(path, rules, opts) {
-    const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, controlled, keepValueOnUnmount, syncVModel, form: controlForm, } = normalizeOptions(opts);
-    const injectedForm = controlled ? injectWithSelf(FormContextKey) : undefined;
-    const form = controlForm || injectedForm;
-    const name = lazyToRef(path);
-    const validator = computed(() => {
-        const schema = unref(form === null || form === void 0 ? void 0 : form.schema);
-        if (schema) {
-            return undefined;
-        }
-        const rulesValue = unref(rules);
-        if (isYupValidator(rulesValue) ||
-            isTypedSchema(rulesValue) ||
-            isCallable(rulesValue) ||
-            Array.isArray(rulesValue)) {
-            return rulesValue;
-        }
-        return normalizeRules(rulesValue);
+  const { initialValue: modelValue, validateOnMount, bails, type, checkedValue, label, validateOnValueUpdate, uncheckedValue, controlled, keepValueOnUnmount, syncVModel, form: controlForm } = normalizeOptions(opts);
+  const injectedForm = controlled ? injectWithSelf(FormContextKey) : void 0;
+  const form = controlForm || injectedForm;
+  const name = computed(() => normalizeFormPath(toValue(path)));
+  const validator = computed(() => {
+    const schema = toValue(form === null || form === void 0 ? void 0 : form.schema);
+    if (schema) {
+      return void 0;
+    }
+    const rulesValue = unref(rules);
+    if (isYupValidator(rulesValue) || isTypedSchema(rulesValue) || isCallable(rulesValue) || Array.isArray(rulesValue)) {
+      return rulesValue;
+    }
+    return normalizeRules(rulesValue);
+  });
+  const { id, value, initialValue, meta, setState, errors, flags } = useFieldState(name, {
+    modelValue,
+    form,
+    bails,
+    label,
+    type,
+    validate: validator.value ? validate$1 : void 0,
+    schema: isTypedSchema(rules) ? rules : void 0
+  });
+  const errorMessage = computed(() => errors.value[0]);
+  if (syncVModel) {
+    useVModel({
+      value,
+      prop: syncVModel,
+      handleChange,
+      shouldValidate: () => validateOnValueUpdate && !flags.pendingReset
     });
-    const { id, value, initialValue, meta, setState, errors, flags } = useFieldState(name, {
-        modelValue,
-        form,
-        bails,
-        label,
-        type,
-        validate: validator.value ? validate$1 : undefined,
+  }
+  const handleBlur = (evt, shouldValidate = false) => {
+    meta.touched = true;
+    if (shouldValidate) {
+      validateWithStateMutation();
+    }
+  };
+  async function validateCurrentValue(mode) {
+    var _a, _b;
+    if (form === null || form === void 0 ? void 0 : form.validateSchema) {
+      const { results } = await form.validateSchema(mode);
+      return (_a = results[toValue(name)]) !== null && _a !== void 0 ? _a : { valid: true, errors: [] };
+    }
+    if (validator.value) {
+      return validate(value.value, validator.value, {
+        name: toValue(name),
+        label: toValue(label),
+        values: (_b = form === null || form === void 0 ? void 0 : form.values) !== null && _b !== void 0 ? _b : {},
+        bails
+      });
+    }
+    return { valid: true, errors: [] };
+  }
+  const validateWithStateMutation = withLatest(async () => {
+    meta.pending = true;
+    meta.validated = true;
+    return validateCurrentValue("validated-only");
+  }, (result) => {
+    if (flags.pendingUnmount[field.id]) {
+      return result;
+    }
+    setState({ errors: result.errors });
+    meta.pending = false;
+    meta.valid = result.valid;
+    return result;
+  });
+  const validateValidStateOnly = withLatest(async () => {
+    return validateCurrentValue("silent");
+  }, (result) => {
+    meta.valid = result.valid;
+    return result;
+  });
+  function validate$1(opts2) {
+    if ((opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) === "silent") {
+      return validateValidStateOnly();
+    }
+    return validateWithStateMutation();
+  }
+  function handleChange(e, shouldValidate = true) {
+    const newValue = normalizeEventValue(e);
+    setValue(newValue, shouldValidate);
+  }
+  onMounted(() => {
+    if (validateOnMount) {
+      return validateWithStateMutation();
+    }
+    if (!form || !form.validateSchema) {
+      validateValidStateOnly();
+    }
+  });
+  function setTouched(isTouched) {
+    meta.touched = isTouched;
+  }
+  function resetField(state) {
+    var _a;
+    const newValue = state && "value" in state ? state.value : initialValue.value;
+    setState({
+      value: klona(newValue),
+      initialValue: klona(newValue),
+      touched: (_a = state === null || state === void 0 ? void 0 : state.touched) !== null && _a !== void 0 ? _a : false,
+      errors: (state === null || state === void 0 ? void 0 : state.errors) || []
     });
-    const errorMessage = computed(() => errors.value[0]);
-    if (syncVModel) {
-        useVModel({ value, prop: syncVModel, handleChange });
+    meta.pending = false;
+    meta.validated = false;
+    validateValidStateOnly();
+  }
+  const vm = getCurrentInstance();
+  function setValue(newValue, shouldValidate = true) {
+    value.value = vm && syncVModel ? applyModelModifiers(newValue, vm.props.modelModifiers) : newValue;
+    const validateFn = shouldValidate ? validateWithStateMutation : validateValidStateOnly;
+    validateFn();
+  }
+  function setErrors(errors2) {
+    setState({ errors: Array.isArray(errors2) ? errors2 : [errors2] });
+  }
+  const valueProxy = computed({
+    get() {
+      return value.value;
+    },
+    set(newValue) {
+      setValue(newValue, validateOnValueUpdate);
     }
-    /**
-     * Handles common onBlur meta update
-     */
-    const handleBlur = (evt, shouldValidate = false) => {
-        meta.touched = true;
-        if (shouldValidate) {
-            validateWithStateMutation();
-        }
-    };
-    async function validateCurrentValue(mode) {
-        var _a, _b;
-        if (form === null || form === void 0 ? void 0 : form.validateSchema) {
-            return (_a = (await form.validateSchema(mode)).results[unref(name)]) !== null && _a !== void 0 ? _a : { valid: true, errors: [] };
-        }
-        if (validator.value) {
-            return validate(value.value, validator.value, {
-                name: unref(name),
-                label: unref(label),
-                values: (_b = form === null || form === void 0 ? void 0 : form.values) !== null && _b !== void 0 ? _b : {},
-                bails,
-            });
-        }
-        return { valid: true, errors: [] };
-    }
-    const validateWithStateMutation = withLatest(async () => {
-        meta.pending = true;
-        meta.validated = true;
-        return validateCurrentValue('validated-only');
-    }, result => {
-        if (flags.pendingUnmount[field.id]) {
-            return;
-        }
-        setState({ errors: result.errors });
-        meta.pending = false;
-        meta.valid = result.valid;
-        return result;
+  });
+  const field = {
+    id,
+    name,
+    label,
+    value: valueProxy,
+    meta,
+    errors,
+    errorMessage,
+    type,
+    checkedValue,
+    uncheckedValue,
+    bails,
+    keepValueOnUnmount,
+    resetField,
+    handleReset: () => resetField(),
+    validate: validate$1,
+    handleChange,
+    handleBlur,
+    setState,
+    setTouched,
+    setErrors,
+    setValue
+  };
+  provide(FieldContextKey, field);
+  if (isRef(rules) && typeof unref(rules) !== "function") {
+    watch(rules, (value2, oldValue) => {
+      if (isEqual(value2, oldValue)) {
+        return;
+      }
+      meta.validated ? validateWithStateMutation() : validateValidStateOnly();
+    }, {
+      deep: true
     });
-    const validateValidStateOnly = withLatest(async () => {
-        return validateCurrentValue('silent');
-    }, result => {
-        meta.valid = result.valid;
-        return result;
-    });
-    function validate$1(opts) {
-        if ((opts === null || opts === void 0 ? void 0 : opts.mode) === 'silent') {
-            return validateValidStateOnly();
-        }
-        return validateWithStateMutation();
-    }
-    // Common input/change event handler
-    function handleChange(e, shouldValidate = true) {
-        const newValue = normalizeEventValue(e);
-        setValue(newValue, shouldValidate);
-    }
-    // Runs the initial validation
-    onMounted(() => {
-        if (validateOnMount) {
-            return validateWithStateMutation();
-        }
-        // validate self initially if no form was handling this
-        // forms should have their own initial silent validation run to make things more efficient
-        if (!form || !form.validateSchema) {
-            validateValidStateOnly();
-        }
-    });
-    function setTouched(isTouched) {
-        meta.touched = isTouched;
-    }
-    function resetField(state) {
-        var _a;
-        const newValue = state && 'value' in state ? state.value : initialValue.value;
-        setState({
-            value: klona(newValue),
-            initialValue: klona(newValue),
-            touched: (_a = state === null || state === void 0 ? void 0 : state.touched) !== null && _a !== void 0 ? _a : false,
-            errors: (state === null || state === void 0 ? void 0 : state.errors) || [],
-        });
-        meta.pending = false;
-        meta.validated = false;
-        validateValidStateOnly();
-    }
-    function setValue(newValue, shouldValidate = true) {
-        value.value = newValue;
-        const validateFn = shouldValidate ? validateWithStateMutation : validateValidStateOnly;
-        validateFn();
-    }
-    function setErrors(errors) {
-        setState({ errors: Array.isArray(errors) ? errors : [errors] });
-    }
-    const valueProxy = computed({
-        get() {
-            return value.value;
-        },
-        set(newValue) {
-            setValue(newValue, validateOnValueUpdate);
-        },
-    });
-    const field = {
-        id,
-        name,
-        label,
-        value: valueProxy,
-        meta,
-        errors,
-        errorMessage,
-        type,
-        checkedValue,
-        uncheckedValue,
-        bails,
-        keepValueOnUnmount,
-        resetField,
-        handleReset: () => resetField(),
-        validate: validate$1,
-        handleChange,
-        handleBlur,
-        setState,
-        setTouched,
-        setErrors,
-        setValue,
-    };
-    provide(FieldContextKey, field);
-    if (isRef(rules) && typeof unref(rules) !== 'function') {
-        watch(rules, (value, oldValue) => {
-            if (isEqual(value, oldValue)) {
-                return;
-            }
-            meta.validated ? validateWithStateMutation() : validateValidStateOnly();
-        }, {
-            deep: true,
-        });
-    }
-    // if no associated form return the field API immediately
-    if (!form) {
-        return field;
-    }
-    // associate the field with the given form
-    // extract cross-field dependencies in a computed prop
-    const dependencies = computed(() => {
-        const rulesVal = validator.value;
-        // is falsy, a function schema or a yup schema
-        if (!rulesVal ||
-            isCallable(rulesVal) ||
-            isYupValidator(rulesVal) ||
-            isTypedSchema(rulesVal) ||
-            Array.isArray(rulesVal)) {
-            return {};
-        }
-        return Object.keys(rulesVal).reduce((acc, rule) => {
-            const deps = extractLocators(rulesVal[rule])
-                .map((dep) => dep.__locatorRef)
-                .reduce((depAcc, depName) => {
-                const depValue = getFromPath(form.values, depName) || form.values[depName];
-                if (depValue !== undefined) {
-                    depAcc[depName] = depValue;
-                }
-                return depAcc;
-            }, {});
-            Object.assign(acc, deps);
-            return acc;
-        }, {});
-    });
-    // Adds a watcher that runs the validation whenever field dependencies change
-    watch(dependencies, (deps, oldDeps) => {
-        // Skip if no dependencies or if the field wasn't manipulated
-        if (!Object.keys(deps).length) {
-            return;
-        }
-        const shouldValidate = !isEqual(deps, oldDeps);
-        if (shouldValidate) {
-            meta.validated ? validateWithStateMutation() : validateValidStateOnly();
-        }
-    });
-    onBeforeUnmount(() => {
-        var _a;
-        const shouldKeepValue = (_a = unref(field.keepValueOnUnmount)) !== null && _a !== void 0 ? _a : unref(form.keepValuesOnUnmount);
-        const path = toValue(name);
-        if (shouldKeepValue || !form || flags.pendingUnmount[field.id]) {
-            form === null || form === void 0 ? void 0 : form.removePathState(path, id);
-            return;
-        }
-        flags.pendingUnmount[field.id] = true;
-        const pathState = form.getPathState(path);
-        const matchesId = Array.isArray(pathState === null || pathState === void 0 ? void 0 : pathState.id) && (pathState === null || pathState === void 0 ? void 0 : pathState.multiple)
-            ? pathState === null || pathState === void 0 ? void 0 : pathState.id.includes(field.id)
-            : (pathState === null || pathState === void 0 ? void 0 : pathState.id) === field.id;
-        if (!matchesId) {
-            return;
-        }
-        if ((pathState === null || pathState === void 0 ? void 0 : pathState.multiple) && Array.isArray(pathState.value)) {
-            const valueIdx = pathState.value.findIndex(i => isEqual(i, unref(field.checkedValue)));
-            if (valueIdx > -1) {
-                const newVal = [...pathState.value];
-                newVal.splice(valueIdx, 1);
-                form.setFieldValue(path, newVal);
-            }
-            if (Array.isArray(pathState.id)) {
-                pathState.id.splice(pathState.id.indexOf(field.id), 1);
-            }
-        }
-        else {
-            form.unsetPathValue(toValue(name));
-        }
-        form.removePathState(path, id);
-    });
+  }
+  if (!form) {
     return field;
-}
-/**
- * Normalizes partial field options to include the full options
- */
-function normalizeOptions(opts) {
-    const defaults = () => ({
-        initialValue: undefined,
-        validateOnMount: false,
-        bails: true,
-        label: undefined,
-        validateOnValueUpdate: true,
-        keepValueOnUnmount: undefined,
-        syncVModel: false,
-        controlled: true,
-    });
-    const isVModelSynced = !!(opts === null || opts === void 0 ? void 0 : opts.syncVModel);
-    const modelPropName = typeof (opts === null || opts === void 0 ? void 0 : opts.syncVModel) === 'string' ? opts.syncVModel : (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || 'modelValue';
-    const initialValue = isVModelSynced && !('initialValue' in (opts || {}))
-        ? getCurrentModelValue(getCurrentInstance(), modelPropName)
-        : opts === null || opts === void 0 ? void 0 : opts.initialValue;
-    if (!opts) {
-        return Object.assign(Object.assign({}, defaults()), { initialValue });
+  }
+  const dependencies = computed(() => {
+    const rulesVal = validator.value;
+    if (!rulesVal || isCallable(rulesVal) || isYupValidator(rulesVal) || isTypedSchema(rulesVal) || Array.isArray(rulesVal)) {
+      return {};
     }
-    // TODO: Deprecate this in next major release
-    const checkedValue = 'valueProp' in opts ? opts.valueProp : opts.checkedValue;
-    const controlled = 'standalone' in opts ? !opts.standalone : opts.controlled;
-    const syncVModel = (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || (opts === null || opts === void 0 ? void 0 : opts.syncVModel) || false;
-    return Object.assign(Object.assign(Object.assign({}, defaults()), (opts || {})), { initialValue, controlled: controlled !== null && controlled !== void 0 ? controlled : true, checkedValue,
-        syncVModel });
+    return Object.keys(rulesVal).reduce((acc, rule) => {
+      const deps = extractLocators(rulesVal[rule]).map((dep) => dep.__locatorRef).reduce((depAcc, depName) => {
+        const depValue = getFromPath(form.values, depName) || form.values[depName];
+        if (depValue !== void 0) {
+          depAcc[depName] = depValue;
+        }
+        return depAcc;
+      }, {});
+      Object.assign(acc, deps);
+      return acc;
+    }, {});
+  });
+  watch(dependencies, (deps, oldDeps) => {
+    if (!Object.keys(deps).length) {
+      return;
+    }
+    const shouldValidate = !isEqual(deps, oldDeps);
+    if (shouldValidate) {
+      meta.validated ? validateWithStateMutation() : validateValidStateOnly();
+    }
+  });
+  onBeforeUnmount(() => {
+    var _a;
+    const shouldKeepValue = (_a = toValue(field.keepValueOnUnmount)) !== null && _a !== void 0 ? _a : toValue(form.keepValuesOnUnmount);
+    const path2 = toValue(name);
+    if (shouldKeepValue || !form || flags.pendingUnmount[field.id]) {
+      form === null || form === void 0 ? void 0 : form.removePathState(path2, id);
+      return;
+    }
+    flags.pendingUnmount[field.id] = true;
+    const pathState = form.getPathState(path2);
+    const matchesId = Array.isArray(pathState === null || pathState === void 0 ? void 0 : pathState.id) && (pathState === null || pathState === void 0 ? void 0 : pathState.multiple) ? pathState === null || pathState === void 0 ? void 0 : pathState.id.includes(field.id) : (pathState === null || pathState === void 0 ? void 0 : pathState.id) === field.id;
+    if (!matchesId) {
+      return;
+    }
+    if ((pathState === null || pathState === void 0 ? void 0 : pathState.multiple) && Array.isArray(pathState.value)) {
+      const valueIdx = pathState.value.findIndex((i) => isEqual(i, toValue(field.checkedValue)));
+      if (valueIdx > -1) {
+        const newVal = [...pathState.value];
+        newVal.splice(valueIdx, 1);
+        form.setFieldValue(path2, newVal);
+      }
+      if (Array.isArray(pathState.id)) {
+        pathState.id.splice(pathState.id.indexOf(field.id), 1);
+      }
+    } else {
+      form.unsetPathValue(toValue(name));
+    }
+    form.removePathState(path2, id);
+  });
+  return field;
+}
+function normalizeOptions(opts) {
+  const defaults = () => ({
+    initialValue: void 0,
+    validateOnMount: false,
+    bails: true,
+    label: void 0,
+    validateOnValueUpdate: true,
+    keepValueOnUnmount: void 0,
+    syncVModel: false,
+    controlled: true
+  });
+  const isVModelSynced = !!(opts === null || opts === void 0 ? void 0 : opts.syncVModel);
+  const modelPropName = typeof (opts === null || opts === void 0 ? void 0 : opts.syncVModel) === "string" ? opts.syncVModel : (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || "modelValue";
+  const initialValue = isVModelSynced && !("initialValue" in (opts || {})) ? getCurrentModelValue(getCurrentInstance(), modelPropName) : opts === null || opts === void 0 ? void 0 : opts.initialValue;
+  if (!opts) {
+    return Object.assign(Object.assign({}, defaults()), { initialValue });
+  }
+  const checkedValue = "valueProp" in opts ? opts.valueProp : opts.checkedValue;
+  const controlled = "standalone" in opts ? !opts.standalone : opts.controlled;
+  const syncVModel = (opts === null || opts === void 0 ? void 0 : opts.modelPropName) || (opts === null || opts === void 0 ? void 0 : opts.syncVModel) || false;
+  return Object.assign(Object.assign(Object.assign({}, defaults()), opts || {}), {
+    initialValue,
+    controlled: controlled !== null && controlled !== void 0 ? controlled : true,
+    checkedValue,
+    syncVModel
+  });
 }
 function useFieldWithChecked(name, rules, opts) {
-    const form = !(opts === null || opts === void 0 ? void 0 : opts.standalone) ? injectWithSelf(FormContextKey) : undefined;
-    const checkedValue = opts === null || opts === void 0 ? void 0 : opts.checkedValue;
-    const uncheckedValue = opts === null || opts === void 0 ? void 0 : opts.uncheckedValue;
-    function patchCheckedApi(field) {
-        const handleChange = field.handleChange;
-        const checked = computed(() => {
-            const currentValue = unref(field.value);
-            const checkedVal = unref(checkedValue);
-            return Array.isArray(currentValue)
-                ? currentValue.findIndex(v => isEqual(v, checkedVal)) >= 0
-                : isEqual(checkedVal, currentValue);
-        });
-        function handleCheckboxChange(e, shouldValidate = true) {
-            var _a, _b;
-            if (checked.value === ((_a = e === null || e === void 0 ? void 0 : e.target) === null || _a === void 0 ? void 0 : _a.checked)) {
-                if (shouldValidate) {
-                    field.validate();
-                }
-                return;
-            }
-            const path = toValue(name);
-            const pathState = form === null || form === void 0 ? void 0 : form.getPathState(path);
-            const value = normalizeEventValue(e);
-            let newValue = (_b = unref(checkedValue)) !== null && _b !== void 0 ? _b : value;
-            if (form && (pathState === null || pathState === void 0 ? void 0 : pathState.multiple) && pathState.type === 'checkbox') {
-                newValue = resolveNextCheckboxValue(getFromPath(form.values, path) || [], newValue, undefined);
-            }
-            else if ((opts === null || opts === void 0 ? void 0 : opts.type) === 'checkbox') {
-                newValue = resolveNextCheckboxValue(unref(field.value), newValue, unref(uncheckedValue));
-            }
-            handleChange(newValue, shouldValidate);
+  const form = !(opts === null || opts === void 0 ? void 0 : opts.standalone) ? injectWithSelf(FormContextKey) : void 0;
+  const checkedValue = opts === null || opts === void 0 ? void 0 : opts.checkedValue;
+  const uncheckedValue = opts === null || opts === void 0 ? void 0 : opts.uncheckedValue;
+  function patchCheckedApi(field) {
+    const handleChange = field.handleChange;
+    const checked = computed(() => {
+      const currentValue = toValue(field.value);
+      const checkedVal = toValue(checkedValue);
+      return Array.isArray(currentValue) ? currentValue.findIndex((v) => isEqual(v, checkedVal)) >= 0 : isEqual(checkedVal, currentValue);
+    });
+    function handleCheckboxChange(e, shouldValidate = true) {
+      var _a, _b;
+      if (checked.value === ((_a = e === null || e === void 0 ? void 0 : e.target) === null || _a === void 0 ? void 0 : _a.checked)) {
+        if (shouldValidate) {
+          field.validate();
         }
-        return Object.assign(Object.assign({}, field), { checked,
-            checkedValue,
-            uncheckedValue, handleChange: handleCheckboxChange });
+        return;
+      }
+      const path = toValue(name);
+      const pathState = form === null || form === void 0 ? void 0 : form.getPathState(path);
+      const value = normalizeEventValue(e);
+      let newValue = (_b = toValue(checkedValue)) !== null && _b !== void 0 ? _b : value;
+      if (form && (pathState === null || pathState === void 0 ? void 0 : pathState.multiple) && pathState.type === "checkbox") {
+        newValue = resolveNextCheckboxValue(getFromPath(form.values, path) || [], newValue, void 0);
+      } else if ((opts === null || opts === void 0 ? void 0 : opts.type) === "checkbox") {
+        newValue = resolveNextCheckboxValue(toValue(field.value), newValue, toValue(uncheckedValue));
+      }
+      handleChange(newValue, shouldValidate);
     }
-    return patchCheckedApi(_useField(name, rules, opts));
+    return Object.assign(Object.assign({}, field), {
+      checked,
+      checkedValue,
+      uncheckedValue,
+      handleChange: handleCheckboxChange
+    });
+  }
+  return patchCheckedApi(_useField(name, rules, opts));
 }
-function useVModel({ prop, value, handleChange }) {
-    const vm = getCurrentInstance();
-    /* istanbul ignore next */
-    if (!vm || !prop) {
-        return;
+function useVModel({ prop, value, handleChange, shouldValidate }) {
+  const vm = getCurrentInstance();
+  if (!vm || !prop) {
+    return;
+  }
+  const propName = typeof prop === "string" ? prop : "modelValue";
+  const emitName = `update:${propName}`;
+  if (!(propName in vm.props)) {
+    return;
+  }
+  watch(value, (newValue) => {
+    if (isEqual(newValue, getCurrentModelValue(vm, propName))) {
+      return;
     }
-    const propName = typeof prop === 'string' ? prop : 'modelValue';
-    const emitName = `update:${propName}`;
-    // Component doesn't have a model prop setup (must be defined on the props)
-    if (!(propName in vm.props)) {
-        return;
+    vm.emit(emitName, newValue);
+  });
+  watch(() => getCurrentModelValue(vm, propName), (propValue) => {
+    if (propValue === IS_ABSENT && value.value === void 0) {
+      return;
     }
-    watch(value, newValue => {
-        if (isEqual(newValue, getCurrentModelValue(vm, propName))) {
-            return;
-        }
-        vm.emit(emitName, newValue);
-    });
-    watch(() => getCurrentModelValue(vm, propName), propValue => {
-        if (propValue === IS_ABSENT && value.value === undefined) {
-            return;
-        }
-        const newValue = propValue === IS_ABSENT ? undefined : propValue;
-        if (isEqual(newValue, applyModelModifiers(value.value, vm.props.modelModifiers))) {
-            return;
-        }
-        handleChange(newValue);
-    });
+    const newValue = propValue === IS_ABSENT ? void 0 : propValue;
+    if (isEqual(newValue, value.value)) {
+      return;
+    }
+    handleChange(newValue, shouldValidate());
+  });
 }
 function getCurrentModelValue(vm, propName) {
-    if (!vm) {
-        return undefined;
-    }
-    return vm.props[propName];
+  if (!vm) {
+    return void 0;
+  }
+  return vm.props[propName];
 }
-
-const FieldImpl = /** #__PURE__ */ defineComponent({
-    name: 'Field',
-    inheritAttrs: false,
-    props: {
-        as: {
-            type: [String, Object],
-            default: undefined,
-        },
-        name: {
-            type: String,
-            required: true,
-        },
-        rules: {
-            type: [Object, String, Function],
-            default: undefined,
-        },
-        validateOnMount: {
-            type: Boolean,
-            default: false,
-        },
-        validateOnBlur: {
-            type: Boolean,
-            default: undefined,
-        },
-        validateOnChange: {
-            type: Boolean,
-            default: undefined,
-        },
-        validateOnInput: {
-            type: Boolean,
-            default: undefined,
-        },
-        validateOnModelUpdate: {
-            type: Boolean,
-            default: undefined,
-        },
-        bails: {
-            type: Boolean,
-            default: () => getConfig().bails,
-        },
-        label: {
-            type: String,
-            default: undefined,
-        },
-        uncheckedValue: {
-            type: null,
-            default: undefined,
-        },
-        modelValue: {
-            type: null,
-            default: IS_ABSENT,
-        },
-        modelModifiers: {
-            type: null,
-            default: () => ({}),
-        },
-        'onUpdate:modelValue': {
-            type: null,
-            default: undefined,
-        },
-        standalone: {
-            type: Boolean,
-            default: false,
-        },
-        keepValue: {
-            type: Boolean,
-            default: undefined,
-        },
+const FieldImpl = /* @__PURE__ */ defineComponent({
+  name: "Field",
+  inheritAttrs: false,
+  props: {
+    as: {
+      type: [String, Object],
+      default: void 0
     },
-    setup(props, ctx) {
-        const rules = toRef(props, 'rules');
-        const name = toRef(props, 'name');
-        const label = toRef(props, 'label');
-        const uncheckedValue = toRef(props, 'uncheckedValue');
-        const keepValue = toRef(props, 'keepValue');
-        const { errors, value, errorMessage, validate: validateField, handleChange, handleBlur, setTouched, resetField, handleReset, meta, checked, setErrors, } = useField(name, rules, {
-            validateOnMount: props.validateOnMount,
-            bails: props.bails,
-            standalone: props.standalone,
-            type: ctx.attrs.type,
-            initialValue: resolveInitialValue(props, ctx),
-            // Only for checkboxes and radio buttons
-            checkedValue: ctx.attrs.value,
-            uncheckedValue,
-            label,
-            validateOnValueUpdate: false,
-            keepValueOnUnmount: keepValue,
-            syncVModel: true,
-        });
-        // If there is a v-model applied on the component we need to emit the `update:modelValue` whenever the value binding changes
-        const onChangeHandler = function handleChangeWithModel(e, shouldValidate = true) {
-            handleChange(e, shouldValidate);
-            ctx.emit('update:modelValue', value.value);
-        };
-        const sharedProps = computed(() => {
-            const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = resolveValidationTriggers(props);
-            function baseOnBlur(e) {
-                handleBlur(e, validateOnBlur);
-                if (isCallable(ctx.attrs.onBlur)) {
-                    ctx.attrs.onBlur(e);
-                }
-            }
-            function baseOnInput(e) {
-                onChangeHandler(e, validateOnInput);
-                if (isCallable(ctx.attrs.onInput)) {
-                    ctx.attrs.onInput(e);
-                }
-            }
-            function baseOnChange(e) {
-                onChangeHandler(e, validateOnChange);
-                if (isCallable(ctx.attrs.onChange)) {
-                    ctx.attrs.onChange(e);
-                }
-            }
-            const attrs = {
-                name: props.name,
-                onBlur: baseOnBlur,
-                onInput: baseOnInput,
-                onChange: baseOnChange,
-            };
-            attrs['onUpdate:modelValue'] = e => onChangeHandler(e, validateOnModelUpdate);
-            return attrs;
-        });
-        const fieldProps = computed(() => {
-            const attrs = Object.assign({}, sharedProps.value);
-            if (hasCheckedAttr(ctx.attrs.type) && checked) {
-                attrs.checked = checked.value;
-            }
-            const tag = resolveTag(props, ctx);
-            if (shouldHaveValueBinding(tag, ctx.attrs)) {
-                attrs.value = value.value;
-            }
-            return attrs;
-        });
-        const componentProps = computed(() => {
-            return Object.assign(Object.assign({}, sharedProps.value), { modelValue: value.value });
-        });
-        function slotProps() {
-            return {
-                field: fieldProps.value,
-                componentField: componentProps.value,
-                value: value.value,
-                meta,
-                errors: errors.value,
-                errorMessage: errorMessage.value,
-                validate: validateField,
-                resetField,
-                handleChange: onChangeHandler,
-                handleInput: e => onChangeHandler(e, false),
-                handleReset,
-                handleBlur: sharedProps.value.onBlur,
-                setTouched,
-                setErrors,
-            };
+    name: {
+      type: String,
+      required: true
+    },
+    rules: {
+      type: [Object, String, Function],
+      default: void 0
+    },
+    validateOnMount: {
+      type: Boolean,
+      default: false
+    },
+    validateOnBlur: {
+      type: Boolean,
+      default: void 0
+    },
+    validateOnChange: {
+      type: Boolean,
+      default: void 0
+    },
+    validateOnInput: {
+      type: Boolean,
+      default: void 0
+    },
+    validateOnModelUpdate: {
+      type: Boolean,
+      default: void 0
+    },
+    bails: {
+      type: Boolean,
+      default: () => getConfig().bails
+    },
+    label: {
+      type: String,
+      default: void 0
+    },
+    uncheckedValue: {
+      type: null,
+      default: void 0
+    },
+    modelValue: {
+      type: null,
+      default: IS_ABSENT
+    },
+    modelModifiers: {
+      type: null,
+      default: () => ({})
+    },
+    "onUpdate:modelValue": {
+      type: null,
+      default: void 0
+    },
+    standalone: {
+      type: Boolean,
+      default: false
+    },
+    keepValue: {
+      type: Boolean,
+      default: void 0
+    }
+  },
+  setup(props, ctx) {
+    const rules = toRef(props, "rules");
+    const name = toRef(props, "name");
+    const label = toRef(props, "label");
+    const uncheckedValue = toRef(props, "uncheckedValue");
+    const keepValue = toRef(props, "keepValue");
+    const { errors, value, errorMessage, validate: validateField, handleChange, handleBlur, setTouched, resetField, handleReset, meta, checked, setErrors } = useField(name, rules, {
+      validateOnMount: props.validateOnMount,
+      bails: props.bails,
+      standalone: props.standalone,
+      type: ctx.attrs.type,
+      initialValue: resolveInitialValue(props, ctx),
+      // Only for checkboxes and radio buttons
+      checkedValue: ctx.attrs.value,
+      uncheckedValue,
+      label,
+      validateOnValueUpdate: props.validateOnModelUpdate,
+      keepValueOnUnmount: keepValue,
+      syncVModel: true
+    });
+    const onChangeHandler = function handleChangeWithModel(e, shouldValidate = true) {
+      handleChange(e, shouldValidate);
+    };
+    const sharedProps = computed(() => {
+      const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = resolveValidationTriggers(props);
+      function baseOnBlur(e) {
+        handleBlur(e, validateOnBlur);
+        if (isCallable(ctx.attrs.onBlur)) {
+          ctx.attrs.onBlur(e);
         }
-        ctx.expose({
-            setErrors,
-            setTouched,
-            reset: resetField,
-            validate: validateField,
-            handleChange,
-        });
-        return () => {
-            const tag = resolveDynamicComponent(resolveTag(props, ctx));
-            const children = normalizeChildren(tag, ctx, slotProps);
-            if (tag) {
-                return h(tag, Object.assign(Object.assign({}, ctx.attrs), fieldProps.value), children);
-            }
-            return children;
-        };
-    },
+      }
+      function baseOnInput(e) {
+        onChangeHandler(e, validateOnInput);
+        if (isCallable(ctx.attrs.onInput)) {
+          ctx.attrs.onInput(e);
+        }
+      }
+      function baseOnChange(e) {
+        onChangeHandler(e, validateOnChange);
+        if (isCallable(ctx.attrs.onChange)) {
+          ctx.attrs.onChange(e);
+        }
+      }
+      const attrs = {
+        name: props.name,
+        onBlur: baseOnBlur,
+        onInput: baseOnInput,
+        onChange: baseOnChange
+      };
+      attrs["onUpdate:modelValue"] = (e) => onChangeHandler(e, validateOnModelUpdate);
+      return attrs;
+    });
+    const fieldProps = computed(() => {
+      const attrs = Object.assign({}, sharedProps.value);
+      if (hasCheckedAttr(ctx.attrs.type) && checked) {
+        attrs.checked = checked.value;
+      }
+      const tag = resolveTag(props, ctx);
+      if (shouldHaveValueBinding(tag, ctx.attrs)) {
+        attrs.value = value.value;
+      }
+      return attrs;
+    });
+    const componentProps = computed(() => {
+      return Object.assign(Object.assign({}, sharedProps.value), { modelValue: value.value });
+    });
+    function slotProps() {
+      return {
+        field: fieldProps.value,
+        componentField: componentProps.value,
+        value: value.value,
+        meta,
+        errors: errors.value,
+        errorMessage: errorMessage.value,
+        validate: validateField,
+        resetField,
+        handleChange: onChangeHandler,
+        handleInput: (e) => onChangeHandler(e, false),
+        handleReset,
+        handleBlur: sharedProps.value.onBlur,
+        setTouched,
+        setErrors
+      };
+    }
+    ctx.expose({
+      value,
+      meta,
+      errors,
+      errorMessage,
+      setErrors,
+      setTouched,
+      reset: resetField,
+      validate: validateField,
+      handleChange
+    });
+    return () => {
+      const tag = resolveDynamicComponent(resolveTag(props, ctx));
+      const children = normalizeChildren(tag, ctx, slotProps);
+      if (tag) {
+        return h(tag, Object.assign(Object.assign({}, ctx.attrs), fieldProps.value), children);
+      }
+      return children;
+    };
+  }
 });
 function resolveTag(props, ctx) {
-    let tag = props.as || '';
-    if (!props.as && !ctx.slots.default) {
-        tag = 'input';
-    }
-    return tag;
+  let tag = props.as || "";
+  if (!props.as && !ctx.slots.default) {
+    tag = "input";
+  }
+  return tag;
 }
 function resolveValidationTriggers(props) {
-    var _a, _b, _c, _d;
-    const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = getConfig();
-    return {
-        validateOnInput: (_a = props.validateOnInput) !== null && _a !== void 0 ? _a : validateOnInput,
-        validateOnChange: (_b = props.validateOnChange) !== null && _b !== void 0 ? _b : validateOnChange,
-        validateOnBlur: (_c = props.validateOnBlur) !== null && _c !== void 0 ? _c : validateOnBlur,
-        validateOnModelUpdate: (_d = props.validateOnModelUpdate) !== null && _d !== void 0 ? _d : validateOnModelUpdate,
-    };
+  var _a, _b, _c, _d;
+  const { validateOnInput, validateOnChange, validateOnBlur, validateOnModelUpdate } = getConfig();
+  return {
+    validateOnInput: (_a = props.validateOnInput) !== null && _a !== void 0 ? _a : validateOnInput,
+    validateOnChange: (_b = props.validateOnChange) !== null && _b !== void 0 ? _b : validateOnChange,
+    validateOnBlur: (_c = props.validateOnBlur) !== null && _c !== void 0 ? _c : validateOnBlur,
+    validateOnModelUpdate: (_d = props.validateOnModelUpdate) !== null && _d !== void 0 ? _d : validateOnModelUpdate
+  };
 }
 function resolveInitialValue(props, ctx) {
-    // Gets the initial value either from `value` prop/attr or `v-model` binding (modelValue)
-    // For checkboxes and radio buttons it will always be the model value not the `value` attribute
-    if (!hasCheckedAttr(ctx.attrs.type)) {
-        return isPropPresent(props, 'modelValue') ? props.modelValue : ctx.attrs.value;
-    }
-    return isPropPresent(props, 'modelValue') ? props.modelValue : undefined;
+  if (!hasCheckedAttr(ctx.attrs.type)) {
+    return isPropPresent(props, "modelValue") ? props.modelValue : ctx.attrs.value;
+  }
+  return isPropPresent(props, "modelValue") ? props.modelValue : void 0;
 }
 const Field = FieldImpl;
-
 let FORM_COUNTER = 0;
-const PRIVATE_PATH_STATE_KEYS = ['bails', 'fieldsCount', 'id', 'multiple', 'type', 'validate'];
+const PRIVATE_PATH_STATE_KEYS = ["bails", "fieldsCount", "id", "multiple", "type", "validate"];
 function resolveInitialValues(opts) {
-    const providedValues = unref(opts === null || opts === void 0 ? void 0 : opts.initialValues) || {};
-    const schema = unref(opts === null || opts === void 0 ? void 0 : opts.validationSchema);
-    if (schema && isTypedSchema(schema) && isCallable(schema.cast)) {
-        return klona(schema.cast(providedValues) || {});
-    }
-    return klona(providedValues);
+  const providedValues = Object.assign({}, toValue((opts === null || opts === void 0 ? void 0 : opts.initialValues) || {}));
+  const schema = unref(opts === null || opts === void 0 ? void 0 : opts.validationSchema);
+  if (schema && isTypedSchema(schema) && isCallable(schema.cast)) {
+    return klona(schema.cast(providedValues) || {});
+  }
+  return klona(providedValues);
 }
 function useForm(opts) {
-    var _a;
-    const formId = FORM_COUNTER++;
-    // Prevents fields from double resetting their values, which causes checkboxes to toggle their initial value
-    let FIELD_ID_COUNTER = 0;
-    // If the form is currently submitting
-    const isSubmitting = ref(false);
-    // If the form is currently validating
-    const isValidating = ref(false);
-    // The number of times the user tried to submit the form
-    const submitCount = ref(0);
-    // field arrays managed by this form
-    const fieldArrays = [];
-    // a private ref for all form values
-    const formValues = reactive(resolveInitialValues(opts));
-    const pathStates = ref([]);
-    const extraErrorsBag = ref({});
-    /**
-     * Manually sets an error message on a specific field
-     */
-    function setFieldError(field, message) {
-        const state = findPathState(field);
-        if (!state) {
-            if (typeof field === 'string') {
-                extraErrorsBag.value[field] = normalizeErrorItem(message);
-            }
-            return;
-        }
-        state.errors = normalizeErrorItem(message);
-        state.valid = !state.errors.length;
+  var _a;
+  const formId = FORM_COUNTER++;
+  let FIELD_ID_COUNTER = 0;
+  const isSubmitting = ref(false);
+  const isValidating = ref(false);
+  const submitCount = ref(0);
+  const fieldArrays = [];
+  const formValues = reactive(resolveInitialValues(opts));
+  const pathStates = ref([]);
+  const extraErrorsBag = ref({});
+  const pathStateLookup = ref({});
+  const rebuildPathLookup = debounceNextTick(() => {
+    pathStateLookup.value = pathStates.value.reduce((names, state) => {
+      names[normalizeFormPath(toValue(state.path))] = state;
+      return names;
+    }, {});
+  });
+  function setFieldError(field, message) {
+    const state = findPathState(field);
+    if (!state) {
+      if (typeof field === "string") {
+        extraErrorsBag.value[normalizeFormPath(field)] = normalizeErrorItem(message);
+      }
+      return;
     }
-    /**
-     * Sets errors for the fields specified in the object
-     */
-    function setErrors(paths) {
-        keysOf(paths).forEach(path => {
-            setFieldError(path, paths[path]);
+    if (typeof field === "string") {
+      const normalizedPath = normalizeFormPath(field);
+      if (extraErrorsBag.value[normalizedPath]) {
+        delete extraErrorsBag.value[normalizedPath];
+      }
+    }
+    state.errors = normalizeErrorItem(message);
+    state.valid = !state.errors.length;
+  }
+  function setErrors(paths) {
+    keysOf(paths).forEach((path) => {
+      setFieldError(path, paths[path]);
+    });
+  }
+  if (opts === null || opts === void 0 ? void 0 : opts.initialErrors) {
+    setErrors(opts.initialErrors);
+  }
+  const errorBag = computed(() => {
+    const pathErrors = pathStates.value.reduce((acc, state) => {
+      if (state.errors.length) {
+        acc[state.path] = state.errors;
+      }
+      return acc;
+    }, {});
+    return Object.assign(Object.assign({}, extraErrorsBag.value), pathErrors);
+  });
+  const errors = computed(() => {
+    return keysOf(errorBag.value).reduce((acc, key) => {
+      const errors2 = errorBag.value[key];
+      if (errors2 === null || errors2 === void 0 ? void 0 : errors2.length) {
+        acc[key] = errors2[0];
+      }
+      return acc;
+    }, {});
+  });
+  const fieldNames = computed(() => {
+    return pathStates.value.reduce((names, state) => {
+      names[state.path] = { name: state.path || "", label: state.label || "" };
+      return names;
+    }, {});
+  });
+  const fieldBailsMap = computed(() => {
+    return pathStates.value.reduce((map, state) => {
+      var _a2;
+      map[state.path] = (_a2 = state.bails) !== null && _a2 !== void 0 ? _a2 : true;
+      return map;
+    }, {});
+  });
+  const initialErrors = Object.assign({}, (opts === null || opts === void 0 ? void 0 : opts.initialErrors) || {});
+  const keepValuesOnUnmount = (_a = opts === null || opts === void 0 ? void 0 : opts.keepValuesOnUnmount) !== null && _a !== void 0 ? _a : false;
+  const { initialValues, originalInitialValues, setInitialValues } = useFormInitialValues(pathStates, formValues, opts);
+  const meta = useFormMeta(pathStates, formValues, originalInitialValues, errors);
+  const controlledValues = computed(() => {
+    return pathStates.value.reduce((acc, state) => {
+      const value = getFromPath(formValues, state.path);
+      setInPath(acc, state.path, value);
+      return acc;
+    }, {});
+  });
+  const schema = opts === null || opts === void 0 ? void 0 : opts.validationSchema;
+  function createPathState(path, config) {
+    var _a2, _b;
+    const initialValue = computed(() => getFromPath(initialValues.value, toValue(path)));
+    const pathStateExists = pathStateLookup.value[toValue(path)];
+    const isCheckboxOrRadio = (config === null || config === void 0 ? void 0 : config.type) === "checkbox" || (config === null || config === void 0 ? void 0 : config.type) === "radio";
+    if (pathStateExists && isCheckboxOrRadio) {
+      pathStateExists.multiple = true;
+      const id2 = FIELD_ID_COUNTER++;
+      if (Array.isArray(pathStateExists.id)) {
+        pathStateExists.id.push(id2);
+      } else {
+        pathStateExists.id = [pathStateExists.id, id2];
+      }
+      pathStateExists.fieldsCount++;
+      pathStateExists.__flags.pendingUnmount[id2] = false;
+      return pathStateExists;
+    }
+    const currentValue = computed(() => getFromPath(formValues, toValue(path)));
+    const pathValue = toValue(path);
+    const unsetBatchIndex = UNSET_BATCH.findIndex((_path) => _path === pathValue);
+    if (unsetBatchIndex !== -1) {
+      UNSET_BATCH.splice(unsetBatchIndex, 1);
+    }
+    const isRequired = computed(() => {
+      var _a3, _b2, _c, _d, _e, _f;
+      if (isTypedSchema(schema)) {
+        return (_c = (_b2 = (_a3 = schema).describe) === null || _b2 === void 0 ? void 0 : _b2.call(_a3, toValue(path)).required) !== null && _c !== void 0 ? _c : false;
+      }
+      if (isTypedSchema(config === null || config === void 0 ? void 0 : config.schema)) {
+        return (_f = (_e = (_d = config === null || config === void 0 ? void 0 : config.schema).describe) === null || _e === void 0 ? void 0 : _e.call(_d).required) !== null && _f !== void 0 ? _f : false;
+      }
+      return false;
+    });
+    const id = FIELD_ID_COUNTER++;
+    const state = reactive({
+      id,
+      path,
+      touched: false,
+      pending: false,
+      valid: true,
+      validated: !!((_a2 = initialErrors[pathValue]) === null || _a2 === void 0 ? void 0 : _a2.length),
+      required: isRequired,
+      initialValue,
+      errors: shallowRef([]),
+      bails: (_b = config === null || config === void 0 ? void 0 : config.bails) !== null && _b !== void 0 ? _b : false,
+      label: config === null || config === void 0 ? void 0 : config.label,
+      type: (config === null || config === void 0 ? void 0 : config.type) || "default",
+      value: currentValue,
+      multiple: false,
+      __flags: {
+        pendingUnmount: { [id]: false },
+        pendingReset: false
+      },
+      fieldsCount: 1,
+      validate: config === null || config === void 0 ? void 0 : config.validate,
+      dirty: computed(() => {
+        return !isEqual(unref(currentValue), unref(initialValue));
+      })
+    });
+    pathStates.value.push(state);
+    pathStateLookup.value[pathValue] = state;
+    rebuildPathLookup();
+    if (errors.value[pathValue] && !initialErrors[pathValue]) {
+      nextTick(() => {
+        validateField(pathValue, { mode: "silent" });
+      });
+    }
+    if (isRef(path)) {
+      watch(path, (newPath) => {
+        rebuildPathLookup();
+        const nextValue = klona(currentValue.value);
+        pathStateLookup.value[newPath] = state;
+        nextTick(() => {
+          setInPath(formValues, newPath, nextValue);
         });
+      });
     }
-    if (opts === null || opts === void 0 ? void 0 : opts.initialErrors) {
-        setErrors(opts.initialErrors);
+    return state;
+  }
+  const debouncedSilentValidation = debounceAsync(_validateSchema, 5);
+  const debouncedValidation = debounceAsync(_validateSchema, 5);
+  const validateSchema = withLatest(async (mode) => {
+    return await (mode === "silent" ? debouncedSilentValidation() : debouncedValidation());
+  }, (formResult, [mode]) => {
+    const currentErrorsPaths = keysOf(formCtx.errorBag.value);
+    const paths = [
+      .../* @__PURE__ */ new Set([...keysOf(formResult.results), ...pathStates.value.map((p) => p.path), ...currentErrorsPaths])
+    ].sort();
+    const results = paths.reduce((validation, _path) => {
+      var _a2;
+      const expectedPath = _path;
+      const pathState = findPathState(expectedPath) || findHoistedPath(expectedPath);
+      const messages = ((_a2 = formResult.results[expectedPath]) === null || _a2 === void 0 ? void 0 : _a2.errors) || [];
+      const path = toValue(pathState === null || pathState === void 0 ? void 0 : pathState.path) || expectedPath;
+      const fieldResult = mergeValidationResults({ errors: messages, valid: !messages.length }, validation.results[path]);
+      validation.results[path] = fieldResult;
+      if (!fieldResult.valid) {
+        validation.errors[path] = fieldResult.errors[0];
+      }
+      if (pathState && extraErrorsBag.value[path]) {
+        delete extraErrorsBag.value[path];
+      }
+      if (!pathState) {
+        setFieldError(path, messages);
+        return validation;
+      }
+      pathState.valid = fieldResult.valid;
+      if (mode === "silent") {
+        return validation;
+      }
+      if (mode === "validated-only" && !pathState.validated) {
+        return validation;
+      }
+      setFieldError(pathState, fieldResult.errors);
+      return validation;
+    }, { valid: formResult.valid, results: {}, errors: {} });
+    if (formResult.values) {
+      results.values = formResult.values;
     }
-    const errorBag = computed(() => {
-        const pathErrors = pathStates.value.reduce((acc, state) => {
-            if (state.errors.length) {
-                acc[state.path] = state.errors;
-            }
-            return acc;
-        }, {});
-        return Object.assign(Object.assign({}, extraErrorsBag.value), pathErrors);
-    });
-    // Gets the first error of each field
-    const errors = computed(() => {
-        return keysOf(errorBag.value).reduce((acc, key) => {
-            const errors = errorBag.value[key];
-            if (errors === null || errors === void 0 ? void 0 : errors.length) {
-                acc[key] = errors[0];
-            }
-            return acc;
-        }, {});
-    });
-    /**
-     * Holds a computed reference to all fields names and labels
-     */
-    const fieldNames = computed(() => {
-        return pathStates.value.reduce((names, state) => {
-            names[state.path] = { name: state.path || '', label: state.label || '' };
-            return names;
-        }, {});
-    });
-    const fieldBailsMap = computed(() => {
-        return pathStates.value.reduce((map, state) => {
-            var _a;
-            map[state.path] = (_a = state.bails) !== null && _a !== void 0 ? _a : true;
-            return map;
-        }, {});
-    });
-    // mutable non-reactive reference to initial errors
-    // we need this to process initial errors then unset them
-    const initialErrors = Object.assign({}, ((opts === null || opts === void 0 ? void 0 : opts.initialErrors) || {}));
-    const keepValuesOnUnmount = (_a = opts === null || opts === void 0 ? void 0 : opts.keepValuesOnUnmount) !== null && _a !== void 0 ? _a : false;
-    // initial form values
-    const { initialValues, originalInitialValues, setInitialValues } = useFormInitialValues(pathStates, formValues, opts);
-    // form meta aggregations
-    const meta = useFormMeta(pathStates, formValues, originalInitialValues, errors);
-    const controlledValues = computed(() => {
-        return pathStates.value.reduce((acc, state) => {
-            const value = getFromPath(formValues, state.path);
-            setInPath(acc, state.path, value);
-            return acc;
-        }, {});
-    });
-    const schema = opts === null || opts === void 0 ? void 0 : opts.validationSchema;
-    function createPathState(path, config) {
-        var _a, _b;
-        const initialValue = computed(() => getFromPath(initialValues.value, toValue(path)));
-        const pathStateExists = pathStates.value.find(state => state.path === unref(path));
-        if (pathStateExists) {
-            if ((config === null || config === void 0 ? void 0 : config.type) === 'checkbox' || (config === null || config === void 0 ? void 0 : config.type) === 'radio') {
-                pathStateExists.multiple = true;
-            }
-            const id = FIELD_ID_COUNTER++;
-            if (Array.isArray(pathStateExists.id)) {
-                pathStateExists.id.push(id);
-            }
-            else {
-                pathStateExists.id = [pathStateExists.id, id];
-            }
-            pathStateExists.fieldsCount++;
-            pathStateExists.__flags.pendingUnmount[id] = false;
-            return pathStateExists;
+    return results;
+  });
+  function mutateAllPathState(mutation) {
+    pathStates.value.forEach(mutation);
+  }
+  function findPathState(path) {
+    const normalizedPath = typeof path === "string" ? normalizeFormPath(path) : path;
+    const pathState = typeof normalizedPath === "string" ? pathStateLookup.value[normalizedPath] : normalizedPath;
+    return pathState;
+  }
+  function findHoistedPath(path) {
+    const candidates = pathStates.value.filter((state) => path.startsWith(state.path));
+    return candidates.reduce((bestCandidate, candidate) => {
+      if (!bestCandidate) {
+        return candidate;
+      }
+      return candidate.path.length > bestCandidate.path.length ? candidate : bestCandidate;
+    }, void 0);
+  }
+  let UNSET_BATCH = [];
+  let PENDING_UNSET;
+  function unsetPathValue(path) {
+    UNSET_BATCH.push(path);
+    if (!PENDING_UNSET) {
+      PENDING_UNSET = nextTick(() => {
+        const sortedPaths = [...UNSET_BATCH].sort().reverse();
+        sortedPaths.forEach((p) => {
+          unsetPath(formValues, p);
+        });
+        UNSET_BATCH = [];
+        PENDING_UNSET = null;
+      });
+    }
+    return PENDING_UNSET;
+  }
+  function makeSubmissionFactory(onlyControlled) {
+    return function submitHandlerFactory(fn, onValidationError) {
+      return function submissionHandler(e) {
+        if (e instanceof Event) {
+          e.preventDefault();
+          e.stopPropagation();
         }
-        const currentValue = computed(() => getFromPath(formValues, toValue(path)));
+        mutateAllPathState((s) => s.touched = true);
+        isSubmitting.value = true;
+        submitCount.value++;
+        return validate2().then((result) => {
+          const values = klona(formValues);
+          if (result.valid && typeof fn === "function") {
+            const controlled = klona(controlledValues.value);
+            let submittedValues = onlyControlled ? controlled : values;
+            if (result.values) {
+              submittedValues = result.values;
+            }
+            return fn(submittedValues, {
+              evt: e,
+              controlledValues: controlled,
+              setErrors,
+              setFieldError,
+              setTouched,
+              setFieldTouched,
+              setValues,
+              setFieldValue,
+              resetForm,
+              resetField
+            });
+          }
+          if (!result.valid && typeof onValidationError === "function") {
+            onValidationError({
+              values,
+              evt: e,
+              errors: result.errors,
+              results: result.results
+            });
+          }
+        }).then((returnVal) => {
+          isSubmitting.value = false;
+          return returnVal;
+        }, (err) => {
+          isSubmitting.value = false;
+          throw err;
+        });
+      };
+    };
+  }
+  const handleSubmitImpl = makeSubmissionFactory(false);
+  const handleSubmit = handleSubmitImpl;
+  handleSubmit.withControlled = makeSubmissionFactory(true);
+  function removePathState(path, id) {
+    const idx = pathStates.value.findIndex((s) => {
+      return s.path === path && (Array.isArray(s.id) ? s.id.includes(id) : s.id === id);
+    });
+    const pathState = pathStates.value[idx];
+    if (idx === -1 || !pathState) {
+      return;
+    }
+    nextTick(() => {
+      validateField(path, { mode: "silent", warn: false });
+    });
+    if (pathState.multiple && pathState.fieldsCount) {
+      pathState.fieldsCount--;
+    }
+    if (Array.isArray(pathState.id)) {
+      const idIndex = pathState.id.indexOf(id);
+      if (idIndex >= 0) {
+        pathState.id.splice(idIndex, 1);
+      }
+      delete pathState.__flags.pendingUnmount[id];
+    }
+    if (!pathState.multiple || pathState.fieldsCount <= 0) {
+      pathStates.value.splice(idx, 1);
+      unsetInitialValue(path);
+      rebuildPathLookup();
+      delete pathStateLookup.value[path];
+    }
+  }
+  function destroyPath(path) {
+    keysOf(pathStateLookup.value).forEach((key) => {
+      if (key.startsWith(path)) {
+        delete pathStateLookup.value[key];
+      }
+    });
+    pathStates.value = pathStates.value.filter((s) => !s.path.startsWith(path));
+    nextTick(() => {
+      rebuildPathLookup();
+    });
+  }
+  const formCtx = {
+    formId,
+    values: formValues,
+    controlledValues,
+    errorBag,
+    errors,
+    schema,
+    submitCount,
+    meta,
+    isSubmitting,
+    isValidating,
+    fieldArrays,
+    keepValuesOnUnmount,
+    validateSchema: unref(schema) ? validateSchema : void 0,
+    validate: validate2,
+    setFieldError,
+    validateField,
+    setFieldValue,
+    setValues,
+    setErrors,
+    setFieldTouched,
+    setTouched,
+    resetForm,
+    resetField,
+    handleSubmit,
+    useFieldModel,
+    defineInputBinds,
+    defineComponentBinds,
+    defineField,
+    stageInitialValue,
+    unsetInitialValue,
+    setFieldInitialValue,
+    createPathState,
+    getPathState: findPathState,
+    unsetPathValue,
+    removePathState,
+    initialValues,
+    getAllPathStates: () => pathStates.value,
+    destroyPath,
+    isFieldTouched,
+    isFieldDirty,
+    isFieldValid
+  };
+  function setFieldValue(field, value, shouldValidate = true) {
+    const clonedValue = klona(value);
+    const path = typeof field === "string" ? field : field.path;
+    const pathState = findPathState(path);
+    if (!pathState) {
+      createPathState(path);
+    }
+    setInPath(formValues, path, clonedValue);
+    if (shouldValidate) {
+      validateField(path);
+    }
+  }
+  function forceSetValues(fields, shouldValidate = true) {
+    keysOf(formValues).forEach((key) => {
+      delete formValues[key];
+    });
+    keysOf(fields).forEach((path) => {
+      setFieldValue(path, fields[path], false);
+    });
+    if (shouldValidate) {
+      validate2();
+    }
+  }
+  function setValues(fields, shouldValidate = true) {
+    merge(formValues, fields);
+    fieldArrays.forEach((f) => f && f.reset());
+    if (shouldValidate) {
+      validate2();
+    }
+  }
+  function createModel(path, shouldValidate) {
+    const pathState = findPathState(toValue(path)) || createPathState(path);
+    return computed({
+      get() {
+        return pathState.value;
+      },
+      set(value) {
+        var _a2;
         const pathValue = toValue(path);
-        const id = FIELD_ID_COUNTER++;
-        const state = reactive({
-            id,
-            path,
-            touched: false,
-            pending: false,
-            valid: true,
-            validated: !!((_a = initialErrors[pathValue]) === null || _a === void 0 ? void 0 : _a.length),
-            initialValue,
-            errors: shallowRef([]),
-            bails: (_b = config === null || config === void 0 ? void 0 : config.bails) !== null && _b !== void 0 ? _b : false,
-            label: config === null || config === void 0 ? void 0 : config.label,
-            type: (config === null || config === void 0 ? void 0 : config.type) || 'default',
-            value: currentValue,
-            multiple: false,
-            __flags: {
-                pendingUnmount: { [id]: false },
-            },
-            fieldsCount: 1,
-            validate: config === null || config === void 0 ? void 0 : config.validate,
-            dirty: computed(() => {
-                return !isEqual(unref(currentValue), unref(initialValue));
-            }),
-        });
-        pathStates.value.push(state);
-        // if it has errors before, validate it.
-        if (errors.value[pathValue] && !initialErrors[pathValue]) {
-            nextTick(() => {
-                validateField(pathValue);
-            });
-        }
-        // Handles when a path changes
-        if (isRef(path)) {
-            watch(path, newPath => {
-                const nextValue = klona(currentValue.value);
-                nextTick(() => {
-                    setInPath(formValues, newPath, nextValue);
-                });
-            });
-        }
-        return state;
-    }
-    /**
-     * Batches validation runs in 5ms batches
-     * Must have two distinct batch queues to make sure they don't override each other settings #3783
-     */
-    const debouncedSilentValidation = debounceAsync(_validateSchema, 5);
-    const debouncedValidation = debounceAsync(_validateSchema, 5);
-    const validateSchema = withLatest(async (mode) => {
-        return (await mode) === 'silent' ? debouncedSilentValidation() : debouncedValidation();
-    }, (formResult, [mode]) => {
-        // fields by id lookup
-        // errors fields names, we need it to also check if custom errors are updated
-        const currentErrorsPaths = keysOf(formCtx.errorBag.value);
-        // collect all the keys from the schema and all fields
-        // this ensures we have a complete key map of all the fields
-        const paths = [
-            ...new Set([...keysOf(formResult.results), ...pathStates.value.map(p => p.path), ...currentErrorsPaths]),
-        ].sort();
-        // aggregates the paths into a single result object while applying the results on the fields
-        return paths.reduce((validation, _path) => {
-            const path = _path;
-            const pathState = findPathState(path) || findHoistedPath(path);
-            const messages = (formResult.results[path] || { errors: [] }).errors;
-            const fieldResult = {
-                errors: messages,
-                valid: !messages.length,
-            };
-            validation.results[path] = fieldResult;
-            if (!fieldResult.valid) {
-                validation.errors[path] = fieldResult.errors[0];
-            }
-            // clean up extra errors if path state exists
-            if (pathState && extraErrorsBag.value[path]) {
-                delete extraErrorsBag.value[path];
-            }
-            // field not rendered
-            if (!pathState) {
-                setFieldError(path, messages);
-                return validation;
-            }
-            // always update the valid flag regardless of the mode
-            pathState.valid = fieldResult.valid;
-            if (mode === 'silent') {
-                return validation;
-            }
-            if (mode === 'validated-only' && !pathState.validated) {
-                return validation;
-            }
-            setFieldError(pathState, fieldResult.errors);
-            return validation;
-        }, { valid: formResult.valid, results: {}, errors: {} });
+        setFieldValue(pathValue, value, (_a2 = toValue(shouldValidate)) !== null && _a2 !== void 0 ? _a2 : false);
+      }
     });
-    function mutateAllPathState(mutation) {
-        pathStates.value.forEach(mutation);
+  }
+  function setFieldTouched(field, isTouched) {
+    const pathState = findPathState(field);
+    if (pathState) {
+      pathState.touched = isTouched;
     }
-    function findPathState(path) {
-        const pathState = typeof path === 'string' ? pathStates.value.find(state => state.path === path) : path;
-        return pathState;
+  }
+  function isFieldTouched(field) {
+    const pathState = findPathState(field);
+    if (pathState) {
+      return pathState.touched;
     }
-    function findHoistedPath(path) {
-        const candidates = pathStates.value.filter(state => path.startsWith(state.path));
-        return candidates.reduce((bestCandidate, candidate) => {
-            if (!bestCandidate) {
-                return candidate;
-            }
-            return (candidate.path.length > bestCandidate.path.length ? candidate : bestCandidate);
-        }, undefined);
+    return pathStates.value.filter((s) => s.path.startsWith(field)).some((s) => s.touched);
+  }
+  function isFieldDirty(field) {
+    const pathState = findPathState(field);
+    if (pathState) {
+      return pathState.dirty;
     }
-    let UNSET_BATCH = [];
-    let PENDING_UNSET;
-    function unsetPathValue(path) {
-        UNSET_BATCH.push(path);
-        if (!PENDING_UNSET) {
-            PENDING_UNSET = nextTick(() => {
-                const sortedPaths = [...UNSET_BATCH].sort().reverse();
-                sortedPaths.forEach(p => {
-                    unsetPath(formValues, p);
-                });
-                UNSET_BATCH = [];
-                PENDING_UNSET = null;
-            });
-        }
-        return PENDING_UNSET;
+    return pathStates.value.filter((s) => s.path.startsWith(field)).some((s) => s.dirty);
+  }
+  function isFieldValid(field) {
+    const pathState = findPathState(field);
+    if (pathState) {
+      return pathState.valid;
     }
-    function makeSubmissionFactory(onlyControlled) {
-        return function submitHandlerFactory(fn, onValidationError) {
-            return function submissionHandler(e) {
-                if (e instanceof Event) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-                // Touch all fields
-                mutateAllPathState(s => (s.touched = true));
-                isSubmitting.value = true;
-                submitCount.value++;
-                return validate()
-                    .then(result => {
-                    const values = klona(formValues);
-                    if (result.valid && typeof fn === 'function') {
-                        const controlled = klona(controlledValues.value);
-                        let submittedValues = (onlyControlled ? controlled : values);
-                        if (result.values) {
-                            submittedValues = result.values;
-                        }
-                        return fn(submittedValues, {
-                            evt: e,
-                            controlledValues: controlled,
-                            setErrors,
-                            setFieldError,
-                            setTouched,
-                            setFieldTouched,
-                            setValues,
-                            setFieldValue,
-                            resetForm,
-                            resetField,
-                        });
-                    }
-                    if (!result.valid && typeof onValidationError === 'function') {
-                        onValidationError({
-                            values,
-                            evt: e,
-                            errors: result.errors,
-                            results: result.results,
-                        });
-                    }
-                })
-                    .then(returnVal => {
-                    isSubmitting.value = false;
-                    return returnVal;
-                }, err => {
-                    isSubmitting.value = false;
-                    // re-throw the err so it doesn't go silent
-                    throw err;
-                });
-            };
-        };
+    return pathStates.value.filter((s) => s.path.startsWith(field)).every((s) => s.valid);
+  }
+  function setTouched(fields) {
+    if (typeof fields === "boolean") {
+      mutateAllPathState((state) => {
+        state.touched = fields;
+      });
+      return;
     }
-    const handleSubmitImpl = makeSubmissionFactory(false);
-    const handleSubmit = handleSubmitImpl;
-    handleSubmit.withControlled = makeSubmissionFactory(true);
-    function removePathState(path, id) {
-        const idx = pathStates.value.findIndex(s => s.path === path);
-        const pathState = pathStates.value[idx];
-        if (idx === -1 || !pathState) {
-            return;
-        }
-        if (pathState.multiple && pathState.fieldsCount) {
-            pathState.fieldsCount--;
-        }
-        if (Array.isArray(pathState.id)) {
-            const idIndex = pathState.id.indexOf(id);
-            if (idIndex >= 0) {
-                pathState.id.splice(idIndex, 1);
-            }
-            delete pathState.__flags.pendingUnmount[id];
-        }
-        if (!pathState.multiple || pathState.fieldsCount <= 0) {
-            pathStates.value.splice(idx, 1);
-            unsetInitialValue(path);
-        }
+    keysOf(fields).forEach((field) => {
+      setFieldTouched(field, !!fields[field]);
+    });
+  }
+  function resetField(field, state) {
+    var _a2;
+    const newValue = state && "value" in state ? state.value : getFromPath(initialValues.value, field);
+    const pathState = findPathState(field);
+    if (pathState) {
+      pathState.__flags.pendingReset = true;
     }
-    function markForUnmount(path) {
-        return mutateAllPathState(s => {
-            if (s.path.startsWith(path)) {
-                keysOf(s.__flags.pendingUnmount).forEach(id => {
-                    s.__flags.pendingUnmount[id] = true;
-                });
-            }
+    setFieldInitialValue(field, klona(newValue), true);
+    setFieldValue(field, newValue, false);
+    setFieldTouched(field, (_a2 = state === null || state === void 0 ? void 0 : state.touched) !== null && _a2 !== void 0 ? _a2 : false);
+    setFieldError(field, (state === null || state === void 0 ? void 0 : state.errors) || []);
+    nextTick(() => {
+      if (pathState) {
+        pathState.__flags.pendingReset = false;
+      }
+    });
+  }
+  function resetForm(resetState, opts2) {
+    let newValues = klona((resetState === null || resetState === void 0 ? void 0 : resetState.values) ? resetState.values : originalInitialValues.value);
+    newValues = (opts2 === null || opts2 === void 0 ? void 0 : opts2.force) ? newValues : merge(originalInitialValues.value, newValues);
+    newValues = isTypedSchema(schema) && isCallable(schema.cast) ? schema.cast(newValues) : newValues;
+    setInitialValues(newValues);
+    mutateAllPathState((state) => {
+      var _a2;
+      state.__flags.pendingReset = true;
+      state.validated = false;
+      state.touched = ((_a2 = resetState === null || resetState === void 0 ? void 0 : resetState.touched) === null || _a2 === void 0 ? void 0 : _a2[state.path]) || false;
+      setFieldValue(state.path, getFromPath(newValues, state.path), false);
+      setFieldError(state.path, void 0);
+    });
+    (opts2 === null || opts2 === void 0 ? void 0 : opts2.force) ? forceSetValues(newValues, false) : setValues(newValues, false);
+    setErrors((resetState === null || resetState === void 0 ? void 0 : resetState.errors) || {});
+    submitCount.value = (resetState === null || resetState === void 0 ? void 0 : resetState.submitCount) || 0;
+    nextTick(() => {
+      validate2({ mode: "silent" });
+      mutateAllPathState((state) => {
+        state.__flags.pendingReset = false;
+      });
+    });
+  }
+  async function validate2(opts2) {
+    const mode = (opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) || "force";
+    if (mode === "force") {
+      mutateAllPathState((f) => f.validated = true);
+    }
+    if (formCtx.validateSchema) {
+      return formCtx.validateSchema(mode);
+    }
+    isValidating.value = true;
+    const validations = await Promise.all(pathStates.value.map((state) => {
+      if (!state.validate) {
+        return Promise.resolve({
+          key: state.path,
+          valid: true,
+          errors: []
         });
+      }
+      return state.validate(opts2).then((result) => {
+        return {
+          key: state.path,
+          valid: result.valid,
+          errors: result.errors
+        };
+      });
+    }));
+    isValidating.value = false;
+    const results = {};
+    const errors2 = {};
+    for (const validation of validations) {
+      results[validation.key] = {
+        valid: validation.valid,
+        errors: validation.errors
+      };
+      if (validation.errors.length) {
+        errors2[validation.key] = validation.errors[0];
+      }
     }
-    const formCtx = {
-        formId,
-        values: formValues,
-        controlledValues,
-        errorBag,
-        errors,
-        schema,
-        submitCount,
-        meta,
-        isSubmitting,
-        isValidating,
-        fieldArrays,
-        keepValuesOnUnmount,
-        validateSchema: unref(schema) ? validateSchema : undefined,
-        validate,
-        setFieldError,
+    return {
+      valid: validations.every((r) => r.valid),
+      results,
+      errors: errors2
+    };
+  }
+  async function validateField(path, opts2) {
+    var _a2;
+    const state = findPathState(path);
+    if (state && (opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) !== "silent") {
+      state.validated = true;
+    }
+    if (schema) {
+      const { results } = await validateSchema((opts2 === null || opts2 === void 0 ? void 0 : opts2.mode) || "validated-only");
+      return results[path] || { errors: [], valid: true };
+    }
+    if (state === null || state === void 0 ? void 0 : state.validate) {
+      return state.validate(opts2);
+    }
+    !state && ((_a2 = opts2 === null || opts2 === void 0 ? void 0 : opts2.warn) !== null && _a2 !== void 0 ? _a2 : true);
+    return Promise.resolve({ errors: [], valid: true });
+  }
+  function unsetInitialValue(path) {
+    unsetPath(initialValues.value, path);
+  }
+  function stageInitialValue(path, value, updateOriginal = false) {
+    setFieldInitialValue(path, value);
+    setInPath(formValues, path, value);
+    if (updateOriginal && !(opts === null || opts === void 0 ? void 0 : opts.initialValues)) {
+      setInPath(originalInitialValues.value, path, klona(value));
+    }
+  }
+  function setFieldInitialValue(path, value, updateOriginal = false) {
+    setInPath(initialValues.value, path, klona(value));
+    if (updateOriginal) {
+      setInPath(originalInitialValues.value, path, klona(value));
+    }
+  }
+  async function _validateSchema() {
+    const schemaValue = unref(schema);
+    if (!schemaValue) {
+      return { valid: true, results: {}, errors: {} };
+    }
+    isValidating.value = true;
+    const formResult = isYupValidator(schemaValue) || isTypedSchema(schemaValue) ? await validateTypedSchema(schemaValue, formValues) : await validateObjectSchema(schemaValue, formValues, {
+      names: fieldNames.value,
+      bailsMap: fieldBailsMap.value
+    });
+    isValidating.value = false;
+    return formResult;
+  }
+  const submitForm = handleSubmit((_, { evt }) => {
+    if (isFormSubmitEvent(evt)) {
+      evt.target.submit();
+    }
+  });
+  onMounted(() => {
+    if (opts === null || opts === void 0 ? void 0 : opts.initialErrors) {
+      setErrors(opts.initialErrors);
+    }
+    if (opts === null || opts === void 0 ? void 0 : opts.initialTouched) {
+      setTouched(opts.initialTouched);
+    }
+    if (opts === null || opts === void 0 ? void 0 : opts.validateOnMount) {
+      validate2();
+      return;
+    }
+    if (formCtx.validateSchema) {
+      formCtx.validateSchema("silent");
+    }
+  });
+  if (isRef(schema)) {
+    watch(schema, () => {
+      var _a2;
+      (_a2 = formCtx.validateSchema) === null || _a2 === void 0 ? void 0 : _a2.call(formCtx, "validated-only");
+    });
+  }
+  provide(FormContextKey, formCtx);
+  function defineField(path, config) {
+    const label = isCallable(config) ? void 0 : config === null || config === void 0 ? void 0 : config.label;
+    const pathState = findPathState(toValue(path)) || createPathState(path, { label });
+    const evalConfig = () => isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {};
+    function onBlur() {
+      var _a2;
+      pathState.touched = true;
+      const validateOnBlur = (_a2 = evalConfig().validateOnBlur) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnBlur;
+      if (validateOnBlur) {
+        validateField(pathState.path);
+      }
+    }
+    function onInput() {
+      var _a2;
+      const validateOnInput = (_a2 = evalConfig().validateOnInput) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnInput;
+      if (validateOnInput) {
+        nextTick(() => {
+          validateField(pathState.path);
+        });
+      }
+    }
+    function onChange() {
+      var _a2;
+      const validateOnChange = (_a2 = evalConfig().validateOnChange) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnChange;
+      if (validateOnChange) {
+        nextTick(() => {
+          validateField(pathState.path);
+        });
+      }
+    }
+    const props = computed(() => {
+      const base = {
+        onChange,
+        onInput,
+        onBlur
+      };
+      if (isCallable(config)) {
+        return Object.assign(Object.assign({}, base), config(omit(pathState, PRIVATE_PATH_STATE_KEYS)).props || {});
+      }
+      if (config === null || config === void 0 ? void 0 : config.props) {
+        return Object.assign(Object.assign({}, base), config.props(omit(pathState, PRIVATE_PATH_STATE_KEYS)));
+      }
+      return base;
+    });
+    const model = createModel(path, () => {
+      var _a2, _b, _c;
+      return (_c = (_a2 = evalConfig().validateOnModelUpdate) !== null && _a2 !== void 0 ? _a2 : (_b = getConfig()) === null || _b === void 0 ? void 0 : _b.validateOnModelUpdate) !== null && _c !== void 0 ? _c : true;
+    });
+    return [model, props];
+  }
+  function useFieldModel(pathOrPaths) {
+    if (!Array.isArray(pathOrPaths)) {
+      return createModel(pathOrPaths);
+    }
+    return pathOrPaths.map((p) => createModel(p, true));
+  }
+  function defineInputBinds(path, config) {
+    const [model, props] = defineField(path, config);
+    function onBlur() {
+      props.value.onBlur();
+    }
+    function onInput(e) {
+      const value = normalizeEventValue(e);
+      setFieldValue(toValue(path), value, false);
+      props.value.onInput();
+    }
+    function onChange(e) {
+      const value = normalizeEventValue(e);
+      setFieldValue(toValue(path), value, false);
+      props.value.onChange();
+    }
+    return computed(() => {
+      return Object.assign(Object.assign({}, props.value), {
+        onBlur,
+        onInput,
+        onChange,
+        value: model.value
+      });
+    });
+  }
+  function defineComponentBinds(path, config) {
+    const [model, props] = defineField(path, config);
+    const pathState = findPathState(toValue(path));
+    function onUpdateModelValue(value) {
+      model.value = value;
+    }
+    return computed(() => {
+      const conf = isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {};
+      return Object.assign({ [conf.model || "modelValue"]: model.value, [`onUpdate:${conf.model || "modelValue"}`]: onUpdateModelValue }, props.value);
+    });
+  }
+  return Object.assign(Object.assign({}, formCtx), { values: readonly(formValues), handleReset: () => resetForm(), submitForm });
+}
+function useFormMeta(pathsState, currentValues, initialValues, errors) {
+  const MERGE_STRATEGIES = {
+    touched: "some",
+    pending: "some",
+    valid: "every"
+  };
+  const isDirty = computed(() => {
+    return !isEqual(currentValues, unref(initialValues));
+  });
+  function calculateFlags() {
+    const states = pathsState.value;
+    return keysOf(MERGE_STRATEGIES).reduce((acc, flag) => {
+      const mergeMethod = MERGE_STRATEGIES[flag];
+      acc[flag] = states[mergeMethod]((s) => s[flag]);
+      return acc;
+    }, {});
+  }
+  const flags = reactive(calculateFlags());
+  watchEffect(() => {
+    const value = calculateFlags();
+    flags.touched = value.touched;
+    flags.valid = value.valid;
+    flags.pending = value.pending;
+  });
+  return computed(() => {
+    return Object.assign(Object.assign({ initialValues: unref(initialValues) }, flags), { valid: flags.valid && !keysOf(errors.value).length, dirty: isDirty.value });
+  });
+}
+function useFormInitialValues(pathsState, formValues, opts) {
+  const values = resolveInitialValues(opts);
+  const initialValues = ref(values);
+  const originalInitialValues = ref(klona(values));
+  function setInitialValues(values2, updateFields = false) {
+    initialValues.value = merge(klona(initialValues.value) || {}, klona(values2));
+    originalInitialValues.value = merge(klona(originalInitialValues.value) || {}, klona(values2));
+    if (!updateFields) {
+      return;
+    }
+    pathsState.value.forEach((state) => {
+      const wasTouched = state.touched;
+      if (wasTouched) {
+        return;
+      }
+      const newValue = getFromPath(initialValues.value, state.path);
+      setInPath(formValues, state.path, klona(newValue));
+    });
+  }
+  return {
+    initialValues,
+    originalInitialValues,
+    setInitialValues
+  };
+}
+function mergeValidationResults(a, b) {
+  if (!b) {
+    return a;
+  }
+  return {
+    valid: a.valid && b.valid,
+    errors: [...a.errors, ...b.errors]
+  };
+}
+const FormImpl = /* @__PURE__ */ defineComponent({
+  name: "Form",
+  inheritAttrs: false,
+  props: {
+    as: {
+      type: null,
+      default: "form"
+    },
+    validationSchema: {
+      type: Object,
+      default: void 0
+    },
+    initialValues: {
+      type: Object,
+      default: void 0
+    },
+    initialErrors: {
+      type: Object,
+      default: void 0
+    },
+    initialTouched: {
+      type: Object,
+      default: void 0
+    },
+    validateOnMount: {
+      type: Boolean,
+      default: false
+    },
+    onSubmit: {
+      type: Function,
+      default: void 0
+    },
+    onInvalidSubmit: {
+      type: Function,
+      default: void 0
+    },
+    keepValues: {
+      type: Boolean,
+      default: false
+    }
+  },
+  setup(props, ctx) {
+    const validationSchema = toRef(props, "validationSchema");
+    const keepValues = toRef(props, "keepValues");
+    const { errors, errorBag, values, meta, isSubmitting, isValidating, submitCount, controlledValues, validate: validate2, validateField, handleReset, resetForm, handleSubmit, setErrors, setFieldError, setFieldValue, setValues, setFieldTouched, setTouched, resetField } = useForm({
+      validationSchema: validationSchema.value ? validationSchema : void 0,
+      initialValues: props.initialValues,
+      initialErrors: props.initialErrors,
+      initialTouched: props.initialTouched,
+      validateOnMount: props.validateOnMount,
+      keepValuesOnUnmount: keepValues
+    });
+    const submitForm = handleSubmit((_, { evt }) => {
+      if (isFormSubmitEvent(evt)) {
+        evt.target.submit();
+      }
+    }, props.onInvalidSubmit);
+    const onSubmit = props.onSubmit ? handleSubmit(props.onSubmit, props.onInvalidSubmit) : submitForm;
+    function handleFormReset(e) {
+      if (isEvent(e)) {
+        e.preventDefault();
+      }
+      handleReset();
+      if (typeof ctx.attrs.onReset === "function") {
+        ctx.attrs.onReset();
+      }
+    }
+    function handleScopedSlotSubmit(evt, onSubmit2) {
+      const onSuccess = typeof evt === "function" && !onSubmit2 ? evt : onSubmit2;
+      return handleSubmit(onSuccess, props.onInvalidSubmit)(evt);
+    }
+    function getValues() {
+      return klona(values);
+    }
+    function getMeta() {
+      return klona(meta.value);
+    }
+    function getErrors() {
+      return klona(errors.value);
+    }
+    function slotProps() {
+      return {
+        meta: meta.value,
+        errors: errors.value,
+        errorBag: errorBag.value,
+        values,
+        isSubmitting: isSubmitting.value,
+        isValidating: isValidating.value,
+        submitCount: submitCount.value,
+        controlledValues: controlledValues.value,
+        validate: validate2,
         validateField,
+        handleSubmit: handleScopedSlotSubmit,
+        handleReset,
+        submitForm,
+        setErrors,
+        setFieldError,
         setFieldValue,
         setValues,
-        setErrors,
         setFieldTouched,
         setTouched,
         resetForm,
         resetField,
-        handleSubmit,
-        stageInitialValue,
-        unsetInitialValue,
-        setFieldInitialValue,
-        useFieldModel,
-        createPathState,
-        getPathState: findPathState,
-        unsetPathValue,
-        removePathState,
-        initialValues: initialValues,
-        getAllPathStates: () => pathStates.value,
-        markForUnmount,
+        getValues,
+        getMeta,
+        getErrors
+      };
+    }
+    ctx.expose({
+      setFieldError,
+      setErrors,
+      setFieldValue,
+      setValues,
+      setFieldTouched,
+      setTouched,
+      resetForm,
+      validate: validate2,
+      validateField,
+      resetField,
+      getValues,
+      getMeta,
+      getErrors,
+      values,
+      meta,
+      errors
+    });
+    return function renderForm() {
+      const tag = props.as === "form" ? props.as : !props.as ? null : resolveDynamicComponent(props.as);
+      const children = normalizeChildren(tag, ctx, slotProps);
+      if (!tag) {
+        return children;
+      }
+      const formAttrs = tag === "form" ? {
+        // Disables native validation as vee-validate will handle it.
+        novalidate: true
+      } : {};
+      return h(tag, Object.assign(Object.assign(Object.assign({}, formAttrs), ctx.attrs), { onSubmit, onReset: handleFormReset }), children);
     };
-    /**
-     * Sets a single field value
-     */
-    function setFieldValue(field, value, shouldValidate = true) {
-        const clonedValue = klona(value);
-        const path = typeof field === 'string' ? field : field.path;
-        const pathState = findPathState(path);
-        if (!pathState) {
-            createPathState(path);
-        }
-        setInPath(formValues, path, clonedValue);
-        if (shouldValidate) {
-            validateField(path);
-        }
-    }
-    /**
-     * Sets multiple fields values
-     */
-    function setValues(fields) {
-        merge(formValues, fields);
-        // regenerate the arrays when the form values change
-        fieldArrays.forEach(f => f && f.reset());
-    }
-    function createModel(path) {
-        const pathState = findPathState(unref(path)) || createPathState(path);
-        return computed({
-            get() {
-                return pathState.value;
-            },
-            set(value) {
-                const pathValue = unref(path);
-                setFieldValue(pathValue, value, false);
-                pathState.validated = true;
-                pathState.pending = true;
-                validateField(pathValue).then(() => {
-                    pathState.pending = false;
-                });
-            },
-        });
-    }
-    function useFieldModel(pathOrPaths) {
-        if (!Array.isArray(pathOrPaths)) {
-            return createModel(pathOrPaths);
-        }
-        return pathOrPaths.map(createModel);
-    }
-    /**
-     * Sets the touched meta state on a field
-     */
-    function setFieldTouched(field, isTouched) {
-        const pathState = findPathState(field);
-        if (pathState) {
-            pathState.touched = isTouched;
-        }
-    }
-    /**
-     * Sets the touched meta state on multiple fields
-     */
-    function setTouched(fields) {
-        keysOf(fields).forEach(field => {
-            setFieldTouched(field, !!fields[field]);
-        });
-    }
-    function resetField(field, state) {
-        var _a;
-        const newValue = state && 'value' in state ? state.value : getFromPath(initialValues.value, field);
-        setFieldInitialValue(field, klona(newValue));
-        setFieldValue(field, newValue, false);
-        setFieldTouched(field, (_a = state === null || state === void 0 ? void 0 : state.touched) !== null && _a !== void 0 ? _a : false);
-        setFieldError(field, (state === null || state === void 0 ? void 0 : state.errors) || []);
-    }
-    /**
-     * Resets all fields
-     */
-    function resetForm(resetState) {
-        const newValues = (resetState === null || resetState === void 0 ? void 0 : resetState.values) ? resetState.values : originalInitialValues.value;
-        setInitialValues(newValues);
-        mutateAllPathState(state => {
-            var _a;
-            state.validated = false;
-            state.touched = ((_a = resetState === null || resetState === void 0 ? void 0 : resetState.touched) === null || _a === void 0 ? void 0 : _a[state.path]) || false;
-            setFieldValue(state.path, getFromPath(newValues, state.path), false);
-            setFieldError(state.path, undefined);
-        });
-        setValues(newValues);
-        setErrors((resetState === null || resetState === void 0 ? void 0 : resetState.errors) || {});
-        submitCount.value = (resetState === null || resetState === void 0 ? void 0 : resetState.submitCount) || 0;
-        nextTick(() => {
-            validate({ mode: 'silent' });
-        });
-    }
-    async function validate(opts) {
-        const mode = (opts === null || opts === void 0 ? void 0 : opts.mode) || 'force';
-        if (mode === 'force') {
-            mutateAllPathState(f => (f.validated = true));
-        }
-        if (formCtx.validateSchema) {
-            return formCtx.validateSchema(mode);
-        }
-        isValidating.value = true;
-        // No schema, each field is responsible to validate itself
-        const validations = await Promise.all(pathStates.value.map(state => {
-            if (!state.validate) {
-                return Promise.resolve({
-                    key: state.path,
-                    valid: true,
-                    errors: [],
-                });
-            }
-            return state.validate(opts).then((result) => {
-                return {
-                    key: state.path,
-                    valid: result.valid,
-                    errors: result.errors,
-                };
-            });
-        }));
-        isValidating.value = false;
-        const results = {};
-        const errors = {};
-        for (const validation of validations) {
-            results[validation.key] = {
-                valid: validation.valid,
-                errors: validation.errors,
-            };
-            if (validation.errors.length) {
-                errors[validation.key] = validation.errors[0];
-            }
-        }
-        return {
-            valid: validations.every(r => r.valid),
-            results,
-            errors,
-        };
-    }
-    async function validateField(path) {
-        const state = findPathState(path);
-        if (state) {
-            state.validated = true;
-        }
-        if (schema) {
-            const { results } = await validateSchema('validated-only');
-            return results[path] || { errors: [], valid: true };
-        }
-        if (state === null || state === void 0 ? void 0 : state.validate) {
-            return state.validate();
-        }
-        return Promise.resolve({ errors: [], valid: true });
-    }
-    function unsetInitialValue(path) {
-        unsetPath(initialValues.value, path);
-    }
-    /**
-     * Sneaky function to set initial field values
-     */
-    function stageInitialValue(path, value, updateOriginal = false) {
-        setFieldInitialValue(path, value);
-        setInPath(formValues, path, value);
-        if (updateOriginal && !(opts === null || opts === void 0 ? void 0 : opts.initialValues)) {
-            setInPath(originalInitialValues.value, path, klona(value));
-        }
-    }
-    function setFieldInitialValue(path, value) {
-        setInPath(initialValues.value, path, klona(value));
-    }
-    async function _validateSchema() {
-        const schemaValue = unref(schema);
-        if (!schemaValue) {
-            return { valid: true, results: {}, errors: {} };
-        }
-        isValidating.value = true;
-        const formResult = isYupValidator(schemaValue) || isTypedSchema(schemaValue)
-            ? await validateTypedSchema(schemaValue, formValues)
-            : await validateObjectSchema(schemaValue, formValues, {
-                names: fieldNames.value,
-                bailsMap: fieldBailsMap.value,
-            });
-        isValidating.value = false;
-        return formResult;
-    }
-    const submitForm = handleSubmit((_, { evt }) => {
-        if (isFormSubmitEvent(evt)) {
-            evt.target.submit();
-        }
-    });
-    // Trigger initial validation
-    onMounted(() => {
-        if (opts === null || opts === void 0 ? void 0 : opts.initialErrors) {
-            setErrors(opts.initialErrors);
-        }
-        if (opts === null || opts === void 0 ? void 0 : opts.initialTouched) {
-            setTouched(opts.initialTouched);
-        }
-        // if validate on mount was enabled
-        if (opts === null || opts === void 0 ? void 0 : opts.validateOnMount) {
-            validate();
-            return;
-        }
-        // otherwise run initial silent validation through schema if available
-        // the useField should skip their own silent validation if a yup schema is present
-        if (formCtx.validateSchema) {
-            formCtx.validateSchema('silent');
-        }
-    });
-    if (isRef(schema)) {
-        watch(schema, () => {
-            var _a;
-            (_a = formCtx.validateSchema) === null || _a === void 0 ? void 0 : _a.call(formCtx, 'validated-only');
-        });
-    }
-    // Provide injections
-    provide(FormContextKey, formCtx);
-    function defineComponentBinds(path, config) {
-        const pathState = findPathState(toValue(path)) || createPathState(path);
-        const evalConfig = () => (isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {});
-        function onBlur() {
-            var _a;
-            pathState.touched = true;
-            const validateOnBlur = (_a = evalConfig().validateOnBlur) !== null && _a !== void 0 ? _a : getConfig().validateOnBlur;
-            if (validateOnBlur) {
-                validateField(pathState.path);
-            }
-        }
-        function onUpdateModelValue(value) {
-            var _a;
-            setFieldValue(pathState.path, value);
-            const validateOnModelUpdate = (_a = evalConfig().validateOnModelUpdate) !== null && _a !== void 0 ? _a : getConfig().validateOnModelUpdate;
-            if (validateOnModelUpdate) {
-                validateField(pathState.path);
-            }
-        }
-        const props = computed(() => {
-            if (isCallable(config)) {
-                const configVal = config(pathState);
-                const model = configVal.model || 'modelValue';
-                return Object.assign({ onBlur, [model]: pathState.value, [`onUpdate:${model}`]: onUpdateModelValue }, (configVal.props || {}));
-            }
-            const model = (config === null || config === void 0 ? void 0 : config.model) || 'modelValue';
-            const base = {
-                [model]: pathState.value,
-                [`onUpdate:${model}`]: onUpdateModelValue,
-            };
-            if (config === null || config === void 0 ? void 0 : config.mapProps) {
-                return Object.assign(Object.assign({ onBlur }, base), config.mapProps(omit(pathState, PRIVATE_PATH_STATE_KEYS)));
-            }
-            return base;
-        });
-        return props;
-    }
-    function defineInputBinds(path, config) {
-        const pathState = (findPathState(toValue(path)) || createPathState(path));
-        const evalConfig = () => (isCallable(config) ? config(omit(pathState, PRIVATE_PATH_STATE_KEYS)) : config || {});
-        function onBlur() {
-            var _a;
-            pathState.touched = true;
-            const validateOnBlur = (_a = evalConfig().validateOnBlur) !== null && _a !== void 0 ? _a : getConfig().validateOnBlur;
-            if (validateOnBlur) {
-                validateField(pathState.path);
-            }
-        }
-        function onInput(e) {
-            var _a;
-            const value = normalizeEventValue(e);
-            const validateOnInput = (_a = evalConfig().validateOnInput) !== null && _a !== void 0 ? _a : getConfig().validateOnInput;
-            setFieldValue(pathState.path, value, validateOnInput);
-        }
-        function onChange(e) {
-            var _a;
-            const value = normalizeEventValue(e);
-            const validateOnChange = (_a = evalConfig().validateOnChange) !== null && _a !== void 0 ? _a : getConfig().validateOnChange;
-            setFieldValue(pathState.path, value, validateOnChange);
-        }
-        const props = computed(() => {
-            const base = {
-                value: pathState.value,
-                onChange,
-                onInput,
-                onBlur,
-            };
-            if (isCallable(config)) {
-                return Object.assign(Object.assign({}, base), (config(omit(pathState, PRIVATE_PATH_STATE_KEYS)).attrs || {}));
-            }
-            if (config === null || config === void 0 ? void 0 : config.mapAttrs) {
-                return Object.assign(Object.assign({}, base), config.mapAttrs(omit(pathState, PRIVATE_PATH_STATE_KEYS)));
-            }
-            return base;
-        });
-        return props;
-    }
-    return Object.assign(Object.assign({}, formCtx), { values: readonly(formValues), handleReset: () => resetForm(), submitForm,
-        defineComponentBinds,
-        defineInputBinds });
-}
-/**
- * Manages form meta aggregation
- */
-function useFormMeta(pathsState, currentValues, initialValues, errors) {
-    const MERGE_STRATEGIES = {
-        touched: 'some',
-        pending: 'some',
-        valid: 'every',
-    };
-    const isDirty = computed(() => {
-        return !isEqual(currentValues, unref(initialValues));
-    });
-    function calculateFlags() {
-        const states = pathsState.value;
-        return keysOf(MERGE_STRATEGIES).reduce((acc, flag) => {
-            const mergeMethod = MERGE_STRATEGIES[flag];
-            acc[flag] = states[mergeMethod](s => s[flag]);
-            return acc;
-        }, {});
-    }
-    const flags = reactive(calculateFlags());
-    watchEffect(() => {
-        const value = calculateFlags();
-        flags.touched = value.touched;
-        flags.valid = value.valid;
-        flags.pending = value.pending;
-    });
-    return computed(() => {
-        return Object.assign(Object.assign({ initialValues: unref(initialValues) }, flags), { valid: flags.valid && !keysOf(errors.value).length, dirty: isDirty.value });
-    });
-}
-/**
- * Manages the initial values prop
- */
-function useFormInitialValues(pathsState, formValues, opts) {
-    const values = resolveInitialValues(opts);
-    const providedValues = opts === null || opts === void 0 ? void 0 : opts.initialValues;
-    // these are the mutable initial values as the fields are mounted/unmounted
-    const initialValues = ref(values);
-    // these are the original initial value as provided by the user initially, they don't keep track of conditional fields
-    // this is important because some conditional fields will overwrite the initial values for other fields who had the same name
-    // like array fields, any push/insert operation will overwrite the initial values because they "create new fields"
-    // so these are the values that the reset function should use
-    // these only change when the user explicitly changes the initial values or when the user resets them with new values.
-    const originalInitialValues = ref(klona(values));
-    function setInitialValues(values, updateFields = false) {
-        initialValues.value = merge(klona(initialValues.value) || {}, klona(values));
-        originalInitialValues.value = merge(klona(originalInitialValues.value) || {}, klona(values));
-        if (!updateFields) {
-            return;
-        }
-        // update the pristine non-touched fields
-        // those are excluded because it's unlikely you want to change the form values using initial values
-        // we mostly watch them for API population or newly inserted fields
-        // if the user API is taking too much time before user interaction they should consider disabling or hiding their inputs until the values are ready
-        pathsState.value.forEach(state => {
-            const wasTouched = state.touched;
-            if (wasTouched) {
-                return;
-            }
-            const newValue = getFromPath(initialValues.value, state.path);
-            setInPath(formValues, state.path, klona(newValue));
-        });
-    }
-    if (isRef(providedValues)) {
-        watch(providedValues, value => {
-            if (value) {
-                setInitialValues(value, true);
-            }
-        }, {
-            deep: true,
-        });
-    }
-    return {
-        initialValues,
-        originalInitialValues,
-        setInitialValues,
-    };
-}
-
-const FormImpl = /** #__PURE__ */ defineComponent({
-    name: 'Form',
-    inheritAttrs: false,
-    props: {
-        as: {
-            type: String,
-            default: 'form',
-        },
-        validationSchema: {
-            type: Object,
-            default: undefined,
-        },
-        initialValues: {
-            type: Object,
-            default: undefined,
-        },
-        initialErrors: {
-            type: Object,
-            default: undefined,
-        },
-        initialTouched: {
-            type: Object,
-            default: undefined,
-        },
-        validateOnMount: {
-            type: Boolean,
-            default: false,
-        },
-        onSubmit: {
-            type: Function,
-            default: undefined,
-        },
-        onInvalidSubmit: {
-            type: Function,
-            default: undefined,
-        },
-        keepValues: {
-            type: Boolean,
-            default: false,
-        },
-    },
-    setup(props, ctx) {
-        const initialValues = toRef(props, 'initialValues');
-        const validationSchema = toRef(props, 'validationSchema');
-        const keepValues = toRef(props, 'keepValues');
-        const { errors, errorBag, values, meta, isSubmitting, isValidating, submitCount, controlledValues, validate, validateField, handleReset, resetForm, handleSubmit, setErrors, setFieldError, setFieldValue, setValues, setFieldTouched, setTouched, resetField, } = useForm({
-            validationSchema: validationSchema.value ? validationSchema : undefined,
-            initialValues,
-            initialErrors: props.initialErrors,
-            initialTouched: props.initialTouched,
-            validateOnMount: props.validateOnMount,
-            keepValuesOnUnmount: keepValues,
-        });
-        const submitForm = handleSubmit((_, { evt }) => {
-            if (isFormSubmitEvent(evt)) {
-                evt.target.submit();
-            }
-        }, props.onInvalidSubmit);
-        const onSubmit = props.onSubmit ? handleSubmit(props.onSubmit, props.onInvalidSubmit) : submitForm;
-        function handleFormReset(e) {
-            if (isEvent(e)) {
-                // Prevent default form reset behavior
-                e.preventDefault();
-            }
-            handleReset();
-            if (typeof ctx.attrs.onReset === 'function') {
-                ctx.attrs.onReset();
-            }
-        }
-        function handleScopedSlotSubmit(evt, onSubmit) {
-            const onSuccess = typeof evt === 'function' && !onSubmit ? evt : onSubmit;
-            return handleSubmit(onSuccess, props.onInvalidSubmit)(evt);
-        }
-        function getValues() {
-            return klona(values);
-        }
-        function getMeta() {
-            return klona(meta.value);
-        }
-        function getErrors() {
-            return klona(errors.value);
-        }
-        function slotProps() {
-            return {
-                meta: meta.value,
-                errors: errors.value,
-                errorBag: errorBag.value,
-                values,
-                isSubmitting: isSubmitting.value,
-                isValidating: isValidating.value,
-                submitCount: submitCount.value,
-                controlledValues: controlledValues.value,
-                validate,
-                validateField,
-                handleSubmit: handleScopedSlotSubmit,
-                handleReset,
-                submitForm,
-                setErrors,
-                setFieldError,
-                setFieldValue,
-                setValues,
-                setFieldTouched,
-                setTouched,
-                resetForm,
-                resetField,
-                getValues,
-                getMeta,
-                getErrors,
-            };
-        }
-        // expose these functions and methods as part of public API
-        ctx.expose({
-            setFieldError,
-            setErrors,
-            setFieldValue,
-            setValues,
-            setFieldTouched,
-            setTouched,
-            resetForm,
-            validate,
-            validateField,
-            resetField,
-            getValues,
-            getMeta,
-            getErrors,
-        });
-        return function renderForm() {
-            // avoid resolving the form component as itself
-            const tag = props.as === 'form' ? props.as : resolveDynamicComponent(props.as);
-            const children = normalizeChildren(tag, ctx, slotProps);
-            if (!props.as) {
-                return children;
-            }
-            // Attributes to add on a native `form` tag
-            const formAttrs = props.as === 'form'
-                ? {
-                    // Disables native validation as vee-validate will handle it.
-                    novalidate: true,
-                }
-                : {};
-            return h(tag, Object.assign(Object.assign(Object.assign({}, formAttrs), ctx.attrs), { onSubmit, onReset: handleFormReset }), children);
-        };
-    },
+  }
 });
 const Form = FormImpl;
-
-const ErrorMessageImpl = /** #__PURE__ */ defineComponent({
-    name: 'ErrorMessage',
-    props: {
-        as: {
-            type: String,
-            default: undefined,
-        },
-        name: {
-            type: String,
-            required: true,
-        },
+const ErrorMessageImpl = /* @__PURE__ */ defineComponent({
+  name: "ErrorMessage",
+  props: {
+    as: {
+      type: String,
+      default: void 0
     },
-    setup(props, ctx) {
-        const form = inject(FormContextKey, undefined);
-        const message = computed(() => {
-            return form === null || form === void 0 ? void 0 : form.errors.value[props.name];
-        });
-        function slotProps() {
-            return {
-                message: message.value,
-            };
-        }
-        return () => {
-            // Renders nothing if there are no messages
-            if (!message.value) {
-                return undefined;
-            }
-            const tag = (props.as ? resolveDynamicComponent(props.as) : props.as);
-            const children = normalizeChildren(tag, ctx, slotProps);
-            const attrs = Object.assign({ role: 'alert' }, ctx.attrs);
-            // If no tag was specified and there are children
-            // render the slot as is without wrapping it
-            if (!tag && (Array.isArray(children) || !children) && (children === null || children === void 0 ? void 0 : children.length)) {
-                return children;
-            }
-            // If no children in slot
-            // render whatever specified and fallback to a <span> with the message in it's contents
-            if ((Array.isArray(children) || !children) && !(children === null || children === void 0 ? void 0 : children.length)) {
-                return h(tag || 'span', attrs, message.value);
-            }
-            return h(tag, attrs, children);
-        };
-    },
+    name: {
+      type: String,
+      required: true
+    }
+  },
+  setup(props, ctx) {
+    const form = inject(FormContextKey, void 0);
+    const message = computed(() => {
+      return form === null || form === void 0 ? void 0 : form.errors.value[props.name];
+    });
+    function slotProps() {
+      return {
+        message: message.value
+      };
+    }
+    return () => {
+      if (!message.value) {
+        return void 0;
+      }
+      const tag = props.as ? resolveDynamicComponent(props.as) : props.as;
+      const children = normalizeChildren(tag, ctx, slotProps);
+      const attrs = Object.assign({ role: "alert" }, ctx.attrs);
+      if (!tag && (Array.isArray(children) || !children) && (children === null || children === void 0 ? void 0 : children.length)) {
+        return children;
+      }
+      if ((Array.isArray(children) || !children) && !(children === null || children === void 0 ? void 0 : children.length)) {
+        return h(tag || "span", attrs, message.value);
+      }
+      return h(tag, attrs, children);
+    };
+  }
 });
 const ErrorMessage = ErrorMessageImpl;
 
@@ -9391,7 +9396,9 @@ function toArray(value) {
   return value == null ? [] : [].concat(value);
 }
 
+let _Symbol$toStringTag;
 let strReg = /\$\{\s*(\w+)\s*\}/g;
+_Symbol$toStringTag = Symbol.toStringTag;
 class ValidationError extends Error {
   static formatError(message, params) {
     const path = params.label || params.path || 'this';
@@ -9405,7 +9412,7 @@ class ValidationError extends Error {
   static isError(err) {
     return err && err.name === 'ValidationError';
   }
-  constructor(errorOrErrors, value, field, type) {
+  constructor(errorOrErrors, value, field, type, disableStack) {
     super();
     this.value = void 0;
     this.path = void 0;
@@ -9413,6 +9420,7 @@ class ValidationError extends Error {
     this.errors = void 0;
     this.params = void 0;
     this.inner = void 0;
+    this[_Symbol$toStringTag] = 'Error';
     this.name = 'ValidationError';
     this.value = value;
     this.path = field;
@@ -9422,13 +9430,14 @@ class ValidationError extends Error {
     toArray(errorOrErrors).forEach(err => {
       if (ValidationError.isError(err)) {
         this.errors.push(...err.errors);
-        this.inner = this.inner.concat(err.inner.length ? err.inner : err);
+        const innerErrors = err.inner.length ? err.inner : [err];
+        this.inner.push(...innerErrors);
       } else {
         this.errors.push(err);
       }
     });
     this.message = this.errors.length > 1 ? `${this.errors.length} errors occurred` : this.errors[0];
-    if (Error.captureStackTrace) Error.captureStackTrace(this, ValidationError);
+    if (!disableStack && Error.captureStackTrace) Error.captureStackTrace(this, ValidationError);
   }
 }
 
@@ -9485,6 +9494,21 @@ let array = {
   max: '${path} field must have less than or equal to ${max} items',
   length: '${path} must have ${length} items'
 };
+let tuple = {
+  notType: params => {
+    const {
+      path,
+      value,
+      spec
+    } = params;
+    const typeLen = spec.types.length;
+    if (Array.isArray(value)) {
+      if (value.length < typeLen) return `${path} tuple value has too few items, expected a length of ${typeLen} but got ${value.length} for value: \`${printValue(value, true)}\``;
+      if (value.length > typeLen) return `${path} tuple value has too many items, expected a length of ${typeLen} but got ${value.length} for value: \`${printValue(value, true)}\``;
+    }
+    return ValidationError.formatError(mixed.notType, params);
+  }
+};
 var locale = Object.assign(Object.create(null), {
   mixed,
   string,
@@ -9492,7 +9516,8 @@ var locale = Object.assign(Object.create(null), {
   date,
   object,
   array,
-  boolean
+  boolean,
+  tuple
 });
 
 const isSchema = obj => obj && obj.__isYupSchema__;
@@ -9614,12 +9639,14 @@ function createValidation(config) {
     let {
       parent,
       context,
-      abortEarly = schema.spec.abortEarly
+      abortEarly = schema.spec.abortEarly,
+      disableStackTrace = schema.spec.disableStackTrace
     } = options;
     function resolve(item) {
       return Reference.isRef(item) ? item.getValue(value, parent, context) : item;
     }
     function createError(overrides = {}) {
+      var _overrides$disableSta;
       const nextParams = Object.assign({
         value,
         originalValue,
@@ -9628,7 +9655,7 @@ function createValidation(config) {
         spec: schema.spec
       }, params, overrides.params);
       for (const key of Object.keys(nextParams)) nextParams[key] = resolve(nextParams[key]);
-      const error = new ValidationError(ValidationError.formatError(overrides.message || message, nextParams), value, nextParams.path, overrides.type || name);
+      const error = new ValidationError(ValidationError.formatError(overrides.message || message, nextParams), value, nextParams.path, overrides.type || name, (_overrides$disableSta = overrides.disableStackTrace) != null ? _overrides$disableSta : disableStackTrace);
       error.params = nextParams;
       return error;
     }
@@ -9651,20 +9678,18 @@ function createValidation(config) {
       if (ValidationError.isError(err)) invalid(err);else panic(err);
     };
     const shouldSkip = skipAbsent && isAbsent(value);
-    if (!options.sync) {
-      try {
-        Promise.resolve(!shouldSkip ? test.call(ctx, value, ctx) : true).then(handleResult, handleError);
-      } catch (err) {
-        handleError(err);
-      }
-      return;
+    if (shouldSkip) {
+      return handleResult(true);
     }
     let result;
     try {
       var _result;
-      result = !shouldSkip ? test.call(ctx, value, ctx) : true;
+      result = test.call(ctx, value, ctx);
       if (typeof ((_result = result) == null ? void 0 : _result.then) === 'function') {
-        throw new Error(`Validation test of type: "${ctx.type}" returned a Promise during a synchronous validate. ` + `This test will finish after the validate call has returned`);
+        if (options.sync) {
+          throw new Error(`Validation test of type: "${ctx.type}" returned a Promise during a synchronous validate. ` + `This test will finish after the validate call has returned`);
+        }
+        return Promise.resolve(result).then(handleResult, handleError);
       }
     } catch (err) {
       handleError(err);
@@ -9789,6 +9814,8 @@ function clone(src, seen = new Map()) {
   return copy;
 }
 
+// If `CustomSchemaMeta` isn't extended with any keys, we'll fall back to a
+// loose Record definition allowing free form usage.
 class Schema {
   constructor(options) {
     this.type = void 0;
@@ -9815,6 +9842,7 @@ class Schema {
       strict: false,
       abortEarly: true,
       recursive: true,
+      disableStackTrace: false,
       nullable: false,
       optional: true,
       coerce: true
@@ -9920,12 +9948,13 @@ class Schema {
     return schema;
   }
   resolveOptions(options) {
-    var _options$strict, _options$abortEarly, _options$recursive;
+    var _options$strict, _options$abortEarly, _options$recursive, _options$disableStack;
     return Object.assign({}, options, {
       from: options.from || [],
       strict: (_options$strict = options.strict) != null ? _options$strict : this.spec.strict,
       abortEarly: (_options$abortEarly = options.abortEarly) != null ? _options$abortEarly : this.spec.abortEarly,
-      recursive: (_options$recursive = options.recursive) != null ? _options$recursive : this.spec.recursive
+      recursive: (_options$recursive = options.recursive) != null ? _options$recursive : this.spec.recursive,
+      disableStackTrace: (_options$disableStack = options.disableStackTrace) != null ? _options$disableStack : this.spec.disableStackTrace
     });
   }
 
@@ -10030,7 +10059,7 @@ class Schema {
       const test = tests[i];
       test(args, panicOnce, function finishTestRun(err) {
         if (err) {
-          nestedErrors = nestedErrors.concat(err);
+          Array.isArray(err) ? nestedErrors.push(...err) : nestedErrors.push(err);
         }
         if (--count <= 0) {
           nextOnce(nestedErrors);
@@ -10070,28 +10099,32 @@ class Schema {
     return (_, panic, next) => this.resolve(testOptions)._validate(value, testOptions, panic, next);
   }
   validate(value, options) {
+    var _options$disableStack2;
     let schema = this.resolve(Object.assign({}, options, {
       value
     }));
+    let disableStackTrace = (_options$disableStack2 = options == null ? void 0 : options.disableStackTrace) != null ? _options$disableStack2 : schema.spec.disableStackTrace;
     return new Promise((resolve, reject) => schema._validate(value, options, (error, parsed) => {
       if (ValidationError.isError(error)) error.value = parsed;
       reject(error);
     }, (errors, validated) => {
-      if (errors.length) reject(new ValidationError(errors, validated));else resolve(validated);
+      if (errors.length) reject(new ValidationError(errors, validated, undefined, undefined, disableStackTrace));else resolve(validated);
     }));
   }
   validateSync(value, options) {
+    var _options$disableStack3;
     let schema = this.resolve(Object.assign({}, options, {
       value
     }));
     let result;
+    let disableStackTrace = (_options$disableStack3 = options == null ? void 0 : options.disableStackTrace) != null ? _options$disableStack3 : schema.spec.disableStackTrace;
     schema._validate(value, Object.assign({}, options, {
       sync: true
     }), (error, parsed) => {
       if (ValidationError.isError(error)) error.value = parsed;
       throw error;
     }, (errors, validated) => {
-      if (errors.length) throw new ValidationError(errors, value);
+      if (errors.length) throw new ValidationError(errors, value, undefined, undefined, disableStackTrace);
       result = validated;
     });
     return result;
@@ -10670,46 +10703,54 @@ create$5.prototype = NumberSchema.prototype;
 // Number Interfaces
 //
 
-/* eslint-disable */
 /**
- *
+ * This file is a modified version of the file from the following repository:
  * Date.parse with progressive enhancement for ISO 8601 <https://github.com/csnover/js-iso8601>
  * NON-CONFORMANT EDITION.
  * © 2011 Colin Snover <http://zetafleet.com>
  * Released under MIT license.
  */
 
-//              1 YYYY                 2 MM        3 DD              4 HH     5 mm        6 ss            7 msec         8 Z 9 ±    10 tzHH    11 tzmm
-var isoReg = /^(\d{4}|[+\-]\d{6})(?:-?(\d{2})(?:-?(\d{2}))?)?(?:[ T]?(\d{2}):?(\d{2})(?::?(\d{2})(?:[,\.](\d{1,}))?)?(?:(Z)|([+\-])(\d{2})(?::?(\d{2}))?)?)?$/;
+// prettier-ignore
+//                1 YYYY                2 MM        3 DD              4 HH     5 mm        6 ss           7 msec         8 Z 9 ±   10 tzHH    11 tzmm
+const isoReg = /^(\d{4}|[+-]\d{6})(?:-?(\d{2})(?:-?(\d{2}))?)?(?:[ T]?(\d{2}):?(\d{2})(?::?(\d{2})(?:[,.](\d{1,}))?)?(?:(Z)|([+-])(\d{2})(?::?(\d{2}))?)?)?$/;
+function toNumber(str, defaultValue = 0) {
+  return Number(str) || defaultValue;
+}
 function parseIsoDate(date) {
-  var numericKeys = [1, 4, 5, 6, 7, 10, 11],
-    minutesOffset = 0,
-    timestamp,
-    struct;
-  if (struct = isoReg.exec(date)) {
-    // avoid NaN timestamps caused by “undefined” values being passed to Date.UTC
-    for (var i = 0, k; k = numericKeys[i]; ++i) struct[k] = +struct[k] || 0;
+  const regexResult = isoReg.exec(date);
+  if (!regexResult) return Date.parse ? Date.parse(date) : Number.NaN;
 
-    // allow undefined days and months
-    struct[2] = (+struct[2] || 1) - 1;
-    struct[3] = +struct[3] || 1;
-
+  // use of toNumber() avoids NaN timestamps caused by “undefined”
+  // values being passed to Date constructor
+  const struct = {
+    year: toNumber(regexResult[1]),
+    month: toNumber(regexResult[2], 1) - 1,
+    day: toNumber(regexResult[3], 1),
+    hour: toNumber(regexResult[4]),
+    minute: toNumber(regexResult[5]),
+    second: toNumber(regexResult[6]),
+    millisecond: regexResult[7] ?
     // allow arbitrary sub-second precision beyond milliseconds
-    struct[7] = struct[7] ? String(struct[7]).substr(0, 3) : 0;
+    toNumber(regexResult[7].substring(0, 3)) : 0,
+    z: regexResult[8] || undefined,
+    plusMinus: regexResult[9] || undefined,
+    hourOffset: toNumber(regexResult[10]),
+    minuteOffset: toNumber(regexResult[11])
+  };
 
-    // timestamps without timezone identifiers should be considered local time
-    if ((struct[8] === undefined || struct[8] === '') && (struct[9] === undefined || struct[9] === '')) timestamp = +new Date(struct[1], struct[2], struct[3], struct[4], struct[5], struct[6], struct[7]);else {
-      if (struct[8] !== 'Z' && struct[9] !== undefined) {
-        minutesOffset = struct[10] * 60 + struct[11];
-        if (struct[9] === '+') minutesOffset = 0 - minutesOffset;
-      }
-      timestamp = Date.UTC(struct[1], struct[2], struct[3], struct[4], struct[5] + minutesOffset, struct[6], struct[7]);
-    }
-  } else timestamp = Date.parse ? Date.parse(date) : NaN;
-  return timestamp;
+  // timestamps without timezone identifiers should be considered local time
+  if (struct.z === undefined && struct.plusMinus === undefined) {
+    return new Date(struct.year, struct.month, struct.day, struct.hour, struct.minute, struct.second, struct.millisecond).valueOf();
+  }
+  let totalMinutesOffset = 0;
+  if (struct.z !== 'Z' && struct.plusMinus !== undefined) {
+    totalMinutesOffset = struct.hourOffset * 60 + struct.minuteOffset;
+    if (struct.plusMinus === '+') totalMinutesOffset = 0 - totalMinutesOffset;
+  }
+  return Date.UTC(struct.year, struct.month, struct.day, struct.hour, struct.minute + totalMinutesOffset, struct.second, struct.millisecond);
 }
 
-// @ts-ignore
 let invalidDate = new Date('');
 let isDate = obj => Object.prototype.toString.call(obj) === '[object Date]';
 class DateSchema extends Schema {
@@ -10787,44 +10828,86 @@ function setLocale(custom) {
 }
 
 const _hoisted_1$7 = { class: "row" };
-const _hoisted_2$7 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.title",
-  class: "form-label"
-}, "作品タイトル名", -1);
+const _hoisted_2$7 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.title",
+    class: "form-label"
+  },
+  "作品タイトル名",
+  -1
+  /* HOISTED */
+);
 const _hoisted_3$7 = ["textContent"];
-const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "save_ns",
-  class: "form-label"
-}, "プロジェクト名", -1);
+const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "save_ns",
+    class: "form-label"
+  },
+  "プロジェクト名",
+  -1
+  /* HOISTED */
+);
 const _hoisted_5$7 = ["textContent"];
-const _hoisted_6$7 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.creator",
-  class: "form-label"
-}, "著作者", -1);
+const _hoisted_6$7 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.creator",
+    class: "form-label"
+  },
+  "著作者",
+  -1
+  /* HOISTED */
+);
 const _hoisted_7$6 = ["textContent"];
-const _hoisted_8$6 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.cre_url",
-  class: "form-label"
-}, "連絡先URL・mail", -1);
+const _hoisted_8$6 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.cre_url",
+    class: "form-label"
+  },
+  "連絡先URL・mail",
+  -1
+  /* HOISTED */
+);
 const _hoisted_9$6 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_10$6 = ["disabled"];
 const _hoisted_11$5 = ["textContent"];
-const _hoisted_12$5 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.publisher",
-  class: "form-label"
-}, "出版者", -1);
+const _hoisted_12$5 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.publisher",
+    class: "form-label"
+  },
+  "出版者",
+  -1
+  /* HOISTED */
+);
 const _hoisted_13$5 = ["textContent"];
-const _hoisted_14$5 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.pub_url",
-  class: "form-label"
-}, "出版者URL", -1);
+const _hoisted_14$5 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.pub_url",
+    class: "form-label"
+  },
+  "出版者URL",
+  -1
+  /* HOISTED */
+);
 const _hoisted_15$5 = { class: "input-group input-group-sm has-validation" };
 const _hoisted_16$5 = ["disabled"];
 const _hoisted_17$5 = ["textContent"];
-const _hoisted_18$5 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.detail",
-  class: "form-label"
-}, "内容：プロジェクトの説明", -1);
+const _hoisted_18$5 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.detail",
+    class: "form-label"
+  },
+  "内容：プロジェクトの説明",
+  -1
+  /* HOISTED */
+);
 const _hoisted_19$4 = ["textContent"];
 const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "StgBasic",
@@ -10918,217 +11001,355 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
     };
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$7, [
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_title).valid }])
-        }, [
-          _hoisted_2$7,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "book.title",
-            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_title) ? v_title.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_title).valid }]),
-            onInput: subscribe,
-            placeholder: "（日本語名でＯＫ）",
-            "aria-label": "作品タイトル名",
-            "aria-describedby": "Title"
-          }, null, 34), [
-            [vModelText, unref(v_title)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_title))
-          }, null, 8, _hoisted_3$7)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_save_ns).valid }])
-        }, [
-          _hoisted_4$7,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "save_ns",
-            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_save_ns) ? v_save_ns.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_save_ns).valid }]),
-            onInput: subscribe,
-            placeholder: "com.fc2.blog.famibee 的な出版者ＵＲＬの逆順ドメイン推奨",
-            "aria-label": "プロジェクト名",
-            "aria-describedby": "Project name"
-          }, null, 34), [
-            [vModelText, unref(v_save_ns)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_save_ns))
-          }, null, 8, _hoisted_5$7)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_creator).valid }])
-        }, [
-          _hoisted_6$7,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "book.creator",
-            "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_creator) ? v_creator.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_creator).valid }]),
-            onInput: subscribe,
-            placeholder: "ペンネーム、ハンドル名など",
-            "aria-label": "著作者",
-            "aria-describedby": "Contact"
-          }, null, 34), [
-            [vModelText, unref(v_creator)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_creator))
-          }, null, 8, _hoisted_7$6)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_cre_url).valid }])
-        }, [
-          _hoisted_8$6,
-          createBaseVNode("div", _hoisted_9$6, [
-            withDirectives(createBaseVNode("input", {
-              type: "text",
-              id: "book.cre_url",
-              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_cre_url) ? v_cre_url.value = $event : null),
-              class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_cre_url).valid }]),
-              onInput: subscribe,
-              placeholder: "メアド、SNSなど",
-              "aria-label": "連絡先ＵＲＬ",
-              "aria-describedby": "Contact URL"
-            }, null, 34), [
-              [vModelText, unref(v_cre_url)]
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_title).valid }])
+          },
+          [
+            _hoisted_2$7,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "book.title",
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_title) ? v_title.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_title).valid }]),
+                onInput: subscribe,
+                placeholder: "（日本語名でＯＫ）",
+                "aria-label": "作品タイトル名",
+                "aria-describedby": "Title"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_title)]
             ]),
-            createBaseVNode("button", {
-              type: "button",
-              class: "btn btn-info",
-              onClick: _cache[4] || (_cache[4] = ($event) => unref(openURL)(unref(v_cre_url))),
-              disabled: !unref(mv_cre_url).valid
-            }, "Open", 8, _hoisted_10$6),
             createBaseVNode("div", {
               class: "invalid-feedback",
-              textContent: toDisplayString(unref(em_cre_url))
-            }, null, 8, _hoisted_11$5)
-          ])
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_publisher).valid }])
-        }, [
-          _hoisted_12$5,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "book.publisher",
-            "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_publisher) ? v_publisher.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_publisher).valid }]),
-            onInput: subscribe,
-            placeholder: "サークル名、団体名など",
-            "aria-label": "出版者",
-            "aria-describedby": "Publisher"
-          }, null, 34), [
-            [vModelText, unref(v_publisher)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_publisher))
-          }, null, 8, _hoisted_13$5)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_pub_url).valid }])
-        }, [
-          _hoisted_14$5,
-          createBaseVNode("div", _hoisted_15$5, [
-            withDirectives(createBaseVNode("input", {
-              type: "url",
-              id: "book.pub_url",
-              "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_pub_url) ? v_pub_url.value = $event : null),
-              class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_pub_url).valid }]),
-              onInput: subscribe,
-              placeholder: "ご自身の公式サイトなど",
-              "aria-label": "出版者ＵＲＬ",
-              "aria-describedby": "Publisher URL"
-            }, null, 34), [
-              [vModelText, unref(v_pub_url)]
+              textContent: toDisplayString(unref(em_title))
+            }, null, 8, _hoisted_3$7)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_save_ns).valid }])
+          },
+          [
+            _hoisted_4$7,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "save_ns",
+                "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_save_ns) ? v_save_ns.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_save_ns).valid }]),
+                onInput: subscribe,
+                placeholder: "com.fc2.blog.famibee 的な出版者ＵＲＬの逆順ドメイン推奨",
+                "aria-label": "プロジェクト名",
+                "aria-describedby": "Project name"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_save_ns)]
             ]),
-            createBaseVNode("button", {
-              type: "button",
-              class: "btn btn-info",
-              onClick: _cache[7] || (_cache[7] = ($event) => unref(openURL)(unref(v_pub_url))),
-              disabled: !unref(mv_pub_url).valid
-            }, "Open", 8, _hoisted_16$5),
             createBaseVNode("div", {
               class: "invalid-feedback",
-              textContent: toDisplayString(unref(em_pub_url))
-            }, null, 8, _hoisted_17$5)
-          ])
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-12 px-1 py-3", { "was-validated": unref(mv_detail).valid }])
-        }, [
-          _hoisted_18$5,
-          withDirectives(createBaseVNode("textarea", {
-            id: "book.detail",
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_detail).valid }]),
-            "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => isRef(v_detail) ? v_detail.value = $event : null),
-            onInput: subscribe,
-            placeholder: "インストーラーに表示する内容説明",
-            "aria-label": "プロジェクトの説明",
-            "aria-describedby": "Project description"
-          }, null, 34), [
-            [vModelText, unref(v_detail)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_detail))
-          }, null, 8, _hoisted_19$4)
-        ], 2)
+              textContent: toDisplayString(unref(em_save_ns))
+            }, null, 8, _hoisted_5$7)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_creator).valid }])
+          },
+          [
+            _hoisted_6$7,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "book.creator",
+                "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_creator) ? v_creator.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_creator).valid }]),
+                onInput: subscribe,
+                placeholder: "ペンネーム、ハンドル名など",
+                "aria-label": "著作者",
+                "aria-describedby": "Contact"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_creator)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_creator))
+            }, null, 8, _hoisted_7$6)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_cre_url).valid }])
+          },
+          [
+            _hoisted_8$6,
+            createBaseVNode("div", _hoisted_9$6, [
+              withDirectives(createBaseVNode(
+                "input",
+                {
+                  type: "text",
+                  id: "book.cre_url",
+                  "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_cre_url) ? v_cre_url.value = $event : null),
+                  class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_cre_url).valid }]),
+                  onInput: subscribe,
+                  placeholder: "メアド、SNSなど",
+                  "aria-label": "連絡先ＵＲＬ",
+                  "aria-describedby": "Contact URL"
+                },
+                null,
+                34
+                /* CLASS, NEED_HYDRATION */
+              ), [
+                [vModelText, unref(v_cre_url)]
+              ]),
+              createBaseVNode("button", {
+                type: "button",
+                class: "btn btn-info",
+                onClick: _cache[4] || (_cache[4] = ($event) => unref(openURL)(unref(v_cre_url))),
+                disabled: !unref(mv_cre_url).valid
+              }, "Open", 8, _hoisted_10$6),
+              createBaseVNode("div", {
+                class: "invalid-feedback",
+                textContent: toDisplayString(unref(em_cre_url))
+              }, null, 8, _hoisted_11$5)
+            ])
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_publisher).valid }])
+          },
+          [
+            _hoisted_12$5,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "book.publisher",
+                "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_publisher) ? v_publisher.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_publisher).valid }]),
+                onInput: subscribe,
+                placeholder: "サークル名、団体名など",
+                "aria-label": "出版者",
+                "aria-describedby": "Publisher"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_publisher)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_publisher))
+            }, null, 8, _hoisted_13$5)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_pub_url).valid }])
+          },
+          [
+            _hoisted_14$5,
+            createBaseVNode("div", _hoisted_15$5, [
+              withDirectives(createBaseVNode(
+                "input",
+                {
+                  type: "url",
+                  id: "book.pub_url",
+                  "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_pub_url) ? v_pub_url.value = $event : null),
+                  class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_pub_url).valid }]),
+                  onInput: subscribe,
+                  placeholder: "ご自身の公式サイトなど",
+                  "aria-label": "出版者ＵＲＬ",
+                  "aria-describedby": "Publisher URL"
+                },
+                null,
+                34
+                /* CLASS, NEED_HYDRATION */
+              ), [
+                [vModelText, unref(v_pub_url)]
+              ]),
+              createBaseVNode("button", {
+                type: "button",
+                class: "btn btn-info",
+                onClick: _cache[7] || (_cache[7] = ($event) => unref(openURL)(unref(v_pub_url))),
+                disabled: !unref(mv_pub_url).valid
+              }, "Open", 8, _hoisted_16$5),
+              createBaseVNode("div", {
+                class: "invalid-feedback",
+                textContent: toDisplayString(unref(em_pub_url))
+              }, null, 8, _hoisted_17$5)
+            ])
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-12 px-1 py-3", { "was-validated": unref(mv_detail).valid }])
+          },
+          [
+            _hoisted_18$5,
+            withDirectives(createBaseVNode(
+              "textarea",
+              {
+                id: "book.detail",
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_detail).valid }]),
+                "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => isRef(v_detail) ? v_detail.value = $event : null),
+                onInput: subscribe,
+                placeholder: "インストーラーに表示する内容説明",
+                "aria-label": "プロジェクトの説明",
+                "aria-describedby": "Project description"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_detail)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_detail))
+            }, null, 8, _hoisted_19$4)
+          ],
+          2
+          /* CLASS */
+        )
       ]);
     };
   }
 });
 
 const _hoisted_1$6 = { class: "row" };
-const _hoisted_2$6 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.width",
-  class: "form-label"
-}, "アプリの横幅", -1);
+const _hoisted_2$6 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.width",
+    class: "form-label"
+  },
+  "アプリの横幅",
+  -1
+  /* HOISTED */
+);
 const _hoisted_3$6 = ["textContent"];
-const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.height",
-  class: "form-label"
-}, "アプリの縦幅", -1);
+const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.height",
+    class: "form-label"
+  },
+  "アプリの縦幅",
+  -1
+  /* HOISTED */
+);
 const _hoisted_5$6 = ["textContent"];
-const _hoisted_6$6 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.version",
-  class: "form-label"
-}, "バージョン", -1);
+const _hoisted_6$6 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.version",
+    class: "form-label"
+  },
+  "バージョン",
+  -1
+  /* HOISTED */
+);
 const _hoisted_7$5 = ["textContent"];
-const _hoisted_8$5 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.max_len",
-  class: "form-label"
-}, "ログ保存長", -1);
+const _hoisted_8$5 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.max_len",
+    class: "form-label"
+  },
+  "ログ保存長",
+  -1
+  /* HOISTED */
+);
 const _hoisted_9$5 = ["textContent"];
-const _hoisted_10$5 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "初期値")
-], -1);
-const _hoisted_11$4 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.tagch_msecwait",
-  class: "form-label"
-}, "文字表示待ち時間(ms)", -1);
+const _hoisted_10$5 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "col-12 px-1 pt-3" },
+  [
+    /* @__PURE__ */ createBaseVNode("h5", null, "初期値")
+  ],
+  -1
+  /* HOISTED */
+);
+const _hoisted_11$4 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.tagch_msecwait",
+    class: "form-label"
+  },
+  "文字表示待ち時間(ms)",
+  -1
+  /* HOISTED */
+);
 const _hoisted_12$4 = ["textContent"];
-const _hoisted_13$4 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.auto_msecpagewait",
-  class: "form-label"
-}, "自動読み時文字表示待ち(ms)", -1);
+const _hoisted_13$4 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.auto_msecpagewait",
+    class: "form-label"
+  },
+  "自動読み時文字表示待ち(ms)",
+  -1
+  /* HOISTED */
+);
 const _hoisted_14$4 = ["textContent"];
-const _hoisted_15$4 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.escape",
-  class: "form-label"
-}, "エスケープ文字", -1);
+const _hoisted_15$4 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.escape",
+    class: "form-label"
+  },
+  "エスケープ文字",
+  -1
+  /* HOISTED */
+);
 const _hoisted_16$4 = ["textContent"];
 const _hoisted_17$4 = { class: "col-6 col-sm-3 px-1 py-2" };
-const _hoisted_18$4 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "book.bg_color",
-  class: "form-label"
-}, "背景色", -1);
+const _hoisted_18$4 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "book.bg_color",
+    class: "form-label"
+  },
+  "背景色",
+  -1
+  /* HOISTED */
+);
 const _sfc_main$6 = /* @__PURE__ */ defineComponent({
   __name: "StgApp",
   setup(__props) {
@@ -11217,165 +11438,255 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
     };
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$6, [
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_width).valid }])
-        }, [
-          _hoisted_2$6,
-          withDirectives(createBaseVNode("input", {
-            type: "number",
-            id: "book.width",
-            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_width) ? v_width.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_width).valid }]),
-            onInput: subscribe,
-            placeholder: "横幅ドット数",
-            "aria-label": "アプリの横幅",
-            "aria-describedby": "Width of application display area"
-          }, null, 34), [
-            [vModelText, unref(v_width)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_width))
-          }, null, 8, _hoisted_3$6)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_height).valid }])
-        }, [
-          _hoisted_4$6,
-          withDirectives(createBaseVNode("input", {
-            type: "number",
-            id: "book.height",
-            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_height) ? v_height.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_height).valid }]),
-            onInput: subscribe,
-            placeholder: "縦幅ドット数",
-            "aria-label": "アプリの縦幅",
-            "aria-describedby": "Weight of application display area"
-          }, null, 34), [
-            [vModelText, unref(v_height)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_height))
-          }, null, 8, _hoisted_5$6)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_version).valid }])
-        }, [
-          _hoisted_6$6,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "book.version",
-            "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_version) ? v_version.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_version).valid }]),
-            onInput: subscribe,
-            placeholder: "1.0.0 など",
-            "aria-label": "バージョン",
-            "aria-describedby": "version"
-          }, null, 34), [
-            [vModelText, unref(v_version)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_version))
-          }, null, 8, _hoisted_7$5)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_max_len).valid }])
-        }, [
-          _hoisted_8$5,
-          withDirectives(createBaseVNode("input", {
-            type: "number",
-            id: "book.max_len",
-            "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_max_len) ? v_max_len.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_max_len).valid }]),
-            onInput: subscribe,
-            placeholder: "何ページ分保存するか",
-            "aria-label": "ログ保存長",
-            "aria-describedby": "Log retention length"
-          }, null, 34), [
-            [vModelText, unref(v_max_len)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_max_len))
-          }, null, 8, _hoisted_9$5)
-        ], 2),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_width).valid }])
+          },
+          [
+            _hoisted_2$6,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "number",
+                id: "book.width",
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(v_width) ? v_width.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_width).valid }]),
+                onInput: subscribe,
+                placeholder: "横幅ドット数",
+                "aria-label": "アプリの横幅",
+                "aria-describedby": "Width of application display area"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_width)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_width))
+            }, null, 8, _hoisted_3$6)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_height).valid }])
+          },
+          [
+            _hoisted_4$6,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "number",
+                id: "book.height",
+                "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => isRef(v_height) ? v_height.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_height).valid }]),
+                onInput: subscribe,
+                placeholder: "縦幅ドット数",
+                "aria-label": "アプリの縦幅",
+                "aria-describedby": "Weight of application display area"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_height)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_height))
+            }, null, 8, _hoisted_5$6)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_version).valid }])
+          },
+          [
+            _hoisted_6$6,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "book.version",
+                "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => isRef(v_version) ? v_version.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_version).valid }]),
+                onInput: subscribe,
+                placeholder: "1.0.0 など",
+                "aria-label": "バージョン",
+                "aria-describedby": "version"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_version)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_version))
+            }, null, 8, _hoisted_7$5)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_max_len).valid }])
+          },
+          [
+            _hoisted_8$5,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "number",
+                id: "book.max_len",
+                "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => isRef(v_max_len) ? v_max_len.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_max_len).valid }]),
+                onInput: subscribe,
+                placeholder: "何ページ分保存するか",
+                "aria-label": "ログ保存長",
+                "aria-describedby": "Log retention length"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_max_len)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_max_len))
+            }, null, 8, _hoisted_9$5)
+          ],
+          2
+          /* CLASS */
+        ),
         _hoisted_10$5,
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_tagch_msecwait).valid }])
-        }, [
-          _hoisted_11$4,
-          withDirectives(createBaseVNode("input", {
-            type: "number",
-            id: "book.tagch_msecwait",
-            "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => isRef(v_tagch_msecwait) ? v_tagch_msecwait.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_tagch_msecwait).valid }]),
-            onInput: subscribe,
-            placeholder: "ミリ秒単位で指定",
-            "aria-label": "文字表示待ち時間(ms)",
-            "aria-describedby": "Character display waiting time"
-          }, null, 34), [
-            [vModelText, unref(v_tagch_msecwait)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_tagch_msecwait))
-          }, null, 8, _hoisted_12$4)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_auto_msecpagewait).valid }])
-        }, [
-          _hoisted_13$4,
-          withDirectives(createBaseVNode("input", {
-            type: "number",
-            id: "book.auto_msecpagewait",
-            "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_auto_msecpagewait) ? v_auto_msecpagewait.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_auto_msecpagewait).valid }]),
-            onInput: subscribe,
-            placeholder: "ミリ秒単位で指定",
-            "aria-label": "自動読み時文字表示待ち時間(ms)",
-            "aria-describedby": "Waiting time for character display during automatic reading"
-          }, null, 34), [
-            [vModelText, unref(v_auto_msecpagewait)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_auto_msecpagewait))
-          }, null, 8, _hoisted_14$4)
-        ], 2),
-        createBaseVNode("div", {
-          class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_escape).valid }])
-        }, [
-          _hoisted_15$4,
-          withDirectives(createBaseVNode("input", {
-            type: "text",
-            id: "book.escape",
-            "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_escape) ? v_escape.value = $event : null),
-            class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_escape).valid }]),
-            onInput: subscribe,
-            placeholder: "半角記号推奨",
-            "aria-label": "エスケープ文字",
-            "aria-describedby": "Escape character"
-          }, null, 34), [
-            [vModelText, unref(v_escape)]
-          ]),
-          createBaseVNode("div", {
-            class: "invalid-feedback",
-            textContent: toDisplayString(unref(em_escape))
-          }, null, 8, _hoisted_16$4)
-        ], 2),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_tagch_msecwait).valid }])
+          },
+          [
+            _hoisted_11$4,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "number",
+                id: "book.tagch_msecwait",
+                "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => isRef(v_tagch_msecwait) ? v_tagch_msecwait.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_tagch_msecwait).valid }]),
+                onInput: subscribe,
+                placeholder: "ミリ秒単位で指定",
+                "aria-label": "文字表示待ち時間(ms)",
+                "aria-describedby": "Character display waiting time"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_tagch_msecwait)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_tagch_msecwait))
+            }, null, 8, _hoisted_12$4)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_auto_msecpagewait).valid }])
+          },
+          [
+            _hoisted_13$4,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "number",
+                id: "book.auto_msecpagewait",
+                "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => isRef(v_auto_msecpagewait) ? v_auto_msecpagewait.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_auto_msecpagewait).valid }]),
+                onInput: subscribe,
+                placeholder: "ミリ秒単位で指定",
+                "aria-label": "自動読み時文字表示待ち時間(ms)",
+                "aria-describedby": "Waiting time for character display during automatic reading"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_auto_msecpagewait)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_auto_msecpagewait))
+            }, null, 8, _hoisted_14$4)
+          ],
+          2
+          /* CLASS */
+        ),
+        createBaseVNode(
+          "div",
+          {
+            class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_escape).valid }])
+          },
+          [
+            _hoisted_15$4,
+            withDirectives(createBaseVNode(
+              "input",
+              {
+                type: "text",
+                id: "book.escape",
+                "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => isRef(v_escape) ? v_escape.value = $event : null),
+                class: normalizeClass(["form-control form-control-sm", { "is-invalid": !unref(mv_escape).valid }]),
+                onInput: subscribe,
+                placeholder: "半角記号推奨",
+                "aria-label": "エスケープ文字",
+                "aria-describedby": "Escape character"
+              },
+              null,
+              34
+              /* CLASS, NEED_HYDRATION */
+            ), [
+              [vModelText, unref(v_escape)]
+            ]),
+            createBaseVNode("div", {
+              class: "invalid-feedback",
+              textContent: toDisplayString(unref(em_escape))
+            }, null, 8, _hoisted_16$4)
+          ],
+          2
+          /* CLASS */
+        ),
         createBaseVNode("div", _hoisted_17$4, [
           _hoisted_18$4,
-          withDirectives(createBaseVNode("input", {
-            type: "color",
-            id: "book.bg_color",
-            "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => isRef(v_bg_color) ? v_bg_color.value = $event : null),
-            class: "form-control form-control-sm form-control-color",
-            onInput: subscribe,
-            "aria-label": "背景色",
-            "aria-describedby": "Background color"
-          }, null, 544), [
+          withDirectives(createBaseVNode(
+            "input",
+            {
+              type: "color",
+              id: "book.bg_color",
+              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => isRef(v_bg_color) ? v_bg_color.value = $event : null),
+              class: "form-control form-control-sm form-control-color",
+              onInput: subscribe,
+              "aria-label": "背景色",
+              "aria-describedby": "Background color"
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
             [vModelText, unref(v_bg_color)]
           ])
         ])
@@ -11477,117 +11788,196 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
         role: "alert",
         innerHTML: unref(err)
       }, null, 8, _hoisted_1$5)) : (openBlock(), createElementBlock("div", _hoisted_2$5, [
-        (openBlock(true), createElementBlock(Fragment, null, renderList(unref(aTemp), ({ id, lbl, type, num, max, min, step }, i) => {
-          return openBlock(), createBlock(unref(Form), {
-            key: i,
-            class: "col-6 col-sm-3 px-1 pb-2"
-          }, {
-            default: withCtx(({ meta }) => [
-              type === "chk" ? (openBlock(), createElementBlock("div", _hoisted_3$5, [
-                withDirectives(createBaseVNode("input", mergeProps({
-                  type: "checkbox",
-                  "onUpdate:modelValue": ($event) => unref(aTemp)[i].bol = $event
-                }, { id }, { class: "form-check-input mb-3 sn_checkbox" }), null, 16, _hoisted_4$5), [
-                  [vModelCheckbox, unref(aTemp)[i].bol]
+        (openBlock(true), createElementBlock(
+          Fragment,
+          null,
+          renderList(unref(aTemp), ({ id, lbl, type, num, max, min, step }, i) => {
+            return openBlock(), createBlock(
+              unref(Form),
+              {
+                key: i,
+                class: "col-6 col-sm-3 px-1 pb-2"
+              },
+              {
+                default: withCtx(({ meta }) => [
+                  type === "chk" ? (openBlock(), createElementBlock("div", _hoisted_3$5, [
+                    withDirectives(createBaseVNode("input", mergeProps({
+                      type: "checkbox",
+                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].bol = $event
+                    }, { id }, { class: "form-check-input mb-3 sn_checkbox" }), null, 16, _hoisted_4$5), [
+                      [vModelCheckbox, unref(aTemp)[i].bol]
+                    ]),
+                    createBaseVNode("label", {
+                      class: "form-check-label",
+                      for: id,
+                      textContent: toDisplayString(lbl)
+                    }, null, 8, _hoisted_5$5)
+                  ])) : type === "rng" ? (openBlock(), createElementBlock("div", _hoisted_6$5, [
+                    createBaseVNode(
+                      "div",
+                      {
+                        class: "range-badge range-badge-down",
+                        style: normalizeStyle({ left: unref(getLeftRangeBadge)(num, max, min) })
+                      },
+                      [
+                        createBaseVNode("span", {
+                          textContent: toDisplayString(unref(aTemp)[i].num)
+                        }, null, 8, _hoisted_7$4)
+                      ],
+                      4
+                      /* STYLE */
+                    ),
+                    createBaseVNode("label", {
+                      for: id,
+                      class: "form-label",
+                      textContent: toDisplayString(lbl)
+                    }, null, 8, _hoisted_8$4),
+                    withDirectives(createBaseVNode("input", mergeProps({
+                      type: "range",
+                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].num = $event
+                    }, { id, max, min, step }, { class: "form-range my-1" }), null, 16, _hoisted_9$4), [
+                      [vModelText, unref(aTemp)[i].num]
+                    ])
+                  ])) : (openBlock(), createElementBlock(
+                    "div",
+                    {
+                      key: 2,
+                      class: normalizeClass({ "was-validated": meta.valid })
+                    },
+                    [
+                      createBaseVNode("label", {
+                        for: id,
+                        class: "form-label",
+                        textContent: toDisplayString(lbl)
+                      }, null, 8, _hoisted_10$4),
+                      createVNode(unref(Field), mergeProps({
+                        modelValue: unref(aTemp)[i].val,
+                        "onUpdate:modelValue": ($event) => unref(aTemp)[i].val = $event
+                      }, { id, name: id, type: type === "num" ? "number" : "text", placeholder: lbl }, {
+                        class: ["form-control form-control-sm", { "is-invalid": !meta.valid }],
+                        rules: isRequired
+                      }), null, 16, ["modelValue", "onUpdate:modelValue", "class"]),
+                      createVNode(unref(ErrorMessage), {
+                        name: id,
+                        class: "invalid-feedback"
+                      }, null, 8, ["name"])
+                    ],
+                    2
+                    /* CLASS */
+                  ))
                 ]),
-                createBaseVNode("label", {
-                  class: "form-check-label",
-                  for: id,
-                  textContent: toDisplayString(lbl)
-                }, null, 8, _hoisted_5$5)
-              ])) : type === "rng" ? (openBlock(), createElementBlock("div", _hoisted_6$5, [
-                createBaseVNode("div", {
-                  class: "range-badge range-badge-down",
-                  style: normalizeStyle({ left: unref(getLeftRangeBadge)(num, max, min) })
-                }, [
-                  createBaseVNode("span", {
-                    textContent: toDisplayString(unref(aTemp)[i].num)
-                  }, null, 8, _hoisted_7$4)
-                ], 4),
-                createBaseVNode("label", {
-                  for: id,
-                  class: "form-label",
-                  textContent: toDisplayString(lbl)
-                }, null, 8, _hoisted_8$4),
-                withDirectives(createBaseVNode("input", mergeProps({
-                  type: "range",
-                  "onUpdate:modelValue": ($event) => unref(aTemp)[i].num = $event
-                }, { id, max, min, step }, { class: "form-range my-1" }), null, 16, _hoisted_9$4), [
-                  [vModelText, unref(aTemp)[i].num]
-                ])
-              ])) : (openBlock(), createElementBlock("div", {
-                key: 2,
-                class: normalizeClass({ "was-validated": meta.valid })
-              }, [
-                createBaseVNode("label", {
-                  for: id,
-                  class: "form-label",
-                  textContent: toDisplayString(lbl)
-                }, null, 8, _hoisted_10$4),
-                createVNode(unref(Field), mergeProps({
-                  modelValue: unref(aTemp)[i].val,
-                  "onUpdate:modelValue": ($event) => unref(aTemp)[i].val = $event
-                }, { id, name: id, type: type === "num" ? "number" : "text", placeholder: lbl }, {
-                  class: ["form-control form-control-sm", { "is-invalid": !meta.valid }],
-                  rules: isRequired
-                }), null, 16, ["modelValue", "onUpdate:modelValue", "class"]),
-                createVNode(unref(ErrorMessage), {
-                  name: id,
-                  class: "invalid-feedback"
-                }, null, 8, ["name"])
-              ], 2))
-            ]),
-            _: 2
-          }, 1024);
-        }), 128))
+                _: 2
+                /* DYNAMIC */
+              },
+              1024
+              /* DYNAMIC_SLOTS */
+            );
+          }),
+          128
+          /* KEYED_FRAGMENT */
+        ))
       ]));
     };
   }
 });
 
 const _hoisted_1$4 = { class: "row" };
-const _hoisted_2$4 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "暗号化しないフォルダ")
-], -1);
+const _hoisted_2$4 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "col-12 px-1 pt-3" },
+  [
+    /* @__PURE__ */ createBaseVNode("h5", null, "暗号化しないフォルダ")
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_3$4 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
 const _hoisted_4$4 = { class: "form-check" };
 const _hoisted_5$4 = ["id", "onUpdate:modelValue"];
 const _hoisted_6$4 = ["textContent"];
-const _hoisted_7$3 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "デバッグスイッチ")
-], -1);
+const _hoisted_7$3 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "col-12 px-1 pt-3" },
+  [
+    /* @__PURE__ */ createBaseVNode("h5", null, "デバッグスイッチ")
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_8$3 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
 const _hoisted_9$3 = { class: "form-check" };
 const _hoisted_10$3 = ["id", "onUpdate:modelValue"];
 const _hoisted_11$3 = ["for", "textContent"];
-const _hoisted_12$3 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "セーブデータ保存先を開く")
-], -1);
+const _hoisted_12$3 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "col-12 px-1 pt-3" },
+  [
+    /* @__PURE__ */ createBaseVNode("h5", null, "セーブデータ保存先を開く")
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_13$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_14$3 = { class: "form-check" };
-const _hoisted_15$3 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-label",
-  for: "open.dev.save_path"
-}, "参考資料：開発者向け情報", -1);
+const _hoisted_15$3 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-label",
+    for: "open.dev.save_path"
+  },
+  "参考資料：開発者向け情報",
+  -1
+  /* HOISTED */
+);
 const _hoisted_16$3 = { class: "input-group input-group-sm" };
-const _hoisted_17$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "【セーブデータの保存場所】", -1);
+const _hoisted_17$3 = /* @__PURE__ */ createBaseVNode(
+  "span",
+  { class: "input-group-text" },
+  "【セーブデータの保存場所】",
+  -1
+  /* HOISTED */
+);
 const _hoisted_18$3 = /* @__PURE__ */ createStaticVNode('<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check"><label class="form-label">ブラウザ版</label><div class="input-group input-group-sm"><span class="input-group-text">ブラウザのローカルストレージに保存されます</span></div></form></div>', 1);
 const _hoisted_19$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_20$3 = { class: "form-check" };
-const _hoisted_21$3 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-label",
-  for: "copy.folder_save_app"
-}, "アプリ版（通常実行）", -1);
+const _hoisted_21$3 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-label",
+    for: "copy.folder_save_app"
+  },
+  "アプリ版（通常実行）",
+  -1
+  /* HOISTED */
+);
 const _hoisted_22$3 = { class: "input-group input-group-sm" };
-const _hoisted_23$3 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "手動で開いて下さい", -1);
+const _hoisted_23$3 = /* @__PURE__ */ createBaseVNode(
+  "span",
+  { class: "input-group-text" },
+  "手動で開いて下さい",
+  -1
+  /* HOISTED */
+);
 const _hoisted_24$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_25$3 = { class: "form-check" };
-const _hoisted_26$3 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-label",
-  for: "open.folder_save_dbg"
-}, "アプリ版（デバッグ実行）", -1);
+const _hoisted_26$3 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-label",
+    for: "open.folder_save_dbg"
+  },
+  "アプリ版（デバッグ実行）",
+  -1
+  /* HOISTED */
+);
 const _hoisted_27$2 = { class: "input-group input-group-sm" };
-const _hoisted_28$2 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, ".vscode/storage/", -1);
+const _hoisted_28$2 = /* @__PURE__ */ createBaseVNode(
+  "span",
+  { class: "input-group-text" },
+  ".vscode/storage/",
+  -1
+  /* HOISTED */
+);
 const _sfc_main$4 = /* @__PURE__ */ defineComponent({
   __name: "StgDebug",
   setup(__props) {
@@ -11596,44 +11986,56 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$4, [
         _hoisted_2$4,
-        (openBlock(true), createElementBlock(Fragment, null, renderList(unref(oCfg).code, (_v, nm) => {
-          return openBlock(), createElementBlock("div", _hoisted_3$4, [
-            createBaseVNode("div", _hoisted_4$4, [
-              withDirectives(createBaseVNode("input", {
-                id: "code." + nm,
-                class: "form-check-input mb-3 sn_checkbox",
-                type: "checkbox",
-                "onUpdate:modelValue": ($event) => unref(oCfg).code[nm] = $event
-              }, null, 8, _hoisted_5$4), [
-                [vModelCheckbox, unref(oCfg).code[nm]]
-              ]),
-              createBaseVNode("label", {
-                class: "form-check-label",
-                textContent: toDisplayString(nm)
-              }, null, 8, _hoisted_6$4)
-            ])
-          ]);
-        }), 256)),
+        (openBlock(true), createElementBlock(
+          Fragment,
+          null,
+          renderList(unref(oCfg).code, (_v, nm) => {
+            return openBlock(), createElementBlock("div", _hoisted_3$4, [
+              createBaseVNode("div", _hoisted_4$4, [
+                withDirectives(createBaseVNode("input", {
+                  id: "code." + nm,
+                  class: "form-check-input mb-3 sn_checkbox",
+                  type: "checkbox",
+                  "onUpdate:modelValue": ($event) => unref(oCfg).code[nm] = $event
+                }, null, 8, _hoisted_5$4), [
+                  [vModelCheckbox, unref(oCfg).code[nm]]
+                ]),
+                createBaseVNode("label", {
+                  class: "form-check-label",
+                  textContent: toDisplayString(nm)
+                }, null, 8, _hoisted_6$4)
+              ])
+            ]);
+          }),
+          256
+          /* UNKEYED_FRAGMENT */
+        )),
         _hoisted_7$3,
-        (openBlock(true), createElementBlock(Fragment, null, renderList(unref(oCfg).debug, (_v, nm) => {
-          return openBlock(), createElementBlock("div", _hoisted_8$3, [
-            createBaseVNode("div", _hoisted_9$3, [
-              withDirectives(createBaseVNode("input", {
-                id: "debug." + nm,
-                class: "form-check-input mb-3 sn_checkbox",
-                type: "checkbox",
-                "onUpdate:modelValue": ($event) => unref(oCfg).debug[nm] = $event
-              }, null, 8, _hoisted_10$3), [
-                [vModelCheckbox, unref(oCfg).debug[nm]]
-              ]),
-              createBaseVNode("label", {
-                class: "form-check-label",
-                for: "debug." + nm,
-                textContent: toDisplayString(nm)
-              }, null, 8, _hoisted_11$3)
-            ])
-          ]);
-        }), 256)),
+        (openBlock(true), createElementBlock(
+          Fragment,
+          null,
+          renderList(unref(oCfg).debug, (_v, nm) => {
+            return openBlock(), createElementBlock("div", _hoisted_8$3, [
+              createBaseVNode("div", _hoisted_9$3, [
+                withDirectives(createBaseVNode("input", {
+                  id: "debug." + nm,
+                  class: "form-check-input mb-3 sn_checkbox",
+                  type: "checkbox",
+                  "onUpdate:modelValue": ($event) => unref(oCfg).debug[nm] = $event
+                }, null, 8, _hoisted_10$3), [
+                  [vModelCheckbox, unref(oCfg).debug[nm]]
+                ]),
+                createBaseVNode("label", {
+                  class: "form-check-label",
+                  for: "debug." + nm,
+                  textContent: toDisplayString(nm)
+                }, null, 8, _hoisted_11$3)
+              ])
+            ]);
+          }),
+          256
+          /* UNKEYED_FRAGMENT */
+        )),
         _hoisted_12$3,
         createBaseVNode("div", _hoisted_13$3, [
           createBaseVNode("form", _hoisted_14$3, [
@@ -11715,7 +12117,7 @@ const useOInfo = () => {
   return st;
 };
 
-(()=>{var t={792:(t,e,i)=>{i.d(e,{Z:()=>n});var s=i(609),o=i.n(s)()((function(t){return t[1]}));o.push([t.id,':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;--handle-position-start: 50%;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}:host(:focus){outline:2px solid -webkit-focus-ring-color}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;right:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--keyboard-transition-time: 0ms;--default-transition-time: 0ms;--transition-time: var(--default-transition-time)}.first .first-overlay-container{position:relative;clip-path:inset(0 var(--exposure) 0 0);transition:clip-path var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:clip-path}.first.focused .first-overlay-container{will-change:clip-path}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:var(--exposure);height:100%;transition:right var(--transition-time),bottom var(--transition-time)}.focused .handle-container{will-change:right}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{position:absolute;top:var(--handle-position-start);pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translate(calc(-50% - 0.5px), -50%);line-height:0}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical .first-overlay-container{clip-path:inset(0 0 var(--exposure) 0)}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:var(--exposure);width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{top:auto;left:var(--handle-position-start);transform:translate(calc(-50% - 0.5px), -50%) rotate(90deg)}',""]);const n=o;},609:t=>{t.exports=function(t){var e=[];return e.toString=function(){return this.map((function(e){var i=t(e);return e[2]?"@media ".concat(e[2]," {").concat(i,"}"):i})).join("")},e.i=function(t,i,s){"string"==typeof t&&(t=[[null,t,""]]);var o={};if(s)for(var n=0;n<this.length;n++){var r=this[n][0];null!=r&&(o[r]=!0);}for(var a=0;a<t.length;a++){var d=[].concat(t[a]);s&&o[d[0]]||(i&&(d[2]?d[2]="".concat(i," and ").concat(d[2]):d[2]=i),e.push(d));}},e};}},e={};function i(s){var o=e[s];if(void 0!==o)return o.exports;var n=e[s]={id:s,exports:{}};return t[s](n,n.exports,i),n.exports}i.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return i.d(e,{a:e}),e},i.d=(t,e)=>{for(var s in e)i.o(e,s)&&!i.o(t,s)&&Object.defineProperty(t,s,{enumerable:!0,get:e[s]});},i.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e),(()=>{var t=i(792);const e="rendered",s=(t,e)=>{const i=t.getBoundingClientRect();let s,o;return "mousedown"===e.type?(s=e.clientX,o=e.clientY):(s=e.touches[0].clientX,o=e.touches[0].clientY),s>=i.x&&s<=i.x+i.width&&o>=i.y&&o<=i.y+i.height},o=document.createElement("template");o.innerHTML='<div class="second" id="second"> <slot name="second"><slot name="before"></slot></slot> </div> <div class="first" id="first"> <div class="first-overlay"> <div class="first-overlay-container" id="firstImageContainer"> <slot name="first"><slot name="after"></slot></slot> </div> </div> <div class="handle-container"> <div class="divider"></div> <div class="handle" id="handle"> <slot name="handle"> <svg xmlns="http://www.w3.org/2000/svg" class="default-handle" viewBox="-8 -3 16 6"> <path d="M -5 -2 L -7 0 L -5 2 M 5 -2 L 7 0 L 5 2" fill="none" vector-effect="non-scaling-stroke"/> </svg> </slot> </div> </div> </div> ';const n={ArrowLeft:-1,ArrowRight:1},r=["horizontal","vertical"],a=t=>({x:t.touches[0].pageX,y:t.touches[0].pageY}),d=t=>({x:t.pageX,y:t.pageY});class h extends HTMLElement{constructor(){super(),this.exposure=this.hasAttribute("value")?parseFloat(this.getAttribute("value")):50,this.slideOnHover=!1,this.slideDirection="horizontal",this.keyboard="enabled",this.isMouseDown=!1,this.animationDirection=0,this.isFocused=!1,this.handle=!1,this.onMouseMove=t=>{if(this.isMouseDown||this.slideOnHover){const e=d(t);this.slideToPage(e);}},this.bodyUserSelectStyle="",this.onMouseDown=t=>{if(this.slideOnHover)return;if(this.handle&&!s(this.handleElement,t))return;t.preventDefault(),window.addEventListener("mousemove",this.onMouseMove),window.addEventListener("mouseup",this.onWindowMouseUp),this.isMouseDown=!0,this.enableTransition();const e=d(t);this.slideToPage(e),this.focus(),this.bodyUserSelectStyle=window.document.body.style.userSelect,window.document.body.style.userSelect="none";},this.onWindowMouseUp=()=>{this.isMouseDown=!1,window.document.body.style.userSelect=this.bodyUserSelectStyle,window.removeEventListener("mousemove",this.onMouseMove),window.removeEventListener("mouseup",this.onWindowMouseUp);},this.touchStartPoint=null,this.isTouchComparing=!1,this.hasTouchMoved=!1,this.onTouchStart=t=>{this.handle&&!s(this.handleElement,t)||(this.touchStartPoint=a(t),this.isFocused&&(this.enableTransition(),this.slideToPage(this.touchStartPoint)));},this.onTouchMove=t=>{if(null===this.touchStartPoint)return;const e=a(t);if(this.isTouchComparing)return this.slideToPage(e),t.preventDefault(),!1;if(!this.hasTouchMoved){const i=Math.abs(e.y-this.touchStartPoint.y),s=Math.abs(e.x-this.touchStartPoint.x);if("horizontal"===this.slideDirection&&i<s||"vertical"===this.slideDirection&&i>s)return this.isTouchComparing=!0,this.focus(),this.slideToPage(e),t.preventDefault(),!1;this.hasTouchMoved=!0;}},this.onTouchEnd=()=>{this.isTouchComparing=!1,this.hasTouchMoved=!1,this.touchStartPoint=null;},this.onBlur=()=>{this.stopSlideAnimation(),this.isFocused=!1,this.firstElement.classList.remove("focused");},this.onFocus=()=>{this.isFocused=!0,this.firstElement.classList.add("focused");},this.onKeyDown=t=>{if("disabled"===this.keyboard)return;const e=n[t.key];this.animationDirection!==e&&void 0!==e&&(this.animationDirection=e,this.startSlideAnimation());},this.onKeyUp=t=>{if("disabled"===this.keyboard)return;const e=n[t.key];void 0!==e&&this.animationDirection===e&&this.stopSlideAnimation();},this.resetDimensions=()=>{this.imageWidth=this.offsetWidth,this.imageHeight=this.offsetHeight;};const e=this.attachShadow({mode:"open"}),i=document.createElement("style");i.innerHTML=t.Z,this.getAttribute("nonce")&&i.setAttribute("nonce",this.getAttribute("nonce")),e.appendChild(i),e.appendChild(o.content.cloneNode(!0)),this.firstElement=e.getElementById("first"),this.secondElement=e.getElementById("second"),this.handleElement=e.getElementById("handle");}get value(){return this.exposure}set value(t){const e=parseFloat(t);e!==this.exposure&&(this.exposure=e,this.enableTransition(),this.setExposure());}get hover(){return this.slideOnHover}set hover(t){this.slideOnHover="false"!==t.toString().toLowerCase(),this.removeEventListener("mousemove",this.onMouseMove),this.slideOnHover&&this.addEventListener("mousemove",this.onMouseMove);}get direction(){return this.slideDirection}set direction(t){this.slideDirection=t.toString().toLowerCase(),this.slide(0),this.firstElement.classList.remove(...r),r.includes(this.slideDirection)&&this.firstElement.classList.add(this.slideDirection);}static get observedAttributes(){return ["hover","direction"]}connectedCallback(){this.hasAttribute("tabindex")||(this.tabIndex=0),this.addEventListener("dragstart",(t=>(t.preventDefault(),!1))),new ResizeObserver(this.resetDimensions).observe(this),this.setExposure(0),this.keyboard=this.hasAttribute("keyboard")&&"disabled"===this.getAttribute("keyboard")?"disabled":"enabled",this.addEventListener("keydown",this.onKeyDown),this.addEventListener("keyup",this.onKeyUp),this.addEventListener("focus",this.onFocus),this.addEventListener("blur",this.onBlur),this.addEventListener("touchstart",this.onTouchStart,{passive:!0}),this.addEventListener("touchmove",this.onTouchMove,{passive:!1}),this.addEventListener("touchend",this.onTouchEnd),this.addEventListener("mousedown",this.onMouseDown),this.handle=this.hasAttribute("handle"),this.hover=!!this.hasAttribute("hover")&&this.getAttribute("hover"),this.direction=this.hasAttribute("direction")?this.getAttribute("direction"):"horizontal",this.resetDimensions(),this.classList.contains(e)||this.classList.add(e),this.querySelectorAll('[slot="before"], [slot="after"]').length>0&&console.warn('<img-comparison-slider>: slot names "before" and "after" are deprecated and soon won\'t be supported. Please use slot="first" instead of slot="after", and slot="second" instead of slot="before".');}disconnectedCallback(){this.transitionTimer&&window.clearTimeout(this.transitionTimer);}attributeChangedCallback(t,e,i){"hover"===t&&(this.hover=i),"direction"===t&&(this.direction=i),"keyboard"===t&&(this.keyboard="disabled"===i?"disabled":"enabled");}setExposure(t=0){var e;this.exposure=((e=this.exposure+t)<0?0:e>100?100:e),this.firstElement.style.setProperty("--exposure",100-this.exposure+"%");}slide(t=0){this.setExposure(t);const e=new Event("slide");this.dispatchEvent(e);}slideToPage(t){"horizontal"===this.slideDirection&&this.slideToPageX(t.x),"vertical"===this.slideDirection&&this.slideToPageY(t.y);}slideToPageX(t){const e=t-this.getBoundingClientRect().left-window.scrollX;this.exposure=e/this.imageWidth*100,this.slide(0);}slideToPageY(t){const e=t-this.getBoundingClientRect().top-window.scrollY;this.exposure=e/this.imageHeight*100,this.slide(0);}enableTransition(){this.firstElement.style.setProperty("--transition-time","100ms"),this.transitionTimer=window.setTimeout((()=>{this.firstElement.style.setProperty("--transition-time","var(--default-transition-time)"),this.transitionTimer=null;}),100);}startSlideAnimation(){let t=null,e=this.animationDirection;this.firstElement.style.setProperty("--transition-time","var(--keyboard-transition-time)");const i=s=>{if(0===this.animationDirection||e!==this.animationDirection)return;null===t&&(t=s);const o=(s-t)/16.666666666666668*this.animationDirection;this.slide(o),setTimeout((()=>window.requestAnimationFrame(i)),0),t=s;};window.requestAnimationFrame(i);}stopSlideAnimation(){this.animationDirection=0,this.firstElement.style.setProperty("--transition-time","var(--default-transition-time)");}}"undefined"!=typeof window&&window.customElements.define("img-comparison-slider",h);})();})();
+(()=>{var t={792:(t,e,i)=>{i.d(e,{Z:()=>n});var s=i(609),o=i.n(s)()((function(t){return t[1]}));o.push([t.id,':host{--divider-width: 1px;--divider-color: #fff;--divider-shadow: none;--default-handle-width: 50px;--default-handle-color: #fff;--default-handle-opacity: 1;--default-handle-shadow: none;--handle-position-start: 50%;position:relative;display:inline-block;overflow:hidden;line-height:0;direction:ltr}@media screen and (-webkit-min-device-pixel-ratio: 0)and (min-resolution: 0.001dpcm){:host{outline-offset:1px}}:host(:focus){outline:2px solid -webkit-focus-ring-color}::slotted(*){-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.first{position:absolute;left:0;top:0;right:0;line-height:normal;font-size:100%;max-height:100%;height:100%;width:100%;--exposure: 50%;--keyboard-transition-time: 0ms;--default-transition-time: 0ms;--transition-time: var(--default-transition-time)}.first .first-overlay-container{position:relative;clip-path:inset(0 var(--exposure) 0 0);transition:clip-path var(--transition-time);height:100%}.first .first-overlay{overflow:hidden;height:100%}.first.focused{will-change:clip-path}.first.focused .first-overlay-container{will-change:clip-path}.second{position:relative}.handle-container{transform:translateX(50%);position:absolute;top:0;right:var(--exposure);height:100%;transition:right var(--transition-time),bottom var(--transition-time)}.focused .handle-container{will-change:right}.divider{position:absolute;height:100%;width:100%;left:0;top:0;display:flex;align-items:center;justify-content:center;flex-direction:column}.divider:after{content:" ";display:block;height:100%;border-left-width:var(--divider-width);border-left-style:solid;border-left-color:var(--divider-color);box-shadow:var(--divider-shadow)}.handle{position:absolute;top:var(--handle-position-start);pointer-events:none;box-sizing:border-box;margin-left:1px;transform:translate(calc(-50% - 0.5px), -50%);line-height:0}.default-handle{width:var(--default-handle-width);opacity:var(--default-handle-opacity);transition:all 1s;filter:drop-shadow(var(--default-handle-shadow))}.default-handle path{stroke:var(--default-handle-color)}.vertical .first-overlay-container{clip-path:inset(0 0 var(--exposure) 0)}.vertical .handle-container{transform:translateY(50%);height:auto;top:unset;bottom:var(--exposure);width:100%;left:0;flex-direction:row}.vertical .divider:after{height:1px;width:100%;border-top-width:var(--divider-width);border-top-style:solid;border-top-color:var(--divider-color);border-left:0}.vertical .handle{top:auto;left:var(--handle-position-start);transform:translate(calc(-50% - 0.5px), -50%) rotate(90deg)}',""]);const n=o;},609:t=>{t.exports=function(t){var e=[];return e.toString=function(){return this.map((function(e){var i=t(e);return e[2]?"@media ".concat(e[2]," {").concat(i,"}"):i})).join("")},e.i=function(t,i,s){"string"==typeof t&&(t=[[null,t,""]]);var o={};if(s)for(var n=0;n<this.length;n++){var r=this[n][0];null!=r&&(o[r]=!0);}for(var a=0;a<t.length;a++){var d=[].concat(t[a]);s&&o[d[0]]||(i&&(d[2]?d[2]="".concat(i," and ").concat(d[2]):d[2]=i),e.push(d));}},e};}},e={};function i(s){var o=e[s];if(void 0!==o)return o.exports;var n=e[s]={id:s,exports:{}};return t[s](n,n.exports,i),n.exports}i.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return i.d(e,{a:e}),e},i.d=(t,e)=>{for(var s in e)i.o(e,s)&&!i.o(t,s)&&Object.defineProperty(t,s,{enumerable:!0,get:e[s]});},i.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e),(()=>{var t=i(792);const e="rendered",s=(t,e)=>{const i=t.getBoundingClientRect();let s,o;return "mousedown"===e.type?(s=e.clientX,o=e.clientY):(s=e.touches[0].clientX,o=e.touches[0].clientY),s>=i.x&&s<=i.x+i.width&&o>=i.y&&o<=i.y+i.height};let o;const n={ArrowLeft:-1,ArrowRight:1},r=["horizontal","vertical"],a=t=>({x:t.touches[0].pageX,y:t.touches[0].pageY}),d=t=>({x:t.pageX,y:t.pageY}),h="undefined"!=typeof window&&(null===window||void 0===window?void 0:window.HTMLElement);"undefined"!=typeof window&&(window.document&&(o=document.createElement("template"),o.innerHTML='<div class="second" id="second"> <slot name="second"><slot name="before"></slot></slot> </div> <div class="first" id="first"> <div class="first-overlay"> <div class="first-overlay-container" id="firstImageContainer"> <slot name="first"><slot name="after"></slot></slot> </div> </div> <div class="handle-container"> <div class="divider"></div> <div class="handle" id="handle"> <slot name="handle"> <svg xmlns="http://www.w3.org/2000/svg" class="default-handle" viewBox="-8 -3 16 6"> <path d="M -5 -2 L -7 0 L -5 2 M 5 -2 L 7 0 L 5 2" fill="none" vector-effect="non-scaling-stroke"/> </svg> </slot> </div> </div> </div> '),window.customElements.define("img-comparison-slider",class extends h{constructor(){super(),this.exposure=this.hasAttribute("value")?parseFloat(this.getAttribute("value")):50,this.slideOnHover=!1,this.slideDirection="horizontal",this.keyboard="enabled",this.isMouseDown=!1,this.animationDirection=0,this.isFocused=!1,this.dragByHandle=!1,this.onMouseMove=t=>{if(this.isMouseDown||this.slideOnHover){const e=d(t);this.slideToPage(e);}},this.bodyUserSelectStyle="",this.bodyWebkitUserSelectStyle="",this.onMouseDown=t=>{if(this.slideOnHover)return;if(this.handle&&!s(this.handleElement,t))return;t.preventDefault(),window.addEventListener("mousemove",this.onMouseMove),window.addEventListener("mouseup",this.onWindowMouseUp),this.isMouseDown=!0,this.enableTransition();const e=d(t);this.slideToPage(e),this.focus(),this.bodyUserSelectStyle=window.document.body.style.userSelect,this.bodyWebkitUserSelectStyle=window.document.body.style.webkitUserSelect,window.document.body.style.userSelect="none",window.document.body.style.webkitUserSelect="none";},this.onWindowMouseUp=()=>{this.isMouseDown=!1,window.document.body.style.userSelect=this.bodyUserSelectStyle,window.document.body.style.webkitUserSelect=this.bodyWebkitUserSelectStyle,window.removeEventListener("mousemove",this.onMouseMove),window.removeEventListener("mouseup",this.onWindowMouseUp);},this.touchStartPoint=null,this.isTouchComparing=!1,this.hasTouchMoved=!1,this.onTouchStart=t=>{this.dragByHandle&&!s(this.handleElement,t)||(this.touchStartPoint=a(t),this.isFocused&&(this.enableTransition(),this.slideToPage(this.touchStartPoint)));},this.onTouchMove=t=>{if(null===this.touchStartPoint)return;const e=a(t);if(this.isTouchComparing)return this.slideToPage(e),t.preventDefault(),!1;if(!this.hasTouchMoved){const i=Math.abs(e.y-this.touchStartPoint.y),s=Math.abs(e.x-this.touchStartPoint.x);if("horizontal"===this.slideDirection&&i<s||"vertical"===this.slideDirection&&i>s)return this.isTouchComparing=!0,this.focus(),this.slideToPage(e),t.preventDefault(),!1;this.hasTouchMoved=!0;}},this.onTouchEnd=()=>{this.isTouchComparing=!1,this.hasTouchMoved=!1,this.touchStartPoint=null;},this.onBlur=()=>{this.stopSlideAnimation(),this.isFocused=!1,this.firstElement.classList.remove("focused");},this.onFocus=()=>{this.isFocused=!0,this.firstElement.classList.add("focused");},this.onKeyDown=t=>{if("disabled"===this.keyboard)return;const e=n[t.key];this.animationDirection!==e&&void 0!==e&&(this.animationDirection=e,this.startSlideAnimation());},this.onKeyUp=t=>{if("disabled"===this.keyboard)return;const e=n[t.key];void 0!==e&&this.animationDirection===e&&this.stopSlideAnimation();},this.resetDimensions=()=>{this.imageWidth=this.offsetWidth,this.imageHeight=this.offsetHeight;};const e=this.attachShadow({mode:"open"}),i=document.createElement("style");i.innerHTML=t.Z,this.getAttribute("nonce")&&i.setAttribute("nonce",this.getAttribute("nonce")),e.appendChild(i),e.appendChild(o.content.cloneNode(!0)),this.firstElement=e.getElementById("first"),this.handleElement=e.getElementById("handle");}set handle(t){this.dragByHandle="false"!==t.toString().toLowerCase();}get handle(){return this.dragByHandle}get value(){return this.exposure}set value(t){const e=parseFloat(t);e!==this.exposure&&(this.exposure=e,this.enableTransition(),this.setExposure());}get hover(){return this.slideOnHover}set hover(t){this.slideOnHover="false"!==t.toString().toLowerCase(),this.removeEventListener("mousemove",this.onMouseMove),this.slideOnHover&&this.addEventListener("mousemove",this.onMouseMove);}get direction(){return this.slideDirection}set direction(t){this.slideDirection=t.toString().toLowerCase(),this.slide(0),this.firstElement.classList.remove(...r),r.includes(this.slideDirection)&&this.firstElement.classList.add(this.slideDirection);}static get observedAttributes(){return ["hover","direction"]}connectedCallback(){this.hasAttribute("tabindex")||(this.tabIndex=0),this.addEventListener("dragstart",(t=>(t.preventDefault(),!1))),new ResizeObserver(this.resetDimensions).observe(this),this.setExposure(0),this.keyboard=this.hasAttribute("keyboard")&&"disabled"===this.getAttribute("keyboard")?"disabled":"enabled",this.addEventListener("keydown",this.onKeyDown),this.addEventListener("keyup",this.onKeyUp),this.addEventListener("focus",this.onFocus),this.addEventListener("blur",this.onBlur),this.addEventListener("touchstart",this.onTouchStart,{passive:!0}),this.addEventListener("touchmove",this.onTouchMove,{passive:!1}),this.addEventListener("touchend",this.onTouchEnd),this.addEventListener("mousedown",this.onMouseDown),this.handle=this.hasAttribute("handle")?this.getAttribute("handle"):this.dragByHandle,this.hover=this.hasAttribute("hover")?this.getAttribute("hover"):this.slideOnHover,this.direction=this.hasAttribute("direction")?this.getAttribute("direction"):this.slideDirection,this.resetDimensions(),this.classList.contains(e)||this.classList.add(e);}disconnectedCallback(){this.transitionTimer&&window.clearTimeout(this.transitionTimer);}attributeChangedCallback(t,e,i){"hover"===t&&(this.hover=i),"direction"===t&&(this.direction=i),"keyboard"===t&&(this.keyboard="disabled"===i?"disabled":"enabled");}setExposure(t=0){var e;this.exposure=((e=this.exposure+t)<0?0:e>100?100:e),this.firstElement.style.setProperty("--exposure",100-this.exposure+"%");}slide(t=0){this.setExposure(t);const e=new Event("slide");this.dispatchEvent(e);}slideToPage(t){"horizontal"===this.slideDirection&&this.slideToPageX(t.x),"vertical"===this.slideDirection&&this.slideToPageY(t.y);}slideToPageX(t){const e=t-this.getBoundingClientRect().left-window.scrollX;this.exposure=e/this.imageWidth*100,this.slide(0);}slideToPageY(t){const e=t-this.getBoundingClientRect().top-window.scrollY;this.exposure=e/this.imageHeight*100,this.slide(0);}enableTransition(){this.firstElement.style.setProperty("--transition-time","100ms"),this.transitionTimer=window.setTimeout((()=>{this.firstElement.style.setProperty("--transition-time","var(--default-transition-time)"),this.transitionTimer=null;}),100);}startSlideAnimation(){let t=null,e=this.animationDirection;this.firstElement.style.setProperty("--transition-time","var(--keyboard-transition-time)");const i=s=>{if(0===this.animationDirection||e!==this.animationDirection)return;null===t&&(t=s);const o=(s-t)/16.666666666666668*this.animationDirection;this.slide(o),setTimeout((()=>window.requestAnimationFrame(i)),0),t=s;};window.requestAnimationFrame(i);}stopSlideAnimation(){this.animationDirection=0,this.firstElement.style.setProperty("--transition-time","var(--default-transition-time)");}}));})();})();
 
 const ImgComparisonSlider = defineComponent({
     name: 'ImgComparisonSlider',
@@ -11727,30 +12129,48 @@ const ImgComparisonSlider = defineComponent({
 const _hoisted_1$3 = { class: "col-6 col-sm-4 px-2" };
 const _hoisted_2$3 = { class: "form-check form-switch py-2" };
 const _hoisted_3$3 = ["disabled"];
-const _hoisted_4$3 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "cnv.mat.pic",
-  class: "form-check-label"
-}, "jpg・png を WebP に変換", -1);
+const _hoisted_4$3 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "cnv.mat.pic",
+    class: "form-check-label"
+  },
+  "jpg・png を WebP に変換",
+  -1
+  /* HOISTED */
+);
 const _hoisted_5$3 = { class: "col-6 col-sm-3 px-1" };
 const _hoisted_6$3 = { class: "range-wrap" };
 const _hoisted_7$2 = ["textContent"];
-const _hoisted_8$2 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "cnv.mat.webp_quality",
-  class: "form-label"
-}, "基本の変換画質", -1);
+const _hoisted_8$2 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "cnv.mat.webp_quality",
+    class: "form-label"
+  },
+  "基本の変換画質",
+  -1
+  /* HOISTED */
+);
 const _hoisted_9$2 = ["disabled"];
 const _hoisted_10$2 = {
   key: 0,
   class: "col-6 col-sm-5 px-1"
 };
 const _hoisted_11$2 = { class: "table table-striped" };
-const _hoisted_12$2 = /* @__PURE__ */ createBaseVNode("thead", null, [
-  /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "元画像サイズ合計"),
-    /* @__PURE__ */ createBaseVNode("th", null, "webp変換後"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-  ])
-], -1);
+const _hoisted_12$2 = /* @__PURE__ */ createBaseVNode(
+  "thead",
+  null,
+  [
+    /* @__PURE__ */ createBaseVNode("tr", null, [
+      /* @__PURE__ */ createBaseVNode("th", null, "元画像サイズ合計"),
+      /* @__PURE__ */ createBaseVNode("th", null, "webp変換後"),
+      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_13$2 = ["textContent"];
 const _hoisted_14$2 = ["textContent"];
 const _hoisted_15$2 = ["textContent"];
@@ -11767,15 +12187,21 @@ const _hoisted_19$2 = {
   id: "tblMatCnv",
   class: "table table-striped table-hover accordion bg-secondary"
 };
-const _hoisted_20$2 = /* @__PURE__ */ createBaseVNode("thead", { class: "sticky-top" }, [
-  /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
-    /* @__PURE__ */ createBaseVNode("th", null, "変換画質"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元画像サイズ"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp変換後"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-  ])
-], -1);
+const _hoisted_20$2 = /* @__PURE__ */ createBaseVNode(
+  "thead",
+  { class: "sticky-top" },
+  [
+    /* @__PURE__ */ createBaseVNode("tr", null, [
+      /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
+      /* @__PURE__ */ createBaseVNode("th", null, "変換画質"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元画像サイズ"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp変換後"),
+      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_21$2 = ["href", "data-bs-target", "aria-controls"];
 const _hoisted_22$2 = ["textContent"];
 const _hoisted_23$2 = ["textContent"];
@@ -11800,25 +12226,37 @@ const _hoisted_38$1 = { class: "col-12 px-1" };
 const _hoisted_39$1 = { class: "position-relative d-flex justify-content-evenly" };
 const _hoisted_40$1 = ["src"];
 const _hoisted_41$1 = ["src"];
-const _hoisted_42$1 = /* @__PURE__ */ createBaseVNode("svg", {
-  slot: "handle",
-  width: "100",
-  xmlns: "http://www.w3.org/2000/svg",
-  viewBox: "-8 -3 16 6"
-}, [
-  /* @__PURE__ */ createBaseVNode("path", {
-    stroke: "#fff",
-    d: "M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2",
-    "stroke-width": "2",
-    fill: "#ffa658",
-    "vector-effect": "non-scaling-stroke"
-  })
-], -1);
-const _hoisted_43$1 = /* @__PURE__ */ createBaseVNode("button", {
-  type: "button",
-  class: "btn btn-light position-absolute top-50 start-0",
-  disabled: ""
-}, "WebP", -1);
+const _hoisted_42$1 = /* @__PURE__ */ createBaseVNode(
+  "svg",
+  {
+    slot: "handle",
+    width: "100",
+    xmlns: "http://www.w3.org/2000/svg",
+    viewBox: "-8 -3 16 6"
+  },
+  [
+    /* @__PURE__ */ createBaseVNode("path", {
+      stroke: "#fff",
+      d: "M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2",
+      "stroke-width": "2",
+      fill: "#ffa658",
+      "vector-effect": "non-scaling-stroke"
+    })
+  ],
+  -1
+  /* HOISTED */
+);
+const _hoisted_43$1 = /* @__PURE__ */ createBaseVNode(
+  "button",
+  {
+    type: "button",
+    class: "btn btn-light position-absolute top-50 start-0",
+    disabled: ""
+  },
+  "WebP",
+  -1
+  /* HOISTED */
+);
 const _hoisted_44 = ["textContent"];
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "StgImgOpt",
@@ -11850,218 +12288,289 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     };
     const updImg = (src) => src + "?" + (/* @__PURE__ */ new Date()).getTime();
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock(Fragment, null, [
-        createBaseVNode("div", _hoisted_1$3, [
-          createBaseVNode("div", _hoisted_2$3, [
-            withDirectives(createBaseVNode("input", {
-              type: "checkbox",
-              id: "cnv.mat.pic",
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => unref(oWss)["cnv.mat.pic"] = $event),
-              disabled: unref(hDisabled)["cnv.mat.pic"],
-              class: "form-check-input sn_checkbox sn-chk"
-            }, null, 8, _hoisted_3$3), [
-              [vModelCheckbox, unref(oWss)["cnv.mat.pic"]]
-            ]),
-            _hoisted_4$3
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_5$3, [
-          createBaseVNode("div", _hoisted_6$3, [
-            createBaseVNode("div", {
-              class: "range-badge range-badge-down",
-              style: normalizeStyle({ left: unref(getLeftRangeBadge)(unref(oWss)["cnv.mat.webp_quality"], 100, 5) })
-            }, [
-              createBaseVNode("span", {
-                textContent: toDisplayString(unref(oWss)["cnv.mat.webp_quality"])
-              }, null, 8, _hoisted_7$2)
-            ], 4),
-            _hoisted_8$2,
-            withDirectives(createBaseVNode("input", {
-              type: "range",
-              id: "cnv.mat.webp_quality",
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.mat.webp_quality"] = $event),
-              max: "100",
-              min: "5",
-              step: "5",
-              disabled: unref(hDisabled)["cnv.mat.pic"],
-              onChange: _cache[2] || (_cache[2] = ($event) => chgRangeWebpQDef($event)),
-              class: "form-range my-1 sn-vld"
-            }, null, 40, _hoisted_9$2), [
-              [vModelText, unref(oWss)["cnv.mat.webp_quality"]]
+      return openBlock(), createElementBlock(
+        Fragment,
+        null,
+        [
+          createBaseVNode("div", _hoisted_1$3, [
+            createBaseVNode("div", _hoisted_2$3, [
+              withDirectives(createBaseVNode("input", {
+                type: "checkbox",
+                id: "cnv.mat.pic",
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => unref(oWss)["cnv.mat.pic"] = $event),
+                disabled: unref(hDisabled)["cnv.mat.pic"],
+                class: "form-check-input sn_checkbox sn-chk"
+              }, null, 8, _hoisted_3$3), [
+                [vModelCheckbox, unref(oWss)["cnv.mat.pic"]]
+              ]),
+              _hoisted_4$3
             ])
-          ])
-        ]),
-        unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_10$2, [
-          createBaseVNode("table", _hoisted_11$2, [
-            _hoisted_12$2,
-            createBaseVNode("tbody", null, [
-              createBaseVNode("tr", null, [
-                createBaseVNode("td", {
-                  style: { "text-align": "right" },
-                  textContent: toDisplayString(unref(oOptImg).sum.baseSize.toLocaleString("ja-JP") + " byte")
-                }, null, 8, _hoisted_13$2),
-                createBaseVNode("td", {
-                  style: { "text-align": "right" },
-                  textContent: toDisplayString(unref(oOptImg).sum.webpSize.toLocaleString("ja-JP") + " byte")
-                }, null, 8, _hoisted_14$2),
-                createBaseVNode("td", {
-                  textContent: toDisplayString((unref(oOptImg).sum.webpSize / unref(oOptImg).sum.baseSize).toLocaleString("ja-JP"))
-                }, null, 8, _hoisted_15$2)
+          ]),
+          createBaseVNode("div", _hoisted_5$3, [
+            createBaseVNode("div", _hoisted_6$3, [
+              createBaseVNode(
+                "div",
+                {
+                  class: "range-badge range-badge-down",
+                  style: normalizeStyle({ left: unref(getLeftRangeBadge)(unref(oWss)["cnv.mat.webp_quality"], 100, 5) })
+                },
+                [
+                  createBaseVNode("span", {
+                    textContent: toDisplayString(unref(oWss)["cnv.mat.webp_quality"])
+                  }, null, 8, _hoisted_7$2)
+                ],
+                4
+                /* STYLE */
+              ),
+              _hoisted_8$2,
+              withDirectives(createBaseVNode("input", {
+                type: "range",
+                id: "cnv.mat.webp_quality",
+                "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.mat.webp_quality"] = $event),
+                max: "100",
+                min: "5",
+                step: "5",
+                disabled: unref(hDisabled)["cnv.mat.pic"],
+                onChange: _cache[2] || (_cache[2] = ($event) => chgRangeWebpQDef($event)),
+                class: "form-range my-1 sn-vld"
+              }, null, 40, _hoisted_9$2), [
+                [vModelText, unref(oWss)["cnv.mat.webp_quality"]]
               ])
             ])
-          ])
-        ])) : createCommentVNode("", true),
-        unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_16$2, [
-          createBaseVNode("div", null, [
-            createBaseVNode("div", _hoisted_17$2, [
-              createBaseVNode("div", _hoisted_18$2, [
-                createBaseVNode("table", _hoisted_19$2, [
-                  _hoisted_20$2,
-                  createBaseVNode("tbody", null, [
-                    (openBlock(true), createElementBlock(Fragment, null, renderList(sortHSize(), (e) => {
-                      return openBlock(), createElementBlock(Fragment, {
-                        key: e.key
-                      }, [
-                        createBaseVNode("tr", {
-                          href: "#" + e.id,
-                          class: "accordion-header",
-                          "data-bs-toggle": "collapse",
-                          "data-bs-target": "#" + e.id,
-                          "aria-expanded": "true",
-                          "aria-controls": e.id
-                        }, [
-                          createBaseVNode("td", {
-                            textContent: toDisplayString(e.nm)
-                          }, null, 8, _hoisted_22$2),
-                          createBaseVNode("td", {
-                            textContent: toDisplayString(e.webp_q ?? `${unref(oWss)["cnv.mat.webp_quality"]} (基本の値)`)
-                          }, null, 8, _hoisted_23$2),
-                          createBaseVNode("td", {
-                            style: { "text-align": "right" },
-                            textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
-                          }, null, 8, _hoisted_24$2),
-                          createBaseVNode("td", {
-                            style: { "text-align": "right" },
-                            textContent: toDisplayString(e.webpSize.toLocaleString("ja-JP") + " byte")
-                          }, null, 8, _hoisted_25$2),
-                          createBaseVNode("td", {
-                            textContent: toDisplayString((e.webpSize / e.baseSize).toLocaleString("ja-JP"))
-                          }, null, 8, _hoisted_26$2)
-                        ], 8, _hoisted_21$2),
-                        createBaseVNode("tr", {
-                          id: e.id,
-                          "data-bs-parent": "#tblMatCnv",
-                          "aria-labelledby": e.id,
-                          class: "accordion-collapse collapse"
-                        }, [
-                          createBaseVNode("td", _hoisted_28$1, [
-                            createBaseVNode("div", _hoisted_29$1, [
-                              createBaseVNode("div", _hoisted_30$1, [
-                                createBaseVNode("div", _hoisted_31$1, [
-                                  createBaseVNode("input", {
-                                    type: "checkbox",
-                                    id: "cnv.mat.pic." + e.id,
-                                    checked: e.webp_q !== void 0,
-                                    onChange: ($event) => chkChg($event, e),
-                                    disabled: unref(hDisabled)["cnv.mat.pic"],
-                                    class: "form-check-input sn_checkbox sn-chk"
-                                  }, null, 40, _hoisted_32$1),
-                                  createBaseVNode("label", {
-                                    for: "cnv.mat.pic." + e.id,
-                                    class: "form-check-label text-white"
-                                  }, "画質を個別設定", 8, _hoisted_33$1)
-                                ])
-                              ]),
-                              createBaseVNode("div", _hoisted_34$1, [
-                                createBaseVNode("div", _hoisted_35$1, [
-                                  createBaseVNode("div", {
-                                    class: "range-badge",
-                                    style: normalizeStyle({ left: unref(getLeftRangeBadge)(e.webp_q, 100, 5) })
-                                  }, [
-                                    withDirectives(createBaseVNode("span", {
-                                      textContent: toDisplayString(e.webp_q)
-                                    }, null, 8, _hoisted_36$1), [
-                                      [vShow, e.webp_q !== void 0]
+          ]),
+          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_10$2, [
+            createBaseVNode("table", _hoisted_11$2, [
+              _hoisted_12$2,
+              createBaseVNode("tbody", null, [
+                createBaseVNode("tr", null, [
+                  createBaseVNode("td", {
+                    style: { "text-align": "right" },
+                    textContent: toDisplayString(unref(oOptImg).sum.baseSize.toLocaleString("ja-JP") + " byte")
+                  }, null, 8, _hoisted_13$2),
+                  createBaseVNode("td", {
+                    style: { "text-align": "right" },
+                    textContent: toDisplayString(unref(oOptImg).sum.webpSize.toLocaleString("ja-JP") + " byte")
+                  }, null, 8, _hoisted_14$2),
+                  createBaseVNode("td", {
+                    textContent: toDisplayString((unref(oOptImg).sum.webpSize / unref(oOptImg).sum.baseSize).toLocaleString("ja-JP"))
+                  }, null, 8, _hoisted_15$2)
+                ])
+              ])
+            ])
+          ])) : createCommentVNode("v-if", true),
+          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_16$2, [
+            createBaseVNode("div", null, [
+              createBaseVNode("div", _hoisted_17$2, [
+                createBaseVNode("div", _hoisted_18$2, [
+                  createBaseVNode("table", _hoisted_19$2, [
+                    _hoisted_20$2,
+                    createBaseVNode("tbody", null, [
+                      (openBlock(true), createElementBlock(
+                        Fragment,
+                        null,
+                        renderList(sortHSize(), (e) => {
+                          return openBlock(), createElementBlock(
+                            Fragment,
+                            {
+                              key: e.key
+                            },
+                            [
+                              createBaseVNode("tr", {
+                                href: "#" + e.id,
+                                class: "accordion-header",
+                                "data-bs-toggle": "collapse",
+                                "data-bs-target": "#" + e.id,
+                                "aria-expanded": "true",
+                                "aria-controls": e.id
+                              }, [
+                                createBaseVNode("td", {
+                                  textContent: toDisplayString(e.nm)
+                                }, null, 8, _hoisted_22$2),
+                                createBaseVNode("td", {
+                                  textContent: toDisplayString(e.webp_q ?? `${unref(oWss)["cnv.mat.webp_quality"]} (基本の値)`)
+                                }, null, 8, _hoisted_23$2),
+                                createBaseVNode("td", {
+                                  style: { "text-align": "right" },
+                                  textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
+                                }, null, 8, _hoisted_24$2),
+                                createBaseVNode("td", {
+                                  style: { "text-align": "right" },
+                                  textContent: toDisplayString(e.webpSize.toLocaleString("ja-JP") + " byte")
+                                }, null, 8, _hoisted_25$2),
+                                createBaseVNode("td", {
+                                  textContent: toDisplayString((e.webpSize / e.baseSize).toLocaleString("ja-JP"))
+                                }, null, 8, _hoisted_26$2)
+                              ], 8, _hoisted_21$2),
+                              createBaseVNode("tr", {
+                                id: e.id,
+                                "data-bs-parent": "#tblMatCnv",
+                                "aria-labelledby": e.id,
+                                class: "accordion-collapse collapse"
+                              }, [
+                                createBaseVNode("td", _hoisted_28$1, [
+                                  createBaseVNode("div", _hoisted_29$1, [
+                                    createBaseVNode("div", _hoisted_30$1, [
+                                      createBaseVNode("div", _hoisted_31$1, [
+                                        createBaseVNode("input", {
+                                          type: "checkbox",
+                                          id: "cnv.mat.pic." + e.id,
+                                          checked: e.webp_q !== void 0,
+                                          onChange: ($event) => chkChg($event, e),
+                                          disabled: unref(hDisabled)["cnv.mat.pic"],
+                                          class: "form-check-input sn_checkbox sn-chk"
+                                        }, null, 40, _hoisted_32$1),
+                                        createBaseVNode("label", {
+                                          for: "cnv.mat.pic." + e.id,
+                                          class: "form-check-label text-white"
+                                        }, "画質を個別設定", 8, _hoisted_33$1)
+                                      ])
+                                    ]),
+                                    createBaseVNode("div", _hoisted_34$1, [
+                                      createBaseVNode("div", _hoisted_35$1, [
+                                        createBaseVNode(
+                                          "div",
+                                          {
+                                            class: "range-badge",
+                                            style: normalizeStyle({ left: unref(getLeftRangeBadge)(e.webp_q, 100, 5) })
+                                          },
+                                          [
+                                            withDirectives(createBaseVNode("span", {
+                                              textContent: toDisplayString(e.webp_q)
+                                            }, null, 8, _hoisted_36$1), [
+                                              [vShow, e.webp_q !== void 0]
+                                            ])
+                                          ],
+                                          4
+                                          /* STYLE */
+                                        ),
+                                        withDirectives(createBaseVNode("input", {
+                                          type: "range",
+                                          "onUpdate:modelValue": ($event) => unref(oOptImg).hSize[e.nm].webp_q = $event,
+                                          max: "100",
+                                          min: "5",
+                                          step: "5",
+                                          disabled: e.webp_q === void 0 || unref(hDisabled)["cnv.mat.pic"],
+                                          onChange: ($event) => chgRangeWebpQ($event, e),
+                                          class: "form-range my-1 sn-vld"
+                                        }, null, 40, _hoisted_37$1), [
+                                          [vModelText, unref(oOptImg).hSize[e.nm].webp_q]
+                                        ])
+                                      ])
+                                    ]),
+                                    createBaseVNode("div", _hoisted_38$1, [
+                                      createBaseVNode("div", _hoisted_39$1, [
+                                        createVNode(
+                                          unref(ImgComparisonSlider),
+                                          null,
+                                          {
+                                            default: withCtx(() => [
+                                              createBaseVNode("img", {
+                                                loading: "lazy",
+                                                slot: "first",
+                                                src: updImg(unref(oOptImg).sum.pathImgCmpWebP + e.fld_nm + ".webp")
+                                              }, null, 8, _hoisted_40$1),
+                                              createBaseVNode("img", {
+                                                loading: "lazy",
+                                                slot: "second",
+                                                src: updImg(unref(oOptImg).sum.pathImgCmpBase + e.fld_nm + "." + e.ext)
+                                              }, null, 8, _hoisted_41$1),
+                                              _hoisted_42$1
+                                            ]),
+                                            _: 2
+                                            /* DYNAMIC */
+                                          },
+                                          1024
+                                          /* DYNAMIC_SLOTS */
+                                        ),
+                                        _hoisted_43$1,
+                                        createBaseVNode("button", {
+                                          type: "button",
+                                          class: "btn btn-light position-absolute bottom-50 end-0",
+                                          textContent: toDisplayString(e.ext),
+                                          disabled: ""
+                                        }, null, 8, _hoisted_44)
+                                      ])
                                     ])
-                                  ], 4),
-                                  withDirectives(createBaseVNode("input", {
-                                    type: "range",
-                                    "onUpdate:modelValue": ($event) => unref(oOptImg).hSize[e.nm].webp_q = $event,
-                                    max: "100",
-                                    min: "5",
-                                    step: "5",
-                                    disabled: e.webp_q === void 0 || unref(hDisabled)["cnv.mat.pic"],
-                                    onChange: ($event) => chgRangeWebpQ($event, e),
-                                    class: "form-range my-1 sn-vld"
-                                  }, null, 40, _hoisted_37$1), [
-                                    [vModelText, unref(oOptImg).hSize[e.nm].webp_q]
                                   ])
                                 ])
-                              ]),
-                              createBaseVNode("div", _hoisted_38$1, [
-                                createBaseVNode("div", _hoisted_39$1, [
-                                  createVNode(unref(ImgComparisonSlider), null, {
-                                    default: withCtx(() => [
-                                      createBaseVNode("img", {
-                                        loading: "lazy",
-                                        slot: "first",
-                                        src: updImg(unref(oOptImg).sum.pathImgCmpWebP + e.fld_nm + ".webp")
-                                      }, null, 8, _hoisted_40$1),
-                                      createBaseVNode("img", {
-                                        loading: "lazy",
-                                        slot: "second",
-                                        src: updImg(unref(oOptImg).sum.pathImgCmpBase + e.fld_nm + "." + e.ext)
-                                      }, null, 8, _hoisted_41$1),
-                                      _hoisted_42$1
-                                    ]),
-                                    _: 2
-                                  }, 1024),
-                                  _hoisted_43$1,
-                                  createBaseVNode("button", {
-                                    type: "button",
-                                    class: "btn btn-light position-absolute bottom-50 end-0",
-                                    textContent: toDisplayString(e.ext),
-                                    disabled: ""
-                                  }, null, 8, _hoisted_44)
-                                ])
-                              ])
-                            ])
-                          ])
-                        ], 8, _hoisted_27$1)
-                      ], 64);
-                    }), 128))
+                              ], 8, _hoisted_27$1)
+                            ],
+                            64
+                            /* STABLE_FRAGMENT */
+                          );
+                        }),
+                        128
+                        /* KEYED_FRAGMENT */
+                      ))
+                    ])
                   ])
                 ])
               ])
             ])
-          ])
-        ])) : createCommentVNode("", true)
-      ], 64);
+          ])) : createCommentVNode("v-if", true)
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      );
     };
   }
 });
 
-const StgImgOpt_vue_vue_type_style_index_0_lang = '';
-
 const _hoisted_1$2 = { class: "col-6 col-sm-4 px-2" };
 const _hoisted_2$2 = { class: "form-check form-switch py-2" };
 const _hoisted_3$2 = ["disabled"];
-const _hoisted_4$2 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "cnv.mat.snd",
-  class: "form-check-label"
-}, "mp3・wav をコーデック変換", -1);
+const _hoisted_4$2 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "cnv.mat.snd",
+    class: "form-check-label"
+  },
+  "mp3・wav をコーデック変換",
+  -1
+  /* HOISTED */
+);
 const _hoisted_5$2 = { class: "col-6 col-sm-3 px-1 sn_select" };
-const _hoisted_6$2 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "cnv.mat.snd.codec",
-  class: "form-label"
-}, "音声コーデック", -1);
-const _hoisted_7$1 = /* @__PURE__ */ createBaseVNode("i", { class: "fas fa-angle-down sn_select_v" }, null, -1);
-const _hoisted_8$1 = /* @__PURE__ */ createBaseVNode("option", {
-  value: "opus",
-  selected: ""
-}, "(.m4a) Opus", -1);
-const _hoisted_9$1 = /* @__PURE__ */ createBaseVNode("option", { value: "aac" }, "(.aac) Advanced Audio Coding", -1);
-const _hoisted_10$1 = /* @__PURE__ */ createBaseVNode("option", { value: "ogg" }, "(.ogg) Vorbis", -1);
+const _hoisted_6$2 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "cnv.mat.snd.codec",
+    class: "form-label"
+  },
+  "音声コーデック",
+  -1
+  /* HOISTED */
+);
+const _hoisted_7$1 = /* @__PURE__ */ createBaseVNode(
+  "i",
+  { class: "fas fa-angle-down sn_select_v" },
+  null,
+  -1
+  /* HOISTED */
+);
+const _hoisted_8$1 = /* @__PURE__ */ createBaseVNode(
+  "option",
+  {
+    value: "opus",
+    selected: ""
+  },
+  "(.m4a) Opus",
+  -1
+  /* HOISTED */
+);
+const _hoisted_9$1 = /* @__PURE__ */ createBaseVNode(
+  "option",
+  { value: "aac" },
+  "(.aac) Advanced Audio Coding",
+  -1
+  /* HOISTED */
+);
+const _hoisted_10$1 = /* @__PURE__ */ createBaseVNode(
+  "option",
+  { value: "ogg" },
+  "(.ogg) Vorbis",
+  -1
+  /* HOISTED */
+);
 const _hoisted_11$1 = [
   _hoisted_8$1,
   _hoisted_9$1,
@@ -12072,13 +12581,19 @@ const _hoisted_12$1 = {
   class: "col-6 col-sm-5 px-1"
 };
 const _hoisted_13$1 = { class: "table table-striped" };
-const _hoisted_14$1 = /* @__PURE__ */ createBaseVNode("thead", null, [
-  /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "元音声サイズ合計"),
-    /* @__PURE__ */ createBaseVNode("th", null, "変換後"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-  ])
-], -1);
+const _hoisted_14$1 = /* @__PURE__ */ createBaseVNode(
+  "thead",
+  null,
+  [
+    /* @__PURE__ */ createBaseVNode("tr", null, [
+      /* @__PURE__ */ createBaseVNode("th", null, "元音声サイズ合計"),
+      /* @__PURE__ */ createBaseVNode("th", null, "変換後"),
+      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_15$1 = ["textContent"];
 const _hoisted_16$1 = ["textContent"];
 const _hoisted_17$1 = ["textContent"];
@@ -12088,14 +12603,20 @@ const _hoisted_18$1 = {
 };
 const _hoisted_19$1 = { class: "p-0 tbody_scroll" };
 const _hoisted_20$1 = { class: "table table-striped bg-secondary" };
-const _hoisted_21$1 = /* @__PURE__ */ createBaseVNode("thead", { class: "sticky-top" }, [
-  /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元音声サイズ"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "変換後"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-  ])
-], -1);
+const _hoisted_21$1 = /* @__PURE__ */ createBaseVNode(
+  "thead",
+  { class: "sticky-top" },
+  [
+    /* @__PURE__ */ createBaseVNode("tr", null, [
+      /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元音声サイズ"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "変換後"),
+      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_22$1 = ["href", "data-bs-target", "aria-controls"];
 const _hoisted_23$1 = ["textContent"];
 const _hoisted_24$1 = ["textContent"];
@@ -12110,125 +12631,179 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const { oWss } = storeToRefs(stWss);
     const sortHSize = () => Object.entries(oOptSnd.value.hSize).map(([nm, v]) => ({ nm, id: "acdMC" + nm.replaceAll(".", "_"), ...v })).sort((a, b) => a.nm < b.nm ? -1 : 1);
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock(Fragment, null, [
-        createBaseVNode("div", _hoisted_1$2, [
-          createBaseVNode("div", _hoisted_2$2, [
-            withDirectives(createBaseVNode("input", {
-              type: "checkbox",
-              id: "cnv.mat.snd",
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => unref(oWss)["cnv.mat.snd"] = $event),
-              disabled: unref(hDisabled)["cnv.mat.snd"],
-              class: "form-check-input sn_checkbox sn-chk"
-            }, null, 8, _hoisted_3$2), [
-              [vModelCheckbox, unref(oWss)["cnv.mat.snd"]]
-            ]),
-            _hoisted_4$2
-          ])
-        ]),
-        createBaseVNode("div", _hoisted_5$2, [
-          _hoisted_6$2,
-          _hoisted_7$1,
-          withDirectives(createBaseVNode("select", {
-            id: "cnv.mat.snd.codec",
-            class: "form-select form-select-sm mb-3",
-            "aria-label": ".form-select-sm example",
-            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.mat.snd.codec"] = $event)
-          }, _hoisted_11$1, 512), [
-            [vModelSelect, unref(oWss)["cnv.mat.snd.codec"]]
-          ])
-        ]),
-        unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_12$1, [
-          createBaseVNode("table", _hoisted_13$1, [
-            _hoisted_14$1,
-            createBaseVNode("tbody", null, [
-              createBaseVNode("tr", null, [
-                createBaseVNode("td", {
-                  style: { "text-align": "right" },
-                  textContent: toDisplayString(unref(oOptSnd).sum.baseSize.toLocaleString("ja-JP") + " byte")
-                }, null, 8, _hoisted_15$1),
-                createBaseVNode("td", {
-                  style: { "text-align": "right" },
-                  textContent: toDisplayString(unref(oOptSnd).sum.optSize.toLocaleString("ja-JP") + " byte")
-                }, null, 8, _hoisted_16$1),
-                createBaseVNode("td", {
-                  textContent: toDisplayString((unref(oOptSnd).sum.optSize / unref(oOptSnd).sum.baseSize).toLocaleString("ja-JP"))
-                }, null, 8, _hoisted_17$1)
+      return openBlock(), createElementBlock(
+        Fragment,
+        null,
+        [
+          createBaseVNode("div", _hoisted_1$2, [
+            createBaseVNode("div", _hoisted_2$2, [
+              withDirectives(createBaseVNode("input", {
+                type: "checkbox",
+                id: "cnv.mat.snd",
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => unref(oWss)["cnv.mat.snd"] = $event),
+                disabled: unref(hDisabled)["cnv.mat.snd"],
+                class: "form-check-input sn_checkbox sn-chk"
+              }, null, 8, _hoisted_3$2), [
+                [vModelCheckbox, unref(oWss)["cnv.mat.snd"]]
+              ]),
+              _hoisted_4$2
+            ])
+          ]),
+          createBaseVNode("div", _hoisted_5$2, [
+            _hoisted_6$2,
+            _hoisted_7$1,
+            withDirectives(createBaseVNode(
+              "select",
+              {
+                id: "cnv.mat.snd.codec",
+                class: "form-select form-select-sm mb-3",
+                "aria-label": ".form-select-sm example",
+                "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.mat.snd.codec"] = $event)
+              },
+              _hoisted_11$1,
+              512
+              /* NEED_PATCH */
+            ), [
+              [vModelSelect, unref(oWss)["cnv.mat.snd.codec"]]
+            ])
+          ]),
+          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_12$1, [
+            createBaseVNode("table", _hoisted_13$1, [
+              _hoisted_14$1,
+              createBaseVNode("tbody", null, [
+                createBaseVNode("tr", null, [
+                  createBaseVNode("td", {
+                    style: { "text-align": "right" },
+                    textContent: toDisplayString(unref(oOptSnd).sum.baseSize.toLocaleString("ja-JP") + " byte")
+                  }, null, 8, _hoisted_15$1),
+                  createBaseVNode("td", {
+                    style: { "text-align": "right" },
+                    textContent: toDisplayString(unref(oOptSnd).sum.optSize.toLocaleString("ja-JP") + " byte")
+                  }, null, 8, _hoisted_16$1),
+                  createBaseVNode("td", {
+                    textContent: toDisplayString((unref(oOptSnd).sum.optSize / unref(oOptSnd).sum.baseSize).toLocaleString("ja-JP"))
+                  }, null, 8, _hoisted_17$1)
+                ])
               ])
             ])
-          ])
-        ])) : createCommentVNode("", true),
-        unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_18$1, [
-          createBaseVNode("div", null, [
+          ])) : createCommentVNode("v-if", true),
+          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_18$1, [
             createBaseVNode("div", null, [
-              createBaseVNode("div", _hoisted_19$1, [
-                createBaseVNode("table", _hoisted_20$1, [
-                  _hoisted_21$1,
-                  createBaseVNode("tbody", null, [
-                    (openBlock(true), createElementBlock(Fragment, null, renderList(sortHSize(), (e) => {
-                      return openBlock(), createElementBlock("tr", {
-                        key: e.key,
-                        href: "#" + e.id,
-                        "data-bs-toggle": "collapse",
-                        "data-bs-target": "#" + e.id,
-                        "aria-expanded": "true",
-                        "aria-controls": e.id
-                      }, [
-                        createBaseVNode("td", {
-                          textContent: toDisplayString(e.nm)
-                        }, null, 8, _hoisted_23$1),
-                        createBaseVNode("td", {
-                          style: { "text-align": "right" },
-                          textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
-                        }, null, 8, _hoisted_24$1),
-                        createBaseVNode("td", {
-                          style: { "text-align": "right" },
-                          textContent: toDisplayString(e.optSize.toLocaleString("ja-JP") + " byte")
-                        }, null, 8, _hoisted_25$1),
-                        createBaseVNode("td", {
-                          textContent: toDisplayString((e.optSize / e.baseSize).toLocaleString("ja-JP"))
-                        }, null, 8, _hoisted_26$1)
-                      ], 8, _hoisted_22$1);
-                    }), 128))
+              createBaseVNode("div", null, [
+                createBaseVNode("div", _hoisted_19$1, [
+                  createBaseVNode("table", _hoisted_20$1, [
+                    _hoisted_21$1,
+                    createBaseVNode("tbody", null, [
+                      (openBlock(true), createElementBlock(
+                        Fragment,
+                        null,
+                        renderList(sortHSize(), (e) => {
+                          return openBlock(), createElementBlock("tr", {
+                            key: e.key,
+                            href: "#" + e.id,
+                            "data-bs-toggle": "collapse",
+                            "data-bs-target": "#" + e.id,
+                            "aria-expanded": "true",
+                            "aria-controls": e.id
+                          }, [
+                            createBaseVNode("td", {
+                              textContent: toDisplayString(e.nm)
+                            }, null, 8, _hoisted_23$1),
+                            createBaseVNode("td", {
+                              style: { "text-align": "right" },
+                              textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
+                            }, null, 8, _hoisted_24$1),
+                            createBaseVNode("td", {
+                              style: { "text-align": "right" },
+                              textContent: toDisplayString(e.optSize.toLocaleString("ja-JP") + " byte")
+                            }, null, 8, _hoisted_25$1),
+                            createBaseVNode("td", {
+                              textContent: toDisplayString((e.optSize / e.baseSize).toLocaleString("ja-JP"))
+                            }, null, 8, _hoisted_26$1)
+                          ], 8, _hoisted_22$1);
+                        }),
+                        128
+                        /* KEYED_FRAGMENT */
+                      ))
+                    ])
                   ])
                 ])
               ])
             ])
-          ])
-        ])) : createCommentVNode("", true)
-      ], 64);
+          ])) : createCommentVNode("v-if", true)
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      );
     };
   }
 });
 
 const _hoisted_1$1 = { class: "row" };
 const _hoisted_2$1 = { class: "col-6 col-sm-8 px-1 py-2" };
-const _hoisted_3$1 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "open.readme.txt",
-  class: "form-label"
-}, "readme.txtを開く", -1);
+const _hoisted_3$1 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "open.readme.txt",
+    class: "form-label"
+  },
+  "readme.txtを開く",
+  -1
+  /* HOISTED */
+);
 const _hoisted_4$1 = { class: "input-group input-group-sm" };
-const _hoisted_5$1 = /* @__PURE__ */ createBaseVNode("span", { class: "input-group-text" }, "【build/include/readme.txt】", -1);
+const _hoisted_5$1 = /* @__PURE__ */ createBaseVNode(
+  "span",
+  { class: "input-group-text" },
+  "【build/include/readme.txt】",
+  -1
+  /* HOISTED */
+);
 const _hoisted_6$1 = { class: "col-6 col-sm-4 px-1 py-2" };
-const _hoisted_7 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "フォントサイズ最適化", -1);
+const _hoisted_7 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  { class: "form-label" },
+  "フォントサイズ最適化",
+  -1
+  /* HOISTED */
+);
 const _hoisted_8 = { class: "form-check form-switch mb-1" };
 const _hoisted_9 = ["disabled"];
-const _hoisted_10 = /* @__PURE__ */ createBaseVNode("label", {
-  for: "cnv.font.subset",
-  class: "form-check-label"
-}, "必要最小限にする", -1);
+const _hoisted_10 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    for: "cnv.font.subset",
+    class: "form-check-label"
+  },
+  "必要最小限にする",
+  -1
+  /* HOISTED */
+);
 const _hoisted_11 = { class: "col-12 px-1 py-3" };
-const _hoisted_12 = /* @__PURE__ */ createBaseVNode("label", { class: "form-label" }, "フォント情報", -1);
+const _hoisted_12 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  { class: "form-label" },
+  "フォント情報",
+  -1
+  /* HOISTED */
+);
 const _hoisted_13 = { class: "table table-striped" };
-const _hoisted_14 = /* @__PURE__ */ createBaseVNode("thead", null, [
-  /* @__PURE__ */ createBaseVNode("tr", null, [
-    /* @__PURE__ */ createBaseVNode("th", null, "Filename"),
-    /* @__PURE__ */ createBaseVNode("th", null, "元ファイルの場所"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
-    /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
-    /* @__PURE__ */ createBaseVNode("th", null, "削減率"),
-    /* @__PURE__ */ createBaseVNode("th", null, "ログ")
-  ])
-], -1);
+const _hoisted_14 = /* @__PURE__ */ createBaseVNode(
+  "thead",
+  null,
+  [
+    /* @__PURE__ */ createBaseVNode("tr", null, [
+      /* @__PURE__ */ createBaseVNode("th", null, "Filename"),
+      /* @__PURE__ */ createBaseVNode("th", null, "元ファイルの場所"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
+      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
+      /* @__PURE__ */ createBaseVNode("th", null, "削減率"),
+      /* @__PURE__ */ createBaseVNode("th", null, "ログ")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_15 = ["textContent"];
 const _hoisted_16 = ["textContent"];
 const _hoisted_17 = ["textContent"];
@@ -12236,39 +12811,75 @@ const _hoisted_18 = ["textContent"];
 const _hoisted_19 = ["textContent"];
 const _hoisted_20 = ["onClick"];
 const _hoisted_21 = { key: 0 };
-const _hoisted_22 = /* @__PURE__ */ createBaseVNode("td", null, null, -1);
+const _hoisted_22 = /* @__PURE__ */ createBaseVNode(
+  "td",
+  null,
+  null,
+  -1
+  /* HOISTED */
+);
 const _hoisted_23 = ["textContent"];
-const _hoisted_24 = /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-  /* @__PURE__ */ createBaseVNode("h5", null, "アプリアイコン")
-], -1);
+const _hoisted_24 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "col-12 px-1 pt-3" },
+  [
+    /* @__PURE__ */ createBaseVNode("h5", null, "アプリアイコン")
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_25 = { class: "container" };
 const _hoisted_26 = { class: "row" };
 const _hoisted_27 = { class: "col-6 col-lg-2 col-xxl-1" };
 const _hoisted_28 = ["src"];
 const _hoisted_29 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_30 = /* @__PURE__ */ createBaseVNode("div", { class: "row" }, [
-  /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-    /* @__PURE__ */ createBaseVNode("h6", null, "画像から自動作成")
-  ])
-], -1);
+const _hoisted_30 = /* @__PURE__ */ createBaseVNode(
+  "div",
+  { class: "row" },
+  [
+    /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
+      /* @__PURE__ */ createBaseVNode("h6", null, "画像から自動作成")
+    ])
+  ],
+  -1
+  /* HOISTED */
+);
 const _hoisted_31 = { class: "row" };
 const _hoisted_32 = { class: "col form-check mb-3" };
 const _hoisted_33 = { class: "list-group" };
 const _hoisted_34 = { class: "list-group-item" };
-const _hoisted_35 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-check-label stretched-link",
-  for: "rgCnvIconShape0"
-}, "加工しない", -1);
+const _hoisted_35 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-check-label stretched-link",
+    for: "rgCnvIconShape0"
+  },
+  "加工しない",
+  -1
+  /* HOISTED */
+);
 const _hoisted_36 = { class: "list-group-item" };
-const _hoisted_37 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-check-label stretched-link",
-  for: "rgCnvIconShape1"
-}, "丸に", -1);
+const _hoisted_37 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-check-label stretched-link",
+    for: "rgCnvIconShape1"
+  },
+  "丸に",
+  -1
+  /* HOISTED */
+);
 const _hoisted_38 = { class: "list-group-item" };
-const _hoisted_39 = /* @__PURE__ */ createBaseVNode("label", {
-  class: "form-check-label stretched-link",
-  for: "rgCnvIconShape2"
-}, "角丸に", -1);
+const _hoisted_39 = /* @__PURE__ */ createBaseVNode(
+  "label",
+  {
+    class: "form-check-label stretched-link",
+    for: "rgCnvIconShape2"
+  },
+  "角丸に",
+  -1
+  /* HOISTED */
+);
 const _hoisted_40 = { class: "row" };
 const _hoisted_41 = { class: "col form-check mb-3" };
 const _hoisted_42 = { class: "input-group input-group-sm" };
@@ -12329,49 +12940,67 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
           createBaseVNode("table", _hoisted_13, [
             _hoisted_14,
             createBaseVNode("tbody", null, [
-              (openBlock(true), createElementBlock(Fragment, null, renderList(unref(aCnvFont), (e) => {
-                return openBlock(), createElementBlock(Fragment, {
-                  key: e.nm
-                }, [
-                  createBaseVNode("tr", {
-                    style: normalizeStyle({ borderBottom: e.err ? "hidden" : "inherit" })
-                  }, [
-                    createBaseVNode("td", {
-                      textContent: toDisplayString(e.nm)
-                    }, null, 8, _hoisted_15),
-                    createBaseVNode("td", {
-                      textContent: toDisplayString(e.mes)
-                    }, null, 8, _hoisted_16),
-                    createBaseVNode("td", {
-                      style: { "text-align": "right" },
-                      textContent: toDisplayString(e.iSize.toLocaleString("ja-JP") + " byte")
-                    }, null, 8, _hoisted_17),
-                    createBaseVNode("td", {
-                      style: { "text-align": "right" },
-                      textContent: toDisplayString(e.oSize.toLocaleString("ja-JP") + " byte")
-                    }, null, 8, _hoisted_18),
-                    createBaseVNode("td", {
-                      textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
-                    }, null, 8, _hoisted_19),
-                    createBaseVNode("td", null, [
-                      createBaseVNode("button", {
-                        type: "button",
-                        id: "open.readme.txt",
-                        class: "btn btn-info btn-sm",
-                        onClick: ($event) => unref(openURL)("ws-file:///core/font/subset_font_" + e.nm + ".txt")
-                      }, "Open", 8, _hoisted_20)
-                    ])
-                  ], 4),
-                  e.err ? (openBlock(), createElementBlock("tr", _hoisted_21, [
-                    _hoisted_22,
-                    createBaseVNode("td", {
-                      textContent: toDisplayString(e.err),
-                      colspan: "5",
-                      style: { "color": "red" }
-                    }, null, 8, _hoisted_23)
-                  ])) : createCommentVNode("", true)
-                ], 64);
-              }), 128))
+              (openBlock(true), createElementBlock(
+                Fragment,
+                null,
+                renderList(unref(aCnvFont), (e) => {
+                  return openBlock(), createElementBlock(
+                    Fragment,
+                    {
+                      key: e.nm
+                    },
+                    [
+                      createBaseVNode(
+                        "tr",
+                        {
+                          style: normalizeStyle({ borderBottom: e.err ? "hidden" : "inherit" })
+                        },
+                        [
+                          createBaseVNode("td", {
+                            textContent: toDisplayString(e.nm)
+                          }, null, 8, _hoisted_15),
+                          createBaseVNode("td", {
+                            textContent: toDisplayString(e.mes)
+                          }, null, 8, _hoisted_16),
+                          createBaseVNode("td", {
+                            style: { "text-align": "right" },
+                            textContent: toDisplayString(e.iSize.toLocaleString("ja-JP") + " byte")
+                          }, null, 8, _hoisted_17),
+                          createBaseVNode("td", {
+                            style: { "text-align": "right" },
+                            textContent: toDisplayString(e.oSize.toLocaleString("ja-JP") + " byte")
+                          }, null, 8, _hoisted_18),
+                          createBaseVNode("td", {
+                            textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
+                          }, null, 8, _hoisted_19),
+                          createBaseVNode("td", null, [
+                            createBaseVNode("button", {
+                              type: "button",
+                              id: "open.readme.txt",
+                              class: "btn btn-info btn-sm",
+                              onClick: ($event) => unref(openURL)("ws-file:///core/font/subset_font_" + e.nm + ".txt")
+                            }, "Open", 8, _hoisted_20)
+                          ])
+                        ],
+                        4
+                        /* STYLE */
+                      ),
+                      e.err ? (openBlock(), createElementBlock("tr", _hoisted_21, [
+                        _hoisted_22,
+                        createBaseVNode("td", {
+                          textContent: toDisplayString(e.err),
+                          colspan: "5",
+                          style: { "color": "red" }
+                        }, null, 8, _hoisted_23)
+                      ])) : createCommentVNode("v-if", true)
+                    ],
+                    64
+                    /* STABLE_FRAGMENT */
+                  );
+                }),
+                128
+                /* KEYED_FRAGMENT */
+              ))
             ])
           ])
         ]),
@@ -12392,41 +13021,59 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                 createBaseVNode("div", _hoisted_32, [
                   createBaseVNode("ul", _hoisted_33, [
                     createBaseVNode("li", _hoisted_34, [
-                      withDirectives(createBaseVNode("input", {
-                        type: "radio",
-                        class: "form-check-input",
-                        name: "rgCnvIconShape",
-                        value: "0",
-                        "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
-                        id: "rgCnvIconShape0",
-                        checked: ""
-                      }, null, 512), [
+                      withDirectives(createBaseVNode(
+                        "input",
+                        {
+                          type: "radio",
+                          class: "form-check-input",
+                          name: "rgCnvIconShape",
+                          value: "0",
+                          "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
+                          id: "rgCnvIconShape0",
+                          checked: ""
+                        },
+                        null,
+                        512
+                        /* NEED_PATCH */
+                      ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
                       _hoisted_35
                     ]),
                     createBaseVNode("li", _hoisted_36, [
-                      withDirectives(createBaseVNode("input", {
-                        type: "radio",
-                        class: "form-check-input",
-                        name: "rgCnvIconShape",
-                        value: "1",
-                        "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
-                        id: "rgCnvIconShape1"
-                      }, null, 512), [
+                      withDirectives(createBaseVNode(
+                        "input",
+                        {
+                          type: "radio",
+                          class: "form-check-input",
+                          name: "rgCnvIconShape",
+                          value: "1",
+                          "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
+                          id: "rgCnvIconShape1"
+                        },
+                        null,
+                        512
+                        /* NEED_PATCH */
+                      ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
                       _hoisted_37
                     ]),
                     createBaseVNode("li", _hoisted_38, [
-                      withDirectives(createBaseVNode("input", {
-                        type: "radio",
-                        class: "form-check-input",
-                        name: "rgCnvIconShape",
-                        value: "2",
-                        "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
-                        id: "rgCnvIconShape2"
-                      }, null, 512), [
+                      withDirectives(createBaseVNode(
+                        "input",
+                        {
+                          type: "radio",
+                          class: "form-check-input",
+                          name: "rgCnvIconShape",
+                          value: "2",
+                          "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => unref(oWss)["cnv.icon.shape"] = $event),
+                          id: "rgCnvIconShape2"
+                        },
+                        null,
+                        512
+                        /* NEED_PATCH */
+                      ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
                       _hoisted_39
@@ -12487,48 +13134,66 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
       { id: "pkg", nm: "パッケージ", cmp: _sfc_main$1 }
     ];
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock(Fragment, null, [
-        createBaseVNode("nav", null, [
-          createBaseVNode("div", _hoisted_1, [
-            (openBlock(), createElementBlock(Fragment, null, renderList(aTab, (t) => {
-              return createBaseVNode("a", {
-                id: `nav-${t.id}-tab`,
-                href: `#nav-${t.id}`,
-                "aria-controls": `nav-${t.id}`,
-                class: normalizeClass({
-                  "nav-link": true,
-                  active: t.id === unref(active_tab)
+      return openBlock(), createElementBlock(
+        Fragment,
+        null,
+        [
+          createBaseVNode("nav", null, [
+            createBaseVNode("div", _hoisted_1, [
+              (openBlock(), createElementBlock(
+                Fragment,
+                null,
+                renderList(aTab, (t) => {
+                  return createBaseVNode("a", {
+                    id: `nav-${t.id}-tab`,
+                    href: `#nav-${t.id}`,
+                    "aria-controls": `nav-${t.id}`,
+                    class: normalizeClass({
+                      "nav-link": true,
+                      active: t.id === unref(active_tab)
+                    }),
+                    "data-bs-toggle": "tab",
+                    role: "tab",
+                    "aria-selected": t.id === unref(active_tab) ? "true" : void 0,
+                    onClick: ($event) => active_tab.value = t.id,
+                    textContent: toDisplayString(t.nm)
+                  }, null, 10, _hoisted_2);
                 }),
-                "data-bs-toggle": "tab",
-                role: "tab",
-                "aria-selected": t.id === unref(active_tab) ? "true" : void 0,
-                onClick: ($event) => active_tab.value = t.id,
-                textContent: toDisplayString(t.nm)
-              }, null, 10, _hoisted_2);
-            }), 64))
+                64
+                /* STABLE_FRAGMENT */
+              ))
+            ])
+          ]),
+          createBaseVNode("div", _hoisted_3, [
+            (openBlock(), createElementBlock(
+              Fragment,
+              null,
+              renderList(aTab, (t) => {
+                return createBaseVNode("div", {
+                  id: `nav-${t.id}`,
+                  key: t.id,
+                  class: normalizeClass([{
+                    show: t.id === unref(active_tab),
+                    active: t.id === unref(active_tab)
+                  }, "tab-pane fade"]),
+                  "aria-labelledby": `nav-${t.id}-tab`,
+                  role: "tabpanel"
+                }, [
+                  createBaseVNode("div", _hoisted_5, [
+                    createBaseVNode("div", _hoisted_6, [
+                      (openBlock(), createBlock(resolveDynamicComponent(t.cmp)))
+                    ])
+                  ])
+                ], 10, _hoisted_4);
+              }),
+              64
+              /* STABLE_FRAGMENT */
+            ))
           ])
-        ]),
-        createBaseVNode("div", _hoisted_3, [
-          (openBlock(), createElementBlock(Fragment, null, renderList(aTab, (t) => {
-            return createBaseVNode("div", {
-              id: `nav-${t.id}`,
-              key: t.id,
-              class: normalizeClass([{
-                show: t.id === unref(active_tab),
-                active: t.id === unref(active_tab)
-              }, "tab-pane fade"]),
-              "aria-labelledby": `nav-${t.id}-tab`,
-              role: "tabpanel"
-            }, [
-              createBaseVNode("div", _hoisted_5, [
-                createBaseVNode("div", _hoisted_6, [
-                  (openBlock(), createBlock(resolveDynamicComponent(t.cmp)))
-                ])
-              ])
-            ], 10, _hoisted_4);
-          }), 64))
-        ])
-      ], 64);
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      );
     };
   }
 });

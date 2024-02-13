@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -7,7 +7,7 @@
 
 import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
-import {Encryptor} from './Encryptor';
+import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE, statBreak} from './PrjTreeItem';
@@ -16,18 +16,17 @@ import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
 import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern, ViewColumn, WebviewPanel} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, ensureDirSync, existsSync, openSync, outputFile, outputFileSync, outputJson, outputJsonSync, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {extname, resolve} from 'path';
 import img_size from 'image-size';
-import {lib} from 'crypto-js';
-import {v4 as uuidv4} from 'uuid';
+import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
+const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
 import {basename, dirname} from 'path';
 import {execSync} from 'child_process';
 import * as ncu from 'npm-check-updates';
 import {userInfo} from 'os';
-import fetch from 'node-fetch';
 
 
 type BtnEnable = '_off'|'Stop'|'';
@@ -122,7 +121,7 @@ export class Project {
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 //console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 		this.#PATH_PLG = this.#PATH_WS +'/core/plugin/';
-		ensureDirSync(this.#PATH_PLG);	// 無ければ作る
+		ensureDir(this.#PATH_PLG);	// 無ければ作る
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
 		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
@@ -147,14 +146,14 @@ export class Project {
 		this.#encry = new Encryptor(exists_pass
 			? readJsonSync(fnPass, {throws: false})
 			: {
-				pass	: uuidv4(),
-				salt	: String(lib.WordArray.random(128 / 8)),
-				iv		: String(lib.WordArray.random(128 / 8)),
+				pass	: randomUUID(),
+				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
+				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
 				keySize	: String(512 / 32),
 				ite		: 500 + Math.floor(new Date().getTime() %300),
-				stk		: String(lib.WordArray.random(128 / 8)),
-			});
-		if (! exists_pass) outputFileSync(fnPass, this.#encry.strHPass);
+				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
+			}, subtle);
+		if (! exists_pass) outputFile(fnPass, this.#encry.strHPass);
 
 		try {
 			this.#fnDiff = this.#PATH_WS +'/core/diff.json';
@@ -163,7 +162,7 @@ export class Project {
 
 		// プロジェクト管理系
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
-		this.#cfg = new Config(sr);
+		this.#cfg = new Config(sr, this.#encry);
 
 		this.#ps = new PrjSetting(
 			ctx,
@@ -737,7 +736,7 @@ export class Project {
 			if (this.#tiDelayFolder) clearTimeout(this.#tiDelayFolder);	// 遅延
 			this.#tiDelayFolder = setTimeout(()=> this.#updWVFolder(uriOF), 500);
 		}
-		#tiDelayFolder: NodeJS.Timer | null = null;
+		#tiDelayFolder: NodeJS.Timeout | undefined = undefined;
 
 
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
@@ -1144,7 +1143,7 @@ export class Project {
 			case 'PackWin32':
 			case 'PackMac':
 			case 'PackMacArm64':
-			case 'PackLinux':	this.hOnEndTask.set(task_type, ()=> {
+			case 'PackLinux':	this.hOnEndTask.set(task_type, async ()=> {
 				// アップデート用ファイル作成
 				const oPkg = readJsonSync(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
 
@@ -1168,8 +1167,8 @@ export class Project {
 //console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
 				if (oUc.version != ver || oUc.name != oPkg.name) {
 					oUc = {};
-					removeSync(pathUpd);
-					ensureDirSync(pathUpd);
+					await remove(pathUpd);
+					await ensureDir(pathUpd);
 				}
 				oUc.version = oPkg.version;
 				oUc.name = oPkg.name;
@@ -1185,7 +1184,7 @@ export class Project {
 				const mc = /sha512: (.+)/.exec(sYml);
 				if (! mc) throw `[Pack...] .yml に sha512 が見つかりません`;
 				const sha512 = mc[1] ?? '';
-				const cn = this.#encry.uuidv5(sha512);
+				const cn = encStrBase64(this.#encry.uuidv5(sha512));
 
 				const ma = /-(\w+)\.\D/.exec(path);
 					// https://regex101.com/r/yH7nLk/1	13 steps, 0.0ms
@@ -1194,7 +1193,7 @@ export class Project {
 
 				const key = (isMacBld ?'darwin' :isLinBld ?'linux' :'win32') +'_'+ arch;
 				oUc[key] = {path, size, sha512, cn,};
-				outputJsonSync(fnUcJs, oUc, {spaces: '\t'});
+				await outputJson(fnUcJs, oUc, {spaces: '\t'});
 
 				// 古い（暗号化ファイル名）更新ファイルを削除
 				const REG_OLD_SAMEKEY = new RegExp('^'+ key +'-');
@@ -1251,7 +1250,9 @@ export class Project {
 
 
 	// 暗号化
-	#initCrypto() {
+	async	#initCrypto() {
+		await this.#encry.init();
+
 		const fnc: (fp: string)=> void = this.#isCryptoMode
 			? fp=> {
 				const uri = Uri.file(fp);
@@ -1278,14 +1279,16 @@ export class Project {
 
 		let hash = 0;
 		if (this.#REG_FULLCRYPTO.test(fp)) {
-			hash = crc32.str(readFileSync(fp, {encoding: 'utf8'}));
+			hash = crc32.buf(Buffer.from(readFileSync(fp, {encoding: 'utf8'}), 'binary'), 0);
+		//	hash = crc32.str(readFileSync(fp, {encoding: 'utf8'}));
+				// 高速らしい SheetJS/js-crc32: :cyclone: JS 標準 CRC-32 および CRC32C の実装 https://github.com/SheetJS/js-crc32
 		}
 		else {
-			const b = new Uint8Array(this.#LEN_CHKDIFF);
+			this.#bufChkDiff.fill(0, 0, Project.#LEN_CHKDIFF);
 			const fd = openSync(fp, 'r');
-			readSync(fd, b, 0, this.#LEN_CHKDIFF, 0);
+			readSync(fd, this.#bufChkDiff, 0, Project.#LEN_CHKDIFF, 0);
 			closeSync(fd);
-			hash = crc32.buf(b);
+			hash = crc32.buf(this.#bufChkDiff, 0);
 		}
 //console.log(`fn:Project.ts      B:${diff?.hash !== hash} b0:${diff?.hash} b1:${hash}`);
 		if (diff?.hash === hash) return false;
@@ -1293,19 +1296,17 @@ export class Project {
 		this.#hDiff[pp] = {
 			hash,
 			cn	: this.#REG_NEEDCRYPTO.test(pp)
-				? pp.replace(
-					this.#REG_SPATH2HFN,
-					`$1/${this.#encry.uuidv5(pp)}$2`
-				)
+				? pp.replace(this.#REG_SPATH2HFN, `$1/${this.#encry.uuidv5(pp)}$2`)
 				.replace(this.#REG_REPPATHJSON, '.bin')
 				: pp,
 		};
 		return true;
 	}
-		readonly	#LEN_CHKDIFF	= 1024 *20;		// o
-//		readonly	#LEN_CHKDIFF	= 1024 *10;		// x 変更を検知しない場合があった
-//		readonly	#LEN_CHKDIFF	= 1024;			// x 変更を検知しない場合があった
-		readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
+	static	readonly	#LEN_CHKDIFF	= 1024 *20;		// o
+//	static	readonly	#LEN_CHKDIFF	= 1024 *10;		// x 変更を検知しない場合があった
+//	static	readonly	#LEN_CHKDIFF	= 1024;			// x 変更を検知しない場合があった
+	readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
+	#bufChkDiff = new Uint8Array(Project.#LEN_CHKDIFF);
 
 
 	readonly	#aRepl = [
@@ -1383,26 +1384,26 @@ export class Project {
 			if (this.#REG_FULLCRYPTO.test(pp)) {	// この中はSync
 				if (pp !== 'path.json') {	// 内容も変更
 					const s = readFileSync(fp, {encoding: 'utf8'});
-					outputFileSync(path_enc, this.#encry.enc(s));
+					await outputFile(path_enc, await this.#encry.enc(s));
 					return;
 				}
 
 				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);	// 遅延
-				this.#tiDelayEnc = setTimeout(()=> {
+				this.#tiDelayEnc = setTimeout(async ()=> {
 					// ファイル名匿名化
 					const hPath: IFn2Path = readJsonSync(fp, {encoding: 'utf8'});
 					for (const hExt2N of Object.values(hPath)) {
 						for (const [ext, pp2] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
-							if (ext.slice(-10) === ':RIPEMD160') continue;
+							if (ext.slice(-3) === ':id') continue;
 							const dir = this.#REG_DIR.exec(pp2);
 							if (dir && this.#cfg.oCfg.code[dir[1]]) continue;
 
 							hExt2N[ext] = this.#hDiff[pp2].cn;
 						}
 					}
-					const sNew = JSON.stringify(hPath);
-					outputFileSync(path_enc, this.#encry.enc(sNew));
+					const s2 = JSON.stringify(hPath);
+					await outputFile(path_enc, await this.#encry.enc(s2));
 				}, 500);
 				return;
 			}
@@ -1429,7 +1430,7 @@ export class Project {
 		}
 		catch (e) {console.error(`enc other ${e.message} src:${fp}`);}
 	}
-		#tiDelayEnc: NodeJS.Timer | null = null;
+		#tiDelayEnc: NodeJS.Timeout | undefined = undefined;
 		readonly #REG_DIR	= /(^.+)\//;
 
 
@@ -1518,7 +1519,7 @@ export class Project {
 	}
 
 
-	#tiDelayPathJson: NodeJS.Timer | null = null;
+	#tiDelayPathJson: NodeJS.Timeout | undefined = undefined;
 	#updPathJson() {
 		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
 		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
@@ -1637,7 +1638,7 @@ export class Project {
 						break;
 				}
 				fpNew = this.#PATH_PRJ + ppNew;
-				await writeFile(fpNew, await res.buffer());
+				writeFile(fpNew, new Uint8Array(await res.arrayBuffer()));
 
 				window.showInformationMessage(`素材をダウンロードしました。 path=${ppNew}`);
 				// サイドバーに表示

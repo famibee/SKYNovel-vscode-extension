@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2022-2023 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2022-2024 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -160,7 +160,7 @@ export class ConfigBase implements IConfig {
 
 		for (const hExts of Object.values(this.hPathFn2Exts)) {
 			for (const [ext, v] of Object.entries(hExts)) {
-				if (ext.slice(-10) !== ':RIPEMD160') continue;
+				if (ext.slice(-3) !== ':id') continue;
 				const hp = v.slice(v.lastIndexOf('/') +1);
 				const fn = hExts[ext.slice(0, -10)];
 				const res = await this.sys.fetch(fn);
