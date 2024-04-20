@@ -2,11 +2,11 @@
 レイヤーやフレームの終了を待ち、再開する
 
 ***
-- layer	y		レイヤ名	処理対象のレイヤ
-- page		fore	fore、back	ページの裏表
-- id	y		フレーム名	処理対象のフレーム
-- canskip		true	Boolean	クリックなどでウエイトをキャンセルできるか
-- global		true	Boolean	グローバルイベント待ちを有効にするか
+- layer`y``レイヤ名`処理対象のレイヤ
+- page``fore`fore、back`ページの裏表
+- id`y``フレーム名`処理対象のフレーム
+- canskip``true`true、false`クリックなどでウエイトをキャンセルできるか
+- global``true`true、false`グローバルイベント待ちを有効にするか
 
 ***
 layer=${1{{レイヤ名}}} canskip=${2|true,false|}

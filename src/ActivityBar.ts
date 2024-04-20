@@ -299,12 +299,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		]);
 		aLocalSNVer.forEach(async o=> {
 			if (o.verTemp && newVerTemp !== o.verTemp) {
-				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
+				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ）`);
 				return;
 			}
 
 			if (o.verSN === '' || o.verSN.slice(0, 4) === 'ile:') return;
-			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください`);
+			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン）`);
 		});
 	}
 

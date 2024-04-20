@@ -2,7 +2,7 @@
 Webページを開く
 
 ***
-- url	y		URL文字列	開くURL
+- url`y``ブラウザで開けるURL`開くURL
 
 ***
 url=${1:WebページURL}

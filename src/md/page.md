@@ -2,9 +2,9 @@
 [p]停止位置を一つ移動する
 
 ***
-- clear	いずれかを指定	なにもしない	Boolean	trueでページ状態記録をクリアする
-- to	どちらかを指定	なにもしない	prev または next<br/>prev：ひとつ前のページに戻る<br/>next：ひとつ次のページに進める
-- style	いずれかを指定	なにもしない	css	ページ移動中の既読文字に適用する CSS スタイル。初期値は【color: yellow;】
+- clear`いずれかを指定`なにもしない`true、false`trueでページ状態記録をクリアする
+- to`どちらかを指定`なにもしない`prev、next<br/>prev：ひとつ前のページに戻る<br/>next：ひとつ次のページに進める
+- style`いずれかを指定`なにもしない`CSS style`ページ移動中の既読文字に適用する CSS スタイル。初期値は【color: yellow;】
 
 ***
 to=${1|prev,next|}

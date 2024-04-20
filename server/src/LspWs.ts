@@ -52,8 +52,8 @@ interface MacroDef {
  */
 	detail?	: string;
 
-	name_v_ln		: number;
-	name_v_ch		: number;
+	name_v_ln	: number;
+	name_v_ch	: number;
 }
 
 type PluginDef = {
@@ -764,7 +764,6 @@ ${
 
 			case '代入変数名':	kind = CompletionItemKind.Variable;	break;
 			case 'ジャンプ先':	kind = CompletionItemKind.Reference;	break;
-			case 'レイヤ名（カンマ区切りで複数可）':
 			case 'レイヤ名':
 			case '文字レイヤ名':
 			case '画像レイヤ名':	kind = CompletionItemKind.Folder;	break;
@@ -1331,7 +1330,7 @@ WorkspaceEdit
 			const mes = d未定義.mes.replace('$', nm);
 			// 同じ警告は一度全て削除
 			for (const [fp, aD] of Object.entries(this.#fp2Diag)) {
-				this.#fp2Diag[fp] = aD.flatMap(d=> d.message == mes ?[] :d);
+				this.#fp2Diag[fp] = aD.flatMap(d=> d.message === mes ?[] :d);
 			}
 
 			for (const {uri, range} of aUse) (this.#fp2Diag[uri] ??= [])
@@ -1444,7 +1443,7 @@ WorkspaceEdit
 			mes	: '属性 $ $ がありません',
 			sev	: DiagnosticSeverity.Error,
 		},
-		キーワード異常: {
+		属性値異常: {
 			mes	: '属性 $ が異常な値 $ です',
 			sev	: DiagnosticSeverity.Error,
 		},
@@ -1743,131 +1742,13 @@ WorkspaceEdit
 			hArg[':タグ名'] = {val: use_nm};
 			if (use_nm in this.#hDefPlugin) return;	// プラグインはここまで
 
-			// 引数調査（マクロ＋タグ）
+			// 引数検査（マクロ＋タグ）
 			const hRng = this.#alzTagArg.parseinDetail(token, use_nm.length, pBefore.line, pBefore.character);
-			this.#aEndingJob.push(()=> {	// 遅延調査
-				const param = this.#hDefMacro[use_nm]?.param ?? hMd[use_nm]?.param;
-				if (! param) return;
+			this.#aEndingJob.push(()=> this.#chkTagMacArg(use_nm, hArg, pp, sJumpFn, hRng, aDi, setUri2Links, fp));
 
-				for (const {name, rangetype} of param) {
-					if (rangetype === 'ラベル名') {	// ラベルがあればジャンプ系タグ
-						if (Boolean(hArg.del?.val)
-						&& use_nm === 'event') continue;
-
-						const argFn = hArg.fn?.val ?? getFn(pp);
-						const argLbl = hArg.label?.val;
-						if (this.#chkLiteral(argFn)) {
-							// 変数・文字列操作系ならチェック不能
-if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
-	sJumpFn.add(argFn);
-
-	if (this.#chkLiteral4lbl(argLbl) && ! this.#hFn2label[argFn][argLbl]) {
-		// 変数・文字列操作系ならチェック不能
-		const prm = hRng[name];
-		if (prm) {
-			const {mes, sev} = this.#hDiag.ラベル不明;
-			aDi.push(Diagnostic.create(
-				this.#genPrm2Rng(prm),
-				mes.replace('$', argLbl),
-				sev
-			));
-		}
-	}
-	else {
-		const to_uri = this.#searchPath(argFn, SEARCH_PATH_ARG_EXT.SCRIPT);
-		const lnOpen = (this.#hFn2label[argFn][argLbl]?.start.line ?? 0) +1;
-		for (const nmArg of ['fn', 'label']) {
-			const prm = hRng[nmArg];
-			if (! prm) continue;
-
-			const lbl = argLbl ?'ラベル '+ argLbl :'冒頭';
-			const fn_lbl = argFn +':'+ lbl;
-			if (setUri2Links.has(fn_lbl)) continue;	// 重複弾き
-
-			setUri2Links.add(fn_lbl);
-			(this.#Uri2Links[fp] ??= []).push({
-				range	: this.#genPrm2Rng(prm),
-				target	: to_uri +`#L${lnOpen}`,
-				tooltip	: `${argFn}.sn の${lbl} を開く`,
-			});
-		}
-	}
-}
-						}
-					}
-					if (! (name in hArg) || ! (name in hRng)) continue;
-						// 未使用・未定義はここまで
-
-					let {val} = hArg[name];
-					if (! this.#chkLiteral(val)) continue;	// 変数・文字列操作系ならチェック不能
-
-					const prm = hRng[name];
-					switch (rangetype) {
-						// #hSetWords系
-					//	case '代入変数名':	// 観察者効果により存在チェック不可
-
-					//	case 'ジャンプ先':
-
-						case 'レイヤ名（カンマ区切りで複数可）':
-							for (const v of val.split(',')) {
-								this.#chkLayer(name, 'レイヤ名', v, prm, aDi);
-							}
-							break;
-
-						case '差分名称':
-							if (use_nm === 'add_face') {
-								if ('fn' in hArg) break;
-
-								// nameがfnになるので、画像ファイル名としてチェック
-								this.#chkLayer(name, '画像ファイル名', val, prm, aDi);
-								break;
-							}
-
-							for (const v of val.split(',')) {
-								this.#chkLayer(name, '差分名称', v, prm, aDi);
-							}
-							break;
-
-						case 'レイヤ名':
-						case '文字レイヤ名':
-						case '画像レイヤ名':
-
-						case 'マクロ名':
-
-						case 'スクリプトファイル名':
-						case '画像ファイル名':
-						case '音声ファイル名':
-						case 'HTMLファイル名':
-
-						case 'フレーム名':
-					//	case 'サウンドバッファ':	// 観察者効果により存在チェック不可
-						case '文字出現演出名':
-						case '文字消去演出名':
-							this.#chkLayer(name, rangetype, val, prm, aDi);
-							break;
-						// フォントファイルは #getFonts2ANm()→ローカルにて。システムフォントを調べる必要がある
-
-
-						// #hPreWords系
-						case 'イベント名':
-						case 'イージング名':
-						case 'ブレンドモード名':{
-							if (this.#hRegPreWords[rangetype].test(val)) break;
-
-							const {mes, sev} = this.#hDiag.キーワード異常;
-							aDi.push(Diagnostic.create(
-								this.#genPrm2Rng(prm),
-								mes.replace('$', `${name} (${rangetype})`)
-								.replace('$', val),
-								sev
-							));
-						}	break;
-					}
-				}
-			});
-
-			const arg = {hArg, uri: fp, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng, f2s};
-			if (use_nm in LspWs.#hTag) {this.#hTagProc[use_nm]?.(arg); return;}
+			if (use_nm in LspWs.#hTag) {this.#hTagProc[use_nm]?.({
+				hArg, uri: fp, pp, token, rng: rngp1, aDi, pBefore, p, rng_nm, aDsOutline, hRng, f2s,
+			}); return;}
 
 			// ここからマクロのみ
 			(this.#hMacro2aLocUse[use_nm] ??= []).push(Location.create(fp, rngp1));
@@ -1893,6 +1774,166 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 //		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
+		#chkTagMacArg(use_nm: string, hArg: HPRM, pp: string, sJumpFn: Set<unknown>, hRng: { [key: string]: PRM_RANGE; }, aDi: Diagnostic[], setUri2Links: Set<string>, fp: string) {
+			const param = this.#hDefMacro[use_nm]?.param ?? hMd[use_nm]?.param;
+			if (! param) return;
+
+			for (const {name, rangetype} of param) {
+				if (rangetype === 'ラベル名') { // ラベルがあればジャンプ系タグ
+					if (Boolean(hArg.del?.val) && use_nm === 'event') continue;
+
+					const argFn = hArg.fn?.val ?? getFn(pp);
+					const argLbl = hArg.label?.val;
+					if (! this.#chkLiteral(argFn)) continue;
+					// 変数・文字列操作系ならチェック不能
+					if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
+						sJumpFn.add(argFn);
+
+						if (this.#chkLiteral4lbl(argLbl) && ! this.#hFn2label[argFn][argLbl]) {
+							// 変数・文字列操作系ならチェック不能
+							const prm = hRng[name];
+							if (prm) {
+								const {mes, sev} = this.#hDiag.ラベル不明;
+								aDi.push(Diagnostic.create(
+									this.#genPrm2Rng(prm),
+									mes.replace('$', argLbl),
+									sev
+								));
+							}
+						}
+						else {
+							const to_uri = this.#searchPath(argFn, SEARCH_PATH_ARG_EXT.SCRIPT);
+							const lnOpen = (this.#hFn2label[argFn][argLbl]?.start.line ?? 0) + 1;
+							for (const nmArg of ['fn', 'label']) {
+								const prm = hRng[nmArg];
+								if (! prm) continue;
+
+								const lbl = argLbl ? 'ラベル ' + argLbl : '冒頭';
+								const fn_lbl = argFn + ':' + lbl;
+								if (setUri2Links.has(fn_lbl)) continue; // 重複弾き
+
+								setUri2Links.add(fn_lbl);
+								(this.#Uri2Links[fp] ??= []).push({
+									range: this.#genPrm2Rng(prm),
+									target: to_uri + `#L${lnOpen}`,
+									tooltip: `${argFn}.sn の${lbl} を開く`,
+								});
+							}
+						}
+					}
+				}
+				if (! (name in hArg) || ! (name in hRng)) continue;
+				// 未使用・未定義はここまで
+				const {val} = hArg[name];
+				if (! this.#chkLiteral(val)) continue; // 変数・文字列操作系ならチェック不能
+
+				const rng = {...hRng[name]};
+				rng.k_ln = rng.v_ln;
+				rng.k_ch = rng.v_ch;
+				// カンマ区切りで複数可
+				const [rt] = rangetype.split('；', 2);	// コメント以後をのぞく
+				const a = rt.match(this.#REG_複数指定);
+				if (a) {
+					const [, one_rt] = a;
+					for (const v of val.split(',')) {
+						rng.v_len = v.length;
+						this.#chkRangeType(one_rt as T_KW, v, use_nm, hArg, name, rng, aDi);	// Position から作り直さないと反映されない
+						rng.k_ch = (rng.v_ch += rng.v_len +1);
+					}
+					continue;
+				}
+				rng.v_len = val.length;
+				this.#chkRangeType(rt, val, use_nm, hArg, name, rng, aDi);
+			}
+		}
+			readonly #REG_複数指定 = /(\S+)（カンマ区切りで複数可）/;
+
+		#chkRangeType(rangetype: string, val: string, use_nm: string, hArg: HPRM, name: string, prm: PRM_RANGE, aDi: Diagnostic[]) {
+			let is属性値正常 = true;
+			switch (rangetype) {
+				// メソッド系
+				case '一文字':	is属性値正常 = val.length === 1;	break;
+				case '整数':	is属性値正常 = this.#REG_整数.test(val);	break;
+				case '実数':	is属性値正常 = this.#REG_実数.test(val);	break;
+
+				// #hSetWords系
+			//	case '代入変数名':	// 観察者効果により存在チェック不可
+
+			//	case 'ジャンプ先':
+
+				case '差分名称':
+					if (use_nm === 'add_face') {
+						if ('fn' in hArg) break;
+
+						// nameがfnになるので、画像ファイル名としてチェック
+						this.#chkKW(name, '画像ファイル名', val, prm, aDi);
+						return;
+					}
+
+					// KW差分名称 は KW画像ファイル名も含んでいる
+					this.#chkKW(name, rangetype, val, prm, aDi);
+					return;
+
+				case 'レイヤ名':
+				case '文字レイヤ名':
+				case '画像レイヤ名':
+
+				case 'マクロ名':
+
+				case 'スクリプトファイル名':
+				case '画像ファイル名':
+				case '音声ファイル名':
+				case 'HTMLファイル名':
+
+				case 'フレーム名':
+			//	case 'サウンドバッファ名':	// 観察者効果により存在チェック不可
+				case '文字出現演出名':
+				case '文字消去演出名':
+					this.#chkKW(name, rangetype, val, prm, aDi);
+					return;
+				// フォントファイルは #getFonts2ANm()→ローカルにて。システムフォントを調べる必要がある
+
+				// #hPreWords系
+				case 'イベント名':
+				case 'イージング名':
+				case 'ブレンドモード名':
+					is属性値正常 = this.#hRegPreWords[rangetype].test(val);	break;
+
+				default:{
+	// 値域型（〜、上限省略可能）
+	const a値域 = rangetype.match(this.#REG_値域型);
+	if (a値域) {
+		is属性値正常 = this.#REG_実数.test(val);
+		if (! is属性値正常) break;
+
+		const [, 下限, 上限=''] = a値域;
+		const v = Number(val);
+		if (Number(下限) > v) {is属性値正常 = false; break;}
+		if (上限 && v > Number(上限)) {is属性値正常 = false; break;}
+		break;
+	}
+
+	// 列挙型（,区切り）
+	const a列挙型 = rangetype.split('、');
+	if (a列挙型.length > 1) is属性値正常 = a列挙型.includes(val);
+				}
+			}
+			if (is属性値正常) return;
+
+			const {mes, sev} = this.#hDiag.属性値異常;
+			aDi.push(Diagnostic.create(
+				this.#genPrm2Rng(prm),
+				mes.replace('$', `${name} (${rangetype})`)
+				.replace('$', val),
+				sev
+			));
+		}
+			readonly #REG_整数 = /^[+-]?(?:[1-9]\d*|0)$/;
+			readonly #REG_実数 = /^[+-]?\d+(?:\.\d+)?$/;
+				// https://regex101.com/r/qnTUaH/1
+			readonly #REG_値域型 = /(.+)〜(.+)?/;
+				// https://regex101.com/r/qEJo77/1
+
 		#chkDupDiag(aDi: Diagnostic[], key: string, name: string, uri: string, rng: Range) {
 			const {mes, sev} = this.#hDiag[key];
 			if (! this.hasDiagRelatedInfCap) {
@@ -1917,7 +1958,8 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 		}
 		#hChkDup	: {[name: string]: Map<string, Diagnostic>}		= {};
 
-		#chkLayer(name: string, rangetype: T_KW, val: string, prm: PRM_RANGE, aDi: Diagnostic[]): void {
+		#chkKW(name: string, rangetype: T_KW, val: string, prm: PRM_RANGE, aDi: Diagnostic[]): void {
+			if (! (rangetype in this.#hKey2KW)) return;
 			if (this.#hKey2KW[rangetype].has(val)) return;
 
 			const {mes, sev} = this.#hDiag.キーワード不明;
@@ -1939,7 +1981,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 
 
 		#procTokenBase = (_p: Position, _token: string)=> {};
-	#procToken:  (p: Position, token: string)=> void	= this.#procTokenBase;
+		#procToken:  (p: Position, token: string)=> void= this.#procTokenBase;
 		// トークン解析実行するのはこのメソッド
 		// [let_ml]処理中は一時差し替え → procToken に復帰
 	readonly	#hTagProc: {[nm: string]: (arg: ARG_TAG_PROC)=> void}	= {
@@ -2233,7 +2275,7 @@ if (this.#hKey2KW.スクリプトファイル名.has(argFn)) {
 			// 同じ警告は一度全て削除
 			const mes = diag.replace('$', kw);
 			for (const [fp, a] of Object.entries(this.#fp2Diag)) {
-				this.#fp2Diag[fp] = a.flatMap(d=> d.message == mes ?[] :d);
+				this.#fp2Diag[fp] = a.flatMap(d=> d.message === mes ?[] :d);
 			}
 
 			if (this.hasDiagRelatedInfCap) {

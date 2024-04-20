@@ -2,9 +2,9 @@
 画像や文字などレイヤ状態をクリアする
 
 ***
-- layer		全てのレイヤ	レイヤ名（半角カンマ区切りで複数レイヤを指定可能）	
-- page		fore	fore、back、both	ページの裏表（both指定で両面）
-- filter		false	Boolean	true：フィルタもクリア
+- layer``全てのレイヤ`レイヤ名（カンマ区切りで複数可）
+- page``fore`fore、back、both`ページの裏表（both指定で両面）
+- filter``false`true、false`true：フィルタもクリア
 
 ***
 layer=${1{{レイヤ名}}} page=${2|fore,back|}

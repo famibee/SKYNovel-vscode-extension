@@ -3,8 +3,8 @@
 [event]などでイベントが登録されていても、イベント発生待ちを行わない
 
 ***
-- time	y		ミリ秒	処理を待つ時間
-- canskip		true	Boolean	クリックなど（→詳細は[waitclick]）でウエイトをキャンセルできるか
+- time`y``0〜；ミリ秒`処理を待つ時間
+- canskip``true`true、false`クリックなど（→詳細は[waitclick]）でウエイトをキャンセルできるか
 
 ***
 time=${1:処理を待つ時間} 

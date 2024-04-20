@@ -3,7 +3,7 @@
 [event]などでイベントが登録されていても、イベント発生待ちを行わない
 
 ***
-- canskip		true	Boolean	trueでクリックキャンセル可能にする
+- canskip``true`true、false`trueでクリックキャンセル可能にする
 
 ***
 canskip=${1|true,false|}

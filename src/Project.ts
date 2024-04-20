@@ -382,8 +382,8 @@ export class Project {
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
 			tiDevSnUpd.description = o.verSN
-			? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
-			: '取得できません';
+				? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
+				: '取得できません';
 			emPrjTD.fire(tiDevSnUpd);
 			return o;
 		};
@@ -391,7 +391,7 @@ export class Project {
 
 		const tiDevCrypto = aTi[Project.#idxDevCrypto];
 		this.dspCryptoMode = ()=> {
-			tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`
+			tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
 			emPrjTD.fire(tiDevCrypto);
 		};
 		this.dspCryptoMode();

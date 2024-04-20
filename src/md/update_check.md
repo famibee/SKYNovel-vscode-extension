@@ -2,7 +2,7 @@
 ネットにアプリの更新を確認し、ダウンロードもサポートする
 
 ***
-- url	y		URL文字列	latest(-mac).ymlや、dmg(exe)を置いたWebサーバーのフォルダURLを指定する。終端は「/」をつけること
+- url`y``URL文字列`latest(-mac).ymlや、dmg(exe)を置いたWebサーバーのフォルダURLを指定する。終端は「/」をつけること
 
 ***
 url=${1:WebページURL}

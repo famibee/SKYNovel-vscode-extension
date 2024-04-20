@@ -3,7 +3,7 @@
 極力使用しないコーディングを推奨します
 
 ***
-- clear		false	Boolean	true：全て破棄する。空でもエラーを出さない<br/>false：スタックを一つ破棄する。空の場合はエラーメッセージ＆アプリ停止
+- clear``false`true、false`true：全て破棄する。空でもエラーを出さない<br/>false：スタックを一つ破棄する。空の場合はエラーメッセージ＆アプリ停止
 
 ***
 clear=${1|false,true|}

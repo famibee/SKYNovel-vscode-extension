@@ -36,27 +36,26 @@ import {copy, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 const path = './src/md/';
 for (const {name} of readdirSync(path, {withFileTypes: true})
 .filter(d=> d.isFile())) {
-	const nm = name.slice(0, -3);
+	const nm = name.slice(0, -3);	// .md 削除
 	const txt = readFileSync(path + name, {encoding: 'utf8'});
-	const a = txt.split(/\*{3}\n*/);
-	const len0 = a.length;
-	if (len0 > 4) a.splice(3, len0, a.slice(3).join('***'));
-	const prm = String(a[1] ?? '').trim();
+
+	const [t0, t1='', t2='', ...t9] = txt.split(/\*{3}\n*/);	// *** で分割
+	const prm = t1.trim();
 	const aPrm = (prm === '') ?[] :prm.split('\n').map(line=> {
 		const o: any = {};
-		line.slice(2).split('\t')
+		line.slice(2).split('`')	//「- 」以降からバッククオート「`」区切り
 		.forEach((c, i)=> o[idx2nmParam[i]] = repTag2MB(c));
 		return o;
 	});
 	hMd[nm] = {
-		sum		: (a[0] ?? '').trim(),
+		sum		: t0.trim(),
 		param	: aPrm,
-		snippet	: `\t${(a[2] ?? '').trim()}`.split('\n*\n').map(sn=> {
+		snippet	: `\t${t2.trim()}`.split('\n*\n').map(sn=> {
 			const i = sn.indexOf('\t');
 			const a2 = sn.slice(i +1);
 			return {nm: nm + sn.slice(0, i), txt: a2 ?`${nm} ${a2}` :nm};
 		}),
-		detail	: repTag2MB(a[3] ?? '').trim(),
+		detail	: repTag2MB(t9.join('***')).trim(),	// 三つめ以降は再度連結
 	};
 }
 

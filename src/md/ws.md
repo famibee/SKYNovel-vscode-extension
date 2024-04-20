@@ -3,10 +3,10 @@
 loop=trueなら待たない。 利用時は【音声再生[playse]がjoin=true(ちなみにデフォルト)であること】を必須条件とします
 
 ***
-- buf		SE	サウンドバッファ	効果音を識別するサウンドバッファ。サウンドバッファを変えれば同時に複数の音を操作することが出来ます
-- canskip		false	Boolean	trueでクリックキャンセル可能にする
-- global		true	Boolean	グローバルイベント待ちを有効にするか
-- stop		true	Boolean	trueで「クリックキャンセル時の再生停止」、falseなら行なわない。
+- buf``SE`サウンドバッファ名`効果音を識別する名前。サウンドバッファ名を変えれば同時に複数の音を操作することが出来ます
+- canskip``false`true、false`trueでクリックキャンセル可能にする
+- global``true`true、false`グローバルイベント待ちを有効にするか
+- stop``true`true、false`trueで「クリックキャンセル時の再生停止」、falseなら行なわない。
 
 ***
 buf=${1{{サウンドバッファ}}}

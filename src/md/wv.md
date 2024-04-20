@@ -2,8 +2,9 @@
 [lay]で開始したムービー再生の終了を待つ
 
 ***
-- canskip		true	Boolean	クリックなど（→詳細は[waitclick]）でウエイトをキャンセルできるか
-- global		true	Boolean	グローバルイベント待ちを有効にするか
+- canskip``true`true、false`クリックなど（→詳細は[waitclick]）でウエイトをキャンセルできるか
+- global``true`true、false`グローバルイベント待ちを有効にするか
+- stop``true`true、false`trueで「クリックキャンセル時の再生停止」、falseなら行なわない
 
 ***
 canskip=${1|true,false|}

@@ -3,4 +3,4 @@
 [event]などでイベントが登録されていれば、イベント発生待ちを行う
 
 ***
-- global		true	Boolean	グローバルイベント待ちを有効にするか
+- global``true`true、false`グローバルイベント待ちを有効にするか

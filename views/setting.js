@@ -1,8 +1,10 @@
 /**
-* @vue/shared v3.4.18
+* @vue/shared v3.4.23
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
+/*! #__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
 function makeMap(str, expectsLowerCase) {
   const set = new Set(str.split(","));
   return expectsLowerCase ? (val) => set.has(val.toLowerCase()) : (val) => set.has(val);
@@ -224,11 +226,15 @@ const replacer = (_key, val) => {
 };
 const stringifySymbol = (v, i = "") => {
   var _a;
-  return isSymbol(v) ? `Symbol(${(_a = v.description) != null ? _a : i})` : v;
+  return (
+    // Symbol.description in es2019+ so we need to cast here to pass
+    // the lib: es2016 check
+    isSymbol(v) ? `Symbol(${(_a = v.description) != null ? _a : i})` : v
+  );
 };
 
 /**
-* @vue/reactivity v3.4.18
+* @vue/reactivity v3.4.23
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -580,25 +586,27 @@ function createArrayInstrumentations() {
   return instrumentations;
 }
 function hasOwnProperty(key) {
+  if (!isSymbol(key))
+    key = String(key);
   const obj = toRaw(this);
   track(obj, "has", key);
   return obj.hasOwnProperty(key);
 }
 class BaseReactiveHandler {
-  constructor(_isReadonly = false, _shallow = false) {
+  constructor(_isReadonly = false, _isShallow = false) {
     this._isReadonly = _isReadonly;
-    this._shallow = _shallow;
+    this._isShallow = _isShallow;
   }
   get(target, key, receiver) {
-    const isReadonly2 = this._isReadonly, shallow = this._shallow;
+    const isReadonly2 = this._isReadonly, isShallow2 = this._isShallow;
     if (key === "__v_isReactive") {
       return !isReadonly2;
     } else if (key === "__v_isReadonly") {
       return isReadonly2;
     } else if (key === "__v_isShallow") {
-      return shallow;
+      return isShallow2;
     } else if (key === "__v_raw") {
-      if (receiver === (isReadonly2 ? shallow ? shallowReadonlyMap : readonlyMap : shallow ? shallowReactiveMap : reactiveMap).get(target) || // receiver is not the reactive proxy, but has the same prototype
+      if (receiver === (isReadonly2 ? isShallow2 ? shallowReadonlyMap : readonlyMap : isShallow2 ? shallowReactiveMap : reactiveMap).get(target) || // receiver is not the reactive proxy, but has the same prototype
       // this means the reciever is a user proxy of the reactive proxy
       Object.getPrototypeOf(target) === Object.getPrototypeOf(receiver)) {
         return target;
@@ -621,7 +629,7 @@ class BaseReactiveHandler {
     if (!isReadonly2) {
       track(target, "get", key);
     }
-    if (shallow) {
+    if (isShallow2) {
       return res;
     }
     if (isRef(res)) {
@@ -634,12 +642,12 @@ class BaseReactiveHandler {
   }
 }
 class MutableReactiveHandler extends BaseReactiveHandler {
-  constructor(shallow = false) {
-    super(false, shallow);
+  constructor(isShallow2 = false) {
+    super(false, isShallow2);
   }
   set(target, key, value, receiver) {
     let oldValue = target[key];
-    if (!this._shallow) {
+    if (!this._isShallow) {
       const isOldValueReadonly = isReadonly(oldValue);
       if (!isShallow(value) && !isReadonly(value)) {
         oldValue = toRaw(oldValue);
@@ -691,8 +699,8 @@ class MutableReactiveHandler extends BaseReactiveHandler {
   }
 }
 class ReadonlyReactiveHandler extends BaseReactiveHandler {
-  constructor(shallow = false) {
-    super(true, shallow);
+  constructor(isShallow2 = false) {
+    super(true, isShallow2);
   }
   set(target, key) {
     return true;
@@ -906,23 +914,16 @@ function createInstrumentations() {
     clear: createReadonlyMethod("clear"),
     forEach: createForEach(true, true)
   };
-  const iteratorMethods = ["keys", "values", "entries", Symbol.iterator];
+  const iteratorMethods = [
+    "keys",
+    "values",
+    "entries",
+    Symbol.iterator
+  ];
   iteratorMethods.forEach((method) => {
-    mutableInstrumentations2[method] = createIterableMethod(
-      method,
-      false,
-      false
-    );
-    readonlyInstrumentations2[method] = createIterableMethod(
-      method,
-      true,
-      false
-    );
-    shallowInstrumentations2[method] = createIterableMethod(
-      method,
-      false,
-      true
-    );
+    mutableInstrumentations2[method] = createIterableMethod(method, false, false);
+    readonlyInstrumentations2[method] = createIterableMethod(method, true, false);
+    shallowInstrumentations2[method] = createIterableMethod(method, false, true);
     shallowReadonlyInstrumentations2[method] = createIterableMethod(
       method,
       true,
@@ -1054,7 +1055,7 @@ function isShallow(value) {
   return !!(value && value["__v_isShallow"]);
 }
 function isProxy(value) {
-  return isReactive(value) || isReadonly(value);
+  return value ? !!value["__v_raw"] : false;
 }
 function toRaw(observed) {
   const raw = observed && observed["__v_raw"];
@@ -1070,6 +1071,7 @@ const toReactive = (value) => isObject$1(value) ? reactive(value) : value;
 const toReadonly = (value) => isObject$1(value) ? readonly(value) : value;
 class ComputedRefImpl {
   constructor(getter, _setter, isReadonly2, isSSR) {
+    this.getter = getter;
     this._setter = _setter;
     this.dep = void 0;
     this.__v_isRef = true;
@@ -1253,7 +1255,7 @@ function propertyToRef(source, key, defaultValue) {
 }
 
 /**
-* @vue/runtime-core v3.4.18
+* @vue/runtime-core v3.4.23
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -1269,7 +1271,10 @@ function warn$1(msg, ...args) {
       instance,
       11,
       [
-        msg + args.join(""),
+        msg + args.map((a) => {
+          var _a, _b;
+          return (_b = (_a = a.toString) == null ? void 0 : _a.call(a)) != null ? _b : JSON.stringify(a);
+        }).join(""),
         instance && instance.proxy,
         trace.map(
           ({ vnode }) => `at <${formatComponentName(instance, vnode.type)}>`
@@ -1356,13 +1361,11 @@ function formatProp(key, value, raw) {
   }
 }
 function callWithErrorHandling(fn, instance, type, args) {
-  let res;
   try {
-    res = args ? fn(...args) : fn();
+    return args ? fn(...args) : fn();
   } catch (err) {
     handleError(err, instance, type);
   }
-  return res;
 }
 function callWithAsyncErrorHandling(fn, instance, type, args) {
   if (isFunction(fn)) {
@@ -1374,11 +1377,13 @@ function callWithAsyncErrorHandling(fn, instance, type, args) {
     }
     return res;
   }
-  const values = [];
-  for (let i = 0; i < fn.length; i++) {
-    values.push(callWithAsyncErrorHandling(fn[i], instance, type, args));
+  if (isArray(fn)) {
+    const values = [];
+    for (let i = 0; i < fn.length; i++) {
+      values.push(callWithAsyncErrorHandling(fn[i], instance, type, args));
+    }
+    return values;
   }
-  return values;
 }
 function handleError(err, instance, type, throwInDev = true) {
   const contextVNode = instance ? instance.vnode : null;
@@ -1399,12 +1404,14 @@ function handleError(err, instance, type, throwInDev = true) {
     }
     const appErrorHandler = instance.appContext.config.errorHandler;
     if (appErrorHandler) {
+      pauseTracking();
       callWithErrorHandling(
         appErrorHandler,
         null,
         10,
         [err, exposedInstance, errorInfo]
       );
+      resetTracking();
       return;
     }
   }
@@ -2354,6 +2361,9 @@ const publicPropertiesMap = (
 const hasSetupBinding = (state, key) => state !== EMPTY_OBJ && !state.__isScriptSetup && hasOwn(state, key);
 const PublicInstanceProxyHandlers = {
   get({ _: instance }, key) {
+    if (key === "__v_skip") {
+      return true;
+    }
     const { ctx, setupState, data, props, accessCache, type, appContext } = instance;
     let normalizedProps;
     if (key[0] !== "$") {
@@ -2393,7 +2403,7 @@ const PublicInstanceProxyHandlers = {
     let cssModule, globalProperties;
     if (publicGetter) {
       if (key === "$attrs") {
-        track(instance, "get", key);
+        track(instance.attrs, "get", "");
       }
       return publicGetter(instance);
     } else if (
@@ -2933,10 +2943,12 @@ function inject(key, defaultValue, treatDefaultAsFactory = false) {
 function hasInjectionContext() {
   return !!(currentInstance || currentRenderingInstance || currentApp);
 }
+const internalObjectProto = /* @__PURE__ */ Object.create(null);
+const createInternalObject = () => Object.create(internalObjectProto);
+const isInternalObject = (obj) => Object.getPrototypeOf(obj) === internalObjectProto;
 function initProps(instance, rawProps, isStateful, isSSR = false) {
   const props = {};
-  const attrs = {};
-  def(attrs, InternalObjectKey, 1);
+  const attrs = createInternalObject();
   instance.propsDefaults = /* @__PURE__ */ Object.create(null);
   setFullProps(instance, rawProps, props, attrs);
   for (const key in instance.propsOptions[0]) {
@@ -3041,7 +3053,7 @@ function updateProps(instance, rawProps, rawPrevProps, optimized) {
     }
   }
   if (hasAttrsChanged) {
-    trigger(instance, "set", "$attrs");
+    trigger(instance.attrs, "set", "");
   }
 }
 function setFullProps(instance, rawProps, props, attrs) {
@@ -3202,8 +3214,16 @@ function validatePropName(key) {
   return false;
 }
 function getType(ctor) {
-  const match = ctor && ctor.toString().match(/^\s*(function|class) (\w+)/);
-  return match ? match[2] : ctor === null ? "null" : "";
+  if (ctor === null) {
+    return "null";
+  }
+  if (typeof ctor === "function") {
+    return ctor.name || "";
+  } else if (typeof ctor === "object") {
+    const name = ctor.constructor && ctor.constructor.name;
+    return name || "";
+  }
+  return "";
 }
 function isSameType(a, b) {
   return getType(a) === getType(b);
@@ -3252,20 +3272,19 @@ const initSlots = (instance, children) => {
     const type = children._;
     if (type) {
       instance.slots = toRaw(children);
-      def(children, "_", type);
+      def(instance.slots, "_", type);
     } else {
       normalizeObjectSlots(
         children,
-        instance.slots = {}
+        instance.slots = createInternalObject()
       );
     }
   } else {
-    instance.slots = {};
+    instance.slots = createInternalObject();
     if (children) {
       normalizeVNodeSlots(instance, children);
     }
   }
-  def(instance.slots, InternalObjectKey, 1);
 };
 const updateSlots = (instance, children, optimized) => {
   const { vnode, slots } = instance;
@@ -4810,7 +4829,6 @@ function isVNode(value) {
 function isSameVNodeType(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
-const InternalObjectKey = `__vInternal`;
 const normalizeKey = ({ key }) => key != null ? key : null;
 const normalizeRef = ({
   ref: ref3,
@@ -4928,7 +4946,7 @@ function _createVNode(type, props = null, children = null, patchFlag = 0, dynami
 function guardReactiveProps(props) {
   if (!props)
     return null;
-  return isProxy(props) || InternalObjectKey in props ? extend({}, props) : props;
+  return isProxy(props) || isInternalObject(props) ? extend({}, props) : props;
 }
 function cloneVNode(vnode, extraProps, mergeRef = false) {
   const { props, ref: ref3, patchFlag, children } = vnode;
@@ -5026,7 +5044,7 @@ function normalizeChildren$1(vnode, children) {
     } else {
       type = 32;
       const slotFlag = children._;
-      if (!slotFlag && !(InternalObjectKey in children)) {
+      if (!slotFlag && !isInternalObject(children)) {
         children._ctx = currentRenderingInstance;
       } else if (slotFlag === 3 && currentRenderingInstance) {
         if (currentRenderingInstance.slots._ === 1) {
@@ -5230,7 +5248,7 @@ function setupComponent(instance, isSSR = false) {
 function setupStatefulComponent(instance, isSSR) {
   const Component = instance.type;
   instance.accessCache = /* @__PURE__ */ Object.create(null);
-  instance.proxy = markRaw(new Proxy(instance.ctx, PublicInstanceProxyHandlers));
+  instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
   const { setup } = Component;
   if (setup) {
     const setupContext = instance.setupContext = setup.length > 1 ? createSetupContext(instance) : null;
@@ -5312,26 +5330,19 @@ function finishComponentSetup(instance, isSSR, skipOptions) {
     }
   }
 }
-function getAttrsProxy(instance) {
-  return instance.attrsProxy || (instance.attrsProxy = new Proxy(
-    instance.attrs,
-    {
-      get(target, key) {
-        track(instance, "get", "$attrs");
-        return target[key];
-      }
-    }
-  ));
-}
+const attrsProxyHandlers = {
+  get(target, key) {
+    track(target, "get", "");
+    return target[key];
+  }
+};
 function createSetupContext(instance) {
   const expose = (exposed) => {
     instance.exposed = exposed || {};
   };
   {
     return {
-      get attrs() {
-        return getAttrsProxy(instance);
-      },
+      attrs: new Proxy(instance.attrs, attrsProxyHandlers),
       slots: instance.slots,
       emit: instance.emit,
       expose
@@ -5385,7 +5396,8 @@ function isClassComponent(value) {
   return isFunction(value) && "__vccOpts" in value;
 }
 const computed = (getterOrOptions, debugOptions) => {
-  return computed$1(getterOrOptions, debugOptions, isInSSRComponentSetup);
+  const c = computed$1(getterOrOptions, debugOptions, isInSSRComponentSetup);
+  return c;
 };
 function h(type, propsOrChildren, children) {
   const l = arguments.length;
@@ -5407,10 +5419,10 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.4.18";
+const version = "3.4.23";
 
 /**
-* @vue/runtime-dom v3.4.18
+* @vue/runtime-dom v3.4.23
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -5495,10 +5507,11 @@ function patchClass(el, value, isSVG) {
     el.className = value;
   }
 }
-const vShowOldKey = Symbol("_vod");
+const vShowOriginalDisplay = Symbol("_vod");
+const vShowHidden = Symbol("_vsh");
 const vShow = {
   beforeMount(el, { value }, { transition }) {
-    el[vShowOldKey] = el.style.display === "none" ? "" : el.style.display;
+    el[vShowOriginalDisplay] = el.style.display === "none" ? "" : el.style.display;
     if (transition && value) {
       transition.beforeEnter(el);
     } else {
@@ -5511,7 +5524,7 @@ const vShow = {
     }
   },
   updated(el, { value, oldValue }, { transition }) {
-    if (!value === !oldValue && el.style.display === el[vShowOldKey])
+    if (!value === !oldValue)
       return;
     if (transition) {
       if (value) {
@@ -5532,20 +5545,29 @@ const vShow = {
   }
 };
 function setDisplay(el, value) {
-  el.style.display = value ? el[vShowOldKey] : "none";
+  el.style.display = value ? el[vShowOriginalDisplay] : "none";
+  el[vShowHidden] = !value;
 }
 const CSS_VAR_TEXT = Symbol("");
 const displayRE = /(^|;)\s*display\s*:/;
 function patchStyle(el, prev, next) {
   const style = el.style;
   const isCssString = isString(next);
-  const currentDisplay = style.display;
   let hasControlledDisplay = false;
   if (next && !isCssString) {
-    if (prev && !isString(prev)) {
-      for (const key in prev) {
-        if (next[key] == null) {
-          setStyle(style, key, "");
+    if (prev) {
+      if (!isString(prev)) {
+        for (const key in prev) {
+          if (next[key] == null) {
+            setStyle(style, key, "");
+          }
+        }
+      } else {
+        for (const prevStyle of prev.split(";")) {
+          const key = prevStyle.slice(0, prevStyle.indexOf(":")).trim();
+          if (next[key] == null) {
+            setStyle(style, key, "");
+          }
         }
       }
     }
@@ -5569,9 +5591,11 @@ function patchStyle(el, prev, next) {
       el.removeAttribute("style");
     }
   }
-  if (vShowOldKey in el) {
-    el[vShowOldKey] = hasControlledDisplay ? style.display : "";
-    style.display = currentDisplay;
+  if (vShowOriginalDisplay in el) {
+    el[vShowOriginalDisplay] = hasControlledDisplay ? style.display : "";
+    if (el[vShowHidden]) {
+      style.display = "none";
+    }
   }
 }
 const importantRE = /\s*!important$/;
@@ -5645,15 +5669,15 @@ function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspe
   const tag = el.tagName;
   if (key === "value" && tag !== "PROGRESS" && // custom elements may use _value internally
   !tag.includes("-")) {
-    el._value = value;
-    const oldValue = tag === "OPTION" ? el.getAttribute("value") : el.value;
+    const oldValue = tag === "OPTION" ? el.getAttribute("value") || "" : el.value;
     const newValue = value == null ? "" : value;
-    if (oldValue !== newValue) {
+    if (oldValue !== newValue || !("_value" in el)) {
       el.value = newValue;
     }
     if (value == null) {
       el.removeAttribute(key);
     }
+    el._value = value;
     return;
   }
   let needRemove = false;
@@ -5690,7 +5714,10 @@ function patchEvent(el, rawName, prevValue, nextValue, instance = null) {
   } else {
     const [name, options] = parseName(rawName);
     if (nextValue) {
-      const invoker = invokers[rawName] = createInvoker(nextValue, instance);
+      const invoker = invokers[rawName] = createInvoker(
+        nextValue,
+        instance
+      );
       addEventListener(el, name, invoker, options);
     } else if (existingInvoker) {
       removeEventListener(el, name, existingInvoker, options);
@@ -5740,7 +5767,9 @@ function patchStopImmediatePropagation(e, value) {
       originalStop.call(e);
       e._stopped = true;
     };
-    return value.map((fn) => (e2) => !e2._stopped && fn && fn(e2));
+    return value.map(
+      (fn) => (e2) => !e2._stopped && fn && fn(e2)
+    );
   } else {
     return value;
   }
@@ -5859,7 +5888,7 @@ const vModelText = {
     el[assignKey] = getModelAssigner(vnode);
     if (el.composing)
       return;
-    const elValue = number || el.type === "number" ? looseToNumber(el.value) : el.value;
+    const elValue = (number || el.type === "number") && !/^0\d/.test(el.value) ? looseToNumber(el.value) : el.value;
     const newValue = value == null ? "" : value;
     if (elValue === newValue) {
       return;
@@ -5961,19 +5990,19 @@ const vModelSelect = {
   },
   // set value in mounted & updated because <select> relies on its children
   // <option>s.
-  mounted(el, { value, oldValue, modifiers: { number } }) {
-    setSelected(el, value, oldValue, number);
+  mounted(el, { value, modifiers: { number } }) {
+    setSelected(el, value);
   },
   beforeUpdate(el, _binding, vnode) {
     el[assignKey] = getModelAssigner(vnode);
   },
-  updated(el, { value, oldValue, modifiers: { number } }) {
+  updated(el, { value, modifiers: { number } }) {
     if (!el._assigning) {
-      setSelected(el, value, oldValue, number);
+      setSelected(el, value);
     }
   }
 };
-function setSelected(el, value, oldValue, number) {
+function setSelected(el, value, number) {
   const isMultiple = el.multiple;
   const isArrayValue = isArray(value);
   if (isMultiple && !isArrayValue && !isSet(value)) {
@@ -5986,21 +6015,17 @@ function setSelected(el, value, oldValue, number) {
       if (isArrayValue) {
         const optionType = typeof optionValue;
         if (optionType === "string" || optionType === "number") {
-          option.selected = value.includes(
-            number ? looseToNumber(optionValue) : optionValue
-          );
+          option.selected = value.some((v) => String(v) === String(optionValue));
         } else {
           option.selected = looseIndexOf(value, optionValue) > -1;
         }
       } else {
         option.selected = value.has(optionValue);
       }
-    } else {
-      if (looseEqual(getValue(option), value)) {
-        if (el.selectedIndex !== i)
-          el.selectedIndex = i;
-        return;
-      }
+    } else if (looseEqual(getValue(option), value)) {
+      if (el.selectedIndex !== i)
+        el.selectedIndex = i;
+      return;
     }
   }
   if (!isMultiple && el.selectedIndex !== -1) {
@@ -6677,7 +6702,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.12.5
+  * vee-validate v4.12.6
   * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
@@ -8361,6 +8386,20 @@ function useForm(opts) {
     if (formResult.values) {
       results.values = formResult.values;
     }
+    keysOf(results.results).forEach((path) => {
+      var _a2;
+      const pathState = findPathState(path);
+      if (!pathState) {
+        return;
+      }
+      if (mode === "silent") {
+        return;
+      }
+      if (mode === "validated-only" && !pathState.validated) {
+        return;
+      }
+      setFieldError(pathState, (_a2 = results.results[path]) === null || _a2 === void 0 ? void 0 : _a2.errors);
+    });
     return results;
   });
   function mutateAllPathState(mutation) {
@@ -9396,29 +9435,18 @@ function toArray(value) {
   return value == null ? [] : [].concat(value);
 }
 
-let _Symbol$toStringTag;
+let _Symbol$toStringTag, _Symbol$hasInstance, _Symbol$toStringTag2;
 let strReg = /\$\{\s*(\w+)\s*\}/g;
 _Symbol$toStringTag = Symbol.toStringTag;
-class ValidationError extends Error {
-  static formatError(message, params) {
-    const path = params.label || params.path || 'this';
-    if (path !== params.path) params = Object.assign({}, params, {
-      path
-    });
-    if (typeof message === 'string') return message.replace(strReg, (_, key) => printValue(params[key]));
-    if (typeof message === 'function') return message(params);
-    return message;
-  }
-  static isError(err) {
-    return err && err.name === 'ValidationError';
-  }
-  constructor(errorOrErrors, value, field, type, disableStack) {
-    super();
+class ValidationErrorNoStack {
+  constructor(errorOrErrors, value, field, type) {
+    this.name = void 0;
+    this.message = void 0;
     this.value = void 0;
     this.path = void 0;
     this.type = void 0;
-    this.errors = void 0;
     this.params = void 0;
+    this.errors = void 0;
     this.inner = void 0;
     this[_Symbol$toStringTag] = 'Error';
     this.name = 'ValidationError';
@@ -9437,7 +9465,49 @@ class ValidationError extends Error {
       }
     });
     this.message = this.errors.length > 1 ? `${this.errors.length} errors occurred` : this.errors[0];
-    if (!disableStack && Error.captureStackTrace) Error.captureStackTrace(this, ValidationError);
+  }
+}
+_Symbol$hasInstance = Symbol.hasInstance;
+_Symbol$toStringTag2 = Symbol.toStringTag;
+class ValidationError extends Error {
+  static formatError(message, params) {
+    const path = params.label || params.path || 'this';
+    if (path !== params.path) params = Object.assign({}, params, {
+      path
+    });
+    if (typeof message === 'string') return message.replace(strReg, (_, key) => printValue(params[key]));
+    if (typeof message === 'function') return message(params);
+    return message;
+  }
+  static isError(err) {
+    return err && err.name === 'ValidationError';
+  }
+  constructor(errorOrErrors, value, field, type, disableStack) {
+    const errorNoStack = new ValidationErrorNoStack(errorOrErrors, value, field, type);
+    if (disableStack) {
+      return errorNoStack;
+    }
+    super();
+    this.value = void 0;
+    this.path = void 0;
+    this.type = void 0;
+    this.params = void 0;
+    this.errors = [];
+    this.inner = [];
+    this[_Symbol$toStringTag2] = 'Error';
+    this.name = errorNoStack.name;
+    this.message = errorNoStack.message;
+    this.type = errorNoStack.type;
+    this.value = errorNoStack.value;
+    this.path = errorNoStack.path;
+    this.errors = errorNoStack.errors;
+    this.inner = errorNoStack.inner;
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ValidationError);
+    }
+  }
+  static [_Symbol$hasInstance](inst) {
+    return ValidationErrorNoStack[Symbol.hasInstance](inst) || super[Symbol.hasInstance](inst);
   }
 }
 
@@ -9466,6 +9536,9 @@ let string = {
   email: '${path} must be a valid email',
   url: '${path} must be a valid URL',
   uuid: '${path} must be a valid UUID',
+  datetime: '${path} must be a valid ISO date-time',
+  datetime_precision: '${path} must be a valid ISO date-time with a sub-second precision of exactly ${precision} digits',
+  datetime_offset: '${path} must be a valid ISO date-time with UTC "Z" timezone',
   trim: '${path} must be a trimmed string',
   lowercase: '${path} must be a lowercase string',
   uppercase: '${path} must be a upper case string'
@@ -9646,16 +9719,16 @@ function createValidation(config) {
       return Reference.isRef(item) ? item.getValue(value, parent, context) : item;
     }
     function createError(overrides = {}) {
-      var _overrides$disableSta;
       const nextParams = Object.assign({
         value,
         originalValue,
         label: schema.spec.label,
         path: overrides.path || path,
-        spec: schema.spec
+        spec: schema.spec,
+        disableStackTrace: overrides.disableStackTrace || disableStackTrace
       }, params, overrides.params);
       for (const key of Object.keys(nextParams)) nextParams[key] = resolve(nextParams[key]);
-      const error = new ValidationError(ValidationError.formatError(overrides.message || message, nextParams), value, nextParams.path, overrides.type || name, (_overrides$disableSta = overrides.disableStackTrace) != null ? _overrides$disableSta : disableStackTrace);
+      const error = new ValidationError(ValidationError.formatError(overrides.message || message, nextParams), value, nextParams.path, overrides.type || name, nextParams.disableStackTrace);
       error.params = nextParams;
       return error;
     }
@@ -10094,7 +10167,7 @@ class Schema {
       key: undefined,
       // index: undefined,
       [isIndex ? 'index' : 'key']: k,
-      path: isIndex || k.includes('.') ? `${parentPath || ''}[${value ? k : `"${k}"`}]` : (parentPath ? `${parentPath}.` : '') + key
+      path: isIndex || k.includes('.') ? `${parentPath || ''}[${isIndex ? k : `"${k}"`}]` : (parentPath ? `${parentPath}.` : '') + key
     });
     return (_, panic, next) => this.resolve(testOptions)._validate(value, testOptions, panic, next);
   }
@@ -10405,6 +10478,60 @@ for (const method of ['validate', 'validateSync']) Schema.prototype[`${method}At
 for (const alias of ['equals', 'is']) Schema.prototype[alias] = Schema.prototype.oneOf;
 for (const alias of ['not', 'nope']) Schema.prototype[alias] = Schema.prototype.notOneOf;
 
+/**
+ * This file is a modified version of the file from the following repository:
+ * Date.parse with progressive enhancement for ISO 8601 <https://github.com/csnover/js-iso8601>
+ * NON-CONFORMANT EDITION.
+ * © 2011 Colin Snover <http://zetafleet.com>
+ * Released under MIT license.
+ */
+
+// prettier-ignore
+//                1 YYYY                2 MM        3 DD              4 HH     5 mm        6 ss           7 msec         8 Z 9 ±   10 tzHH    11 tzmm
+const isoReg = /^(\d{4}|[+-]\d{6})(?:-?(\d{2})(?:-?(\d{2}))?)?(?:[ T]?(\d{2}):?(\d{2})(?::?(\d{2})(?:[,.](\d{1,}))?)?(?:(Z)|([+-])(\d{2})(?::?(\d{2}))?)?)?$/;
+function parseIsoDate(date) {
+  const struct = parseDateStruct(date);
+  if (!struct) return Date.parse ? Date.parse(date) : Number.NaN;
+
+  // timestamps without timezone identifiers should be considered local time
+  if (struct.z === undefined && struct.plusMinus === undefined) {
+    return new Date(struct.year, struct.month, struct.day, struct.hour, struct.minute, struct.second, struct.millisecond).valueOf();
+  }
+  let totalMinutesOffset = 0;
+  if (struct.z !== 'Z' && struct.plusMinus !== undefined) {
+    totalMinutesOffset = struct.hourOffset * 60 + struct.minuteOffset;
+    if (struct.plusMinus === '+') totalMinutesOffset = 0 - totalMinutesOffset;
+  }
+  return Date.UTC(struct.year, struct.month, struct.day, struct.hour, struct.minute + totalMinutesOffset, struct.second, struct.millisecond);
+}
+function parseDateStruct(date) {
+  var _regexResult$7$length, _regexResult$;
+  const regexResult = isoReg.exec(date);
+  if (!regexResult) return null;
+
+  // use of toNumber() avoids NaN timestamps caused by “undefined”
+  // values being passed to Date constructor
+  return {
+    year: toNumber(regexResult[1]),
+    month: toNumber(regexResult[2], 1) - 1,
+    day: toNumber(regexResult[3], 1),
+    hour: toNumber(regexResult[4]),
+    minute: toNumber(regexResult[5]),
+    second: toNumber(regexResult[6]),
+    millisecond: regexResult[7] ?
+    // allow arbitrary sub-second precision beyond milliseconds
+    toNumber(regexResult[7].substring(0, 3)) : 0,
+    precision: (_regexResult$7$length = (_regexResult$ = regexResult[7]) == null ? void 0 : _regexResult$.length) != null ? _regexResult$7$length : undefined,
+    z: regexResult[8] || undefined,
+    plusMinus: regexResult[9] || undefined,
+    hourOffset: toNumber(regexResult[10]),
+    minuteOffset: toNumber(regexResult[11])
+  };
+}
+function toNumber(str, defaultValue = 0) {
+  return Number(str) || defaultValue;
+}
+
 // Taken from HTML spec: https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
 let rEmail =
 // eslint-disable-next-line
@@ -10415,6 +10542,10 @@ let rUrl =
 
 // eslint-disable-next-line
 let rUUID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+let yearMonthDay = '^\\d{4}-\\d{2}-\\d{2}';
+let hourMinuteSecond = '\\d{2}:\\d{2}:\\d{2}';
+let zOrOffset = '(([+-]\\d{2}(:?\\d{2})?)|Z)';
+let rIsoDateTime = new RegExp(`${yearMonthDay}T${hourMinuteSecond}(\\.\\d+)?${zOrOffset}$`);
 let isTrimmed = value => isAbsent(value) || value === value.trim();
 let objStringTag = {}.toString();
 function create$6() {
@@ -10543,6 +10674,53 @@ class StringSchema extends Schema {
       name: 'uuid',
       message,
       excludeEmptyString: false
+    });
+  }
+  datetime(options) {
+    let message = '';
+    let allowOffset;
+    let precision;
+    if (options) {
+      if (typeof options === 'object') {
+        ({
+          message = '',
+          allowOffset = false,
+          precision = undefined
+        } = options);
+      } else {
+        message = options;
+      }
+    }
+    return this.matches(rIsoDateTime, {
+      name: 'datetime',
+      message: message || string.datetime,
+      excludeEmptyString: true
+    }).test({
+      name: 'datetime_offset',
+      message: message || string.datetime_offset,
+      params: {
+        allowOffset
+      },
+      skipAbsent: true,
+      test: value => {
+        if (!value || allowOffset) return true;
+        const struct = parseDateStruct(value);
+        if (!struct) return false;
+        return !!struct.z;
+      }
+    }).test({
+      name: 'datetime_precision',
+      message: message || string.datetime_precision,
+      params: {
+        precision
+      },
+      skipAbsent: true,
+      test: value => {
+        if (!value || precision == undefined) return true;
+        const struct = parseDateStruct(value);
+        if (!struct) return false;
+        return struct.precision === precision;
+      }
     });
   }
 
@@ -10702,54 +10880,6 @@ create$5.prototype = NumberSchema.prototype;
 //
 // Number Interfaces
 //
-
-/**
- * This file is a modified version of the file from the following repository:
- * Date.parse with progressive enhancement for ISO 8601 <https://github.com/csnover/js-iso8601>
- * NON-CONFORMANT EDITION.
- * © 2011 Colin Snover <http://zetafleet.com>
- * Released under MIT license.
- */
-
-// prettier-ignore
-//                1 YYYY                2 MM        3 DD              4 HH     5 mm        6 ss           7 msec         8 Z 9 ±   10 tzHH    11 tzmm
-const isoReg = /^(\d{4}|[+-]\d{6})(?:-?(\d{2})(?:-?(\d{2}))?)?(?:[ T]?(\d{2}):?(\d{2})(?::?(\d{2})(?:[,.](\d{1,}))?)?(?:(Z)|([+-])(\d{2})(?::?(\d{2}))?)?)?$/;
-function toNumber(str, defaultValue = 0) {
-  return Number(str) || defaultValue;
-}
-function parseIsoDate(date) {
-  const regexResult = isoReg.exec(date);
-  if (!regexResult) return Date.parse ? Date.parse(date) : Number.NaN;
-
-  // use of toNumber() avoids NaN timestamps caused by “undefined”
-  // values being passed to Date constructor
-  const struct = {
-    year: toNumber(regexResult[1]),
-    month: toNumber(regexResult[2], 1) - 1,
-    day: toNumber(regexResult[3], 1),
-    hour: toNumber(regexResult[4]),
-    minute: toNumber(regexResult[5]),
-    second: toNumber(regexResult[6]),
-    millisecond: regexResult[7] ?
-    // allow arbitrary sub-second precision beyond milliseconds
-    toNumber(regexResult[7].substring(0, 3)) : 0,
-    z: regexResult[8] || undefined,
-    plusMinus: regexResult[9] || undefined,
-    hourOffset: toNumber(regexResult[10]),
-    minuteOffset: toNumber(regexResult[11])
-  };
-
-  // timestamps without timezone identifiers should be considered local time
-  if (struct.z === undefined && struct.plusMinus === undefined) {
-    return new Date(struct.year, struct.month, struct.day, struct.hour, struct.minute, struct.second, struct.millisecond).valueOf();
-  }
-  let totalMinutesOffset = 0;
-  if (struct.z !== 'Z' && struct.plusMinus !== undefined) {
-    totalMinutesOffset = struct.hourOffset * 60 + struct.minuteOffset;
-    if (struct.plusMinus === '+') totalMinutesOffset = 0 - totalMinutesOffset;
-  }
-  return Date.UTC(struct.year, struct.month, struct.day, struct.hour, struct.minute + totalMinutesOffset, struct.second, struct.millisecond);
-}
 
 let invalidDate = new Date('');
 let isDate = obj => Object.prototype.toString.call(obj) === '[object Date]';
