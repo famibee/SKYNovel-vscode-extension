@@ -7,7 +7,7 @@
 // @__NO_SIDE_EFFECTS__
 function makeMap(str, expectsLowerCase) {
   const set = new Set(str.split(","));
-  return expectsLowerCase ? (val) => set.has(val.toLowerCase()) : (val) => set.has(val);
+  return (val) => set.has(val);
 }
 const EMPTY_OBJ = {};
 const EMPTY_ARR = [];
@@ -1891,7 +1891,7 @@ function resolveAsset(type, name, warnMissing = true, maybeSelfReference = false
   const instance = currentRenderingInstance || currentInstance;
   if (instance) {
     const Component = instance.type;
-    if (type === COMPONENTS) {
+    {
       const selfName = getComponentName(
         Component,
         false
@@ -2295,36 +2295,33 @@ function onErrorCaptured(hook, target = currentInstance) {
 }
 function renderList(source, renderItem, cache, index) {
   let ret;
-  const cached = cache && cache[index];
+  const cached = cache ;
   if (isArray(source) || isString(source)) {
     ret = new Array(source.length);
     for (let i = 0, l = source.length; i < l; i++) {
-      ret[i] = renderItem(source[i], i, void 0, cached && cached[i]);
+      ret[i] = renderItem(source[i], i, void 0, cached );
     }
   } else if (typeof source === "number") {
     ret = new Array(source);
     for (let i = 0; i < source; i++) {
-      ret[i] = renderItem(i + 1, i, void 0, cached && cached[i]);
+      ret[i] = renderItem(i + 1, i, void 0, cached );
     }
   } else if (isObject$1(source)) {
     if (source[Symbol.iterator]) {
       ret = Array.from(
         source,
-        (item, i) => renderItem(item, i, void 0, cached && cached[i])
+        (item, i) => renderItem(item, i, void 0, cached )
       );
     } else {
       const keys = Object.keys(source);
       ret = new Array(keys.length);
       for (let i = 0, l = keys.length; i < l; i++) {
         const key = keys[i];
-        ret[i] = renderItem(source[key], key, i, cached && cached[i]);
+        ret[i] = renderItem(source[key], key, i, cached );
       }
     }
   } else {
     ret = [];
-  }
-  if (cache) {
-    cache[index] = ret;
   }
   return ret;
 }
@@ -4681,11 +4678,6 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   let hydrate;
   let hydrateNode;
-  if (createHydrationFns) {
-    [hydrate, hydrateNode] = createHydrationFns(
-      internals
-    );
-  }
   return {
     render,
     hydrate,

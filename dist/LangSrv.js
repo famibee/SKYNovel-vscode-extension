@@ -837,6 +837,7 @@ const.sn.config.init.escape
 const.sn.config.window.height
 const.sn.config.window.width
 const.sn.displayState
+const.sn.fn2ext.json
 const.sn.frm.\uFF08\u30D5\u30EC\u30FC\u30E0\u540D\uFF09
 const.sn.frm.\uFF08\u30D5\u30EC\u30FC\u30E0\u540D\uFF09.alpha
 const.sn.frm.\uFF08\u30D5\u30EC\u30FC\u30E0\u540D\uFF09.height

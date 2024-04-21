@@ -269,6 +269,7 @@ const.sn.config.init.escape
 const.sn.config.window.height
 const.sn.config.window.width
 const.sn.displayState
+const.sn.fn2ext.json
 const.sn.frm.（フレーム名）
 const.sn.frm.（フレーム名）.alpha
 const.sn.frm.（フレーム名）.height
