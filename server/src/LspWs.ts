@@ -376,6 +376,7 @@ sys:TextLayer.Back.Alpha`.split('\n');
 	#fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.#LEN_PATH_PRJ)}
 
 
+	//MARK: コンストラクタ
 	constructor(readonly wf: WorkspaceFolder, private readonly conn: Connection, private readonly docs:TextDocuments<TextDocument>, readonly hasDiagRelatedInfCap: boolean) {
 			// wf.uri=file:///c%3A/Users/[略]/win=
 			// wf.uri=file:///Users/[略]/mac=

@@ -45,6 +45,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 
 	#mPrj	= new Map<string, Project>();
 
+	//MARK: コンストラクタ
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
 		const itmStt = this.#addStatusItem('init');
 		itmStt.text = '初期化中...';	// $(icon-name)使用可能

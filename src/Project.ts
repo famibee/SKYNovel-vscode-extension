@@ -114,6 +114,7 @@ export class Project {
 	readonly	#htmOpFolder;
 
 
+	//MARK: コンストラクタ
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void) {
 		const vfp = wsFld.uri.path;
 		this.#PATH_WS = v2fp(vfp);
@@ -473,7 +474,7 @@ export class Project {
 	}
 
 
-	// LSP
+	//MARK: LSPから受信
 	onRequest(hd: any) {
 		switch (hd.cmd) {
 			case 'init':{
@@ -541,6 +542,7 @@ export class Project {
 		}
 	}
 
+	//MARK: ホバーイベント
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		const vfp = doc.uri.path;
@@ -626,6 +628,7 @@ export class Project {
 	}
 
 
+	//MARK: ビューオープン
 	opView(uri: Uri) {
 		const vfp = uri.path;
 		const fp = v2fp(vfp);
@@ -739,6 +742,7 @@ export class Project {
 		#tiDelayFolder: NodeJS.Timeout | undefined = undefined;
 
 
+	//MARK: 設定パネルイベント
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
 	async #cmd(nm: string, val: string): Promise<boolean> {
 //console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
@@ -827,6 +831,7 @@ export class Project {
 		}"}' "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
 	);
 
+	//MARK: タスク実行
 	readonly	#hTask2Inf = {
 		'cut_round': {
 			title		: 'アイコン生成・丸く切り抜く',
@@ -957,6 +962,7 @@ export class Project {
 	}
 
 
+	//MARK: ボタンの処理
 	readonly	#hPush2BtnEnable = new Map<PrjBtnName, BtnEnable[]>([
 		['Crypto',		['','','','','','','','','','','','']],
 		['TaskWeb',		['_off', '_off', '', '_off', 'Stop', '_off',
@@ -1249,7 +1255,7 @@ export class Project {
 	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
 
 
-	// 暗号化
+	//MARK: 暗号化
 	async	#initCrypto() {
 		await this.#encry.init();
 
@@ -1557,6 +1563,7 @@ export class Project {
 		return aコピー先候補;
 	}
 
+	//MARK: ドロップ処理
 	async	drop(td: TextDocument, pos: Position, aUri: Uri[]): Promise<DocumentDropEdit | null | undefined> {
 		// td.fileName	=c:\Users\[略]]\doc\prj\mat\main.sn=
 		// td.uri.path	=/c:/Users/[略]/doc/prj/mat/main.sn=

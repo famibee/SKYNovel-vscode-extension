@@ -14,7 +14,7 @@ const AdmZip = require('adm-zip');
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
-import {copyFileSync, existsSync, moveSync, outputJsonSync, readFile, readJsonSync, removeSync} from 'fs-extra';
+import {copyFileSync, ensureDir, existsSync, move, outputJson, readFile, readJson, readJsonSync, removeSync, writeFile} from 'fs-extra';
 
 import {
 	LanguageClient,
@@ -53,6 +53,7 @@ export function oIcon(name: string) {return {
 
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
+	//MARK: 処理冒頭
 	static start(ctx: ExtensionContext) {
 		extPath = ctx.extensionPath;
 
@@ -76,6 +77,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	#tlBox	: ToolBox;
 
 
+	//MARK: コンストラクタ
 	private constructor(private readonly ctx: ExtensionContext) {
 		// LSP
 		const module = ctx.asAbsolutePath('dist/LangSrv.js');
@@ -159,7 +161,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		this.#tlBox.dispose();
 	}
 
-	// 環境チェック
+	//MARK: 環境確認
 	async #chkEnv(finish: (ok: boolean)=> void) {
 		const tiNode = this.#aTiEnv[eTreeEnv.NODE];
 		const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
@@ -276,6 +278,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		return Promise.resolve(ret);
 	}
 
+	//MARK: ネットの更新確認
 	async chkLastSNVer(aLocalSNVer: {verSN: string, verTemp: string}[]) {
 		let newVerSN = '';
 		let newVerTemp = '';
@@ -308,6 +311,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 	}
 
+	//MARK: 環境確認パネル
 	#pnlWV: WebviewPanel | null = null;
 	#openEnvInfo() {
 		const column = window.activeTextEditor?.viewColumn;
@@ -331,6 +335,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 	}
 
+	//MARK: テンプレ選択パネル
 	#openTempWizard() {
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
@@ -405,43 +410,50 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 	}
 		#canTempWizard	= false;
+	//MARK: テンプレから作成
 	readonly	#crePrjFromTmp = (nm: string, fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト作成',
 		cancellable	: true,
 	}, (prg, tknCancel)=> {
-		const td = tmpdir();
-		removeSync(td +'.zip');
-		const fnFrom = td +`/SKYNovel_${nm}-master`;
-		removeSync(fnFrom);
-
-		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
+		const td = tmpdir() +'/SKYNovel/';
+		removeSync(td);
+		ensureDir(td);
+		const pathZip = td +`temp_${nm}.zip`;
+		const pathUnZip = td +`SKYNovel_${nm}-master/`;
+		removeSync(pathZip);
+		const ac = new AbortController;
+		let fncAbort = ()=> ac.abort();
+		tknCancel.onCancellationRequested(()=> {fncAbort(); removeSync(td)});
 
 		return new Promise<void>((re, rj)=> {
-			// zipダウンロード＆解凍
+			// == zipダウンロード＆解凍
 			prg.report({increment: 10, message: 'ダウンロード中',});
-			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
+			const {signal} = ac;
+			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`, {signal})
 			.then(async res=> {
-				const buf = await res.arrayBuffer();
+				fncAbort = ()=> {};
+				prg.report({increment: 40, message: 'ZIP生成中',});
+				if (tknCancel.isCancellationRequested || ! res.ok) {rj(); return;}
+
+				const ab = await res.arrayBuffer();
+				await writeFile(pathZip, Buffer.from(ab));
+				prg.report({increment: 10, message: 'ZIP解凍中',});
+				new AdmZip(pathZip).extractAllTo(td, true);	// overwrite
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
-				prg.report({increment: 50, message: 'ZIP解凍中',});
-				new AdmZip(buf).extractAllTo(td, true);	// overwrite
-				if (tknCancel.isCancellationRequested) {rj(); return;}
-
+				// == ファイル調整
 				prg.report({increment: 10, message: 'ファイル調整',});
 
 				// prj.json の置換
-				const pathWs = fnFrom;
-				const fnPrj = pathWs +'/doc/prj/';
-				const fnPrjJs = fnPrj +'/prj.json';
-				const oPrj = readJsonSync(fnPrjJs, {encoding: 'utf8'});
+				const fnPrjJs = pathUnZip +'doc/prj/prj.json';
+				const oPrj = await readJson(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
 				oPrj.debuger_token = '';
-				outputJsonSync(fnPrjJs, oPrj, {spaces: '\t'});
+				await outputJson(fnPrjJs, oPrj, {spaces: '\t'});
 
 				// package.json の置換
-				const fnPkgJs = pathWs +'/package.json';
+				const fnPkgJs = pathUnZip +'package.json';
 				replaceRegsFile(fnPkgJs, [
 					[
 						/("name"\s*:\s*").*(")/,
@@ -457,8 +469,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					],
 				], false);
 
-				// フォルダ名変更
-				moveSync(fnFrom, fnTo);
+				// フォルダ名変更と移動
+				await move(pathUnZip, fnTo);
 
 				prg.report({increment: 30, message: '完了。フォルダを開きます',});
 				setTimeout(()=> {
@@ -477,7 +489,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		// 正規表現を可視化してまとめたチートシート - Qiita https://qiita.com/grrrr/items/0b35b5c1c98eebfa5128
 
 
-	// テンプレートからプロジェクト更新
+	//MARK: テンプレから更新
 	readonly updPrjFromTmp = (fnTo: string)=> window.withProgress({
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト更新',
@@ -488,29 +500,37 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const oOldPkgJS = readJsonSync(fnTo +'/package.json', {encoding: 'utf8'});
 		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
 
-		const td = tmpdir();
-		removeSync(td +'.zip');
-		const fnFrom = td +`/SKYNovel_${nm}-master`;
-		removeSync(fnFrom);
-
-		tknCancel.onCancellationRequested(()=> removeSync(fnFrom));
+		const td = tmpdir() +'/SKYNovel/';
+		removeSync(td);
+		ensureDir(td);
+		const pathZip = td +`temp_${nm}.zip`;
+		const pathUnZip = td +`SKYNovel_${nm}-master/`;
+		const ac = new AbortController;
+		let fncAbort = ()=> ac.abort();
+		tknCancel.onCancellationRequested(()=> {fncAbort(); removeSync(td)});
 
 		return new Promise<void>((re, rj)=> {
-			// zipダウンロード＆解凍
+			// == zipダウンロード＆解凍
 			prg.report({increment: 10, message: 'ダウンロード中',});
-			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`)
+			const {signal} = ac;
+			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`, {signal})
 			.then(async res=> {
-				const buf = await res.arrayBuffer();
+				fncAbort = ()=> {};
+				prg.report({increment: 40, message: 'ZIP生成中',});
+				if (tknCancel.isCancellationRequested || ! res.ok) {rj(); return;}
+
+				const ab = await res.arrayBuffer();
+				await writeFile(pathZip, Buffer.from(ab));
+				prg.report({increment: 10, message: 'ZIP解凍中',});
+				new AdmZip(pathZip).extractAllTo(td, true);	// overwrite
 				if (tknCancel.isCancellationRequested) {rj(); return;}
 
-				prg.report({increment: 50, message: 'ZIP解凍中',});
-				new AdmZip(buf).extractAllTo(td, true);	// overwrite
-				if (tknCancel.isCancellationRequested) {rj(); return;}
-
+				// == ファイル調整
 				prg.report({increment: 10, message: 'ファイル調整',});
+
 				const copy = (fn: string, chkExists = false)=> {
 					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
-					copyFileSync(fnFrom +'/'+ fn, fnTo +'/'+ fn)
+					copyFileSync(pathUnZip + fn, fnTo +'/'+ fn)
 				};
 				// build/		// しばしノータッチ
 
@@ -528,12 +548,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				copy('CHANGELOG.md');
 
 				// package.json
-				const oNewPkgJS = readJsonSync(fnFrom +'/package.json', {encoding: 'utf8'});
+				const oNewPkgJS = await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
 				if (oOldPkgJS.dependencies['@famibee/skynovel'].slice(0, 8) === 'file:../') {
 					oNewPkgJS.dependencies['@famibee/skynovel'] =
 					oOldPkgJS.dependencies['@famibee/skynovel'];
 				}
-				outputJsonSync(fnTo +'/package.json', {
+				await outputJson(fnTo +'/package.json', {
 					...oOldPkgJS,
 					dependencies	: oNewPkgJS.dependencies,
 					devDependencies	: oNewPkgJS.devDependencies,
