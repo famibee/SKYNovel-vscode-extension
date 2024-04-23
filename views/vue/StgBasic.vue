@@ -57,10 +57,9 @@ import {useField} from 'vee-validate';
 import * as yup from 'yup';
 import {openURL, on} from '../store/stVSCode';
 import {T_CFG} from '../types';
-import {toRaw} from 'vue';
 
 const stCfg = useCfg();
-const {oCfg} = storeToRefs(stCfg);	// 分割代入
+const {oCfg} = storeToRefs(stCfg);
 
 yup.setLocale({
 	mixed: {
@@ -71,7 +70,6 @@ yup.setLocale({
 		url		: 'URL形式ではありません',
 	}
 });
-
 
 const {value: v_save_ns, errorMessage: em_save_ns, meta: mv_save_ns} = useField<string>(
 	'oCfg.save_ns',
@@ -84,14 +82,14 @@ const {value: v_title, errorMessage: em_title, meta: mv_title} = useField<string
 	'oCfg.book.title',
 	yup.string().required()
 	.notOneOf(['初音館にて', '桜の樹の下には']),
-	{initialValue: oCfg.value.book.title},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.title},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_creator, errorMessage: em_creator, meta: mv_creator} = useField<string>(
 	'oCfg.book.creator',
 	yup.string().required()
 	.notOneOf(['ふぁみべぇ']),
-	{initialValue: oCfg.value.book.creator},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.creator},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url} = useField<string>(
 	'oCfg.book.cre_url',
@@ -104,20 +102,20 @@ const {value: v_cre_url, errorMessage: em_cre_url, meta: mv_cre_url} = useField<
 			? yup.string().url().isValid(v)
 			: yup.string().email().isValid(v)
 	),
-	{initialValue: oCfg.value.book.cre_url},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.cre_url},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_publisher, errorMessage: em_publisher, meta: mv_publisher} = useField<string>(
 	'oCfg.book.publisher',
 	yup.string().required()
 	.notOneOf(['電子演劇部']),
-	{initialValue: oCfg.value.book.publisher},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.publisher},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_pub_url, errorMessage: em_pub_url, meta: mv_pub_url} = useField<string>(
 	'oCfg.book.pub_url',
 	yup.string().required().url()
 	.notOneOf(['https://famibee.blog.fc2.com/','https://ugainovel.blog.fc2.com/']),
-	{initialValue: oCfg.value.book.pub_url},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.pub_url},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_detail, errorMessage: em_detail, meta: mv_detail} = useField<string>(
@@ -127,28 +125,26 @@ const {value: v_detail, errorMessage: em_detail, meta: mv_detail} = useField<str
 		'江戸川乱歩「孤島の鬼」二次創作ノベルゲームサンプルです。',
 		'梶井基次郎「桜の樹の下には」をノベルゲーム化したものです。'
 	]),
-	{initialValue: oCfg.value.book.detail},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.detail},	// ブラウザテスト用、VSCodeで上書き
 );
 
 on('init', ()=> {	// useField()の後に初期値を更新したいので
 	const o: T_CFG = oCfg.value;
-	v_save_ns.value = o.save_ns;
-	v_title.value = o.book.title;
-	v_creator.value = o.book.creator;
-	v_cre_url.value = o.book.cre_url;
-	v_publisher.value = o.book.publisher;
-	v_pub_url.value = o.book.pub_url;
-	v_detail.value = o.book.detail;
+	v_save_ns.value = o.save_ns!;
+	v_title.value = o.book!.title!;
+	v_creator.value = o.book!.creator!;
+	v_cre_url.value = o.book!.cre_url!;
+	v_publisher.value = o.book!.publisher!;
+	v_pub_url.value = o.book!.pub_url!;
+	v_detail.value = o.book!.detail!;
 });
 
 // useField を使うと $subscribe が効かないので
 const subscribe = ()=> {
 	// 変更後の $state が取れないので手動作成
-	const o: T_CFG = toRaw(oCfg.value);
 	const o2: T_CFG = {
-		...o, save_ns: v_save_ns.value,
-		book: {
-			...o.book,
+		save_ns: v_save_ns.value,
+		book	: {
 			title		: v_title.value,
 			creator		: v_creator.value,
 			cre_url		: v_cre_url.value,

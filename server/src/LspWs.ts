@@ -1607,7 +1607,7 @@ WorkspaceEdit
 		const fn = getFn(pp);
 		this.#hT2Pp2Kw.ジャンプ先[pp].add(`fn=${fn}`);
 
-		const sJumpFn = new Set();	// ジャンプ元から先(fn)への関連
+		const sJumpFn = new Set;	// ジャンプ元から先(fn)への関連
 		let sJoinLabel = '';	// ラベル変更検知用、jump情報・ラベル名結合文字列
 								// [jump]タグなどの順番が変わっただけでも変更扱いで
 		this.#hFn2label[fn] ??= {};

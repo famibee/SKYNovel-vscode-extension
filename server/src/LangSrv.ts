@@ -190,7 +190,7 @@ interface MySettings {
 }
 
 // Cache the settings of all open documents
-const mapDocStg: Map<string, Thenable<MySettings>> = new Map();
+const mapDocStg: Map<string, Thenable<MySettings>> = new Map;
 
 conn.onDidChangeConfiguration(_chg=> {
 	if (hasCfgCap) mapDocStg.clear();	// Reset all cached document settings

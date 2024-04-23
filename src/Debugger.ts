@@ -134,7 +134,7 @@ export class Debugger extends EventEmitter {
 			di[':token'] = token;
 
 			// upd text
-			const ed = new WorkspaceEdit();
+			const ed = new WorkspaceEdit;
 			ed.replace(di.uri, di.rng, token);
 			workspace.applyEdit(ed);
 
@@ -202,7 +202,7 @@ export class Debugger extends EventEmitter {
 					)
 					di[':token'] = token;
 
-					const ed = new WorkspaceEdit();
+					const ed = new WorkspaceEdit;
 					ed.replace(di.uri, di.rng, token);
 					workspace.applyEdit(ed);
 				};

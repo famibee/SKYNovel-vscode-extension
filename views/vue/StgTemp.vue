@@ -39,7 +39,7 @@ configure({
 });
 
 const stTemp = useTemp();
-const {aTemp, err} = storeToRefs(stTemp);	// 分割代入
+const {aTemp, err} = storeToRefs(stTemp);
 
 const isRequired = (value: any)=> {
 	return value ? true : 'This field is required';

@@ -99,10 +99,10 @@ import {T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../types';
 
 
 const stOInfo = useOInfo();
-const {aCnvFont} = storeToRefs(stOInfo);	// 分割代入
+const {aCnvFont} = storeToRefs(stOInfo);
 
 const stWss = useWss();
-const {oWss} = storeToRefs(stWss);	// 分割代入
+const {oWss} = storeToRefs(stWss);
 
 
 const qselectIcon: T_V2E_SELECT_ICON_FILE = {
@@ -114,7 +114,7 @@ const qselectIcon: T_V2E_SELECT_ICON_FILE = {
 const selectIcon = ()=> cmd2Ex(qselectIcon);
 
 const srcIcon = ref('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==');
-const updIconImg = (src: string)=> srcIcon.value = src +'?'+ (new Date()).getTime();
+const updIconImg = (src: string)=> srcIcon.value = src +'?'+ new Date().getTime();
 on('!', data=> updIconImg(data.pathIcon));
 
 

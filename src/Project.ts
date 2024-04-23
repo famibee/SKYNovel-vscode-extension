@@ -188,7 +188,7 @@ export class Project {
 		else this.#updPlugin(false);
 
 		// ファイル増減を監視し、path.json を自動更新など各種処理
-			// 第一引数は new RelativePattern() 必須とする。win対応にも
+			// 第一引数は new RelativePattern 必須とする。win対応にも
 		const fwPrj = workspace.createFileSystemWatcher(
 			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/*/**/*.[a-zA-Z][a-zA-Z0-9]*`)
 		);	// sn,jpen,png などの他に woff2,mp3,m4a
@@ -570,7 +570,7 @@ export class Project {
 	const srcEx = `${vfpImg}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
 	const {width = 0, height = 0} = img_size(this.#PATH_PRJ + ppImg);
 	const exImg = encodeURIComponent(JSON.stringify([Uri.parse(vfpImg)]));
-//	const timestamp = new Date().getTime();
+//	const timestamp = new Date.getTime();
 //console.log(`fn:Project.ts line:531 timestamp:${timestamp}`);
 
 	return `- ${name} = ${val} (${width}x${height}) ${
@@ -1684,7 +1684,7 @@ export class Project {
 
 		return null;
 	}
-		#mExt2Snip: Map<SEARCH_PATH_ARG_EXT, string> = new Map();
+		#mExt2Snip: Map<SEARCH_PATH_ARG_EXT, string> = new Map;
 
 		readonly	#REG_FIELD	= /(?<=\s)[^\s=[\]]+(?:=(?:[^"'#\s;\]]+|(["'#]).*?\1)?)?/g;	// https://regex101.com/r/1m4Hgp/1 7 matches 95 steps, 0.4ms
 		#createWsEd_repVal(uri: Uri, range: Range, nm: string, val: string) {

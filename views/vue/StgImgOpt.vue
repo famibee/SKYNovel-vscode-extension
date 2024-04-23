@@ -156,7 +156,7 @@ import {ImgComparisonSlider} from '@img-comparison-slider/vue';
 
 
 const stOInfo = useOInfo();
-const {oOptImg} = storeToRefs(stOInfo);	// 分割代入
+const {oOptImg} = storeToRefs(stOInfo);
 
 const sortHSize: ()=> T_OPTIMG_FILE_AND_KEY[] = ()=> Object.entries(oOptImg.value.hSize)
 	.map(([nm, v])=> ({nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
@@ -171,7 +171,7 @@ const chgRangeWebpQDef = (el: any)=> {
 
 
 const stWss = useWss();
-const {oWss} = storeToRefs(stWss);	// 分割代入
+const {oWss} = storeToRefs(stWss);
 
 const chkChg = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
 	const no_def = Boolean(el.target.checked);
@@ -188,6 +188,6 @@ const chgRangeWebpQ = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
 	cmd2Ex(q);
 }
 
-const updImg = (src: string)=> src +'?'+ (new Date()).getTime();
+const updImg = (src: string)=> src +'?'+ new Date().getTime();
 
 </script>

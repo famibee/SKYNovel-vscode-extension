@@ -58,84 +58,81 @@ import {useField} from 'vee-validate';
 import * as yup from 'yup';
 import {on} from '../store/stVSCode';
 import {T_CFG} from '../types';
-import {toRaw} from 'vue';
 
 const stCfg = useCfg();
-const {oCfg} = storeToRefs(stCfg);	// 分割代入
+const {oCfg} = storeToRefs(stCfg);
 
 const {value: v_width, errorMessage: em_width, meta: mv_width} = useField<number>(
 	'oCfg.window.width',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(300, '最小値 300 以上にして下さい'),
-	{initialValue: oCfg.value.window.width},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.window!.width},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_height, errorMessage: em_height, meta: mv_height} = useField<number>(
 	'oCfg.window.height',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(300, '最小値 300 以上にして下さい'),
-	{initialValue: oCfg.value.window.height},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.window!.height},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_version, errorMessage: em_version, meta: mv_version} = useField<string>(
 	'oCfg.version',
 	yup.string().required('必須の項目です')
 	.matches(/^[\w\.\-]+$/, '英数字か[_-.]のみです'),
-	{initialValue: oCfg.value.book.version},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.book!.version},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_max_len, errorMessage: em_max_len, meta: mv_max_len} = useField<number>(
 	'oCfg.window.max_len',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(10, '最小値 10 以上にして下さい'),
-	{initialValue: oCfg.value.log.max_len},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.log!.max_len},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_tagch_msecwait, errorMessage: em_tagch_msecwait, meta: mv_tagch_msecwait} = useField<number>(
 	'oCfg.window.tagch_msecwait',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(1, '最小値 1 以上にして下さい'),
-	{initialValue: oCfg.value.init.tagch_msecwait},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init!.tagch_msecwait},	// ブラウザテスト用、VSCodeで上書き
 );
 const {value: v_auto_msecpagewait, errorMessage: em_auto_msecpagewait, meta: mv_auto_msecpagewait} = useField<number>(
 	'oCfg.window.auto_msecpagewait',
 	yup.number().required('必須の項目です').integer('整数にして下さい')
 	.min(1, '最小値 1 以上にして下さい'),
-	{initialValue: oCfg.value.init.auto_msecpagewait},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init!.auto_msecpagewait},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_escape, errorMessage: em_escape, meta: mv_escape} = useField<string>(
 	'oCfg.escape',
 	yup.string().ensure().matches(/^[^ &()*;[\]]*$/, '推奨されない文字です'),
 //	.matches(/^[^ &()*;[\]]*$/, {message: '推奨されない文字です',excludeEmptyString: true}),
-	{initialValue: oCfg.value.init.escape},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init!.escape},	// ブラウザテスト用、VSCodeで上書き
 );
 
 const {value: v_bg_color} = useField<string>(
 	'oCfg.window.bg_color',
 	yup.string().required('必須の項目です').matches(/#\d{6}/, '#000000 形式ではありません'),
-	{initialValue: oCfg.value.init.bg_color},	// ブラウザテスト用、VSCodeで上書き
+	{initialValue: oCfg.value.init!.bg_color},	// ブラウザテスト用、VSCodeで上書き
 );
 
 
 on('init', ()=> {	// useField()の後に初期値を更新したいので
 	const o: T_CFG = oCfg.value;
-	v_width.value = o.window.width;
-	v_height.value = o.window.height;
-	v_version.value = o.book.version;
-	v_max_len.value = o.log.max_len;
-	v_tagch_msecwait.value = o.init.tagch_msecwait;
-	v_auto_msecpagewait.value = o.init.auto_msecpagewait;
-	v_escape.value = o.init.escape;
-	v_bg_color.value = o.init.bg_color;
+	v_width.value = o.window!.width;
+	v_height.value = o.window!.height;
+	v_version.value = o.book!.version!;
+	v_max_len.value = o.log!.max_len;
+	v_tagch_msecwait.value = o.init!.tagch_msecwait;
+	v_auto_msecpagewait.value = o.init!.auto_msecpagewait;
+	v_escape.value = o.init!.escape;
+	v_bg_color.value = o.init!.bg_color;
 });
 
 // useField を使うと $subscribe が効かないので
 const subscribe = ()=> {
 	// 変更後の $state が取れないので手動作成
-	const o: T_CFG = toRaw(oCfg.value);
 	const o2: T_CFG = {	// 二段階目も個別にコピー
-		...o,
-		book	: {...o.book, version: v_version.value,},
+		book	: {version: v_version.value,},
 		window	: {
 			width	: v_width.value,
 			height	: v_height.value,

@@ -44,7 +44,7 @@ import {storeToRefs} from 'pinia';
 
 
 const stVSCode = useVSCode();
-const {active_tab} = storeToRefs(stVSCode);	// 分割代入
+const {active_tab} = storeToRefs(stVSCode);
 
 type T_TAB = {id: string, nm: string, cmp: any,}
 const aTab: T_TAB[] = [

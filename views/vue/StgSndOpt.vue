@@ -70,10 +70,10 @@ import {T_OPTSND_FILE_AND_KEY} from '../types';
 
 
 const stOInfo = useOInfo();
-const {oOptSnd} = storeToRefs(stOInfo);	// 分割代入
+const {oOptSnd} = storeToRefs(stOInfo);
 
 const stWss = useWss();
-const {oWss} = storeToRefs(stWss);	// 分割代入
+const {oWss} = storeToRefs(stWss);
 
 const sortHSize: ()=> T_OPTSND_FILE_AND_KEY[] = ()=> Object.entries(oOptSnd.value.hSize)
 	.map(([nm, v])=> ({nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))

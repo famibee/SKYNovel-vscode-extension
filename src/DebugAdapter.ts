@@ -152,7 +152,7 @@ class DebugAdapter extends LoggingDebugSession {
 			e.body.column = this.convertDebuggerColumnToClient(column);
 			this.sendEvent(e);
 		});
-		this.#dbg.on('end', ()=> this.sendEvent(new TerminatedEvent()));
+		this.#dbg.on('end', ()=> this.sendEvent(new TerminatedEvent));
 	}
 
 	// initialize ... デバッグアダプタが提供する機能を調べるためにフロントエンドから呼び出される最初のリクエスト
@@ -302,7 +302,7 @@ class DebugAdapter extends LoggingDebugSession {
 
 		this.sendResponse(res);
 
-		this.sendEvent(new InitializedEvent());
+		this.sendEvent(new InitializedEvent);
 	}
 
 	// 停止ボタンなど
@@ -313,7 +313,7 @@ class DebugAdapter extends LoggingDebugSession {
 	// コンフィギュレーションシーケンスの最後にコールされる
 	// すべてのブレークポイントなどがDAに送信され、「起動」を開始できることを示す
 	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.#cfgDone.notify();}	// 設定が完了したことを VSCode に通知
-	readonly	#cfgDone = new Subject();	// 設定完了
+	readonly	#cfgDone = new Subject;	// 設定完了
 
 
 //	protected sendErrorResponse(response: DebugProtocol.Response, codeOrMessage: number | DebugProtocol.Message, format?: string, variables?: any, dest?: ErrorDestination): void;

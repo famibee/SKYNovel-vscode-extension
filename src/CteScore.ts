@@ -182,7 +182,7 @@ export class CteScore {
 				if (from === to) break;
 
 				t.skipupd = true;
-				const ed = new WorkspaceEdit();
+				const ed = new WorkspaceEdit;
 				const rng_from = new Range(from, 0, from +1, 0);
 				const ins = doc.getText(rng_from);
 				if (from > to) {
@@ -212,14 +212,14 @@ export class CteScore {
 				});
 
 				t.skipupd = true;
-				const ed = new WorkspaceEdit();
+				const ed = new WorkspaceEdit;
 				ed.insert(doc.uri, new Position(o.to, 0), (scr === '\n\n') ?'\n' :(scr +'\n'));
 				workspace.applyEdit(ed);
 			}	break;
 
 			case 'del':{
 				t.skipupd = true;
-				const ed = new WorkspaceEdit();
+				const ed = new WorkspaceEdit;
 				ed.delete(doc.uri, new Range(o.lnum, 0, o.lnum +1, 0));
 				workspace.applyEdit(ed);
 			}
@@ -228,7 +228,7 @@ export class CteScore {
 			case 'input':{
 /**/console.log(`fn:CteScore.ts line:184 input ln:${o.ln} nm=${o.nm}= val=${o.val}=`);
 				t.skipupd = true;
-				const ed = new WorkspaceEdit();
+				const ed = new WorkspaceEdit;
 				const rng = new Range(o.ln, 0, o.ln +1, 0);
 				/*
 					case 38:	// & 変数操作・変数表示
@@ -272,7 +272,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
-			const ed = new WorkspaceEdit();
+			const ed = new WorkspaceEdit;
 			ed.insert(doc.uri, new Position(0, 0), '\n\n\n[return]\n');
 			workspace.applyEdit(ed);
 		}

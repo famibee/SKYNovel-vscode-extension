@@ -1,5 +1,5 @@
 /**
-* @vue/shared v3.4.23
+* @vue/shared v3.4.24
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -234,7 +234,7 @@ const stringifySymbol = (v, i = "") => {
 };
 
 /**
-* @vue/reactivity v3.4.23
+* @vue/reactivity v3.4.24
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -714,6 +714,7 @@ const readonlyHandlers = /* @__PURE__ */ new ReadonlyReactiveHandler();
 const shallowReactiveHandlers = /* @__PURE__ */ new MutableReactiveHandler(
   true
 );
+const shallowReadonlyHandlers = /* @__PURE__ */ new ReadonlyReactiveHandler(true);
 const toShallow = (value) => value;
 const getProto = (v) => Reflect.getPrototypeOf(v);
 function get(target, key, isReadonly2 = false, isShallow2 = false) {
@@ -969,6 +970,9 @@ const shallowCollectionHandlers = {
 const readonlyCollectionHandlers = {
   get: /* @__PURE__ */ createInstrumentationGetter(true, false)
 };
+const shallowReadonlyCollectionHandlers = {
+  get: /* @__PURE__ */ createInstrumentationGetter(true, true)
+};
 const reactiveMap = /* @__PURE__ */ new WeakMap();
 const shallowReactiveMap = /* @__PURE__ */ new WeakMap();
 const readonlyMap = /* @__PURE__ */ new WeakMap();
@@ -1018,6 +1022,15 @@ function readonly(target) {
     readonlyHandlers,
     readonlyCollectionHandlers,
     readonlyMap
+  );
+}
+function shallowReadonly(target) {
+  return createReactiveObject(
+    target,
+    true,
+    shallowReadonlyHandlers,
+    shallowReadonlyCollectionHandlers,
+    shallowReadonlyMap
   );
 }
 function createReactiveObject(target, isReadonly2, baseHandlers, collectionHandlers, proxyMap) {
@@ -1255,7 +1268,7 @@ function propertyToRef(source, key, defaultValue) {
 }
 
 /**
-* @vue/runtime-core v3.4.23
+* @vue/runtime-core v3.4.24
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -1693,21 +1706,21 @@ function renderComponentRoot(instance) {
     vnode,
     proxy,
     withProxy,
-    props,
     propsOptions: [propsOptions],
     slots,
     attrs,
     emit: emit2,
     render,
     renderCache,
+    props,
     data,
     setupState,
     ctx,
     inheritAttrs
   } = instance;
+  const prev = setCurrentRenderingInstance(instance);
   let result;
   let fallthroughAttrs;
-  const prev = setCurrentRenderingInstance(instance);
   try {
     if (vnode.shapeFlag & 4) {
       const proxyToUse = withProxy || proxy;
@@ -1726,7 +1739,7 @@ function renderComponentRoot(instance) {
           thisProxy,
           proxyToUse,
           renderCache,
-          props,
+          false ? shallowReadonly(props) : props,
           setupState,
           data,
           ctx
@@ -1738,7 +1751,7 @@ function renderComponentRoot(instance) {
       if (false) ;
       result = normalizeVNode(
         render2.length > 1 ? render2(
-          props,
+          false ? shallowReadonly(props) : props,
           false ? {
             get attrs() {
               markAttrsAccessed();
@@ -1748,9 +1761,8 @@ function renderComponentRoot(instance) {
             emit: emit2
           } : { attrs, slots, emit: emit2 }
         ) : render2(
-          props,
+          false ? shallowReadonly(props) : props,
           null
-          /* we know it doesn't need it */
         )
       );
       fallthroughAttrs = Component.props ? attrs : getFunctionalFallthrough(attrs);
@@ -3265,22 +3277,17 @@ const normalizeVNodeSlots = (instance, children) => {
   instance.slots.default = () => normalized;
 };
 const initSlots = (instance, children) => {
+  const slots = instance.slots = createInternalObject();
   if (instance.vnode.shapeFlag & 32) {
     const type = children._;
     if (type) {
-      instance.slots = toRaw(children);
-      def(instance.slots, "_", type);
+      extend(slots, children);
+      def(slots, "_", type);
     } else {
-      normalizeObjectSlots(
-        children,
-        instance.slots = createInternalObject()
-      );
+      normalizeObjectSlots(children, slots);
     }
-  } else {
-    instance.slots = createInternalObject();
-    if (children) {
-      normalizeVNodeSlots(instance, children);
-    }
+  } else if (children) {
+    normalizeVNodeSlots(instance, children);
   }
 };
 const updateSlots = (instance, children, optimized) => {
@@ -5411,10 +5418,10 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.4.23";
+const version = "3.4.24";
 
 /**
-* @vue/runtime-dom v3.4.23
+* @vue/runtime-dom v3.4.24
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -11105,12 +11112,9 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
       v_detail.value = o.book.detail;
     });
     const subscribe = () => {
-      const o = toRaw(oCfg.value);
       const o2 = {
-        ...o,
         save_ns: v_save_ns.value,
         book: {
-          ...o.book,
           title: v_title.value,
           creator: v_creator.value,
           cre_url: v_cre_url.value,
@@ -11538,11 +11542,9 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
       v_bg_color.value = o.init.bg_color;
     });
     const subscribe = () => {
-      const o = toRaw(oCfg.value);
       const o2 = {
         // 二段階目も個別にコピー
-        ...o,
-        book: { ...o.book, version: v_version.value },
+        book: { version: v_version.value },
         window: {
           width: v_width.value,
           height: v_height.value
@@ -11925,7 +11927,8 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
                   type === "chk" ? (openBlock(), createElementBlock("div", _hoisted_3$5, [
                     withDirectives(createBaseVNode("input", mergeProps({
                       type: "checkbox",
-                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].bol = $event
+                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].bol = $event,
+                      ref_for: true
                     }, { id }, { class: "form-check-input mb-3 sn_checkbox" }), null, 16, _hoisted_4$5), [
                       [vModelCheckbox, unref(aTemp)[i].bol]
                     ]),
@@ -11956,7 +11959,8 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
                     }, null, 8, _hoisted_8$4),
                     withDirectives(createBaseVNode("input", mergeProps({
                       type: "range",
-                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].num = $event
+                      "onUpdate:modelValue": ($event) => unref(aTemp)[i].num = $event,
+                      ref_for: true
                     }, { id, max, min, step }, { class: "form-range my-1" }), null, 16, _hoisted_9$4), [
                       [vModelText, unref(aTemp)[i].num]
                     ])
@@ -11974,7 +11978,8 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
                       }, null, 8, _hoisted_10$4),
                       createVNode(unref(Field), mergeProps({
                         modelValue: unref(aTemp)[i].val,
-                        "onUpdate:modelValue": ($event) => unref(aTemp)[i].val = $event
+                        "onUpdate:modelValue": ($event) => unref(aTemp)[i].val = $event,
+                        ref_for: true
                       }, { id, name: id, type: type === "num" ? "number" : "text", placeholder: lbl }, {
                         class: ["form-control form-control-sm", { "is-invalid": !meta.valid }],
                         rules: isRequired

@@ -3,7 +3,7 @@
 <div class="col-12 px-1 pt-3"><h5>暗号化しないフォルダ</h5></div>
 
 <div v-for="(_v, nm) in oCfg.code" class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
-	<input :id="'code.'+ nm" class="form-check-input mb-3 sn_checkbox" type="checkbox" v-model="oCfg.code[nm]">
+	<input :id="'code.'+ nm" class="form-check-input mb-3 sn_checkbox" type="checkbox" v-model="oCfg.code![nm]">
 	<label class="form-check-label" v-text="nm"></label>
 </div></div>
 
@@ -11,7 +11,7 @@
 <div class="col-12 px-1 pt-3"><h5>デバッグスイッチ</h5></div>
 
 <div v-for="(_v, nm) in oCfg.debug" class="col-4 col-sm-3 col-lg-2 col-xxl-1"><div class="form-check">
-	<input :id="'debug.'+ nm" class="form-check-input mb-3 sn_checkbox" type="checkbox" v-model="oCfg.debug[nm]">
+	<input :id="'debug.'+ nm" class="form-check-input mb-3 sn_checkbox" type="checkbox" v-model="oCfg.debug![nm]">
 	<label class="form-check-label" :for="'debug.'+ nm" v-text="nm"></label>
 </div></div>
 
@@ -59,6 +59,6 @@ import {storeToRefs} from 'pinia';
 import {openURL, copyTxt} from '../store/stVSCode';
 
 const stCfg = useCfg();
-const {oCfg} = storeToRefs(stCfg);	// 分割代入
+const {oCfg} = storeToRefs(stCfg);
 
 </script>

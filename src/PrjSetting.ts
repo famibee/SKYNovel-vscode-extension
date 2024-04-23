@@ -17,6 +17,7 @@ import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, read
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
 import {userInfo} from 'os';
+import { writeFileSync } from 'fs';
 
 
 export class PrjSetting {
@@ -43,6 +44,7 @@ export class PrjSetting {
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
+	//MARK: コンストラクタ
 	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>) {
 		this.#wss = ctx.workspaceState;
 		let oWss = DEF_WSS as {[nm: string]: any};
@@ -256,6 +258,7 @@ export class PrjSetting {
 	}
 
 
+	//MARK: 更新音声の自動変換
 	async	onCreChgOptSnd(_url: Uri) {}
 	async	onDelOptSnd(_url: Uri) {}
 	#unsetOnOptSnd() {
@@ -327,6 +330,7 @@ export class PrjSetting {
 		readonly	#REG_EXT_SND_CNV	= /\.(mp3|wav)$/;
 
 
+	//MARK: 更新画像の自動変換
 	async	onCreChgOptPic(_url: Uri) {}
 	async	onDelOptPic(_url: Uri) {}
 	#unsetOnOptPic() {
@@ -401,6 +405,7 @@ export class PrjSetting {
 		#isBaseUrl(url :string): boolean {return url.slice(0, this.#LEN_PATH_PRJ_BASE) === this.#PATH_PRJ_BASE;}
 
 
+	//MARK: 設定ビューを開く
 	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
 	#cmd2Vue = (_mes: T_E2V_CFG | T_E2V_INIT | T_E2V_TEMP | T_E2V_NOTICE_COMPONENT | T_E2V_SELECT_ICON_INFO | T_E2V_CNVFONT | T_E2V_OPTIMG | T_E2V_OPTSND)=> {};
@@ -429,9 +434,25 @@ export class PrjSetting {
 		this.#wvuWs = wv.asWebviewUri(Uri.file(this.#PATH_WS));
 		this.#pathIcon = `${this.#wvuWs}/build/icon.png`;
 
-		const {username} = userInfo();
 		this.#cmd2Vue = (mes: any)=> wv.postMessage(mes);
-		wv.onDidReceiveMessage(m=> {switch (m.cmd) {
+		wv.onDidReceiveMessage(m=> this.#procInput(m), undefined, this.ctx.subscriptions);
+		this.#openSub();
+	}
+	#tiDelayUpdTemp: NodeJS.Timeout | undefined = undefined;
+		#openSub() {
+			const a: string[] = [];
+			foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));
+
+			const wv = this.#pnlWV!.webview;
+			wv.html = this.#htmSrc
+			.replaceAll('${webview.cspSource}', wv.cspSource)
+			.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}`);
+		}
+
+	//MARK: パネル入力の対応
+	#procInput(m: any) {
+		const {username} = userInfo();
+		switch (m.cmd) {
 		case '?':
 			this.#cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
@@ -448,63 +469,76 @@ export class PrjSetting {
 		case 'update.oCfg':{
 			const e: T_E2V_CFG = m;
 			const escOld = this.cfg.oCfg.init.escape;
-			const cfg = this.cfg.oCfg = e.oCfg
-			if (cfg.init.escape !== escOld) this.setEscape();
-			cfg.debuger_token ||= randomUUID();
+			// コピー
+			const oc = this.cfg.oCfg;
+			const c = this.cfg.oCfg = {
+				...oc,
+				book	: {...oc.book, ...e.oCfg.book},
+				save_ns	: e.oCfg.save_ns ?? oc.save_ns,
+				window	: {...oc.window, ...e.oCfg.window},
+				log		: {...oc.log, ...e.oCfg.log},
+				init	: {...oc.init, ...e.oCfg.init},
+				debug	: {...oc.debug, ...e.oCfg.debug},
+				code	: {...oc.code, ...e.oCfg.code},
+				debuger_token	: e.oCfg.debuger_token ?? oc.debuger_token,
+			};
+
+			if (c.init.escape !== escOld) this.setEscape();
+			c.debuger_token ||= randomUUID();
 			this.#writePrjJs();
 
-			this.chgTitle(cfg.book.title);
+			this.chgTitle(c.book.title);
 
-			const CopyrightYear = String((new Date()).getFullYear());
-			Promise.allSettled([
-				(async ()=> {
-					const p = await readJson(this.#PATH_PKG_JSON, {encoding:'utf8'});
-					p.name = cfg.save_ns;
-					p.appBundleId = p.appId
-					= `com.fc2.blog.famibee.skynovel.${cfg.save_ns}`;
+			// package.json
+			const CopyrightYear = String(new Date().getFullYear());
+			const p = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
+			p.name = c.save_ns;
+			p.appBundleId = p.appId
+				= `com.fc2.blog.famibee.skynovel.${c.save_ns}`;
+			
+			p.version = c.book.version;
+			p.productName = c.book.title;
+			p.author = c.book.creator;
+			p.appCopyright = `(c)${c.book.creator}`;
+			p.homepage = c.book.pub_url;
+			p.description = c.book.detail;
+			
+			p.build.appId = p.appId;
+			p.build.productName = c.book.title;
+			p.build.artifactName=`${c.save_ns}-\${version}-\${arch}.\${ext}`;
+			writeFileSync(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
-					p.version = cfg.book.version;
-					p.productName = cfg.book.title;
-					p.author = cfg.book.creator;
-					p.appCopyright = `(c)${cfg.book.creator}`;
-					p.homepage = cfg.book.pub_url;
-					p.description = cfg.book.detail;
+			// doc/app.js
+			replaceRegsFile(this.#PATH_APP_JS, [
+				[/(width\s*: ).*(,)/, `$1${c.window.width}$2`],
+				[/(height\s*: ).*(,)/, `$1${c.window.height}$2`],
+				[
+					/(companyName\s*:\s*)(['"]).*\2/,
+					`$1"${c.book.publisher}"`
+				],
+				[	// ついでに発表年を
+					/(pkg.appCopyright \+' )\d+/,
+					`$1${CopyrightYear}`
+				],
+			], false);
 
-					p.build.appId = p.appId;
-					p.build.productName = cfg.book.title;
-					p.build.artifactName = `${cfg.save_ns}-\${version}-\${arch}.\${ext}`;
-					writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null , '\t'));
-				})(),
+			// build/include/readme.txt
+			replaceRegsFile(this.#PATH_README4FREEM, [
+				[/(【Version】)[^\n]+/g, `$1${c.book.version}`],
+				[/(【タイトル】)[^\n]+/g, `$1${c.book.title}`],
+				[/(【著 作 者】)[^\n]+/g, `$1${c.book.creator}`],
+				[/(【連 絡 先】メール： )[^\n]+/, `$1${c.book.cre_url}`],
+				[	// ついでに発表年を
+					/(Copyright \(C\) )\d+ "([^"]+)"/g,
+					`$1${CopyrightYear} "${c.book.publisher}"`
+				],
+				[/(　　　　　　ＷＥＢ： )[^\n]+/g, `$1${c.book.pub_url}`],
+			], false);
 
-				(async ()=> replaceRegsFile(this.#PATH_APP_JS, [
-					[/(width\s*: ).*(,)/,	`$1${cfg.window.width}$2`],
-					[/(height\s*: ).*(,)/,	`$1${cfg.window.height}$2`],
-					[
-						/(companyName\s*:\s*)(['"]).*\2/,
-						`$1"${cfg.book.publisher}"`
-					],
-					[	// ついでに発表年を
-						/(pkg.appCopyright \+' )\d+/,
-						`$1${CopyrightYear}`
-					],
-				], false))(),
-
-				(async ()=> replaceRegsFile(this.#PATH_README4FREEM, [
-					[/(【Version】)[^\n]+/g, `$1${cfg.book.version}`],
-					[/(【タイトル】)[^\n]+/g, `$1${cfg.book.title}`],
-					[/(【著 作 者】)[^\n]+/g, `$1${cfg.book.creator}`],
-					[/(【連 絡 先】メール： )[^\n]+/, `$1${cfg.book.cre_url}`],
-					[	// ついでに発表年を
-						/(Copyright \(C\) )\d+ "([^"]+)"/g,
-						`$1${CopyrightYear} "${cfg.book.publisher}"`
-					],
-					[/(　　　　　　ＷＥＢ： )[^\n]+/g, `$1${cfg.book.pub_url}`],
-				], false))(),
-
-				(async ()=> replaceRegsFile(this.#PATH_INS_NSH, [
-					[/(!define PUBLISHER ").+"/, `$1${cfg.book.publisher}"`],
-				], false))(),
-			]);
+			// build/installer.nsh
+			replaceRegsFile(this.#PATH_INS_NSH, [
+				[/(!define PUBLISHER ").+"/, `$1${c.book.publisher}"`],
+			], false);
 		}	break;
 
 		case 'change.range.webp_q_def':{
@@ -554,12 +588,12 @@ export class PrjSetting {
 				this.#wss.update(id, val);
 				(<any>this.#oWss)[id] = val;
 				switch (id) {
-					case 'cnv.font.subset'		: break;
-				//	case 'cnv.icon.shape'		: continue;
-					case 'cnv.mat.pic'			: break;
-				//	case 'cnv.mat.webp_quality'	: continue;		//===
-					case 'cnv.mat.snd'			: break;
-					case 'cnv.mat.snd.codec'	: break;
+					case 'cnv.font.subset':		break;
+				//	case 'cnv.icon.shape':		continue;
+					case 'cnv.mat.pic':			break;
+				//	case 'cnv.mat.webp_quality':continue;		//===
+					case 'cnv.mat.snd':			break;
+					case 'cnv.mat.snd.codec':	break;
 					default:	continue;
 				}
 
@@ -599,7 +633,7 @@ export class PrjSetting {
 		case 'update.aTemp':{
 			if (this.#preventUpdHowl) {this.#preventUpdHowl = false; break;}
 
-			if (this.#tiDelayUpdTemp) clearTimeout(this.#tiDelayUpdTemp);// 遅延
+			if (this.#tiDelayUpdTemp) clearTimeout(this.#tiDelayUpdTemp);	// 遅延
 			this.#tiDelayUpdTemp = setTimeout(()=> {
 				const e: T_V2E_TEMP = m;
 				const a: [r: RegExp, rep: string][] = [];
@@ -614,65 +648,53 @@ export class PrjSetting {
 		case 'info':	window.showInformationMessage(m.mes); break;
 		case 'warn':	window.showWarningMessage(m.mes); break;
 
-		case 'openURL':	openURL(Uri.parse(m.url), this.#PATH_WS);	break;
+		case 'openURL':	openURL(Uri.parse(m.url), this.#PATH_WS); break;
 
 		case 'copyTxt':{
 			if (m.id !== 'copy.folder_save_app') break;
 
 			switch (process.platform) {
-			case 'win32':
-				env.clipboard.writeText(`C:\\Users\\${username}\\AppData\\Roaming\\${this.cfg.oCfg.save_ns}\\storage\\`);
-				break;
-			case 'darwin':
-				env.clipboard.writeText(`/Users/${username}/Library/Application Support/${this.cfg.oCfg.save_ns}/storage/`);
-				break;
-			case 'linux':
-				env.clipboard.writeText(`~/.config/${this.cfg.oCfg.save_ns}/storage/`);
-				break;
+				case 'win32':
+					env.clipboard.writeText(`C:\\Users\\${username}\\AppData\\Roaming\\${this.cfg.oCfg.save_ns}\\storage\\`);
+					break;
+				case 'darwin':
+					env.clipboard.writeText(`/Users/${username}/Library/Application Support/${this.cfg.oCfg.save_ns}/storage/`);
+					break;
+				case 'linux':
+					env.clipboard.writeText(`~/.config/${this.cfg.oCfg.save_ns}/storage/`);
+					break;
 			}
 			window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
 		}	break;
 
-		case 'selectFile':	this.selectFile_icon(m);	break;
-		}}, undefined, this.ctx.subscriptions);
-		this.#openSub();
+		case 'selectFile': this.#selectFile_icon(m); break;
+		}
 	}
-	#tiDelayUpdTemp: NodeJS.Timeout | undefined = undefined;
-	#openSub() {
-		const a: string[] = [];
-		foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));
+		#selectFile_icon({title, openlabel, path}: T_V2E_SELECT_ICON_FILE) {
+			//if (id !== 'icon') return;
+			window.showOpenDialog({
+				title	: `${title}を選択して下さい`,
+				openLabel		: openlabel ?? 'ファイルを選択',
+				canSelectMany	: false,
+				canSelectFiles	: false,
+				canSelectFolders: false,
+			}).then(async fileUri=> {
+				const src = fileUri?.[0]?.fsPath;
+				if (! src) return;	// キャンセル
 
-		const wv = this.#pnlWV!.webview;
-		wv.html = this.#htmSrc
-		.replaceAll('${webview.cspSource}', wv.cspSource)
-		.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}`);
-	}
-
-	selectFile_icon({title, openlabel, path}: T_V2E_SELECT_ICON_FILE) {
-		//if (id !== 'icon') return;
-		window.showOpenDialog({
-			title	: `${title}を選択して下さい`,
-			openLabel		: openlabel ?? 'ファイルを選択',
-			canSelectMany	: false,
-			canSelectFiles	: false,
-			canSelectFolders: false,
-		}).then(async fileUri=> {
-			const src = fileUri?.[0]?.fsPath;
-			if (! src) return;	// キャンセル
-
-			const exit_code = await this.exeTask(
-				'cut_round',
-				`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}"`,
-			);
-			this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
-				cmd		: 'updimg',
-				pathIcon: this.#pathIcon,
-				err_mes	: exit_code === 0
-					? ''
-					: (()=> readJsonSync(this.#PATH_WS +'/build/cut_round.json', {encoding: 'utf8'}).err)()
-			});
-		})
-	}
+				const exit_code = await this.exeTask(
+					'cut_round',
+					`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}"`,
+				);
+				this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
+					cmd		: 'updimg',
+					pathIcon: this.#pathIcon,
+					err_mes	: exit_code === 0
+						? ''
+						: (()=> readJsonSync(this.#PATH_WS +'/build/cut_round.json', {encoding: 'utf8'}).err)()
+				});
+			})
+		}
 
 	readonly	#hHead2Mes: {[head: string]: string}	= {
 		'::PATH_PRJ_F'	: 'プロジェクト内（core/font/ 下）',
