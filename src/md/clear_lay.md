@@ -4,10 +4,10 @@
 ***
 - layer``全てのレイヤ`レイヤ名（カンマ区切りで複数可）
 - page``fore`fore、back、both`ページの裏表（both指定で両面）
-- filter``false`true、false`true：フィルタもクリア
+- clear_filter``false`true、false`true：フィルタもクリア
 
 ***
-layer=${1{{レイヤ名}}} page=${2|fore,back|}
+layer=${1{{レイヤ名}}} page=${2|fore,back,both|}
 
 ***
 alpha、blendMode、rotation、scaleX、scaleYを初期値にする

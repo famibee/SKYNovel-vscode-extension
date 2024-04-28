@@ -247,6 +247,29 @@ Sinusoidal.Out|`,
 add
 multiply
 screen|`,
+		フィルター名:
+`|blur
+noise
+color_matrix
+black_and_white
+brightness
+browni
+color_tone
+contrast
+greyscale
+hue
+kodachrome
+lsd
+negative
+night
+polaroid
+predator
+saturate
+sepia
+technicolor
+tint
+to_bgr
+vintage|`,
 	};
 
 	readonly	#hRegPreWords	: {[key: string]: RegExp}	= {};

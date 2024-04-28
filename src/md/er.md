@@ -3,3 +3,4 @@
 
 ***
 - rec_page_break``true`true、false`履歴を改ページするか
+- clear_filter``false`true、false`true：フィルタもクリア
