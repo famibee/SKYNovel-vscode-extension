@@ -1,3 +1,13 @@
+## v4.16.6
+- docs(タグ説明[tsy]): filter などフィルター関連属性追加
+- docs(タグ説明[tsy]): name 属性説明抜けにつき追加
+- docs(タグ説明[wait_tsy]): chk_exist_tw 属性追加
+
+
+- (2024-10-29〜 Active LTS Start)
+	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.0.0 LTS 推奨に更新
+
+
 ## v4.16.5
 - feat: キーワード「フィルター名」追加
 - docs(タグ説明): [add_filter][clear_filter][enable_filter]追加
@@ -5,12 +15,6 @@
 - docs(タグ説明): [clear_lay] の filter 属性を clear_filter に変名
 	- docs(タグ説明): [lay] に clear_filter 属性追加
 	- docs(タグ説明): [er] に clear_filter 属性追加
-
-
-- (2024-10-29〜 Active LTS Start)
-	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.0.0 LTS 推奨に更新
-
-
 ## v4.16.4
 - fix(設定画面): アプリタブで入力すると、基本情報タブで入力した値が古いモノになってしまう件
 	- 原理的に逆もあり

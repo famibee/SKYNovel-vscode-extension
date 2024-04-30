@@ -7,6 +7,7 @@
 - id`y``フレーム名`処理対象のフレーム
 - canskip``true`true、false`クリックなどでウエイトをキャンセルできるか
 - global``true`true、false`グローバルイベント待ちを有効にするか
+- chk_exist_tw`false`true、false`トゥイーン存在チェックするか
 
 ***
 layer=${1{{レイヤ名}}} canskip=${2|true,false|}
