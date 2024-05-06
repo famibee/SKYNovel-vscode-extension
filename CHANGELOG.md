@@ -1,13 +1,15 @@
-## v4.16.6
-- docs(タグ説明[tsy]): filter などフィルター関連属性追加
-- docs(タグ説明[tsy]): name 属性説明抜けにつき追加
-- docs(タグ説明[wait_tsy]): chk_exist_tw 属性追加
+## v4.16.7
+- fix: グレースケールの綴りミス修正（greyscale -> grayscale）
 
 
 - (2024-10-29〜 Active LTS Start)
 	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.0.0 LTS 推奨に更新
 
 
+## v4.16.6
+- docs(タグ説明[tsy]): filter などフィルター関連属性追加
+- docs(タグ説明[tsy]): name 属性説明抜けにつき追加
+- docs(タグ説明[wait_tsy]): chk_exist_tw 属性追加
 ## v4.16.5
 - feat: キーワード「フィルター名」追加
 - docs(タグ説明): [add_filter][clear_filter][enable_filter]追加

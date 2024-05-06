@@ -138,7 +138,7 @@ function cnv(pathPrj: string, pathBase: string, do_move = true): void {
 		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
 		const info = await sharp(pathBase)
-		//.greyscale()	// TEST
+		//.grayscale()	// TEST
 		.webp({quality: Number(fi.webp_q ?? quality)})
 		.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 

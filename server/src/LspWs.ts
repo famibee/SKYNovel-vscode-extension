@@ -256,7 +256,7 @@ brightness
 browni
 color_tone
 contrast
-greyscale
+grayscale
 hue
 kodachrome
 lsd

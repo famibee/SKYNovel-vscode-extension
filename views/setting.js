@@ -6699,7 +6699,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.12.6
+  * vee-validate v4.12.7
   * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
@@ -7615,8 +7615,10 @@ function resolveModelValue(modelValue, form, initialValue, path) {
   return getFromPath(form.values, unref(path), unref(initialValue));
 }
 function createFieldMeta(currentValue, initialValue, errors, schema) {
-  var _a, _b;
-  const isRequired = (_b = (_a = schema === null || schema === void 0 ? void 0 : schema.describe) === null || _a === void 0 ? void 0 : _a.call(schema).required) !== null && _b !== void 0 ? _b : false;
+  const isRequired = computed(() => {
+    var _a, _b, _c;
+    return (_c = (_b = (_a = toValue(schema)) === null || _a === void 0 ? void 0 : _a.describe) === null || _b === void 0 ? void 0 : _b.call(_a).required) !== null && _c !== void 0 ? _c : false;
+  });
   const meta = reactive({
     touched: false,
     pending: false,
@@ -7667,14 +7669,15 @@ function _useField(path, rules, opts) {
     }
     return normalizeRules(rulesValue);
   });
+  const isTyped = !isCallable(validator.value) && isTypedSchema(toValue(rules));
   const { id, value, initialValue, meta, setState, errors, flags } = useFieldState(name, {
     modelValue,
     form,
     bails,
     label,
     type,
-    validate: validator.value ? validate$1 : void 0,
-    schema: isTypedSchema(rules) ? rules : void 0
+    validate: validator.value && !isTyped ? validate$1 : void 0,
+    schema: isTyped ? rules : void 0
   });
   const errorMessage = computed(() => errors.value[0]);
   if (syncVModel) {
@@ -8171,7 +8174,8 @@ const Field = FieldImpl;
 let FORM_COUNTER = 0;
 const PRIVATE_PATH_STATE_KEYS = ["bails", "fieldsCount", "id", "multiple", "type", "validate"];
 function resolveInitialValues(opts) {
-  const providedValues = Object.assign({}, toValue((opts === null || opts === void 0 ? void 0 : opts.initialValues) || {}));
+  const givenInitial = (opts === null || opts === void 0 ? void 0 : opts.initialValues) || {};
+  const providedValues = Object.assign({}, toValue(givenInitial));
   const schema = unref(opts === null || opts === void 0 ? void 0 : opts.validationSchema);
   if (schema && isTypedSchema(schema) && isCallable(schema.cast)) {
     return klona(schema.cast(providedValues) || {});
@@ -8288,12 +8292,14 @@ function useForm(opts) {
       UNSET_BATCH.splice(unsetBatchIndex, 1);
     }
     const isRequired = computed(() => {
-      var _a3, _b2, _c, _d, _e, _f;
-      if (isTypedSchema(schema)) {
-        return (_c = (_b2 = (_a3 = schema).describe) === null || _b2 === void 0 ? void 0 : _b2.call(_a3, toValue(path)).required) !== null && _c !== void 0 ? _c : false;
+      var _a3, _b2, _c, _d;
+      const schemaValue = toValue(schema);
+      if (isTypedSchema(schemaValue)) {
+        return (_b2 = (_a3 = schemaValue.describe) === null || _a3 === void 0 ? void 0 : _a3.call(schemaValue, toValue(path)).required) !== null && _b2 !== void 0 ? _b2 : false;
       }
-      if (isTypedSchema(config === null || config === void 0 ? void 0 : config.schema)) {
-        return (_f = (_e = (_d = config === null || config === void 0 ? void 0 : config.schema).describe) === null || _e === void 0 ? void 0 : _e.call(_d).required) !== null && _f !== void 0 ? _f : false;
+      const configSchemaValue = toValue(config === null || config === void 0 ? void 0 : config.schema);
+      if (isTypedSchema(configSchemaValue)) {
+        return (_d = (_c = configSchemaValue.describe) === null || _c === void 0 ? void 0 : _c.call(configSchemaValue).required) !== null && _d !== void 0 ? _d : false;
       }
       return false;
     });
