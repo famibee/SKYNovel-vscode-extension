@@ -1,11 +1,14 @@
-## v4.16.7
-- fix: グレースケールの綴りミス修正（greyscale -> grayscale）
+## v4.16.8
+- fix(設定画面ーアプリ): バージョン項目をセマンティック バージョニング 2.0.0 でチェックするように
+	- electron-builder で Invalid version エラーになるため
 
 
 - (2024-10-29〜 Active LTS Start)
-	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.0.0 LTS 推奨に更新
+	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.3.0 LTS 推奨に更新
 
 
+## v4.16.7
+- fix: グレースケールの綴りミス修正（greyscale -> grayscale）
 ## v4.16.6
 - docs(タグ説明[tsy]): filter などフィルター関連属性追加
 - docs(タグ説明[tsy]): name 属性説明抜けにつき追加

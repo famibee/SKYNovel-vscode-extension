@@ -1,5 +1,5 @@
 /**
-* @vue/shared v3.4.26
+* @vue/shared v3.4.29
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -71,9 +71,9 @@ const toHandlerKey = cacheStringFunction((str) => {
   return s;
 });
 const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
-const invokeArrayFns = (fns, arg) => {
+const invokeArrayFns = (fns, ...arg) => {
   for (let i = 0; i < fns.length; i++) {
-    fns[i](arg);
+    fns[i](...arg);
   }
 };
 const def = (obj, key, value, writable = false) => {
@@ -148,8 +148,7 @@ function includeBooleanAttr(value) {
   return !!value || value === "";
 }
 function looseCompareArrays(a, b) {
-  if (a.length !== b.length)
-    return false;
+  if (a.length !== b.length) return false;
   let equal = true;
   for (let i = 0; equal && i < a.length; i++) {
     equal = looseEqual(a[i], b[i]);
@@ -157,8 +156,7 @@ function looseCompareArrays(a, b) {
   return equal;
 }
 function looseEqual(a, b) {
-  if (a === b)
-    return true;
+  if (a === b) return true;
   let aValidType = isDate$1(a);
   let bValidType = isDate$1(b);
   if (aValidType || bValidType) {
@@ -235,7 +233,7 @@ const stringifySymbol = (v, i = "") => {
 };
 
 /**
-* @vue/reactivity v3.4.26
+* @vue/reactivity v3.4.29
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -331,7 +329,7 @@ class ReactiveEffect {
     this.scheduler = scheduler;
     this.active = true;
     this.deps = [];
-    this._dirtyLevel = 4;
+    this._dirtyLevel = 5;
     this._trackId = 0;
     this._runnings = 0;
     this._shouldSchedule = false;
@@ -339,14 +337,18 @@ class ReactiveEffect {
     recordEffectScope(this, scope);
   }
   get dirty() {
-    if (this._dirtyLevel === 2 || this._dirtyLevel === 3) {
+    if (this._dirtyLevel === 2)
+      return false;
+    if (this._dirtyLevel === 3 || this._dirtyLevel === 4) {
       this._dirtyLevel = 1;
       pauseTracking();
       for (let i = 0; i < this._depsLength; i++) {
         const dep = this.deps[i];
         if (dep.computed) {
+          if (dep.computed.effect._dirtyLevel === 2)
+            return true;
           triggerComputed(dep.computed);
-          if (this._dirtyLevel >= 4) {
+          if (this._dirtyLevel >= 5) {
             break;
           }
         }
@@ -356,10 +358,10 @@ class ReactiveEffect {
       }
       resetTracking();
     }
-    return this._dirtyLevel >= 4;
+    return this._dirtyLevel >= 5;
   }
   set dirty(v) {
-    this._dirtyLevel = v ? 4 : 0;
+    this._dirtyLevel = v ? 5 : 0;
   }
   run() {
     this._dirtyLevel = 0;
@@ -452,14 +454,23 @@ const queueEffectSchedulers = [];
 function triggerEffects(dep, dirtyLevel, debuggerEventExtraInfo) {
   pauseScheduling();
   for (const effect2 of dep.keys()) {
+    if (!dep.computed && effect2.computed) {
+      if (dep.get(effect2) === effect2._trackId && effect2._runnings > 0) {
+        effect2._dirtyLevel = 2;
+        continue;
+      }
+    }
     let tracking;
     if (effect2._dirtyLevel < dirtyLevel && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
       effect2._shouldSchedule || (effect2._shouldSchedule = effect2._dirtyLevel === 0);
+      if (effect2.computed && effect2._dirtyLevel === 2) {
+        effect2._shouldSchedule = true;
+      }
       effect2._dirtyLevel = dirtyLevel;
     }
     if (effect2._shouldSchedule && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
       effect2.trigger();
-      if ((!effect2._runnings || effect2.allowRecurse) && effect2._dirtyLevel !== 2) {
+      if ((!effect2._runnings || effect2.allowRecurse) && effect2._dirtyLevel !== 3) {
         effect2._shouldSchedule = false;
         if (effect2.scheduler) {
           queueEffectSchedulers.push(effect2.scheduler);
@@ -543,7 +554,7 @@ function trigger(target, type, key, newValue, oldValue, oldTarget) {
     if (dep) {
       triggerEffects(
         dep,
-        4);
+        5);
     }
   }
   resetScheduling();
@@ -586,8 +597,7 @@ function createArrayInstrumentations() {
   return instrumentations;
 }
 function hasOwnProperty(key) {
-  if (!isSymbol(key))
-    key = String(key);
+  if (!isSymbol(key)) key = String(key);
   const obj = toRaw(this);
   track(obj, "has", key);
   return obj.hasOwnProperty(key);
@@ -1093,7 +1103,7 @@ class ComputedRefImpl {
       () => getter(this._value),
       () => triggerRefValue(
         this,
-        this.effect._dirtyLevel === 2 ? 2 : 3
+        this.effect._dirtyLevel === 3 ? 3 : 4
       )
     );
     this.effect.computed = this;
@@ -1103,11 +1113,11 @@ class ComputedRefImpl {
   get value() {
     const self = toRaw(this);
     if ((!self._cacheable || self.effect.dirty) && hasChanged(self._value, self._value = self.effect.run())) {
-      triggerRefValue(self, 4);
+      triggerRefValue(self, 5);
     }
     trackRefValue(self);
     if (self.effect._dirtyLevel >= 2) {
-      triggerRefValue(self, 2);
+      triggerRefValue(self, 3);
     }
     return self._value;
   }
@@ -1149,7 +1159,7 @@ function trackRefValue(ref2) {
       ));
   }
 }
-function triggerRefValue(ref2, dirtyLevel = 4, newVal) {
+function triggerRefValue(ref2, dirtyLevel = 5, newVal, oldVal) {
   ref2 = toRaw(ref2);
   const dep = ref2.dep;
   if (dep) {
@@ -1189,9 +1199,10 @@ class RefImpl {
     const useDirectValue = this.__v_isShallow || isShallow(newVal) || isReadonly(newVal);
     newVal = useDirectValue ? newVal : toRaw(newVal);
     if (hasChanged(newVal, this._rawValue)) {
+      this._rawValue;
       this._rawValue = newVal;
       this._value = useDirectValue ? newVal : toReactive(newVal);
-      triggerRefValue(this, 4);
+      triggerRefValue(this, 5);
     }
   }
 }
@@ -1268,7 +1279,7 @@ function propertyToRef(source, key, defaultValue) {
 }
 
 /**
-* @vue/runtime-core v3.4.26
+* @vue/runtime-core v3.4.29
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -1284,6 +1295,7 @@ function warn$1(msg, ...args) {
       instance,
       11,
       [
+        // eslint-disable-next-line no-restricted-syntax
         msg + args.map((a) => {
           var _a, _b;
           return (_b = (_a = a.toString) == null ? void 0 : _a.call(a)) != null ? _b : JSON.stringify(a);
@@ -1526,7 +1538,8 @@ function flushPostFlushCbs(seen) {
     }
     activePostFlushCbs = deduped;
     for (postFlushIndex = 0; postFlushIndex < activePostFlushCbs.length; postFlushIndex++) {
-      activePostFlushCbs[postFlushIndex]();
+      const cb = activePostFlushCbs[postFlushIndex];
+      if (cb.active !== false) cb();
     }
     activePostFlushCbs = null;
     postFlushIndex = 0;
@@ -1536,10 +1549,8 @@ const getId = (job) => job.id == null ? Infinity : job.id;
 const comparator = (a, b) => {
   const diff = getId(a) - getId(b);
   if (diff === 0) {
-    if (a.pre && !b.pre)
-      return -1;
-    if (b.pre && !a.pre)
-      return 1;
+    if (a.pre && !b.pre) return -1;
+    if (b.pre && !a.pre) return 1;
   }
   return diff;
 };
@@ -1567,8 +1578,7 @@ function flushJobs(seen) {
   }
 }
 function emit(instance, event, ...rawArgs) {
-  if (instance.isUnmounted)
-    return;
+  if (instance.isUnmounted) return;
   const props = instance.vnode.props || EMPTY_OBJ;
   let args = rawArgs;
   const isModelListener2 = event.startsWith("update:");
@@ -1672,8 +1682,7 @@ function setCurrentRenderingInstance(instance) {
   return prev;
 }
 function withCtx(fn, ctx = currentRenderingInstance, isNonScopedSlot) {
-  if (!ctx)
-    return fn;
+  if (!ctx) return fn;
   if (fn._n) {
     return fn;
   }
@@ -1939,228 +1948,51 @@ function queueEffectWithSuspense(fn, suspense) {
     queuePostFlushCb(fn);
   }
 }
-const ssrContextKey = Symbol.for("v-scx");
-const useSSRContext = () => {
-  {
-    const ctx = inject(ssrContextKey);
-    return ctx;
+function injectHook(type, hook, target = currentInstance, prepend = false) {
+  if (target) {
+    const hooks = target[type] || (target[type] = []);
+    const wrappedHook = hook.__weh || (hook.__weh = (...args) => {
+      pauseTracking();
+      const reset = setCurrentInstance(target);
+      const res = callWithAsyncErrorHandling(hook, target, type, args);
+      reset();
+      resetTracking();
+      return res;
+    });
+    if (prepend) {
+      hooks.unshift(wrappedHook);
+    } else {
+      hooks.push(wrappedHook);
+    }
+    return wrappedHook;
+  }
+}
+const createHook = (lifecycle) => (hook, target = currentInstance) => {
+  if (!isInSSRComponentSetup || lifecycle === "sp") {
+    injectHook(lifecycle, (...args) => hook(...args), target);
   }
 };
-function watchEffect(effect2, options) {
-  return doWatch(effect2, null, options);
-}
-const INITIAL_WATCHER_VALUE = {};
-function watch(source, cb, options) {
-  return doWatch(source, cb, options);
-}
-function doWatch(source, cb, {
-  immediate,
-  deep,
-  flush,
-  once,
-  onTrack,
-  onTrigger
-} = EMPTY_OBJ) {
-  if (cb && once) {
-    const _cb = cb;
-    cb = (...args) => {
-      _cb(...args);
-      unwatch();
-    };
-  }
-  const instance = currentInstance;
-  const reactiveGetter = (source2) => deep === true ? source2 : (
-    // for deep: false, only traverse root-level properties
-    traverse(source2, deep === false ? 1 : void 0)
-  );
-  let getter;
-  let forceTrigger = false;
-  let isMultiSource = false;
-  if (isRef(source)) {
-    getter = () => source.value;
-    forceTrigger = isShallow(source);
-  } else if (isReactive(source)) {
-    getter = () => reactiveGetter(source);
-    forceTrigger = true;
-  } else if (isArray(source)) {
-    isMultiSource = true;
-    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
-    getter = () => source.map((s) => {
-      if (isRef(s)) {
-        return s.value;
-      } else if (isReactive(s)) {
-        return reactiveGetter(s);
-      } else if (isFunction(s)) {
-        return callWithErrorHandling(s, instance, 2);
-      } else ;
-    });
-  } else if (isFunction(source)) {
-    if (cb) {
-      getter = () => callWithErrorHandling(source, instance, 2);
-    } else {
-      getter = () => {
-        if (cleanup) {
-          cleanup();
-        }
-        return callWithAsyncErrorHandling(
-          source,
-          instance,
-          3,
-          [onCleanup]
-        );
-      };
-    }
-  } else {
-    getter = NOOP;
-  }
-  if (cb && deep) {
-    const baseGetter = getter;
-    getter = () => traverse(baseGetter());
-  }
-  let cleanup;
-  let onCleanup = (fn) => {
-    cleanup = effect2.onStop = () => {
-      callWithErrorHandling(fn, instance, 4);
-      cleanup = effect2.onStop = void 0;
-    };
-  };
-  let ssrCleanup;
-  if (isInSSRComponentSetup) {
-    onCleanup = NOOP;
-    if (!cb) {
-      getter();
-    } else if (immediate) {
-      callWithAsyncErrorHandling(cb, instance, 3, [
-        getter(),
-        isMultiSource ? [] : void 0,
-        onCleanup
-      ]);
-    }
-    if (flush === "sync") {
-      const ctx = useSSRContext();
-      ssrCleanup = ctx.__watcherHandles || (ctx.__watcherHandles = []);
-    } else {
-      return NOOP;
-    }
-  }
-  let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
-  const job = () => {
-    if (!effect2.active || !effect2.dirty) {
-      return;
-    }
-    if (cb) {
-      const newValue = effect2.run();
-      if (deep || forceTrigger || (isMultiSource ? newValue.some((v, i) => hasChanged(v, oldValue[i])) : hasChanged(newValue, oldValue)) || false) {
-        if (cleanup) {
-          cleanup();
-        }
-        callWithAsyncErrorHandling(cb, instance, 3, [
-          newValue,
-          // pass undefined as the old value when it's changed for the first time
-          oldValue === INITIAL_WATCHER_VALUE ? void 0 : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE ? [] : oldValue,
-          onCleanup
-        ]);
-        oldValue = newValue;
-      }
-    } else {
-      effect2.run();
-    }
-  };
-  job.allowRecurse = !!cb;
-  let scheduler;
-  if (flush === "sync") {
-    scheduler = job;
-  } else if (flush === "post") {
-    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense);
-  } else {
-    job.pre = true;
-    if (instance)
-      job.id = instance.uid;
-    scheduler = () => queueJob(job);
-  }
-  const effect2 = new ReactiveEffect(getter, NOOP, scheduler);
-  const scope = getCurrentScope();
-  const unwatch = () => {
-    effect2.stop();
-    if (scope) {
-      remove(scope.effects, effect2);
-    }
-  };
-  if (cb) {
-    if (immediate) {
-      job();
-    } else {
-      oldValue = effect2.run();
-    }
-  } else if (flush === "post") {
-    queuePostRenderEffect(
-      effect2.run.bind(effect2),
-      instance && instance.suspense
-    );
-  } else {
-    effect2.run();
-  }
-  if (ssrCleanup)
-    ssrCleanup.push(unwatch);
-  return unwatch;
-}
-function instanceWatch(source, value, options) {
-  const publicThis = this.proxy;
-  const getter = isString(source) ? source.includes(".") ? createPathGetter(publicThis, source) : () => publicThis[source] : source.bind(publicThis, publicThis);
-  let cb;
-  if (isFunction(value)) {
-    cb = value;
-  } else {
-    cb = value.handler;
-    options = value;
-  }
-  const reset = setCurrentInstance(this);
-  const res = doWatch(getter, cb.bind(publicThis), options);
-  reset();
-  return res;
-}
-function createPathGetter(ctx, path) {
-  const segments = path.split(".");
-  return () => {
-    let cur = ctx;
-    for (let i = 0; i < segments.length && cur; i++) {
-      cur = cur[segments[i]];
-    }
-    return cur;
-  };
-}
-function traverse(value, depth = Infinity, seen) {
-  if (depth <= 0 || !isObject$1(value) || value["__v_skip"]) {
-    return value;
-  }
-  seen = seen || /* @__PURE__ */ new Set();
-  if (seen.has(value)) {
-    return value;
-  }
-  seen.add(value);
-  depth--;
-  if (isRef(value)) {
-    traverse(value.value, depth, seen);
-  } else if (isArray(value)) {
-    for (let i = 0; i < value.length; i++) {
-      traverse(value[i], depth, seen);
-    }
-  } else if (isSet(value) || isMap(value)) {
-    value.forEach((v) => {
-      traverse(v, depth, seen);
-    });
-  } else if (isPlainObject$2(value)) {
-    for (const key in value) {
-      traverse(value[key], depth, seen);
-    }
-  }
-  return value;
+const onBeforeMount = createHook("bm");
+const onMounted = createHook("m");
+const onBeforeUpdate = createHook("bu");
+const onUpdated = createHook("u");
+const onBeforeUnmount = createHook("bum");
+const onUnmounted = createHook("um");
+const onServerPrefetch = createHook("sp");
+const onRenderTriggered = createHook(
+  "rtg"
+);
+const onRenderTracked = createHook(
+  "rtc"
+);
+function onErrorCaptured(hook, target = currentInstance) {
+  injectHook("ec", hook, target);
 }
 function withDirectives(vnode, directives) {
   if (currentRenderingInstance === null) {
     return vnode;
   }
-  const instance = getExposeProxy(currentRenderingInstance) || currentRenderingInstance.proxy;
+  const instance = getComponentPublicInstance(currentRenderingInstance);
   const bindings = vnode.dirs || (vnode.dirs = []);
   for (let i = 0; i < directives.length; i++) {
     let [dir, value, arg, modifiers = EMPTY_OBJ] = directives[i];
@@ -2207,99 +2039,6 @@ function invokeDirectiveHook(vnode, prevVNode, instance, name) {
     }
   }
 }
-/*! #__NO_SIDE_EFFECTS__ */
-// @__NO_SIDE_EFFECTS__
-function defineComponent(options, extraOptions) {
-  return isFunction(options) ? (
-    // #8326: extend call and options.name access are considered side-effects
-    // by Rollup, so we have to wrap it in a pure-annotated IIFE.
-    /* @__PURE__ */ (() => extend({ name: options.name }, extraOptions, { setup: options }))()
-  ) : options;
-}
-const isAsyncWrapper = (i) => !!i.type.__asyncLoader;
-const isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
-function onActivated(hook, target) {
-  registerKeepAliveHook(hook, "a", target);
-}
-function onDeactivated(hook, target) {
-  registerKeepAliveHook(hook, "da", target);
-}
-function registerKeepAliveHook(hook, type, target = currentInstance) {
-  const wrappedHook = hook.__wdc || (hook.__wdc = () => {
-    let current = target;
-    while (current) {
-      if (current.isDeactivated) {
-        return;
-      }
-      current = current.parent;
-    }
-    return hook();
-  });
-  injectHook(type, wrappedHook, target);
-  if (target) {
-    let current = target.parent;
-    while (current && current.parent) {
-      if (isKeepAlive(current.parent.vnode)) {
-        injectToKeepAliveRoot(wrappedHook, type, target, current);
-      }
-      current = current.parent;
-    }
-  }
-}
-function injectToKeepAliveRoot(hook, type, target, keepAliveRoot) {
-  const injected = injectHook(
-    type,
-    hook,
-    keepAliveRoot,
-    true
-    /* prepend */
-  );
-  onUnmounted(() => {
-    remove(keepAliveRoot[type], injected);
-  }, target);
-}
-function injectHook(type, hook, target = currentInstance, prepend = false) {
-  if (target) {
-    const hooks = target[type] || (target[type] = []);
-    const wrappedHook = hook.__weh || (hook.__weh = (...args) => {
-      if (target.isUnmounted) {
-        return;
-      }
-      pauseTracking();
-      const reset = setCurrentInstance(target);
-      const res = callWithAsyncErrorHandling(hook, target, type, args);
-      reset();
-      resetTracking();
-      return res;
-    });
-    if (prepend) {
-      hooks.unshift(wrappedHook);
-    } else {
-      hooks.push(wrappedHook);
-    }
-    return wrappedHook;
-  }
-}
-const createHook = (lifecycle) => (hook, target = currentInstance) => (
-  // post-create lifecycle registrations are noops during SSR (except for serverPrefetch)
-  (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, (...args) => hook(...args), target)
-);
-const onBeforeMount = createHook("bm");
-const onMounted = createHook("m");
-const onBeforeUpdate = createHook("bu");
-const onUpdated = createHook("u");
-const onBeforeUnmount = createHook("bum");
-const onUnmounted = createHook("um");
-const onServerPrefetch = createHook("sp");
-const onRenderTriggered = createHook(
-  "rtg"
-);
-const onRenderTracked = createHook(
-  "rtc"
-);
-function onErrorCaptured(hook, target = currentInstance) {
-  injectHook("ec", hook, target);
-}
 function renderList(source, renderItem, cache, index) {
   let ret;
   const cached = cache ;
@@ -2332,11 +2071,19 @@ function renderList(source, renderItem, cache, index) {
   }
   return ret;
 }
+/*! #__NO_SIDE_EFFECTS__ */
+// @__NO_SIDE_EFFECTS__
+function defineComponent(options, extraOptions) {
+  return isFunction(options) ? (
+    // #8326: extend call and options.name access are considered side-effects
+    // by Rollup, so we have to wrap it in a pure-annotated IIFE.
+    /* @__PURE__ */ (() => extend({ name: options.name }, extraOptions, { setup: options }))()
+  ) : options;
+}
+const isAsyncWrapper = (i) => !!i.type.__asyncLoader;
 const getPublicInstance = (i) => {
-  if (!i)
-    return null;
-  if (isStatefulComponent(i))
-    return getExposeProxy(i) || i.proxy;
+  if (!i) return null;
+  if (isStatefulComponent(i)) return getComponentPublicInstance(i);
   return getPublicInstance(i.parent);
 };
 const publicPropertiesMap = (
@@ -2600,10 +2347,8 @@ function applyOptions(instance) {
   if (inheritAttrs != null) {
     instance.inheritAttrs = inheritAttrs;
   }
-  if (components)
-    instance.components = components;
-  if (directives)
-    instance.directives = directives;
+  if (components) instance.components = components;
+  if (directives) instance.directives = directives;
 }
 function resolveInjections(injectOptions, ctx, checkDuplicateProperties = NOOP) {
   if (isArray(injectOptions)) {
@@ -2791,10 +2536,8 @@ function mergeEmitsOrPropsOptions(to, from) {
   }
 }
 function mergeWatchOptions(to, from) {
-  if (!to)
-    return from;
-  if (!from)
-    return to;
+  if (!to) return from;
+  if (!from) return to;
   const merged = extend(/* @__PURE__ */ Object.create(null), to);
   for (const key in from) {
     merged[key] = mergeAsArray(to[key], from[key]);
@@ -2896,7 +2639,7 @@ function createAppAPI(render, hydrate) {
           isMounted = true;
           app._container = rootContainer;
           rootContainer.__vue_app__ = app;
-          return getExposeProxy(vnode.component) || vnode.component.proxy;
+          return getComponentPublicInstance(vnode.component);
         }
       },
       unmount() {
@@ -3155,8 +2898,7 @@ function normalizePropsOptions(comp, appContext, asMixin = false) {
       hasExtends = true;
       const [props, keys] = normalizePropsOptions(raw2, appContext, true);
       extend(normalized, props);
-      if (keys)
-        needCastKeys.push(...keys);
+      if (keys) needCastKeys.push(...keys);
     };
     if (!asMixin && appContext.mixins.length) {
       appContext.mixins.forEach(extendProps);
@@ -3256,8 +2998,7 @@ const normalizeSlot = (key, rawSlot, ctx) => {
 const normalizeObjectSlots = (rawSlots, slots, instance) => {
   const ctx = rawSlots._ctx;
   for (const key in rawSlots) {
-    if (isInternalKey(key))
-      continue;
+    if (isInternalKey(key)) continue;
     const value = rawSlots[key];
     if (isFunction(value)) {
       slots[key] = normalizeSlot(key, value, ctx);
@@ -3333,7 +3074,7 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
   if (isAsyncWrapper(vnode) && !isUnmount) {
     return;
   }
-  const refValue = vnode.shapeFlag & 4 ? getExposeProxy(vnode.component) || vnode.component.proxy : vnode.el;
+  const refValue = vnode.shapeFlag & 4 ? getComponentPublicInstance(vnode.component) : vnode.el;
   const value = isUnmount ? null : refValue;
   const { i: owner, r: ref3 } = rawRef;
   const oldRef = oldRawRef && oldRawRef.r;
@@ -3369,8 +3110,7 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
                 }
               } else {
                 ref3.value = [refValue];
-                if (rawRef.k)
-                  refs[rawRef.k] = ref3.value;
+                if (rawRef.k) refs[rawRef.k] = ref3.value;
               }
             } else if (!existing.includes(refValue)) {
               existing.push(refValue);
@@ -3383,8 +3123,7 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
           }
         } else if (_isRef) {
           ref3.value = value;
-          if (rawRef.k)
-            refs[rawRef.k] = value;
+          if (rawRef.k) refs[rawRef.k] = value;
         } else ;
       };
       if (value) {
@@ -3855,8 +3594,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
       }
       for (const key in newProps) {
-        if (isReservedProp(key))
-          continue;
+        if (isReservedProp(key)) continue;
         const next = newProps[key];
         const prev = oldProps[key];
         if (next !== prev && key !== "value") {
@@ -3983,7 +3721,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       setupComponent(instance);
     }
     if (instance.asyncDep) {
-      parentSuspense && parentSuspense.registerDep(instance, setupRenderEffect);
+      parentSuspense && parentSuspense.registerDep(instance, setupRenderEffect, optimized);
       if (!initialVNode.el) {
         const placeholder = instance.subTree = createVNode(Comment);
         processCommentNode(null, placeholder, container, anchor);
@@ -4378,8 +4116,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       let moved = false;
       let maxNewIndexSoFar = 0;
       const newIndexToOldIndexMap = new Array(toBePatched);
-      for (i = 0; i < toBePatched; i++)
-        newIndexToOldIndexMap[i] = 0;
+      for (i = 0; i < toBePatched; i++) newIndexToOldIndexMap[i] = 0;
       for (i = s1; i <= e1; i++) {
         const prevChild = c1[i];
         if (patched >= toBePatched) {
@@ -4508,10 +4245,14 @@ function baseCreateRenderer(options, createHydrationFns) {
       dynamicChildren,
       shapeFlag,
       patchFlag,
-      dirs
+      dirs,
+      memoIndex
     } = vnode;
     if (ref3 != null) {
       setRef(ref3, null, parentSuspense, vnode, true);
+    }
+    if (memoIndex != null) {
+      parentComponent.renderCache[memoIndex] = void 0;
     }
     if (shapeFlag & 256) {
       parentComponent.ctx.deactivate(vnode);
@@ -4605,7 +4346,9 @@ function baseCreateRenderer(options, createHydrationFns) {
     hostRemove(end);
   };
   const unmountComponent = (instance, parentSuspense, doRemove) => {
-    const { bum, scope, update, subTree, um } = instance;
+    const { bum, scope, update, subTree, um, m, a } = instance;
+    invalidateMount(m);
+    invalidateMount(a);
     if (bum) {
       invokeArrayFns(bum);
     }
@@ -4707,7 +4450,7 @@ function traverseStaticChildren(n1, n2, shallow = false) {
           c2 = ch2[i] = cloneIfMounted(ch2[i]);
           c2.el = c1.el;
         }
-        if (!shallow)
+        if (!shallow && c2.patchFlag !== -2)
           traverseStaticChildren(c1, c2);
       }
       if (c2.type === Text) {
@@ -4764,6 +4507,282 @@ function locateNonHydratedAsyncRoot(instance) {
     } else {
       return locateNonHydratedAsyncRoot(subComponent);
     }
+  }
+}
+function invalidateMount(hooks) {
+  if (hooks) {
+    for (let i = 0; i < hooks.length; i++) hooks[i].active = false;
+  }
+}
+const ssrContextKey = Symbol.for("v-scx");
+const useSSRContext = () => {
+  {
+    const ctx = inject(ssrContextKey);
+    return ctx;
+  }
+};
+function watchEffect(effect2, options) {
+  return doWatch(effect2, null, options);
+}
+const INITIAL_WATCHER_VALUE = {};
+function watch(source, cb, options) {
+  return doWatch(source, cb, options);
+}
+function doWatch(source, cb, {
+  immediate,
+  deep,
+  flush,
+  once,
+  onTrack,
+  onTrigger
+} = EMPTY_OBJ) {
+  if (cb && once) {
+    const _cb = cb;
+    cb = (...args) => {
+      _cb(...args);
+      unwatch();
+    };
+  }
+  const instance = currentInstance;
+  const reactiveGetter = (source2) => deep === true ? source2 : (
+    // for deep: false, only traverse root-level properties
+    traverse(source2, deep === false ? 1 : void 0)
+  );
+  let getter;
+  let forceTrigger = false;
+  let isMultiSource = false;
+  if (isRef(source)) {
+    getter = () => source.value;
+    forceTrigger = isShallow(source);
+  } else if (isReactive(source)) {
+    getter = () => reactiveGetter(source);
+    forceTrigger = true;
+  } else if (isArray(source)) {
+    isMultiSource = true;
+    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
+    getter = () => source.map((s) => {
+      if (isRef(s)) {
+        return s.value;
+      } else if (isReactive(s)) {
+        return reactiveGetter(s);
+      } else if (isFunction(s)) {
+        return callWithErrorHandling(s, instance, 2);
+      } else ;
+    });
+  } else if (isFunction(source)) {
+    if (cb) {
+      getter = () => callWithErrorHandling(source, instance, 2);
+    } else {
+      getter = () => {
+        if (cleanup) {
+          cleanup();
+        }
+        return callWithAsyncErrorHandling(
+          source,
+          instance,
+          3,
+          [onCleanup]
+        );
+      };
+    }
+  } else {
+    getter = NOOP;
+  }
+  if (cb && deep) {
+    const baseGetter = getter;
+    getter = () => traverse(baseGetter());
+  }
+  let cleanup;
+  let onCleanup = (fn) => {
+    cleanup = effect2.onStop = () => {
+      callWithErrorHandling(fn, instance, 4);
+      cleanup = effect2.onStop = void 0;
+    };
+  };
+  let ssrCleanup;
+  if (isInSSRComponentSetup) {
+    onCleanup = NOOP;
+    if (!cb) {
+      getter();
+    } else if (immediate) {
+      callWithAsyncErrorHandling(cb, instance, 3, [
+        getter(),
+        isMultiSource ? [] : void 0,
+        onCleanup
+      ]);
+    }
+    if (flush === "sync") {
+      const ctx = useSSRContext();
+      ssrCleanup = ctx.__watcherHandles || (ctx.__watcherHandles = []);
+    } else {
+      return NOOP;
+    }
+  }
+  let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
+  const job = () => {
+    if (!effect2.active || !effect2.dirty) {
+      return;
+    }
+    if (cb) {
+      const newValue = effect2.run();
+      if (deep || forceTrigger || (isMultiSource ? newValue.some((v, i) => hasChanged(v, oldValue[i])) : hasChanged(newValue, oldValue)) || false) {
+        if (cleanup) {
+          cleanup();
+        }
+        callWithAsyncErrorHandling(cb, instance, 3, [
+          newValue,
+          // pass undefined as the old value when it's changed for the first time
+          oldValue === INITIAL_WATCHER_VALUE ? void 0 : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE ? [] : oldValue,
+          onCleanup
+        ]);
+        oldValue = newValue;
+      }
+    } else {
+      effect2.run();
+    }
+  };
+  job.allowRecurse = !!cb;
+  let scheduler;
+  if (flush === "sync") {
+    scheduler = job;
+  } else if (flush === "post") {
+    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense);
+  } else {
+    job.pre = true;
+    if (instance) job.id = instance.uid;
+    scheduler = () => queueJob(job);
+  }
+  const effect2 = new ReactiveEffect(getter, NOOP, scheduler);
+  const scope = getCurrentScope();
+  const unwatch = () => {
+    effect2.stop();
+    if (scope) {
+      remove(scope.effects, effect2);
+    }
+  };
+  if (cb) {
+    if (immediate) {
+      job();
+    } else {
+      oldValue = effect2.run();
+    }
+  } else if (flush === "post") {
+    queuePostRenderEffect(
+      effect2.run.bind(effect2),
+      instance && instance.suspense
+    );
+  } else {
+    effect2.run();
+  }
+  if (ssrCleanup) ssrCleanup.push(unwatch);
+  return unwatch;
+}
+function instanceWatch(source, value, options) {
+  const publicThis = this.proxy;
+  const getter = isString(source) ? source.includes(".") ? createPathGetter(publicThis, source) : () => publicThis[source] : source.bind(publicThis, publicThis);
+  let cb;
+  if (isFunction(value)) {
+    cb = value;
+  } else {
+    cb = value.handler;
+    options = value;
+  }
+  const reset = setCurrentInstance(this);
+  const res = doWatch(getter, cb.bind(publicThis), options);
+  reset();
+  return res;
+}
+function createPathGetter(ctx, path) {
+  const segments = path.split(".");
+  return () => {
+    let cur = ctx;
+    for (let i = 0; i < segments.length && cur; i++) {
+      cur = cur[segments[i]];
+    }
+    return cur;
+  };
+}
+function traverse(value, depth = Infinity, seen) {
+  if (depth <= 0 || !isObject$1(value) || value["__v_skip"]) {
+    return value;
+  }
+  seen = seen || /* @__PURE__ */ new Set();
+  if (seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  depth--;
+  if (isRef(value)) {
+    traverse(value.value, depth, seen);
+  } else if (isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      traverse(value[i], depth, seen);
+    }
+  } else if (isSet(value) || isMap(value)) {
+    value.forEach((v) => {
+      traverse(v, depth, seen);
+    });
+  } else if (isPlainObject$2(value)) {
+    for (const key in value) {
+      traverse(value[key], depth, seen);
+    }
+    for (const key of Object.getOwnPropertySymbols(value)) {
+      if (Object.prototype.propertyIsEnumerable.call(value, key)) {
+        traverse(value[key], depth, seen);
+      }
+    }
+  }
+  return value;
+}
+const isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
+function onActivated(hook, target) {
+  registerKeepAliveHook(hook, "a", target);
+}
+function onDeactivated(hook, target) {
+  registerKeepAliveHook(hook, "da", target);
+}
+function registerKeepAliveHook(hook, type, target = currentInstance) {
+  const wrappedHook = hook.__wdc || (hook.__wdc = () => {
+    let current = target;
+    while (current) {
+      if (current.isDeactivated) {
+        return;
+      }
+      current = current.parent;
+    }
+    return hook();
+  });
+  injectHook(type, wrappedHook, target);
+  if (target) {
+    let current = target.parent;
+    while (current && current.parent) {
+      if (isKeepAlive(current.parent.vnode)) {
+        injectToKeepAliveRoot(wrappedHook, type, target, current);
+      }
+      current = current.parent;
+    }
+  }
+}
+function injectToKeepAliveRoot(hook, type, target, keepAliveRoot) {
+  const injected = injectHook(
+    type,
+    hook,
+    keepAliveRoot,
+    true
+    /* prepend */
+  );
+  onUnmounted(() => {
+    remove(keepAliveRoot[type], injected);
+  }, target);
+}
+function setTransitionHooks(vnode, hooks) {
+  if (vnode.shapeFlag & 6 && vnode.component) {
+    setTransitionHooks(vnode.component.subTree, hooks);
+  } else if (vnode.shapeFlag & 128) {
+    vnode.ssContent.transition = hooks.clone(vnode.ssContent);
+    vnode.ssFallback.transition = hooks.clone(vnode.ssFallback);
+  } else {
+    vnode.transition = hooks;
   }
 }
 const isTeleport = (type) => type.__isTeleport;
@@ -4906,7 +4925,7 @@ function _createVNode(type, props = null, children = null, patchFlag = 0, dynami
         currentBlock.push(cloned);
       }
     }
-    cloned.patchFlag |= -2;
+    cloned.patchFlag = -2;
     return cloned;
   }
   if (isClassComponent(type)) {
@@ -4938,8 +4957,7 @@ function _createVNode(type, props = null, children = null, patchFlag = 0, dynami
   );
 }
 function guardReactiveProps(props) {
-  if (!props)
-    return null;
+  if (!props) return null;
   return isProxy(props) || isInternalObject(props) ? extend({}, props) : props;
 }
 function cloneVNode(vnode, extraProps, mergeRef = false, cloneTransition = false) {
@@ -4988,7 +5006,10 @@ function cloneVNode(vnode, extraProps, mergeRef = false, cloneTransition = false
     ce: vnode.ce
   };
   if (transition && cloneTransition) {
-    cloned.transition = transition.clone(cloned);
+    setTransitionHooks(
+      cloned,
+      transition.clone(cloned)
+    );
   }
   return cloned;
 }
@@ -5196,14 +5217,11 @@ let setInSSRSetupState;
   const g = getGlobalThis();
   const registerGlobalSetter = (key, setter) => {
     let setters;
-    if (!(setters = g[key]))
-      setters = g[key] = [];
+    if (!(setters = g[key])) setters = g[key] = [];
     setters.push(setter);
     return (v) => {
-      if (setters.length > 1)
-        setters.forEach((set) => set(v));
-      else
-        setters[0](v);
+      if (setters.length > 1) setters.forEach((set) => set(v));
+      else setters[0](v);
     };
   };
   internalSetCurrentInstance = registerGlobalSetter(
@@ -5346,7 +5364,7 @@ function createSetupContext(instance) {
     };
   }
 }
-function getExposeProxy(instance) {
+function getComponentPublicInstance(instance) {
   if (instance.exposed) {
     return instance.exposeProxy || (instance.exposeProxy = new Proxy(proxyRefs(markRaw(instance.exposed)), {
       get(target, key) {
@@ -5360,6 +5378,8 @@ function getExposeProxy(instance) {
         return key in target || key in publicPropertiesMap;
       }
     }));
+  } else {
+    return instance.proxy;
   }
 }
 const classifyRE = /(?:^|[-_])(\w)/g;
@@ -5416,10 +5436,10 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.4.26";
+const version = "3.4.29";
 
 /**
-* @vue/runtime-dom v3.4.26
+* @vue/runtime-dom v3.4.29
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -5438,7 +5458,7 @@ const nodeOps = {
     }
   },
   createElement: (tag, namespace, is, props) => {
-    const el = namespace === "svg" ? doc.createElementNS(svgNS, tag) : namespace === "mathml" ? doc.createElementNS(mathmlNS, tag) : doc.createElement(tag, is ? { is } : void 0);
+    const el = namespace === "svg" ? doc.createElementNS(svgNS, tag) : namespace === "mathml" ? doc.createElementNS(mathmlNS, tag) : is ? doc.createElement(tag, { is }) : doc.createElement(tag);
     if (tag === "select" && props && props.multiple != null) {
       el.setAttribute("multiple", props.multiple);
     }
@@ -5467,8 +5487,7 @@ const nodeOps = {
     if (start && (start === end || start.nextSibling)) {
       while (true) {
         parent.insertBefore(start.cloneNode(true), anchor);
-        if (start === end || !(start = start.nextSibling))
-          break;
+        if (start === end || !(start = start.nextSibling)) break;
       }
     } else {
       templateContainer.innerHTML = namespace === "svg" ? `<svg>${content}</svg>` : namespace === "mathml" ? `<math>${content}</math>` : content;
@@ -5521,8 +5540,7 @@ const vShow = {
     }
   },
   updated(el, { value, oldValue }, { transition }) {
-    if (!value === !oldValue)
-      return;
+    if (!value === !oldValue) return;
     if (transition) {
       if (value) {
         transition.beforeEnter(el);
@@ -5600,8 +5618,7 @@ function setStyle(style, name, val) {
   if (isArray(val)) {
     val.forEach((v) => setStyle(style, name, v));
   } else {
-    if (val == null)
-      val = "";
+    if (val == null) val = "";
     if (name.startsWith("--")) {
       style.setProperty(name, val);
     } else {
@@ -5639,7 +5656,7 @@ function autoPrefix(style, rawName) {
   return rawName;
 }
 const xlinkNS = "http://www.w3.org/1999/xlink";
-function patchAttr(el, key, value, isSVG, instance) {
+function patchAttr(el, key, value, isSVG, instance, isBoolean = isSpecialBooleanAttr(key)) {
   if (isSVG && key.startsWith("xlink:")) {
     if (value == null) {
       el.removeAttributeNS(xlinkNS, key.slice(6, key.length));
@@ -5647,11 +5664,10 @@ function patchAttr(el, key, value, isSVG, instance) {
       el.setAttributeNS(xlinkNS, key, value);
     }
   } else {
-    const isBoolean = isSpecialBooleanAttr(key);
     if (value == null || isBoolean && !includeBooleanAttr(value)) {
       el.removeAttribute(key);
     } else {
-      el.setAttribute(key, isBoolean ? "" : value);
+      el.setAttribute(key, isBoolean ? "" : String(value));
     }
   }
 }
@@ -5667,7 +5683,7 @@ function patchDOMProp(el, key, value, prevChildren, parentComponent, parentSuspe
   if (key === "value" && tag !== "PROGRESS" && // custom elements may use _value internally
   !tag.includes("-")) {
     const oldValue = tag === "OPTION" ? el.getAttribute("value") || "" : el.value;
-    const newValue = value == null ? "" : value;
+    const newValue = value == null ? "" : String(value);
     if (oldValue !== newValue || !("_value" in el)) {
       el.value = newValue;
     }
@@ -5793,6 +5809,9 @@ const patchProp = (el, key, prevValue, nextValue, namespace, prevChildren, paren
       parentSuspense,
       unmountChildren
     );
+    if (key === "value" || key === "checked" || key === "selected") {
+      patchAttr(el, key, nextValue, isSVG, parentComponent, key !== "value");
+    }
   } else {
     if (key === "true-value") {
       el._trueValue = nextValue;
@@ -5855,8 +5874,7 @@ const vModelText = {
     el[assignKey] = getModelAssigner(vnode);
     const castToNumber = number || vnode.props && vnode.props.type === "number";
     addEventListener(el, lazy ? "change" : "input", (e) => {
-      if (e.target.composing)
-        return;
+      if (e.target.composing) return;
       let domValue = el.value;
       if (trim) {
         domValue = domValue.trim();
@@ -5881,17 +5899,16 @@ const vModelText = {
   mounted(el, { value }) {
     el.value = value == null ? "" : value;
   },
-  beforeUpdate(el, { value, modifiers: { lazy, trim, number } }, vnode) {
+  beforeUpdate(el, { value, oldValue, modifiers: { lazy, trim, number } }, vnode) {
     el[assignKey] = getModelAssigner(vnode);
-    if (el.composing)
-      return;
+    if (el.composing) return;
     const elValue = (number || el.type === "number") && !/^0\d/.test(el.value) ? looseToNumber(el.value) : el.value;
     const newValue = value == null ? "" : value;
     if (elValue === newValue) {
       return;
     }
     if (document.activeElement === el && el.type !== "range") {
-      if (lazy) {
+      if (lazy && value === oldValue) {
         return;
       }
       if (trim && el.value.trim() === newValue) {
@@ -6020,8 +6037,7 @@ function setSelected(el, value, number) {
         option.selected = value.has(optionValue);
       }
     } else if (looseEqual(getValue(option), value)) {
-      if (el.selectedIndex !== i)
-        el.selectedIndex = i;
+      if (el.selectedIndex !== i) el.selectedIndex = i;
       return;
     }
   }
@@ -6046,8 +6062,7 @@ const createApp = (...args) => {
   const { mount } = app;
   app.mount = (containerOrSelector) => {
     const container = normalizeContainer(containerOrSelector);
-    if (!container)
-      return;
+    if (!container) return;
     const component = app._component;
     if (!isFunction(component) && !component.render && !component.template) {
       component.template = container.innerHTML;
@@ -6595,17 +6610,13 @@ const useWss = defineStore("workspaceState", {
     init(oWss) {
       this.oWss = oWss;
       this.$subscribe(() => {
-        if (hDisabled.value["cnv.font.subset"])
-          return;
-        if (hDisabled.value["cnv.mat.pic"])
-          return;
-        if (hDisabled.value["cnv.mat.snd"])
-          return;
+        if (hDisabled.value["cnv.font.subset"]) return;
+        if (hDisabled.value["cnv.mat.pic"]) return;
+        if (hDisabled.value["cnv.mat.snd"]) return;
         cmd2Ex({ cmd: "update.oWss", oWss: toRaw(this.oWss) });
       });
       on("notice.Component", ({ id, mode }) => {
-        if (id === "cnv.mat.snd.codec")
-          return;
+        if (id === "cnv.mat.snd.codec") return;
         switch (mode) {
           case "wait":
             hDisabled.value[id] = true;
@@ -6640,8 +6651,7 @@ window.addEventListener("message", (e) => {
 });
 function go(nm, data) {
   for (const v of aHook) {
-    if (v.nm === nm)
-      v.fnc(data);
+    if (v.nm === nm) v.fnc(data);
   }
 }
 cmd2Ex({ cmd: "?" });
@@ -6699,7 +6709,7 @@ const useCfg = defineStore("doc/prj/prj.json", {
 });
 
 /**
-  * vee-validate v4.12.7
+  * vee-validate v4.13.1
   * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
@@ -6772,16 +6782,13 @@ function resolveRule(id) {
   return RULES[id];
 }
 function set(obj, key, val) {
-  if (typeof val.value === "object")
-    val.value = klona(val.value);
+  if (typeof val.value === "object") val.value = klona(val.value);
   if (!val.enumerable || val.get || val.set || !val.configurable || !val.writable || key === "__proto__") {
     Object.defineProperty(obj, key, val);
-  } else
-    obj[key] = val.value;
+  } else obj[key] = val.value;
 }
 function klona(x) {
-  if (typeof x !== "object")
-    return x;
+  if (typeof x !== "object") return x;
   var i = 0, k, list, tmp, str = Object.prototype.toString.call(x);
   if (str === "[object Object]") {
     tmp = Object.create(x.__proto__ || null);
@@ -6813,8 +6820,7 @@ function klona(x) {
       set(tmp, list[i], Object.getOwnPropertyDescriptor(x, list[i]));
     }
     for (i = 0, list = Object.getOwnPropertyNames(x); i < list.length; i++) {
-      if (Object.hasOwnProperty.call(tmp, k = list[i]) && tmp[k] === x[k])
-        continue;
+      if (Object.hasOwnProperty.call(tmp, k = list[i]) && tmp[k] === x[k]) continue;
       set(tmp, k, Object.getOwnPropertyDescriptor(x, k));
     }
   }
@@ -7282,17 +7288,14 @@ async function validate(value, rules, options = {}) {
     formData: (options === null || options === void 0 ? void 0 : options.values) || {}
   };
   const result = await _validate(field, value);
-  const errors = result.errors;
-  return {
-    errors,
-    valid: !errors.length
-  };
+  return Object.assign(Object.assign({}, result), { valid: !result.errors.length });
 }
 async function _validate(field, value) {
-  if (isTypedSchema(field.rules) || isYupValidator(field.rules)) {
-    return validateFieldWithTypedSchema(value, field.rules);
+  const rules = field.rules;
+  if (isTypedSchema(rules) || isYupValidator(rules)) {
+    return validateFieldWithTypedSchema(value, Object.assign(Object.assign({}, field), { rules }));
   }
-  if (isCallable(field.rules) || Array.isArray(field.rules)) {
+  if (isCallable(rules) || Array.isArray(rules)) {
     const ctx = {
       field: field.label || field.name,
       name: field.name,
@@ -7300,7 +7303,7 @@ async function _validate(field, value) {
       form: field.formData,
       value
     };
-    const pipeline = Array.isArray(field.rules) ? field.rules : [field.rules];
+    const pipeline = Array.isArray(rules) ? rules : [rules];
     const length2 = pipeline.length;
     const errors2 = [];
     for (let i = 0; i < length2; i++) {
@@ -7326,7 +7329,7 @@ async function _validate(field, value) {
       errors: errors2
     };
   }
-  const normalizedContext = Object.assign(Object.assign({}, field), { rules: normalizeRules(field.rules) });
+  const normalizedContext = Object.assign(Object.assign({}, field), { rules: normalizeRules(rules) });
   const errors = [];
   const rulesKeys = Object.keys(normalizedContext.rules);
   const length = rulesKeys.length;
@@ -7355,10 +7358,10 @@ function isYupError(err) {
 function yupToTypedSchema(yupSchema) {
   const schema = {
     __type: "VVTypedSchema",
-    async parse(values) {
+    async parse(values, context) {
       var _a;
       try {
-        const output = await yupSchema.validate(values, { abortEarly: false });
+        const output = await yupSchema.validate(values, { abortEarly: false, context: (context === null || context === void 0 ? void 0 : context.formData) || {} });
         return {
           output,
           errors: []
@@ -7384,9 +7387,9 @@ function yupToTypedSchema(yupSchema) {
   };
   return schema;
 }
-async function validateFieldWithTypedSchema(value, schema) {
-  const typedSchema = isTypedSchema(schema) ? schema : yupToTypedSchema(schema);
-  const result = await typedSchema.parse(value);
+async function validateFieldWithTypedSchema(value, context) {
+  const typedSchema = isTypedSchema(context.rules) ? context.rules : yupToTypedSchema(context.rules);
+  const result = await typedSchema.parse(value, { formData: context.formData });
   const messages = [];
   for (const error of result.errors) {
     if (error.errors.length) {
@@ -7394,6 +7397,7 @@ async function validateFieldWithTypedSchema(value, schema) {
     }
   }
   return {
+    value: result.value,
     errors: messages
   };
 }
@@ -7462,7 +7466,8 @@ async function validateTypedSchema(schema, values) {
     valid: !validationResult.errors.length,
     results,
     errors,
-    values: validationResult.value
+    values: validationResult.value,
+    source: "schema"
   };
 }
 async function validateObjectSchema(schema, values, opts) {
@@ -7495,7 +7500,8 @@ async function validateObjectSchema(schema, values, opts) {
   return {
     valid: isAllValid,
     results,
-    errors
+    errors,
+    source: "schema"
   };
 }
 let ID_COUNTER = 0;
@@ -7676,7 +7682,7 @@ function _useField(path, rules, opts) {
     bails,
     label,
     type,
-    validate: validator.value && !isTyped ? validate$1 : void 0,
+    validate: validator.value ? validate$1 : void 0,
     schema: isTyped ? rules : void 0
   });
   const errorMessage = computed(() => errors.value[0]);
@@ -8048,7 +8054,7 @@ const FieldImpl = /* @__PURE__ */ defineComponent({
     const label = toRef(props, "label");
     const uncheckedValue = toRef(props, "uncheckedValue");
     const keepValue = toRef(props, "keepValue");
-    const { errors, value, errorMessage, validate: validateField, handleChange, handleBlur, setTouched, resetField, handleReset, meta, checked, setErrors } = useField(name, rules, {
+    const { errors, value, errorMessage, validate: validateField, handleChange, handleBlur, setTouched, resetField, handleReset, meta, checked, setErrors, setValue } = useField(name, rules, {
       validateOnMount: props.validateOnMount,
       bails: props.bails,
       standalone: props.standalone,
@@ -8123,7 +8129,8 @@ const FieldImpl = /* @__PURE__ */ defineComponent({
         handleReset,
         handleBlur: sharedProps.value.onBlur,
         setTouched,
-        setErrors
+        setErrors,
+        setValue
       };
     }
     ctx.expose({
@@ -8133,6 +8140,7 @@ const FieldImpl = /* @__PURE__ */ defineComponent({
       errorMessage,
       setErrors,
       setTouched,
+      setValue,
       reset: resetField,
       validate: validateField,
       handleChange
@@ -8385,9 +8393,15 @@ function useForm(opts) {
       }
       setFieldError(pathState, fieldResult.errors);
       return validation;
-    }, { valid: formResult.valid, results: {}, errors: {} });
+    }, {
+      valid: formResult.valid,
+      results: {},
+      errors: {},
+      source: formResult.source
+    });
     if (formResult.values) {
       results.values = formResult.values;
+      results.source = formResult.source;
     }
     keysOf(results.results).forEach((path) => {
       var _a2;
@@ -8454,7 +8468,7 @@ function useForm(opts) {
             const controlled = klona(controlledValues.value);
             let submittedValues = onlyControlled ? controlled : values;
             if (result.values) {
-              submittedValues = result.values;
+              submittedValues = result.source === "schema" ? result.values : Object.assign({}, submittedValues, result.values);
             }
             return fn(submittedValues, {
               evt: e,
@@ -8674,7 +8688,7 @@ function useForm(opts) {
     let newValues = klona((resetState === null || resetState === void 0 ? void 0 : resetState.values) ? resetState.values : originalInitialValues.value);
     newValues = (opts2 === null || opts2 === void 0 ? void 0 : opts2.force) ? newValues : merge(originalInitialValues.value, newValues);
     newValues = isTypedSchema(schema) && isCallable(schema.cast) ? schema.cast(newValues) : newValues;
-    setInitialValues(newValues);
+    setInitialValues(newValues, { force: opts2 === null || opts2 === void 0 ? void 0 : opts2.force });
     mutateAllPathState((state) => {
       var _a2;
       state.__flags.pendingReset = true;
@@ -8707,25 +8721,31 @@ function useForm(opts) {
         return Promise.resolve({
           key: state.path,
           valid: true,
-          errors: []
+          errors: [],
+          value: void 0
         });
       }
       return state.validate(opts2).then((result) => {
         return {
           key: state.path,
           valid: result.valid,
-          errors: result.errors
+          errors: result.errors,
+          value: result.value
         };
       });
     }));
     isValidating.value = false;
     const results = {};
     const errors2 = {};
+    const values = {};
     for (const validation of validations) {
       results[validation.key] = {
         valid: validation.valid,
         errors: validation.errors
       };
+      if (validation.value) {
+        setInPath(values, validation.key, validation.value);
+      }
       if (validation.errors.length) {
         errors2[validation.key] = validation.errors[0];
       }
@@ -8733,7 +8753,9 @@ function useForm(opts) {
     return {
       valid: validations.every((r) => r.valid),
       results,
-      errors: errors2
+      errors: errors2,
+      values,
+      source: "fields"
     };
   }
   async function validateField(path, opts2) {
@@ -8771,7 +8793,7 @@ function useForm(opts) {
   async function _validateSchema() {
     const schemaValue = unref(schema);
     if (!schemaValue) {
-      return { valid: true, results: {}, errors: {} };
+      return { valid: true, results: {}, errors: {}, source: "none" };
     }
     isValidating.value = true;
     const formResult = isYupValidator(schemaValue) || isTypedSchema(schemaValue) ? await validateTypedSchema(schemaValue, formValues) : await validateObjectSchema(schemaValue, formValues, {
@@ -8933,10 +8955,15 @@ function useFormInitialValues(pathsState, formValues, opts) {
   const values = resolveInitialValues(opts);
   const initialValues = ref(values);
   const originalInitialValues = ref(klona(values));
-  function setInitialValues(values2, updateFields = false) {
-    initialValues.value = merge(klona(initialValues.value) || {}, klona(values2));
-    originalInitialValues.value = merge(klona(originalInitialValues.value) || {}, klona(values2));
-    if (!updateFields) {
+  function setInitialValues(values2, opts2) {
+    if (opts2 === null || opts2 === void 0 ? void 0 : opts2.force) {
+      initialValues.value = klona(values2);
+      originalInitialValues.value = klona(values2);
+    } else {
+      initialValues.value = merge(klona(initialValues.value) || {}, klona(values2));
+      originalInitialValues.value = merge(klona(originalInitialValues.value) || {}, klona(values2));
+    }
+    if (!(opts2 === null || opts2 === void 0 ? void 0 : opts2.updateFields)) {
       return;
     }
     pathsState.value.forEach((state) => {
@@ -11499,7 +11526,12 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
     );
     const { value: v_version, errorMessage: em_version, meta: mv_version } = useField(
       "oCfg.version",
-      create$6().required("必須の項目です").matches(/^[\w\.\-]+$/, "英数字か[_-.]のみです"),
+      create$6().required("必須の項目です").matches(
+        /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
+        // regex101: build, test, and debug regex https://regex101.com/r/vkijKf/1/
+        // セマンティック バージョニング 2.0.0 | Semantic Versioning https://semver.org/lang/ja/
+        { message: "1.0.0 など セマンティックバージョニング記述して下さい" }
+      ),
       { initialValue: oCfg.value.book.version }
       // ブラウザテスト用、VSCodeで上書き
     );
@@ -12406,10 +12438,8 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const chkChg = (el, e) => {
       const no_def = Boolean(el.target.checked);
       const webp_q = oWss.value["cnv.mat.webp_quality"];
-      if (no_def)
-        oOptImg.value.hSize[e.nm].webp_q = webp_q;
-      else
-        delete oOptImg.value.hSize[e.nm].webp_q;
+      if (no_def) oOptImg.value.hSize[e.nm].webp_q = webp_q;
+      else delete oOptImg.value.hSize[e.nm].webp_q;
       const q = { cmd: "change.range.webp_q", nm: e.nm, no_def, webp_q };
       cmd2Ex(q);
     };

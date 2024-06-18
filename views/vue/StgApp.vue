@@ -78,7 +78,12 @@ const {value: v_height, errorMessage: em_height, meta: mv_height} = useField<num
 const {value: v_version, errorMessage: em_version, meta: mv_version} = useField<string>(
 	'oCfg.version',
 	yup.string().required('必須の項目です')
-	.matches(/^[\w\.\-]+$/, '英数字か[_-.]のみです'),
+	.matches(
+		/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
+			// regex101: build, test, and debug regex https://regex101.com/r/vkijKf/1/
+			// セマンティック バージョニング 2.0.0 | Semantic Versioning https://semver.org/lang/ja/
+		{message: '1.0.0 など セマンティックバージョニング記述して下さい'}
+	),
 	{initialValue: oCfg.value.book!.version},	// ブラウザテスト用、VSCodeで上書き
 );
 
