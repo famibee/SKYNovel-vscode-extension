@@ -221,10 +221,14 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			const nVNode = Number(splVNode[0]) *1_000_000
 				+Number(splVNode[1]) *1_000 +Number(splVNode[2]);
 				// compare-versions だと windows10 で不具合になるので手作りに
-			if (nVNode < 20_012_002) {
-//			if (nVNode < 22_000_000) {
-				tiNode.description = `-- ${vNode} (20.12.2 以上必須)`;
-//				tiNode.description = `-- ${vNode} (22.0.0 以上必須)`;
+			if (nVNode < 20_017_000) {
+//			if (nVNode < 22_007_000) {
+				tiNode.description = `-- ${vNode} (20.17.0 以上必須)`;
+//				tiNode.description = `-- ${vNode} (22.7.0 以上必須)`;
+/*
+- (2024-10-29〜 Active LTS Start)
+	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.7.0 LTS 推奨に更新
+*/
 				tiNode.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNode);
 

@@ -512,6 +512,7 @@ export class Project {
 				];
 
 				this.#InfFont = hd.o.InfFont;
+//console.log(`fn:Project.ts InfFont ${JSON.stringify(this.#InfFont)}`);
 
 				this.#mExt2Snip = new Map(<T_aExt2Snip>hd.o.aExt2Snip);
 //console.log(`fn:Project.ts mExt2Snip ${JSON.stringify(<T_aExt2Snip>hd.o.aExt2Snip)}`);
@@ -603,7 +604,7 @@ export class Project {
 
 	#getFontNm2path(font_nm: string): string {
 		for (const base of this.#aPlaceFont) {
-			for (const ext of ['woff2','otf','ttf']) {
+			for (const ext of ['woff2','otf','ttf','WOFF2','OTF','TTF']) {
 				const path = `${base}/${font_nm}.${ext}`;
 				if (existsSync(path)) return path;
 			}
@@ -834,7 +835,7 @@ export class Project {
 	//MARK: タスク実行
 	readonly	#hTask2Inf = {
 		'cut_round': {
-			title		: 'アイコン生成・丸く切り抜く',
+			title		: 'アイコン生成・加工中',
 			pathCpyTo	: 'build',
 			aNeedLib	: ['fs-extra','sharp', 'png2icons'],
 		},
@@ -898,7 +899,7 @@ export class Project {
 			});
 		})));
 	}
-	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/;
+	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/i;
 	static	readonly	DEF_FONT = ':DEF_FONT:';
 	async	#subsetFont(minify: boolean) {
 		if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) return;

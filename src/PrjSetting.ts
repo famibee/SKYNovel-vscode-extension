@@ -510,8 +510,6 @@ export class PrjSetting {
 
 			// doc/app.js
 			replaceRegsFile(this.#PATH_APP_JS, [
-				[/(width\s*: ).*(,)/, `$1${c.window.width}$2`],
-				[/(height\s*: ).*(,)/, `$1${c.window.height}$2`],
 				[
 					/(companyName\s*:\s*)(['"]).*\2/,
 					`$1"${c.book.publisher}"`

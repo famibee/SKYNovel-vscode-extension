@@ -181,11 +181,19 @@ sn:imported
 <ワンキー>
 alt+<ワンキー>
 ctrl+<ワンキー>
+meta+<ワンキー>
 shift+<ワンキー>
 alt+ctrl+<ワンキー>
 ctrl+shift+<ワンキー>
 alt+shift+<ワンキー>
 alt+ctrl+shift+<ワンキー>
+alt+meta+<ワンキー>
+ctrl+meta+<ワンキー>
+meta+shift+<ワンキー>
+alt+ctrl+meta+<ワンキー>
+ctrl+meta+shift+<ワンキー>
+alt+meta+shift+<ワンキー>
+alt+ctrl+meta+shift+<ワンキー>
  
 ArrowLeft
 ArrowRight

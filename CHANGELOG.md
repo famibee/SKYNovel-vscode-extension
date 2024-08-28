@@ -1,12 +1,10 @@
+## v4.16.9
+- fix(イベント): [event] key 属性での修飾子キー（AltやShift）でMetaも指定できるように
+	- Macは ⌘ Command キー、 Windowsは Windows キー ⊞。
+- fix: doc/app.js 自動書き換えでアプリウインドウサイズ width, height を置換しないように。初期値項目廃止につき
 ## v4.16.8
 - fix(設定画面ーアプリ): バージョン項目をセマンティック バージョニング 2.0.0 でチェックするように
 	- electron-builder で Invalid version エラーになるため
-
-
-- (2024-10-29〜 Active LTS Start)
-	- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.3.0 LTS 推奨に更新
-
-
 ## v4.16.7
 - fix: グレースケールの綴りミス修正（greyscale -> grayscale）
 ## v4.16.6
