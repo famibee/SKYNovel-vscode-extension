@@ -1,3 +1,9 @@
+## v4.16.10
+- docs: [page]（ページ移動）to属性候補に exit、load 追加
+- docs: 組み込み変数 const.sn.screenResolutionX、Y 追加
+- docs: 組み込み変数 const.sn.isPaging 追加
+- docs: 組み込み変数 save:const.sn.styPaging 追加
+- docs: 組み込み変数 sys:const.sn.aPageLog 追加
 ## v4.16.9
 - fix(イベント): [event] key 属性での修飾子キー（AltやShift）でMetaも指定できるように
 	- Macは ⌘ Command キー、 Windowsは Windows キー ⊞。

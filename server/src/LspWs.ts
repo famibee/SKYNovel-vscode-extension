@@ -318,6 +318,7 @@ const.sn.isDebugger
 const.sn.isFirstBoot
 const.sn.isKidoku
 const.sn.isPackaged
+const.sn.isPaging
 const.sn.key.alternate
 const.sn.key.back
 const.sn.key.command
@@ -338,6 +339,8 @@ const.sn.Math.PI
 const.sn.navigator.language
 const.sn.needClick2Play
 const.sn.platform
+const.sn.screenResolutionX
+const.sn.screenResolutionY
 const.sn.sound.codecs
 const.sn.sound.【buf】.playing
 const.sn.vctCallStk.length
@@ -350,6 +353,7 @@ save:const.sn.mesLayer
 save:const.sn.scriptFn
 save:const.sn.scriptIdx
 save:const.sn.sLog
+save:const.sn.styPaging
 save:sn.doRecLog
 sn.auto.enabled
 sn.button.fontFamily
@@ -359,6 +363,7 @@ sn.eventLabel
 sn.skip.all
 sn.skip.enabled
 sn.tagL.enabled
+sys:const.sn.aPageLog
 sys:const.sn.nativeWindow.x
 sys:const.sn.nativeWindow.y
 sys:const.sn.save.place

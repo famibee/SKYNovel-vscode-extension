@@ -1,5 +1,5 @@
 /**
-* @vue/shared v3.4.38
+* @vue/shared v3.5.3
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -56,9 +56,11 @@ const cacheStringFunction = (fn) => {
   };
 };
 const camelizeRE = /-(\w)/g;
-const camelize = cacheStringFunction((str) => {
-  return str.replace(camelizeRE, (_, c) => c ? c.toUpperCase() : "");
-});
+const camelize = cacheStringFunction(
+  (str) => {
+    return str.replace(camelizeRE, (_, c) => c ? c.toUpperCase() : "");
+  }
+);
 const hyphenateRE = /\B([A-Z])/g;
 const hyphenate = cacheStringFunction(
   (str) => str.replace(hyphenateRE, "-$1").toLowerCase()
@@ -66,10 +68,12 @@ const hyphenate = cacheStringFunction(
 const capitalize = cacheStringFunction((str) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 });
-const toHandlerKey = cacheStringFunction((str) => {
-  const s = str ? `on${capitalize(str)}` : ``;
-  return s;
-});
+const toHandlerKey = cacheStringFunction(
+  (str) => {
+    const s = str ? `on${capitalize(str)}` : ``;
+    return s;
+  }
+);
 const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 const invokeArrayFns = (fns, ...arg) => {
   for (let i = 0; i < fns.length; i++) {
@@ -197,7 +201,7 @@ function looseIndexOf(arr, val) {
   return arr.findIndex((item) => looseEqual(item, val));
 }
 const isRef$1 = (val) => {
-  return !!(val && val.__v_isRef === true);
+  return !!(val && val["__v_isRef"] === true);
 };
 const toDisplayString = (val) => {
   return isString(val) ? val : val == null ? "" : isArray(val) || isObject$1(val) && (val.toString === objectToString || !isFunction(val.toString)) ? isRef$1(val) ? toDisplayString(val.value) : JSON.stringify(val, replacer, 2) : String(val);
@@ -236,7 +240,7 @@ const stringifySymbol = (v, i = "") => {
 };
 
 /**
-* @vue/reactivity v3.4.38
+* @vue/reactivity v3.5.3
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -247,6 +251,7 @@ class EffectScope {
     this._active = true;
     this.effects = [];
     this.cleanups = [];
+    this._isPaused = false;
     this.parent = activeEffectScope;
     if (!detached && activeEffectScope) {
       this.index = (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(
@@ -256,6 +261,39 @@ class EffectScope {
   }
   get active() {
     return this._active;
+  }
+  pause() {
+    if (this._active) {
+      this._isPaused = true;
+      let i, l;
+      if (this.scopes) {
+        for (i = 0, l = this.scopes.length; i < l; i++) {
+          this.scopes[i].pause();
+        }
+      }
+      for (i = 0, l = this.effects.length; i < l; i++) {
+        this.effects[i].pause();
+      }
+    }
+  }
+  /**
+   * Resumes the effect scope, including all child scopes and effects.
+   */
+  resume() {
+    if (this._active) {
+      if (this._isPaused) {
+        this._isPaused = false;
+        let i, l;
+        if (this.scopes) {
+          for (i = 0, l = this.scopes.length; i < l; i++) {
+            this.scopes[i].resume();
+          }
+        }
+        for (i = 0, l = this.effects.length; i < l; i++) {
+          this.effects[i].resume();
+        }
+      }
+    }
   }
   run(fn) {
     if (this._active) {
@@ -311,112 +349,241 @@ class EffectScope {
 function effectScope(detached) {
   return new EffectScope(detached);
 }
-function recordEffectScope(effect2, scope = activeEffectScope) {
-  if (scope && scope.active) {
-    scope.effects.push(effect2);
-  }
-}
 function getCurrentScope() {
   return activeEffectScope;
 }
-function onScopeDispose(fn) {
+function onScopeDispose(fn, failSilently = false) {
   if (activeEffectScope) {
     activeEffectScope.cleanups.push(fn);
   }
 }
-let activeEffect;
+let activeSub;
+const pausedQueueEffects = /* @__PURE__ */ new WeakSet();
 class ReactiveEffect {
-  constructor(fn, trigger2, scheduler, scope) {
+  constructor(fn) {
     this.fn = fn;
-    this.trigger = trigger2;
-    this.scheduler = scheduler;
-    this.active = true;
-    this.deps = [];
-    this._dirtyLevel = 4;
-    this._trackId = 0;
-    this._runnings = 0;
-    this._shouldSchedule = false;
-    this._depsLength = 0;
-    recordEffectScope(this, scope);
-  }
-  get dirty() {
-    if (this._dirtyLevel === 2 || this._dirtyLevel === 3) {
-      this._dirtyLevel = 1;
-      pauseTracking();
-      for (let i = 0; i < this._depsLength; i++) {
-        const dep = this.deps[i];
-        if (dep.computed) {
-          triggerComputed(dep.computed);
-          if (this._dirtyLevel >= 4) {
-            break;
-          }
-        }
-      }
-      if (this._dirtyLevel === 1) {
-        this._dirtyLevel = 0;
-      }
-      resetTracking();
+    this.deps = void 0;
+    this.depsTail = void 0;
+    this.flags = 1 | 4;
+    this.nextEffect = void 0;
+    this.cleanup = void 0;
+    this.scheduler = void 0;
+    if (activeEffectScope && activeEffectScope.active) {
+      activeEffectScope.effects.push(this);
     }
-    return this._dirtyLevel >= 4;
   }
-  set dirty(v) {
-    this._dirtyLevel = v ? 4 : 0;
+  pause() {
+    this.flags |= 64;
+  }
+  resume() {
+    if (this.flags & 64) {
+      this.flags &= ~64;
+      if (pausedQueueEffects.has(this)) {
+        pausedQueueEffects.delete(this);
+        this.trigger();
+      }
+    }
+  }
+  /**
+   * @internal
+   */
+  notify() {
+    if (this.flags & 2 && !(this.flags & 32)) {
+      return;
+    }
+    if (!(this.flags & 8)) {
+      this.flags |= 8;
+      this.nextEffect = batchedEffect;
+      batchedEffect = this;
+    }
   }
   run() {
-    this._dirtyLevel = 0;
-    if (!this.active) {
+    if (!(this.flags & 1)) {
       return this.fn();
     }
-    let lastShouldTrack = shouldTrack;
-    let lastEffect = activeEffect;
+    this.flags |= 2;
+    cleanupEffect(this);
+    prepareDeps(this);
+    const prevEffect = activeSub;
+    const prevShouldTrack = shouldTrack;
+    activeSub = this;
+    shouldTrack = true;
     try {
-      shouldTrack = true;
-      activeEffect = this;
-      this._runnings++;
-      preCleanupEffect(this);
       return this.fn();
     } finally {
-      postCleanupEffect(this);
-      this._runnings--;
-      activeEffect = lastEffect;
-      shouldTrack = lastShouldTrack;
+      cleanupDeps(this);
+      activeSub = prevEffect;
+      shouldTrack = prevShouldTrack;
+      this.flags &= ~2;
     }
   }
   stop() {
-    if (this.active) {
-      preCleanupEffect(this);
-      postCleanupEffect(this);
+    if (this.flags & 1) {
+      for (let link = this.deps; link; link = link.nextDep) {
+        removeSub(link);
+      }
+      this.deps = this.depsTail = void 0;
+      cleanupEffect(this);
       this.onStop && this.onStop();
-      this.active = false;
+      this.flags &= ~1;
+    }
+  }
+  trigger() {
+    if (this.flags & 64) {
+      pausedQueueEffects.add(this);
+    } else if (this.scheduler) {
+      this.scheduler();
+    } else {
+      this.runIfDirty();
+    }
+  }
+  /**
+   * @internal
+   */
+  runIfDirty() {
+    if (isDirty(this)) {
+      this.run();
+    }
+  }
+  get dirty() {
+    return isDirty(this);
+  }
+}
+let batchDepth = 0;
+let batchedEffect;
+function startBatch() {
+  batchDepth++;
+}
+function endBatch() {
+  if (--batchDepth > 0) {
+    return;
+  }
+  let error;
+  while (batchedEffect) {
+    let e = batchedEffect;
+    batchedEffect = void 0;
+    while (e) {
+      const next = e.nextEffect;
+      e.nextEffect = void 0;
+      e.flags &= ~8;
+      if (e.flags & 1) {
+        try {
+          e.trigger();
+        } catch (err) {
+          if (!error) error = err;
+        }
+      }
+      e = next;
+    }
+  }
+  if (error) throw error;
+}
+function prepareDeps(sub) {
+  for (let link = sub.deps; link; link = link.nextDep) {
+    link.version = -1;
+    link.prevActiveLink = link.dep.activeLink;
+    link.dep.activeLink = link;
+  }
+}
+function cleanupDeps(sub) {
+  let head;
+  let tail = sub.depsTail;
+  for (let link = tail; link; link = link.prevDep) {
+    if (link.version === -1) {
+      if (link === tail) tail = link.prevDep;
+      removeSub(link);
+      removeDep(link);
+    } else {
+      head = link;
+    }
+    link.dep.activeLink = link.prevActiveLink;
+    link.prevActiveLink = void 0;
+  }
+  sub.deps = head;
+  sub.depsTail = tail;
+}
+function isDirty(sub) {
+  for (let link = sub.deps; link; link = link.nextDep) {
+    if (link.dep.version !== link.version || link.dep.computed && refreshComputed(link.dep.computed) === false || link.dep.version !== link.version) {
+      return true;
+    }
+  }
+  if (sub._dirty) {
+    return true;
+  }
+  return false;
+}
+function refreshComputed(computed2) {
+  if (computed2.flags & 2) {
+    return false;
+  }
+  if (computed2.flags & 4 && !(computed2.flags & 16)) {
+    return;
+  }
+  computed2.flags &= ~16;
+  if (computed2.globalVersion === globalVersion) {
+    return;
+  }
+  computed2.globalVersion = globalVersion;
+  const dep = computed2.dep;
+  computed2.flags |= 2;
+  if (dep.version > 0 && !computed2.isSSR && !isDirty(computed2)) {
+    computed2.flags &= ~2;
+    return;
+  }
+  const prevSub = activeSub;
+  const prevShouldTrack = shouldTrack;
+  activeSub = computed2;
+  shouldTrack = true;
+  try {
+    prepareDeps(computed2);
+    const value = computed2.fn(computed2._value);
+    if (dep.version === 0 || hasChanged(value, computed2._value)) {
+      computed2._value = value;
+      dep.version++;
+    }
+  } catch (err) {
+    dep.version++;
+    throw err;
+  } finally {
+    activeSub = prevSub;
+    shouldTrack = prevShouldTrack;
+    cleanupDeps(computed2);
+    computed2.flags &= ~2;
+  }
+}
+function removeSub(link) {
+  const { dep, prevSub, nextSub } = link;
+  if (prevSub) {
+    prevSub.nextSub = nextSub;
+    link.prevSub = void 0;
+  }
+  if (nextSub) {
+    nextSub.prevSub = prevSub;
+    link.nextSub = void 0;
+  }
+  if (dep.subs === link) {
+    dep.subs = prevSub;
+  }
+  if (!dep.subs && dep.computed) {
+    dep.computed.flags &= ~4;
+    for (let l = dep.computed.deps; l; l = l.nextDep) {
+      removeSub(l);
     }
   }
 }
-function triggerComputed(computed2) {
-  return computed2.value;
-}
-function preCleanupEffect(effect2) {
-  effect2._trackId++;
-  effect2._depsLength = 0;
-}
-function postCleanupEffect(effect2) {
-  if (effect2.deps.length > effect2._depsLength) {
-    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
-      cleanupDepEffect(effect2.deps[i], effect2);
-    }
-    effect2.deps.length = effect2._depsLength;
+function removeDep(link) {
+  const { prevDep, nextDep } = link;
+  if (prevDep) {
+    prevDep.nextDep = nextDep;
+    link.prevDep = void 0;
   }
-}
-function cleanupDepEffect(dep, effect2) {
-  const trackId = dep.get(effect2);
-  if (trackId !== void 0 && effect2._trackId !== trackId) {
-    dep.delete(effect2);
-    if (dep.size === 0) {
-      dep.cleanup();
-    }
+  if (nextDep) {
+    nextDep.prevDep = prevDep;
+    link.nextDep = void 0;
   }
 }
 let shouldTrack = true;
-let pauseScheduleStack = 0;
 const trackStack = [];
 function pauseTracking() {
   trackStack.push(shouldTrack);
@@ -426,166 +593,374 @@ function resetTracking() {
   const last = trackStack.pop();
   shouldTrack = last === void 0 ? true : last;
 }
-function pauseScheduling() {
-  pauseScheduleStack++;
-}
-function resetScheduling() {
-  pauseScheduleStack--;
-  while (!pauseScheduleStack && queueEffectSchedulers.length) {
-    queueEffectSchedulers.shift()();
+function cleanupEffect(e) {
+  const { cleanup } = e;
+  e.cleanup = void 0;
+  if (cleanup) {
+    const prevSub = activeSub;
+    activeSub = void 0;
+    try {
+      cleanup();
+    } finally {
+      activeSub = prevSub;
+    }
   }
 }
-function trackEffect(effect2, dep, debuggerEventExtraInfo) {
-  if (dep.get(effect2) !== effect2._trackId) {
-    dep.set(effect2, effect2._trackId);
-    const oldDep = effect2.deps[effect2._depsLength];
-    if (oldDep !== dep) {
-      if (oldDep) {
-        cleanupDepEffect(oldDep, effect2);
+let globalVersion = 0;
+class Dep {
+  constructor(computed2) {
+    this.computed = computed2;
+    this.version = 0;
+    this.activeLink = void 0;
+    this.subs = void 0;
+  }
+  track(debugInfo) {
+    if (!activeSub || !shouldTrack || activeSub === this.computed) {
+      return;
+    }
+    let link = this.activeLink;
+    if (link === void 0 || link.sub !== activeSub) {
+      link = this.activeLink = {
+        dep: this,
+        sub: activeSub,
+        version: this.version,
+        nextDep: void 0,
+        prevDep: void 0,
+        nextSub: void 0,
+        prevSub: void 0,
+        prevActiveLink: void 0
+      };
+      if (!activeSub.deps) {
+        activeSub.deps = activeSub.depsTail = link;
+      } else {
+        link.prevDep = activeSub.depsTail;
+        activeSub.depsTail.nextDep = link;
+        activeSub.depsTail = link;
       }
-      effect2.deps[effect2._depsLength++] = dep;
-    } else {
-      effect2._depsLength++;
-    }
-  }
-}
-const queueEffectSchedulers = [];
-function triggerEffects(dep, dirtyLevel, debuggerEventExtraInfo) {
-  pauseScheduling();
-  for (const effect2 of dep.keys()) {
-    let tracking;
-    if (effect2._dirtyLevel < dirtyLevel && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
-      effect2._shouldSchedule || (effect2._shouldSchedule = effect2._dirtyLevel === 0);
-      effect2._dirtyLevel = dirtyLevel;
-    }
-    if (effect2._shouldSchedule && (tracking != null ? tracking : tracking = dep.get(effect2) === effect2._trackId)) {
-      effect2.trigger();
-      if ((!effect2._runnings || effect2.allowRecurse) && effect2._dirtyLevel !== 2) {
-        effect2._shouldSchedule = false;
-        if (effect2.scheduler) {
-          queueEffectSchedulers.push(effect2.scheduler);
+      if (activeSub.flags & 4) {
+        addSub(link);
+      }
+    } else if (link.version === -1) {
+      link.version = this.version;
+      if (link.nextDep) {
+        const next = link.nextDep;
+        next.prevDep = link.prevDep;
+        if (link.prevDep) {
+          link.prevDep.nextDep = next;
+        }
+        link.prevDep = activeSub.depsTail;
+        link.nextDep = void 0;
+        activeSub.depsTail.nextDep = link;
+        activeSub.depsTail = link;
+        if (activeSub.deps === link) {
+          activeSub.deps = next;
         }
       }
     }
+    return link;
   }
-  resetScheduling();
+  trigger(debugInfo) {
+    this.version++;
+    globalVersion++;
+    this.notify(debugInfo);
+  }
+  notify(debugInfo) {
+    startBatch();
+    try {
+      if (false) ;
+      for (let link = this.subs; link; link = link.prevSub) {
+        link.sub.notify();
+      }
+    } finally {
+      endBatch();
+    }
+  }
 }
-const createDep = (cleanup, computed2) => {
-  const dep = /* @__PURE__ */ new Map();
-  dep.cleanup = cleanup;
-  dep.computed = computed2;
-  return dep;
-};
+function addSub(link) {
+  const computed2 = link.dep.computed;
+  if (computed2 && !link.dep.subs) {
+    computed2.flags |= 4 | 16;
+    for (let l = computed2.deps; l; l = l.nextDep) {
+      addSub(l);
+    }
+  }
+  const currentTail = link.dep.subs;
+  if (currentTail !== link) {
+    link.prevSub = currentTail;
+    if (currentTail) currentTail.nextSub = link;
+  }
+  link.dep.subs = link;
+}
 const targetMap = /* @__PURE__ */ new WeakMap();
-const ITERATE_KEY = Symbol("");
-const MAP_KEY_ITERATE_KEY = Symbol("");
+const ITERATE_KEY = Symbol(
+  ""
+);
+const MAP_KEY_ITERATE_KEY = Symbol(
+  ""
+);
+const ARRAY_ITERATE_KEY = Symbol(
+  ""
+);
 function track(target, type, key) {
-  if (shouldTrack && activeEffect) {
+  if (shouldTrack && activeSub) {
     let depsMap = targetMap.get(target);
     if (!depsMap) {
       targetMap.set(target, depsMap = /* @__PURE__ */ new Map());
     }
     let dep = depsMap.get(key);
     if (!dep) {
-      depsMap.set(key, dep = createDep(() => depsMap.delete(key)));
+      depsMap.set(key, dep = new Dep());
     }
-    trackEffect(
-      activeEffect,
-      dep);
+    {
+      dep.track();
+    }
   }
 }
 function trigger(target, type, key, newValue, oldValue, oldTarget) {
   const depsMap = targetMap.get(target);
   if (!depsMap) {
+    globalVersion++;
     return;
   }
   let deps = [];
   if (type === "clear") {
     deps = [...depsMap.values()];
-  } else if (key === "length" && isArray(target)) {
-    const newLength = Number(newValue);
-    depsMap.forEach((dep, key2) => {
-      if (key2 === "length" || !isSymbol(key2) && key2 >= newLength) {
-        deps.push(dep);
-      }
-    });
   } else {
-    if (key !== void 0) {
-      deps.push(depsMap.get(key));
-    }
-    switch (type) {
-      case "add":
-        if (!isArray(target)) {
-          deps.push(depsMap.get(ITERATE_KEY));
-          if (isMap(target)) {
-            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+    const targetIsArray = isArray(target);
+    const isArrayIndex = targetIsArray && isIntegerKey(key);
+    if (targetIsArray && key === "length") {
+      const newLength = Number(newValue);
+      depsMap.forEach((dep, key2) => {
+        if (key2 === "length" || key2 === ARRAY_ITERATE_KEY || !isSymbol(key2) && key2 >= newLength) {
+          deps.push(dep);
+        }
+      });
+    } else {
+      const push = (dep) => dep && deps.push(dep);
+      if (key !== void 0) {
+        push(depsMap.get(key));
+      }
+      if (isArrayIndex) {
+        push(depsMap.get(ARRAY_ITERATE_KEY));
+      }
+      switch (type) {
+        case "add":
+          if (!targetIsArray) {
+            push(depsMap.get(ITERATE_KEY));
+            if (isMap(target)) {
+              push(depsMap.get(MAP_KEY_ITERATE_KEY));
+            }
+          } else if (isArrayIndex) {
+            push(depsMap.get("length"));
           }
-        } else if (isIntegerKey(key)) {
-          deps.push(depsMap.get("length"));
-        }
-        break;
-      case "delete":
-        if (!isArray(target)) {
-          deps.push(depsMap.get(ITERATE_KEY));
-          if (isMap(target)) {
-            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+          break;
+        case "delete":
+          if (!targetIsArray) {
+            push(depsMap.get(ITERATE_KEY));
+            if (isMap(target)) {
+              push(depsMap.get(MAP_KEY_ITERATE_KEY));
+            }
           }
-        }
-        break;
-      case "set":
-        if (isMap(target)) {
-          deps.push(depsMap.get(ITERATE_KEY));
-        }
-        break;
+          break;
+        case "set":
+          if (isMap(target)) {
+            push(depsMap.get(ITERATE_KEY));
+          }
+          break;
+      }
     }
   }
-  pauseScheduling();
+  startBatch();
   for (const dep of deps) {
-    if (dep) {
-      triggerEffects(
-        dep,
-        4);
+    {
+      dep.trigger();
     }
   }
-  resetScheduling();
+  endBatch();
 }
 function getDepFromReactive(object, key) {
-  const depsMap = targetMap.get(object);
-  return depsMap && depsMap.get(key);
+  var _a;
+  return (_a = targetMap.get(object)) == null ? void 0 : _a.get(key);
+}
+function reactiveReadArray(array) {
+  const raw = toRaw(array);
+  if (raw === array) return raw;
+  track(raw, "iterate", ARRAY_ITERATE_KEY);
+  return isShallow(array) ? raw : raw.map(toReactive);
+}
+function shallowReadArray(arr) {
+  track(arr = toRaw(arr), "iterate", ARRAY_ITERATE_KEY);
+  return arr;
+}
+const arrayInstrumentations = {
+  __proto__: null,
+  [Symbol.iterator]() {
+    return iterator(this, Symbol.iterator, toReactive);
+  },
+  concat(...args) {
+    return reactiveReadArray(this).concat(
+      ...args.map((x) => isArray(x) ? reactiveReadArray(x) : x)
+    );
+  },
+  entries() {
+    return iterator(this, "entries", (value) => {
+      value[1] = toReactive(value[1]);
+      return value;
+    });
+  },
+  every(fn, thisArg) {
+    return apply(this, "every", fn, thisArg, void 0, arguments);
+  },
+  filter(fn, thisArg) {
+    return apply(this, "filter", fn, thisArg, (v) => v.map(toReactive), arguments);
+  },
+  find(fn, thisArg) {
+    return apply(this, "find", fn, thisArg, toReactive, arguments);
+  },
+  findIndex(fn, thisArg) {
+    return apply(this, "findIndex", fn, thisArg, void 0, arguments);
+  },
+  findLast(fn, thisArg) {
+    return apply(this, "findLast", fn, thisArg, toReactive, arguments);
+  },
+  findLastIndex(fn, thisArg) {
+    return apply(this, "findLastIndex", fn, thisArg, void 0, arguments);
+  },
+  // flat, flatMap could benefit from ARRAY_ITERATE but are not straight-forward to implement
+  forEach(fn, thisArg) {
+    return apply(this, "forEach", fn, thisArg, void 0, arguments);
+  },
+  includes(...args) {
+    return searchProxy(this, "includes", args);
+  },
+  indexOf(...args) {
+    return searchProxy(this, "indexOf", args);
+  },
+  join(separator) {
+    return reactiveReadArray(this).join(separator);
+  },
+  // keys() iterator only reads `length`, no optimisation required
+  lastIndexOf(...args) {
+    return searchProxy(this, "lastIndexOf", args);
+  },
+  map(fn, thisArg) {
+    return apply(this, "map", fn, thisArg, void 0, arguments);
+  },
+  pop() {
+    return noTracking(this, "pop");
+  },
+  push(...args) {
+    return noTracking(this, "push", args);
+  },
+  reduce(fn, ...args) {
+    return reduce(this, "reduce", fn, args);
+  },
+  reduceRight(fn, ...args) {
+    return reduce(this, "reduceRight", fn, args);
+  },
+  shift() {
+    return noTracking(this, "shift");
+  },
+  // slice could use ARRAY_ITERATE but also seems to beg for range tracking
+  some(fn, thisArg) {
+    return apply(this, "some", fn, thisArg, void 0, arguments);
+  },
+  splice(...args) {
+    return noTracking(this, "splice", args);
+  },
+  toReversed() {
+    return reactiveReadArray(this).toReversed();
+  },
+  toSorted(comparer) {
+    return reactiveReadArray(this).toSorted(comparer);
+  },
+  toSpliced(...args) {
+    return reactiveReadArray(this).toSpliced(...args);
+  },
+  unshift(...args) {
+    return noTracking(this, "unshift", args);
+  },
+  values() {
+    return iterator(this, "values", toReactive);
+  }
+};
+function iterator(self, method, wrapValue) {
+  const arr = shallowReadArray(self);
+  const iter = arr[method]();
+  if (arr !== self && !isShallow(self)) {
+    iter._next = iter.next;
+    iter.next = () => {
+      const result = iter._next();
+      if (result.value) {
+        result.value = wrapValue(result.value);
+      }
+      return result;
+    };
+  }
+  return iter;
+}
+const arrayProto = Array.prototype;
+function apply(self, method, fn, thisArg, wrappedRetFn, args) {
+  const arr = shallowReadArray(self);
+  const needsWrap = arr !== self && !isShallow(self);
+  const methodFn = arr[method];
+  if (methodFn !== arrayProto[method]) {
+    const result2 = methodFn.apply(self, args);
+    return needsWrap ? toReactive(result2) : result2;
+  }
+  let wrappedFn = fn;
+  if (arr !== self) {
+    if (needsWrap) {
+      wrappedFn = function(item, index) {
+        return fn.call(this, toReactive(item), index, self);
+      };
+    } else if (fn.length > 2) {
+      wrappedFn = function(item, index) {
+        return fn.call(this, item, index, self);
+      };
+    }
+  }
+  const result = methodFn.call(arr, wrappedFn, thisArg);
+  return needsWrap && wrappedRetFn ? wrappedRetFn(result) : result;
+}
+function reduce(self, method, fn, args) {
+  const arr = shallowReadArray(self);
+  let wrappedFn = fn;
+  if (arr !== self) {
+    if (!isShallow(self)) {
+      wrappedFn = function(acc, item, index) {
+        return fn.call(this, acc, toReactive(item), index, self);
+      };
+    } else if (fn.length > 3) {
+      wrappedFn = function(acc, item, index) {
+        return fn.call(this, acc, item, index, self);
+      };
+    }
+  }
+  return arr[method](wrappedFn, ...args);
+}
+function searchProxy(self, method, args) {
+  const arr = toRaw(self);
+  track(arr, "iterate", ARRAY_ITERATE_KEY);
+  const res = arr[method](...args);
+  if ((res === -1 || res === false) && isProxy(args[0])) {
+    args[0] = toRaw(args[0]);
+    return arr[method](...args);
+  }
+  return res;
+}
+function noTracking(self, method, args = []) {
+  pauseTracking();
+  startBatch();
+  const res = toRaw(self)[method].apply(self, args);
+  endBatch();
+  resetTracking();
+  return res;
 }
 const isNonTrackableKeys = /* @__PURE__ */ makeMap(`__proto__,__v_isRef,__isVue`);
 const builtInSymbols = new Set(
   /* @__PURE__ */ Object.getOwnPropertyNames(Symbol).filter((key) => key !== "arguments" && key !== "caller").map((key) => Symbol[key]).filter(isSymbol)
 );
-const arrayInstrumentations = /* @__PURE__ */ createArrayInstrumentations();
-function createArrayInstrumentations() {
-  const instrumentations = {};
-  ["includes", "indexOf", "lastIndexOf"].forEach((key) => {
-    instrumentations[key] = function(...args) {
-      const arr = toRaw(this);
-      for (let i = 0, l = this.length; i < l; i++) {
-        track(arr, "get", i + "");
-      }
-      const res = arr[key](...args);
-      if (res === -1 || res === false) {
-        return arr[key](...args.map(toRaw));
-      } else {
-        return res;
-      }
-    };
-  });
-  ["push", "pop", "shift", "unshift", "splice"].forEach((key) => {
-    instrumentations[key] = function(...args) {
-      pauseTracking();
-      pauseScheduling();
-      const res = toRaw(this)[key].apply(this, args);
-      resetScheduling();
-      resetTracking();
-      return res;
-    };
-  });
-  return instrumentations;
-}
 function hasOwnProperty(key) {
   if (!isSymbol(key)) key = String(key);
   const obj = toRaw(this);
@@ -615,14 +990,22 @@ class BaseReactiveHandler {
     }
     const targetIsArray = isArray(target);
     if (!isReadonly2) {
-      if (targetIsArray && hasOwn(arrayInstrumentations, key)) {
-        return Reflect.get(arrayInstrumentations, key, receiver);
+      let fn;
+      if (targetIsArray && (fn = arrayInstrumentations[key])) {
+        return fn;
       }
       if (key === "hasOwnProperty") {
         return hasOwnProperty;
       }
     }
-    const res = Reflect.get(target, key, receiver);
+    const res = Reflect.get(
+      target,
+      key,
+      // if this is a proxy wrapping a ref, return methods using the raw ref
+      // as receiver so that we don't have to call `toRaw` on the ref in all
+      // its class methods
+      isRef(target) ? target : receiver
+    );
     if (isSymbol(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
       return res;
     }
@@ -663,7 +1046,12 @@ class MutableReactiveHandler extends BaseReactiveHandler {
       }
     }
     const hadKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
-    const result = Reflect.set(target, key, value, receiver);
+    const result = Reflect.set(
+      target,
+      key,
+      value,
+      isRef(target) ? target : receiver
+    );
     if (target === toRaw(receiver)) {
       if (!hadKey) {
         trigger(target, "add", key, value);
@@ -711,9 +1099,7 @@ class ReadonlyReactiveHandler extends BaseReactiveHandler {
 }
 const mutableHandlers = /* @__PURE__ */ new MutableReactiveHandler();
 const readonlyHandlers = /* @__PURE__ */ new ReadonlyReactiveHandler();
-const shallowReactiveHandlers = /* @__PURE__ */ new MutableReactiveHandler(
-  true
-);
+const shallowReactiveHandlers = /* @__PURE__ */ new MutableReactiveHandler(true);
 const shallowReadonlyHandlers = /* @__PURE__ */ new ReadonlyReactiveHandler(true);
 const toShallow = (value) => value;
 const getProto = (v) => Reflect.getPrototypeOf(v);
@@ -1090,84 +1476,8 @@ function markRaw(value) {
 }
 const toReactive = (value) => isObject$1(value) ? reactive(value) : value;
 const toReadonly = (value) => isObject$1(value) ? readonly(value) : value;
-class ComputedRefImpl {
-  constructor(getter, _setter, isReadonly2, isSSR) {
-    this.getter = getter;
-    this._setter = _setter;
-    this.dep = void 0;
-    this.__v_isRef = true;
-    this["__v_isReadonly"] = false;
-    this.effect = new ReactiveEffect(
-      () => getter(this._value),
-      () => triggerRefValue(
-        this,
-        this.effect._dirtyLevel === 2 ? 2 : 3
-      )
-    );
-    this.effect.computed = this;
-    this.effect.active = this._cacheable = !isSSR;
-    this["__v_isReadonly"] = isReadonly2;
-  }
-  get value() {
-    const self = toRaw(this);
-    if ((!self._cacheable || self.effect.dirty) && hasChanged(self._value, self._value = self.effect.run())) {
-      triggerRefValue(self, 4);
-    }
-    trackRefValue(self);
-    if (self.effect._dirtyLevel >= 2) {
-      triggerRefValue(self, 2);
-    }
-    return self._value;
-  }
-  set value(newValue) {
-    this._setter(newValue);
-  }
-  // #region polyfill _dirty for backward compatibility third party code for Vue <= 3.3.x
-  get _dirty() {
-    return this.effect.dirty;
-  }
-  set _dirty(v) {
-    this.effect.dirty = v;
-  }
-  // #endregion
-}
-function computed$1(getterOrOptions, debugOptions, isSSR = false) {
-  let getter;
-  let setter;
-  const onlyGetter = isFunction(getterOrOptions);
-  if (onlyGetter) {
-    getter = getterOrOptions;
-    setter = NOOP;
-  } else {
-    getter = getterOrOptions.get;
-    setter = getterOrOptions.set;
-  }
-  const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter, isSSR);
-  return cRef;
-}
-function trackRefValue(ref2) {
-  var _a;
-  if (shouldTrack && activeEffect) {
-    ref2 = toRaw(ref2);
-    trackEffect(
-      activeEffect,
-      (_a = ref2.dep) != null ? _a : ref2.dep = createDep(
-        () => ref2.dep = void 0,
-        ref2 instanceof ComputedRefImpl ? ref2 : void 0
-      ));
-  }
-}
-function triggerRefValue(ref2, dirtyLevel = 4, newVal, oldVal) {
-  ref2 = toRaw(ref2);
-  const dep = ref2.dep;
-  if (dep) {
-    triggerEffects(
-      dep,
-      dirtyLevel);
-  }
-}
 function isRef(r) {
-  return !!(r && r.__v_isRef === true);
+  return r ? r["__v_isRef"] === true : false;
 }
 function ref(value) {
   return createRef(value, false);
@@ -1182,25 +1492,30 @@ function createRef(rawValue, shallow) {
   return new RefImpl(rawValue, shallow);
 }
 class RefImpl {
-  constructor(value, __v_isShallow) {
-    this.__v_isShallow = __v_isShallow;
-    this.dep = void 0;
-    this.__v_isRef = true;
-    this._rawValue = __v_isShallow ? value : toRaw(value);
-    this._value = __v_isShallow ? value : toReactive(value);
+  constructor(value, isShallow2) {
+    this.dep = new Dep();
+    this["__v_isRef"] = true;
+    this["__v_isShallow"] = false;
+    this._rawValue = isShallow2 ? value : toRaw(value);
+    this._value = isShallow2 ? value : toReactive(value);
+    this["__v_isShallow"] = isShallow2;
   }
   get value() {
-    trackRefValue(this);
+    {
+      this.dep.track();
+    }
     return this._value;
   }
-  set value(newVal) {
-    const useDirectValue = this.__v_isShallow || isShallow(newVal) || isReadonly(newVal);
-    newVal = useDirectValue ? newVal : toRaw(newVal);
-    if (hasChanged(newVal, this._rawValue)) {
-      this._rawValue;
-      this._rawValue = newVal;
-      this._value = useDirectValue ? newVal : toReactive(newVal);
-      triggerRefValue(this, 4);
+  set value(newValue) {
+    const oldValue = this._rawValue;
+    const useDirectValue = this["__v_isShallow"] || isShallow(newValue) || isReadonly(newValue);
+    newValue = useDirectValue ? newValue : toRaw(newValue);
+    if (hasChanged(newValue, oldValue)) {
+      this._rawValue = newValue;
+      this._value = useDirectValue ? newValue : toReactive(newValue);
+      {
+        this.dep.trigger();
+      }
     }
   }
 }
@@ -1211,7 +1526,7 @@ function toValue(source) {
   return isFunction(source) ? source() : unref(source);
 }
 const shallowUnwrapHandlers = {
-  get: (target, key, receiver) => unref(Reflect.get(target, key, receiver)),
+  get: (target, key, receiver) => key === "__v_raw" ? target : unref(Reflect.get(target, key, receiver)),
   set: (target, key, value, receiver) => {
     const oldValue = target[key];
     if (isRef(oldValue) && !isRef(value)) {
@@ -1237,11 +1552,12 @@ class ObjectRefImpl {
     this._object = _object;
     this._key = _key;
     this._defaultValue = _defaultValue;
-    this.__v_isRef = true;
+    this["__v_isRef"] = true;
+    this._value = void 0;
   }
   get value() {
     const val = this._object[this._key];
-    return val === void 0 ? this._defaultValue : val;
+    return this._value = val === void 0 ? this._defaultValue : val;
   }
   set value(newVal) {
     this._object[this._key] = newVal;
@@ -1253,11 +1569,12 @@ class ObjectRefImpl {
 class GetterRefImpl {
   constructor(_getter) {
     this._getter = _getter;
-    this.__v_isRef = true;
-    this.__v_isReadonly = true;
+    this["__v_isRef"] = true;
+    this["__v_isReadonly"] = true;
+    this._value = void 0;
   }
   get value() {
-    return this._getter();
+    return this._value = this._getter();
   }
 }
 function toRef(source, key, defaultValue) {
@@ -1275,9 +1592,251 @@ function propertyToRef(source, key, defaultValue) {
   const val = source[key];
   return isRef(val) ? val : new ObjectRefImpl(source, key, defaultValue);
 }
+class ComputedRefImpl {
+  constructor(fn, setter, isSSR) {
+    this.fn = fn;
+    this.setter = setter;
+    this._value = void 0;
+    this.dep = new Dep(this);
+    this.__v_isRef = true;
+    this.deps = void 0;
+    this.depsTail = void 0;
+    this.flags = 16;
+    this.globalVersion = globalVersion - 1;
+    this.effect = this;
+    this["__v_isReadonly"] = !setter;
+    this.isSSR = isSSR;
+  }
+  /**
+   * @internal
+   */
+  notify() {
+    if (activeSub !== this) {
+      this.flags |= 16;
+      this.dep.notify();
+    }
+  }
+  get value() {
+    const link = this.dep.track();
+    refreshComputed(this);
+    if (link) {
+      link.version = this.dep.version;
+    }
+    return this._value;
+  }
+  set value(newValue) {
+    if (this.setter) {
+      this.setter(newValue);
+    }
+  }
+}
+function computed$1(getterOrOptions, debugOptions, isSSR = false) {
+  let getter;
+  let setter;
+  if (isFunction(getterOrOptions)) {
+    getter = getterOrOptions;
+  } else {
+    getter = getterOrOptions.get;
+    setter = getterOrOptions.set;
+  }
+  const cRef = new ComputedRefImpl(getter, setter, isSSR);
+  return cRef;
+}
+const INITIAL_WATCHER_VALUE = {};
+const cleanupMap = /* @__PURE__ */ new WeakMap();
+let activeWatcher = void 0;
+function onWatcherCleanup(cleanupFn, failSilently = false, owner = activeWatcher) {
+  if (owner) {
+    let cleanups = cleanupMap.get(owner);
+    if (!cleanups) cleanupMap.set(owner, cleanups = []);
+    cleanups.push(cleanupFn);
+  }
+}
+function watch$1(source, cb, options = EMPTY_OBJ) {
+  const { immediate, deep, once, scheduler, augmentJob, call } = options;
+  const reactiveGetter = (source2) => {
+    if (deep) return source2;
+    if (isShallow(source2) || deep === false || deep === 0)
+      return traverse(source2, 1);
+    return traverse(source2);
+  };
+  let effect2;
+  let getter;
+  let cleanup;
+  let boundCleanup;
+  let forceTrigger = false;
+  let isMultiSource = false;
+  if (isRef(source)) {
+    getter = () => source.value;
+    forceTrigger = isShallow(source);
+  } else if (isReactive(source)) {
+    getter = () => reactiveGetter(source);
+    forceTrigger = true;
+  } else if (isArray(source)) {
+    isMultiSource = true;
+    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
+    getter = () => source.map((s) => {
+      if (isRef(s)) {
+        return s.value;
+      } else if (isReactive(s)) {
+        return reactiveGetter(s);
+      } else if (isFunction(s)) {
+        return call ? call(s, 2) : s();
+      } else ;
+    });
+  } else if (isFunction(source)) {
+    if (cb) {
+      getter = call ? () => call(source, 2) : source;
+    } else {
+      getter = () => {
+        if (cleanup) {
+          pauseTracking();
+          try {
+            cleanup();
+          } finally {
+            resetTracking();
+          }
+        }
+        const currentEffect = activeWatcher;
+        activeWatcher = effect2;
+        try {
+          return call ? call(source, 3, [boundCleanup]) : source(boundCleanup);
+        } finally {
+          activeWatcher = currentEffect;
+        }
+      };
+    }
+  } else {
+    getter = NOOP;
+  }
+  if (cb && deep) {
+    const baseGetter = getter;
+    const depth = deep === true ? Infinity : deep;
+    getter = () => traverse(baseGetter(), depth);
+  }
+  const scope = getCurrentScope();
+  const watchHandle = () => {
+    effect2.stop();
+    if (scope) {
+      remove(scope.effects, effect2);
+    }
+  };
+  if (once) {
+    if (cb) {
+      const _cb = cb;
+      cb = (...args) => {
+        _cb(...args);
+        watchHandle();
+      };
+    } else {
+      const _getter = getter;
+      getter = () => {
+        _getter();
+        watchHandle();
+      };
+    }
+  }
+  let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
+  const job = (immediateFirstRun) => {
+    if (!(effect2.flags & 1) || !effect2.dirty && !immediateFirstRun) {
+      return;
+    }
+    if (cb) {
+      const newValue = effect2.run();
+      if (deep || forceTrigger || (isMultiSource ? newValue.some((v, i) => hasChanged(v, oldValue[i])) : hasChanged(newValue, oldValue))) {
+        if (cleanup) {
+          cleanup();
+        }
+        const currentWatcher = activeWatcher;
+        activeWatcher = effect2;
+        try {
+          const args = [
+            newValue,
+            // pass undefined as the old value when it's changed for the first time
+            oldValue === INITIAL_WATCHER_VALUE ? void 0 : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE ? [] : oldValue,
+            boundCleanup
+          ];
+          call ? call(cb, 3, args) : (
+            // @ts-expect-error
+            cb(...args)
+          );
+          oldValue = newValue;
+        } finally {
+          activeWatcher = currentWatcher;
+        }
+      }
+    } else {
+      effect2.run();
+    }
+  };
+  if (augmentJob) {
+    augmentJob(job);
+  }
+  effect2 = new ReactiveEffect(getter);
+  effect2.scheduler = scheduler ? () => scheduler(job, false) : job;
+  boundCleanup = (fn) => onWatcherCleanup(fn, false, effect2);
+  cleanup = effect2.onStop = () => {
+    const cleanups = cleanupMap.get(effect2);
+    if (cleanups) {
+      if (call) {
+        call(cleanups, 4);
+      } else {
+        for (const cleanup2 of cleanups) cleanup2();
+      }
+      cleanupMap.delete(effect2);
+    }
+  };
+  if (cb) {
+    if (immediate) {
+      job(true);
+    } else {
+      oldValue = effect2.run();
+    }
+  } else if (scheduler) {
+    scheduler(job.bind(null, true), true);
+  } else {
+    effect2.run();
+  }
+  watchHandle.pause = effect2.pause.bind(effect2);
+  watchHandle.resume = effect2.resume.bind(effect2);
+  watchHandle.stop = watchHandle;
+  return watchHandle;
+}
+function traverse(value, depth = Infinity, seen) {
+  if (depth <= 0 || !isObject$1(value) || value["__v_skip"]) {
+    return value;
+  }
+  seen = seen || /* @__PURE__ */ new Set();
+  if (seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  depth--;
+  if (isRef(value)) {
+    traverse(value.value, depth, seen);
+  } else if (isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      traverse(value[i], depth, seen);
+    }
+  } else if (isSet(value) || isMap(value)) {
+    value.forEach((v) => {
+      traverse(v, depth, seen);
+    });
+  } else if (isPlainObject$2(value)) {
+    for (const key in value) {
+      traverse(value[key], depth, seen);
+    }
+    for (const key of Object.getOwnPropertySymbols(value)) {
+      if (Object.prototype.propertyIsEnumerable.call(value, key)) {
+        traverse(value[key], depth, seen);
+      }
+    }
+  }
+  return value;
+}
 
 /**
-* @vue/runtime-core v3.4.38
+* @vue/runtime-core v3.5.3
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -1414,6 +1973,7 @@ function callWithAsyncErrorHandling(fn, instance, type, args) {
 }
 function handleError(err, instance, type, throwInDev = true) {
   const contextVNode = instance ? instance.vnode : null;
+  const { errorHandler, throwUnhandledErrorInProduction } = instance && instance.appContext.config || EMPTY_OBJ;
   if (instance) {
     let cur = instance.parent;
     const exposedInstance = instance.proxy;
@@ -1429,23 +1989,23 @@ function handleError(err, instance, type, throwInDev = true) {
       }
       cur = cur.parent;
     }
-    const appErrorHandler = instance.appContext.config.errorHandler;
-    if (appErrorHandler) {
+    if (errorHandler) {
       pauseTracking();
-      callWithErrorHandling(
-        appErrorHandler,
-        null,
-        10,
-        [err, exposedInstance, errorInfo]
-      );
+      callWithErrorHandling(errorHandler, null, 10, [
+        err,
+        exposedInstance,
+        errorInfo
+      ]);
       resetTracking();
       return;
     }
   }
-  logError(err, type, contextVNode, throwInDev);
+  logError(err, type, contextVNode, throwInDev, throwUnhandledErrorInProduction);
 }
-function logError(err, type, contextVNode, throwInDev = true) {
-  {
+function logError(err, type, contextVNode, throwInDev = true, throwInProd = false) {
+  if (throwInProd) {
+    throw err;
+  } else {
     console.error(err);
   }
 }
@@ -1463,13 +2023,13 @@ function nextTick(fn) {
   return fn ? p.then(this ? fn.bind(this) : fn) : p;
 }
 function findInsertionIndex(id) {
-  let start = flushIndex + 1;
+  let start = isFlushing ? flushIndex + 1 : 0;
   let end = queue.length;
   while (start < end) {
     const middle = start + end >>> 1;
     const middleJob = queue[middle];
     const middleJobId = getId(middleJob);
-    if (middleJobId < id || middleJobId === id && middleJob.pre) {
+    if (middleJobId < id || middleJobId === id && middleJob.flags & 2) {
       start = middle + 1;
     } else {
       end = middle;
@@ -1478,15 +2038,16 @@ function findInsertionIndex(id) {
   return start;
 }
 function queueJob(job) {
-  if (!queue.length || !queue.includes(
-    job,
-    isFlushing && job.allowRecurse ? flushIndex + 1 : flushIndex
-  )) {
-    if (job.id == null) {
+  if (!(job.flags & 1)) {
+    const jobId = getId(job);
+    const lastJob = queue[queue.length - 1];
+    if (!lastJob || // fast path when the job id is larger than the tail
+    !(job.flags & 2) && jobId >= getId(lastJob)) {
       queue.push(job);
     } else {
-      queue.splice(findInsertionIndex(job.id), 0, job);
+      queue.splice(findInsertionIndex(jobId), 0, job);
     }
+    job.flags |= 1;
     queueFlush();
   }
 }
@@ -1496,19 +2057,13 @@ function queueFlush() {
     currentFlushPromise = resolvedPromise.then(flushJobs);
   }
 }
-function invalidateJob(job) {
-  const i = queue.indexOf(job);
-  if (i > flushIndex) {
-    queue.splice(i, 1);
-  }
-}
 function queuePostFlushCb(cb) {
   if (!isArray(cb)) {
-    if (!activePostFlushCbs || !activePostFlushCbs.includes(
-      cb,
-      cb.allowRecurse ? postFlushIndex + 1 : postFlushIndex
-    )) {
+    if (activePostFlushCbs && cb.id === -1) {
+      activePostFlushCbs.splice(postFlushIndex + 1, 0, cb);
+    } else if (!(cb.flags & 1)) {
       pendingPostFlushCbs.push(cb);
+      cb.flags |= 1;
     }
   } else {
     pendingPostFlushCbs.push(...cb);
@@ -1518,13 +2073,17 @@ function queuePostFlushCb(cb) {
 function flushPreFlushCbs(instance, seen, i = isFlushing ? flushIndex + 1 : 0) {
   for (; i < queue.length; i++) {
     const cb = queue[i];
-    if (cb && cb.pre) {
+    if (cb && cb.flags & 2) {
       if (instance && cb.id !== instance.uid) {
         continue;
       }
       queue.splice(i, 1);
       i--;
+      if (cb.flags & 4) {
+        cb.flags &= ~1;
+      }
       cb();
+      cb.flags &= ~1;
     }
   }
 }
@@ -1541,38 +2100,43 @@ function flushPostFlushCbs(seen) {
     activePostFlushCbs = deduped;
     for (postFlushIndex = 0; postFlushIndex < activePostFlushCbs.length; postFlushIndex++) {
       const cb = activePostFlushCbs[postFlushIndex];
-      if (cb.active !== false) cb();
+      if (cb.flags & 4) {
+        cb.flags &= ~1;
+      }
+      if (!(cb.flags & 8)) cb();
+      cb.flags &= ~1;
     }
     activePostFlushCbs = null;
     postFlushIndex = 0;
   }
 }
-const getId = (job) => job.id == null ? Infinity : job.id;
-const comparator = (a, b) => {
-  const diff = getId(a) - getId(b);
-  if (diff === 0) {
-    if (a.pre && !b.pre) return -1;
-    if (b.pre && !a.pre) return 1;
-  }
-  return diff;
-};
+const getId = (job) => job.id == null ? job.flags & 2 ? -1 : Infinity : job.id;
 function flushJobs(seen) {
   isFlushPending = false;
   isFlushing = true;
-  queue.sort(comparator);
   try {
     for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {
       const job = queue[flushIndex];
-      if (job && job.active !== false) {
+      if (job && !(job.flags & 8)) {
         if (false) ;
+        if (job.flags & 4) {
+          job.flags &= ~1;
+        }
         callWithErrorHandling(
           job,
           job.i,
           job.i ? 15 : 14
         );
+        job.flags &= ~1;
       }
     }
   } finally {
+    for (; flushIndex < queue.length; flushIndex++) {
+      const job = queue[flushIndex];
+      if (job) {
+        job.flags &= ~1;
+      }
+    }
     flushIndex = 0;
     queue.length = 0;
     flushPostFlushCbs();
@@ -1668,8 +2232,11 @@ function invokeDirectiveHook(vnode, prevVNode, instance, name) {
     }
   }
 }
+const TeleportEndKey = Symbol("_vte");
+const isTeleport = (type) => type.__isTeleport;
 function setTransitionHooks(vnode, hooks) {
   if (vnode.shapeFlag & 6 && vnode.component) {
+    vnode.transition = hooks;
     setTransitionHooks(vnode.component.subTree, hooks);
   } else if (vnode.shapeFlag & 128) {
     vnode.ssContent.transition = hooks.clone(vnode.ssContent);
@@ -1682,10 +2249,94 @@ function setTransitionHooks(vnode, hooks) {
 // @__NO_SIDE_EFFECTS__
 function defineComponent(options, extraOptions) {
   return isFunction(options) ? (
-    // #8326: extend call and options.name access are considered side-effects
+    // #8236: extend call and options.name access are considered side-effects
     // by Rollup, so we have to wrap it in a pure-annotated IIFE.
     /* @__PURE__ */ (() => extend({ name: options.name }, extraOptions, { setup: options }))()
   ) : options;
+}
+function markAsyncBoundary(instance) {
+  instance.ids = [instance.ids[0] + instance.ids[2]++ + "-", 0, 0];
+}
+function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
+  if (isArray(rawRef)) {
+    rawRef.forEach(
+      (r, i) => setRef(
+        r,
+        oldRawRef && (isArray(oldRawRef) ? oldRawRef[i] : oldRawRef),
+        parentSuspense,
+        vnode,
+        isUnmount
+      )
+    );
+    return;
+  }
+  if (isAsyncWrapper(vnode) && !isUnmount) {
+    return;
+  }
+  const refValue = vnode.shapeFlag & 4 ? getComponentPublicInstance(vnode.component) : vnode.el;
+  const value = isUnmount ? null : refValue;
+  const { i: owner, r: ref3 } = rawRef;
+  const oldRef = oldRawRef && oldRawRef.r;
+  const refs = owner.refs === EMPTY_OBJ ? owner.refs = {} : owner.refs;
+  const setupState = owner.setupState;
+  const rawSetupState = toRaw(setupState);
+  const canSetSetupRef = setupState === EMPTY_OBJ ? () => false : (key) => {
+    return hasOwn(rawSetupState, key);
+  };
+  if (oldRef != null && oldRef !== ref3) {
+    if (isString(oldRef)) {
+      refs[oldRef] = null;
+      if (canSetSetupRef(oldRef)) {
+        setupState[oldRef] = null;
+      }
+    } else if (isRef(oldRef)) {
+      oldRef.value = null;
+    }
+  }
+  if (isFunction(ref3)) {
+    callWithErrorHandling(ref3, owner, 12, [value, refs]);
+  } else {
+    const _isString = isString(ref3);
+    const _isRef = isRef(ref3);
+    if (_isString || _isRef) {
+      const doSet = () => {
+        if (rawRef.f) {
+          const existing = _isString ? canSetSetupRef(ref3) ? setupState[ref3] : refs[ref3] : ref3.value;
+          if (isUnmount) {
+            isArray(existing) && remove(existing, refValue);
+          } else {
+            if (!isArray(existing)) {
+              if (_isString) {
+                refs[ref3] = [refValue];
+                if (canSetSetupRef(ref3)) {
+                  setupState[ref3] = refs[ref3];
+                }
+              } else {
+                ref3.value = [refValue];
+                if (rawRef.k) refs[rawRef.k] = ref3.value;
+              }
+            } else if (!existing.includes(refValue)) {
+              existing.push(refValue);
+            }
+          }
+        } else if (_isString) {
+          refs[ref3] = value;
+          if (canSetSetupRef(ref3)) {
+            setupState[ref3] = value;
+          }
+        } else if (_isRef) {
+          ref3.value = value;
+          if (rawRef.k) refs[rawRef.k] = value;
+        } else ;
+      };
+      if (value) {
+        doSet.id = -1;
+        queuePostRenderEffect(doSet, parentSuspense);
+      } else {
+        doSet();
+      }
+    }
+  }
 }
 const isAsyncWrapper = (i) => !!i.type.__asyncLoader;
 const isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
@@ -1755,17 +2406,19 @@ const createHook = (lifecycle) => (hook, target = currentInstance) => {
 };
 const onBeforeMount = createHook("bm");
 const onMounted = createHook("m");
-const onBeforeUpdate = createHook("bu");
+const onBeforeUpdate = createHook(
+  "bu"
+);
 const onUpdated = createHook("u");
-const onBeforeUnmount = createHook("bum");
+const onBeforeUnmount = createHook(
+  "bum"
+);
 const onUnmounted = createHook("um");
-const onServerPrefetch = createHook("sp");
-const onRenderTriggered = createHook(
-  "rtg"
+const onServerPrefetch = createHook(
+  "sp"
 );
-const onRenderTracked = createHook(
-  "rtc"
-);
+const onRenderTriggered = createHook("rtg");
+const onRenderTracked = createHook("rtc");
 function onErrorCaptured(hook, target = currentInstance) {
   injectHook("ec", hook, target);
 }
@@ -1809,10 +2462,20 @@ function resolve(registry, name) {
 function renderList(source, renderItem, cache, index) {
   let ret;
   const cached = cache;
-  if (isArray(source) || isString(source)) {
+  const sourceIsArray = isArray(source);
+  if (sourceIsArray || isString(source)) {
+    const sourceIsReactiveArray = sourceIsArray && isReactive(source);
+    if (sourceIsReactiveArray) {
+      source = shallowReadArray(source);
+    }
     ret = new Array(source.length);
     for (let i = 0, l = source.length; i < l; i++) {
-      ret[i] = renderItem(source[i], i, void 0, cached);
+      ret[i] = renderItem(
+        sourceIsReactiveArray ? toReactive(source[i]) : source[i],
+        i,
+        void 0,
+        cached
+      );
     }
   } else if (typeof source === "number") {
     ret = new Array(source);
@@ -1856,10 +2519,10 @@ const publicPropertiesMap = (
     $refs: (i) => i.refs,
     $parent: (i) => getPublicInstance(i.parent),
     $root: (i) => getPublicInstance(i.root),
+    $host: (i) => i.ce,
     $emit: (i) => i.emit,
     $options: (i) => resolveMergedOptions(i) ,
     $forceUpdate: (i) => i.f || (i.f = () => {
-      i.effect.dirty = true;
       queueJob(i.update);
     }),
     $nextTick: (i) => i.n || (i.n = nextTick.bind(i.proxy)),
@@ -2106,6 +2769,9 @@ function applyOptions(instance) {
   }
   if (components) instance.components = components;
   if (directives) instance.directives = directives;
+  if (serverPrefetch) {
+    markAsyncBoundary(instance);
+  }
 }
 function resolveInjections(injectOptions, ctx, checkDuplicateProperties = NOOP) {
   if (isArray(injectOptions)) {
@@ -2147,14 +2813,18 @@ function callHook(hook, instance, type) {
   );
 }
 function createWatcher(raw, ctx, publicThis, key) {
-  const getter = key.includes(".") ? createPathGetter(publicThis, key) : () => publicThis[key];
+  let getter = key.includes(".") ? createPathGetter(publicThis, key) : () => publicThis[key];
   if (isString(raw)) {
     const handler = ctx[raw];
     if (isFunction(handler)) {
-      watch(getter, handler);
+      {
+        watch(getter, handler);
+      }
     }
   } else if (isFunction(raw)) {
-    watch(getter, raw.bind(publicThis));
+    {
+      watch(getter, raw.bind(publicThis));
+    }
   } else if (isObject$1(raw)) {
     if (isArray(raw)) {
       raw.forEach((r) => createWatcher(r, ctx, publicThis, key));
@@ -2333,6 +3003,7 @@ function createAppAPI(render, hydrate) {
     }
     const context = createAppContext();
     const installedPlugins = /* @__PURE__ */ new WeakSet();
+    const pluginCleanupFns = [];
     let isMounted = false;
     const app = context.app = {
       _uid: uid$1++,
@@ -2381,7 +3052,7 @@ function createAppAPI(render, hydrate) {
       },
       mount(rootContainer, isHydrate, namespace) {
         if (!isMounted) {
-          const vnode = createVNode(rootComponent, rootProps);
+          const vnode = app._ceVNode || createVNode(rootComponent, rootProps);
           vnode.appContext = context;
           if (namespace === true) {
             namespace = "svg";
@@ -2399,8 +3070,16 @@ function createAppAPI(render, hydrate) {
           return getComponentPublicInstance(vnode.component);
         }
       },
+      onUnmount(cleanupFn) {
+        pluginCleanupFns.push(cleanupFn);
+      },
       unmount() {
         if (isMounted) {
+          callWithAsyncErrorHandling(
+            pluginCleanupFns,
+            app._instance,
+            16
+          );
           render(null, app._container);
           delete app._container.__vue_app__;
         }
@@ -2623,6 +3302,9 @@ function resolvePropValue(options, props, key, value, instance, isAbsent) {
       } else {
         value = defaultValue;
       }
+      if (instance.ce) {
+        instance.ce._setProp(key, value);
+      }
     }
     if (opt[
       0
@@ -2812,85 +3494,6 @@ const updateSlots = (instance, children, optimized) => {
     }
   }
 };
-function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
-  if (isArray(rawRef)) {
-    rawRef.forEach(
-      (r, i) => setRef(
-        r,
-        oldRawRef && (isArray(oldRawRef) ? oldRawRef[i] : oldRawRef),
-        parentSuspense,
-        vnode,
-        isUnmount
-      )
-    );
-    return;
-  }
-  if (isAsyncWrapper(vnode) && !isUnmount) {
-    return;
-  }
-  const refValue = vnode.shapeFlag & 4 ? getComponentPublicInstance(vnode.component) : vnode.el;
-  const value = isUnmount ? null : refValue;
-  const { i: owner, r: ref3 } = rawRef;
-  const oldRef = oldRawRef && oldRawRef.r;
-  const refs = owner.refs === EMPTY_OBJ ? owner.refs = {} : owner.refs;
-  const setupState = owner.setupState;
-  if (oldRef != null && oldRef !== ref3) {
-    if (isString(oldRef)) {
-      refs[oldRef] = null;
-      if (hasOwn(setupState, oldRef)) {
-        setupState[oldRef] = null;
-      }
-    } else if (isRef(oldRef)) {
-      oldRef.value = null;
-    }
-  }
-  if (isFunction(ref3)) {
-    callWithErrorHandling(ref3, owner, 12, [value, refs]);
-  } else {
-    const _isString = isString(ref3);
-    const _isRef = isRef(ref3);
-    if (_isString || _isRef) {
-      const doSet = () => {
-        if (rawRef.f) {
-          const existing = _isString ? hasOwn(setupState, ref3) ? setupState[ref3] : refs[ref3] : ref3.value;
-          if (isUnmount) {
-            isArray(existing) && remove(existing, refValue);
-          } else {
-            if (!isArray(existing)) {
-              if (_isString) {
-                refs[ref3] = [refValue];
-                if (hasOwn(setupState, ref3)) {
-                  setupState[ref3] = refs[ref3];
-                }
-              } else {
-                ref3.value = [refValue];
-                if (rawRef.k) refs[rawRef.k] = ref3.value;
-              }
-            } else if (!existing.includes(refValue)) {
-              existing.push(refValue);
-            }
-          }
-        } else if (_isString) {
-          refs[ref3] = value;
-          if (hasOwn(setupState, ref3)) {
-            setupState[ref3] = value;
-          }
-        } else if (_isRef) {
-          ref3.value = value;
-          if (rawRef.k) refs[rawRef.k] = value;
-        } else ;
-      };
-      if (value) {
-        doSet.id = -1;
-        queuePostRenderEffect(doSet, parentSuspense);
-      } else {
-        doSet();
-      }
-    }
-  }
-}
-const TeleportEndKey = Symbol("_vte");
-const isTeleport = (type) => type.__isTeleport;
 const queuePostRenderEffect = queueEffectWithSuspense;
 function createRenderer(options) {
   return baseCreateRenderer(options);
@@ -3158,7 +3761,7 @@ function baseCreateRenderer(options, createHydrationFns) {
     }
     if (parentComponent) {
       let subTree = parentComponent.subTree;
-      if (vnode === subTree) {
+      if (vnode === subTree || isSuspense(subTree.type) && (subTree.ssContent === vnode || subTree.ssFallback === vnode)) {
         const parentVNode = parentComponent.vnode;
         setScopeId(
           el,
@@ -3456,8 +4059,6 @@ function baseCreateRenderer(options, createHydrationFns) {
         return;
       } else {
         instance.next = n2;
-        invalidateJob(instance.update);
-        instance.effect.dirty = true;
         instance.update();
       }
     } else {
@@ -3470,7 +4071,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       if (!instance.isMounted) {
         let vnodeHook;
         const { el, props } = initialVNode;
-        const { bm, m, parent } = instance;
+        const { bm, m, parent, root, type } = instance;
         const isAsyncWrapperVNode = isAsyncWrapper(initialVNode);
         toggleRecurse(instance, false);
         if (bm) {
@@ -3491,18 +4092,19 @@ function baseCreateRenderer(options, createHydrationFns) {
               null
             );
           };
-          if (isAsyncWrapperVNode) {
-            initialVNode.type.__asyncLoader().then(
-              // note: we are moving the render call into an async callback,
-              // which means it won't track dependencies - but it's ok because
-              // a server-rendered async wrapper is already in resolved state
-              // and it will never need to change.
-              () => !instance.isUnmounted && hydrateSubTree()
+          if (isAsyncWrapperVNode && type.__asyncHydrate) {
+            type.__asyncHydrate(
+              el,
+              instance,
+              hydrateSubTree
             );
           } else {
             hydrateSubTree();
           }
         } else {
+          if (root.ce) {
+            root.ce._injectChildStyle(type);
+          }
           const subTree = instance.subTree = renderComponentRoot(instance);
           patch(
             null,
@@ -3592,20 +4194,14 @@ function baseCreateRenderer(options, createHydrationFns) {
         }
       }
     };
-    const effect2 = instance.effect = new ReactiveEffect(
-      componentUpdateFn,
-      NOOP,
-      () => queueJob(update),
-      instance.scope
-      // track it in component's effect scope
-    );
-    const update = instance.update = () => {
-      if (effect2.dirty) {
-        effect2.run();
-      }
-    };
-    update.i = instance;
-    update.id = instance.uid;
+    instance.scope.on();
+    const effect2 = instance.effect = new ReactiveEffect(componentUpdateFn);
+    instance.scope.off();
+    const update = instance.update = effect2.run.bind(effect2);
+    const job = instance.job = effect2.runIfDirty.bind(effect2);
+    job.i = instance;
+    job.id = instance.uid;
+    effect2.scheduler = () => queueJob(job);
     toggleRecurse(instance, true);
     update();
   };
@@ -4064,15 +4660,15 @@ function baseCreateRenderer(options, createHydrationFns) {
     hostRemove(end);
   };
   const unmountComponent = (instance, parentSuspense, doRemove) => {
-    const { bum, scope, update, subTree, um, m, a } = instance;
+    const { bum, scope, job, subTree, um, m, a } = instance;
     invalidateMount(m);
     invalidateMount(a);
     if (bum) {
       invokeArrayFns(bum);
     }
     scope.stop();
-    if (update) {
-      update.active = false;
+    if (job) {
+      job.flags |= 8;
       unmount(subTree, instance, parentSuspense, doRemove);
     }
     if (um) {
@@ -4152,8 +4748,14 @@ function baseCreateRenderer(options, createHydrationFns) {
 function resolveChildrenNamespace({ type, props }, currentNamespace) {
   return currentNamespace === "svg" && type === "foreignObject" || currentNamespace === "mathml" && type === "annotation-xml" && props && props.encoding && props.encoding.includes("html") ? void 0 : currentNamespace;
 }
-function toggleRecurse({ effect: effect2, update }, allowed) {
-  effect2.allowRecurse = update.allowRecurse = allowed;
+function toggleRecurse({ effect: effect2, job }, allowed) {
+  if (allowed) {
+    effect2.flags |= 32;
+    job.flags |= 4;
+  } else {
+    effect2.flags &= ~32;
+    job.flags &= ~4;
+  }
 }
 function needTransition(parentSuspense, transition) {
   return (!parentSuspense || parentSuspense && !parentSuspense.pendingBranch) && transition && !transition.persisted;
@@ -4231,7 +4833,8 @@ function locateNonHydratedAsyncRoot(instance) {
 }
 function invalidateMount(hooks) {
   if (hooks) {
-    for (let i = 0; i < hooks.length; i++) hooks[i].active = false;
+    for (let i = 0; i < hooks.length; i++)
+      hooks[i].flags |= 8;
   }
 }
 const ssrContextKey = Symbol.for("v-scx");
@@ -4244,158 +4847,59 @@ const useSSRContext = () => {
 function watchEffect(effect2, options) {
   return doWatch(effect2, null, options);
 }
-const INITIAL_WATCHER_VALUE = {};
 function watch(source, cb, options) {
   return doWatch(source, cb, options);
 }
-function doWatch(source, cb, {
-  immediate,
-  deep,
-  flush,
-  once,
-  onTrack,
-  onTrigger
-} = EMPTY_OBJ) {
-  if (cb && once) {
-    const _cb = cb;
-    cb = (...args) => {
-      _cb(...args);
-      unwatch();
-    };
-  }
-  const instance = currentInstance;
-  const reactiveGetter = (source2) => deep === true ? source2 : (
-    // for deep: false, only traverse root-level properties
-    traverse(source2, deep === false ? 1 : void 0)
-  );
-  let getter;
-  let forceTrigger = false;
-  let isMultiSource = false;
-  if (isRef(source)) {
-    getter = () => source.value;
-    forceTrigger = isShallow(source);
-  } else if (isReactive(source)) {
-    getter = () => reactiveGetter(source);
-    forceTrigger = true;
-  } else if (isArray(source)) {
-    isMultiSource = true;
-    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
-    getter = () => source.map((s) => {
-      if (isRef(s)) {
-        return s.value;
-      } else if (isReactive(s)) {
-        return reactiveGetter(s);
-      } else if (isFunction(s)) {
-        return callWithErrorHandling(s, instance, 2);
-      } else ;
-    });
-  } else if (isFunction(source)) {
-    if (cb) {
-      getter = () => callWithErrorHandling(source, instance, 2);
-    } else {
-      getter = () => {
-        if (cleanup) {
-          cleanup();
-        }
-        return callWithAsyncErrorHandling(
-          source,
-          instance,
-          3,
-          [onCleanup]
-        );
-      };
-    }
-  } else {
-    getter = NOOP;
-  }
-  if (cb && deep) {
-    const baseGetter = getter;
-    getter = () => traverse(baseGetter());
-  }
-  let cleanup;
-  let onCleanup = (fn) => {
-    cleanup = effect2.onStop = () => {
-      callWithErrorHandling(fn, instance, 4);
-      cleanup = effect2.onStop = void 0;
-    };
-  };
+function doWatch(source, cb, options = EMPTY_OBJ) {
+  const { immediate, deep, flush, once } = options;
+  const baseWatchOptions = extend({}, options);
   let ssrCleanup;
   if (isInSSRComponentSetup) {
-    onCleanup = NOOP;
-    if (!cb) {
-      getter();
-    } else if (immediate) {
-      callWithAsyncErrorHandling(cb, instance, 3, [
-        getter(),
-        isMultiSource ? [] : void 0,
-        onCleanup
-      ]);
-    }
     if (flush === "sync") {
       const ctx = useSSRContext();
       ssrCleanup = ctx.__watcherHandles || (ctx.__watcherHandles = []);
+    } else if (!cb || immediate) {
+      baseWatchOptions.once = true;
     } else {
-      return NOOP;
+      return {
+        stop: NOOP,
+        resume: NOOP,
+        pause: NOOP
+      };
     }
   }
-  let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
-  const job = () => {
-    if (!effect2.active || !effect2.dirty) {
-      return;
-    }
-    if (cb) {
-      const newValue = effect2.run();
-      if (deep || forceTrigger || (isMultiSource ? newValue.some((v, i) => hasChanged(v, oldValue[i])) : hasChanged(newValue, oldValue)) || false) {
-        if (cleanup) {
-          cleanup();
-        }
-        callWithAsyncErrorHandling(cb, instance, 3, [
-          newValue,
-          // pass undefined as the old value when it's changed for the first time
-          oldValue === INITIAL_WATCHER_VALUE ? void 0 : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE ? [] : oldValue,
-          onCleanup
-        ]);
-        oldValue = newValue;
+  const instance = currentInstance;
+  baseWatchOptions.call = (fn, type, args) => callWithAsyncErrorHandling(fn, instance, type, args);
+  let isPre = false;
+  if (flush === "post") {
+    baseWatchOptions.scheduler = (job) => {
+      queuePostRenderEffect(job, instance && instance.suspense);
+    };
+  } else if (flush !== "sync") {
+    isPre = true;
+    baseWatchOptions.scheduler = (job, isFirstRun) => {
+      if (isFirstRun) {
+        job();
+      } else {
+        queueJob(job);
       }
-    } else {
-      effect2.run();
+    };
+  }
+  baseWatchOptions.augmentJob = (job) => {
+    if (cb) {
+      job.flags |= 4;
+    }
+    if (isPre) {
+      job.flags |= 2;
+      if (instance) {
+        job.id = instance.uid;
+        job.i = instance;
+      }
     }
   };
-  job.allowRecurse = !!cb;
-  let scheduler;
-  if (flush === "sync") {
-    scheduler = job;
-  } else if (flush === "post") {
-    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense);
-  } else {
-    job.pre = true;
-    if (instance) job.id = instance.uid;
-    scheduler = () => queueJob(job);
-  }
-  const effect2 = new ReactiveEffect(getter, NOOP, scheduler);
-  const scope = getCurrentScope();
-  const unwatch = () => {
-    effect2.stop();
-    if (scope) {
-      remove(scope.effects, effect2);
-    }
-  };
-  if (cb) {
-    if (immediate) {
-      job();
-    } else {
-      oldValue = effect2.run();
-    }
-  } else if (flush === "post") {
-    queuePostRenderEffect(
-      effect2.run.bind(effect2),
-      instance && instance.suspense
-    );
-  } else {
-    effect2.run();
-  }
-  if (ssrCleanup) ssrCleanup.push(unwatch);
-  return unwatch;
+  const watchHandle = watch$1(source, cb, baseWatchOptions);
+  if (ssrCleanup) ssrCleanup.push(watchHandle);
+  return watchHandle;
 }
 function instanceWatch(source, value, options) {
   const publicThis = this.proxy;
@@ -4421,38 +4925,6 @@ function createPathGetter(ctx, path) {
     }
     return cur;
   };
-}
-function traverse(value, depth = Infinity, seen) {
-  if (depth <= 0 || !isObject$1(value) || value["__v_skip"]) {
-    return value;
-  }
-  seen = seen || /* @__PURE__ */ new Set();
-  if (seen.has(value)) {
-    return value;
-  }
-  seen.add(value);
-  depth--;
-  if (isRef(value)) {
-    traverse(value.value, depth, seen);
-  } else if (isArray(value)) {
-    for (let i = 0; i < value.length; i++) {
-      traverse(value[i], depth, seen);
-    }
-  } else if (isSet(value) || isMap(value)) {
-    value.forEach((v) => {
-      traverse(v, depth, seen);
-    });
-  } else if (isPlainObject$2(value)) {
-    for (const key in value) {
-      traverse(value[key], depth, seen);
-    }
-    for (const key of Object.getOwnPropertySymbols(value)) {
-      if (Object.prototype.propertyIsEnumerable.call(value, key)) {
-        traverse(value[key], depth, seen);
-      }
-    }
-  }
-  return value;
 }
 const getModelModifiers = (props, modelName) => {
   return modelName === "modelValue" || modelName === "model-value" ? props.modelModifiers : props[`${modelName}Modifiers`] || props[`${camelize(modelName)}Modifiers`] || props[`${hyphenate(modelName)}Modifiers`];
@@ -4646,7 +5118,7 @@ function renderComponentRoot(instance) {
     root.dirs = root.dirs ? root.dirs.concat(vnode.dirs) : vnode.dirs;
   }
   if (vnode.transition) {
-    root.transition = vnode.transition;
+    setTransitionHooks(root, vnode.transition);
   }
   {
     result = root;
@@ -5111,6 +5583,7 @@ function createComponentInstance(vnode, parent, suspense) {
     effect: null,
     update: null,
     // will be set synchronously right after creation
+    job: null,
     scope: new EffectScope(
       true
       /* detached */
@@ -5121,6 +5594,7 @@ function createComponentInstance(vnode, parent, suspense) {
     exposeProxy: null,
     withProxy: null,
     provides: parent ? parent.provides : Object.create(appContext.provides),
+    ids: parent ? parent.ids : ["", 0, 0],
     accessCache: null,
     renderCache: [],
     // local resolved assets
@@ -5253,6 +5727,7 @@ function setupStatefulComponent(instance, isSSR) {
     resetTracking();
     reset();
     if (isPromise(setupResult)) {
+      if (!isAsyncWrapper(instance)) markAsyncBoundary(instance);
       setupResult.then(unsetCurrentInstance, unsetCurrentInstance);
       if (isSSR) {
         return setupResult.then((resolvedResult) => {
@@ -5408,13 +5883,24 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.4.38";
+const version = "3.5.3";
 
 /**
-* @vue/runtime-dom v3.4.38
+* @vue/runtime-dom v3.5.3
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
+let policy = void 0;
+const tt = typeof window !== "undefined" && window.trustedTypes;
+if (tt) {
+  try {
+    policy = /* @__PURE__ */ tt.createPolicy("vue", {
+      createHTML: (val) => val
+    });
+  } catch (e) {
+  }
+}
+const unsafeToTrustedHTML = policy ? (val) => policy.createHTML(val) : (val) => val;
 const svgNS = "http://www.w3.org/2000/svg";
 const mathmlNS = "http://www.w3.org/1998/Math/MathML";
 const doc = typeof document !== "undefined" ? document : null;
@@ -5462,7 +5948,9 @@ const nodeOps = {
         if (start === end || !(start = start.nextSibling)) break;
       }
     } else {
-      templateContainer.innerHTML = namespace === "svg" ? `<svg>${content}</svg>` : namespace === "mathml" ? `<math>${content}</math>` : content;
+      templateContainer.innerHTML = unsafeToTrustedHTML(
+        namespace === "svg" ? `<svg>${content}</svg>` : namespace === "mathml" ? `<math>${content}</math>` : content
+      );
       const template = templateContainer.content;
       if (namespace === "svg" || namespace === "mathml") {
         const wrapper = template.firstChild;
@@ -5648,15 +6136,20 @@ function patchAttr(el, key, value, isSVG, instance, isBoolean = isSpecialBoolean
 }
 function patchDOMProp(el, key, value, parentComponent) {
   if (key === "innerHTML" || key === "textContent") {
-    if (value == null) return;
-    el[key] = value;
+    if (value != null) {
+      el[key] = key === "innerHTML" ? unsafeToTrustedHTML(value) : value;
+    }
     return;
   }
   const tag = el.tagName;
   if (key === "value" && tag !== "PROGRESS" && // custom elements may use _value internally
   !tag.includes("-")) {
     const oldValue = tag === "OPTION" ? el.getAttribute("value") || "" : el.value;
-    const newValue = value == null ? "" : String(value);
+    const newValue = value == null ? (
+      // #11647: value should be set as empty string for null and undefined,
+      // but <input type="checkbox"> should be set as 'on'.
+      el.type === "checkbox" ? "on" : ""
+    ) : String(value);
     if (oldValue !== newValue || !("_value" in el)) {
       el.value = newValue;
     }
@@ -5817,7 +6310,13 @@ function shouldSetAsProp(el, key, value, isSVG) {
   if (isNativeOn(key) && isString(value)) {
     return false;
   }
-  return key in el;
+  if (key in el) {
+    return true;
+  }
+  if (el._isVueCE && (/[A-Z]/.test(key) || !isString(value))) {
+    return true;
+  }
+  return false;
 }
 const getModelAssigner = (vnode) => {
   const fn = vnode.props["onUpdate:modelValue"] || false;
@@ -5925,12 +6424,16 @@ const vModelCheckbox = {
 };
 function setChecked(el, { value, oldValue }, vnode) {
   el._modelValue = value;
+  let checked;
   if (isArray(value)) {
-    el.checked = looseIndexOf(value, vnode.props.value) > -1;
+    checked = looseIndexOf(value, vnode.props.value) > -1;
   } else if (isSet(value)) {
-    el.checked = value.has(vnode.props.value);
-  } else if (value !== oldValue) {
-    el.checked = looseEqual(value, getCheckboxValue(el, true));
+    checked = value.has(vnode.props.value);
+  } else {
+    checked = looseEqual(value, getCheckboxValue(el, true));
+  }
+  if (el.checked !== checked) {
+    el.checked = checked;
   }
 }
 const vModelRadio = {
@@ -6032,7 +6535,9 @@ const createApp = (...args) => {
     if (!isFunction(component) && !component.render && !component.template) {
       component.template = container.innerHTML;
     }
-    container.innerHTML = "";
+    if (container.nodeType === 1) {
+      container.textContent = "";
+    }
     const proxy = mount(container, false, resolveRootNamespace(container));
     if (container instanceof Element) {
       container.removeAttribute("v-cloak");
@@ -10959,87 +11464,17 @@ function setLocale(custom) {
 }
 
 const _hoisted_1$7 = { class: "row" };
-const _hoisted_2$7 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.title",
-    class: "form-label"
-  },
-  "作品タイトル名",
-  -1
-  /* HOISTED */
-);
+const _hoisted_2$7 = ["textContent"];
 const _hoisted_3$7 = ["textContent"];
-const _hoisted_4$7 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "save_ns",
-    class: "form-label"
-  },
-  "プロジェクト名",
-  -1
-  /* HOISTED */
-);
-const _hoisted_5$7 = ["textContent"];
-const _hoisted_6$7 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.creator",
-    class: "form-label"
-  },
-  "著作者",
-  -1
-  /* HOISTED */
-);
+const _hoisted_4$7 = ["textContent"];
+const _hoisted_5$7 = { class: "input-group input-group-sm has-validation" };
+const _hoisted_6$7 = ["disabled"];
 const _hoisted_7$6 = ["textContent"];
-const _hoisted_8$6 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.cre_url",
-    class: "form-label"
-  },
-  "連絡先URL・mail",
-  -1
-  /* HOISTED */
-);
+const _hoisted_8$6 = ["textContent"];
 const _hoisted_9$6 = { class: "input-group input-group-sm has-validation" };
-const _hoisted_10$6 = ["disabled"];
-const _hoisted_11$5 = ["textContent"];
-const _hoisted_12$5 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.publisher",
-    class: "form-label"
-  },
-  "出版者",
-  -1
-  /* HOISTED */
-);
-const _hoisted_13$5 = ["textContent"];
-const _hoisted_14$5 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.pub_url",
-    class: "form-label"
-  },
-  "出版者URL",
-  -1
-  /* HOISTED */
-);
-const _hoisted_15$5 = { class: "input-group input-group-sm has-validation" };
-const _hoisted_16$5 = ["disabled"];
-const _hoisted_17$5 = ["textContent"];
-const _hoisted_18$5 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.detail",
-    class: "form-label"
-  },
-  "内容：プロジェクトの説明",
-  -1
-  /* HOISTED */
-);
-const _hoisted_19$4 = ["textContent"];
+const _hoisted_10$5 = ["disabled"];
+const _hoisted_11$4 = ["textContent"];
+const _hoisted_12$4 = ["textContent"];
 const _sfc_main$7 = /* @__PURE__ */ defineComponent({
   __name: "StgBasic",
   setup(__props) {
@@ -11135,7 +11570,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_title).valid }])
           },
           [
-            _hoisted_2$7,
+            _cache[9] || (_cache[9] = createBaseVNode(
+              "label",
+              {
+                for: "book.title",
+                class: "form-label"
+              },
+              "作品タイトル名",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11157,7 +11601,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_title))
-            }, null, 8, _hoisted_3$7)
+            }, null, 8, _hoisted_2$7)
           ],
           2
           /* CLASS */
@@ -11168,7 +11612,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 pb-2", { "was-validated": unref(mv_save_ns).valid }])
           },
           [
-            _hoisted_4$7,
+            _cache[10] || (_cache[10] = createBaseVNode(
+              "label",
+              {
+                for: "save_ns",
+                class: "form-label"
+              },
+              "プロジェクト名",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11190,7 +11643,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_save_ns))
-            }, null, 8, _hoisted_5$7)
+            }, null, 8, _hoisted_3$7)
           ],
           2
           /* CLASS */
@@ -11201,7 +11654,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_creator).valid }])
           },
           [
-            _hoisted_6$7,
+            _cache[11] || (_cache[11] = createBaseVNode(
+              "label",
+              {
+                for: "book.creator",
+                class: "form-label"
+              },
+              "著作者",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11223,7 +11685,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_creator))
-            }, null, 8, _hoisted_7$6)
+            }, null, 8, _hoisted_4$7)
           ],
           2
           /* CLASS */
@@ -11234,8 +11696,17 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_cre_url).valid }])
           },
           [
-            _hoisted_8$6,
-            createBaseVNode("div", _hoisted_9$6, [
+            _cache[12] || (_cache[12] = createBaseVNode(
+              "label",
+              {
+                for: "book.cre_url",
+                class: "form-label"
+              },
+              "連絡先URL・mail",
+              -1
+              /* HOISTED */
+            )),
+            createBaseVNode("div", _hoisted_5$7, [
               withDirectives(createBaseVNode(
                 "input",
                 {
@@ -11259,11 +11730,11 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                 class: "btn btn-info",
                 onClick: _cache[4] || (_cache[4] = ($event) => unref(openURL)(unref(v_cre_url))),
                 disabled: !unref(mv_cre_url).valid
-              }, "Open", 8, _hoisted_10$6),
+              }, "Open", 8, _hoisted_6$7),
               createBaseVNode("div", {
                 class: "invalid-feedback",
                 textContent: toDisplayString(unref(em_cre_url))
-              }, null, 8, _hoisted_11$5)
+              }, null, 8, _hoisted_7$6)
             ])
           ],
           2
@@ -11275,7 +11746,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_publisher).valid }])
           },
           [
-            _hoisted_12$5,
+            _cache[13] || (_cache[13] = createBaseVNode(
+              "label",
+              {
+                for: "book.publisher",
+                class: "form-label"
+              },
+              "出版者",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11297,7 +11777,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_publisher))
-            }, null, 8, _hoisted_13$5)
+            }, null, 8, _hoisted_8$6)
           ],
           2
           /* CLASS */
@@ -11308,8 +11788,17 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-6 px-1 py-2", { "was-validated": unref(mv_pub_url).valid }])
           },
           [
-            _hoisted_14$5,
-            createBaseVNode("div", _hoisted_15$5, [
+            _cache[14] || (_cache[14] = createBaseVNode(
+              "label",
+              {
+                for: "book.pub_url",
+                class: "form-label"
+              },
+              "出版者URL",
+              -1
+              /* HOISTED */
+            )),
+            createBaseVNode("div", _hoisted_9$6, [
               withDirectives(createBaseVNode(
                 "input",
                 {
@@ -11333,11 +11822,11 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
                 class: "btn btn-info",
                 onClick: _cache[7] || (_cache[7] = ($event) => unref(openURL)(unref(v_pub_url))),
                 disabled: !unref(mv_pub_url).valid
-              }, "Open", 8, _hoisted_16$5),
+              }, "Open", 8, _hoisted_10$5),
               createBaseVNode("div", {
                 class: "invalid-feedback",
                 textContent: toDisplayString(unref(em_pub_url))
-              }, null, 8, _hoisted_17$5)
+              }, null, 8, _hoisted_11$4)
             ])
           ],
           2
@@ -11349,7 +11838,16 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-12 px-1 py-3", { "was-validated": unref(mv_detail).valid }])
           },
           [
-            _hoisted_18$5,
+            _cache[15] || (_cache[15] = createBaseVNode(
+              "label",
+              {
+                for: "book.detail",
+                class: "form-label"
+              },
+              "内容：プロジェクトの説明",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "textarea",
               {
@@ -11370,7 +11868,7 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_detail))
-            }, null, 8, _hoisted_19$4)
+            }, null, 8, _hoisted_12$4)
           ],
           2
           /* CLASS */
@@ -11381,103 +11879,14 @@ const _sfc_main$7 = /* @__PURE__ */ defineComponent({
 });
 
 const _hoisted_1$6 = { class: "row" };
-const _hoisted_2$6 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.width",
-    class: "form-label"
-  },
-  "アプリの横幅",
-  -1
-  /* HOISTED */
-);
+const _hoisted_2$6 = ["textContent"];
 const _hoisted_3$6 = ["textContent"];
-const _hoisted_4$6 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.height",
-    class: "form-label"
-  },
-  "アプリの縦幅",
-  -1
-  /* HOISTED */
-);
+const _hoisted_4$6 = ["textContent"];
 const _hoisted_5$6 = ["textContent"];
-const _hoisted_6$6 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.version",
-    class: "form-label"
-  },
-  "バージョン",
-  -1
-  /* HOISTED */
-);
+const _hoisted_6$6 = ["textContent"];
 const _hoisted_7$5 = ["textContent"];
-const _hoisted_8$5 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.max_len",
-    class: "form-label"
-  },
-  "ログ保存長",
-  -1
-  /* HOISTED */
-);
-const _hoisted_9$5 = ["textContent"];
-const _hoisted_10$5 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "col-12 px-1 pt-3" },
-  [
-    /* @__PURE__ */ createBaseVNode("h5", null, "初期値")
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_11$4 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.tagch_msecwait",
-    class: "form-label"
-  },
-  "文字表示待ち時間(ms)",
-  -1
-  /* HOISTED */
-);
-const _hoisted_12$4 = ["textContent"];
-const _hoisted_13$4 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.auto_msecpagewait",
-    class: "form-label"
-  },
-  "自動読み時文字表示待ち(ms)",
-  -1
-  /* HOISTED */
-);
-const _hoisted_14$4 = ["textContent"];
-const _hoisted_15$4 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.escape",
-    class: "form-label"
-  },
-  "エスケープ文字",
-  -1
-  /* HOISTED */
-);
-const _hoisted_16$4 = ["textContent"];
-const _hoisted_17$4 = { class: "col-6 col-sm-3 px-1 py-2" };
-const _hoisted_18$4 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "book.bg_color",
-    class: "form-label"
-  },
-  "背景色",
-  -1
-  /* HOISTED */
-);
+const _hoisted_8$5 = ["textContent"];
+const _hoisted_9$5 = { class: "col-6 col-sm-3 px-1 py-2" };
 const _sfc_main$6 = /* @__PURE__ */ defineComponent({
   __name: "StgApp",
   setup(__props) {
@@ -11575,7 +11984,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_width).valid }])
           },
           [
-            _hoisted_2$6,
+            _cache[8] || (_cache[8] = createBaseVNode(
+              "label",
+              {
+                for: "book.width",
+                class: "form-label"
+              },
+              "アプリの横幅",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11597,7 +12015,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_width))
-            }, null, 8, _hoisted_3$6)
+            }, null, 8, _hoisted_2$6)
           ],
           2
           /* CLASS */
@@ -11608,7 +12026,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_height).valid }])
           },
           [
-            _hoisted_4$6,
+            _cache[9] || (_cache[9] = createBaseVNode(
+              "label",
+              {
+                for: "book.height",
+                class: "form-label"
+              },
+              "アプリの縦幅",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11630,7 +12057,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_height))
-            }, null, 8, _hoisted_5$6)
+            }, null, 8, _hoisted_3$6)
           ],
           2
           /* CLASS */
@@ -11641,7 +12068,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_version).valid }])
           },
           [
-            _hoisted_6$6,
+            _cache[10] || (_cache[10] = createBaseVNode(
+              "label",
+              {
+                for: "book.version",
+                class: "form-label"
+              },
+              "バージョン",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11663,7 +12099,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_version))
-            }, null, 8, _hoisted_7$5)
+            }, null, 8, _hoisted_4$6)
           ],
           2
           /* CLASS */
@@ -11674,7 +12110,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_max_len).valid }])
           },
           [
-            _hoisted_8$5,
+            _cache[11] || (_cache[11] = createBaseVNode(
+              "label",
+              {
+                for: "book.max_len",
+                class: "form-label"
+              },
+              "ログ保存長",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11696,19 +12141,36 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_max_len))
-            }, null, 8, _hoisted_9$5)
+            }, null, 8, _hoisted_5$6)
           ],
           2
           /* CLASS */
         ),
-        _hoisted_10$5,
+        _cache[16] || (_cache[16] = createBaseVNode(
+          "div",
+          { class: "col-12 px-1 pt-3" },
+          [
+            createBaseVNode("h5", null, "初期値")
+          ],
+          -1
+          /* HOISTED */
+        )),
         createBaseVNode(
           "div",
           {
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_tagch_msecwait).valid }])
           },
           [
-            _hoisted_11$4,
+            _cache[12] || (_cache[12] = createBaseVNode(
+              "label",
+              {
+                for: "book.tagch_msecwait",
+                class: "form-label"
+              },
+              "文字表示待ち時間(ms)",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11730,7 +12192,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_tagch_msecwait))
-            }, null, 8, _hoisted_12$4)
+            }, null, 8, _hoisted_6$6)
           ],
           2
           /* CLASS */
@@ -11741,7 +12203,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_auto_msecpagewait).valid }])
           },
           [
-            _hoisted_13$4,
+            _cache[13] || (_cache[13] = createBaseVNode(
+              "label",
+              {
+                for: "book.auto_msecpagewait",
+                class: "form-label"
+              },
+              "自動読み時文字表示待ち(ms)",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11763,7 +12234,7 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_auto_msecpagewait))
-            }, null, 8, _hoisted_14$4)
+            }, null, 8, _hoisted_7$5)
           ],
           2
           /* CLASS */
@@ -11774,7 +12245,16 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             class: normalizeClass(["col-6 col-sm-3 px-1 py-2", { "was-validated": unref(mv_escape).valid }])
           },
           [
-            _hoisted_15$4,
+            _cache[14] || (_cache[14] = createBaseVNode(
+              "label",
+              {
+                for: "book.escape",
+                class: "form-label"
+              },
+              "エスケープ文字",
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "input",
               {
@@ -11796,13 +12276,22 @@ const _sfc_main$6 = /* @__PURE__ */ defineComponent({
             createBaseVNode("div", {
               class: "invalid-feedback",
               textContent: toDisplayString(unref(em_escape))
-            }, null, 8, _hoisted_16$4)
+            }, null, 8, _hoisted_8$5)
           ],
           2
           /* CLASS */
         ),
-        createBaseVNode("div", _hoisted_17$4, [
-          _hoisted_18$4,
+        createBaseVNode("div", _hoisted_9$5, [
+          _cache[15] || (_cache[15] = createBaseVNode(
+            "label",
+            {
+              for: "book.bg_color",
+              class: "form-label"
+            },
+            "背景色",
+            -1
+            /* HOISTED */
+          )),
           withDirectives(createBaseVNode(
             "input",
             {
@@ -12016,102 +12505,23 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
 });
 
 const _hoisted_1$4 = { class: "row" };
-const _hoisted_2$4 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "col-12 px-1 pt-3" },
-  [
-    /* @__PURE__ */ createBaseVNode("h5", null, "暗号化しないフォルダ")
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_3$4 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
-const _hoisted_4$4 = { class: "form-check" };
-const _hoisted_5$4 = ["id", "onUpdate:modelValue"];
-const _hoisted_6$4 = ["textContent"];
-const _hoisted_7$3 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "col-12 px-1 pt-3" },
-  [
-    /* @__PURE__ */ createBaseVNode("h5", null, "デバッグスイッチ")
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_8$3 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
-const _hoisted_9$3 = { class: "form-check" };
-const _hoisted_10$3 = ["id", "onUpdate:modelValue"];
-const _hoisted_11$3 = ["for", "textContent"];
-const _hoisted_12$3 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "col-12 px-1 pt-3" },
-  [
-    /* @__PURE__ */ createBaseVNode("h5", null, "セーブデータ保存先を開く")
-  ],
-  -1
-  /* HOISTED */
-);
+const _hoisted_2$4 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
+const _hoisted_3$4 = { class: "form-check" };
+const _hoisted_4$4 = ["id", "onUpdate:modelValue"];
+const _hoisted_5$4 = ["textContent"];
+const _hoisted_6$4 = { class: "col-4 col-sm-3 col-lg-2 col-xxl-1" };
+const _hoisted_7$3 = { class: "form-check" };
+const _hoisted_8$3 = ["id", "onUpdate:modelValue"];
+const _hoisted_9$3 = ["for", "textContent"];
+const _hoisted_10$3 = { class: "col-6 col-sm-6 px-1 py-2" };
+const _hoisted_11$3 = { class: "form-check" };
+const _hoisted_12$3 = { class: "input-group input-group-sm" };
 const _hoisted_13$3 = { class: "col-6 col-sm-6 px-1 py-2" };
 const _hoisted_14$3 = { class: "form-check" };
-const _hoisted_15$3 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-label",
-    for: "open.dev.save_path"
-  },
-  "参考資料：開発者向け情報",
-  -1
-  /* HOISTED */
-);
-const _hoisted_16$3 = { class: "input-group input-group-sm" };
-const _hoisted_17$3 = /* @__PURE__ */ createBaseVNode(
-  "span",
-  { class: "input-group-text" },
-  "【セーブデータの保存場所】",
-  -1
-  /* HOISTED */
-);
-const _hoisted_18$3 = /* @__PURE__ */ createStaticVNode('<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check"><label class="form-label">ブラウザ版</label><div class="input-group input-group-sm"><span class="input-group-text">ブラウザのローカルストレージに保存されます</span></div></form></div>', 1);
-const _hoisted_19$3 = { class: "col-6 col-sm-6 px-1 py-2" };
-const _hoisted_20$3 = { class: "form-check" };
-const _hoisted_21$3 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-label",
-    for: "copy.folder_save_app"
-  },
-  "アプリ版（通常実行）",
-  -1
-  /* HOISTED */
-);
-const _hoisted_22$3 = { class: "input-group input-group-sm" };
-const _hoisted_23$3 = /* @__PURE__ */ createBaseVNode(
-  "span",
-  { class: "input-group-text" },
-  "手動で開いて下さい",
-  -1
-  /* HOISTED */
-);
-const _hoisted_24$3 = { class: "col-6 col-sm-6 px-1 py-2" };
-const _hoisted_25$3 = { class: "form-check" };
-const _hoisted_26$3 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-label",
-    for: "open.folder_save_dbg"
-  },
-  "アプリ版（デバッグ実行）",
-  -1
-  /* HOISTED */
-);
-const _hoisted_27$2 = { class: "input-group input-group-sm" };
-const _hoisted_28$2 = /* @__PURE__ */ createBaseVNode(
-  "span",
-  { class: "input-group-text" },
-  ".vscode/storage/",
-  -1
-  /* HOISTED */
-);
+const _hoisted_15$3 = { class: "input-group input-group-sm" };
+const _hoisted_16$3 = { class: "col-6 col-sm-6 px-1 py-2" };
+const _hoisted_17$3 = { class: "form-check" };
+const _hoisted_18$2 = { class: "input-group input-group-sm" };
 const _sfc_main$4 = /* @__PURE__ */ defineComponent({
   __name: "StgDebug",
   setup(__props) {
@@ -12119,63 +12529,102 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
     const { oCfg } = storeToRefs(stCfg);
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$4, [
-        _hoisted_2$4,
+        _cache[9] || (_cache[9] = createBaseVNode(
+          "div",
+          { class: "col-12 px-1 pt-3" },
+          [
+            createBaseVNode("h5", null, "暗号化しないフォルダ")
+          ],
+          -1
+          /* HOISTED */
+        )),
         (openBlock(true), createElementBlock(
           Fragment,
           null,
           renderList(unref(oCfg).code, (_v, nm) => {
-            return openBlock(), createElementBlock("div", _hoisted_3$4, [
-              createBaseVNode("div", _hoisted_4$4, [
+            return openBlock(), createElementBlock("div", _hoisted_2$4, [
+              createBaseVNode("div", _hoisted_3$4, [
                 withDirectives(createBaseVNode("input", {
                   id: "code." + nm,
                   class: "form-check-input mb-3 sn_checkbox",
                   type: "checkbox",
                   "onUpdate:modelValue": ($event) => unref(oCfg).code[nm] = $event
-                }, null, 8, _hoisted_5$4), [
+                }, null, 8, _hoisted_4$4), [
                   [vModelCheckbox, unref(oCfg).code[nm]]
                 ]),
                 createBaseVNode("label", {
                   class: "form-check-label",
                   textContent: toDisplayString(nm)
-                }, null, 8, _hoisted_6$4)
+                }, null, 8, _hoisted_5$4)
               ])
             ]);
           }),
           256
           /* UNKEYED_FRAGMENT */
         )),
-        _hoisted_7$3,
+        _cache[10] || (_cache[10] = createBaseVNode(
+          "div",
+          { class: "col-12 px-1 pt-3" },
+          [
+            createBaseVNode("h5", null, "デバッグスイッチ")
+          ],
+          -1
+          /* HOISTED */
+        )),
         (openBlock(true), createElementBlock(
           Fragment,
           null,
           renderList(unref(oCfg).debug, (_v, nm) => {
-            return openBlock(), createElementBlock("div", _hoisted_8$3, [
-              createBaseVNode("div", _hoisted_9$3, [
+            return openBlock(), createElementBlock("div", _hoisted_6$4, [
+              createBaseVNode("div", _hoisted_7$3, [
                 withDirectives(createBaseVNode("input", {
                   id: "debug." + nm,
                   class: "form-check-input mb-3 sn_checkbox",
                   type: "checkbox",
                   "onUpdate:modelValue": ($event) => unref(oCfg).debug[nm] = $event
-                }, null, 8, _hoisted_10$3), [
+                }, null, 8, _hoisted_8$3), [
                   [vModelCheckbox, unref(oCfg).debug[nm]]
                 ]),
                 createBaseVNode("label", {
                   class: "form-check-label",
                   for: "debug." + nm,
                   textContent: toDisplayString(nm)
-                }, null, 8, _hoisted_11$3)
+                }, null, 8, _hoisted_9$3)
               ])
             ]);
           }),
           256
           /* UNKEYED_FRAGMENT */
         )),
-        _hoisted_12$3,
-        createBaseVNode("div", _hoisted_13$3, [
-          createBaseVNode("form", _hoisted_14$3, [
-            _hoisted_15$3,
-            createBaseVNode("div", _hoisted_16$3, [
-              _hoisted_17$3,
+        _cache[11] || (_cache[11] = createBaseVNode(
+          "div",
+          { class: "col-12 px-1 pt-3" },
+          [
+            createBaseVNode("h5", null, "セーブデータ保存先を開く")
+          ],
+          -1
+          /* HOISTED */
+        )),
+        createBaseVNode("div", _hoisted_10$3, [
+          createBaseVNode("form", _hoisted_11$3, [
+            _cache[4] || (_cache[4] = createBaseVNode(
+              "label",
+              {
+                class: "form-label",
+                for: "open.dev.save_path"
+              },
+              "参考資料：開発者向け情報",
+              -1
+              /* HOISTED */
+            )),
+            createBaseVNode("div", _hoisted_12$3, [
+              _cache[3] || (_cache[3] = createBaseVNode(
+                "span",
+                { class: "input-group-text" },
+                "【セーブデータの保存場所】",
+                -1
+                /* HOISTED */
+              )),
               createBaseVNode("button", {
                 class: "btn btn-info btn-lg",
                 type: "button",
@@ -12185,12 +12634,27 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             ])
           ])
         ]),
-        _hoisted_18$3,
-        createBaseVNode("div", _hoisted_19$3, [
-          createBaseVNode("form", _hoisted_20$3, [
-            _hoisted_21$3,
-            createBaseVNode("div", _hoisted_22$3, [
-              _hoisted_23$3,
+        _cache[12] || (_cache[12] = createStaticVNode('<div class="col-6 col-sm-6 px-1 py-2"><form class="form-check"><label class="form-label">ブラウザ版</label><div class="input-group input-group-sm"><span class="input-group-text">ブラウザのローカルストレージに保存されます</span></div></form></div>', 1)),
+        createBaseVNode("div", _hoisted_13$3, [
+          createBaseVNode("form", _hoisted_14$3, [
+            _cache[6] || (_cache[6] = createBaseVNode(
+              "label",
+              {
+                class: "form-label",
+                for: "copy.folder_save_app"
+              },
+              "アプリ版（通常実行）",
+              -1
+              /* HOISTED */
+            )),
+            createBaseVNode("div", _hoisted_15$3, [
+              _cache[5] || (_cache[5] = createBaseVNode(
+                "span",
+                { class: "input-group-text" },
+                "手動で開いて下さい",
+                -1
+                /* HOISTED */
+              )),
               createBaseVNode("button", {
                 class: "btn btn-info",
                 type: "button",
@@ -12200,11 +12664,26 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
             ])
           ])
         ]),
-        createBaseVNode("div", _hoisted_24$3, [
-          createBaseVNode("form", _hoisted_25$3, [
-            _hoisted_26$3,
-            createBaseVNode("div", _hoisted_27$2, [
-              _hoisted_28$2,
+        createBaseVNode("div", _hoisted_16$3, [
+          createBaseVNode("form", _hoisted_17$3, [
+            _cache[8] || (_cache[8] = createBaseVNode(
+              "label",
+              {
+                class: "form-label",
+                for: "open.folder_save_dbg"
+              },
+              "アプリ版（デバッグ実行）",
+              -1
+              /* HOISTED */
+            )),
+            createBaseVNode("div", _hoisted_18$2, [
+              _cache[7] || (_cache[7] = createBaseVNode(
+                "span",
+                { class: "input-group-text" },
+                ".vscode/storage/",
+                -1
+                /* HOISTED */
+              )),
               createBaseVNode("button", {
                 class: "btn btn-info",
                 type: "button",
@@ -12263,135 +12742,56 @@ const ImgComparisonSlider = defineComponent({
 const _hoisted_1$3 = { class: "col-6 col-sm-4 px-2" };
 const _hoisted_2$3 = { class: "form-check form-switch py-2" };
 const _hoisted_3$3 = ["disabled"];
-const _hoisted_4$3 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "cnv.mat.pic",
-    class: "form-check-label"
-  },
-  "jpg・png を WebP に変換",
-  -1
-  /* HOISTED */
-);
-const _hoisted_5$3 = { class: "col-6 col-sm-3 px-1" };
-const _hoisted_6$3 = { class: "range-wrap" };
-const _hoisted_7$2 = ["textContent"];
-const _hoisted_8$2 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "cnv.mat.webp_quality",
-    class: "form-label"
-  },
-  "基本の変換画質",
-  -1
-  /* HOISTED */
-);
-const _hoisted_9$2 = ["disabled"];
-const _hoisted_10$2 = {
+const _hoisted_4$3 = { class: "col-6 col-sm-3 px-1" };
+const _hoisted_5$3 = { class: "range-wrap" };
+const _hoisted_6$3 = ["textContent"];
+const _hoisted_7$2 = ["disabled"];
+const _hoisted_8$2 = {
   key: 0,
   class: "col-6 col-sm-5 px-1"
 };
-const _hoisted_11$2 = { class: "table table-striped" };
-const _hoisted_12$2 = /* @__PURE__ */ createBaseVNode(
-  "thead",
-  null,
-  [
-    /* @__PURE__ */ createBaseVNode("tr", null, [
-      /* @__PURE__ */ createBaseVNode("th", null, "元画像サイズ合計"),
-      /* @__PURE__ */ createBaseVNode("th", null, "webp変換後"),
-      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_13$2 = ["textContent"];
-const _hoisted_14$2 = ["textContent"];
-const _hoisted_15$2 = ["textContent"];
-const _hoisted_16$2 = {
+const _hoisted_9$2 = { class: "table table-striped" };
+const _hoisted_10$2 = ["textContent"];
+const _hoisted_11$2 = ["textContent"];
+const _hoisted_12$2 = ["textContent"];
+const _hoisted_13$2 = {
   key: 1,
   class: "col-12 px-1"
 };
-const _hoisted_17$2 = {
+const _hoisted_14$2 = {
   id: "clpMatCnv",
   class: "accordion-collapse"
 };
-const _hoisted_18$2 = { class: "accordion-body p-0 tbody_scroll" };
-const _hoisted_19$2 = {
+const _hoisted_15$2 = { class: "accordion-body p-0 tbody_scroll" };
+const _hoisted_16$2 = {
   id: "tblMatCnv",
   class: "table table-striped table-hover accordion bg-secondary"
 };
-const _hoisted_20$2 = /* @__PURE__ */ createBaseVNode(
-  "thead",
-  { class: "sticky-top" },
-  [
-    /* @__PURE__ */ createBaseVNode("tr", null, [
-      /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
-      /* @__PURE__ */ createBaseVNode("th", null, "変換画質"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元画像サイズ"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "webp変換後"),
-      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_21$2 = ["href", "data-bs-target", "aria-controls"];
-const _hoisted_22$2 = ["textContent"];
-const _hoisted_23$2 = ["textContent"];
-const _hoisted_24$2 = ["textContent"];
-const _hoisted_25$2 = ["textContent"];
-const _hoisted_26$2 = ["textContent"];
-const _hoisted_27$1 = ["id", "aria-labelledby"];
-const _hoisted_28$1 = {
+const _hoisted_17$2 = ["href", "data-bs-target", "aria-controls"];
+const _hoisted_18$1 = ["textContent"];
+const _hoisted_19$1 = ["textContent"];
+const _hoisted_20$1 = ["textContent"];
+const _hoisted_21$1 = ["textContent"];
+const _hoisted_22$1 = ["textContent"];
+const _hoisted_23$1 = ["id", "aria-labelledby"];
+const _hoisted_24$1 = {
   colspan: "4",
   class: "accordion-body"
 };
-const _hoisted_29$1 = { class: "row" };
-const _hoisted_30$1 = { class: "col-6 col-sm-4 px-2" };
-const _hoisted_31$1 = { class: "form-check form-switch py-2" };
-const _hoisted_32$1 = ["id", "checked", "onChange", "disabled"];
-const _hoisted_33$1 = ["for"];
-const _hoisted_34$1 = { class: "col-6 col-sm-3 px-1" };
-const _hoisted_35$1 = { class: "range-wrap" };
-const _hoisted_36$1 = ["textContent"];
-const _hoisted_37$1 = ["onUpdate:modelValue", "disabled", "onChange"];
-const _hoisted_38$1 = { class: "col-12 px-1" };
-const _hoisted_39$1 = { class: "position-relative d-flex justify-content-evenly" };
-const _hoisted_40$1 = ["src"];
-const _hoisted_41$1 = ["src"];
-const _hoisted_42$1 = /* @__PURE__ */ createBaseVNode(
-  "svg",
-  {
-    slot: "handle",
-    width: "100",
-    xmlns: "http://www.w3.org/2000/svg",
-    viewBox: "-8 -3 16 6"
-  },
-  [
-    /* @__PURE__ */ createBaseVNode("path", {
-      stroke: "#fff",
-      d: "M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2",
-      "stroke-width": "2",
-      fill: "#ffa658",
-      "vector-effect": "non-scaling-stroke"
-    })
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_43$1 = /* @__PURE__ */ createBaseVNode(
-  "button",
-  {
-    type: "button",
-    class: "btn btn-light position-absolute top-50 start-0",
-    disabled: ""
-  },
-  "WebP",
-  -1
-  /* HOISTED */
-);
-const _hoisted_44 = ["textContent"];
+const _hoisted_25$1 = { class: "row" };
+const _hoisted_26$1 = { class: "col-6 col-sm-4 px-2" };
+const _hoisted_27$1 = { class: "form-check form-switch py-2" };
+const _hoisted_28$1 = ["id", "checked", "onChange", "disabled"];
+const _hoisted_29$1 = ["for"];
+const _hoisted_30$1 = { class: "col-6 col-sm-3 px-1" };
+const _hoisted_31$1 = { class: "range-wrap" };
+const _hoisted_32 = ["textContent"];
+const _hoisted_33 = ["onUpdate:modelValue", "disabled", "onChange"];
+const _hoisted_34 = { class: "col-12 px-1" };
+const _hoisted_35 = { class: "position-relative d-flex justify-content-evenly" };
+const _hoisted_36 = ["src"];
+const _hoisted_37 = ["src"];
+const _hoisted_38 = ["textContent"];
 const _sfc_main$3 = /* @__PURE__ */ defineComponent({
   __name: "StgImgOpt",
   setup(__props) {
@@ -12435,11 +12835,20 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
               }, null, 8, _hoisted_3$3), [
                 [vModelCheckbox, unref(oWss)["cnv.mat.pic"]]
               ]),
-              _hoisted_4$3
+              _cache[3] || (_cache[3] = createBaseVNode(
+                "label",
+                {
+                  for: "cnv.mat.pic",
+                  class: "form-check-label"
+                },
+                "jpg・png を WebP に変換",
+                -1
+                /* HOISTED */
+              ))
             ])
           ]),
-          createBaseVNode("div", _hoisted_5$3, [
-            createBaseVNode("div", _hoisted_6$3, [
+          createBaseVNode("div", _hoisted_4$3, [
+            createBaseVNode("div", _hoisted_5$3, [
               createBaseVNode(
                 "div",
                 {
@@ -12449,12 +12858,21 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 [
                   createBaseVNode("span", {
                     textContent: toDisplayString(unref(oWss)["cnv.mat.webp_quality"])
-                  }, null, 8, _hoisted_7$2)
+                  }, null, 8, _hoisted_6$3)
                 ],
                 4
                 /* STYLE */
               ),
-              _hoisted_8$2,
+              _cache[4] || (_cache[4] = createBaseVNode(
+                "label",
+                {
+                  for: "cnv.mat.webp_quality",
+                  class: "form-label"
+                },
+                "基本の変換画質",
+                -1
+                /* HOISTED */
+              )),
               withDirectives(createBaseVNode("input", {
                 type: "range",
                 id: "cnv.mat.webp_quality",
@@ -12465,37 +12883,63 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                 disabled: unref(hDisabled)["cnv.mat.pic"],
                 onChange: _cache[2] || (_cache[2] = ($event) => chgRangeWebpQDef($event)),
                 class: "form-range my-1 sn-vld"
-              }, null, 40, _hoisted_9$2), [
+              }, null, 40, _hoisted_7$2), [
                 [vModelText, unref(oWss)["cnv.mat.webp_quality"]]
               ])
             ])
           ]),
-          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_10$2, [
-            createBaseVNode("table", _hoisted_11$2, [
-              _hoisted_12$2,
+          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_8$2, [
+            createBaseVNode("table", _hoisted_9$2, [
+              _cache[5] || (_cache[5] = createBaseVNode(
+                "thead",
+                null,
+                [
+                  createBaseVNode("tr", null, [
+                    createBaseVNode("th", null, "元画像サイズ合計"),
+                    createBaseVNode("th", null, "webp変換後"),
+                    createBaseVNode("th", null, "削減率")
+                  ])
+                ],
+                -1
+                /* HOISTED */
+              )),
               createBaseVNode("tbody", null, [
                 createBaseVNode("tr", null, [
                   createBaseVNode("td", {
                     style: { "text-align": "right" },
                     textContent: toDisplayString(unref(oOptImg).sum.baseSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_13$2),
+                  }, null, 8, _hoisted_10$2),
                   createBaseVNode("td", {
                     style: { "text-align": "right" },
                     textContent: toDisplayString(unref(oOptImg).sum.webpSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_14$2),
+                  }, null, 8, _hoisted_11$2),
                   createBaseVNode("td", {
                     textContent: toDisplayString((unref(oOptImg).sum.webpSize / unref(oOptImg).sum.baseSize).toLocaleString("ja-JP"))
-                  }, null, 8, _hoisted_15$2)
+                  }, null, 8, _hoisted_12$2)
                 ])
               ])
             ])
           ])) : createCommentVNode("v-if", true),
-          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_16$2, [
+          unref(oOptImg).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_13$2, [
             createBaseVNode("div", null, [
-              createBaseVNode("div", _hoisted_17$2, [
-                createBaseVNode("div", _hoisted_18$2, [
-                  createBaseVNode("table", _hoisted_19$2, [
-                    _hoisted_20$2,
+              createBaseVNode("div", _hoisted_14$2, [
+                createBaseVNode("div", _hoisted_15$2, [
+                  createBaseVNode("table", _hoisted_16$2, [
+                    _cache[8] || (_cache[8] = createBaseVNode(
+                      "thead",
+                      { class: "sticky-top" },
+                      [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("th", null, "ファイル名"),
+                          createBaseVNode("th", null, "変換画質"),
+                          createBaseVNode("th", { style: { "text-align": "right" } }, "元画像サイズ"),
+                          createBaseVNode("th", { style: { "text-align": "right" } }, "webp変換後"),
+                          createBaseVNode("th", null, "削減率")
+                        ])
+                      ],
+                      -1
+                      /* HOISTED */
+                    )),
                     createBaseVNode("tbody", null, [
                       (openBlock(true), createElementBlock(
                         Fragment,
@@ -12517,32 +12961,32 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                               }, [
                                 createBaseVNode("td", {
                                   textContent: toDisplayString(e.nm)
-                                }, null, 8, _hoisted_22$2),
+                                }, null, 8, _hoisted_18$1),
                                 createBaseVNode("td", {
                                   textContent: toDisplayString(e.webp_q ?? `${unref(oWss)["cnv.mat.webp_quality"]} (基本の値)`)
-                                }, null, 8, _hoisted_23$2),
+                                }, null, 8, _hoisted_19$1),
                                 createBaseVNode("td", {
                                   style: { "text-align": "right" },
                                   textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
-                                }, null, 8, _hoisted_24$2),
+                                }, null, 8, _hoisted_20$1),
                                 createBaseVNode("td", {
                                   style: { "text-align": "right" },
                                   textContent: toDisplayString(e.webpSize.toLocaleString("ja-JP") + " byte")
-                                }, null, 8, _hoisted_25$2),
+                                }, null, 8, _hoisted_21$1),
                                 createBaseVNode("td", {
                                   textContent: toDisplayString((e.webpSize / e.baseSize).toLocaleString("ja-JP"))
-                                }, null, 8, _hoisted_26$2)
-                              ], 8, _hoisted_21$2),
+                                }, null, 8, _hoisted_22$1)
+                              ], 8, _hoisted_17$2),
                               createBaseVNode("tr", {
                                 id: e.id,
                                 "data-bs-parent": "#tblMatCnv",
                                 "aria-labelledby": e.id,
                                 class: "accordion-collapse collapse"
                               }, [
-                                createBaseVNode("td", _hoisted_28$1, [
-                                  createBaseVNode("div", _hoisted_29$1, [
-                                    createBaseVNode("div", _hoisted_30$1, [
-                                      createBaseVNode("div", _hoisted_31$1, [
+                                createBaseVNode("td", _hoisted_24$1, [
+                                  createBaseVNode("div", _hoisted_25$1, [
+                                    createBaseVNode("div", _hoisted_26$1, [
+                                      createBaseVNode("div", _hoisted_27$1, [
                                         createBaseVNode("input", {
                                           type: "checkbox",
                                           id: "cnv.mat.pic." + e.id,
@@ -12550,15 +12994,15 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                           onChange: ($event) => chkChg($event, e),
                                           disabled: unref(hDisabled)["cnv.mat.pic"],
                                           class: "form-check-input sn_checkbox sn-chk"
-                                        }, null, 40, _hoisted_32$1),
+                                        }, null, 40, _hoisted_28$1),
                                         createBaseVNode("label", {
                                           for: "cnv.mat.pic." + e.id,
                                           class: "form-check-label text-white"
-                                        }, "画質を個別設定", 8, _hoisted_33$1)
+                                        }, "画質を個別設定", 8, _hoisted_29$1)
                                       ])
                                     ]),
-                                    createBaseVNode("div", _hoisted_34$1, [
-                                      createBaseVNode("div", _hoisted_35$1, [
+                                    createBaseVNode("div", _hoisted_30$1, [
+                                      createBaseVNode("div", _hoisted_31$1, [
                                         createBaseVNode(
                                           "div",
                                           {
@@ -12568,7 +13012,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                           [
                                             withDirectives(createBaseVNode("span", {
                                               textContent: toDisplayString(e.webp_q)
-                                            }, null, 8, _hoisted_36$1), [
+                                            }, null, 8, _hoisted_32), [
                                               [vShow, e.webp_q !== void 0]
                                             ])
                                           ],
@@ -12584,13 +13028,13 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                           disabled: e.webp_q === void 0 || unref(hDisabled)["cnv.mat.pic"],
                                           onChange: ($event) => chgRangeWebpQ($event, e),
                                           class: "form-range my-1 sn-vld"
-                                        }, null, 40, _hoisted_37$1), [
+                                        }, null, 40, _hoisted_33), [
                                           [vModelText, unref(oOptImg).hSize[e.nm].webp_q]
                                         ])
                                       ])
                                     ]),
-                                    createBaseVNode("div", _hoisted_38$1, [
-                                      createBaseVNode("div", _hoisted_39$1, [
+                                    createBaseVNode("div", _hoisted_34, [
+                                      createBaseVNode("div", _hoisted_35, [
                                         createVNode(
                                           unref(ImgComparisonSlider),
                                           null,
@@ -12600,13 +13044,32 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                                 loading: "lazy",
                                                 slot: "first",
                                                 src: updImg(unref(oOptImg).sum.pathImgCmpWebP + e.fld_nm + ".webp")
-                                              }, null, 8, _hoisted_40$1),
+                                              }, null, 8, _hoisted_36),
                                               createBaseVNode("img", {
                                                 loading: "lazy",
                                                 slot: "second",
                                                 src: updImg(unref(oOptImg).sum.pathImgCmpBase + e.fld_nm + "." + e.ext)
-                                              }, null, 8, _hoisted_41$1),
-                                              _hoisted_42$1
+                                              }, null, 8, _hoisted_37),
+                                              _cache[6] || (_cache[6] = createBaseVNode(
+                                                "svg",
+                                                {
+                                                  slot: "handle",
+                                                  width: "100",
+                                                  xmlns: "http://www.w3.org/2000/svg",
+                                                  viewBox: "-8 -3 16 6"
+                                                },
+                                                [
+                                                  createBaseVNode("path", {
+                                                    stroke: "#fff",
+                                                    d: "M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2",
+                                                    "stroke-width": "2",
+                                                    fill: "#ffa658",
+                                                    "vector-effect": "non-scaling-stroke"
+                                                  })
+                                                ],
+                                                -1
+                                                /* HOISTED */
+                                              ))
                                             ]),
                                             _: 2
                                             /* DYNAMIC */
@@ -12614,18 +13077,28 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                                           1024
                                           /* DYNAMIC_SLOTS */
                                         ),
-                                        _hoisted_43$1,
+                                        _cache[7] || (_cache[7] = createBaseVNode(
+                                          "button",
+                                          {
+                                            type: "button",
+                                            class: "btn btn-light position-absolute top-50 start-0",
+                                            disabled: ""
+                                          },
+                                          "WebP",
+                                          -1
+                                          /* HOISTED */
+                                        )),
                                         createBaseVNode("button", {
                                           type: "button",
                                           class: "btn btn-light position-absolute bottom-50 end-0",
                                           textContent: toDisplayString(e.ext),
                                           disabled: ""
-                                        }, null, 8, _hoisted_44)
+                                        }, null, 8, _hoisted_38)
                                       ])
                                     ])
                                   ])
                                 ])
-                              ], 8, _hoisted_27$1)
+                              ], 8, _hoisted_23$1)
                             ],
                             64
                             /* STABLE_FRAGMENT */
@@ -12651,109 +13124,26 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
 const _hoisted_1$2 = { class: "col-6 col-sm-4 px-2" };
 const _hoisted_2$2 = { class: "form-check form-switch py-2" };
 const _hoisted_3$2 = ["disabled"];
-const _hoisted_4$2 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "cnv.mat.snd",
-    class: "form-check-label"
-  },
-  "mp3・wav をコーデック変換",
-  -1
-  /* HOISTED */
-);
-const _hoisted_5$2 = { class: "col-6 col-sm-3 px-1 sn_select" };
-const _hoisted_6$2 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "cnv.mat.snd.codec",
-    class: "form-label"
-  },
-  "音声コーデック",
-  -1
-  /* HOISTED */
-);
-const _hoisted_7$1 = /* @__PURE__ */ createBaseVNode(
-  "i",
-  { class: "fas fa-angle-down sn_select_v" },
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_8$1 = /* @__PURE__ */ createBaseVNode(
-  "option",
-  {
-    value: "opus",
-    selected: ""
-  },
-  "(.m4a) Opus",
-  -1
-  /* HOISTED */
-);
-const _hoisted_9$1 = /* @__PURE__ */ createBaseVNode(
-  "option",
-  { value: "aac" },
-  "(.aac) Advanced Audio Coding",
-  -1
-  /* HOISTED */
-);
-const _hoisted_10$1 = /* @__PURE__ */ createBaseVNode(
-  "option",
-  { value: "ogg" },
-  "(.ogg) Vorbis",
-  -1
-  /* HOISTED */
-);
-const _hoisted_11$1 = [
-  _hoisted_8$1,
-  _hoisted_9$1,
-  _hoisted_10$1
-];
-const _hoisted_12$1 = {
+const _hoisted_4$2 = { class: "col-6 col-sm-3 px-1 sn_select" };
+const _hoisted_5$2 = {
   key: 0,
   class: "col-6 col-sm-5 px-1"
 };
-const _hoisted_13$1 = { class: "table table-striped" };
-const _hoisted_14$1 = /* @__PURE__ */ createBaseVNode(
-  "thead",
-  null,
-  [
-    /* @__PURE__ */ createBaseVNode("tr", null, [
-      /* @__PURE__ */ createBaseVNode("th", null, "元音声サイズ合計"),
-      /* @__PURE__ */ createBaseVNode("th", null, "変換後"),
-      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_15$1 = ["textContent"];
-const _hoisted_16$1 = ["textContent"];
-const _hoisted_17$1 = ["textContent"];
-const _hoisted_18$1 = {
+const _hoisted_6$2 = { class: "table table-striped" };
+const _hoisted_7$1 = ["textContent"];
+const _hoisted_8$1 = ["textContent"];
+const _hoisted_9$1 = ["textContent"];
+const _hoisted_10$1 = {
   key: 1,
   class: "col-12 px-1"
 };
-const _hoisted_19$1 = { class: "p-0 tbody_scroll" };
-const _hoisted_20$1 = { class: "table table-striped bg-secondary" };
-const _hoisted_21$1 = /* @__PURE__ */ createBaseVNode(
-  "thead",
-  { class: "sticky-top" },
-  [
-    /* @__PURE__ */ createBaseVNode("tr", null, [
-      /* @__PURE__ */ createBaseVNode("th", null, "ファイル名"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "元音声サイズ"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "変換後"),
-      /* @__PURE__ */ createBaseVNode("th", null, "削減率")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_22$1 = ["href", "data-bs-target", "aria-controls"];
-const _hoisted_23$1 = ["textContent"];
-const _hoisted_24$1 = ["textContent"];
-const _hoisted_25$1 = ["textContent"];
-const _hoisted_26$1 = ["textContent"];
+const _hoisted_11$1 = { class: "p-0 tbody_scroll" };
+const _hoisted_12$1 = { class: "table table-striped bg-secondary" };
+const _hoisted_13$1 = ["href", "data-bs-target", "aria-controls"];
+const _hoisted_14$1 = ["textContent"];
+const _hoisted_15$1 = ["textContent"];
+const _hoisted_16$1 = ["textContent"];
+const _hoisted_17$1 = ["textContent"];
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
   __name: "StgSndOpt",
   setup(__props) {
@@ -12778,12 +13168,36 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
               }, null, 8, _hoisted_3$2), [
                 [vModelCheckbox, unref(oWss)["cnv.mat.snd"]]
               ]),
-              _hoisted_4$2
+              _cache[2] || (_cache[2] = createBaseVNode(
+                "label",
+                {
+                  for: "cnv.mat.snd",
+                  class: "form-check-label"
+                },
+                "mp3・wav をコーデック変換",
+                -1
+                /* HOISTED */
+              ))
             ])
           ]),
-          createBaseVNode("div", _hoisted_5$2, [
-            _hoisted_6$2,
-            _hoisted_7$1,
+          createBaseVNode("div", _hoisted_4$2, [
+            _cache[4] || (_cache[4] = createBaseVNode(
+              "label",
+              {
+                for: "cnv.mat.snd.codec",
+                class: "form-label"
+              },
+              "音声コーデック",
+              -1
+              /* HOISTED */
+            )),
+            _cache[5] || (_cache[5] = createBaseVNode(
+              "i",
+              { class: "fas fa-angle-down sn_select_v" },
+              null,
+              -1
+              /* HOISTED */
+            )),
             withDirectives(createBaseVNode(
               "select",
               {
@@ -12792,39 +13206,89 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                 "aria-label": ".form-select-sm example",
                 "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.mat.snd.codec"] = $event)
               },
-              _hoisted_11$1,
+              _cache[3] || (_cache[3] = [
+                createBaseVNode(
+                  "option",
+                  {
+                    value: "opus",
+                    selected: ""
+                  },
+                  "(.m4a) Opus",
+                  -1
+                  /* HOISTED */
+                ),
+                createBaseVNode(
+                  "option",
+                  { value: "aac" },
+                  "(.aac) Advanced Audio Coding",
+                  -1
+                  /* HOISTED */
+                ),
+                createBaseVNode(
+                  "option",
+                  { value: "ogg" },
+                  "(.ogg) Vorbis",
+                  -1
+                  /* HOISTED */
+                )
+              ]),
               512
               /* NEED_PATCH */
             ), [
               [vModelSelect, unref(oWss)["cnv.mat.snd.codec"]]
             ])
           ]),
-          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_12$1, [
-            createBaseVNode("table", _hoisted_13$1, [
-              _hoisted_14$1,
+          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_5$2, [
+            createBaseVNode("table", _hoisted_6$2, [
+              _cache[6] || (_cache[6] = createBaseVNode(
+                "thead",
+                null,
+                [
+                  createBaseVNode("tr", null, [
+                    createBaseVNode("th", null, "元音声サイズ合計"),
+                    createBaseVNode("th", null, "変換後"),
+                    createBaseVNode("th", null, "削減率")
+                  ])
+                ],
+                -1
+                /* HOISTED */
+              )),
               createBaseVNode("tbody", null, [
                 createBaseVNode("tr", null, [
                   createBaseVNode("td", {
                     style: { "text-align": "right" },
                     textContent: toDisplayString(unref(oOptSnd).sum.baseSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_15$1),
+                  }, null, 8, _hoisted_7$1),
                   createBaseVNode("td", {
                     style: { "text-align": "right" },
                     textContent: toDisplayString(unref(oOptSnd).sum.optSize.toLocaleString("ja-JP") + " byte")
-                  }, null, 8, _hoisted_16$1),
+                  }, null, 8, _hoisted_8$1),
                   createBaseVNode("td", {
                     textContent: toDisplayString((unref(oOptSnd).sum.optSize / unref(oOptSnd).sum.baseSize).toLocaleString("ja-JP"))
-                  }, null, 8, _hoisted_17$1)
+                  }, null, 8, _hoisted_9$1)
                 ])
               ])
             ])
           ])) : createCommentVNode("v-if", true),
-          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_18$1, [
+          unref(oOptSnd).sum.baseSize > 0 ? (openBlock(), createElementBlock("div", _hoisted_10$1, [
             createBaseVNode("div", null, [
               createBaseVNode("div", null, [
-                createBaseVNode("div", _hoisted_19$1, [
-                  createBaseVNode("table", _hoisted_20$1, [
-                    _hoisted_21$1,
+                createBaseVNode("div", _hoisted_11$1, [
+                  createBaseVNode("table", _hoisted_12$1, [
+                    _cache[7] || (_cache[7] = createBaseVNode(
+                      "thead",
+                      { class: "sticky-top" },
+                      [
+                        createBaseVNode("tr", null, [
+                          createBaseVNode("th", null, "ファイル名"),
+                          createBaseVNode("th", { style: { "text-align": "right" } }, "元音声サイズ"),
+                          createBaseVNode("th", { style: { "text-align": "right" } }, "変換後"),
+                          createBaseVNode("th", null, "削減率")
+                        ])
+                      ],
+                      -1
+                      /* HOISTED */
+                    )),
                     createBaseVNode("tbody", null, [
                       (openBlock(true), createElementBlock(
                         Fragment,
@@ -12840,19 +13304,19 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                           }, [
                             createBaseVNode("td", {
                               textContent: toDisplayString(e.nm)
-                            }, null, 8, _hoisted_23$1),
+                            }, null, 8, _hoisted_14$1),
                             createBaseVNode("td", {
                               style: { "text-align": "right" },
                               textContent: toDisplayString(e.baseSize.toLocaleString("ja-JP") + " byte")
-                            }, null, 8, _hoisted_24$1),
+                            }, null, 8, _hoisted_15$1),
                             createBaseVNode("td", {
                               style: { "text-align": "right" },
                               textContent: toDisplayString(e.optSize.toLocaleString("ja-JP") + " byte")
-                            }, null, 8, _hoisted_25$1),
+                            }, null, 8, _hoisted_16$1),
                             createBaseVNode("td", {
                               textContent: toDisplayString((e.optSize / e.baseSize).toLocaleString("ja-JP"))
-                            }, null, 8, _hoisted_26$1)
-                          ], 8, _hoisted_22$1);
+                            }, null, 8, _hoisted_17$1)
+                          ], 8, _hoisted_13$1);
                         }),
                         128
                         /* KEYED_FRAGMENT */
@@ -12873,149 +13337,35 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
 
 const _hoisted_1$1 = { class: "row" };
 const _hoisted_2$1 = { class: "col-6 col-sm-8 px-1 py-2" };
-const _hoisted_3$1 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "open.readme.txt",
-    class: "form-label"
-  },
-  "readme.txtを開く",
-  -1
-  /* HOISTED */
-);
-const _hoisted_4$1 = { class: "input-group input-group-sm" };
-const _hoisted_5$1 = /* @__PURE__ */ createBaseVNode(
-  "span",
-  { class: "input-group-text" },
-  "【build/include/readme.txt】",
-  -1
-  /* HOISTED */
-);
-const _hoisted_6$1 = { class: "col-6 col-sm-4 px-1 py-2" };
-const _hoisted_7 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  { class: "form-label" },
-  "フォントサイズ最適化",
-  -1
-  /* HOISTED */
-);
-const _hoisted_8 = { class: "form-check form-switch mb-1" };
-const _hoisted_9 = ["disabled"];
-const _hoisted_10 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    for: "cnv.font.subset",
-    class: "form-check-label"
-  },
-  "必要最小限にする",
-  -1
-  /* HOISTED */
-);
-const _hoisted_11 = { class: "col-12 px-1 py-3" };
-const _hoisted_12 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  { class: "form-label" },
-  "フォント情報",
-  -1
-  /* HOISTED */
-);
-const _hoisted_13 = { class: "table table-striped" };
-const _hoisted_14 = /* @__PURE__ */ createBaseVNode(
-  "thead",
-  null,
-  [
-    /* @__PURE__ */ createBaseVNode("tr", null, [
-      /* @__PURE__ */ createBaseVNode("th", null, "Filename"),
-      /* @__PURE__ */ createBaseVNode("th", null, "元ファイルの場所"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
-      /* @__PURE__ */ createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
-      /* @__PURE__ */ createBaseVNode("th", null, "削減率"),
-      /* @__PURE__ */ createBaseVNode("th", null, "ログ")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_15 = ["textContent"];
+const _hoisted_3$1 = { class: "input-group input-group-sm" };
+const _hoisted_4$1 = { class: "col-6 col-sm-4 px-1 py-2" };
+const _hoisted_5$1 = { class: "form-check form-switch mb-1" };
+const _hoisted_6$1 = ["disabled"];
+const _hoisted_7 = { class: "col-12 px-1 py-3" };
+const _hoisted_8 = { class: "table table-striped" };
+const _hoisted_9 = ["textContent"];
+const _hoisted_10 = ["textContent"];
+const _hoisted_11 = ["textContent"];
+const _hoisted_12 = ["textContent"];
+const _hoisted_13 = ["textContent"];
+const _hoisted_14 = ["onClick"];
+const _hoisted_15 = { key: 0 };
 const _hoisted_16 = ["textContent"];
-const _hoisted_17 = ["textContent"];
-const _hoisted_18 = ["textContent"];
-const _hoisted_19 = ["textContent"];
-const _hoisted_20 = ["onClick"];
-const _hoisted_21 = { key: 0 };
-const _hoisted_22 = /* @__PURE__ */ createBaseVNode(
-  "td",
-  null,
-  null,
-  -1
-  /* HOISTED */
-);
-const _hoisted_23 = ["textContent"];
-const _hoisted_24 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "col-12 px-1 pt-3" },
-  [
-    /* @__PURE__ */ createBaseVNode("h5", null, "アプリアイコン")
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_25 = { class: "container" };
-const _hoisted_26 = { class: "row" };
-const _hoisted_27 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_28 = ["src"];
-const _hoisted_29 = { class: "col-6 col-lg-2 col-xxl-1" };
-const _hoisted_30 = /* @__PURE__ */ createBaseVNode(
-  "div",
-  { class: "row" },
-  [
-    /* @__PURE__ */ createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
-      /* @__PURE__ */ createBaseVNode("h6", null, "画像から自動作成")
-    ])
-  ],
-  -1
-  /* HOISTED */
-);
-const _hoisted_31 = { class: "row" };
-const _hoisted_32 = { class: "col form-check mb-3" };
-const _hoisted_33 = { class: "list-group" };
-const _hoisted_34 = { class: "list-group-item" };
-const _hoisted_35 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-check-label stretched-link",
-    for: "rgCnvIconShape0"
-  },
-  "加工しない",
-  -1
-  /* HOISTED */
-);
-const _hoisted_36 = { class: "list-group-item" };
-const _hoisted_37 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-check-label stretched-link",
-    for: "rgCnvIconShape1"
-  },
-  "丸に",
-  -1
-  /* HOISTED */
-);
-const _hoisted_38 = { class: "list-group-item" };
-const _hoisted_39 = /* @__PURE__ */ createBaseVNode(
-  "label",
-  {
-    class: "form-check-label stretched-link",
-    for: "rgCnvIconShape2"
-  },
-  "角丸に",
-  -1
-  /* HOISTED */
-);
-const _hoisted_40 = { class: "row" };
-const _hoisted_41 = { class: "col form-check mb-3" };
-const _hoisted_42 = { class: "input-group input-group-sm" };
-const _hoisted_43 = ["textContent"];
+const _hoisted_17 = { class: "container" };
+const _hoisted_18 = { class: "row" };
+const _hoisted_19 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_20 = ["src"];
+const _hoisted_21 = { class: "col-6 col-lg-2 col-xxl-1" };
+const _hoisted_22 = { class: "row" };
+const _hoisted_23 = { class: "col form-check mb-3" };
+const _hoisted_24 = { class: "list-group" };
+const _hoisted_25 = { class: "list-group-item" };
+const _hoisted_26 = { class: "list-group-item" };
+const _hoisted_27 = { class: "list-group-item" };
+const _hoisted_28 = { class: "row" };
+const _hoisted_29 = { class: "col form-check mb-3" };
+const _hoisted_30 = { class: "input-group input-group-sm" };
+const _hoisted_31 = ["textContent"];
 const _sfc_main$1 = /* @__PURE__ */ defineComponent({
   __name: "StgPkg",
   setup(__props) {
@@ -13041,9 +13391,24 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock("div", _hoisted_1$1, [
         createBaseVNode("div", _hoisted_2$1, [
-          _hoisted_3$1,
-          createBaseVNode("div", _hoisted_4$1, [
-            _hoisted_5$1,
+          _cache[6] || (_cache[6] = createBaseVNode(
+            "label",
+            {
+              for: "open.readme.txt",
+              class: "form-label"
+            },
+            "readme.txtを開く",
+            -1
+            /* HOISTED */
+          )),
+          createBaseVNode("div", _hoisted_3$1, [
+            _cache[5] || (_cache[5] = createBaseVNode(
+              "span",
+              { class: "input-group-text" },
+              "【build/include/readme.txt】",
+              -1
+              /* HOISTED */
+            )),
             createBaseVNode("button", {
               type: "button",
               id: "open.readme.txt",
@@ -13052,25 +13417,61 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
             }, "Open")
           ])
         ]),
-        createBaseVNode("div", _hoisted_6$1, [
-          _hoisted_7,
-          createBaseVNode("div", _hoisted_8, [
+        createBaseVNode("div", _hoisted_4$1, [
+          _cache[8] || (_cache[8] = createBaseVNode(
+            "label",
+            { class: "form-label" },
+            "フォントサイズ最適化",
+            -1
+            /* HOISTED */
+          )),
+          createBaseVNode("div", _hoisted_5$1, [
             withDirectives(createBaseVNode("input", {
               type: "checkbox",
               id: "cnv.font.subset",
               "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => unref(oWss)["cnv.font.subset"] = $event),
               disabled: unref(hDisabled)["cnv.font.subset"],
               class: "form-check-input sn_checkbox sn-chk"
-            }, null, 8, _hoisted_9), [
+            }, null, 8, _hoisted_6$1), [
               [vModelCheckbox, unref(oWss)["cnv.font.subset"]]
             ]),
-            _hoisted_10
+            _cache[7] || (_cache[7] = createBaseVNode(
+              "label",
+              {
+                for: "cnv.font.subset",
+                class: "form-check-label"
+              },
+              "必要最小限にする",
+              -1
+              /* HOISTED */
+            ))
           ])
         ]),
-        createBaseVNode("div", _hoisted_11, [
-          _hoisted_12,
-          createBaseVNode("table", _hoisted_13, [
-            _hoisted_14,
+        createBaseVNode("div", _hoisted_7, [
+          _cache[11] || (_cache[11] = createBaseVNode(
+            "label",
+            { class: "form-label" },
+            "フォント情報",
+            -1
+            /* HOISTED */
+          )),
+          createBaseVNode("table", _hoisted_8, [
+            _cache[10] || (_cache[10] = createBaseVNode(
+              "thead",
+              null,
+              [
+                createBaseVNode("tr", null, [
+                  createBaseVNode("th", null, "Filename"),
+                  createBaseVNode("th", null, "元ファイルの場所"),
+                  createBaseVNode("th", { style: { "text-align": "right" } }, "Size（元ファイル）"),
+                  createBaseVNode("th", { style: { "text-align": "right" } }, "Size（出力結果）"),
+                  createBaseVNode("th", null, "削減率"),
+                  createBaseVNode("th", null, "ログ")
+                ])
+              ],
+              -1
+              /* HOISTED */
+            )),
             createBaseVNode("tbody", null, [
               (openBlock(true), createElementBlock(
                 Fragment,
@@ -13090,40 +13491,46 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                         [
                           createBaseVNode("td", {
                             textContent: toDisplayString(e.nm)
-                          }, null, 8, _hoisted_15),
+                          }, null, 8, _hoisted_9),
                           createBaseVNode("td", {
                             textContent: toDisplayString(e.mes)
-                          }, null, 8, _hoisted_16),
+                          }, null, 8, _hoisted_10),
                           createBaseVNode("td", {
                             style: { "text-align": "right" },
                             textContent: toDisplayString(e.iSize.toLocaleString("ja-JP") + " byte")
-                          }, null, 8, _hoisted_17),
+                          }, null, 8, _hoisted_11),
                           createBaseVNode("td", {
                             style: { "text-align": "right" },
                             textContent: toDisplayString(e.oSize.toLocaleString("ja-JP") + " byte")
-                          }, null, 8, _hoisted_18),
+                          }, null, 8, _hoisted_12),
                           createBaseVNode("td", {
                             textContent: toDisplayString((e.oSize / e.iSize).toLocaleString("ja-JP"))
-                          }, null, 8, _hoisted_19),
+                          }, null, 8, _hoisted_13),
                           createBaseVNode("td", null, [
                             createBaseVNode("button", {
                               type: "button",
                               id: "open.readme.txt",
                               class: "btn btn-info btn-sm",
                               onClick: ($event) => unref(openURL)("ws-file:///core/font/subset_font_" + e.nm + ".txt")
-                            }, "Open", 8, _hoisted_20)
+                            }, "Open", 8, _hoisted_14)
                           ])
                         ],
                         4
                         /* STYLE */
                       ),
-                      e.err ? (openBlock(), createElementBlock("tr", _hoisted_21, [
-                        _hoisted_22,
+                      e.err ? (openBlock(), createElementBlock("tr", _hoisted_15, [
+                        _cache[9] || (_cache[9] = createBaseVNode(
+                          "td",
+                          null,
+                          null,
+                          -1
+                          /* HOISTED */
+                        )),
                         createBaseVNode("td", {
                           textContent: toDisplayString(e.err),
                           colspan: "5",
                           style: { "color": "red" }
-                        }, null, 8, _hoisted_23)
+                        }, null, 8, _hoisted_16)
                       ])) : createCommentVNode("v-if", true)
                     ],
                     64
@@ -13136,23 +13543,41 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
             ])
           ])
         ]),
-        _hoisted_24,
-        createBaseVNode("div", _hoisted_25, [
-          createBaseVNode("div", _hoisted_26, [
-            createBaseVNode("div", _hoisted_27, [
+        _cache[16] || (_cache[16] = createBaseVNode(
+          "div",
+          { class: "col-12 px-1 pt-3" },
+          [
+            createBaseVNode("h5", null, "アプリアイコン")
+          ],
+          -1
+          /* HOISTED */
+        )),
+        createBaseVNode("div", _hoisted_17, [
+          createBaseVNode("div", _hoisted_18, [
+            createBaseVNode("div", _hoisted_19, [
               createBaseVNode("img", {
                 loading: "lazy",
                 src: srcIcon.value,
                 onClick: selectIcon,
                 class: "img-fluid sn-dragdrop"
-              }, null, 8, _hoisted_28)
+              }, null, 8, _hoisted_20)
             ]),
-            createBaseVNode("div", _hoisted_29, [
-              _hoisted_30,
-              createBaseVNode("div", _hoisted_31, [
-                createBaseVNode("div", _hoisted_32, [
-                  createBaseVNode("ul", _hoisted_33, [
-                    createBaseVNode("li", _hoisted_34, [
+            createBaseVNode("div", _hoisted_21, [
+              _cache[15] || (_cache[15] = createBaseVNode(
+                "div",
+                { class: "row" },
+                [
+                  createBaseVNode("div", { class: "col-12 px-1 pt-3" }, [
+                    createBaseVNode("h6", null, "画像から自動作成")
+                  ])
+                ],
+                -1
+                /* HOISTED */
+              )),
+              createBaseVNode("div", _hoisted_22, [
+                createBaseVNode("div", _hoisted_23, [
+                  createBaseVNode("ul", _hoisted_24, [
+                    createBaseVNode("li", _hoisted_25, [
                       withDirectives(createBaseVNode(
                         "input",
                         {
@@ -13170,9 +13595,18 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_35
+                      _cache[12] || (_cache[12] = createBaseVNode(
+                        "label",
+                        {
+                          class: "form-check-label stretched-link",
+                          for: "rgCnvIconShape0"
+                        },
+                        "加工しない",
+                        -1
+                        /* HOISTED */
+                      ))
                     ]),
-                    createBaseVNode("li", _hoisted_36, [
+                    createBaseVNode("li", _hoisted_26, [
                       withDirectives(createBaseVNode(
                         "input",
                         {
@@ -13189,9 +13623,18 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_37
+                      _cache[13] || (_cache[13] = createBaseVNode(
+                        "label",
+                        {
+                          class: "form-check-label stretched-link",
+                          for: "rgCnvIconShape1"
+                        },
+                        "丸に",
+                        -1
+                        /* HOISTED */
+                      ))
                     ]),
-                    createBaseVNode("li", _hoisted_38, [
+                    createBaseVNode("li", _hoisted_27, [
                       withDirectives(createBaseVNode(
                         "input",
                         {
@@ -13208,14 +13651,23 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       ), [
                         [vModelRadio, unref(oWss)["cnv.icon.shape"]]
                       ]),
-                      _hoisted_39
+                      _cache[14] || (_cache[14] = createBaseVNode(
+                        "label",
+                        {
+                          class: "form-check-label stretched-link",
+                          for: "rgCnvIconShape2"
+                        },
+                        "角丸に",
+                        -1
+                        /* HOISTED */
+                      ))
                     ])
                   ])
                 ])
               ]),
-              createBaseVNode("div", _hoisted_40, [
-                createBaseVNode("div", _hoisted_41, [
-                  createBaseVNode("div", _hoisted_42, [
+              createBaseVNode("div", _hoisted_28, [
+                createBaseVNode("div", _hoisted_29, [
+                  createBaseVNode("div", _hoisted_30, [
                     createBaseVNode("button", {
                       type: "button",
                       onClick: selectIcon,
@@ -13225,7 +13677,7 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
                       class: "alert alert-danger",
                       role: "alert",
                       textContent: toDisplayString(select_icon_err.value)
-                    }, null, 8, _hoisted_43), [
+                    }, null, 8, _hoisted_31), [
                       [vShow, select_icon_err.value !== ""]
                     ])
                   ])
