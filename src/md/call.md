@@ -5,7 +5,7 @@
 - fn``処理中のスクリプト`スクリプトファイル名`コール先のスクリプトファイル[call fn=ext_*]のようにワイルドカードをサポート。マッチするスクリプトを順不同にコールする。（ワイルドカードは後方のみ）
 - label``スクリプトの先頭`ラベル名`コール先のスクリプトファイルにあるラベル`クリック時ジャンプ先で「&sn.eventLabel」にて値を受け取れる
 - count``false`true、false`タグ位置を既読とするか
-- clear_local_event``何もしない`true、false`trueの場合は[clear_event]を行なってからコールする
+- clear_local_event``なにもしない`true、false`trueの場合は[clear_event]を行なってからコールする
 
 ***
 ${1{{ジャンプ先}}}

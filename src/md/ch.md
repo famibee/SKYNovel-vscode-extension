@@ -7,10 +7,10 @@
 - text`y``表示したい文字列`ルビ文法（《》）も解析する。改行も [r] で出来る
 - record``true`true、false`履歴に保存するか
 - wait``現在の文字表示速度`0〜；ミリ秒`一時的な文字表示速度。0で瞬時
-- style``何もしない`CSS style`文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
-- r_style``何もしない`CSS style`ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る<br/>※[ch]でのみ、背景styleなどを一塊とする。【[span style='']文字[span]】と動作が異なる
-- ch_in_style``何もしない`文字出現演出名`[ch_in_style]で定義した文字出現演出名
-- ch_out_style``何もしない`文字消去演出名`[ch_out_style]で定義した文字消去演出名
+- style``なにもしない`CSS style`文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- r_style``なにもしない`CSS style`ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る<br/>※[ch]でのみ、背景styleなどを一塊とする。【[span style='']文字[span]】と動作が異なる
+- ch_in_style``なにもしない`文字出現演出名`[ch_in_style]で定義した文字出現演出名
+- ch_out_style``なにもしない`文字消去演出名`[ch_out_style]で定義した文字消去演出名
 
 ***
 layer=${1{{文字レイヤ名}}} page=${2|fore,back|} text=${3:表示したい文字列} ch_in_style=${4{{文字出現演出名}}} ch_out_style=${5{{文字消去演出名}}}

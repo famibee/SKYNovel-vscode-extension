@@ -592,7 +592,8 @@ v.type === 'bool' ?' pt-2' :''
 			btn_face	: '場面転換'
 				+ (hPrm.rule?.val ?` ${hPrm.rule?.val}ルールで` :'')
 				+ (hPrm.time?.val ?` ${hPrm.time.val}msで` :'')
-				+ (` ${hPrm.bg?.val}へ変更` ?? '(消去)'),
+				+ (` ${hPrm.bg?.val}へ変更`),
+			//	+ (` ${hPrm.bg?.val}へ変更` ?? '(消去)'),	// なにこれ
 			args		: [
 				{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg\/'},
 				{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},

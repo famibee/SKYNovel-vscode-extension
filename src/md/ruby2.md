@@ -6,8 +6,8 @@
 - page``fore`fore、back`ページの裏表
 - t`y``文字列`親文字列
 - r`y``文字列`ルビ文字列
-- style``何もしない`CSS style`文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
-- r_style``何もしない`CSS style`ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- style``なにもしない`CSS style`文字の CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
+- r_style``なにもしない`CSS style`ルビの CSS Style を指定する。<br/>このタグによる表示のみに適用、以降は元に戻る
 - wait``現在の文字表示速度`0〜；ミリ秒`一時的な文字表示速度。0で瞬時
 
 ***

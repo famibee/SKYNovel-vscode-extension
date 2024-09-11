@@ -1,3 +1,6 @@
+## v4.16.11
+- docs: [page]（ページ移動）key属性追加
+- docs: 表記ゆれ統一「何もしない」→「なにもしない」
 ## v4.16.10
 - docs: [page]（ページ移動）to属性候補に exit、load 追加
 - docs: 組み込み変数 const.sn.screenResolutionX、Y 追加
