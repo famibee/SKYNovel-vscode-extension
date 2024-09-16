@@ -13,7 +13,7 @@ const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import {IExts, IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
-import {CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import {CodeAction, CodeActionKind, CodeActionParams, CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentEdit, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
@@ -146,6 +146,8 @@ const KW_VAR = [
 type T_KW_VAR = typeof KW_VAR[number]; // union type
 
 type T_KW = T_KW_FIX | T_KW_VAR;
+
+const	ACT_NFD_CODE	= 'NFD警告';
 
 
 export class LspWs {
@@ -588,8 +590,10 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 			.flatMap(m=> [...m.values()]
 			.flatMap(a=> a.map(l=> l.uri)))
 		);
-		this.#hScript[pp] = this.#grm.resolveScript(chg.document.getText());
+		const s = chg.document.getText();
+		this.#hScript[pp] = this.#grm.resolveScript(s);
 		this.#scanScript(fp);
+		this.#scanNFD(pp, s, chg.document);
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
 		// すべて追加走査（重複走査・永久ループに留意）
@@ -612,6 +616,32 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		this.#scanEnd();
 	}
 	#sFpNeedScan	= new Set<string>;	// 派生スキャン必要sn（単体ファイル走査時）
+
+		static	readonly	#REG_NFD = /.\p{Mn}/ug;
+			// https://regex101.com/r/zFiIRQ/1
+			// \p{Lm} ... 【んﾞ】にマッチ。だがここでは関係なさげ
+		#scanNFD(pp: string, s: string, doc?: TextDocument) {
+			this.#aEndingJob.push(()=> {
+				const fp = this.#PATH_PRJ + pp;	// loc.uri is fp
+				const {mes, sev} = this.#hDiag.NFD警告;
+				const mat = s.matchAll(LspWs.#REG_NFD);
+				if (doc) {
+					for (const m of mat) {
+						const {line, character} = doc.positionAt(m.index);
+						(this.#fp2Diag[fp] ??= []).push(Diagnostic.create(
+							Range.create(line, character +1, line, character +1 +m.length),
+							mes.replace('$', m[0]), sev, ACT_NFD_CODE
+						));
+					}
+					return;
+				}
+
+				for (const m of mat) (this.#fp2Diag[fp] ??= []).push(Diagnostic.create(
+					Range.create(0, 0, 0, 0 +1),
+					mes.replace('$', m[0]), sev, ACT_NFD_CODE
+				));
+			});
+		}
 
 	// === ファイル変更イベント（手入力以外が対象） ===
 	// LanguageClientOptions.synchronize.fileEvents（ActivityBar.ts）での設定による
@@ -1064,6 +1094,40 @@ ${
 		return this.#hSn2aDsOutline[pp];
 	}
 
+	// === コードアクション ===
+	onCodeAction({context :{diagnostics}, textDocument: {uri}, range}: CodeActionParams): CodeAction[] {
+		// この拡張機能が生成した警告のみを対象とする
+		// lsp-sampleで生成した警告の発行元は"ex"であるのでこれでフィルタリング
+		const aDiag = diagnostics.filter(d=> d.code === ACT_NFD_CODE);
+		if (aDiag.length === 0) return [];
+
+		// uriからドキュメントを取得
+		if (! this.#checkRelated(uri)) return [];
+		const d = this.docs.get(uri);
+		if (! d) return [];
+//console.log(`fn:LspWs.ts line:1089 aDiag.len:${aDiag.length} range:${JSON.stringify(range)}`);
+
+		return aDiag.map(di=> {
+			// 警告範囲のテキスト、つまり大文字のみで構成された単語を取得
+			const rng = di.range;
+			--rng.start.character;
+			const sOrg = d.getText(rng);
+//console.log(`fn:LspWs.ts line:1118 == rng=${JSON.stringify(rng)} sOrg:${sOrg}: code:${di.code}`);
+			// コードアクションを生成
+			const act = CodeAction.create(
+				'NFC に変換',
+				{documentChanges: [TextDocumentEdit.create(
+				//x	d,	// これだと電球が出ない
+					{uri: d.uri, version: d.version},
+					[TextEdit.replace(rng, sOrg.normalize('NFC'))],
+				)]},
+				CodeActionKind.QuickFix,
+			);
+			act.diagnostics = [di];	// コードアクションと警告を関連付ける
+			return act;
+		});
+	}
+
 	// === リンク ===
 	onDocumentLinks(prm: DocumentLinkParams): DocumentLink[] | DocumentSymbol[] | null {
 		const {uri} = prm.textDocument;		// 'file://'付き
@@ -1207,6 +1271,9 @@ WorkspaceEdit
 			this.#hScript[pp] = this.#grm.resolveScript(s);
 			const fp = this.#PATH_PRJ + pp;
 			this.#scanScript(fp);
+
+			const d = this.docs.get('file://'+ fp);
+			this.#scanNFD(pp, s, d);
 		}
 		//console.log(`fn:LspWs.ts #scanAll() 8: #scanEnd()`);
 		this.#scanEnd();
@@ -1317,9 +1384,7 @@ WorkspaceEdit
 				// loc.uri=/Users/[略]/win/doc/prj/script/main.sn:
 				// loc.uri=/Users/[略]/mac/doc/prj/script/main.sn:
 			(this.#fp2Diag[loc.uri] ??= []).push(Diagnostic.create(
-				loc.range,
-				mes.replace('$', nm),
-				sev
+				loc.range, mes.replace('$', nm), sev
 			));
 		}
 
@@ -1500,6 +1565,10 @@ WorkspaceEdit
 		snippet_ext属性異常: {
 			mes	: '指定できる値は【SP_GSM, SOUND, FONT, SCRIPT】のいずれかです',
 			sev	: DiagnosticSeverity.Error,
+		},
+		NFD警告: {
+			mes	: '文字の Unicode正規化形式が NFD（$）です',
+			sev	: DiagnosticSeverity.Warning,
 		},
 	};
 

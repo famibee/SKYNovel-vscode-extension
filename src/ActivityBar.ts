@@ -137,10 +137,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
 				ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
 
-				this.#tlBox = new ToolBox(ctx);
-				ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', this.#tlBox));
+				this.#tlBox = ToolBox.init(ctx);
 
-				ctx.subscriptions.push(languages.registerHoverProvider({scheme: 'file', language: 'skynovel'}, this.#workSps));
+				ctx.subscriptions.push(languages.registerHoverProvider(docsel, this.#workSps));
 			}),
 		]).then(()=> {
 			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));

@@ -51,6 +51,7 @@ export type T_CFG = {
 	},
 	debug	: {	// デバッグ情報
 		devtool		: boolean,
+		dumpHtm		: boolean,
 		token		: boolean,
 		tag			: boolean,
 		putCh		: boolean,
@@ -115,6 +116,7 @@ export class ConfigBase implements IConfig {
 		},
 		debug	: {
 			devtool		: false,
+			dumpHtm		: false,
 			token		: false,
 			tag			: false,
 			putCh		: false,

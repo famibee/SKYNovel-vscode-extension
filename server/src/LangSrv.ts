@@ -8,6 +8,7 @@
 import {LspWs} from './LspWs';
 
 import {
+	CodeActionKind,
 	createConnection,
 	DidChangeConfigurationNotification,
 	ProposedFeatures,
@@ -118,7 +119,9 @@ conn.onInitialize(prm=> {
 			documentSymbolProvider	: true,		// ドキュメントアウトライン
 
 //	textDocument/codeAction			コード アクションのリストの取得
-		//	codeActionProvider?: boolean | CodeActionOptions;
+			codeActionProvider: {
+				codeActionKinds: [CodeActionKind.QuickFix],
+			},
 
 //	textDocument/codeLens			code lensのリストの取得
 //	codeLens/resolve				code lensの処理の実行
@@ -266,6 +269,16 @@ conn.onReferences((prm=> {
 conn.onDocumentSymbol((prm=> {
 	for (const wf of aLspWs) {
 		const ret = wf.onDocumentSymbol(prm);
+		if (ret) return ret;
+	}
+	return null;
+}));
+
+
+// === コードアクション ===
+conn.onCodeAction((prm=> {
+	for (const wf of aLspWs) {
+		const ret = wf.onCodeAction(prm);
 		if (ret) return ret;
 	}
 	return null;

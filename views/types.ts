@@ -49,6 +49,7 @@ export type T_CFG = {
 	},
 	debug?	: {	// デバッグ情報
 		devtool		: boolean,
+		dumpHtm		: boolean,
 		token		: boolean,
 		tag			: boolean,
 		putCh		: boolean,
@@ -85,6 +86,7 @@ export const DEF_CFG: T_CFG = {
 	},
 	debug	: {
 		devtool		: false,
+		dumpHtm		: false,
 		token		: false,
 		tag			: false,
 		putCh		: false,
@@ -123,6 +125,7 @@ export const DEF_CFG4TST: T_CFG = {
 	},
 	debug	: {
 		devtool		: false,
+		dumpHtm		: false,
 		token		: false,
 		tag			: false,
 		putCh		: false,

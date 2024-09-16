@@ -1,2 +1,0 @@
-"use strict";exports.id=934,exports.ids=[934],exports.modules={79934:(t,e,r)=>{r.d(e,{default:()=>n});const o=function({onlyFirst:t=!1}={}){const e=["[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)","(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"].join("|");return new RegExp(e,t?void 0:"g")}();function n(t){if("string"!=typeof t)throw new TypeError(`Expected a \`string\`, got \`${typeof t}\``);return t.replace(o,"")}}};
-//# sourceMappingURL=934.extension.js.map

@@ -20,8 +20,14 @@ interface CTG_ACMD {
 }
 
 export class ToolBox implements WebviewViewProvider {
+	static	init(ctx: ExtensionContext): ToolBox {
+		const tl = new ToolBox(ctx);
+		ctx.subscriptions.push(window.registerWebviewViewProvider('skynovel-tb', tl));
+		return tl;
+	}
+
 	readonly	#localExtensionResRoots: Uri;
-	constructor(readonly ctx: ExtensionContext) {
+	private	constructor(readonly ctx: ExtensionContext) {
 		this.#localExtensionResRoots = Uri.file(ctx.extensionPath +'/views');
 /**/	this.#aCtgACmd0 = this.#aCtgACmd0 ?? [];
 	}

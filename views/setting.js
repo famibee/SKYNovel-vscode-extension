@@ -1,5 +1,5 @@
 /**
-* @vue/shared v3.5.4
+* @vue/shared v3.5.6
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -241,7 +241,7 @@ const stringifySymbol = (v, i = "") => {
 };
 
 /**
-* @vue/reactivity v3.5.4
+* @vue/reactivity v3.5.6
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -366,7 +366,7 @@ class ReactiveEffect {
     this.deps = void 0;
     this.depsTail = void 0;
     this.flags = 1 | 4;
-    this.nextEffect = void 0;
+    this.next = void 0;
     this.cleanup = void 0;
     this.scheduler = void 0;
     if (activeEffectScope && activeEffectScope.active) {
@@ -393,9 +393,7 @@ class ReactiveEffect {
       return;
     }
     if (!(this.flags & 8)) {
-      this.flags |= 8;
-      this.nextEffect = batchedEffect;
-      batchedEffect = this;
+      batch(this);
     }
   }
   run() {
@@ -451,7 +449,12 @@ class ReactiveEffect {
   }
 }
 let batchDepth = 0;
-let batchedEffect;
+let batchedSub;
+function batch(sub) {
+  sub.flags |= 8;
+  sub.next = batchedSub;
+  batchedSub = sub;
+}
 function startBatch() {
   batchDepth++;
 }
@@ -460,15 +463,16 @@ function endBatch() {
     return;
   }
   let error;
-  while (batchedEffect) {
-    let e = batchedEffect;
-    batchedEffect = void 0;
+  while (batchedSub) {
+    let e = batchedSub;
+    batchedSub = void 0;
     while (e) {
-      const next = e.nextEffect;
-      e.nextEffect = void 0;
+      const next = e.next;
+      e.next = void 0;
       e.flags &= ~8;
       if (e.flags & 1) {
         try {
+          ;
           e.trigger();
         } catch (err) {
           if (!error) error = err;
@@ -489,9 +493,11 @@ function prepareDeps(sub) {
 function cleanupDeps(sub) {
   let head;
   let tail = sub.depsTail;
-  for (let link = tail; link; link = link.prevDep) {
+  let link = tail;
+  while (link) {
+    const prev = link.prevDep;
     if (link.version === -1) {
-      if (link === tail) tail = link.prevDep;
+      if (link === tail) tail = prev;
       removeSub(link);
       removeDep(link);
     } else {
@@ -499,13 +505,14 @@ function cleanupDeps(sub) {
     }
     link.dep.activeLink = link.prevActiveLink;
     link.prevActiveLink = void 0;
+    link = prev;
   }
   sub.deps = head;
   sub.depsTail = tail;
 }
 function isDirty(sub) {
   for (let link = sub.deps; link; link = link.nextDep) {
-    if (link.dep.version !== link.version || link.dep.computed && refreshComputed(link.dep.computed) || link.dep.version !== link.version) {
+    if (link.dep.version !== link.version || link.dep.computed && (refreshComputed(link.dep.computed) || link.dep.version !== link.version)) {
       return true;
     }
   }
@@ -525,7 +532,7 @@ function refreshComputed(computed2) {
   computed2.globalVersion = globalVersion;
   const dep = computed2.dep;
   computed2.flags |= 2;
-  if (dep.version > 0 && !computed2.isSSR && !isDirty(computed2)) {
+  if (dep.version > 0 && !computed2.isSSR && computed2.deps && !isDirty(computed2)) {
     computed2.flags &= ~2;
     return;
   }
@@ -605,6 +612,14 @@ function cleanupEffect(e) {
   }
 }
 let globalVersion = 0;
+class Link {
+  constructor(sub, dep) {
+    this.sub = sub;
+    this.dep = dep;
+    this.version = dep.version;
+    this.nextDep = this.prevDep = this.nextSub = this.prevSub = this.prevActiveLink = void 0;
+  }
+}
 class Dep {
   constructor(computed2) {
     this.computed = computed2;
@@ -618,16 +633,7 @@ class Dep {
     }
     let link = this.activeLink;
     if (link === void 0 || link.sub !== activeSub) {
-      link = this.activeLink = {
-        dep: this,
-        sub: activeSub,
-        version: this.version,
-        nextDep: void 0,
-        prevDep: void 0,
-        nextSub: void 0,
-        prevSub: void 0,
-        prevActiveLink: void 0
-      };
+      link = this.activeLink = new Link(activeSub, this);
       if (!activeSub.deps) {
         activeSub.deps = activeSub.depsTail = link;
       } else {
@@ -667,7 +673,10 @@ class Dep {
     try {
       if (false) ;
       for (let link = this.subs; link; link = link.prevSub) {
-        link.sub.notify();
+        if (link.sub.notify()) {
+          ;
+          link.sub.dep.notify();
+        }
       }
     } finally {
       endBatch();
@@ -1610,8 +1619,10 @@ class ComputedRefImpl {
    */
   notify() {
     this.flags |= 16;
-    if (activeSub !== this) {
-      this.dep.notify();
+    if (!(this.flags & 8) && // avoid infinite self recursion
+    activeSub !== this) {
+      batch(this);
+      return true;
     }
   }
   get value() {
@@ -1719,20 +1730,12 @@ function watch$1(source, cb, options = EMPTY_OBJ) {
       remove(scope.effects, effect2);
     }
   };
-  if (once) {
-    if (cb) {
-      const _cb = cb;
-      cb = (...args) => {
-        _cb(...args);
-        watchHandle();
-      };
-    } else {
-      const _getter = getter;
-      getter = () => {
-        _getter();
-        watchHandle();
-      };
-    }
+  if (once && cb) {
+    const _cb = cb;
+    cb = (...args) => {
+      _cb(...args);
+      watchHandle();
+    };
   }
   let oldValue = isMultiSource ? new Array(source.length).fill(INITIAL_WATCHER_VALUE) : INITIAL_WATCHER_VALUE;
   const job = (immediateFirstRun) => {
@@ -1834,7 +1837,7 @@ function traverse(value, depth = Infinity, seen) {
 }
 
 /**
-* @vue/runtime-core v3.5.4
+* @vue/runtime-core v3.5.6
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -4861,11 +4864,12 @@ function doWatch(source, cb, options = EMPTY_OBJ) {
     } else if (!cb || immediate) {
       baseWatchOptions.once = true;
     } else {
-      return {
-        stop: NOOP,
-        resume: NOOP,
-        pause: NOOP
+      const watchStopHandle = () => {
       };
+      watchStopHandle.stop = NOOP;
+      watchStopHandle.resume = NOOP;
+      watchStopHandle.pause = NOOP;
+      return watchStopHandle;
     }
   }
   const instance = currentInstance;
@@ -5883,10 +5887,10 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-const version = "3.5.4";
+const version = "3.5.6";
 
 /**
-* @vue/runtime-dom v3.5.4
+* @vue/runtime-dom v3.5.6
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -6961,6 +6965,7 @@ const DEF_CFG = {
   },
   debug: {
     devtool: false,
+    dumpHtm: false,
     token: false,
     tag: false,
     putCh: false,
@@ -6997,6 +7002,7 @@ const DEF_CFG4TST = {
   },
   debug: {
     devtool: false,
+    dumpHtm: false,
     token: false,
     tag: false,
     putCh: false,
