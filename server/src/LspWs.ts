@@ -554,16 +554,43 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 	#fullScan() {this.#sendRequest('init');}
 
 
+	// === ファイル開きイベント ===
+	onDidOpen({document}: TextDocumentChangeEvent<TextDocument>) {
+		const {uri} = document;		// 'file://'付き
+		if (! this.#checkRelated(uri)) return;
+
+		if (! REG_SCRIPT.test(uri)) return;
+
+		const fp = this.#fullSchPath2fp(uri);
+		const aOld = this.#fp2Diag[fp];
+		if (! aOld) return;
+		const lenOld = aOld.length;
+		const a = this.#fp2Diag[fp] = aOld.filter(d=> d.code !== ACT_NFD_CODE);
+		if (lenOld === a.length) return;
+
+		const s = document.getText();
+		const pp = this.#fp2pp(fp);
+		this.#scanNFD(pp, s, document);
+
+		// == 情報集積仕上げ（ここまでの情報を必要とする）
+		for (const j of this.#aEndingJob) j();
+		this.#aEndingJob = [];
+
+		const uri2 = is_win ?'file:///c:'+ fp :fp;
+		this.conn.sendDiagnostics({uri: uri2, diagnostics: this.#fp2Diag[fp]});
+	}
+
+
 	// === ファイル変更イベント（手入力が対象） ===
-	onDidChangeContent(chg: TextDocumentChangeEvent<TextDocument>) {
-		const {uri} = chg.document;		// 'file://'付き
+	onDidChangeContent({document}: TextDocumentChangeEvent<TextDocument>) {
+		const {uri} = document;		// 'file://'付き
 		if (! this.#checkRelated(uri)) return;
 
 		if (! REG_SCRIPT.test(uri)) return;
 
 		const fp = this.#fullSchPath2fp(uri);
 		const pp = this.#fp2pp(fp);
-//console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${chg.document.version}`);
+//console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${document.version}`);
 
 /*	// NOTE: Score
 		if (uri.slice(-3) === '.sn') Debugger.noticeChgDoc(this.curPrj, e);
@@ -590,10 +617,10 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 			.flatMap(m=> [...m.values()]
 			.flatMap(a=> a.map(l=> l.uri)))
 		);
-		const s = chg.document.getText();
+		const s = document.getText();
 		this.#hScript[pp] = this.#grm.resolveScript(s);
 		this.#scanScript(fp);
-		this.#scanNFD(pp, s, chg.document);
+		this.#scanNFD(pp, s, document);
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
 		// すべて追加走査（重複走査・永久ループに留意）
@@ -618,13 +645,13 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 	#sFpNeedScan	= new Set<string>;	// 派生スキャン必要sn（単体ファイル走査時）
 
 		static	readonly	#REG_NFD = /.\p{Mn}/ug;
-			// https://regex101.com/r/zFiIRQ/1
+			// https://regex101.com/r/zK46R1/1
 			// \p{Lm} ... 【んﾞ】にマッチ。だがここでは関係なさげ
 		#scanNFD(pp: string, s: string, doc?: TextDocument) {
 			this.#aEndingJob.push(()=> {
 				const fp = this.#PATH_PRJ + pp;	// loc.uri is fp
 				const {mes, sev} = this.#hDiag.NFD警告;
-				const mat = s.matchAll(LspWs.#REG_NFD);
+				const mat = s.matchAll(LspWs.#REG_NFD).filter(([c])=> c !== c.normalize('NFC'));// NFC 変換しても変化がない NFD 文字は警告しない
 				if (doc) {
 					for (const m of mat) {
 						const {line, character} = doc.positionAt(m.index);
@@ -637,7 +664,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 				}
 
 				for (const m of mat) (this.#fp2Diag[fp] ??= []).push(Diagnostic.create(
-					Range.create(0, 0, 0, 0 +1),
+					Range.create(0, 1, 0, 1 +m.length),
 					mes.replace('$', m[0]), sev, ACT_NFD_CODE
 				));
 			});

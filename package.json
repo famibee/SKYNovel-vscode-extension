@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.17.0",
+	"version": "4.17.1",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -747,7 +747,7 @@
 		"terser": "^5.32.0",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.6.2",
-		"vite": "^5.4.5",
+		"vite": "^5.4.6",
 		"vscode-languageserver-types": "^3.17.5",
 		"vue-loader": "^17.4.2",
 		"webpack": "^5.94.0",

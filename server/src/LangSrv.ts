@@ -322,20 +322,27 @@ conn.onRenameRequest(prm=> {
 });
 
 
-// === ファイル変更イベント（ファイルを開いたときにも） ===
-const hDocThrowOpCl: {[uri: string]: 0} = {};
-docs.onDidOpen(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
-docs.onDidClose(({document: {uri}})=> hDocThrowOpCl[uri] = 0);
 conn.onShutdown(()=> {for (const wf of aLspWs) wf.destroy(); aLspWs = [];});
 
+
+// === ファイル開きイベント（ファイルを開いたときにも） ===
+const hDocThrowOpCl: {[uri: string]: 0} = {};
+docs.onDidOpen(chg=> {	// 開いた時のみのイベントにする
+	const {uri} = chg.document;
+	hDocThrowOpCl[uri] = 0;
+	for (const wf of aLspWs) wf.onDidOpen(chg);
+});
+
 // === ファイル変更イベント（手入力が対象） ===
-docs.onDidChangeContent(chg=> {
-	// 変更時のみのイベントにする
+docs.onDidChangeContent(chg=> {	// 変更時のみのイベントにする
 	const {uri} = chg.document;
 	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
 
 	for (const wf of aLspWs) wf.onDidChangeContent(chg);
 });
+
+// === ファイル閉じイベント
+docs.onDidClose(({document: {uri}})=> delete hDocThrowOpCl[uri]);
 
 
 // === ファイル変更イベント（手入力以外が対象） ===
