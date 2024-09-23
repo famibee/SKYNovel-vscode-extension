@@ -13,7 +13,8 @@ const ffmpeg_ins = require('@ffmpeg-installer/ffmpeg');
 const ffmpeg = require('fluent-ffmpeg');
 ffmpeg.setFfmpegPath(ffmpeg_ins.path);
 
-import {resolve, parse, basename} from 'path';
+import {resolve, parse, basename} from 'node:path';
+import {styleText} from 'node:util';
 import {ensureDir, existsSync, move, readdirSync, readJsonSync, remove, statSync, writeJsonSync} from 'fs-extra';
 import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 
@@ -27,6 +28,14 @@ function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm
 		const fp = resolve(wd, nm);
 		fnc(fp, nm);
 	}
+}
+
+export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
+	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
+	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
+	if (! existsSync(path2)) return doesnt_exist;
+
+	return statSync(path1, {bigint: true}).mtimeNs > statSync(path2, {bigint: true}).mtimeNs;
 }
 
 
@@ -82,7 +91,7 @@ const queue = new PQueue({concurrency: 20, autoStart: false});
 let start_cnt = 0;
 const go = async ()=> {
 	start_cnt = queue.size;
-	console.error(`fn:cnv_mat_snd.ts start: ${start_cnt} tasks`);	// log
+	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_snd.ts start: ${start_cnt} tasks`));
 
 	queue.start();
 	await queue.onIdle();
@@ -93,7 +102,7 @@ let cnt = ()=> {
 	if (s % 20 > 0) return;
 	if (s === 0) {cnt = ()=> {}; return;}
 
-	console.error(`fn:cnv_mat_snd.ts ${s}/${start_cnt} tasks`);	// log
+	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_snd.ts ${s}/${start_cnt} tasks`));
 };
 
 
@@ -111,7 +120,7 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathInp: string, pathBase: string, do_move = true): void {
+function cnv(pathInp: string, pathBase: string, do_move: boolean = true): void {
 	queue.add(async ()=> {
 		const {dir, name} = parse(pathInp);
 		if (do_move) await move(pathInp, pathBase, {overwrite: true});
@@ -220,11 +229,7 @@ switch (modeInp) {
 				if (! REG_EXT_ORG.test(url)) return;
 
 				const toPath = resolve(wdPrj, name.replace(REG_EXT_ORG, extOut));
-				if (existsSync(toPath)) {	// 存在しても古い場合は処理
-					const tsFr = statSync(url).mtimeMs;
-					const tsTo = statSync(toPath).mtimeMs;
-					if (tsFr < tsTo) return;	// to が新しい
-				}
+				if (! chkUpdate(url, toPath)) return;
 
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 				const nm = parse(toPath).name;

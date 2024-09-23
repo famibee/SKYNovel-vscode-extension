@@ -45,14 +45,11 @@ fn:Project.ts drop scheme:file
 
 
 // 階層フォルダ逐次処理
-import {readdirSync, existsSync, readFileSync, writeFileSync, ensureFileSync} from 'fs-extra';
-import {resolve, basename, extname} from 'path';
+import {basename, extname, resolve} from 'node:path';
+import {readdirSync, existsSync, readFileSync, ensureFileSync, statSync, writeFileSync} from 'fs-extra';
 
 const REG_SYS_FN = /^(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 	// 6 matches (144 steps, 0.1ms)【\n 入注意】 https://regex101.com/r/uFkUrb/1
-
-export const REG_IGNORE_SYS_PATH = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
-	// 6 matches (537 steps, 0.2ms)【\n 入注意】 https://regex101.com/r/3IgJ6Y/1
 
 export function treeProc(wd: string, fnc: (fp: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
@@ -112,6 +109,16 @@ export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verb
 		console.error(`replaceRegsFile src:${src} ${err}`);
 	}
 }
+
+
+export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
+	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
+	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
+	if (! existsSync(path2)) return doesnt_exist;
+
+	return statSync(path1, {bigint: true}).mtimeNs > statSync(path2, {bigint: true}).mtimeNs;
+}
+
 
 /*export	function argChk_Boolean(hash: any, name: string, def: boolean): boolean {
 	if (! (name in hash)) return hash[name] = def;

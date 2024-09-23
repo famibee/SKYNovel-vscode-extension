@@ -8,7 +8,10 @@
 const [, , modeInp, quality, curPrj, curPrjBase=''] = process.argv;
 
 const sharp = require('sharp');
-import {resolve, parse, basename} from 'path';
+sharp.cache(false);
+
+import {resolve, parse, basename} from 'node:path';
+import {styleText} from 'node:util';
 import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
 import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
 
@@ -33,11 +36,19 @@ function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest =
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
 		if (txt !== ret) writeFileSync(dest, ret);
-		else if (verbose) console.error(`replaceFile fail by same:${src}`);
+		else if (verbose) console.log(styleText('magentaBright', `replaceFile fail by same:${src}`));
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);
 	}
+}
+
+export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
+	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
+	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
+	if (! existsSync(path2)) return doesnt_exist;
+
+	return statSync(path1, {bigint: true}).mtimeNs > statSync(path2, {bigint: true}).mtimeNs;
 }
 
 
@@ -105,7 +116,7 @@ const queue = new PQueue({concurrency: 50, autoStart: false});
 let start_cnt = 0;
 const go = async ()=> {
 	start_cnt = queue.size;
-	console.error(`fn:cnv_mat_pic.ts start: ${start_cnt} tasks`);	// log
+	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_pic.ts start: ${start_cnt} tasks`));
 
 	queue.start();
 	await queue.onIdle();
@@ -116,7 +127,7 @@ let cnt = ()=> {
 	if (s % 50 > 0) return;
 	if (s === 0) {cnt = ()=> {}; return;}
 
-	console.error(`fn:cnv_mat_pic.ts ${s}/${start_cnt} tasks`);	// log
+	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_pic.ts ${s}/${start_cnt} tasks`));
 };
 
 
@@ -127,7 +138,7 @@ let cnt = ()=> {
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathPrj: string, pathBase: string, do_move = true): void {
+function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): void {
 	queue.add(async ()=> {
 		if (do_move) await move(pathPrj, pathBase, {overwrite: true});
 
@@ -300,11 +311,7 @@ switch (modeInp) {
 				if (! REG_EXT_ORG.test(url)) return;
 
 				const toPath = resolve(wdPrj, name.replace(REG_EXT_ORG, '.webp'));
-				if (existsSync(toPath)) {	// 存在しても古い場合は処理
-					const tsFr = statSync(url).mtimeMs;
-					const tsTo = statSync(toPath).mtimeMs;
-					if (tsFr < tsTo) return;	// to が新しい
-				}
+				if (! chkUpdate(url, toPath)) return;
 
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 				const nm = parse(name).name;

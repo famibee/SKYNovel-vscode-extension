@@ -5,22 +5,21 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, getFn, replaceRegsFile, treeProc, v2fp} from './CmnLib';
+import {chkUpdate, foldProc, getFn, replaceRegsFile, v2fp} from './CmnLib';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {Config} from './Config';
 import {openURL} from './WorkSpaces';
 import {FLD_PRJ_BASE} from './Project';
 import {DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
-import {WorkspaceFolder, WebviewPanel, ExtensionContext, window, ViewColumn, Uri, env, workspace} from 'vscode';
-import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, writeFile, writeJson, writeJsonSync} from 'fs-extra';
+import {Disposable, env, ExtensionContext, RelativePattern, Uri, ViewColumn, WebviewPanel, window, workspace, WorkspaceFolder} from 'vscode';
+import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson} from 'fs-extra';
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
 import {userInfo} from 'os';
-import { writeFileSync } from 'fs';
 
 
-export class PrjSetting {
+export class PrjSetting implements Disposable {
 	readonly	#wss;
 				#oWss			= DEF_WSS;
 	readonly	#PATH_WS		: string;
@@ -44,13 +43,17 @@ export class PrjSetting {
 				#oOptPic	: T_OPTIMG;
 				#oOptSnd	: T_OPTSND;
 
+	// DisposableStack is not implemented
+//	readonly	#ds		= new DisposableStack;
+	readonly	#ds		: Disposable[]	= [];
+
 	//MARK: コンストラクタ
-	constructor(readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private cmd: (nm: string, val: string)=> Promise<boolean>, private exeTask: (nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string)=> Promise<number>) {
+	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>) {
 		this.#wss = ctx.workspaceState;
-		let oWss = DEF_WSS as {[nm: string]: any};
+		const oWss = DEF_WSS as {[nm: string]: any};
 		for (const [nm, v] of Object.entries(oWss)) {
-			const d: any = this.#wss.get(nm);
-			if (d) oWss[nm] = d;
+			const d = this.#wss.get(nm);
+			if (d) oWss[nm] = <any>d;
 			else this.#wss.update(nm, v);
 		}
 		this.#oWss = oWss as any;
@@ -104,11 +107,11 @@ export class PrjSetting {
 				chgTitle(this.cfg.oCfg.book.title);
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.cfg.oCfg.debuger_token;
 
-				if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
-				else writeJsonSync(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTIMG);
+				if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+				else await writeJson(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTIMG);
 
-				if (existsSync(this.#PATH_OPT_SND)) this.#oOptSnd = readJsonSync(this.#PATH_OPT_SND, {encoding: 'utf8'});
-				else writeJsonSync(this.#PATH_OPT_SND, this.#oOptSnd = DEF_OPTSND);
+				if (existsSync(this.#PATH_OPT_SND)) this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
+				else await writeJson(this.#PATH_OPT_SND, this.#oOptSnd = DEF_OPTSND);
 			},
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
@@ -131,16 +134,60 @@ export class PrjSetting {
 			},
 
 			async ()=> {
-				treeProc(this.#PATH_PRJ, fp=> {
-					if (fp.slice(-11) !== '/setting.sn') return;
-					this.#aPathSettingSn.push(fp);
-				});
+				await workspace.findFiles(new RelativePattern(wsFld, 'doc/prj/*/setting.sn')).then(async aUri=> aUri.forEach(({path})=> {
+					const fp = v2fp(path);
+					this.#aPathSettingSn.push(fp)
+				}));
 				this.#chkMultiMatch_SettingSn();
 			},
+
+			async ()=> this.cnvWatch(
+				new RelativePattern(wsFld, 'core/resource/*.psd'),
+				`doc/prj/face/{[FN]_*.png,face[FN].sn}`, async ({fsPath})=> {
+					const hn = getFn(fsPath);
+					if (chkUpdate(fsPath, `${this.#PATH_PRJ}face/face${hn}.sn`)) await this.exeTask('cnv_psd_face', `"${fsPath}" "${this.#PATH_PRJ}"`);
+				}, this.#ds,
+				(uri, cre)=> this.optPic(uri, cre ?'CRE' :'CHG'),
+				uri=>	 	 this.optPic(uri, 'DEL'))
 		);
 
 		Promise.allSettled(a.map(t=> t()));
 	}
+
+	//MARK: デストラクタ
+//	[Symbol.dispose]() {this.#ds.dispose()}
+	dispose() {this.#ds.forEach(d=> d.dispose())}
+
+
+	//MARK: 変換処理とファイル監視
+	async cnvWatch(rpInp: RelativePattern, pathOut: string, fncGen: (uri: Uri)=> Promise<void>, aDs: Disposable[], crechg= async (uri: Uri, cre=false)=> {}, del= async (uri: Uri)=> {}) {
+		await workspace.findFiles(rpInp).then(async aUri=> {
+			// バッチ処理等なので並列処理しない
+			for await (const uri of aUri) fncGen(uri);
+		});
+
+		const fw = workspace.createFileSystemWatcher(rpInp);
+		aDs.push(fw.onDidCreate(async uri=> {
+			if (statSync(uri.path).isDirectory()) return;
+
+			return fncGen(uri).then(()=> crechg(uri, true));
+		}));
+		aDs.push(fw.onDidChange(async uri=> {
+			if (statSync(uri.path).isDirectory()) return;
+
+			await this.#delOut(pathOut, uri);
+			return fncGen(uri).then(()=> crechg(uri));
+		}));
+		aDs.push(fw.onDidDelete(	// フォルダごと削除すると、発生しない！
+			uri=> this.#delOut(pathOut, uri).then(()=> del(uri))
+		));
+	}
+		async	#delOut(pathOut: string, {fsPath}: Uri) {
+			if (pathOut === '') return;
+			const hn = getFn(fsPath);
+			return workspace.findFiles(pathOut.replaceAll('[FN]', hn))
+			.then(aUri=> Promise.allSettled(aUri.map(({path})=> remove(path))));
+		}
 
 
 	getLocalSNVer(): {verSN: string, verTemp: string} {
@@ -450,7 +497,7 @@ export class PrjSetting {
 		}
 
 	//MARK: パネル入力の対応
-	#procInput(m: any) {
+	async #procInput(m: any) {
 		const {username} = userInfo();
 		switch (m.cmd) {
 		case '?':
@@ -460,7 +507,7 @@ export class PrjSetting {
 				oWss	: this.#oWss,
 				pathIcon: this.#pathIcon,
 			});
-			this.dispFontInfo();
+			await this.dispFontInfo();
 			this.#dispOptPic();
 			this.#dispOptSnd();
 			this.#chkMultiMatch_SettingSn();
@@ -491,7 +538,7 @@ export class PrjSetting {
 
 			// package.json
 			const CopyrightYear = String(new Date().getFullYear());
-			const p = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
+			const p = await readJson(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 			p.name = c.save_ns;
 			p.appBundleId = p.appId
 				= `com.fc2.blog.famibee.skynovel.${c.save_ns}`;
@@ -506,7 +553,7 @@ export class PrjSetting {
 			p.build.appId = p.appId;
 			p.build.productName = c.book.title;
 			p.build.artifactName=`${c.save_ns}-\${version}-\${arch}.\${ext}`;
-			writeFileSync(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
+			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
 			// doc/app.js
 			replaceRegsFile(this.#PATH_APP_JS, [
@@ -552,8 +599,8 @@ export class PrjSetting {
 			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
 			this.cmd('cnv.mat.webp_quality', 'all_recnv')
-			.then(()=> {
-				this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+			.then(async ()=> {
+				this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
 				this.#dispOptPic();
 
 				o.mode = 'comp';
@@ -570,7 +617,7 @@ export class PrjSetting {
 			const fi = this.#oOptPic.hSize[o.nm];
 			if (o.no_def) fi.webp_q = o.webp_q;
 			else delete fi.webp_q;
-			writeJsonSync(this.#PATH_OPT_PIC, this.#oOptPic);
+			await writeJson(this.#PATH_OPT_PIC, this.#oOptPic);
 
 			// Baseフォルダを渡す事で再変換
 			this.onCreChgOptPic(Uri.file(this.#PATH_PRJ_BASE + fi.fld_nm +'.'+ fi.ext));
@@ -597,17 +644,17 @@ export class PrjSetting {
 
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
 				this.#cmd2Vue(o);
-				aP.push(()=> this.cmd(id, String(val)).then(go=> {
+				aP.push(()=> this.cmd(id, String(val)).then(async go=> {
 					if (go) {
 						switch (id) {
 							case 'cnv.mat.pic':
-								this.#oOptPic = readJsonSync(this.#PATH_OPT_PIC, {encoding: 'utf8'});
+								this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
 								this.#dispOptPic();
 								break;
 
 							case 'cnv.mat.snd':
 							case 'cnv.mat.snd.codec':
-								this.#oOptSnd = readJsonSync(this.#PATH_OPT_SND, {encoding: 'utf8'});
+								this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
 								this.#dispOptSnd();
 								break;
 						}
@@ -699,7 +746,7 @@ export class PrjSetting {
 		'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
 		'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
 	};
-	dispFontInfo() {
+	async dispFontInfo() {
 		if (! this.#pnlWV) return;
 
 		const fn = this.#PATH_WS +'/core/font/subset_font.json';
@@ -708,7 +755,7 @@ export class PrjSetting {
 			return;
 		}
 
-		const o = readJsonSync(fn);
+		const o = await readJson(fn);
 		const aFontInfo: T_A_CNVFONT = Object.entries(o).map(([nm, v])=> ({
 			nm,
 			mes		: this.#hHead2Mes[(<any>v).inp.slice(0, 12)],

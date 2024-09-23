@@ -80,10 +80,11 @@ import vue from '@vitejs/plugin-vue';
 	{	// === batch ===
 		const ctx = await context({
 			entryPoints	: [
-				'./src/batch/subset_font',
-				'./src/batch/cut_round',
 				'./src/batch/cnv_mat_pic',
 				'./src/batch/cnv_mat_snd',
+				'./src/batch/cnv_psd_face',
+				'./src/batch/cut_round',
+				'./src/batch/subset_font',
 			],
 			outdir		: 'dist',
 			minify		: true,

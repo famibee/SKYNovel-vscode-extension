@@ -8,6 +8,9 @@
 const [, , src, shape, path] = process.argv;
 
 const sharp = require('sharp');
+sharp.cache(false);
+
+import {styleText} from 'node:util';
 import {copy, ensureDir, existsSync, readFile, stat, writeFile, writeJsonSync} from 'fs-extra';
 const {BICUBIC2, BILINEAR, createICNS, createICO} = require('png2icons');
 
@@ -80,7 +83,10 @@ sharp(src).metadata().then((info: any)=> {
 			// 「このアプリについて」用
 			()=> copy(fnIcon, pathWs +'doc/app/icon.png'),
 		].map(v=> v()))
-		.then(()=> process.exit(0));
+		.then(()=> {
+			console.log(styleText(['bgGreen', 'black'], `fn:cut_round.ts ok.`));
+			process.exit(0);
+		});
 	}) // サムネイル更新
 	.catch((err: Error)=> {oLog.err = err.message; log_exit(20)});
 });

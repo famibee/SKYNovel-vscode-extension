@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, foldProc, replaceFile, REG_IGNORE_SYS_PATH, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
@@ -15,15 +15,14 @@ import {aPickItems, QuickPickItemEx, openURL} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
 
-import {ExtensionContext, workspace, Disposable, tasks, Task, ShellExecution, window, Uri, Range, WorkspaceFolder, TaskProcessEndEvent, ProgressLocation, TreeItem, EventEmitter, ThemeIcon, debug, DebugSession, env, TaskExecution, languages, Diagnostic, DiagnosticSeverity, QuickPickItemKind, TextDocument, EvaluatableExpression, Position, ProviderResult, Hover, MarkdownString, DocumentDropEdit, SnippetString, WorkspaceEdit, commands, RelativePattern, ViewColumn, WebviewPanel} from 'vscode';
+import {commands, debug, DebugSession, Diagnostic, DiagnosticSeverity, Disposable, DocumentDropEdit, env, EvaluatableExpression, EventEmitter, ExtensionContext, Hover, languages, MarkdownString, Position, ProgressLocation, ProviderResult, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, TaskExecution, TaskProcessEndEvent, tasks, TextDocument, ThemeIcon, TreeItem, Uri, ViewColumn, WebviewPanel, window, workspace, WorkspaceEdit, WorkspaceFolder} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
-import {extname, resolve} from 'path';
+import {basename, dirname, extname, resolve} from 'node:path';
 import img_size from 'image-size';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
-import {basename, dirname} from 'path';
 import {execSync} from 'child_process';
 import * as ncu from 'npm-check-updates';
 import {userInfo} from 'os';
@@ -79,7 +78,8 @@ export class Project {
 
 	readonly	#encry;
 
-	readonly	#aFSW	: Disposable[];
+//	readonly	#ds		= new DisposableStack;
+	readonly	#ds		: Disposable[]	= [];
 
 	readonly	#fnDiff	: string;
 				#hDiff	: {[fn: string]: {
@@ -165,7 +165,7 @@ export class Project {
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
 		this.#cfg = new Config(sr, this.#encry);
 
-		this.#ps = new PrjSetting(
+		this.#ds.push(this.#ps = new PrjSetting(
 			ctx,
 			wsFld,
 			this.#cfg,
@@ -176,7 +176,13 @@ export class Project {
 			()=> sendRequest2LSP('def_esc.upd', wsFld.uri),
 			(nm, val)=> this.#cmd(nm, val),
 			(nm, arg)=> this.#exeTask(nm, arg),
-		);
+			async (uri, sEvt)=> {
+				this.#chkWVFolder(uri, sEvt);
+				if (sEvt === 'DEL') await this.#ps.onDelOptPic(uri);
+				else 				await this.#ps.onCreChgOptPic(uri);
+				this.#updPathJson();
+			}
+		));
 		this.#initCrypto();
 
 		// updPlugin で goAll() が走る
@@ -186,21 +192,6 @@ export class Project {
 			if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 		}
 		else this.#updPlugin(false);
-
-		// ファイル増減を監視し、path.json を自動更新など各種処理
-			// 第一引数は new RelativePattern 必須とする。win対応にも
-		const fwPrj = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/*/**/*.[a-zA-Z][a-zA-Z0-9]*`)
-		);	// sn,jpen,png などの他に woff2,mp3,m4a
-		const fwPrjJs = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, 'doc/prj/prj.json')
-		);
-		// prjルートフォルダ監視
-		const fwFld = workspace.createFileSystemWatcher(
-			new RelativePattern(wsFld, 'doc/prj/[a-zA-Z0-9]*')
-		);	// '.' 始まりフォルダを除外
-
-		const regSetting = new RegExp(`^${wsFld.uri.path}\/doc\/prj\/.+\/setting.sn$`);	// 最適化変換対象
 
 
 		const hFld2hFile: {[fld_nm: string]: {[fp: string]: 0}} = {};
@@ -213,168 +204,153 @@ export class Project {
 			}, ()=> {});
 		});
 
-		const REG_CnvGrp = /\.(jpg|jpeg|png|webp)$/;		// 最適化変換対象
-			// 2 matches (56 steps, 0.1ms) https://regex101.com/r/bAB2wH/1
-		const REG_CnvSnd = /\.(mp3|wav|m4a|aac|ogg)$/;
-		const onDidDelete = async (uri: Uri)=> {
-//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
-			if (REG_CnvGrp.test(uri.path)) {
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-				&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) {
+		this.#ps.cnvWatch(	// setting.sn
+			new RelativePattern(wsFld, 'doc/prj/*/setting.sn'), '', async uri=> {
+			}, this.#ds, async (uri, cre)=> {
+				if (cre) {
+					this.#ps.onCreSettingSn(uri);
+					this.#encIfNeeded(uri);
+					this.#updPathJson();
+				}
+				else {
+				//	this.#ps.onChgSettingSn(uri);	// ここでやると変更が戻るループ
+					this.#encIfNeeded(uri);
+				}
+			}, async uri=> {
+				this.#ps.onDelSettingSn(uri);
+				this.#updPathJson();
+			}
+		);
+		this.#ps.cnvWatch(	// {jpg,jpeg,png} -> webp
+			new RelativePattern(wsFld, `doc/${FLD_PRJ_BASE}/*/*.{jpg,jpeg,png}`),
+			'doc/prj/*/[FN].webp', async uri=> {
+				if (! this.#ps.oWss['cnv.mat.pic']) return;
+				this.#encIfNeeded(uri);
+			}, this.#ds, async (uri, cre)=> {
+				if (this.#preventFileWatch) return;
+
+				this.#chkWVFolder(uri, cre ?'CRE' :'CHG');
+				await this.#ps.onCreChgOptPic(uri);
+				this.#updPathJson();
+			}, async uri=> {
+				if (this.#ps.oWss['cnv.mat.pic']) {
 					const {pathCn} = this.#path2cn(uri.path);
-					if (pathCn) remove(pathCn);
+					if (pathCn) await remove(pathCn);
 				}
 				if (this.#preventFileWatch) return;
 
 				this.#chkWVFolder(uri, 'DEL');
 				await this.#ps.onDelOptPic(uri);
 				this.#updPathJson();
-				return;
 			}
-			if (REG_CnvSnd.test(uri.path)) {
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-				&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) {
+		);
+		this.#ps.cnvWatch(	// {mp3,wav} -> {m4a,aac,ogg}
+			new RelativePattern(wsFld, `doc/${FLD_PRJ_BASE}/*/*.{mp3,wav}`),
+			`doc/prj/*/[FN].{m4a,aac,ogg}`, async uri=> {
+				if (! this.#ps.oWss['cnv.mat.snd']) return;
+				this.#encIfNeeded(uri);
+			}, this.#ds, async (uri, cre)=> {
+				if (this.#preventFileWatch) return;
+
+				this.#chkWVFolder(uri, cre ?'CRE' :'CHG');
+				await this.#ps.onCreChgOptSnd(uri);
+				this.#updPathJson();
+			}, async uri=> {
+				if (! this.#ps.oWss['cnv.mat.snd']) {
 					const {pathCn} = this.#path2cn(uri.path);
-					if (pathCn) remove(pathCn);
+					if (pathCn) await remove(pathCn);
 				}
 				if (this.#preventFileWatch) return;
 
 				this.#chkWVFolder(uri, 'DEL');
 				await this.#ps.onDelOptSnd(uri);
 				this.#updPathJson();
-				return;
 			}
-			if (regSetting.test(uri.path)) {
-				this.#ps.onDelSettingSn(uri);
-				this.#updPathJson();
-				return;
-			}
-			if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
+		);
+
+		const onDidDelete = async (uri: Uri)=> {
+//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
 			if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
 
 			// Del
 			const {pathCn, pp} = this.#path2cn(uri.path);
-			if (pathCn) remove(pathCn);
+			if (pathCn) await remove(pathCn);
 	
 			delete this.#hDiff[pp];
 			this.#updDiffJson();
 	
 			this.#updPathJson();
 		};
-		const REG_CnvGrpOut = /\.(webp)$/;			// 最適化変換後
-		const REG_CnvSndOut = /\.(m4a|aac|ogg)$/;
-		this.#aFSW = [
-			fwPrj.onDidCreate(async uri=> {	// フォルダごと追加でも発生する（こちらが先）
-//console.log(`fn:Project.ts fwPrj CRE path=${uri.path}=`);
-				const fp = v2fp(uri.path);
-				const pp = this.#fp2pp(fp);
-				const fld_nm = dirname(pp);
-				(hFld2hFile[fld_nm] ??= {})[fp] = 0;
+		this.#ps.cnvWatch(	// other{sn, htm ...} -> {}
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}`),
+			'', async uri=> {}, this.#ds, async (uri, cre)=> {
+//console.log(`fn:Project.ts fwPrj ${cre ?'CRE' :'CHG'} path=${uri.path}=`);
+				if (cre) {
+					const fp = v2fp(uri.path);
+					const pp = this.#fp2pp(fp);
+					const fld_nm = dirname(pp);
+					(hFld2hFile[fld_nm] ??= {})[fp] = 0;
 
-				if (REG_CnvGrp.test(uri.path)) {
-					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
-					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-					&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) this.#encIfNeeded(uri);
-					if (this.#preventFileWatch) return;
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
 
-					this.#chkWVFolder(uri, 'CRE');
-					await this.#ps.onCreChgOptPic(uri);
-					this.#updPathJson();
-					return;
-				}
-				if (REG_CnvSnd.test(uri.path)) {
-					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
-					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-					&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) this.#encIfNeeded(uri);
-					if (this.#preventFileWatch) return;
-
-					this.#chkWVFolder(uri, 'CRE');
-					await this.#ps.onCreChgOptSnd(uri);
-					this.#updPathJson();
-					return;
-				}
-				if (regSetting.test(uri.path)) {
-					this.#ps.onCreSettingSn(uri);
+					// Cre
 					this.#encIfNeeded(uri);
 					this.#updPathJson();
-					return;
 				}
-				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+				else {
+					if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
 
-				// Cre
-				this.#encIfNeeded(uri);
-				this.#updPathJson();
-			}),
-			fwPrj.onDidChange(async uri=> {
-//console.log(`fn:Project.ts fwPrj CHG path=${uri.path}=`);
-				if (REG_CnvGrp.test(uri.path)) {
-					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
-					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-					&& (! this.#ps.oWss['cnv.mat.pic'] || REG_CnvGrpOut.test(uri.path))) this.#encIfNeeded(uri);
-					if (this.#preventFileWatch) return;
-
-					this.#chkWVFolder(uri, 'CHG');
-					await this.#ps.onCreChgOptPic(uri);
-					return;
-				}
-				if (REG_CnvSnd.test(uri.path)) {
-					// base_prj（最適化前の素材）や、最適化有効時の素材ファイルdropは暗号化しない
-					if (uri.path.slice(0, this.#LEN_PATH_PRJ) === this.#PATH_PRJ
-					&& (! this.#ps.oWss['cnv.mat.snd'] || REG_CnvSndOut.test(uri.path))) this.#encIfNeeded(uri);
-					if (this.#preventFileWatch) return;
-
-					this.#chkWVFolder(uri, 'CHG');
-					await this.#ps.onCreChgOptSnd(uri);
-					return;
-				}
-				if (regSetting.test(uri.path)) {
-				//	this.#ps.onChgSettingSn(uri);	// ここでやると変更が戻るループ
+					// Chg
 					this.#encIfNeeded(uri);
-					return;
 				}
-				if (REG_IGNORE_SYS_PATH.test(uri.path)) return;
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+			}, uri=> onDidDelete(uri)	// フォルダごと削除すると、発生しない！
+		);
 
-				// Chg
-				this.#encIfNeeded(uri);
-			}),
-			fwPrj.onDidDelete(uri=> onDidDelete(uri)),
-				// フォルダごと削除すると、発生しない！
 
-			fwPrjJs.onDidChange(uri=> this.#encIfNeeded(uri)),
+		// ファイル増減を監視し、path.json を自動更新など各種処理
+		this.#ds.push(workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/prj.json')
+		).onDidChange(uri=> this.#encIfNeeded(uri)));
 
-			fwFld.onDidCreate(uri=> {
-				if (! statSync(uri.path).isDirectory()) return;
+
+		// prjルートフォルダ監視
+		const fwFld = workspace.createFileSystemWatcher(
+			new RelativePattern(wsFld, 'doc/prj/[a-zA-Z0-9]*')
+		);	// '.' 始まりフォルダを除外
+		this.#ds.push(fwFld.onDidCreate(uri=> {
+			if (! statSync(uri.path).isDirectory()) return;
 //console.log(`fn:Project.ts fwFld CRE:${uri.path.slice(this.#LEN_PATH_PRJ)}:`);
 
-				this.#ps.onCreDir(uri);
-			}),
-			/*fwFld.onDidChange(uri=> {
-				// フォルダ名では Change が発生せず、Cre → Del。fwPrj は「発生しない」
-				// path.json, prj.json のみ発生する
-			}),*/
-			fwFld.onDidDelete(uri=> {
-				//if (! statSync(uri.path).isDirectory()) return;
-					// すでに削除されてしまっているので
+			this.#ps.onCreDir(uri);
+		}));
+		/*	this.#ds.adopt(fwFld.onDidChange(uri=> {
+			// フォルダ名では Change が発生せず、Cre → Del。fwPrj は「発生しない」
+			// path.json, prj.json のみ発生する
+		}));	*/
+		this.#ds.push(fwFld.onDidDelete(async uri=> {
+			//if (! statSync(uri.path).isDirectory()) return;
+				// すでに削除されてしまっているので
 
-				const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
+			const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
 //console.log(`fn:Project.ts fwFld DEL:${fld_nm}:`);
-				for (const fp of Object.keys(hFld2hFile[fld_nm])) onDidDelete(Uri.file(fp));
-				delete hFld2hFile[fld_nm];
+			for await (const fp of Object.keys(hFld2hFile[fld_nm])) onDidDelete(Uri.file(fp));
+			delete hFld2hFile[fld_nm];
 
-				if (this.#isCryptoMode) removeSync(this.#PATH_CRYPT + fld_nm);
-				removeSync(this.#PATH_PRJ_BASE + fld_nm);
+			await remove(
+				(this.#isCryptoMode
+				? this.#PATH_CRYPT
+				: this.#PATH_PRJ_BASE) + fld_nm
+			);
 
-				if (this.#pnlWVFolder) {
-					this.#pnlWVFolder?.dispose();
-					this.#pnlWVFolder = undefined;
-					this.#uriOpFolder = null;
-				}
+			if (this.#pnlWVFolder) {
+				this.#pnlWVFolder?.dispose();
+				this.#pnlWVFolder = undefined;
+				this.#uriOpFolder = null;
+			}
 
-				this.#ps.onDelDir(uri)
-			}),
-		];
+			this.#ps.onDelDir(uri)
+		}));
+
 
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
@@ -457,12 +433,15 @@ export class Project {
 				#aDbgSS			: DebugSession[]	= [];
 	#onDidTermDbgSS = ()=> {}
 
-	readonly	#ps;
+	readonly	#ps	: PrjSetting;
 
-	dispose() {for (const f of this.#aFSW) f.dispose();}
+	//MARK: デストラクタ
+	// DisposableStack is not implemented
+//	[Symbol.dispose]() {this.#ds.dispose()}
+	dispose() {this.#ds.forEach(d=> d.dispose())}
 
 
-	#termDbgSS(): Promise<PromiseSettledResult<void>[]> {
+	#termDbgSS() {
 		this.#hTaskExe.get('TaskWeb')?.terminate();
 		this.#hTaskExe.delete('TaskWeb');
 		this.#hTaskExe.get('TaskApp')?.terminate();
@@ -729,7 +708,7 @@ export class Project {
 		readonly #regWVFolderGrp = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SP_GSM}$`);
 		readonly #regWVFolderSnd = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SOUND}$`);
 
-		#chkWVFolder({path}: Uri, _sEvt: 'CRE'|'CHG'|'DEL') {
+		#chkWVFolder({path}: Uri, sEvt: 'CRE'|'CHG'|'DEL') {
 //console.log(`fn:Project.ts #chkWVFolder sEvt:${sEvt} path=${path}=`);
 			const uriOF = this.#uriOpFolder;
 			if (! this.#pnlWVFolder || ! uriOF) return;
@@ -834,31 +813,36 @@ export class Project {
 
 	//MARK: タスク実行
 	readonly	#hTask2Inf = {
-		'cut_round': {
-			title		: 'アイコン生成・加工中',
-			pathCpyTo	: 'build',
-			aNeedLib	: ['fs-extra','sharp', 'png2icons'],
-		},
-		'subset_font': {
-			title		: 'フォントサイズ最適化',
-			pathCpyTo	: 'core/font',
-			aNeedLib	: ['fs-extra'],
-		},
-		'cnv_mat_pic': {
+		cnv_mat_pic: {
 			title		: '画像ファイル最適化',
 			pathCpyTo	: 'build',
 			aNeedLib	: ['fs-extra','sharp','p-queue@6.6.2'],
 		},
-		'cnv_mat_snd': {
+		cnv_mat_snd: {
 			title		: '音声ファイル最適化',
 			pathCpyTo	: 'build',
 			aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
 				// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
 				// https://aminevsky.github.io/blog/posts/pqueue-sample/
 		},
+		cnv_psd_face: {
+			title		: 'PSDファイル変換',
+			pathCpyTo	: 'build',
+			aNeedLib	: ['fs-extra','psd.js','sharp'],
+		},
+		cut_round: {
+			title		: 'アイコン生成・加工中',
+			pathCpyTo	: 'build',
+			aNeedLib	: ['fs-extra','sharp', 'png2icons'],
+		},
+		subset_font: {
+			title		: 'フォントサイズ最適化',
+			pathCpyTo	: 'core/font',
+			aNeedLib	: ['fs-extra'],
+		},
 	};
 	#preventFileWatch = false;	// バッチ実行中のファイル変更検知を抑制
-	#exeTask(nm: 'subset_font'|'cut_round'|'cnv_mat_pic'|'cnv_mat_snd', arg: string): Promise<number> {
+	#exeTask(nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string): Promise<number> {
 		this.#preventFileWatch = true;
 		const inf = this.#hTask2Inf[nm];
 
@@ -884,7 +868,7 @@ export class Project {
 				inf.title,		// UIに表示
 				'SKYNovel',		// source
 				new ShellExecution(
-					`cd "${this.#PATH_WS}" ${statBreak} ${ init } node ./${inf.pathCpyTo}/${nm}.js ${arg}`
+					`cd "${this.#PATH_WS}" ${statBreak} ${init} node ./${inf.pathCpyTo}/${nm}.js ${arg}`
 				),
 			))
 			.then(
@@ -1404,9 +1388,10 @@ export class Project {
 							if (ext === ':cnt') continue;
 							if (ext.slice(-3) === ':id') continue;
 							const dir = this.#REG_DIR.exec(pp2);
-							if (dir && this.#cfg.oCfg.code[dir[1]]) continue;
+							const d = this.#hDiff[pp2];
+							if (dir && this.#cfg.oCfg.code[dir[1]] || ! d) continue;
 
-							hExt2N[ext] = this.#hDiff[pp2].cn;
+							hExt2N[ext] = d.cn;
 						}
 					}
 					const s2 = JSON.stringify(hPath);

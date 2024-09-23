@@ -8,7 +8,7 @@
 import {Encryptor, encAbBase64, decBase64Ab, encStrBase64, decBase64Str, ab2hexStr, hexStr2ab} from '../src/Encryptor';
 import {EncryptorTransform} from '../src/EncryptorTransform';
 import {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
-import {readFileSync, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
+import {readFile, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
 const {subtle} = require('crypto').webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 
 let	encry: Encryptor;
@@ -77,7 +77,7 @@ it('main_sn_full', async ()=> {
 	const stt = statSync(path_src);	// ファイルサイズ
 	expect(stt.size).toBe(3031);
 
-	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const src = await readFile(path_src, {encoding: 'utf8'});
 	const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
 	const chk_hex = '095b6164645f6c6179206c617965723d';
 	expect(srcH).toBe(chk_hex);
@@ -97,7 +97,7 @@ it('main_sn_full', async ()=> {
 
 
 it('main_sn_full2', async ()=> {
-	const src = readFileSync('test/mat/main.sn', {encoding: 'utf8'});
+	const src = await readFile('test/mat/main.sn', {encoding: 'utf8'});
 
 	const enc = await encry.enc(src);	// 暗号化
 	expect(enc.slice(0, 32)).toBe('n8R4NgfyglnbsleHc46YgW6TiKpMNHzd');
@@ -112,11 +112,11 @@ it('wood04_mp3_full_simple', async ()=> {
 	const stt = statSync(path_src);	// ファイルサイズ
 	expect(stt.size).toBe(3995);
 
-	const src0 = readFileSync(path_src, {encoding: 'hex'});
+	const src0 = await readFile(path_src, {encoding: 'hex'});
 	const src0H = src0.slice(0, 32);
 	expect(src0H).toBe('49443303000000000061434f4d4d0000');
 
-	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const src = await readFile(path_src, {encoding: 'utf8'});
 	const srcH = Buffer.from(src.slice(0, 16)).toString('hex');
 	expect(srcH).toBe('49443303000000000061434f4d4d0000');
 
@@ -137,7 +137,7 @@ it('prj_json_simple', async ()=> {
 	expect(stt.size).toBe(650);
 
 	// 暗号化
-	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const src = await readFile(path_src, {encoding: 'utf8'});
 	const enc = await encry.enc(src);
 	expect(enc).toBe('7b17PQzGzALZsE+PfoePnjbQHW7wtJES6j5KZBPPxL+RqPcKMKrU/kmSjHQ0zBKg2tH6iNM9gbJEW7ZolMlIpfPW/+jEaNM9NrwQYpHrAtSQPh7NJDrsvvtAaIHIlZE2JcQ8xm7jNJbmz46vOceiASzB/2KqIAdNJ32gNUA8v8cMzVT1l5dIBTxVHmdKnPh/hVe9dfaE9shM/SXeMraocfciCpFYYs5o6VeANlITz5U0IGLKFFLFTe/qz/enbvoLUIVFKYXqBxfkcrcZ+ezEt8c+PKT9ZyzSslXHs7wdRp9gC6MUu3DZbkla2qnvVCKARwZK8vK7zuFiawuxGudShOyya/i40kueD+mTOqq0BJ6gOgVg34gswIfDHG1Kl1ic0dnYa7t8ukJPuVp/c9sX/6pSZBhTZ8nybNZjyk7pmGOxZ5c51dZR1OPXY0ZV9Od1VOpSqE+vWsJ4dAbjwMGydvPVxVCAnhk82daemZB3fK2Bsp4DWuAduGDVB73K2XAgtF7Cbz7xLIRGJo4rs93UDQ22ksUP9uJKw2YbURTV70bOzqRCBBf8ISTGrjXz48m5TkOvrLZ28PFvFNKdVoEDpLxSVhwflBIkqi7Ik8Kf7fmXQPsY/P89A8XglOiR43ABT685kpoiUxnf5Sjpjo8jMudQ0tKsdLJcjhLYKgbBkDfd1yvNgF7f3c6oMaJTlbFx8yHGe1alCwBj0TGpxE0WnO1QOh39AVp5zRvHfxrAfzzucwlua3ltG5IZHoXqPliG8Rf4ewhic2bZjIk40uiM0DDTpn2RhcRBUR+y3npCLyLZh2qicldG2SYRkTKRHvsT8UcA8hja4qk/yAbsHF2E0h1m/iI9gRTA4avDij0Gr90BzuD9mLIRahTv');
 	expect(enc.length).toBe(888);	// ファイルサイズ
@@ -153,7 +153,7 @@ it('prj_json_simple', async ()=> {
 it('prj_json_simple by Plugin', async ()=> {
 	// 暗号化
 	const path_src = 'test/mat/prj.json';
-	const src = readFileSync(path_src, {encoding: 'utf8'});
+	const src = await readFile(path_src, {encoding: 'utf8'});
 	const enc = await encry.enc(src);
 
 	// 復号化（本番方式）
@@ -176,8 +176,7 @@ it('prj_json_simple by Plugin', async ()=> {
 it('prj_json_simple by Plugin unknown ext', async ()=> {
 	// 暗号化
 	const path_src = 'test/mat/prj.json';
-	const src = readFileSync(path_src, {encoding: 'utf8'});
-	const srcAb = new TextEncoder().encode(src);
+	const src = await readFile(path_src, {encoding: 'utf8'});
 
 	// 復号化（本番方式）
 	const {init} = require('../src/snsys_pre');
@@ -216,7 +215,7 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
+		expect(await (await readFile(path_enc, {encoding: 'hex'})).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(4017);	// ファイルサイズ
@@ -227,16 +226,16 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
-		//const encAB = readFileSync(path_enc).buffer;	// NG、多分この不具合になる
-			// fs.readFileSync returns corrupt ArrayBuffer (fs.readFile works as expected) · Issue #11132 · nodejs/node https://github.com/nodejs/node/issues/11132
+		const encAB = new Uint8Array(await readFile(path_enc)).buffer;
+		//const encAB = await readFile(path_enc).buffer;	// NG、多分この不具合になる
+			// fs.await readFile returns corrupt ArrayBuffer (fs.readFile works as expected) · Issue #11132 · nodejs/node https://github.com/nodejs/node/issues/11132
 		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
 
 		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(10);	// mp3
 		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const srcH = await readFile(path_src, {encoding: 'hex'});
 		const decH = ab2hexStr(ab);
 		expect(srcH.length).toBe(decH.length);
 		expect(srcH).toBe(decH);
@@ -266,7 +265,7 @@ it('free0509_mp3_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
+		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(1796975);	// ファイルサイズ
@@ -277,14 +276,14 @@ it('free0509_mp3_stream_transform', done=> {
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		const encAB = new Uint8Array(await readFile(path_enc)).buffer;
 		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
 
 		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(10);	// mp3
 		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const srcH = await readFile(path_src, {encoding: 'hex'});
 		const decH = ab2hexStr(ab);
 		expect(srcH.length).toBe(decH.length);
 		expect(srcH).toBe(decH);
@@ -314,7 +313,7 @@ it('_yesno_png_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
+		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(18744);	// ファイルサイズ
@@ -325,14 +324,14 @@ it('_yesno_png_stream_transform', done=> {
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		const encAB = new Uint8Array(await readFile(path_enc)).buffer;
 		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
 
 		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(2);	// png
 		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const srcH = await readFile(path_src, {encoding: 'hex'});
 		const decH = ab2hexStr(ab);
 		expect(srcH.length).toBe(decH.length);
 		expect(srcH).toBe(decH);
@@ -362,7 +361,7 @@ it('title_jpg_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
+		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(406143);	// ファイルサイズ
@@ -373,14 +372,14 @@ it('title_jpg_stream_transform', done=> {
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		const encAB = new Uint8Array(await readFile(path_enc)).buffer;
 		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
 
 		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(1);	// jpeg
 		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const srcH = await readFile(path_src, {encoding: 'hex'});
 		const decH = ab2hexStr(ab);
 		expect(srcH.length).toBe(decH.length);
 		expect(srcH).toBe(decH);
@@ -410,7 +409,7 @@ it('nc10889_mp4_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(readFileSync(path_enc, {encoding: 'hex'}).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
+		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(369433);	// ファイルサイズ
@@ -421,14 +420,14 @@ it('nc10889_mp4_stream_transform', done=> {
 			// jestがESM対応できてないので
 		await init(hSN);
 
-		const encAB = new Uint8Array(readFileSync(path_enc)).buffer;
+		const encAB = new Uint8Array(await readFile(path_enc)).buffer;
 		expect(encAB.byteLength).toBe(stt_bin.size);	// ファイルサイズ
 
 		const {ext_num, ab} = await fncDecAB(encAB);
 		expect(ext_num).toBe(20);	// mp4
 		expect(ab.byteLength).toBe(stt.size);	// ファイルサイズ
 
-		const srcH = readFileSync(path_src, {encoding: 'hex'});
+		const srcH = await readFile(path_src, {encoding: 'hex'});
 		const decH = ab2hexStr(ab);
 		expect(srcH.length).toBe(decH.length);
 		expect(srcH).toBe(decH);

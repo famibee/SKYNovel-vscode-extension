@@ -14,7 +14,7 @@ const AdmZip = require('adm-zip');
 import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
-import {copyFileSync, ensureDir, existsSync, move, outputJson, readFile, readJson, readJsonSync, removeSync, writeFile} from 'fs-extra';
+import {copyFile, ensureDir, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
 
 import {
 	LanguageClient,
@@ -420,16 +420,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト作成',
 		cancellable	: true,
-	}, (prg, tknCancel)=> {
+	}, async (prg, tknCancel)=> {
 		const td = tmpdir() +'/SKYNovel/';
-		removeSync(td);
+		await remove(td);
 		ensureDir(td);
 		const pathZip = td +`temp_${nm}.zip`;
 		const pathUnZip = td +`SKYNovel_${nm}-master/`;
-		removeSync(pathZip);
+		await remove(pathZip);
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
-		tknCancel.onCancellationRequested(()=> {fncAbort(); removeSync(td)});
+		tknCancel.onCancellationRequested(()=> {fncAbort(); return remove(td)});
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
@@ -499,20 +499,20 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		location	: ProgressLocation.Notification,
 		title		: 'テンプレートからプロジェクト更新',
 		cancellable	: true,
-	}, (prg, tknCancel)=> {
+	}, async (prg, tknCancel)=> {
 		if (! existsSync(fnTo + '/CHANGELOG.md')) return Promise.reject();
 
-		const oOldPkgJS = readJsonSync(fnTo +'/package.json', {encoding: 'utf8'});
+		const oOldPkgJS = await readJson(fnTo +'/package.json', {encoding: 'utf8'});
 		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
 
 		const td = tmpdir() +'/SKYNovel/';
-		removeSync(td);
+		await remove(td);
 		ensureDir(td);
 		const pathZip = td +`temp_${nm}.zip`;
 		const pathUnZip = td +`SKYNovel_${nm}-master/`;
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
-		tknCancel.onCancellationRequested(()=> {fncAbort(); removeSync(td)});
+		tknCancel.onCancellationRequested(()=> {fncAbort(); return remove(td)});
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
@@ -535,7 +535,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				const copy = (fn: string, chkExists = false)=> {
 					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
-					copyFileSync(pathUnZip + fn, fnTo +'/'+ fn)
+					return copyFile(pathUnZip + fn, fnTo +'/'+ fn)
 				};
 				// build/		// しばしノータッチ
 
