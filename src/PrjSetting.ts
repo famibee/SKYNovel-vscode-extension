@@ -163,7 +163,7 @@ export class PrjSetting implements Disposable {
 	async cnvWatch(rpInp: RelativePattern, pathOut: string, fncGen: (uri: Uri)=> Promise<void>, aDs: Disposable[], crechg= async (uri: Uri, cre=false)=> {}, del= async (uri: Uri)=> {}) {
 		await workspace.findFiles(rpInp).then(async aUri=> {
 			// バッチ処理等なので並列処理しない
-			for await (const uri of aUri) fncGen(uri);
+			for await (const uri of aUri) await fncGen(uri);	// await必須
 		});
 
 		const fw = workspace.createFileSystemWatcher(rpInp);

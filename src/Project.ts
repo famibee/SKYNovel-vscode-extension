@@ -333,7 +333,7 @@ export class Project {
 
 			const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
 //console.log(`fn:Project.ts fwFld DEL:${fld_nm}:`);
-			for await (const fp of Object.keys(hFld2hFile[fld_nm])) onDidDelete(Uri.file(fp));
+			for await (const fp of Object.keys(hFld2hFile[fld_nm])) await onDidDelete(Uri.file(fp));	// await必須
 			delete hFld2hFile[fld_nm];
 
 			await remove(
@@ -862,19 +862,19 @@ export class Project {
 		//	}
 			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
 
-			tasks.executeTask(new Task(
-				{type: 'SKYNovel TaskSys'},	// タスクの一意性
-				this.wsFld,
-				inf.title,		// UIに表示
-				'SKYNovel',		// source
-				new ShellExecution(
-					`cd "${this.#PATH_WS}" ${statBreak} ${init} node ./${inf.pathCpyTo}/${nm}.js ${arg}`
-				),
-			))
-			.then(
-				re=> this.#hTaskExe.set(<any>nm, re),
-				rj=> console.error(`fn:Project #exeTask() rj:${rj.message}`)
-			);
+			try {
+				const r = await tasks.executeTask(new Task(
+					{type: 'SKYNovel TaskSys'},	// タスクの一意性
+					this.wsFld,
+					inf.title,		// UIに表示
+					'SKYNovel',		// source
+					new ShellExecution(
+						`cd "${this.#PATH_WS}" ${statBreak} ${init} node ./${inf.pathCpyTo}/${nm}.js ${arg}`
+					),
+				));
+				this.#hTaskExe.set(<any>nm, r);
+			} catch (e) {console.error('Project exeTask() e:%o', e)}
+
 			this.hOnEndTask.set('Sys', e=> {
 				fin(e.exitCode ?? 0);
 				this.#preventFileWatch = false;
@@ -1494,7 +1494,7 @@ export class Project {
 			location	: ProgressLocation.Notification,
 			title		: name,
 			cancellable	: false
-		}, _prg=> new Promise<void>(done=> {
+		}, _prg=> new Promise<void>(async done=> {
 			let fnc = (e: TaskProcessEndEvent)=> {
 				if (e.execution.task.definition.type !== type) return;
 				fnc = ()=> {};
@@ -1503,8 +1503,9 @@ export class Project {
 			};
 			tasks.onDidEndTaskProcess(fnc);
 
-			tasks.executeTask(t)
-			.then(undefined, rj=> console.error(`Project build() rj:${rj.message}`));
+			try {
+				await tasks.executeTask(t);
+			} catch (e) {console.error('Project build() e:%o', e)}
 				// この resolve は「executeTask()できたかどうか」だけで、
 				// Task終了を待って呼んでくれるわけではない
 		}));
@@ -1565,7 +1566,7 @@ export class Project {
 			const aコピー先候補 = this.#getコピー先候補(ext);
 			switch (scheme) {
 			case 'file':
-				if (statSync(fp).isDirectory()) {	// フォルダドロップ
+				if (statSync(path).isDirectory()) {	// フォルダドロップ
 					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return null;	// プロジェクト外なら鼻も引っ掛けない
 
 					this.opView(uri);

@@ -35,7 +35,9 @@ export function chkUpdate(path1: string, path2: string, doesnt_exist = true): bo
 	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
 	if (! existsSync(path2)) return doesnt_exist;
 
-	return statSync(path1, {bigint: true}).mtimeNs > statSync(path2, {bigint: true}).mtimeNs;
+	const s1 = statSync(path1, {bigint: true});
+	const s2 = statSync(path2, {bigint: true});
+	return s1.mtimeMs > s2.mtimeMs;
 }
 
 
