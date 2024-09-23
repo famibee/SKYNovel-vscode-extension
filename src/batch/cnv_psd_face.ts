@@ -64,7 +64,6 @@ PSD.open(src).then((psd: T_PSD)=> {
 	const hn = getFn(src);
 	let out = `;#ED FACE
 ; *******************************************************
-&const.ae.立ち絵.${hn} = true
 ;#ED {"width":${width}, "height":${height}}
 `;
 	const a = t.descendants(); // =lay+grp に注意
