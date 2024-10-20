@@ -1,3 +1,6 @@
+## v4.18.3
+- fix: esbuild-jest を tsx に切り替え
+- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.10.0 LTS 推奨に更新
 ## v4.18.2
 - fix(立ち絵素材生成機能): psd ファイルが複数あると「PSDファイル変換」通知が複数現われ二つ目以降が残ったままになる件
 ## v4.18.1

@@ -8,7 +8,6 @@
 		"sourceMap": true,
 		"outDir": "dist/",
 		"declaration": false,
-//		"declaration": true,
 		"removeComments": true,
 		"noImplicitThis": true,		// this に型を明示しないとエラーに
 		"noImplicitReturns": true,	// 暗黙的に undefined を返している関数をエラーに

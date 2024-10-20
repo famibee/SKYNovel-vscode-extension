@@ -161,6 +161,7 @@ export type T_OPTIMG_FILE = {
 	webp_q?		: number;
 };
 export type T_OPTIMG_FILE_AND_KEY = {
+	key		: number,
 	nm		: string,
 	id		: string,
 } & T_OPTIMG_FILE;
@@ -206,6 +207,7 @@ export type T_OPTSND_FILE = {
 //	webp_q?		: number;
 };
 export type T_OPTSND_FILE_AND_KEY = {
+	key		: number,
 	nm		: string,
 	id		: string,
 } & T_OPTSND_FILE;

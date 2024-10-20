@@ -6,15 +6,15 @@
 ** ***** END LICENSE BLOCK ***** */
 
 const [, , ...aCmd] = process.argv;
-const watch = aCmd.includes('--watch');
+const watch = aCmd.includes('--watch') ?{} :null;
 const prod = aCmd.includes('--production');
 const node_env = prod ?'production' :'development';
 
-import {context} from 'esbuild';
-
-import {build as vite} from 'vite';
+import {build} from 'vite';
 import vue from '@vitejs/plugin-vue';
 //console.log(`fn:build.ts __dirname:${__dirname}:`);	// src
+
+import {context} from 'esbuild';
 
 (async() => {
 	{	// === メイン ===
@@ -37,7 +37,7 @@ import vue from '@vitejs/plugin-vue';
 	}
 
 	// === vue ===
-	vite({
+	build({
 		root	: './views/',
 		define: {
 			'process.env.NODE_ENV'	: JSON.stringify(node_env),

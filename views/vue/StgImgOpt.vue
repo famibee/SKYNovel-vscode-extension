@@ -159,7 +159,7 @@ const stOInfo = useOInfo();
 const {oOptImg} = storeToRefs(stOInfo);
 
 const sortHSize: ()=> T_OPTIMG_FILE_AND_KEY[] = ()=> Object.entries(oOptImg.value.hSize)
-	.map(([nm, v])=> ({nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
+	.map(([nm, v], i)=> ({key: i, nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
 	.sort((a, b)=> (a.nm < b.nm) ?-1 :1);	// 昇順ソート
 
 const chgRangeWebpQDef = (el: any)=> {
