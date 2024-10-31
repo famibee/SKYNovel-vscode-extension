@@ -3502,7 +3502,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           mountStaticNode(n2, container, anchor, namespace);
         }
         break;
-      case Fragment$1:
+      case Fragment:
         processFragment(
           n1,
           n2,
@@ -3839,7 +3839,7 @@ function baseCreateRenderer(options, createHydrationFns) {
         // which will not have a mounted element
         oldVNode.el && // - In the case of a Fragment, we need to provide the actual parent
         // of the Fragment itself so it can move its children.
-        (oldVNode.type === Fragment$1 || // - In the case of different nodes, there is going to be a replacement
+        (oldVNode.type === Fragment || // - In the case of different nodes, there is going to be a replacement
         // which also requires the correct parent container
         !isSameVNodeType(oldVNode, newVNode) || // - In the case of a component, it could contain anything.
         oldVNode.shapeFlag & (6 | 64)) ? hostParentNode(oldVNode.el) : (
@@ -4467,7 +4467,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       type.move(vnode, container, anchor, internals);
       return;
     }
-    if (type === Fragment$1) {
+    if (type === Fragment) {
       hostInsert(el, container, anchor);
       for (let i = 0; i < children.length; i++) {
         move(children[i], container, anchor, moveType);
@@ -4559,7 +4559,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       // so that it doesn't take the fast path during unmount - otherwise
       // components nested in v-once are never unmounted.
       !dynamicChildren.hasOnce && // #1153: fast path should not be taken for non-stable (v-for) fragments
-      (type !== Fragment$1 || patchFlag > 0 && patchFlag & 64)) {
+      (type !== Fragment || patchFlag > 0 && patchFlag & 64)) {
         unmountChildren(
           dynamicChildren,
           parentComponent,
@@ -4567,7 +4567,7 @@ function baseCreateRenderer(options, createHydrationFns) {
           false,
           true
         );
-      } else if (type === Fragment$1 && patchFlag & (128 | 256) || !optimized && shapeFlag & 16) {
+      } else if (type === Fragment && patchFlag & (128 | 256) || !optimized && shapeFlag & 16) {
         unmountChildren(children, parentComponent, parentSuspense);
       }
       if (doRemove) {
@@ -4583,7 +4583,7 @@ function baseCreateRenderer(options, createHydrationFns) {
   };
   const remove2 = (vnode) => {
     const { type, el, anchor, transition } = vnode;
-    if (type === Fragment$1) {
+    if (type === Fragment) {
       {
         removeFragment(el, anchor);
       }
@@ -5194,7 +5194,7 @@ function queueEffectWithSuspense(fn, suspense) {
     queuePostFlushCb(fn);
   }
 }
-const Fragment$1 = Symbol.for("v-fgt");
+const Fragment = Symbol.for("v-fgt");
 const Text = Symbol.for("v-txt");
 const Comment = Symbol.for("v-cmt");
 const Static = Symbol.for("v-stc");
@@ -5264,7 +5264,7 @@ const normalizeRef = ({
   }
   return ref3 != null ? isString$1(ref3) || isRef$1(ref3) || isFunction(ref3) ? { i: currentRenderingInstance, r: ref3, k: ref_key, f: !!ref_for } : ref3 : null;
 };
-function createBaseVNode(type, props = null, children = null, patchFlag = 0, dynamicProps = null, shapeFlag = type === Fragment$1 ? 0 : 1, isBlockNode = false, needFullChildrenNormalization = false) {
+function createBaseVNode(type, props = null, children = null, patchFlag = 0, dynamicProps = null, shapeFlag = type === Fragment ? 0 : 1, isBlockNode = false, needFullChildrenNormalization = false) {
   const vnode = {
     __v_isVNode: true,
     __v_skip: true,
@@ -5399,7 +5399,7 @@ function cloneVNode(vnode, extraProps, mergeRef = false, cloneTransition = false
     // existing patch flag to be reliable and need to add the FULL_PROPS flag.
     // note: preserve flag for fragments since they use the flag for children
     // fast paths only.
-    patchFlag: extraProps && vnode.type !== Fragment$1 ? patchFlag === -1 ? 16 : patchFlag | 16 : patchFlag,
+    patchFlag: extraProps && vnode.type !== Fragment ? patchFlag === -1 ? 16 : patchFlag | 16 : patchFlag,
     dynamicProps: vnode.dynamicProps,
     dynamicChildren: vnode.dynamicChildren,
     appContext: vnode.appContext,
@@ -5442,7 +5442,7 @@ function normalizeVNode(child) {
     return createVNode(Comment);
   } else if (isArray$1(child)) {
     return createVNode(
-      Fragment$1,
+      Fragment,
       null,
       // #3666, avoid reference pollution when reusing vnode
       child.slice()
@@ -6536,7 +6536,7 @@ function normalizeContainer(container) {
 var isVue2 = false;
 
 /*!
- * pinia v2.2.4
+ * pinia v2.2.5
  * (c) 2024 Eduardo San Martin Morote
  * @license MIT
  */
@@ -6851,6 +6851,7 @@ function createSetupStore($id, setup, options = {}, pinia, hot, isOptionsStore) 
   isSyncListening = true;
   return store;
 }
+/*! #__NO_SIDE_EFFECTS__ */
 // @__NO_SIDE_EFFECTS__
 function defineStore(idOrOptions, setup, setupOptions) {
   let id;
@@ -6886,10 +6887,10 @@ function defineStore(idOrOptions, setup, setupOptions) {
 }
 function storeToRefs(store) {
   {
-    store = toRaw$1(store);
+    const rawStore = toRaw$1(store);
     const refs = {};
-    for (const key in store) {
-      const value = store[key];
+    for (const key in rawStore) {
+      const value = rawStore[key];
       if (isRef$1(value) || isReactive$1(value)) {
         refs[key] = // ---
         toRef(store, key);
@@ -7185,9 +7186,9 @@ var __toESM$1 = (mod, isNodeMode, target2) => (target2 = mod != null ? __create$
   mod
 ));
 
-// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.11__@swc+core@1.5.29_jiti@2.0.0__khi6fwhekjxtif3xyxfitrs5gq/node_modules/tsup/assets/esm_shims.js
+// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js
 var init_esm_shims$1 = __esm$1({
-  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.11__@swc+core@1.5.29_jiti@2.0.0__khi6fwhekjxtif3xyxfitrs5gq/node_modules/tsup/assets/esm_shims.js"() {
+  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js"() {
   }
 });
 
@@ -7709,9 +7710,9 @@ var __toESM = (mod, isNodeMode, target22) => (target22 = mod != null ? __create(
   mod
 ));
 
-// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.11__@swc+core@1.5.29_jiti@2.0.0__khi6fwhekjxtif3xyxfitrs5gq/node_modules/tsup/assets/esm_shims.js
+// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js
 var init_esm_shims = __esm({
-  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.11__@swc+core@1.5.29_jiti@2.0.0__khi6fwhekjxtif3xyxfitrs5gq/node_modules/tsup/assets/esm_shims.js"() {
+  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js"() {
   }
 });
 
@@ -9286,7 +9287,6 @@ function toRaw(observed) {
   const raw = observed && observed["__v_raw" /* RAW */];
   return raw ? toRaw(raw) : observed;
 }
-var Fragment = Symbol.for("v-fgt");
 
 // src/core/component/utils/index.ts
 init_esm_shims();
@@ -9327,9 +9327,13 @@ async function getComponentId(options) {
   }
 }
 function isFragment(instance) {
-  var _a25;
+  var _a25, _b25;
   const subTreeType = (_a25 = instance.subTree) == null ? void 0 : _a25.type;
-  return subTreeType === Fragment;
+  const appRecord = getAppRecord(instance);
+  if (appRecord) {
+    return ((_b25 = appRecord == null ? void 0 : appRecord.types) == null ? void 0 : _b25.Fragment) === subTreeType;
+  }
+  return false;
 }
 function getInstanceName(instance) {
   var _a25, _b25, _c;
@@ -9837,7 +9841,7 @@ init_esm_shims();
 init_esm_shims();
 var TIMELINE_LAYERS_STATE_STORAGE_ID = "__VUE_DEVTOOLS_KIT_TIMELINE_LAYERS_STATE__";
 function getTimelineLayersStateFromStorage() {
-  if (!isBrowser || typeof localStorage === "undefined") {
+  if (!isBrowser || typeof localStorage === "undefined" || localStorage === null) {
     return {
       recordingState: false,
       mouseEventEnabled: false,
@@ -9874,6 +9878,7 @@ var devtoolsTimelineLayers = new Proxy(target.__VUE_DEVTOOLS_KIT_TIMELINE_LAYERS
   }
 });
 function addTimelineLayer(options, descriptor) {
+  devtoolsState.timelineLayersState[descriptor.id] = false;
   devtoolsTimelineLayers.push({
     ...options,
     descriptorId: descriptor.id,
@@ -9926,9 +9931,9 @@ function createDevToolsCtxHooks() {
   hooks2.hook("addInspector" /* ADD_INSPECTOR */, ({ inspector, plugin }) => {
     addInspector(inspector, plugin.descriptor);
   });
-  hooks2.hook("sendInspectorTree" /* SEND_INSPECTOR_TREE */, async ({ inspectorId, plugin }) => {
+  const debounceSendInspectorTree = debounce(async ({ inspectorId, plugin }) => {
     var _a25;
-    if (!inspectorId || !((_a25 = plugin == null ? void 0 : plugin.descriptor) == null ? void 0 : _a25.app))
+    if (!inspectorId || !((_a25 = plugin == null ? void 0 : plugin.descriptor) == null ? void 0 : _a25.app) || devtoolsState.highPerfModeEnabled)
       return;
     const inspector = getInspector(inspectorId, plugin.descriptor.app);
     const _payload = {
@@ -9949,10 +9954,11 @@ function createDevToolsCtxHooks() {
         rootNodes: _payload.rootNodes
       })));
     }, "sendInspectorTreeToClient" /* SEND_INSPECTOR_TREE_TO_CLIENT */);
-  });
-  hooks2.hook("sendInspectorState" /* SEND_INSPECTOR_STATE */, async ({ inspectorId, plugin }) => {
+  }, 120);
+  hooks2.hook("sendInspectorTree" /* SEND_INSPECTOR_TREE */, debounceSendInspectorTree);
+  const debounceSendInspectorState = debounce(async ({ inspectorId, plugin }) => {
     var _a25;
-    if (!inspectorId || !((_a25 = plugin == null ? void 0 : plugin.descriptor) == null ? void 0 : _a25.app))
+    if (!inspectorId || !((_a25 = plugin == null ? void 0 : plugin.descriptor) == null ? void 0 : _a25.app) || devtoolsState.highPerfModeEnabled)
       return;
     const inspector = getInspector(inspectorId, plugin.descriptor.app);
     const _payload = {
@@ -9979,7 +9985,8 @@ function createDevToolsCtxHooks() {
         state: _payload.state
       })));
     }, "sendInspectorStateToClient" /* SEND_INSPECTOR_STATE_TO_CLIENT */);
-  });
+  }, 120);
+  hooks2.hook("sendInspectorState" /* SEND_INSPECTOR_STATE */, debounceSendInspectorState);
   hooks2.hook("customInspectorSelectNode" /* CUSTOM_INSPECTOR_SELECT_NODE */, ({ inspectorId, nodeId, plugin }) => {
     const inspector = getInspector(inspectorId, plugin.descriptor.app);
     if (!inspector)
@@ -9990,6 +9997,10 @@ function createDevToolsCtxHooks() {
     addTimelineLayer(options, plugin.descriptor);
   });
   hooks2.hook("timelineEventAdded" /* TIMELINE_EVENT_ADDED */, ({ options, plugin }) => {
+    var _a25;
+    const internalLayerIds = ["performance", "component-event", "keyboard", "mouse"];
+    if (devtoolsState.highPerfModeEnabled || !((_a25 = devtoolsState.timelineLayersState) == null ? void 0 : _a25[plugin.descriptor.id]) && !internalLayerIds.includes(options.layerId))
+      return;
     hooks2.callHookWith(async (callbacks) => {
       await Promise.all(callbacks.map((cb) => cb(options)));
     }, "sendTimelineEventToClient" /* SEND_TIMELINE_EVENT_TO_CLIENT */);
@@ -10368,6 +10379,9 @@ var DevToolsV6PluginAPI = class {
   selectInspectorNode(inspectorId, nodeId) {
     this.hooks.callHook("customInspectorSelectNode" /* CUSTOM_INSPECTOR_SELECT_NODE */, { inspectorId, nodeId, plugin: this.plugin });
   }
+  visitComponentTree(payload) {
+    return this.hooks.callHook("visitComponentTree" /* VISIT_COMPONENT_TREE */, payload);
+  }
   // timeline
   now() {
     return Date.now();
@@ -10566,6 +10580,8 @@ function normalizeRouterInfo(appRecord, activeAppRecord2) {
     if (((_a25 = activeAppRecord2.value) == null ? void 0 : _a25.app) !== appRecord.app)
       return;
     init();
+    if (devtoolsState.highPerfModeEnabled)
+      return;
     devtoolsContext.hooks.callHook("routerInfoUpdated" /* ROUTER_INFO_UPDATED */, { state: target[ROUTER_INFO_KEY] });
   }, 200));
 }
@@ -11645,7 +11661,7 @@ init_esm_shims();
 init_esm_shims();
 
 /**
-  * vee-validate v4.14.3
+  * vee-validate v4.14.6
   * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
@@ -11884,7 +11900,13 @@ function isEqual(a, b) {
     if (a.toString !== Object.prototype.toString)
       return a.toString() === b.toString();
     keys = Object.keys(a);
-    length = keys.length;
+    length = keys.length - countUndefinedValues(a, keys);
+    if (length !== Object.keys(b).length - countUndefinedValues(b, Object.keys(b)))
+      return false;
+    for (i = length; i-- !== 0; ) {
+      if (!Object.prototype.hasOwnProperty.call(b, keys[i]))
+        return false;
+    }
     for (i = length; i-- !== 0; ) {
       var key = keys[i];
       if (!isEqual(a[key], b[key]))
@@ -11893,6 +11915,15 @@ function isEqual(a, b) {
     return true;
   }
   return a !== a && b !== b;
+}
+function countUndefinedValues(a, keys) {
+  let result = 0;
+  for (let i = keys.length; i-- !== 0; ) {
+    var key = keys[i];
+    if (a[key] === void 0)
+      result++;
+  }
+  return result;
 }
 function isFile(a) {
   if (!isClient) {
@@ -13174,7 +13205,7 @@ function useForm(opts) {
   const errorBag = computed(() => {
     const pathErrors = pathStates.value.reduce((acc, state) => {
       if (state.errors.length) {
-        acc[state.path] = state.errors;
+        acc[toValue(state.path)] = state.errors;
       }
       return acc;
     }, {});
@@ -13191,14 +13222,14 @@ function useForm(opts) {
   });
   const fieldNames = computed(() => {
     return pathStates.value.reduce((names, state) => {
-      names[state.path] = { name: state.path || "", label: state.label || "" };
+      names[toValue(state.path)] = { name: toValue(state.path) || "", label: state.label || "" };
       return names;
     }, {});
   });
   const fieldBailsMap = computed(() => {
     return pathStates.value.reduce((map, state) => {
       var _a2;
-      map[state.path] = (_a2 = state.bails) !== null && _a2 !== void 0 ? _a2 : true;
+      map[toValue(state.path)] = (_a2 = state.bails) !== null && _a2 !== void 0 ? _a2 : true;
       return map;
     }, {});
   });
@@ -13208,8 +13239,8 @@ function useForm(opts) {
   const meta = useFormMeta(pathStates, formValues, originalInitialValues, errors);
   const controlledValues = computed(() => {
     return pathStates.value.reduce((acc, state) => {
-      const value = getFromPath(formValues, state.path);
-      setInPath(acc, state.path, value);
+      const value = getFromPath(formValues, toValue(state.path));
+      setInPath(acc, toValue(state.path), value);
       return acc;
     }, {});
   });
@@ -13366,7 +13397,7 @@ function useForm(opts) {
     return pathState;
   }
   function findHoistedPath(path) {
-    const candidates = pathStates.value.filter((state) => path.startsWith(state.path));
+    const candidates = pathStates.value.filter((state) => path.startsWith(toValue(state.path)));
     return candidates.reduce((bestCandidate, candidate) => {
       if (!bestCandidate) {
         return candidate;
@@ -13631,9 +13662,9 @@ function useForm(opts) {
       var _a2;
       state.__flags.pendingReset = true;
       state.validated = false;
-      state.touched = ((_a2 = resetState === null || resetState === void 0 ? void 0 : resetState.touched) === null || _a2 === void 0 ? void 0 : _a2[state.path]) || false;
-      setFieldValue(state.path, getFromPath(newValues, state.path), false);
-      setFieldError(state.path, void 0);
+      state.touched = ((_a2 = resetState === null || resetState === void 0 ? void 0 : resetState.touched) === null || _a2 === void 0 ? void 0 : _a2[toValue(state.path)]) || false;
+      setFieldValue(toValue(state.path), getFromPath(newValues, toValue(state.path)), false);
+      setFieldError(toValue(state.path), void 0);
     });
     (opts2 === null || opts2 === void 0 ? void 0 : opts2.force) ? forceSetValues(newValues, false) : setValues(newValues, false);
     setErrors((resetState === null || resetState === void 0 ? void 0 : resetState.errors) || {});
@@ -13657,7 +13688,7 @@ function useForm(opts) {
     const validations = await Promise.all(pathStates.value.map((state) => {
       if (!state.validate) {
         return Promise.resolve({
-          key: state.path,
+          key: toValue(state.path),
           valid: true,
           errors: [],
           value: void 0
@@ -13665,7 +13696,7 @@ function useForm(opts) {
       }
       return state.validate(opts2).then((result) => {
         return {
-          key: state.path,
+          key: toValue(state.path),
           valid: result.valid,
           errors: result.errors,
           value: result.value
@@ -13777,7 +13808,7 @@ function useForm(opts) {
       pathState.touched = true;
       const validateOnBlur = (_a2 = evalConfig().validateOnBlur) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnBlur;
       if (validateOnBlur) {
-        validateField(pathState.path);
+        validateField(toValue(pathState.path));
       }
     }
     function onInput() {
@@ -13785,7 +13816,7 @@ function useForm(opts) {
       const validateOnInput = (_a2 = evalConfig().validateOnInput) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnInput;
       if (validateOnInput) {
         nextTick(() => {
-          validateField(pathState.path);
+          validateField(toValue(pathState.path));
         });
       }
     }
@@ -13794,7 +13825,7 @@ function useForm(opts) {
       const validateOnChange = (_a2 = evalConfig().validateOnChange) !== null && _a2 !== void 0 ? _a2 : getConfig().validateOnChange;
       if (validateOnChange) {
         nextTick(() => {
-          validateField(pathState.path);
+          validateField(toValue(pathState.path));
         });
       }
     }
@@ -13911,8 +13942,8 @@ function useFormInitialValues(pathsState, formValues, opts) {
       if (wasTouched) {
         return;
       }
-      const newValue = getFromPath(initialValues.value, state.path);
-      setInPath(formValues, state.path, klona(newValue));
+      const newValue = getFromPath(initialValues.value, toValue(state.path));
+      setInPath(formValues, toValue(state.path), klona(newValue));
     });
   }
   return {
@@ -16873,7 +16904,7 @@ const _sfc_main$5 = /* @__PURE__ */ defineComponent({
         innerHTML: unref(err)
       }, null, 8, _hoisted_1$5)) : (openBlock(), createElementBlock("div", _hoisted_2$5, [
         (openBlock(true), createElementBlock(
-          Fragment$1,
+          Fragment,
           null,
           renderList(unref(aTemp), ({ id, lbl, type, num, max, min, step }, i) => {
             return openBlock(), createBlock(
@@ -17003,7 +17034,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           /* HOISTED */
         )),
         (openBlock(true), createElementBlock(
-          Fragment$1,
+          Fragment,
           null,
           renderList(unref(oCfg).code, (_v, nm) => {
             return openBlock(), createElementBlock("div", _hoisted_2$4, [
@@ -17036,7 +17067,7 @@ const _sfc_main$4 = /* @__PURE__ */ defineComponent({
           /* HOISTED */
         )),
         (openBlock(true), createElementBlock(
-          Fragment$1,
+          Fragment,
           null,
           renderList(unref(oCfg).debug, (_v, nm) => {
             return openBlock(), createElementBlock("div", _hoisted_6$4, [
@@ -17285,7 +17316,7 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
     const updImg = (src) => src + "?" + (/* @__PURE__ */ new Date()).getTime();
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock(
-        Fragment$1,
+        Fragment,
         null,
         [
           createBaseVNode("div", _hoisted_1$3, [
@@ -17406,11 +17437,11 @@ const _sfc_main$3 = /* @__PURE__ */ defineComponent({
                     )),
                     createBaseVNode("tbody", null, [
                       (openBlock(true), createElementBlock(
-                        Fragment$1,
+                        Fragment,
                         null,
                         renderList(sortHSize(), (e) => {
                           return openBlock(), createElementBlock(
-                            Fragment$1,
+                            Fragment,
                             {
                               key: e.key
                             },
@@ -17618,7 +17649,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     const sortHSize = () => Object.entries(oOptSnd.value.hSize).map(([nm, v], i) => ({ key: i, nm, id: "acdMC" + nm.replaceAll(".", "_"), ...v })).sort((a, b) => a.nm < b.nm ? -1 : 1);
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock(
-        Fragment$1,
+        Fragment,
         null,
         [
           createBaseVNode("div", _hoisted_1$2, [
@@ -17755,7 +17786,7 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                     )),
                     createBaseVNode("tbody", null, [
                       (openBlock(true), createElementBlock(
-                        Fragment$1,
+                        Fragment,
                         null,
                         renderList(sortHSize(), (e) => {
                           return openBlock(), createElementBlock("tr", {
@@ -17938,11 +17969,11 @@ const _sfc_main$1 = /* @__PURE__ */ defineComponent({
             )),
             createBaseVNode("tbody", null, [
               (openBlock(true), createElementBlock(
-                Fragment$1,
+                Fragment,
                 null,
                 renderList(unref(aCnvFont), (e) => {
                   return openBlock(), createElementBlock(
-                    Fragment$1,
+                    Fragment,
                     {
                       key: e.nm
                     },
@@ -18183,13 +18214,13 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
     ];
     return (_ctx, _cache) => {
       return openBlock(), createElementBlock(
-        Fragment$1,
+        Fragment,
         null,
         [
           createBaseVNode("nav", null, [
             createBaseVNode("div", _hoisted_1, [
               (openBlock(), createElementBlock(
-                Fragment$1,
+                Fragment,
                 null,
                 renderList(aTab, (t) => {
                   return createBaseVNode("a", {
@@ -18214,7 +18245,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
           ]),
           createBaseVNode("div", _hoisted_3, [
             (openBlock(), createElementBlock(
-              Fragment$1,
+              Fragment,
               null,
               renderList(aTab, (t) => {
                 return createBaseVNode("div", {

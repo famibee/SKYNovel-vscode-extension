@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , src, path_prj] = process.argv;
+const [, , src='', path_prj] = process.argv;
 
 import * as T_PSD from 'psd';	// type
 const PSD = require('psd.js');	// lib
@@ -71,13 +71,13 @@ PSD.open(src).then((psd: T_PSD)=> {
 	let idxLast = len;
 	// 末尾のフォルダかレイヤ群を「is_canvas_size」とする
 	while (0 <= --idxLast) {
-		const {type, parent} = a[idxLast];
+		const {type, parent} = a[idxLast]!;
 		if (type === 'group' || parent.isRoot()) break;
 	}
 
 	let nm = '';
 	for (let i=0; i<len; ++i) {
-		const nc = a[i];
+		const nc = a[i]!;
 		const {type, name, parent} = nc;
 		if (type === 'group') {
 			out += `;#ED FACE_FOLDER ${name}\n`;

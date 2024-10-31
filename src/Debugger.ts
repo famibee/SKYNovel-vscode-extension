@@ -40,7 +40,7 @@ export class Debugger extends EventEmitter {
 		const pathWs = debug.activeDebugSession?.workspaceFolder?.uri.fsPath;
 		if (! pathWs) return;
 
-		const dbg = Debugger.#hcurPrj2Dbg[pathWs +'/doc/prj/'];
+		const dbg = Debugger.#hcurPrj2Dbg[pathWs +'/doc/prj/']!;
 		dbg.send2SN(type, o);
 	}
 
@@ -65,7 +65,7 @@ export class Debugger extends EventEmitter {
 		.on('connection', (sk: Socket)=> {
 			sk.on('data', (type: string, o: any)=> {
 //console.log(`fn:Debugger.ts 新RSV sn -> dbgs id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
-				if (! this.#hProcSnRes[type](type, o)) return;
+				if (! this.#hProcSnRes[type]!(type, o)) return;
 				this.#hProcSnRes[type] = ()=> false;
 			});
 
@@ -310,10 +310,10 @@ export class Debugger extends EventEmitter {
 
 		const o: {[ln: number]: InfoBreakpoint} = {};
 		this.#loadSource(fn);
-		const sl = this.#hScriptLines[fn];
+		const sl = this.#hScriptLines[fn]!;
 		const len_sl = sl.length;
 		for (const v of aBp) {
-			while (sl[v.ln -1].replace(/;.*$/, '').trim() === '') {
+			while (sl[v.ln -1]!.replace(/;.*$/, '').trim() === '') {
 				if (v.ln++ === len_sl) {v.verified = false; break;}
 			}
 			o[v.ln] = v;

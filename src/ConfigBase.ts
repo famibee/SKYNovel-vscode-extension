@@ -10,14 +10,12 @@ import {int} from './CmnLib';
 export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	DEFAULT	= '',
 	SP_GSM	= 'png|jpg|jpeg|json|svg|webp|mp4|webm',
-		// NOTE: ogvがそもそも再生できないので、ogvのみ保留
 	SCRIPT	= 'sn|ssn',
 	FONT	= 'woff2|woff|otf|ttf',
 	SOUND	= 'mp3|m4a|ogg|aac|flac|wav',
 	HTML	= 'htm|html',
 	CSS		=	'css',
 	SN		=	'sn',
-	PSD		=	'psd',
 
 	TST_PNGPNG_	= 'png|png_',
 	TST_HH		= 'hh',
@@ -51,7 +49,7 @@ export type T_CFG = {
 	},
 	debug	: {	// デバッグ情報
 		devtool		: boolean,
-		dumpHtm		: boolean,
+		dumpHtm		: boolean,	// テキストレイヤ：HTML部分をファイル出力するか
 		token		: boolean,
 		tag			: boolean,
 		putCh		: boolean,
@@ -77,12 +75,13 @@ export interface IConfig {
 
 export interface ISysRoots {
 	loadPath(hPathFn2Exts: IFn2Path, cfg: IConfig): Promise<void>;
-	decStr(ext: string, d: string): string;
+	dec(ext: string, tx: string): Promise<string>;
+	decAB(ab: ArrayBuffer): Promise<HTMLImageElement | HTMLVideoElement | ArrayBuffer>;
 
 	get cur()	: string;
 	get crypto(): boolean;
 	fetch(url: string): Promise<Response>;	// ハッシュ値作成ロード用
-	hash(data: string): string;
+	hash(str: string): string;
 }
 export type HSysBaseArg = {
 	cur		: string;
@@ -107,7 +106,7 @@ export class ConfigBase implements IConfig {
 			detail		: '',	// 内容紹介。端的に記入
 			version		: '1.0',
 		},
-		log		: {max_len: 1024},	// プレイヤーが読んだ文章を読み返せる履歴の長さ
+		log		: {max_len: 64},	// プレイヤーが読んだ文章を読み返せる履歴のページ数
 		init	: {
 			bg_color			: '#000000',	// 背景色
 			tagch_msecwait		: 10,		// 通常文字表示待ち時間（未読／既読）
@@ -116,7 +115,6 @@ export class ConfigBase implements IConfig {
 		},
 		debug	: {
 			devtool		: false,
-			dumpHtm		: false,
 			token		: false,
 			tag			: false,
 			putCh		: false,
@@ -124,6 +122,7 @@ export class ConfigBase implements IConfig {
 			baseTx		: false,
 			masume		: false,	// テキストレイヤ：ガイドマス目を表示するか
 			variable	: false,
+			dumpHtm	: false,
 		},
 		code	: {},	// 暗号化しないフォルダ
 		debuger_token	: '',		// デバッガとの接続トークン
@@ -131,7 +130,6 @@ export class ConfigBase implements IConfig {
 
 	userFnTail		= '';	// 4tst public
 	protected	hPathFn2Exts	: IFn2Path	= {};
-
 
 	constructor(readonly sys: ISysRoots) {}
 	async load(oCfg: any) {
@@ -158,13 +156,26 @@ export class ConfigBase implements IConfig {
 
 		this.#existsBreakline = this.matchPath('^breakline$', SEARCH_PATH_ARG_EXT.SP_GSM).length > 0;
 		this.#existsBreakpage = this.matchPath('^breakpage$', SEARCH_PATH_ARG_EXT.SP_GSM).length > 0;
-		if (! this.sys.crypto) return;
 
-		for (const hExts of Object.values(this.hPathFn2Exts)) {
+		const hFn2Ext: {[fn: string]: string}	= {};
+		if (! this.sys.crypto) {
+			for (const [fn0, hExts] of Object.entries(this.hPathFn2Exts)) {
+				for (const ext of Object.keys(hExts)) {
+					if (ext.startsWith(':')) continue;
+					hFn2Ext[fn0] = ext;
+				}
+			}
+		}
+		else
+		for (const [fn0, hExts] of Object.entries(this.hPathFn2Exts)) {
 			for (const [ext, v] of Object.entries(hExts)) {
-				if (ext.slice(-3) !== ':id') continue;
+				if (! ext.startsWith(':')) {
+					hFn2Ext[fn0] = ext;
+					continue;
+				}
+				if (! ext.endsWith(':id')) continue;
 				const hp = v.slice(v.lastIndexOf('/') +1);
-				const fn = hExts[ext.slice(0, -10)];
+				const fn = hExts[ext.slice(0, -10)] ?? '';
 				const res = await this.sys.fetch(fn);
 				const src = await res.text();
 				const hf = this.sys.hash(src);
@@ -177,13 +188,13 @@ export class ConfigBase implements IConfig {
 	#existsBreakpage = false;
 	get existsBreakpage(): boolean {return this.#existsBreakpage}
 
-	getNs() {return `skynovel.${this.oCfg.save_ns} - `;}
+	getNs() {return `skynovel.${this.oCfg.save_ns} - `}
 
 	readonly	#REG_PATH = /([^\/\s]+)\.([^\d]\w+)/;
 		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
 	searchPath(fn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): string {
 		if (! fn) throw '[searchPath] fnが空です';
-		if (fn.slice(0, 7) === 'http://') return fn;
+		if (fn.startsWith('http://')) return fn;
 
 		const a = fn.match(this.#REG_PATH);
 		let fn0 = a ?a[1] :fn;
@@ -192,18 +203,17 @@ export class ConfigBase implements IConfig {
 			const utn = fn0 +'@@'+ this.userFnTail;
 			if (utn in this.hPathFn2Exts) {
 				if (extptn === '') fn0 = utn;
-				else for (const e3 of Object.keys(this.hPathFn2Exts[utn])) {
-					if (`|${extptn}|`.indexOf(`|${e3}|`) === -1) continue;
+				else for (const e3 of Object.keys(this.hPathFn2Exts[utn] ?? {})) {
+					if (! `|${extptn}|`.includes(`|${e3}|`)) continue;
 
 					fn0 = utn;
 					break;
 				}
 			}
 		}
-		const h_exts = this.hPathFn2Exts[fn0];
+		const h_exts = this.hPathFn2Exts[fn0!];
 		if (! h_exts) throw `サーチパスに存在しないファイル【${fn}】です`;
 
-		let ret = '';
 		if (! ext) {	// fnに拡張子が含まれていない
 			//	extのどれかでサーチ（ファイル名サーチ→拡張子群にextが含まれるか）
 			const hcnt = int(h_exts[':cnt']);
@@ -217,23 +227,23 @@ export class ConfigBase implements IConfig {
 			if (hcnt > 1) {
 				let cnt = 0;
 				for (const e2 of Object.keys(h_exts)) {
-					if (search_exts.indexOf(`|${e2}|`) === -1) continue;
+					if (! search_exts.includes(`|${e2}|`)) continue;
 					if (++cnt > 1) throw `指定ファイル【${fn}】が複数マッチします。サーチ対象拡張子群【${extptn}】で絞り込むか、ファイル名を個別にして下さい。`;
 				}
 			}
-			for (let e of Object.keys(h_exts)) {
-				if (search_exts.indexOf(`|${e}|`) > -1) return h_exts[e];
+			for (const e of Object.keys(h_exts)) {
+				if (search_exts.includes(`|${e}|`)) return h_exts[e]!;
 			}
 			throw `サーチ対象拡張子群【${extptn}】にマッチするファイルがサーチパスに存在しません。探索ファイル名=【${fn}】`;
 		}
 
 		// fnに拡張子xが含まれている
 		//	ファイル名サーチ→拡張子群にxが含まれるか
-		if (extptn !== '' && `|${extptn}|`.indexOf(`|${ext}|`) === -1) {
+		if (extptn !== '' && ! `|${extptn}|`.includes(`|${ext}|`)) {
 			throw `指定ファイルの拡張子【${ext}】は、サーチ対象拡張子群【${extptn}】にマッチしません。探索ファイル名=【${fn}】`;
 		}
 
-		ret = h_exts[ext];
+		const ret = h_exts[ext];
 		if (! ret) throw `サーチパスに存在しない拡張子【${ext}】です。探索ファイル名=【${fn}】、サーチ対象拡張子群【${extptn}】`;
 
 		return ret;
@@ -245,7 +255,7 @@ export class ConfigBase implements IConfig {
 		const regExt = new RegExp(extptn);
 		for (const [fn, h_exts] of Object.entries(this.hPathFn2Exts)) {
 			if (fn.search(regPtn) === -1) continue;
-			if (extptn === '') {aRet.push(h_exts); continue;}
+			if (extptn === '') {aRet.push(h_exts); continue}
 
 			const o :IExts = {};
 			let isa = false;
@@ -263,7 +273,7 @@ export class ConfigBase implements IConfig {
 	addPath(fn: string, h_exts: IExts) {
 		const o: any = {};
 		for (const [ext, v] of Object.entries(h_exts)) {
-			o[ext] = (ext.at(0) === ':' ?`` :this.sys.cur) + v;
+			o[ext] = (ext.startsWith(':') ?`` :this.sys.cur) + v;
 		}
 		this.hPathFn2Exts[fn] = o;
 	}

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , modeInp, quality, curPrj, curPrjBase=''] = process.argv;
+const [, , modeInp='', quality, curPrj='', curPrjBase=''] = process.argv;
 
 const sharp = require('sharp');
 sharp.cache(false);
@@ -87,10 +87,10 @@ const log_enter = ()=> {
 	oLog = readJsonSync(fnLog, {encoding: 'utf8'});
 	o.sum = {...oLog.sum};
 	for (const name in oLog.hSize) {
-		const {fld_nm, ext, baseSize, webpSize} = oLog.hSize[name];
+		const {fld_nm, ext, baseSize, webpSize} = oLog.hSize[name]!;
 		const pp = fld_nm + '.'+ ext;
 		if (existsSync(resolve(curPrj, pp))
-		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name];
+		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name]!;
 		else {
 			o.sum.baseSize -= baseSize;
 			o.sum.webpSize -= webpSize;
@@ -269,7 +269,7 @@ switch (modeInp) {
 					// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 					const nm = parse(name).name;
 					if (nm in oLog.hSize) {
-						const {baseSize=0, webpSize=0} = oLog.hSize[nm];
+						const {baseSize=0, webpSize=0} = oLog.hSize[nm]!;
 						oLog.sum.baseSize -= baseSize;
 						oLog.sum.webpSize -= webpSize;
 					}
@@ -318,7 +318,7 @@ switch (modeInp) {
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 				const nm = parse(name).name;
 				if (nm in oLog.hSize) {
-					const {baseSize=0, webpSize=0} = oLog.hSize[nm];
+					const {baseSize=0, webpSize=0} = oLog.hSize[nm]!;
 					oLog.sum.baseSize -= baseSize;
 					oLog.sum.webpSize -= webpSize;
 				}
@@ -335,7 +335,7 @@ switch (modeInp) {
 
 		const {dir, name, ext} = parse(modeInp);
 		const o: T_OPTIMG_FILE = {
-			...oLog.hSize[name],
+			...oLog.hSize[name]!,
 			fld_nm	: basename(dir) +'/'+ name,
 			ext		: <any>ext.slice(1),
 		};

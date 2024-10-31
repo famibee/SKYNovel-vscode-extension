@@ -196,11 +196,11 @@ export class Project {
 
 		const hFld2hFile: {[fld_nm: string]: {[fp: string]: 0}} = {};
 		foldProc(this.#PATH_PRJ, ()=> {}, fld_nm=> {
-			hFld2hFile[fld_nm] = {};
+			const o: any = hFld2hFile[fld_nm] = {};
 
 			foldProc(resolve(this.#PATH_PRJ, fld_nm), (vfp, _nm)=> {
 				const fp = v2fp(Uri.file(vfp).path);
-				hFld2hFile[fld_nm][fp] = 0;
+				o[fp] = 0;
 			}, ()=> {});
 		});
 
@@ -333,7 +333,7 @@ export class Project {
 
 			const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
 //console.log(`fn:Project.ts fwFld DEL:${fld_nm}:`);
-			for await (const fp of Object.keys(hFld2hFile[fld_nm])) await onDidDelete(Uri.file(fp));	// await必須
+			for await (const fp of Object.keys(hFld2hFile[fld_nm]!)) await onDidDelete(Uri.file(fp));	// await必須
 			delete hFld2hFile[fld_nm];
 
 			await remove(
@@ -355,7 +355,7 @@ export class Project {
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
-		const tiDevSnUpd = aTi[Project.#idxDevSnUpd];
+		const tiDevSnUpd = aTi[Project.#idxDevSnUpd]!;
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
 			tiDevSnUpd.description = o.verSN
@@ -366,7 +366,7 @@ export class Project {
 		};
 		if (! firstInit) actBar.chkLastSNVer([this.getLocalSNVer()]);
 
-		const tiDevCrypto = aTi[Project.#idxDevCrypto];
+		const tiDevCrypto = aTi[Project.#idxDevCrypto]!;
 		this.dspCryptoMode = ()=> {
 			tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
 			emPrjTD.fire(tiDevCrypto);
@@ -743,7 +743,7 @@ export class Project {
 				for (const pp in this.#hDiff) {
 					if (! this.#REG_DiffExtPic.test(pp)) continue;
 
-					const diff = this.#hDiff[pp];
+					const diff = this.#hDiff[pp]!;
 					remove(`${this.#PATH_CRYPT}${diff.cn}`);
 				}
 			}
@@ -766,7 +766,7 @@ export class Project {
 				for (const pp in this.#hDiff) {
 					if (! this.#REG_DiffExtSnd.test(pp)) continue;
 
-					const diff = this.#hDiff[pp];
+					const diff = this.#hDiff[pp]!;
 					remove(`${this.#PATH_CRYPT}${diff.cn}`);
 				}
 			}
@@ -783,7 +783,7 @@ export class Project {
 				for (const pp in this.#hDiff) {
 					if (! this.#REG_DiffExtSnd.test(pp)) continue;
 
-					const diff = this.#hDiff[pp];
+					const diff = this.#hDiff[pp]!;
 					remove(`${this.#PATH_CRYPT}${diff.cn}`);
 				}
 			}
@@ -925,12 +925,12 @@ export class Project {
 		for (const f2s of Object.values(o.hSn2Font2Str)) {
 			for (const [font_nm, v] of Object.entries(f2s)) {
 				ensureFont2Str(font_nm);
-				oFont[font_nm].txt += v;
+				oFont[font_nm]!.txt += v;
 			}
 		}
 		ensureFont2Str(o.defaultFontName);
 			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
-		oFont[o.defaultFontName].txt += oFont[Project.DEF_FONT].txt;
+		oFont[o.defaultFontName]!.txt += oFont[Project.DEF_FONT]!.txt;
 		delete oFont[Project.DEF_FONT];
 
 		for (const v of Object.values(oFont)) {	// 文字重複しない最小限とするように
@@ -970,7 +970,7 @@ export class Project {
 		?? ['_off', '_off', '_off', '_off', '_off', '_off',
 			'_off', '_off', '_off', '_off', '_off', '_off'];
 		this.#aTiFlat.forEach((ti, i)=> {
-			ti.contextValue += aBtnEnable[i];
+			ti.contextValue += aBtnEnable[i]!;
 			this.emPrjTD.fire(ti);
 		});
 
@@ -1166,7 +1166,7 @@ export class Project {
 
 				const mp = /path: (.+)/.exec(sYml);
 				if (! mp) throw `[Pack...] .yml に path が見つかりません`;
-				const path = mp[1];
+				const path = mp[1]!;
 
 				const ms = /size: (.+)/.exec(sYml);
 				if (! ms) throw `[Pack...] .yml に size が見つかりません`;
@@ -1363,7 +1363,7 @@ export class Project {
 		const pp = this.#fp2pp(fp);
 //console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp].cn}`);
 		try {
-			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp].cn;
+			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp]!.cn;
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
@@ -1389,7 +1389,7 @@ export class Project {
 							if (ext.slice(-3) === ':id') continue;
 							const dir = this.#REG_DIR.exec(pp2);
 							const d = this.#hDiff[pp2];
-							if (dir && this.#cfg.oCfg.code[dir[1]] || ! d) continue;
+							if (dir && this.#cfg.oCfg.code[dir[1]!] || ! d) continue;
 
 							hExt2N[ext] = d.cn;
 						}
@@ -1401,7 +1401,7 @@ export class Project {
 			}
 
 			const dir = this.#REG_DIR.exec(pp);
-			if (dir && this.#cfg.oCfg.code[dir[1]]) {
+			if (dir && this.#cfg.oCfg.code[dir[1]!]) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラー
@@ -1420,7 +1420,11 @@ export class Project {
 			const tr = new EncryptorTransform(this.#encry, fp);
 			rs.pipe(tr).pipe(ws);
 		}
-		catch (e) {console.error(`enc other ${e.message} src:${fp}`);}
+		catch (e) {
+			console.error(`enc other ${
+				e instanceof Error ?e.message :''
+			} src:${fp}`);
+		}
 	}
 		#tiDelayEnc: NodeJS.Timeout | undefined = undefined;
 		readonly #REG_DIR	= /(^.+)\//;
@@ -1443,7 +1447,7 @@ export class Project {
 			let a;
 			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
 			while ((a = this.#REG_PLGADDTAG.exec(txt))) {
-				const nm = a[2];
+				const nm = a[2]!;
 				const len_nm = nm.length;
 				const idx_nm = this.#REG_PLGADDTAG.lastIndex -len_nm -1;
 
@@ -1648,7 +1652,7 @@ export class Project {
 
 		// スニペット挿入・値部を書き換え
 		if (aFpNew.length === 0) return null;
-		const fp = aFpNew[0];
+		const fp = aFpNew[0]!;
 		const ext = extname(fp).slice(1);
 		const fn = getFn(fp);
 		for (const [spae, snip] of this.#mExt2Snip.entries()) {
@@ -1692,7 +1696,7 @@ export class Project {
 			while (e = reg.exec(s)) {
 				const [hit] = e, b = reg.lastIndex -hit.length;
 
-				const [nm, ...v] = hit.split('=');
+				const [nm='', ...v] = hit.split('=');
 				const val = v.join('=');
 
 				if (b <= character && character <= reg.lastIndex) return {

@@ -36,7 +36,7 @@ sharp(src).metadata().then((info: any)=> {
 		background	: {r: 0, g: 0, b: 0, alpha: 0},
 	});
 
-	switch (parseInt(shape)) {
+	switch (parseInt(shape!)) {
 		case 1:		// 丸
 			s.composite([{
 				input	: Buffer.from(`<svg><circle cx="${wh /2}" cy="${wh /2}" r="${wh /2}"/></svg>`),

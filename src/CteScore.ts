@@ -160,6 +160,7 @@ export class CteScore {
 	#resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel) {
 		const path = doc.fileName;
 		const t = this.#hPath2Tokens[path];
+		if (! t) throw `resolveCustomTextEditor err path=${path}`
 		const wv = this.#hPath2Wv[path] = webviewPanel.webview;
 		wv.options = {
 			enableScripts: true,
@@ -173,7 +174,7 @@ export class CteScore {
 
 			case 'loaded':	this.#updWv_db(path); this.combining(path);	break;
 			case 'save_tbody':
-				this.#hPath2Tokens[path].htm = wv.html
+				t.htm = wv.html
 				.replace(/<tbody>[\s\S]+<\/tbody>/,`<tbody>${o.tbody}</tbody>`);
 				break;
 
@@ -201,7 +202,7 @@ export class CteScore {
 				const scr = String(o.scr)
 				.replace(/\$\{(.+)\}/g, (_, p1)=> {
 					let ret = '';
-					for (const i of this.#hBufWords[p1]) {ret = `#${i}#`; break;}
+					for (const i of this.#hBufWords[p1]!) {ret = `#${i}#`; break;}
 					return ret;
 				});
 /**/console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
@@ -253,9 +254,9 @@ export class CteScore {
 				const a_tag = CteScore.analyzTagArg(txt);
 				const g = a_tag?.groups;
 				if (! g) break;
-				const t2t = this.#hTag2Tds[g.name];
+				const t2t = this.#hTag2Tds[g.name!];
 				if (! t2t) break;
-				CteScore.#alzTagArg.parse(g.args);
+				CteScore.#alzTagArg.parse(g.args!);
 				const oTds = t2t(CteScore.#alzTagArg.hPrm);
 				wv.postMessage({cmd: 'upd_btn_face', ln: o.ln, htm: `
 <i class="fas ${oTds.icon}" aria-hidden="true"></i>
@@ -263,12 +264,12 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			}	break;
 
 			case 'req_wds':
-				wv.postMessage({cmd: 'res_wds', key: o.key, aWd: [...this.#hBufWords[o.key].values()]});
+				wv.postMessage({cmd: 'res_wds', key: o.key, aWd: [...this.#hBufWords[o.key]!.values()]});
 				break;
 			}
 		}, false);
 
-		wv.html = this.#repWvUri(this.#hPath2Tokens[doc.uri.path].htm, wv);
+		wv.html = this.#repWvUri(this.#hPath2Tokens[doc.uri.path]!.htm, wv);
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
@@ -285,7 +286,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			path	: string;
 			fn		: string;
 		}[]} =	{};
-		const t = this.#hPath2Tokens[path];
+		const t = this.#hPath2Tokens[path]!;
 		const hPath = this.#hPrj2hPath;
 		for (const [fn, p] of Object.entries(hPath)) {
 			for (const [ext, v] of Object.entries(p)) {
@@ -298,7 +299,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			}
 		}
 
-		const wv = this.#hPath2Wv[path];
+		const wv = this.#hPath2Wv[path]!;
 		wv.postMessage({
 			cmd			: 'upd_db',
 			pathPrj		: String(wv.asWebviewUri(t.uriPrj)),	// 最後に「/」必要
@@ -417,13 +418,13 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		const g = a_tag?.groups;
 		if (! g) return '';
 
-		const t2t = this.#hTag2Tds[g.name];
+		const t2t = this.#hTag2Tds[g.name!];
 		if (! t2t) return this.#make_tds(
 			0, line, 'btn-light',
-			'fa-code', g.name, g.args,
+			'fa-code', g.name!, g.args,
 		);
 
-		CteScore.#alzTagArg.parse(g.args);
+		CteScore.#alzTagArg.parse(g.args!);
 		const oTds = t2t(CteScore.#alzTagArg.hPrm);
 		const len = oTds.args ?oTds.args.length : 0;
 		const frm_style =
@@ -431,7 +432,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		:	len === 2 ?'col-2'
 		:	'';
 		return this.#make_tds(
-			oTds.col ?this.#hCn2Col[oTds.col] :0, line,
+			oTds.col ?this.#hCn2Col[oTds.col]! :0, line,
 			(oTds.btn_style ?? 'btn-secondary')
 			+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
 			oTds.icon, oTds.btn_face,
@@ -769,7 +770,7 @@ v.type === 'bool' ?' pt-2' :''
 				icon		: 'fa-box-open',
 				btn_face	: `マクロ定義の開始 ${this.#macro_nm}`,
 				args		: [
-					{name: 'name', type: 'str', val: hPrm.name.val ?? '', hint: 'マクロ名'},
+					{name: 'name', type: 'str', val: this.#macro_nm, hint: 'マクロ名'},
 				],
 			}
 		},
@@ -787,7 +788,7 @@ v.type === 'bool' ?' pt-2' :''
 			icon		: 'fa-th',
 			btn_face	: 'アルバム解放 '+ hPrm.name?.val,
 			args		: [
-				{name: 'name', type: 'str', val: hPrm.name.val ?? '', hint: '素材識別名'},
+				{name: 'name', type: 'str', val: hPrm.name?.val ?? '', hint: '素材識別名'},
 			],
 		}),
 	};

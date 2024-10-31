@@ -42,7 +42,10 @@ const fnc: (log: LOG, nm: string, str: string)=> Promise<void> = minify
 				if (stderr.includes('Missing glyphs for requested Unicodes:')) log.err += `${nm} 出力警告：フォントファイルに含まれない文字がありました。ログを確認（Missing glyphs ...）して下さい。\n`;
 				re();
 			}));
-		} catch (e) {log.err += e.message.replace(/--text-file=[^\n]+/, '...') +'\n';}
+		} catch (e) {
+			if (e instanceof Error) log.err += e.message.replace(/--text-file=[^\n]+/, '...') +'\n';
+			else log.err += `err pyftsubset "${log.inp}"`;
+		}
 	}
 	: log=> copy(log.inp, log.out);
 

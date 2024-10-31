@@ -60,7 +60,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		ActivityBar.#actBar = new ActivityBar(ctx);
 	}
 	static #actBar: ActivityBar;
-	static stop() {ActivityBar.#actBar.#dispose();}
+	static stop() {ActivityBar.#actBar.#dispose()}
 
 
 	readonly #aEnv: {label: string, icon: string}[]	= [
@@ -162,9 +162,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	//MARK: 環境確認
 	async #chkEnv(finish: (ok: boolean)=> void) {
-		const tiNode = this.#aTiEnv[eTreeEnv.NODE];
-		const tiNpm = this.#aTiEnv[eTreeEnv.NPM];
-		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS];
+		const tiNode = this.#aTiEnv[eTreeEnv.NODE]!;
+		const tiNpm = this.#aTiEnv[eTreeEnv.NPM]!;
+		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS]!;
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
 		ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = false;
@@ -273,7 +273,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		if (! t) return Promise.resolve(this.#aTiEnv);
 
 		const ret: TreeItem[] = [];
-		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE].iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
+		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE]!.iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
@@ -286,7 +286,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.then(res=> res.json())
 			.then(json=> {
 				newVerSN = json.version;
-				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER];
+				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER]!;
 				tiSV.description = '-- ' + newVerSN;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
@@ -294,7 +294,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			.then(res=> res.text())
 			.then(txt=> {
 				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
-				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER];
+				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER]!;
 				tiSV.description = '-- ' + newVerTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),

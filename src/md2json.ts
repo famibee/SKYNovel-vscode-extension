@@ -39,12 +39,12 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 	const nm = name.slice(0, -3);	// .md 削除
 	const txt = readFileSync(path + name, {encoding: 'utf8'});
 
-	const [t0, t1='', t2='', ...t9] = txt.split(/\*{3}\n*/);	// *** で分割
+	const [t0='', t1='', t2='', ...t9] = txt.split(/\*{3}\n*/);	// *** で分割
 	const prm = t1.trim();
 	const aPrm = (prm === '') ?[] :prm.split('\n').map(line=> {
 		const o: any = {};
 		line.slice(2).split('`')	//「- 」以降からバッククオート「`」区切り
-		.forEach((c, i)=> o[idx2nmParam[i]] = repTag2MB(c));
+		.forEach((c, i)=> o[idx2nmParam[i] ?? ''] = repTag2MB(c));
 		return o;
 	});
 	hMd[nm] = {

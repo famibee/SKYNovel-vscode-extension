@@ -50,7 +50,7 @@ import {context} from 'esbuild';
 				formats	: ['es'],
 			},
 			minify	: prod ?'terser' :false,
-			watch	: watch ?{} :null,
+			watch,
 			outDir		: './',	// rootからの相対
 			emptyOutDir	: false,
 			reportCompressedSize	: false,

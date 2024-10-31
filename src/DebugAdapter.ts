@@ -374,7 +374,7 @@ class DebugAdapter extends LoggingDebugSession {
 					line: this.convertClientLineToDebugger(o.line),
 				}),
 			)
-			.map((o, i)=> new Breakpoint(o.verified, a[i].line, o.col,))
+			.map((o, i)=> new Breakpoint(o.verified, a[i]!.line, o.col,))
 		};
 		this.sendResponse(res);
 	}
@@ -512,9 +512,9 @@ class DebugAdapter extends LoggingDebugSession {
 				}
 				else {	// 構造化された変数（子要素）
 					const a = `${id}:`.split(':', 2);
-					const h2 = this.#hScope[a[0]];
+					const h2 = this.#hScope[a[0]!];
 					if (h2) {
-						const v2 = h2[a[1]];
+						const v2 = h2[a[1]!];
 						if (v2) h = JSON.parse(String(v2));
 					}
 				}
@@ -739,7 +739,7 @@ class DebugAdapter extends LoggingDebugSession {
 	#getVar(txt: string): {exist: boolean, ret?: any, fullnm?: string, const?: boolean,} {
 		const a = `${txt}:`.split(':', 2);
 		const scope = (a[1] === '') ?'tmp' :a[0];
-		const nm = (a[1] === '') ?a[0] :a[1];
+		const nm = (a[1] === '') ?a[0]! :a[1]!;
 		switch (scope) {
 			case 'tmp':
 			case 'sys':
@@ -749,7 +749,7 @@ class DebugAdapter extends LoggingDebugSession {
 		}
 
 		const ro = nm.slice(0, 6) === 'const.';
-		const h = this.#hScope[scope];
+		const h = this.#hScope[scope]!;
 		return (nm in h)
 			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: ro}
 			: {exist: false,fullnm: `${scope}:${nm}`};

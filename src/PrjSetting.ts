@@ -204,7 +204,7 @@ export class PrjSetting implements Disposable {
 	static	readonly	#hWsFld2token: {[path: string]: ()=> string}= {};
 	static	getDebugertoken(wsFld: WorkspaceFolder | undefined) {
 		if (! wsFld) return '';
-		return PrjSetting.#hWsFld2token[wsFld.uri.path]() ?? '';
+		return PrjSetting.#hWsFld2token[wsFld.uri.path]?.() ?? '';
 	}
 
 	onCreDir({path}: Uri) {
@@ -259,15 +259,15 @@ export class PrjSetting implements Disposable {
 			return;
 		}
 
-		this.#fnSetting = this.#aPathSettingSn[0];
+		this.#fnSetting = this.#aPathSettingSn[0]!;
 		const src = readFileSync(this.#fnSetting, {encoding: 'utf8'});
-		for (const [full, nm1, nm2, val, sep = '', lbl_json = ''] of src.matchAll(REG_SN2TEMP)) {
+		for (const [full, nm1, nm2, val='', sep='', lbl_json=''] of src.matchAll(REG_SN2TEMP)) {
 			if (full.at(0) === ';') continue;
 
 			const lbl = lbl_json.trim();
 			if (lbl === '' || lbl.slice(0, 10) === '(HIDE GUI)') continue;
 
-			const nm = nm1 ?? nm2;
+			const nm = nm1 ?? nm2 ?? '';
 			let o: T_TEMP = {
 				id	: '/setting.sn:'+ nm,
 				nm,
@@ -363,7 +363,7 @@ export class PrjSetting implements Disposable {
 			);
 			const fn = getFn(path);
 			if (fn in this.#oOptSnd.hSize) {
-				const {baseSize, optSize} = this.#oOptSnd.hSize[fn];
+				const {baseSize, optSize} = this.#oOptSnd.hSize[fn]!;
 				this.#oOptSnd.sum.baseSize -= baseSize;
 				this.#oOptSnd.sum.optSize -= optSize;
 				delete this.#oOptSnd.hSize[fn];
@@ -436,7 +436,7 @@ export class PrjSetting implements Disposable {
 			// 退避を消したケースでのみ上方 json 更新（このメソッドが多重発生）
 			const fn = getFn(path);
 			if (fn in this.#oOptPic.hSize) {
-				const {baseSize, webpSize} = this.#oOptPic.hSize[fn];
+				const {baseSize, webpSize} = this.#oOptPic.hSize[fn]!;
 				this.#oOptPic.sum.baseSize -= baseSize;
 				this.#oOptPic.sum.webpSize -= webpSize;
 				delete this.#oOptPic.hSize[fn];
@@ -614,7 +614,7 @@ export class PrjSetting implements Disposable {
 			if (! this.#oWss['cnv.mat.pic']) break;
 
 			const o: T_E2V_CHG_RANGE_WEBP_Q = m;
-			const fi = this.#oOptPic.hSize[o.nm];
+			const fi = this.#oOptPic.hSize[o.nm]!;
 			if (o.no_def) fi.webp_q = o.webp_q;
 			else delete fi.webp_q;
 			await writeJson(this.#PATH_OPT_PIC, this.#oOptPic);
@@ -758,7 +758,7 @@ export class PrjSetting implements Disposable {
 		const o = await readJson(fn);
 		const aFontInfo: T_A_CNVFONT = Object.entries(o).map(([nm, v])=> ({
 			nm,
-			mes		: this.#hHead2Mes[(<any>v).inp.slice(0, 12)],
+			mes		: this.#hHead2Mes[(<any>v).inp.slice(0, 12)]!,
 			iSize	: (<any>v).iSize,
 			oSize	: (<any>v).oSize,
 			err		: (<any>v).err,

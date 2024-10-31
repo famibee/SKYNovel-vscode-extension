@@ -1,3 +1,5 @@
+## v4.18.4
+- fix(tsconfig.json): 設定再検討、それにともなう記述修正
 ## v4.18.3
 - fix: esbuild-jest を tsx に切り替え
 - fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.10.0 LTS 推奨に更新

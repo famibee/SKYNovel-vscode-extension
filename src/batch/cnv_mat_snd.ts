@@ -5,9 +5,9 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , modeInp, setting, curPrj, curPrjBase=''] = process.argv;
+const [, , modeInp='', setting, curPrj='', curPrjBase=''] = process.argv;
 
-const {codec} = JSON.parse(setting);
+const {codec} = JSON.parse(setting!);
 
 const ffmpeg_ins = require('@ffmpeg-installer/ffmpeg');
 const ffmpeg = require('fluent-ffmpeg');
@@ -62,10 +62,10 @@ const log_enter = ()=> {
 	oLog = readJsonSync(fnLog, {encoding: 'utf8'});
 	o.sum = {...oLog.sum};
 	for (const name in oLog.hSize) {
-		const {fld_nm, ext, baseSize, optSize} = oLog.hSize[name];
+		const {fld_nm, ext, baseSize, optSize} = oLog.hSize[name]!;
 		const pp = fld_nm + '.'+ ext;
 		if (existsSync(resolve(curPrj, pp))
-		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name];
+		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name]!;
 		else {
 			o.sum.baseSize -= baseSize;
 			o.sum.optSize -= optSize;
@@ -236,7 +236,7 @@ switch (modeInp) {
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
 				const nm = parse(toPath).name;
 				if (nm in oLog.hSize) {
-					const {baseSize=0, optSize=0} = oLog.hSize[nm];
+					const {baseSize=0, optSize=0} = oLog.hSize[nm]!;
 					oLog.sum.baseSize -= baseSize;
 					oLog.sum.optSize -= optSize;
 				}
@@ -253,7 +253,7 @@ switch (modeInp) {
 
 		const {dir, name, ext} = parse(modeInp);
 		const o: T_OPTSND_FILE = {
-			...oLog.hSize[name],
+			...oLog.hSize[name]!,
 			fld_nm	: basename(dir) +'/'+ name,
 			ext		: <any>ext.slice(1),
 		};

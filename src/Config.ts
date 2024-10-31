@@ -30,7 +30,8 @@ export class SysExtension implements ISysRoots {
 			}
 		}
 	};
-	decStr(_ext: string, _d: string) {return ''}
+	dec(_ext: string, d: string) {return Promise.resolve(d)}
+	decAB(ab: ArrayBuffer) {return Promise.resolve(ab)}
 
 	get cur() {return this.arg.cur};
 	get crypto() {return this.arg.crypto};
@@ -104,7 +105,8 @@ export class Config extends ConfigBase {
 				if (a2) {
 					const s = readFileSync(fp, {encoding: 'utf8'});
 					const snm = nm.slice(0, -a2[0].length);	// 拡張子を外したもの
-					hFn2Path[snm][a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
+					const p = hFn2Path[snm];
+					if (p) p[a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
 				}
 				const a = nm.match(this.#REG_SPRSHEETIMG);
 				if (! a) return;

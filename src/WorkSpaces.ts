@@ -300,20 +300,21 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 		if (! e)  {		// 起動時
 			for (const wsFld of aWsFld) this.#makePrj(wsFld);
 			if (this.#aTiRoot.length === 0) return;
-			this.#aTiRoot[0].collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
+			this.#aTiRoot[0]!.collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.#emPrjTD.fire(undefined);
 			return;
 		}
 
 		// フォルダ増減時
-		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]);
+		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);
 			// 最後の一つと思われる
 		else {
-			const nm = e.removed[0].name;	// 一つだけ対応
+			const removed = e.removed[0]!;
+			const nm = removed.name;	// 一つだけ対応
 			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
 			this.#aTiRoot.splice(del, 1);
 
-			this.#mPrj.get(e.removed[0].uri.path)?.dispose();
+			this.#mPrj.get(removed.uri.path)?.dispose();
 		}
 		this.#emPrjTD.fire(undefined);
 	}
