@@ -16,7 +16,7 @@ import vue from '@vitejs/plugin-vue';
 
 import {context} from 'esbuild';
 
-(async() => {
+(async()=> {
 	{	// === メイン ===
 		const ctx = await context({
 			entryPoints	: ['./src/extension'],
@@ -38,29 +38,29 @@ import {context} from 'esbuild';
 
 	// === vue ===
 	build({
-		root	: './views/',
-		define: {
-			'process.env.NODE_ENV'	: JSON.stringify(node_env),
-		},
+		define: {'process.env.NODE_ENV': JSON.stringify(node_env)},
 		build: {
 			target	: 'esnext',
 			lib: {
-				entry	: './setting.ts',
+				entry	: 'views/setting.ts',
 				fileName: _=> 'setting.js',
 				formats	: ['es'],
 			},
 			minify	: prod ?'terser' :false,
 			watch,
-			outDir		: './',	// rootからの相対
+			outDir		: 'views',
 			emptyOutDir	: false,
 			reportCompressedSize	: false,
 		},
 		plugins: [vue()],
 		optimizeDeps: {
-			entries	: ['/setting.htm'],
-			include	: ['./lib/bootstrap.bundle.min.js', './lib/fontawesome/all.min.js'],
+			entries	: ['views/setting.htm'],
+			include	: [
+				'views/lib/bootstrap.bundle.min.js',
+				'views/lib/fontawesome/all.min.js',
+			],
 		},
-	//	assetsInclude: ['./lib/ * * / *.woff2'],
+	//	assetsInclude: ['lib/ * * / *.woff2'],
 	});
 
 	{	// === snsys_pre ===

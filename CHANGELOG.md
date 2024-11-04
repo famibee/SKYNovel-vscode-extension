@@ -1,3 +1,5 @@
+## v4.18.5
+- test: jest を vitest に移行
 ## v4.18.4
 - fix(tsconfig.json): 設定再検討、それにともなう記述修正
 ## v4.18.3

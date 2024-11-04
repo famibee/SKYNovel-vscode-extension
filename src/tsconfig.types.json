@@ -1,12 +1,12 @@
 {
-	"include": ["src/md2json.ts"],
+	"include": ["md2json.ts"],
 	"compilerOptions": {
 		"target": "esnext",
 		"lib": ["esnext","DOM"],
 		"module": "esnext",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"outDir": "dist/",
+		"outDir": "../dist/",
 		"declaration": true,
 		"removeComments": true,
 		"emitDeclarationOnly": true,

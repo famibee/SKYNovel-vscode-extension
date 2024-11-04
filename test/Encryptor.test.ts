@@ -8,8 +8,11 @@
 import {Encryptor, encAbBase64, decBase64Ab, encStrBase64, decBase64Str, ab2hexStr, hexStr2ab} from '../src/Encryptor';
 import {EncryptorTransform} from '../src/EncryptorTransform';
 import {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
+
 import {readFile, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
-const {subtle} = require('crypto').webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
+const {subtle} = (await import('crypto')).webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
+
+import {vi, beforeEach, it, expect} from 'vitest';
 
 let	encry: Encryptor;
 const infDecrypt = {
@@ -25,7 +28,7 @@ let fncDec: (ext: string, tx: string)=> Promise<string> = ()=> Promise.resolve('
 let fncDecAB: (ab: ArrayBuffer)=> Promise<PLUGIN_DECAB_RET>;
 let hSN: IPluginInitArg;
 
-jest.setTimeout(2000);
+vi.setConfig({testTimeout: 2_000});
 beforeEach(async ()=> {
 	encry = new Encryptor(infDecrypt, subtle);
 	await encry.init();
@@ -34,7 +37,7 @@ beforeEach(async ()=> {
 	fncDecAB = ()=> Promise.resolve({ext_num: 0, ab: new ArrayBuffer(0)});
 	hSN = {
 		setDec	: fnc=> fncDec = fnc,
-		setDecAB	: fnc=> fncDecAB = fnc,
+		setDecAB: fnc=> fncDecAB = fnc,
 		setEnc	: ()=> {},
 		getStK	: ()=> {},
 		getHash	: ()=> {},	// infDecrypt.stk,
@@ -157,8 +160,7 @@ it('prj_json_simple by Plugin', async ()=> {
 	const enc = await encry.enc(src);
 
 	// 復号化（本番方式）
-	const {init} = require('../src/snsys_pre');
-//	const {init} = await import('../src/snsys_pre');
+	const {init} = await import('../src/snsys_pre');
 		// jestがESM対応できてないので
 	await init(hSN);
 
@@ -179,8 +181,7 @@ it('prj_json_simple by Plugin unknown ext', async ()=> {
 	const src = await readFile(path_src, {encoding: 'utf8'});
 
 	// 復号化（本番方式）
-	const {init} = require('../src/snsys_pre');
-//	const {init} = await import('../src/snsys_pre');
+	const {init} = await import('../src/snsys_pre');
 		// jestがESM対応できてないので
 	await init(hSN);
 
@@ -215,14 +216,13 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(await (await readFile(path_enc, {encoding: 'hex'})).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
+		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(4017);	// ファイルサイズ
 
 		// 復号化
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
+		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -252,7 +252,7 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 
 
 // B,a,A*n
-it('free0509_mp3_stream_transform', done=> {
+it('free0509_mp3_stream_transform', ()=> new Promise<void>(done=> {
 	// 暗号化
 	const path_src = 'test/mat/free0509.mp3';
 	const stt = statSync(path_src);
@@ -265,14 +265,13 @@ it('free0509_mp3_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
+		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(1796975);	// ファイルサイズ
 
 		// 復号化
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
+		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -296,11 +295,11 @@ it('free0509_mp3_stream_transform', done=> {
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
-});
+}));
 
 
 // B,a
-it('_yesno_png_stream_transform', done=> {
+it('_yesno_png_stream_transform', ()=> new Promise<void>(done=> {
 	// 暗号化
 	const path_src = 'test/mat/_yesno.png';
 	const stt = statSync(path_src);
@@ -313,14 +312,13 @@ it('_yesno_png_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
+		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(18744);	// ファイルサイズ
 
 		// 復号化
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
+		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -344,11 +342,11 @@ it('_yesno_png_stream_transform', done=> {
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
-});
+}));
 
 
 // B,a,A*n
-it('title_jpg_stream_transform', done=> {
+it('title_jpg_stream_transform', ()=> new Promise<void>(done=> {
 	// 暗号化
 	const path_src = 'test/mat/title.jpg';
 	const stt = statSync(path_src);
@@ -361,14 +359,13 @@ it('title_jpg_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
+		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(406143);	// ファイルサイズ
 
 		// 復号化
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
+		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -392,11 +389,11 @@ it('title_jpg_stream_transform', done=> {
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
-});
+}));
 
 
 // B,a,A*n
-it('nc10889_mp4_stream_transform', done=> {
+it('nc10889_mp4_stream_transform', ()=> new Promise<void>(done=> {
 	// 暗号化
 	const path_src = 'test/mat/nc10889.mp4';
 	const stt = statSync(path_src);
@@ -409,14 +406,13 @@ it('nc10889_mp4_stream_transform', done=> {
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
 	.on('close', async ()=> {
-		expect(await (await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
+		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
 
 		const stt_bin = statSync(path_enc);
 		expect(stt_bin.size).toBe(369433);	// ファイルサイズ
 
 		// 復号化
-		const {init} = require('../src/snsys_pre');
-//		const {init} = await import('../src/snsys_pre');
+		const {init} = await import('../src/snsys_pre');
 			// jestがESM対応できてないので
 		await init(hSN);
 
@@ -440,4 +436,4 @@ it('nc10889_mp4_stream_transform', done=> {
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
-});
+}));
