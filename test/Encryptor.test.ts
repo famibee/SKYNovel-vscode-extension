@@ -12,8 +12,6 @@ import {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
 import {readFile, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
 const {subtle} = (await import('crypto')).webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 
-import {vi, beforeEach, it, expect} from 'vitest';
-
 let	encry: Encryptor;
 const infDecrypt = {
 	pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
@@ -28,7 +26,6 @@ let fncDec: (ext: string, tx: string)=> Promise<string> = ()=> Promise.resolve('
 let fncDecAB: (ab: ArrayBuffer)=> Promise<PLUGIN_DECAB_RET>;
 let hSN: IPluginInitArg;
 
-vi.setConfig({testTimeout: 2_000});
 beforeEach(async ()=> {
 	encry = new Encryptor(infDecrypt, subtle);
 	await encry.init();
@@ -248,7 +245,7 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
-});});
+});}, 1_000);
 
 
 // B,a,A*n

@@ -2,8 +2,10 @@
 /.vscode-test/
 /*.vsix
 
-node_modules/
+/node_modules/
 *.cs
+
+/server/node_modules/
 
 *.LICENSE.txt
 skynovel-Mac2Win

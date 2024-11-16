@@ -1317,13 +1317,13 @@ export class Project {
 			for (const url of this.#aRepl) replaceFile(
 				this.#PATH_WS +'/'+ url,
 				/\(hPlg, {.+?}\);/,
-				`(hPlg);`,
+				'(hPlg);',
 			);
 			// ビルド関連：パッケージするフォルダ名変更
 			replaceFile(
 				this.#PATH_WS +'/package.json',
 				new RegExp(`"doc/${FLD_CRYPT_PRJ}\\/",`),
-				`"doc/prj/",`,
+				'"doc/prj/",',
 			);
 			this.#updPlugin();
 
@@ -1440,13 +1440,14 @@ export class Project {
 		foldProc(this.#PATH_PLG, ()=> {}, nm=> {
 			h4json[nm] = 0;
 
-			const path = `${this.#PATH_PLG}${nm}/index.js`;
-			if (! existsSync(path)) return;
+			let path = `${this.#PATH_PLG}${nm}/index.`;
+			if (existsSync(path +'js')) path += 'js'; else
+			if (existsSync(path +'ts')) path += 'ts'; else return;
 
 			const txt = readFileSync(path, 'utf8');
 			let a;
 			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
-			while ((a = this.#REG_PLGADDTAG.exec(txt))) {
+			while (a = this.#REG_PLGADDTAG.exec(txt)) {
 				const nm = a[2]!;
 				const len_nm = nm.length;
 				const idx_nm = this.#REG_PLGADDTAG.lastIndex -len_nm -1;
@@ -1467,9 +1468,21 @@ export class Project {
 		});
 		this.#sendRequest2LSP('def_plg.upd', this.#hDefPlg);
 
-		outputFile(this.#PATH_PLG.slice(0, -1) +'.js', `export default ${JSON.stringify(h4json)};`)
+		const sPlgIdx = this.#PATH_PLG.slice(0, -1);
+		outputJson(sPlgIdx +'.json', h4json)
 		.then(build ?()=> this.#build() :()=> {})
-		.catch((err: any)=> console.error(`Project updPlugin ${err}`));
+		.catch(e=> console.error(`Project updPlugin ${e}`));
+
+		// 旧式プラグインインデックスを更新
+		if (existsSync(sPlgIdx +'.js')) {
+			remove(sPlgIdx +'.js');
+
+			for (const url of this.#aRepl) replaceFile(
+				this.#PATH_WS +'/'+ url,
+				/'\.\/plugin\.js';/,
+				`'./plugin.json';`,
+			);
+		}
 	}
 	#build = ()=> {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;

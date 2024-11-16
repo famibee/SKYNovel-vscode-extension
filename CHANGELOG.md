@@ -1,3 +1,9 @@
+## v4.18.6
+- fix(Project.ts): プラグインインデックスを js => json 形式に更新
+- fix(Project.ts): プラグインを ts で書いた場合にも対応するように
+- fix: パッケージマネージャー・tsx・vitest/jest を bun 担当に
+
+
 ## v4.18.5
 - test: jest を vitest に移行
 ## v4.18.4

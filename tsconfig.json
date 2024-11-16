@@ -4,18 +4,25 @@
 		"target": "esnext",
 		"lib": ["esnext","DOM"],
 		"module": "esnext",
+
+		/* Bundler mode */
 		"moduleResolution": "node",
+		"esModuleInterop": true,	// CommonJS/AMD/UMD モジュールを ES6 モジュールと同様に扱う
+		"resolveJsonModule": true,	// JSON ファイルの型検証、json をインポートできるように
+
+		/* Output */
 		"sourceMap": true,
 		"outDir": "dist/",
 		"declaration": false,
 //		"declarationMap": true,
 		"removeComments": true,
-
+		//emitDecoratorMetadata		// 出力 js に型を発行
 
 		"jsx": "preserve",
 		"useDefineForClassFields": true,	// "本来あるべき"コードが生成されるように（今後デフォルトtrueになる予定）
 
 
+		/* Linting */
 		"strict": true,
 		/*
 			noImplicitAny
@@ -37,8 +44,8 @@
 		//"noPropertyAccessFromIndexSignature": false,	// インデックス型のプロパティ参照に[]を必須にする
 		"noUncheckedIndexedAccess": true,	// undefined の可能性があるプロパティへのアクセスを厳密に
 		"noUnusedLocals": true,		// 使っていないローカル変数をエラーに
-//		"noUnusedParameters": true,	// 使っていない仮引数をエラーに
-								// ただし引数名の先頭にアンダースコアを付けると回避できる
+
+
 		"noUnusedParameters": false,	// NOTE: vueビルドでエラーが発生するので
 			// https://stackoverflow.com/questions/70051535/props-is-declared-but-its-value-is-never-read-error-occurred-in-vue3-type
 			// https://github.com/vuejs/core/issues/4668
@@ -51,10 +58,10 @@
 		//verbatimModuleSyntax	false
 		//emitDecoratorMetadata		// 出力 js に型を発行
 		//"extendedDiagnostics": true,	// コンパイル時に TypeScript が時間を費やしている場所を検出
-		"incremental": true,			// 差分ビルド
 
-		// オブジェクトへの過剰なプロパティチェックを抑制しない
-		"esModuleInterop": true
+		/* Other */
+		// experimentalDecorators
+		"incremental": true			// 差分ビルド
 	},
 	"include": ["src/**/*", "views/**/*"],
 	"exclude": ["node_modules",".vscode-test"]

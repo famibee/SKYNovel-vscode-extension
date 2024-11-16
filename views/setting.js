@@ -1,5 +1,5 @@
 /**
-* @vue/shared v3.5.12
+* @vue/shared v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -250,7 +250,7 @@ const stringifySymbol = (v, i = "") => {
 };
 
 /**
-* @vue/reactivity v3.5.12
+* @vue/reactivity v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -337,17 +337,21 @@ class EffectScope {
   }
   stop(fromParent) {
     if (this._active) {
+      this._active = false;
       let i, l;
       for (i = 0, l = this.effects.length; i < l; i++) {
         this.effects[i].stop();
       }
+      this.effects.length = 0;
       for (i = 0, l = this.cleanups.length; i < l; i++) {
         this.cleanups[i]();
       }
+      this.cleanups.length = 0;
       if (this.scopes) {
         for (i = 0, l = this.scopes.length; i < l; i++) {
           this.scopes[i].stop(true);
         }
+        this.scopes.length = 0;
       }
       if (!this.detached && this.parent && !fromParent) {
         const last = this.parent.scopes.pop();
@@ -357,7 +361,6 @@ class EffectScope {
         }
       }
       this.parent = void 0;
-      this._active = false;
     }
   }
 }
@@ -1071,6 +1074,7 @@ class BaseReactiveHandler {
     this._isShallow = _isShallow;
   }
   get(target, key, receiver) {
+    if (key === "__v_skip") return target["__v_skip"];
     const isReadonly2 = this._isReadonly, isShallow2 = this._isShallow;
     if (key === "__v_isReactive") {
       return !isReadonly2;
@@ -1825,7 +1829,7 @@ function watch$1(source, cb, options = EMPTY_OBJ) {
   const scope = getCurrentScope();
   const watchHandle = () => {
     effect2.stop();
-    if (scope) {
+    if (scope && scope.active) {
       remove(scope.effects, effect2);
     }
   };
@@ -1940,7 +1944,7 @@ function traverse$1(value, depth = Infinity, seen) {
 }
 
 /**
-* @vue/runtime-core v3.5.12
+* @vue/runtime-core v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -2696,6 +2700,9 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
     return;
   }
   if (isAsyncWrapper(vnode) && !isUnmount) {
+    if (vnode.shapeFlag & 512 && vnode.type.__asyncResolved && vnode.component.subTree.component) {
+      setRef(rawRef, oldRawRef, parentSuspense, vnode.component.subTree);
+    }
     return;
   }
   const refValue = vnode.shapeFlag & 4 ? getComponentPublicInstance(vnode.component) : vnode.el;
@@ -6272,7 +6279,7 @@ function renderComponentRoot(instance) {
         }
         if (extraAttrs.length) {
           warn$1(
-            `Extraneous non-props attributes (${extraAttrs.join(", ")}) were passed to component but could not be automatically inherited because component renders fragment or text root nodes.`
+            `Extraneous non-props attributes (${extraAttrs.join(", ")}) were passed to component but could not be automatically inherited because component renders fragment or text or teleport root nodes.`
           );
         }
         if (eventAttrs.length) {
@@ -6473,9 +6480,9 @@ function closeBlock() {
   currentBlock = blockStack[blockStack.length - 1] || null;
 }
 let isBlockTreeEnabled = 1;
-function setBlockTracking(value) {
+function setBlockTracking(value, inVOnce = false) {
   isBlockTreeEnabled += value;
-  if (value < 0 && currentBlock) {
+  if (value < 0 && currentBlock && inVOnce) {
     currentBlock.hasOnce = true;
   }
 }
@@ -7452,11 +7459,11 @@ function initCustomFormatter() {
     window.devtoolsFormatters = [formatter];
   }
 }
-const version = "3.5.12";
+const version = "3.5.13";
 const warn$2 = warn$1 ;
 
 /**
-* @vue/runtime-dom v3.5.12
+* @vue/runtime-dom v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -8214,7 +8221,7 @@ function normalizeContainer(container) {
 }
 
 /**
-* vue v3.5.12
+* vue v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
 **/
@@ -10005,9 +10012,9 @@ var __toESM$1 = (mod, isNodeMode, target2) => (target2 = mod != null ? __create$
   mod
 ));
 
-// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js
+// ../../node_modules/.pnpm/tsup@8.3.5_@microsoft+api-extractor@7.43.0_@types+node@22.9.0__@swc+core@1.5.29_jiti@2.0.0_po_lnt5yfvawfblpk67opvcdwbq7u/node_modules/tsup/assets/esm_shims.js
 var init_esm_shims$1 = __esm$1({
-  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js"() {
+  "../../node_modules/.pnpm/tsup@8.3.5_@microsoft+api-extractor@7.43.0_@types+node@22.9.0__@swc+core@1.5.29_jiti@2.0.0_po_lnt5yfvawfblpk67opvcdwbq7u/node_modules/tsup/assets/esm_shims.js"() {
   }
 });
 
@@ -10529,9 +10536,9 @@ var __toESM = (mod, isNodeMode, target22) => (target22 = mod != null ? __create(
   mod
 ));
 
-// ../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js
+// ../../node_modules/.pnpm/tsup@8.3.5_@microsoft+api-extractor@7.43.0_@types+node@22.9.0__@swc+core@1.5.29_jiti@2.0.0_po_lnt5yfvawfblpk67opvcdwbq7u/node_modules/tsup/assets/esm_shims.js
 var init_esm_shims = __esm({
-  "../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.43.0_@types+node@20.16.14__@swc+core@1.5.29_jiti@2.0.0__utvtwgyeu6xd57udthcnogp47u/node_modules/tsup/assets/esm_shims.js"() {
+  "../../node_modules/.pnpm/tsup@8.3.5_@microsoft+api-extractor@7.43.0_@types+node@22.9.0__@swc+core@1.5.29_jiti@2.0.0_po_lnt5yfvawfblpk67opvcdwbq7u/node_modules/tsup/assets/esm_shims.js"() {
   }
 });
 
@@ -12502,6 +12509,8 @@ function update(options) {
 }
 function highlight(instance) {
   const bounds = getComponentBoundingRect(instance);
+  if (!bounds.width && !bounds.height)
+    return;
   const name = getInstanceName(instance);
   const container = getContainerElement();
   container ? update({ bounds, name }) : create({ bounds, name });
@@ -13169,6 +13178,9 @@ var DevToolsV6PluginAPI = class {
   // component inspector
   notifyComponentUpdate(instance) {
     var _a25;
+    if (devtoolsState.highPerfModeEnabled) {
+      return;
+    }
     const inspector = getActiveInspectors().find((i) => i.packageName === this.plugin.descriptor.packageName);
     if (inspector == null ? void 0 : inspector.id) {
       if (instance) {
@@ -13193,9 +13205,15 @@ var DevToolsV6PluginAPI = class {
     }
   }
   sendInspectorTree(inspectorId) {
+    if (devtoolsState.highPerfModeEnabled) {
+      return;
+    }
     this.hooks.callHook("sendInspectorTree" /* SEND_INSPECTOR_TREE */, { inspectorId, plugin: this.plugin });
   }
   sendInspectorState(inspectorId) {
+    if (devtoolsState.highPerfModeEnabled) {
+      return;
+    }
     this.hooks.callHook("sendInspectorState" /* SEND_INSPECTOR_STATE */, { inspectorId, plugin: this.plugin });
   }
   selectInspectorNode(inspectorId, nodeId) {
@@ -13206,12 +13224,18 @@ var DevToolsV6PluginAPI = class {
   }
   // timeline
   now() {
+    if (devtoolsState.highPerfModeEnabled) {
+      return 0;
+    }
     return Date.now();
   }
   addTimelineLayer(options) {
     this.hooks.callHook("timelineLayerAdded" /* TIMELINE_LAYER_ADDED */, { options, plugin: this.plugin });
   }
   addTimelineEvent(options) {
+    if (devtoolsState.highPerfModeEnabled) {
+      return;
+    }
     this.hooks.callHook("timelineEventAdded" /* TIMELINE_EVENT_ADDED */, { options, plugin: this.plugin });
   }
   // settings
@@ -13314,7 +13338,7 @@ function callDevToolsPluginSetupFn(plugin, app) {
   setupFn(api);
 }
 function registerDevToolsPlugin(app) {
-  if (target.__VUE_DEVTOOLS_KIT__REGISTERED_PLUGIN_APPS__.has(app))
+  if (target.__VUE_DEVTOOLS_KIT__REGISTERED_PLUGIN_APPS__.has(app) || devtoolsState.highPerfModeEnabled)
     return;
   target.__VUE_DEVTOOLS_KIT__REGISTERED_PLUGIN_APPS__.add(app);
   devtoolsPluginBuffer.forEach((plugin) => {
@@ -13561,6 +13585,9 @@ var _a17, _b17;
 init_esm_shims();
 function toggleHighPerfMode(state) {
   devtoolsState.highPerfModeEnabled = state != null ? state : !devtoolsState.highPerfModeEnabled;
+  if (!state && activeAppRecord.value) {
+    registerDevToolsPlugin(activeAppRecord.value.app);
+  }
 }
 
 // src/core/component/state/format.ts
@@ -14486,7 +14513,7 @@ init_esm_shims();
 init_esm_shims();
 
 /**
-  * vee-validate v4.14.6
+  * vee-validate v4.14.7
   * (c) 2024 Abdelrahman Awad
   * @license MIT
   */
@@ -15654,7 +15681,7 @@ function mapFormForDevtoolsInspector(form) {
   const { children } = buildFormTree(formTreeNodes);
   return {
     id: encodeNodeId(form),
-    label: "Form",
+    label: form.name,
     children,
     tags: [
       {
@@ -15716,8 +15743,8 @@ function getFieldNodeTags(multiple, fieldsCount, type, valid, form) {
 }
 function encodeNodeId(form, stateOrField) {
   const type = stateOrField ? "path" in stateOrField ? "pathState" : "field" : "form";
-  const fieldPath = stateOrField ? "path" in stateOrField ? stateOrField === null || stateOrField === void 0 ? void 0 : stateOrField.path : unref(stateOrField === null || stateOrField === void 0 ? void 0 : stateOrField.name) : "";
-  const idObject = { f: form === null || form === void 0 ? void 0 : form.formId, ff: fieldPath, type };
+  const fieldPath = stateOrField ? "path" in stateOrField ? stateOrField === null || stateOrField === void 0 ? void 0 : stateOrField.path : toValue(stateOrField === null || stateOrField === void 0 ? void 0 : stateOrField.name) : "";
+  const idObject = { f: form === null || form === void 0 ? void 0 : form.formId, ff: (stateOrField === null || stateOrField === void 0 ? void 0 : stateOrField.id) || fieldPath, type };
   return btoa(encodeURIComponent(JSON.stringify(idObject)));
 }
 function decodeNodeId(nodeId) {
@@ -16382,6 +16409,7 @@ function resolveInitialValues(opts) {
 function useForm(opts) {
   var _a;
   const formId = FORM_COUNTER++;
+  const name = (opts === null || opts === void 0 ? void 0 : opts.name) || "Form";
   let FIELD_ID_COUNTER = 0;
   const isSubmitting = ref(false);
   const isValidating = ref(false);
@@ -16733,6 +16761,7 @@ function useForm(opts) {
     });
   }
   const formCtx = {
+    name,
     formId,
     values: formValues,
     controlledValues,
@@ -17231,6 +17260,10 @@ const FormImpl = /* @__PURE__ */ defineComponent({
     keepValues: {
       type: Boolean,
       default: false
+    },
+    name: {
+      type: String,
+      default: "Form"
     }
   },
   setup(props, ctx) {
@@ -17242,7 +17275,8 @@ const FormImpl = /* @__PURE__ */ defineComponent({
       initialErrors: props.initialErrors,
       initialTouched: props.initialTouched,
       validateOnMount: props.validateOnMount,
-      keepValuesOnUnmount: keepValues
+      keepValuesOnUnmount: keepValues,
+      name: props.name
     });
     const submitForm = handleSubmit((_, { evt }) => {
       if (isFormSubmitEvent(evt)) {

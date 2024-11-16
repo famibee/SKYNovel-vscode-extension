@@ -30,7 +30,7 @@ import {context} from 'esbuild';
 			format		: 'cjs',	// Node.js の仕様
 			logLevel	: 'info',	// default log level when using the CLI.
 		});
-		if (watch) ctx.watch(); else {
+		if (watch) await ctx.watch(); else {
 			await ctx.rebuild();
 			await ctx.dispose();
 		}
@@ -71,7 +71,7 @@ import {context} from 'esbuild';
 			bundle		: true,
 			format		: 'esm',
 		});
-		if (watch) ctx.watch(); else {
+		if (watch) await ctx.watch(); else {
 			await ctx.rebuild();
 			await ctx.dispose();
 		}
@@ -90,7 +90,7 @@ import {context} from 'esbuild';
 			minify		: true,
 			format		: 'cjs',	// Node.js の仕様
 		});
-		if (watch) ctx.watch(); else {
+		if (watch) await ctx.watch(); else {
 			await ctx.rebuild();
 			await ctx.dispose();
 		}
@@ -105,7 +105,7 @@ import {context} from 'esbuild';
 			minify		: true,
 			format		: 'cjs',	// Node.js の仕様
 		});
-		if (watch) ctx.watch(); else {
+		if (watch) await ctx.watch(); else {
 			await ctx.rebuild();
 			await ctx.dispose();
 		}

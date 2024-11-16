@@ -9,6 +9,7 @@ import {getFn, int, is_win, REG_SCRIPT} from '../../src/CmnLib';
 import {Grammar, Script} from './Grammar';
 import {AnalyzeTagArg, HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
 import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
+// import hMd from './md.json' assert {type: 'json'};
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import {IExts, IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
