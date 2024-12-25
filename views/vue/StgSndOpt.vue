@@ -66,7 +66,7 @@
 import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
-import {T_OPTSND_FILE_AND_KEY} from '../types';
+import type {T_OPTSND_FILE_AND_KEY} from '../types';
 
 
 const stOInfo = useOInfo();

@@ -6,7 +6,8 @@
 		"module": "esnext",
 
 		/* Bundler mode */
-		"moduleResolution": "node",
+		// "moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"esModuleInterop": true,	// CommonJS/AMD/UMD モジュールを ES6 モジュールと同様に扱う
 		"resolveJsonModule": true,	// JSON ファイルの型検証、json をインポートできるように
 

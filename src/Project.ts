@@ -10,12 +10,13 @@ import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
-import {PrjTreeItem, TREEITEM_CFG, PrjBtnName, TASK_TYPE, statBreak} from './PrjTreeItem';
-import {aPickItems, QuickPickItemEx, openURL} from './WorkSpaces';
+import {PrjTreeItem, type TREEITEM_CFG, type PrjBtnName, type TASK_TYPE, statBreak} from './PrjTreeItem';
+import {aPickItems, type QuickPickItemEx, openURL} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
-import {SEARCH_PATH_ARG_EXT, IFn2Path} from './ConfigBase';
+import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
 
-import {commands, debug, DebugSession, Diagnostic, DiagnosticSeverity, Disposable, DocumentDropEdit, env, EvaluatableExpression, EventEmitter, ExtensionContext, Hover, languages, MarkdownString, Position, ProgressLocation, ProviderResult, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, TaskExecution, TaskProcessEndEvent, tasks, TextDocument, ThemeIcon, TreeItem, Uri, ViewColumn, WebviewPanel, window, workspace, WorkspaceEdit, WorkspaceFolder} from 'vscode';
+import {commands, debug, Diagnostic, DiagnosticSeverity, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, ViewColumn, window, workspace, WorkspaceEdit} from 'vscode';
+import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WebviewPanel, WorkspaceFolder} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {basename, dirname, extname, resolve} from 'node:path';
 import img_size from 'image-size';
@@ -24,7 +25,7 @@ const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31
 import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
 import {execSync} from 'child_process';
-import * as ncu from 'npm-check-updates';
+import ncu from 'npm-check-updates'
 import {userInfo} from 'os';
 
 
@@ -66,7 +67,7 @@ export class Project {
 	readonly	#PATH_PRJ;
 	readonly	#LEN_PATH_PRJ;
 
-	readonly	#PATH_PLG;
+	readonly	#FLD_SRC;
 
 	readonly	#PATH_PRJ_BASE;
 
@@ -121,8 +122,10 @@ export class Project {
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 //console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
-		this.#PATH_PLG = this.#PATH_WS +'/core/plugin/';
-		ensureDir(this.#PATH_PLG);	// 無ければ作る
+
+		const is_new_tmp = existsSync(this.#PATH_WS +'/src/plugin/');
+		this.#FLD_SRC = is_new_tmp ?'src' :'core';
+			// src なら 2025 新テンプレ
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
 		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
@@ -139,6 +142,40 @@ export class Project {
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
 		aTiRoot.push(pti);
 
+		this.#hTask2Inf = {
+			cnv_mat_pic: {
+				title		: '画像ファイル最適化',
+				pathCpyTo	: 'build',
+				aNeedLib	: ['fs-extra','sharp','p-queue@6.6.2'],
+			},
+			cnv_mat_snd: {
+				title		: '音声ファイル最適化',
+				pathCpyTo	: 'build',
+				aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
+					// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
+					// https://aminevsky.github.io/blog/posts/pqueue-sample/
+			},
+			cnv_psd_face: {
+				title		: 'PSDファイル変換',
+				pathCpyTo	: 'build',
+				aNeedLib	: ['fs-extra','psd.js','sharp'],
+			},
+			cut_round: {
+				title		: 'アイコン生成・加工中',
+				pathCpyTo	: 'build',
+				aNeedLib	: ['fs-extra','sharp', 'png2icons'],
+			},
+			subset_font: {
+				title		: 'フォントサイズ最適化',
+				pathCpyTo	: `${this.#FLD_SRC}/font`,
+				aNeedLib	: ['fs-extra'],
+			},
+		};
+		this.#aRepl = [
+			`${this.#FLD_SRC}/app4webpack.js`,
+			`${this.#FLD_SRC}/web4webpack.js`,
+		];
+
 		// 暗号化処理
 		this.#PATH_CRYPT = this.#PATH_WS +`/doc/${FLD_CRYPT_PRJ}/`;
 		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
@@ -148,16 +185,16 @@ export class Project {
 			? readJsonSync(fnPass, {throws: false})
 			: {
 				pass	: randomUUID(),
-				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
-				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
+				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
+				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
 				keySize	: String(512 / 32),
 				ite		: 500 + Math.floor(new Date().getTime() %300),
-				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8))),
+				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
 			}, subtle);
 		if (! exists_pass) outputFile(fnPass, this.#encry.strHPass);
 
 		try {
-			this.#fnDiff = this.#PATH_WS +'/core/diff.json';
+			this.#fnDiff = `${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`;
 			if (existsSync(this.#fnDiff)) this.#hDiff = readJsonSync(this.#fnDiff);
 		} catch (e) {this.#hDiff = Object.create(null);}	// diff破損対策
 
@@ -181,7 +218,9 @@ export class Project {
 				if (sEvt === 'DEL') await this.#ps.onDelOptPic(uri);
 				else 				await this.#ps.onCreChgOptPic(uri);
 				this.#updPathJson();
-			}
+			},
+			this.#FLD_SRC,
+			is_new_tmp,
 		));
 		this.#initCrypto();
 
@@ -359,7 +398,7 @@ export class Project {
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
 			tiDevSnUpd.description = o.verSN
-				? `-- ${o.verSN}`+ (o.verTemp ?` - ${o.verTemp}` :'')
+				? `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
 				: '取得できません';
 			emPrjTD.fire(tiDevSnUpd);
 			return o;
@@ -393,7 +432,7 @@ export class Project {
 
 		const {username} = userInfo();
 		this.#aPlaceFont	= [
-			`${this.#PATH_WS}/core/font`,
+			`${this.#PATH_WS}/${this.#FLD_SRC}/font`,
 			is_win
 				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
 				: `/Users/${username}/Library/Fonts`,
@@ -714,7 +753,7 @@ export class Project {
 			if (! this.#pnlWVFolder || ! uriOF) return;
 			const fp = v2fp(path);			// /c:/
 			const fpOF = v2fp(uriOF.path);	// /C:/
-			if (fp.slice(0, fpOF.length) !== fpOF) return;
+			if (! fp.startsWith(fpOF)) return;
 
 			if (this.#tiDelayFolder) clearTimeout(this.#tiDelayFolder);	// 遅延
 			this.#tiDelayFolder = setTimeout(()=> this.#updWVFolder(uriOF), 500);
@@ -812,35 +851,7 @@ export class Project {
 	);
 
 	//MARK: タスク実行
-	readonly	#hTask2Inf = {
-		cnv_mat_pic: {
-			title		: '画像ファイル最適化',
-			pathCpyTo	: 'build',
-			aNeedLib	: ['fs-extra','sharp','p-queue@6.6.2'],
-		},
-		cnv_mat_snd: {
-			title		: '音声ファイル最適化',
-			pathCpyTo	: 'build',
-			aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
-				// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
-				// https://aminevsky.github.io/blog/posts/pqueue-sample/
-		},
-		cnv_psd_face: {
-			title		: 'PSDファイル変換',
-			pathCpyTo	: 'build',
-			aNeedLib	: ['fs-extra','psd.js','sharp'],
-		},
-		cut_round: {
-			title		: 'アイコン生成・加工中',
-			pathCpyTo	: 'build',
-			aNeedLib	: ['fs-extra','sharp', 'png2icons'],
-		},
-		subset_font: {
-			title		: 'フォントサイズ最適化',
-			pathCpyTo	: 'core/font',
-			aNeedLib	: ['fs-extra'],
-		},
-	};
+	readonly	#hTask2Inf;
 	#preventFileWatch = false;	// バッチ実行中のファイル変更検知を抑制
 	#exeTask(nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string): Promise<number> {
 		this.#preventFileWatch = true;
@@ -897,7 +908,7 @@ export class Project {
 
 		if (! minify) {
 			// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-			await this.#exeTask('subset_font', '');
+			await this.#exeTask('subset_font', `"${this.#FLD_SRC}"`);
 			this.#ps.dispFontInfo();		// フォント情報更新
 			return;
 		}
@@ -911,7 +922,7 @@ export class Project {
 
 		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
 			inp	: this.#getFontNm2path(font_nm)
-				.replace(/^.+\/core\/font/, '::PATH_PRJ_FONTS::')
+				.replace(new RegExp(`^.+/${this.#FLD_SRC}/font`), '::PATH_PRJ_FONTS::')
 				.replace(
 					is_win
 					? /C:\/Users\/[^\/]+\/AppData\/Local\/Microsoft\/Windows\/Fonts/
@@ -939,10 +950,11 @@ export class Project {
 			v.txt = [...s].sort().join('');	// sort()は不要だが綺麗
 		//	v.txt = [...s].join('');
 		}
-		await outputJson(this.#PATH_WS +'/core/font/font.json', oFont);
+		const pathFont = `${this.#PATH_WS}/${this.#FLD_SRC}/font/`;
+		await outputJson(`${pathFont}font.json`, oFont);
 
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-		await this.#exeTask('subset_font', '--minify');
+		await this.#exeTask('subset_font', `"${this.#FLD_SRC}" --minify`);
 		this.#ps.dispFontInfo();		// フォント情報更新
 	}
 
@@ -990,11 +1002,9 @@ export class Project {
 				ti.iconPath = iconPath;
 
 				for (const ti of this.#aTiFlat) {
-					switch (ti.contextValue?.slice(-4)) {
-						case '_off':
-						case 'Stop':
-							ti.contextValue = ti.contextValue?.slice(0, -4);
-							break;
+					const tc = ti.contextValue;
+					if (tc && (tc.endsWith('_off') || tc.endsWith('Stop'))) {
+						ti.contextValue = tc.slice(0, -4);
 					}
 					this.emPrjTD.fire(ti);
 				}	// 値を戻してボタン表示
@@ -1017,7 +1027,7 @@ export class Project {
 			case 'SnUpd':
 				this.#termDbgSS()
 				.then(()=> this.actBar.updPrjFromTmp(this.#PATH_WS))
-				.then(()=> ncu.run({	// ncu -u --target minor
+				.then(()=> ncu({	// ncu -u --target minor
 					packageFile: this.#PATH_WS +'/package.json',
 					// Defaults:
 					// jsonUpgraded: true,
@@ -1078,7 +1088,7 @@ export class Project {
 
 				let find_ng = false;
 				treeProc(this.#PATH_PRJ, fp=> {
-					if (find_ng || fp.slice(-4) !== '.svg') return;
+					if (find_ng || ! fp.endsWith('.svg')) return;
 
 					find_ng = true;
 					window.showErrorMessage(
@@ -1300,12 +1310,9 @@ export class Project {
 	#bufChkDiff = new Uint8Array(Project.#LEN_CHKDIFF);
 
 
-	readonly	#aRepl = [
-		'core/app4webpack.js',
-		'core/web4webpack.js',
-	];
+	readonly	#aRepl;
 	#tglCryptoMode() {
-		const pathPre = this.#PATH_PLG +'snsys_pre/';
+		const pathPre = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/snsys_pre/`;
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
@@ -1386,7 +1393,7 @@ export class Project {
 					for (const hExt2N of Object.values(hPath)) {
 						for (const [ext, pp2] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
-							if (ext.slice(-3) === ':id') continue;
+							if (ext.endsWith(':id')) continue;
 							const dir = this.#REG_DIR.exec(pp2);
 							const d = this.#hDiff[pp2];
 							if (dir && this.#cfg.oCfg.code[dir[1]!] || ! d) continue;
@@ -1433,14 +1440,15 @@ export class Project {
 	readonly	#REG_PLGADDTAG	= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
 	#updPlugin(build = true) {
-		if (! existsSync(this.#PATH_PLG)) return;
+		const pathPlg = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/`;
+		if (! existsSync(pathPlg)) return;
 
 		const h4json	: {[def_nm: string]: number}	= {};
 		this.#hDefPlg = {};
-		foldProc(this.#PATH_PLG, ()=> {}, nm=> {
+		foldProc(pathPlg, ()=> {}, nm=> {
 			h4json[nm] = 0;
 
-			let path = `${this.#PATH_PLG}${nm}/index.`;
+			let path = `${pathPlg}${nm}/index.`;
 			if (existsSync(path +'js')) path += 'js'; else
 			if (existsSync(path +'ts')) path += 'ts'; else return;
 
@@ -1468,7 +1476,7 @@ export class Project {
 		});
 		this.#sendRequest2LSP('def_plg.upd', this.#hDefPlg);
 
-		const sPlgIdx = this.#PATH_PLG.slice(0, -1);
+		const sPlgIdx = pathPlg.slice(0, -1);
 		outputJson(sPlgIdx +'.json', h4json)
 		.then(build ?()=> this.#build() :()=> {})
 		.catch(e=> console.error(`Project updPlugin ${e}`));
@@ -1597,8 +1605,9 @@ export class Project {
 				// ファイルコピー
 				switch (aコピー先候補.length) {
 					case 0:		// 候補もなし、スクリプトと同じフォルダにコピー
+						const tp = td.uri.path;
 						fpNew = v2fp(
-							td.uri.path.slice(0, -basename(td.uri.path).length) + basename(fp)
+							tp.slice(0, -basename(tp).length) + basename(fp)
 						);
 						break;
 
@@ -1626,8 +1635,7 @@ export class Project {
 
 				// webviewからのドラッグ
 				if (this.#uriWvPrj) {
-					const pp = this.#uriWvPrj.path;
-					if (path.slice(0, pp.length) === pp) break;	// from WV
+					if (path.startsWith(this.#uriWvPrj.path)) break;	// from WV
 				}
 
 				const uriDL = uri.toString();

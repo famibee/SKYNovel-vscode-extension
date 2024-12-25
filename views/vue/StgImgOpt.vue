@@ -114,10 +114,11 @@ table .btn:disabled {
 		<div class="range-badge" :style="{left: getLeftRangeBadge(e.webp_q, 100, 5)}">
 			<span v-text="e.webp_q" v-show="e.webp_q !== undefined"></span>
 		</div>
-		<input type="range" v-model="oOptImg.hSize[e.nm].webp_q"
+		<input type="range" v-model="oOptImg.hSize[e.nm]!.webp_q"
 			max="100" min="5" step="5"
 			:disabled="e.webp_q === undefined || hDisabled['cnv.mat.pic']"
-			@change="chgRangeWebpQ($event, e)" class="form-range my-1 sn-vld"/>
+			@change="chgRangeWebpQ($event, e)" class="form-range my-1 sn-vld"
+			v-if="e.nm in oOptImg.hSize" />
 	</div>
 </div>
 
@@ -151,7 +152,7 @@ import {cmd2Ex, getLeftRangeBadge} from '../store/stVSCode';
 import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
-import {T_OPTIMG_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q} from '../types';
+import type {T_OPTIMG_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q} from '../types';
 import {ImgComparisonSlider} from '@img-comparison-slider/vue';
 
 
@@ -176,8 +177,11 @@ const {oWss} = storeToRefs(stWss);
 const chkChg = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
 	const no_def = Boolean(el.target.checked);
 	const webp_q = oWss.value['cnv.mat.webp_quality'];
-	if (no_def) oOptImg.value.hSize[e.nm].webp_q = webp_q;
-	else delete oOptImg.value.hSize[e.nm].webp_q;
+	const h = oOptImg.value.hSize[e.nm];
+	if (h) {
+		if (no_def) h.webp_q = webp_q;
+		else delete h.webp_q;
+	}
 
 	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q};
 	cmd2Ex(q);

@@ -7,7 +7,8 @@
 
 import {defineStore} from 'pinia';
 import {ref, toRaw} from 'vue';
-import {DEF_WSS, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_WSS} from '../types';
+import {DEF_WSS} from '../types';
+import type {T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_WSS} from '../types';
 import {cmd2Ex, on} from './stVSCode';
 
 export const hDisabled = ref({

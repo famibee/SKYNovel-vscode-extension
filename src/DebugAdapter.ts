@@ -500,7 +500,7 @@ class DebugAdapter extends LoggingDebugSession {
 			// 一度の stopOnStep 中には同じ ID が二度と呼ばれない。VSCodeがキャッシュか
 			if (id) {
 				let tst_sn = true;
-				if (id.slice(-3) === ':sn') {
+				if (id.endsWith(':sn')) {
 					tst_sn = false;
 					id = id.slice(0, -3);
 				}
@@ -533,7 +533,7 @@ class DebugAdapter extends LoggingDebugSession {
 						},
 						variablesReference: 0,	// > 0の場合、変数は構造化されている
 					};
-					if (key.slice(0, 6) === 'const.') o.presentationHint!.attributes = ['constant'];
+					if (key.startsWith('const.')) o.presentationHint!.attributes = ['constant'];
 					if (v === '[object Object]') o.value = JSON.stringify(v2);
 					else if (o.type === 'object' || o.type === 'array')
 					this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
@@ -748,10 +748,9 @@ class DebugAdapter extends LoggingDebugSession {
 			default: return {exist: false};
 		}
 
-		const ro = nm.slice(0, 6) === 'const.';
 		const h = this.#hScope[scope]!;
 		return (nm in h)
-			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: ro}
+			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: nm.startsWith('const.')}
 			: {exist: false,fullnm: `${scope}:${nm}`};
 	}
 

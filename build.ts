@@ -88,7 +88,7 @@ import {context} from 'esbuild';
 			],
 			outdir		: 'dist',
 			minify		: true,
-			format		: 'cjs',	// Node.js の仕様
+			format		: 'esm',
 		});
 		if (watch) await ctx.watch(); else {
 			await ctx.rebuild();

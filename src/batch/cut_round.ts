@@ -7,12 +7,12 @@
 
 const [, , src, shape, path] = process.argv;
 
-const sharp = require('sharp');
+import sharp from 'sharp';
 sharp.cache(false);
 
 import {styleText} from 'node:util';
 import {copy, ensureDir, existsSync, readFile, stat, writeFile, writeJsonSync} from 'fs-extra';
-const {BICUBIC2, BILINEAR, createICNS, createICO} = require('png2icons');
+import {BICUBIC2, BILINEAR, createICNS, createICO} from 'png2icons';
 
 sharp(src).metadata().then((info: any)=> {
 	const oLog: any = {...info, err: '', exif: '', icc: '', iptc: '', xmp: ''};

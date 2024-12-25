@@ -8,11 +8,12 @@
 const [, , src='', path_prj] = process.argv;
 
 import * as T_PSD from 'psd';	// type
-const PSD = require('psd.js');	// lib
-const sharp = require('sharp');
+import PSD from 'psd.js';	// lib
+import sharp from 'sharp';
 sharp.cache(false);
 
-import {ensureFileSync, mkdtempSync, remove, writeFile} from 'fs-extra';
+import {mkdtempSync} from 'fs';
+import {ensureFileSync, remove, outputFile} from 'fs-extra/esm';
 import {basename, extname} from 'node:path';
 import {styleText} from 'node:util';
 
@@ -99,7 +100,7 @@ PSD.open(src).then((psd: T_PSD)=> {
 
 	const fnOut = path_prj +`face/face${hn}.sn`;
 	ensureFileSync(fnOut);	// 作業フォルダ作りも兼ねる
-	aP.push(writeFile(fnOut, out, 'utf8'))
+	aP.push(outputFile(fnOut, out, 'utf8'))
 	Promise.allSettled(aP).then(async ()=> {
 		await remove(pathTmp);
 		console.log(styleText(['bgGreen', 'black'], `fn:cnv_psd_face.ts ok.`));

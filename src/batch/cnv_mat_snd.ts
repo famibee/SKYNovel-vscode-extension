@@ -9,8 +9,8 @@ const [, , modeInp='', setting, curPrj='', curPrjBase=''] = process.argv;
 
 const {codec} = JSON.parse(setting!);
 
-const ffmpeg_ins = require('@ffmpeg-installer/ffmpeg');
-const ffmpeg = require('fluent-ffmpeg');
+import ffmpeg_ins from '@ffmpeg-installer/ffmpeg';
+import ffmpeg from 'fluent-ffmpeg';
 ffmpeg.setFfmpegPath(ffmpeg_ins.path);
 
 import {resolve, parse, basename} from 'node:path';

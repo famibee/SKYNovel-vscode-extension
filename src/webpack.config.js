@@ -10,6 +10,7 @@ module.exports = {
 		exprContextCritical: false,
 	},
 	mode: 'development',
+	// mode: 'production',
 	output: {
 		filename: 'extension.js',
 		libraryTarget: 'commonjs2',

@@ -7,15 +7,15 @@
 
 import {getFn, int, is_win, REG_SCRIPT} from '../../src/CmnLib';
 import {Grammar, Script} from './Grammar';
-import {AnalyzeTagArg, HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
-import {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
+import {AnalyzeTagArg, type HPRM, type PRM_RANGE} from '../../src/AnalyzeTagArg';
+import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 // import hMd from './md.json' assert {type: 'json'};
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
-import {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
-import {IExts, IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
+import type {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
+import {type IExts, type IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
-import {CodeAction, CodeActionKind, CodeActionParams, CompletionItem, CompletionItemKind, Connection, Definition, DefinitionLink, DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbol, DocumentSymbolParams, InlayHint, InlayHintKind, InlayHintParams, InsertTextFormat, Location, MarkupContent, ParameterInformation, Position, PrepareRenameParams, Range, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SignatureInformation, SymbolInformation, SymbolKind, TextDocumentChangeEvent, TextDocumentEdit, TextDocumentPositionParams, TextDocuments, TextEdit, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
-import {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
+import {CodeAction, CodeActionKind, type CodeActionParams, type CompletionItem, CompletionItemKind, type Connection, type Definition, type DefinitionLink, type DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, type DidChangeWatchedFilesParams, type DocumentLink, type DocumentLinkParams, DocumentSymbol, type DocumentSymbolParams, InlayHint, InlayHintKind, type InlayHintParams, InsertTextFormat, Location, type MarkupContent, type ParameterInformation, Position, type PrepareRenameParams, Range, type ReferenceParams, type RenameParams, type SignatureHelp, type SignatureHelpParams, SignatureInformation, type SymbolInformation, SymbolKind, type TextDocumentChangeEvent, TextDocumentEdit, type TextDocumentPositionParams, type TextDocuments, TextEdit, type WorkspaceEdit, type WorkspaceFolder} from 'vscode-languageserver/node';
+import type {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
 type PROJECT_PATH	= string;	// script/main.sn
@@ -594,7 +594,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 //console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${document.version}`);
 
 /*	// NOTE: Score
-		if (uri.slice(-3) === '.sn') Debugger.noticeChgDoc(this.curPrj, e);
+		if (uri.endsWith('.sn')) Debugger.noticeChgDoc(this.curPrj, e);
 		else {
 //console.log(`fn:LspWs.ts chgTxtDoc (ssn) uri:${uri}`);
 			this.#cteScore.separation(uri);
@@ -879,8 +879,7 @@ ${
 		}
 		return words.slice(1, -1).split(',').map(label=> ({
 			label,
-			kind: label.slice(0, 6) === 'const.'
-				? CompletionItemKind.Constant :kind,
+			kind: label.startsWith('const.') ? CompletionItemKind.Constant :kind,
 		}));
 	}
 		#contains({start, end}: Range, {line: l, character: c}: Position): boolean {
@@ -1418,7 +1417,7 @@ WorkspaceEdit
 
 
 /*	// NOTE: Score
-		if (pp.slice(-4) === '.ssn') {	// NOTE: Score 変更して動作未確認
+		if (pp.endsWith('.ssn')) {	// NOTE: Score 変更して動作未確認
 			const d = this.docs.get(this.#curPrj + pp);	// NOTE: LSPでは失敗する
 			if (! d) return;
 
@@ -1775,7 +1774,7 @@ WorkspaceEdit
 				//変数操作
 				try {
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
-					if (name.at(0) !== '&') {
+					if (! name.startsWith('&')) {
 						const kw = name.trim();
 						this.#hT2Pp2Kw.代入変数名[pp].add(kw);
 
@@ -1907,7 +1906,7 @@ WorkspaceEdit
 			this.#hPp2JoinLabel[pp] = sJoinLabel;
 		}
 
-//		if (isUpdScore && path.slice(-4) === '.ssn') this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
+//		if (isUpdScore && path.endsWith('.ssn')) this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
 		#chkTagMacArg(use_nm: string, hArg: HPRM, pp: string, sJumpFn: Set<unknown>, hRng: { [key: string]: PRM_RANGE; }, aDi: Diagnostic[], setUri2Links: Set<string>, fp: string) {
 			const param = this.#hDefMacro[use_nm]?.param ?? hMd[use_nm]?.param;
@@ -2329,7 +2328,7 @@ WorkspaceEdit
 			this.#aDsOutlineStack.push(arg.aDsOutline);
 			arg.aDsOutline = [];
 /*	// NOTE: Score
-			if (uri.slice(-4) === '.ssn') {
+			if (uri.endsWith('.ssn')) {
 				const o: {[k: string]: string} = {};
 				for (const [k, v] of Object.entries(hArg)) o[k] = v.val ?? '';
 //				this.#cteScore.defMacro(nm, o);
@@ -2365,7 +2364,7 @@ WorkspaceEdit
 			// [span style='font-family: my_himajihoso; color: skyblue;']
 			const fonts = /font-family\s*:\s+(?<fonts>[^;]+)/.exec(v)
 			?.groups?.fonts ?? '';	// https://regex101.com/r/b93jbp/1
-			if (! fonts || fonts.slice(0, 2) === '#{') {this.#nowFontNm = LspWs.DEF_FONT; return;}
+			if (! fonts || fonts.startsWith('#{')) {this.#nowFontNm = LspWs.DEF_FONT; return;}
 
 			const s = this.#getFonts2ANm(fonts, uri, rng);
 			if (s) this.#nowFontNm = s;
@@ -2439,7 +2438,7 @@ WorkspaceEdit
 			// != を弾けないので中途半端ではある
 		const cnt_equa = equa.length;
 		if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
-		if (equa[1].at(0) === '&') throw '「&計算」書式では「&」指定が不要です';
+		if (equa[1].startsWith('&')) throw '「&計算」書式では「&」指定が不要です';
 		return {
 			name: equa[0].replaceAll('＝', '==').replaceAll('≠', '!='),
 			text: equa[1].replaceAll('＝', '==').replaceAll('≠', '!='),
@@ -2452,14 +2451,14 @@ WorkspaceEdit
 		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
 	#searchPath(fn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): string {
 		if (! fn) throw '[searchPath] fnが空です';
-		if (fn.slice(0, 7) === 'http://') return fn;
+		if (fn.startsWith('http://')) return fn;
 /*
-		if (fn.slice(0, 11) === 'downloads:/') {
+		if (fn.startsWith('downloads:/')) {
 			const fp = this.sys.path_downloads + fn.slice(11);
 			this.sys.ensureFileSync(fp);
 			return fp;
 		}
-		if (fn.slice(0, 10) === 'userdata:/') {
+		if (fn.startsWith('userdata:/')) {
 			const fp = this.sys.path_userdata + 'storage/'+ fn.slice(10);
 			this.sys.ensureFileSync(fp);
 			return fp;

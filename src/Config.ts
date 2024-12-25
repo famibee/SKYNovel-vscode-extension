@@ -6,7 +6,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {foldProc, uint} from './CmnLib';
-import {ConfigBase, HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
+import {ConfigBase} from './ConfigBase';
+import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
 import {DEF_CFG} from '../views/types';
 import {Encryptor} from './Encryptor';
 
@@ -17,11 +18,9 @@ import {Diagnostic, Uri, DiagnosticSeverity, window, DiagnosticCollection, Range
 
 
 export class SysExtension implements ISysRoots {
-	constructor(protected arg: HSysBaseArg) {}
+	constructor(readonly arg: HSysBaseArg) {}
 	async loadPath(hPathFn2Exts: IFn2Path, _cfg: IConfig) {
 		const fn = this.arg.cur +'path.json';
-	//	const src = await readFile(fn);
-	//	const oJs = JSON.parse(this.decStr(fn, src));
 		const oJs = await readJson(fn, {encoding: 'utf8'});
 		for (const [nm, v] of Object.entries(oJs)) {
 			const h = hPathFn2Exts[nm] = <any>v;
@@ -30,17 +29,12 @@ export class SysExtension implements ISysRoots {
 			}
 		}
 	};
-	dec(_ext: string, d: string) {return Promise.resolve(d)}
-	decAB(ab: ArrayBuffer) {return Promise.resolve(ab)}
+	readonly	dec	= (_ext: string, d: string)=> Promise.resolve(d);
+	readonly	decAB = (ab: ArrayBuffer)=> Promise.resolve(ab);
 
-	get cur() {return this.arg.cur};
-	get crypto() {return this.arg.crypto};
 	set crypto(v: boolean) {this.arg.crypto = v;}
-	async	fetch(url: string) {
-		const str = await readJson(url, {encoding: 'utf8'});
-		return new Response(str);
-	};
-	hash: (_data: string)=> '';
+	readonly	fetch = async (url: string)=> new Response(await readJson(url, {encoding: 'utf8'}));
+	readonly	hash: (_data: string)=> '';
 
 	protected $path_downloads	= '';
 	get path_downloads() {return this.$path_downloads}
@@ -54,8 +48,8 @@ export class Config extends ConfigBase {
 	setCryptoMode(v: boolean) {this.sys.crypto = v;}
 
 	async loadEx(encFile: (uri: Uri)=> Promise<void>, clDiag: DiagnosticCollection) {
-		const fpPrj = this.sys.cur +'prj.json';
-		const fpPath = this.sys.cur +'path.json';
+		const fpPrj = this.sys.arg.cur +'prj.json';
+		const fpPath= this.sys.arg.cur +'path.json';
 		try {
 			let o = await readJson(fpPrj, {encoding: 'utf8'});
 			o = {
@@ -70,7 +64,7 @@ export class Config extends ConfigBase {
 			};
 			await super.load(o);
 
-			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.cur, clDiag);
+			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.arg.cur, clDiag);
 			await outputJson(fpPath, this.hPathFn2Exts);
 
 			if (this.sys.crypto) encFile(Uri.file(fpPath));

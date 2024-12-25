@@ -10,9 +10,10 @@ import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {Config} from './Config';
 import {openURL} from './WorkSpaces';
 import {FLD_PRJ_BASE} from './Project';
-import {DEF_WSS, REG_SN2TEMP, T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, DEF_OPTIMG, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, DEF_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
+import {DEF_WSS, DEF_OPTSND, DEF_OPTIMG, REG_SN2TEMP} from '../views/types';
+import type {T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
 
-import {Disposable, env, ExtensionContext, RelativePattern, Uri, ViewColumn, WebviewPanel, window, workspace, WorkspaceFolder} from 'vscode';
+import {Disposable, env, type ExtensionContext, RelativePattern, Uri, ViewColumn, type WebviewPanel, window, workspace, type WorkspaceFolder} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson} from 'fs-extra';
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
@@ -48,7 +49,7 @@ export class PrjSetting implements Disposable {
 	readonly	#ds		: Disposable[]	= [];
 
 	//MARK: コンストラクタ
-	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>) {
+	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>, private readonly fld_src: string, private readonly is_new_tmp: boolean) {
 		this.#wss = ctx.workspaceState;
 		const oWss = DEF_WSS as {[nm: string]: any};
 		for (const [nm, v] of Object.entries(oWss)) {
@@ -96,8 +97,14 @@ export class PrjSetting implements Disposable {
 		this.#PATH_OPT_PIC = this.#PATH_WS +'/build/cnv_mat_pic.json';
 		this.#PATH_OPT_SND = this.#PATH_WS +'/build/cnv_mat_snd.json';
 
+		this.#hHead2Mes = {
+			'::PATH_PRJ_F'	: `${fld_src}/font/ 下）`,
+			'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
+			'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
+		};
+
 		workspace.onDidSaveTextDocument(e=> {
-			if (e.fileName.slice(-11) === '/setting.sn') this.#chkMultiMatch_SettingSn();
+			if (e.fileName.endsWith('/setting.sn')) this.#chkMultiMatch_SettingSn();
 		}, null, ctx.subscriptions);
 
 		const path_vue_root = path_ext +'/views/';
@@ -142,7 +149,7 @@ export class PrjSetting implements Disposable {
 			},
 
 			async ()=> this.cnvWatch(
-				new RelativePattern(wsFld, 'core/resource/*.psd'),
+				new RelativePattern(wsFld, `${fld_src}/resource/*.psd`),
 				`doc/prj/face/{[FN]_*.png,face[FN].sn}`, async ({fsPath})=> {
 					const hn = getFn(fsPath);
 					if (chkUpdate(fsPath, `${this.#PATH_PRJ}face/face${hn}.sn`)) await this.exeTask('cnv_psd_face', `"${fsPath}" "${this.#PATH_PRJ}"`);
@@ -193,8 +200,9 @@ export class PrjSetting implements Disposable {
 	getLocalSNVer(): {verSN: string, verTemp: string} {
 		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 		const fnCngLog = this.#PATH_WS +'/CHANGELOG.md';
+		const lib_name = `@famibee/skynovel${this.is_new_tmp ?'_esm': ''}`
 		return {
-			verSN	: oPkg.dependencies['@famibee/skynovel']?.slice(1) ?? '',
+			verSN	: oPkg.dependencies[lib_name]?.slice(1) ?? '',
 			verTemp	: existsSync(fnCngLog)
 				? readFileSync(fnCngLog, {encoding: 'utf8'}).match(/## v(.+)\s/)?.[1] ?? ''
 				: '',
@@ -265,7 +273,7 @@ export class PrjSetting implements Disposable {
 			if (full.at(0) === ';') continue;
 
 			const lbl = lbl_json.trim();
-			if (lbl === '' || lbl.slice(0, 10) === '(HIDE GUI)') continue;
+			if (lbl === '' || lbl.startsWith('(HIDE GUI)')) continue;
 
 			const nm = nm1 ?? nm2 ?? '';
 			let o: T_TEMP = {
@@ -506,6 +514,7 @@ export class PrjSetting implements Disposable {
 				oCfg	: this.cfg.oCfg,
 				oWss	: this.#oWss,
 				pathIcon: this.#pathIcon,
+				fld_src	: this.fld_src,
 			});
 			await this.dispFontInfo();
 			this.#dispOptPic();
@@ -741,15 +750,11 @@ export class PrjSetting implements Disposable {
 			})
 		}
 
-	readonly	#hHead2Mes: {[head: string]: string}	= {
-		'::PATH_PRJ_F'	: 'プロジェクト内（core/font/ 下）',
-		'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
-		'::PATH_OS_FO'	: 'OS（ユーザー共通）へのインストール済みフォント',
-	};
+	readonly	#hHead2Mes: {[head: string]: string};
 	async dispFontInfo() {
 		if (! this.#pnlWV) return;
 
-		const fn = this.#PATH_WS +'/core/font/subset_font.json';
+		const fn = `${this.#PATH_WS}/${this.fld_src}/font/subset_font.json`;
 		if (! existsSync(fn)) {
 			this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: []});
 			return;

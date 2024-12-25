@@ -11,15 +11,15 @@ import {ToolBox} from './ToolBox';
 import {TreeDPDoc} from './TreeDPDoc';
 const AdmZip = require('adm-zip');
 
-import {TreeDataProvider, TreeItem, ExtensionContext, window, commands, Uri, EventEmitter, WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
+import {type TreeDataProvider, TreeItem, type ExtensionContext, window, commands, Uri, EventEmitter, type WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, ensureDir, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
 
 import {
 	LanguageClient,
-	LanguageClientOptions,
-	ServerOptions,
+	type LanguageClientOptions,
+	type ServerOptions,
 	TransportKind
 } from 'vscode-languageclient/node';
 
@@ -45,8 +45,8 @@ export function getNonce() {
 
 let extPath = '';
 export function oIcon(name: string) {return {
-	light	: extPath +`/res/light/${name}.svg`,
-	dark	: extPath +`/res/dark/${name}.svg`,
+	light	: Uri.file(extPath +`/res/light/${name}.svg`),
+	dark	: Uri.file(extPath +`/res/dark/${name}.svg`),
 }};
 
 
@@ -301,12 +301,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		]);
 		aLocalSNVer.forEach(async o=> {
 			if (o.verTemp && newVerTemp !== o.verTemp) {
-				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ）`);
+				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ ${o.verTemp}->${newVerTemp}）`);
 				return;
 			}
 
-			if (o.verSN === '' || o.verSN.slice(0, 4) === 'ile:') return;
-			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン）`);
+			if (o.verSN === '' || o.verSN.startsWith('ile:') || o.verSN.startsWith('./')) return;
+			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.verSN}->${newVerSN}）`);
 		});
 	}
 
@@ -533,11 +533,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				};
 				// build/		// しばしノータッチ
 
-				copy('core/plugin/humane/index.js', true);
-				// core/app4webpack.js	やや難
-				copy('core/wds.config.js');
-				// core/web4webpack.js	やや難
-				copy('core/webpack.config.js');
+				const is_new_tmp = existsSync(pathUnZip +'src/plugin/');
+				const fld_src = is_new_tmp ?'src' :'core';
+				copy(`${fld_src}/plugin/humane/index.js`, true);
+				// src/app4webpack.js	やや難
+				copy(`${fld_src}/wds.config.js`);
+				// src/web4webpack.js	やや難
+				copy(`${fld_src}/webpack.config.js`);
 
 				// doc/prj/		// しばしノータッチ
 				// doc/app.js
@@ -548,9 +550,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				// package.json
 				const oNewPkgJS = await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
-				if (oOldPkgJS.dependencies['@famibee/skynovel'].slice(0, 8) === 'file:../') {
-					oNewPkgJS.dependencies['@famibee/skynovel'] =
-					oOldPkgJS.dependencies['@famibee/skynovel'];
+				const lib_name = `@famibee/skynovel${is_new_tmp ?'_esm': ''}`
+				const v = oOldPkgJS.dependencies[lib_name];
+				if (v.startsWith('ile:') || v.startsWith('./')) {
+					oNewPkgJS.dependencies[lib_name] = v;
 				}
 				await outputJson(fnTo +'/package.json', {
 					...oOldPkgJS,

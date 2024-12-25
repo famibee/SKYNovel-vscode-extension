@@ -8,7 +8,7 @@
 import {defineStore} from 'pinia';
 import {useCfg} from '../store/stCfg';
 import {useWss} from '../store/stWSS';
-import {T_E2V_INIT} from '../types';
+import type {T_E2V_INIT} from '../types';
 const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :undefined;
 export const isVSCode = vscode !== undefined;
 

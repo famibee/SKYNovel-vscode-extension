@@ -7,7 +7,7 @@
 
 const [, , modeInp='', quality, curPrj='', curPrjBase=''] = process.argv;
 
-const sharp = require('sharp');
+import sharp from 'sharp';
 sharp.cache(false);
 
 import {resolve, parse, basename} from 'node:path';

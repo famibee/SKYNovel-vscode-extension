@@ -21,10 +21,10 @@ export function ab2hexStr(ab: ArrayBuffer) {
 export function encAbBase64(ab: ArrayBuffer): string {return btoa(new Uint8Array(ab)
 	.reduce((binStr, uint8)=> binStr + String.fromCharCode(uint8), '')
 )}
-export function decBase64Ab(base64: string): ArrayBuffer {
+export function decBase64Ab(base64: string): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from(atob(base64), binCh=> binCh.charCodeAt(0))
 }
-export function encStrBase64(s: string): string {return encAbBase64(new TextEncoder().encode(s))}
+export function encStrBase64(s: string): string {return encAbBase64(new TextEncoder().encode(s).buffer as ArrayBuffer)}
 export function decBase64Str(base64: string): string {return new TextDecoder().decode(decBase64Ab(base64))}
 	// [JavaScript] Unicode 文字列やバイナリデータを Base64 エンコードおよびデコードする #JavaScript - Qiita https://qiita.com/kerupani129/items/1d6b936974ec65ae4833
 
@@ -69,14 +69,14 @@ export class Encryptor {
 		return await this.subtle.encrypt(this.#aae, this.#key, ab);
 	}
 	async	enc(tx: string): Promise<string> {
-		return encAbBase64(await this.encAb(new TextEncoder().encode(tx)));
+		return encAbBase64(await this.encAb(new TextEncoder().encode(tx).buffer as ArrayBuffer));
 	}
 
 	async	decAb(ab: ArrayBuffer): Promise<ArrayBuffer> {
 		return await this.subtle.decrypt(this.#aae, this.#key, ab);
 	}
 	async	dec(encTx: string): Promise<string> {
-		return new TextDecoder().decode(await this.decAb(decBase64Ab(encTx)));
+		return new TextDecoder().decode(await this.decAb(decBase64Ab(encTx).buffer as ArrayBuffer));
 	}
 
 }

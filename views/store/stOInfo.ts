@@ -6,7 +6,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {defineStore} from 'pinia';
-import {DEF_OPTIMG, DEF_OPTIMG4TST, DEF_CNVFONT, T_A_CNVFONT, T_OPTIMG, T_E2V_CNVFONT, T_E2V_OPTIMG, DEF_OPTSND, DEF_OPTSND4TST, T_OPTSND, T_E2V_OPTSND} from '../types';
+import {DEF_OPTIMG, DEF_OPTIMG4TST, DEF_CNVFONT, DEF_OPTSND, DEF_OPTSND4TST} from '../types';
+import type {T_A_CNVFONT, T_OPTIMG, T_E2V_CNVFONT, T_E2V_OPTIMG, T_OPTSND, T_E2V_OPTSND} from '../types';
 import {isVSCode, on} from './stVSCode';
 
 let init = false;

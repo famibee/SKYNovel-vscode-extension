@@ -14,7 +14,7 @@ export class EncryptorTransform extends Transform {
 	static	readonly #LEN_CODE	= 1024 *10;
 	#len_code	= EncryptorTransform.#LEN_CODE;
 	#ite		= 2;
-	#bh			: Buffer;
+	#bh			: Buffer<ArrayBuffer>;
 
 	readonly	#hExt2N: {[ext: string]: number} = {
 		'jpg'	: 1,

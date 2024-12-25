@@ -134,7 +134,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 				const icon: any = t.iconPath;
 				const a: {label: string, icon: string}[]
-				= icon.dark.slice(-11) === 'comment.svg'
+				= icon.dark.endsWith('comment.svg')
 				? [
 					{label: 'ボタン',		icon: 'hand-point-down'},
 //					{label: 'トゥイーン',	icon: 'object-group'},
@@ -194,8 +194,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		if (aUri.length === 0) return null;
 
 		for (const [vfpWs ,prj] of this.#mPrj.entries()) {
-			const cp = vfpWs +'/doc/prj/';
-			if (td.uri.path.slice(0, cp.length) !== cp) continue;
+			if (! td.uri.path.startsWith(vfpWs +'/doc/prj/')) continue;
 
 			return await prj.drop(td, pos, aUri) ?? {insertText: ''};
 				// なにもさせない（null だと簡易な文字列が挿入される）
@@ -206,8 +205,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			const cp = vfpWs +'/doc/prj/';
-			if (doc.uri.path.slice(0, cp.length) !== cp) continue;
+			if (! doc.uri.path.startsWith(vfpWs +'/doc/prj/')) continue;
 
 			return prj.provideHover(doc, pos);
 		}
@@ -220,8 +218,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		// これは #refresh() 直前のここで
 		if (is_mac) updStatBreak('&&');
 		else if (is_win) {
-			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows')).slice(-7);
-			updStatBreak((chkShell === 'cmd.exe') ?'&' :';');
+			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows'));
+			updStatBreak(chkShell.endsWith('cmd.exe') ?'&' :';');
 		}
 		this.#sendRequest2LSP = sendRequest2LSP;
 		this.#refresh();
@@ -230,7 +228,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.ctx.subscriptions.push(commands.registerCommand('skynovel.opView', uri=> {
 			const {path} = uri;
 			for (const [vfpWs, prj] of this.#mPrj.entries()) {
-				if (path.slice(0, vfpWs.length) !== vfpWs) continue;
+				if (! path.startsWith(vfpWs)) continue;
 				prj.opView(uri);
 			}
 		}));
@@ -257,7 +255,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 		const vfp = at.document.uri.path;	// /c:/
 		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			if (vfp.slice(0, vfpWs.length) !== vfpWs) continue;
+			if (! vfp.startsWith(vfpWs)) continue;
 			prj.openReferencePallet();
 		}
 	}

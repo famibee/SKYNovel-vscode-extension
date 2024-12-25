@@ -7,7 +7,8 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_TEMP4TST, DEF_TEMP, T_E2V_TEMP, T_V2E_TEMP} from '../types';
+import {DEF_TEMP4TST, DEF_TEMP} from '../types';
+import type {T_E2V_TEMP, T_V2E_TEMP} from '../types';
 import {cmd2Ex, isVSCode, on} from './stVSCode';
 
 let init = false;
