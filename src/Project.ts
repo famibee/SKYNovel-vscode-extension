@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -10,7 +10,7 @@ import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
-import {PrjTreeItem, type TREEITEM_CFG, type PrjBtnName, type TASK_TYPE, statBreak} from './PrjTreeItem';
+import {PrjTreeItem, type TREEITEM_CFG, type PrjBtnName, type TASK_TYPE, statBreak, eDevTreeView} from './PrjTreeItem';
 import {aPickItems, type QuickPickItemEx, openURL} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
@@ -57,7 +57,6 @@ export type TINF_INTFONT = {
 
 export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
-
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
 
@@ -74,7 +73,7 @@ export class Project {
 	readonly	#PATH_CRYPT;
 	#isCryptoMode	= false;
 	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
-	readonly	#REG_FULLCRYPTO		= /\.(sn|ssn|json|html?)$/;
+	readonly	#REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
 	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 
 	readonly	#encry;
@@ -89,8 +88,6 @@ export class Project {
 	}}	= Object.create(null);
 
 
-	static	readonly #idxDevSnUpd	= 0;
-	static	readonly #idxDevCrypto	= 3;
 	private	dspCryptoMode() {}		// 暗号化状態
 
 	readonly	#aTiFlat: TreeItem[]	= [];
@@ -139,7 +136,7 @@ export class Project {
 		.replaceAll('${nonce}', getNonce())
 		.replace('.ts"></script>', '.js"></script>');
 
-		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg));
+		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg), is_new_tmp);
 		aTiRoot.push(pti);
 
 		this.#hTask2Inf = {
@@ -394,18 +391,20 @@ export class Project {
 		const aTi = pti.children;
 		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
-		const tiDevSnUpd = aTi[Project.#idxDevSnUpd]!;
+		const tiDevSnUpd = aTi[eDevTreeView.SnUpd]!;
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
 			tiDevSnUpd.description = o.verSN
-				? `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
+				? o.verSN.startsWith('ile:') || o.verSN.startsWith('./')
+				? '（相対パス参照中）'
+				: `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
 				: '取得できません';
 			emPrjTD.fire(tiDevSnUpd);
 			return o;
 		};
 		if (! firstInit) actBar.chkLastSNVer([this.getLocalSNVer()]);
 
-		const tiDevCrypto = aTi[Project.#idxDevCrypto]!;
+		const tiDevCrypto = aTi[eDevTreeView.Crypto]!;
 		this.dspCryptoMode = ()=> {
 			tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
 			emPrjTD.fire(tiDevCrypto);
@@ -1247,7 +1246,7 @@ export class Project {
 			rj=> console.error(`fn:Project onBtn_sub() rj:${rj.message}`)
 		);
 	}
-	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>();
+	readonly	#hTaskExe	= new Map<PrjBtnName, TaskExecution>;
 
 
 	//MARK: 暗号化

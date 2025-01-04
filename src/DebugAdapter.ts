@@ -1,14 +1,14 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2018-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2018-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
 import {
-	debug, WorkspaceFolder, DebugConfiguration,
-	DebugAdapterDescriptorFactory, ProviderResult, ExtensionContext,
-	DebugAdapterInlineImplementation,	// インライン型アダプタ
+	debug, type WorkspaceFolder, type DebugConfiguration,
+	type DebugAdapterDescriptorFactory, type ProviderResult,
+	type ExtensionContext, DebugAdapterInlineImplementation,	// インライン型アダプタ
 } from 'vscode';
 import {
 	Logger, logger,
@@ -16,7 +16,7 @@ import {
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from '@vscode/debugadapter';
-import {DebugProtocol} from '@vscode/debugprotocol';
+import type {DebugProtocol} from '@vscode/debugprotocol';
 import {basename} from 'path';
 import {Debugger} from './Debugger';
 const {Subject} = require('await-notify');
@@ -61,6 +61,19 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 	// デバッグセッション開始をインターセプト、launch.jsonの一つの{}を受け取る
 	ctx.subscriptions.push(debug.registerDebugConfigurationProvider('node', {
 		resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, cfg: DebugConfiguration): ProviderResult<DebugConfiguration> {
+			// const bro: any = {
+			// 	runtimeExecutable	: 'npm',
+			// };
+			// if (is_new_tmp) {
+			// 	bro.runtimeExecutable = '${workspaceRoot}/node_modules/.bin/electron-vite';
+			// 	bro.windows = {
+			// 		runtimeExecutable: bro.runtimeExecutable +'.cmd',
+			// 	};
+			// 	bro.env = {
+			// 		"REMOTE_DEBUGGING_PORT": "9222"
+			// 	};
+			// }
+				// https://electron-vite.org/guide/debugging
 			const ex = '${workspaceFolder}/node_modules/.bin/electron';
 			return {
 				program: '${workspaceFolder}/doc/app.js',
@@ -442,7 +455,7 @@ class DebugAdapter extends LoggingDebugSession {
 
 
 	// 変数ビュー
-	readonly	#hdlsVar = new Handles<string>();
+	readonly	#hdlsVar = new Handles<string>;
 	readonly	#hNm2HdlNm: {[nm: string]: number}	= {};
 	protected override scopesRequest(res: DebugProtocol.ScopesResponse, _args: DebugProtocol.ScopesArguments): void {
 		// fn:DebugAdapter.ts line:88 dbg -> stopOnStep のたびに呼ばれる
@@ -466,8 +479,8 @@ class DebugAdapter extends LoggingDebugSession {
 		};
 		this.sendResponse(res);
 	}
-	readonly	#mapCancelationTokens = new Map<number, boolean>();
-	readonly	#mapIsLongrunning	= new Map<number, boolean>();
+	readonly	#mapCancelationTokens = new Map<number, boolean>;
+	readonly	#mapIsLongrunning	= new Map<number, boolean>;
 	static	readonly	#REG_SN_VAR	= /^(?:const\.)?sn\./;
 	#hScope	: {[scope: string]: {[nm: string]: any}}	= {
 		'tmp'	: {},

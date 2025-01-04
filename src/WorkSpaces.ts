@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -43,7 +43,7 @@ export	function openURL(url: Uri, pathWs: string) {
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
-	#mPrj	= new Map<string, Project>();
+	#mPrj	= new Map<string, Project>;
 
 	//MARK: コンストラクタ
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
@@ -61,7 +61,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 
 		// デバッガ
 		itmStt.detail = 'initDebug';	// text - detail と表示される
-		const emDbgLayTd = new EventEmitter<TreeItem | undefined>();
+		const emDbgLayTd = new EventEmitter<TreeItem | undefined>;
 //		const hLay2TI: {[layer: string]: TreeItem} = {};
 		initDebug(ctx, o=> {
 			switch (o.タグ名) {
@@ -316,7 +316,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 		}
 		this.#emPrjTD.fire(undefined);
 	}
-	readonly #emPrjTD = new EventEmitter<TreeItem | undefined>();
+	readonly #emPrjTD = new EventEmitter<TreeItem | undefined>;
 	readonly onDidChangeTreeData = this.#emPrjTD.event;
 
 

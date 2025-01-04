@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -26,6 +26,7 @@ export class PrjSetting implements Disposable {
 	readonly	#PATH_WS		: string;
 	readonly	#PATH_PRJ		: string;
 	readonly	#PATH_PRJ_JSON	: string;
+	readonly	#PATH_MAIN_TS	: string;
 	readonly	#PATH_APP_JS	: string;
 	readonly	#PATH_PKG_JSON	: string;
 	readonly	#PATH_PRJ_BASE;
@@ -64,6 +65,7 @@ export class PrjSetting implements Disposable {
 		this.#PATH_WS = v2fp(wsFld.uri.path);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#PATH_PRJ_JSON = this.#PATH_PRJ +'prj.json';
+		this.#PATH_MAIN_TS = this.#PATH_WS +'/src/main/main.ts';
 		this.#PATH_APP_JS = this.#PATH_WS +'/doc/app.js';
 		this.#PATH_PKG_JSON = this.#PATH_WS +'/package.json';
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
@@ -564,8 +566,18 @@ export class PrjSetting implements Disposable {
 			p.build.artifactName=`${c.save_ns}-\${version}-\${arch}.\${ext}`;
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
-			// doc/app.js
-			replaceRegsFile(this.#PATH_APP_JS, [
+			// src/main/main.ts, doc/app.js
+			if (this.is_new_tmp) replaceRegsFile(this.#PATH_MAIN_TS, [
+				[
+					/(companyName\s*:\s*)(['"]).*\2/,
+					`$1"${c.book.publisher}"`
+				],
+				[	// ついでに発表年を
+					/(pkg.appCopyright \+' )\d+/,
+					`$1${CopyrightYear}`
+				],
+			], false);
+			else replaceRegsFile(this.#PATH_APP_JS, [
 				[
 					/(companyName\s*:\s*)(['"]).*\2/,
 					`$1"${c.book.publisher}"`
@@ -738,7 +750,7 @@ export class PrjSetting implements Disposable {
 
 				const exit_code = await this.exeTask(
 					'cut_round',
-					`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}"`,
+					`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}" ${this.is_new_tmp}`,
 				);
 				this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
 					cmd		: 'updimg',

@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.19.0",
+	"version": "4.20.0",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -169,14 +169,6 @@
 			{
 				"command": "skynovel.devPrjSet",
 				"title": "Project Setting",
-				"icon": {
-					"light": "res/light/gear.svg",
-					"dark": "res/dark/gear.svg"
-				}
-			},
-			{
-				"command": "skynovel.devCnvFile",
-				"title": "Encryption switching",
 				"icon": {
 					"light": "res/light/gear.svg",
 					"dark": "res/dark/gear.svg"
@@ -480,11 +472,6 @@
 				},
 				{
 					"group": "inline",
-					"command": "skynovel.devCnvFile",
-					"when": "view == skynovel-ws && viewItem == 'skynovel.devCnvFile'"
-				},
-				{
-					"group": "inline",
 					"command": "skynovel.devCrypto",
 					"when": "view == skynovel-ws && viewItem == 'skynovel.devCrypto'"
 				},
@@ -706,7 +693,7 @@
 		"await-notify": "^1.0.1",
 		"crc-32": "^1.2.2",
 		"fs-extra": "^11.2.0",
-		"npm-check-updates": "^17.1.12",
+		"npm-check-updates": "^17.1.13",
 		"original-fs": "^1.2.0",
 		"pinia": "^2.3.0",
 		"socket.io": "^4.8.1",
@@ -724,14 +711,14 @@
 		"@types/fluent-ffmpeg": "^2.1.27",
 		"@types/fs-extra": "^11.0.4",
 		"@types/jest": "^29.5.14",
-		"@types/node": "^22.10.2",
+		"@types/node": "^22.10.5",
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
 		"@types/sharp": "^0.32.0",
 		"@types/vscode": "^1.96.0",
 		"@types/vscode-webview": "^1.57.5",
-		"@typescript-eslint/eslint-plugin": "^8.18.2",
-		"@typescript-eslint/parser": "^8.18.2",
+		"@typescript-eslint/eslint-plugin": "^8.19.0",
+		"@typescript-eslint/parser": "^8.19.0",
 		"@vitejs/plugin-vue": "^5.2.1",
 		"@vscode/test-electron": "^2.4.1",
 		"electron": "^33.2.1",
@@ -744,14 +731,14 @@
 		"terser": "^5.37.0",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.7.2",
-		"vite": "^6.0.5",
+		"vite": "^6.0.7",
 		"vscode-languageserver-types": "^3.17.5",
 		"vue-loader": "^17.4.2",
 		"webpack": "^5.97.1",
 		"webpack-cli": "^6.0.1"
 	},
 	"optionalDependencies": {
-		"bufferutil": "^4.0.8",
+		"bufferutil": "^4.0.9",
 		"utf-8-validate": "^6.0.5"
 	},
 	"scripts": {

@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2022-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2022-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -1754,7 +1754,7 @@ WorkspaceEdit
 		// メッセージをクリア
 		const aDi: Diagnostic[] = this.#fp2Diag[fp] = [];
 		this.#Uri2Links[fp] = [];
-		const setUri2Links = new Set<string>();
+		const setUri2Links = new Set<string>;
 		this.#hChkDup = {};
 
 		// procTokenBase を定義、procToken も同値で始める

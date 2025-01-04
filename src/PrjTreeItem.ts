@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2021-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -54,58 +54,74 @@ type ON_BTN = (ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG)=> void;
 export let statBreak = ';';		// これは依存が少ないここで
 export function updStatBreak(s: string) {statBreak = s}
 
+export const enum eDevTreeView {
+	SnUpd = 0,
+	ReBuild,
+	PrjSet,
+	Crypto,
+	TaskWeb,
+	TaskApp,
+	Pack,
+};
+
 
 export class PrjTreeItem extends TreeItem {
-	static	readonly #aTreeTmp	: TREEITEM_CFG[] = [
-		{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
-			task_type: 'Sys',
-			npm: `npm update ${statBreak} npm run webpack:dev`},
-		{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
-			task_type: 'Sys', npm: 'npm run rebuild'},
-		{cmd: 'PrjSet',		icon: 'gear',	label: '設定',	task_type: 'Sys',},
-		{cmd: 'Crypto',		icon: 'gear',	label: '暗号化',task_type: 'Sys',
-			npm: 'npm run webpack:dev'},
-		{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
-			task_type: 'Web',npm: 'npm run web',	exe: true,},
-		{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-			task_type: 'App',npm: 'npm run start',	exe: true,},
-		{cmd: '', icon: '',label: '生成', children: [
-			{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
-				npm: `npm run webpack:pro ${statBreak
-				} ./node_modules/.bin/electron-builder -w --x64`},
-			//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
-					// 一パッケージに統合型、ファイルサイズ二倍になる
-			{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
-				npm: `npm run webpack:pro ${statBreak
-				} ./node_modules/.bin/electron-builder -w --ia32`},
-			{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
-				npm: `npm run webpack:pro ${statBreak
-				} ./node_modules/.bin/electron-builder -m --x64`,
-				forMac: true,},
-			{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
-				npm: `npm run webpack:pro ${statBreak
-				} ./node_modules/.bin/electron-builder -m --arm64`,
-				forMac: true,},
-				// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
-					// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
-			{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
-				npm: `npm run webpack:pro ${statBreak
-				} ./node_modules/.bin/electron-builder -l`},
-				// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
-			{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
-				npm: 'npm run webpack:pro'},
-		]},
-	];
-
-	static	create(ctx: ExtensionContext, wsFld: WorkspaceFolder, onBtn: ON_BTN): PrjTreeItem {
-		const pathWs = wsFld.uri.fsPath;
-		const pti = new PrjTreeItem({
+	static	create(ctx: ExtensionContext, wsFld: WorkspaceFolder, onBtn: ON_BTN, is_new_tmp: boolean): PrjTreeItem {
+		const cfg: TREEITEM_CFG = {
 			cmd		: '',
 			icon	: '',
 			label	: '',
 			desc	: wsFld.name,
-			children: PrjTreeItem.#aTreeTmp,
-		}, pathWs, ctx);
+			children: [
+				{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
+					task_type: 'Sys',
+					npm: `npm update ${statBreak} npm run webpack:dev`},
+				{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
+					task_type: 'Sys', npm: 'npm run rebuild'},
+				{cmd: 'PrjSet',		icon: 'gear',	label: '設定',	task_type: 'Sys',},
+				{cmd: 'Crypto',		icon: 'gear',	label: '暗号化',task_type: 'Sys',
+					npm: 'npm run webpack:dev'},
+				{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
+					task_type: 'Web',npm: 'npm run web',	exe: true,},
+				{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
+					task_type: 'App',npm: 'npm run start',	exe: true,},
+				{cmd: '', icon: '',label: '生成', children: [
+					{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
+						npm: `npm run webpack:pro ${statBreak
+						} ./node_modules/.bin/electron-builder -w --x64`},
+					//	} ./node_modules/.bin/electron-builder -w --x64 --ia32`},
+							// 一パッケージに統合型、ファイルサイズ二倍になる
+					{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
+						npm: `npm run webpack:pro ${statBreak
+						} ./node_modules/.bin/electron-builder -w --ia32`},
+					{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
+						npm: `npm run webpack:pro ${statBreak
+						} ./node_modules/.bin/electron-builder -m --x64`,
+						forMac: true,},
+					{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
+						npm: `npm run webpack:pro ${statBreak
+						} ./node_modules/.bin/electron-builder -m --arm64`,
+						forMac: true,},
+						// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
+							// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
+					{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
+						npm: `npm run webpack:pro ${statBreak
+						} ./node_modules/.bin/electron-builder -l`},
+						// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
+					{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
+						npm: 'npm run webpack:pro'},
+				]},
+			],
+		};
+		if (is_new_tmp) {
+			cfg.children![eDevTreeView.SnUpd]!.npm = `npm update`;
+			cfg.children![eDevTreeView.TaskApp]!.npm = 'npm run app';
+			const ePack = cfg.children![eDevTreeView.Pack]!;
+			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_prd')}));
+		}
+
+		const pathWs = wsFld.uri.fsPath;
+		const pti = new PrjTreeItem(ctx, pathWs, cfg);
 		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
 
 		// registerCommand()の登録が複数プロジェクトで重複しないよう
@@ -116,8 +132,9 @@ export class PrjTreeItem extends TreeItem {
 	}
 	static	#hPathWs2onBtn	: {[pathWs: string]: ON_BTN}	= {};
 
+
 	#children	: TreeItem[]	= [];
-	private	constructor(readonly cfg: TREEITEM_CFG, private	readonly pathWs: string, readonly ctx: ExtensionContext) {
+	private	constructor(readonly ctx: ExtensionContext, private	readonly pathWs: string, readonly cfg: TREEITEM_CFG) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';
@@ -132,7 +149,7 @@ export class PrjTreeItem extends TreeItem {
 		if (cfg.children) {
 			this.iconPath = ThemeIcon.Folder;
 			this.collapsibleState = TreeItemCollapsibleState.Collapsed;
-			this.#children = cfg.children.map(c=> new PrjTreeItem(c, pathWs, ctx));
+			this.#children = cfg.children.map(c=> new PrjTreeItem(ctx, pathWs, c));
 		}
 		else {
 			this.iconPath = oIcon(cfg.icon);

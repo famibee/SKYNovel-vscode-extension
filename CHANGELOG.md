@@ -1,9 +1,16 @@
+## v4.20.0
+- feat: 2025 新テンプレ：パス変更対応
+	- doc/app/icon.png -> doc/icon.png
+	- doc/app.js -> src/main/main.ts
+- feat: 2025 新テンプレ：ボタンＵＩ対応
+	- デバッグセッション開始は未サポート
+- docs: コードブロックライセンス年更新
 ## v4.19.0
-- fix(Project.ts): プラグインインデックスを js => json 形式に更新
-- fix(Project.ts): 2025 新テンプレ：パス変更対応（core → src）
-- fix(Project.ts): プラグインを ts で書いた場合にも対応するように
+- feat(Project.ts): プラグインインデックスを js => json 形式に更新
+- feat(Project.ts): 2025 新テンプレ：パス変更対応（core → src）
+- feat(Project.ts): プラグインを ts で書いた場合にも対応するように
 - fix: startsWith、endsWith を積極使用
-- fix: パッケージマネージャー・tsx・vitest/jest を bun 担当に
+- chore: パッケージマネージャー・tsx・vitest/jest を bun 担当に
 - fix: バッチファイルを esm化
 	- esm テンプレでないとパフォーマンス警告が出るが動作する
 ## v4.18.5

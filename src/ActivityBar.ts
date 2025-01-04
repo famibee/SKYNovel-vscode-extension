@@ -1,5 +1,5 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2019-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2019-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
@@ -23,6 +23,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
+const nNodeReqVer = 22_010_000;
 
 export const enum eTreeEnv {
 	NODE = 0,
@@ -220,8 +221,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			const nVNode = Number(splVNode[0]) *1_000_000
 				+Number(splVNode[1]) *1_000 +Number(splVNode[2]);
 				// compare-versions だと windows10 で不具合になるので手作りに
-			if (nVNode < 22_010_000) {
-				tiNode.description = `-- ${vNode} (22.10.0 以上必須)`;
+			if (nVNode < nNodeReqVer) {
+				tiNode.description = `-- ${vNode} (${(nNodeReqVer / 1_000_000).toFixed(3)}.0 以上必須)`;
 				tiNode.iconPath = oIcon('error');
 				this.#onDidChangeTreeData.fire(tiNode);
 
@@ -263,7 +264,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			else this.#openEnvInfo();
 		});
 	}
-	readonly #onDidChangeTreeData = new EventEmitter<TreeItem | undefined>();
+	readonly #onDidChangeTreeData = new EventEmitter<TreeItem | undefined>;
 	readonly onDidChangeTreeData = this.#onDidChangeTreeData.event;
 
 	readonly getTreeItem = (t: TreeItem)=> t;
@@ -542,9 +543,6 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				copy(`${fld_src}/webpack.config.js`);
 
 				// doc/prj/		// しばしノータッチ
-				// doc/app.js
-				// doc/favicon.ico
-				// doc/web.htm
 
 				copy('CHANGELOG.md');
 

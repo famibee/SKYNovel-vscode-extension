@@ -1,11 +1,11 @@
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2022-2024 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2022-2025 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , src, shape, path] = process.argv;
+const [, , src, shape, path, is_new_tmp] = process.argv;
 
 import sharp from 'sharp';
 sharp.cache(false);
@@ -81,7 +81,7 @@ sharp(src).metadata().then((info: any)=> {
 				}
 			},
 			// 「このアプリについて」用
-			()=> copy(fnIcon, pathWs +'doc/app/icon.png'),
+			()=> copy(fnIcon, pathWs +is_new_tmp ?'doc/icon.png' :'doc/app/icon.png'),
 		].map(v=> v()))
 		.then(()=> {
 			console.log(styleText(['bgGreen', 'black'], `fn:cut_round.ts ok.`));
