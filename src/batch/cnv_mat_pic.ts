@@ -12,8 +12,12 @@ sharp.cache(false);
 
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
-import {ensureDir, existsSync, move, readdirSync, readFileSync, readJsonSync, remove, statSync, writeFileSync, writeJsonSync} from 'fs-extra';
+import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'fs';
+import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
 import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
+import {fileURLToPath} from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {

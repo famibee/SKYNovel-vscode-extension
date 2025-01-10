@@ -1,3 +1,6 @@
+## v4.20.1
+- fix: バッチファイルを esm化（移行忘れ残３つ）
+- fix: ライブラリ更新（p-queue 6.6.2 -> 8.0.1(esm) に）
 ## v4.20.0
 - feat: 2025 新テンプレ：パス変更対応
 	- doc/app/icon.png -> doc/icon.png

@@ -143,12 +143,12 @@ export class Project {
 			cnv_mat_pic: {
 				title		: '画像ファイル最適化',
 				pathCpyTo	: 'build',
-				aNeedLib	: ['fs-extra','sharp','p-queue@6.6.2'],
+				aNeedLib	: ['fs-extra','sharp','p-queue@8.0.1'],
 			},
 			cnv_mat_snd: {
 				title		: '音声ファイル最適化',
 				pathCpyTo	: 'build',
-				aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@6.6.2'],
+				aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue@8.0.1'],
 					// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
 					// https://aminevsky.github.io/blog/posts/pqueue-sample/
 			},

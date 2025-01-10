@@ -11,8 +11,13 @@ import sharp from 'sharp';
 sharp.cache(false);
 
 import {styleText} from 'node:util';
-import {copy, ensureDir, existsSync, readFile, stat, writeFile, writeJsonSync} from 'fs-extra';
+import {existsSync} from 'fs';
+import {readFile, stat, writeFile} from 'fs/promises';
+import {copy, ensureDir, writeJsonSync} from 'fs-extra/esm';
 import {BICUBIC2, BILINEAR, createICNS, createICO} from 'png2icons';
+import {fileURLToPath} from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 sharp(src).metadata().then((info: any)=> {
 	const oLog: any = {...info, err: '', exif: '', icc: '', iptc: '', xmp: ''};

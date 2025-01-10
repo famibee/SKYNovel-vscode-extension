@@ -15,8 +15,12 @@ ffmpeg.setFfmpegPath(ffmpeg_ins.path);
 
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
-import {ensureDir, existsSync, move, readdirSync, readJsonSync, remove, statSync, writeJsonSync} from 'fs-extra';
+import {existsSync, statSync, readdirSync} from 'fs';
+import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
 import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
+import {fileURLToPath} from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
