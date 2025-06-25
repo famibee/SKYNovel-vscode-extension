@@ -13,8 +13,7 @@ import {DebugProtocol} from '@vscode/debugprotocol';
 import {readFileSync, writeFileSync} from 'fs-extra';
 import {EventEmitter} from 'events';
 import {Server, Socket} from 'socket.io';
-const {promisify} = require('util');
-const img_size = promisify(require('image-size'));
+const {imageSizeFromFile} = require('image-size/fromFile');
 const path = require('path');
 
 export interface InfoBreakpoint {
@@ -206,7 +205,7 @@ export class Debugger extends EventEmitter {
 					ed.replace(di.uri, di.rng, token);
 					workspace.applyEdit(ed);
 				};
-				img_size(urlWrite)
+				imageSizeFromFile(urlWrite)
 				.then((s: any)=> {
 					o2.width = s.width;
 					o2.height = s.height;

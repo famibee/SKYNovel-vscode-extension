@@ -11,7 +11,7 @@ import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
 import {DEF_CFG} from '../views/types';
 import {Encryptor} from './Encryptor';
 
-import img_size from 'image-size';
+import {imageSizeFromFile} from 'image-size/fromFile';
 import {readJson, existsSync, outputJson, readFileSync, writeJsonSync} from 'fs-extra';
 import {parse, resolve} from 'path';
 import {Diagnostic, Uri, DiagnosticSeverity, window, DiagnosticCollection, Range} from 'vscode';
@@ -90,7 +90,7 @@ export class Config extends ConfigBase {
 		const aD: Diagnostic[] = [];
 		foldProc($cur, ()=> {}, dir=> {
 			const wd = resolve($cur, dir);
-			foldProc(wd, (fp, nm)=> {
+			foldProc(wd, async (fp, nm)=> {
 				this.#addPath(hFn2Path, dir, nm, aD);
 
 				// スプライトシート用json自動生成機能
@@ -108,7 +108,7 @@ export class Config extends ConfigBase {
 				const fnJs = resolve(wd, a[1] +'.json');
 				if (existsSync(fnJs)) return;
 
-				const {width = 0, height = 0} = img_size(fp);
+				const {width = 0, height = 0} = await imageSizeFromFile(fp);
 				const xLen = uint(a[2]);
 				const yLen = uint(a[3]);
 				const w = width /xLen;

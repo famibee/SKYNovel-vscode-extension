@@ -19,7 +19,7 @@ import {commands, debug, Diagnostic, DiagnosticSeverity, env, EvaluatableExpress
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WebviewPanel, WorkspaceFolder} from 'vscode';
 import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
 import {basename, dirname, extname, resolve} from 'node:path';
-import img_size from 'image-size';
+import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as crc32 from 'crc-32';
@@ -27,6 +27,7 @@ import * as archiver from 'archiver';
 import {execSync} from 'child_process';
 import ncu from 'npm-check-updates'
 import {userInfo} from 'os';
+import replaceAsync from 'string-replace-async';
 
 
 type BtnEnable = '_off'|'Stop'|'';
@@ -576,17 +577,18 @@ export class Project {
 				const a = v.split(/(?=\n---\n)/);
 				if (a.length === 3) {
 					// 中央部分のみ置換。SQLジャンクション的なものの対策
-					const [args, ...detail] = a;
-					v = args + detail.join('').replaceAll(
+					const [args='', ...detail] = a;
+					v = args + replaceAsync(
+						detail.join(''),
 						/<!-- ({.+?}) -->/g,
-						(_, e1)=> {
+						async (_, e1)=> {
 	const o = JSON.parse(e1);
 	const {name, val} = o;
 	const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
 
 	const vfpImg = this.#vpPrj + ppImg;
 	const srcEx = `${vfpImg}|width=${this.#whThumbnail}|height=${this.#whThumbnail}`;
-	const {width = 0, height = 0} = img_size(this.#PATH_PRJ + ppImg);
+	const {width = 0, height = 0} = await imageSizeFromFile(this.#PATH_PRJ + ppImg);
 	const exImg = encodeURIComponent(JSON.stringify([Uri.parse(vfpImg)]));
 //	const timestamp = new Date.getTime();
 //console.log(`fn:Project.ts line:531 timestamp:${timestamp}`);

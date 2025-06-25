@@ -1,3 +1,8 @@
+## v4.20.2
+- fix: image-size の仕様変更対応（string-replace-async 使用）
+- fix: ライブラリ更新
+	- Electron 37.0.0 (Stable)
+	- vite v7.0.0
 ## v4.20.1
 - fix: バッチファイルを esm化（移行忘れ残３つ）
 - fix: ライブラリ更新（p-queue 6.6.2 -> 8.0.1(esm) に）

@@ -6,10 +6,10 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {getFn, int, is_win, REG_SCRIPT} from '../../src/CmnLib';
-import {Grammar, Script} from './Grammar';
+import {Grammar, type Script} from './Grammar';
 import {AnalyzeTagArg, type HPRM, type PRM_RANGE} from '../../src/AnalyzeTagArg';
 import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
-// import hMd from './md.json' assert {type: 'json'};
+// import hMd from './md.json' with {type: 'json'};
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import type {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import {type IExts, type IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
