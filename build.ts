@@ -50,7 +50,6 @@ build({
 		},
 		minify	: prod ?'terser' :false,
 		watch,
-		outDir		: 'views',
 		emptyOutDir	: false,
 		reportCompressedSize	: false,
 	},

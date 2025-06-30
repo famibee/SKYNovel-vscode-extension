@@ -1,3 +1,11 @@
+## v4.20.3
+- fix(src/PrjSetting.ts, server/src/LspWs.ts): フォント変更の有無チェックでスクリプトを直接さわらないとエラーが消えない件
+- fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.17.0 LTS 推奨に更新
+- fix(ActivityBar.ts, views/tmpwiz.htm):tmp_esm_uc に合わせて旧テンプレを新レポジトリに移行
+	- 「master/main」問題もあるので新規で
+- fix(src/Project.ts): package.json に【"postinstall": "npm run webpack:dev"】をなければ追加するよう
+	- npm-scripts の rebuild タスクから同処理を削除、置換済みかどうかの判断基準に
+- fix(src/Project.ts): 旧ビルドによる中間ファイル（.vendors-node_modules_*.js）を削除
 ## v4.20.2
 - fix: image-size の仕様変更対応（string-replace-async 使用）
 - fix: ライブラリ更新

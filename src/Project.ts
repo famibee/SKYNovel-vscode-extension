@@ -17,7 +17,7 @@ import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
 
 import {commands, debug, Diagnostic, DiagnosticSeverity, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, ViewColumn, window, workspace, WorkspaceEdit} from 'vscode';
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WebviewPanel, WorkspaceFolder} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile} from 'fs-extra';
+import {closeSync, createReadStream, createWriteStream, ensureDir, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, globSync, unlink} from 'fs-extra';
 import {basename, dirname, extname, resolve} from 'node:path';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
@@ -124,6 +124,36 @@ export class Project {
 		const is_new_tmp = existsSync(this.#PATH_WS +'/src/plugin/');
 		this.#FLD_SRC = is_new_tmp ?'src' :'core';
 			// src なら 2025 新テンプレ
+		if (! is_new_tmp) {	// 旧テンプレ置換
+			// == 以下は updPrjFromTmp() で全置き換えされるのでそのままとする
+			// core/webpack.config.js
+			// 旧ビルドによる中間ファイルを削除
+			globSync(this.#PATH_WS +'/doc/{app/app,web}.vendors-node_modules_*.js').forEach(fn=> unlink(fn));
+
+			// == 以下は 置き換えない系（せいぜい値持ち越し）
+			// package.json
+			replaceFile(	// テンプレ更新のために必ず更新
+				this.#PATH_WS +'/package.json',
+				/github.com:famibee\/SKYNovel_/,
+				`github.com:famibee\/tmp_cjs_`,
+				false,
+			);
+
+			replaceFile(	// テンプレ更新しなくても最低限動作するように
+				this.#PATH_WS +'/package.json',
+				/ && npm i && npm run webpack:dev/,
+				` && npm i",\n\t\t"postinstall": "npm run webpack:dev`,
+				false,
+			);
+
+			// .gitignore
+			replaceFile(
+				this.#PATH_WS +'/.gitignore',
+				/\/doc\/app\/index\.js\n\/doc\/crypto_prj\n\/doc\/web\.js/,
+				`\/doc\/app\/*.js\n\/doc\/crypto_prj\n\/doc\/web*.js`,
+				false,
+			);
+		}
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
 		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
@@ -208,7 +238,7 @@ export class Project {
 				pti.label = title;
 				emPrjTD.fire(pti);
 			},
-			()=> sendRequest2LSP('def_esc.upd', wsFld.uri),
+			this.#sendRequest2LSP,
 			(nm, val)=> this.#cmd(nm, val),
 			(nm, arg)=> this.#exeTask(nm, arg),
 			async (uri, sEvt)=> {
@@ -219,6 +249,7 @@ export class Project {
 			},
 			this.#FLD_SRC,
 			is_new_tmp,
+			this.#LEN_PATH_PRJ,
 		));
 		this.#initCrypto();
 
@@ -1504,7 +1535,6 @@ export class Project {
 			cmd += `npm i ${statBreak} `;		// 自動で「npm i」
 			removeSync(this.#PATH_WS +'/package-lock.json');
 		}
-		cmd += 'npm run webpack:dev';
 		const type = 'SKYNovel TaskSys';
 		const name = '自動ビルド';
 		const t = new Task(

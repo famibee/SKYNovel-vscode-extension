@@ -49,8 +49,10 @@ export class PrjSetting implements Disposable {
 //	readonly	#ds		= new DisposableStack;
 	readonly	#ds		: Disposable[]	= [];
 
+	readonly	#setEscape: ()=> void;
+
 	//MARK: コンストラクタ
-	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly setEscape: ()=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>, private readonly fld_src: string, private readonly is_new_tmp: boolean) {
+	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly sendRequest2LSP: (cmd: string, o?: any)=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>, private readonly fld_src: string, private readonly is_new_tmp: boolean, private readonly LEN_PATH_PRJ: number) {
 		this.#wss = ctx.workspaceState;
 		const oWss = DEF_WSS as {[nm: string]: any};
 		for (const [nm, v] of Object.entries(oWss)) {
@@ -161,6 +163,8 @@ export class PrjSetting implements Disposable {
 		);
 
 		Promise.allSettled(a.map(t=> t()));
+
+		this.#setEscape = ()=> sendRequest2LSP('def_esc.upd');
 	}
 
 	//MARK: デストラクタ
@@ -541,7 +545,7 @@ export class PrjSetting implements Disposable {
 				debuger_token	: e.oCfg.debuger_token ?? oc.debuger_token,
 			};
 
-			if (c.init.escape !== escOld) this.setEscape();
+			if (c.init.escape !== escOld) this.#setEscape();
 			c.debuger_token ||= randomUUID();
 			this.#writePrjJs();
 
@@ -707,7 +711,14 @@ export class PrjSetting implements Disposable {
 					new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 					`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
 				]);
-				replaceRegsFile(this.#fnSetting, a, false);
+				if (replaceRegsFile(this.#fnSetting, a, false)) {
+					const fp = this.#fnSetting;
+					const pp = fp.slice(this.LEN_PATH_PRJ);
+					const pp2s: {[pp: string]: string} = {};
+					pp2s[pp] = readFileSync(fp, {encoding: 'utf8'});
+					this.sendRequest2LSP('onchg_scr', {pp2s});
+				}
+					// 【file:///Users/...】 LSPの doc 特定で使う
 			}, 500);
 		}	break;
 

@@ -13,15 +13,17 @@ window.addEventListener('message', e=> {
 	const o = e.data.o;
 	switch (e.data.cmd) {
 		case 'res':
-			document.querySelectorAll('.sn-vld').forEach(c=> {
+			Array.from(document.getElementsByClassName('sn-vld'))
+			.forEach(c=> {
 				c.addEventListener('input', ()=> {
 					vscode.postMessage({cmd: 'input', id: c.id, val: c.value});
 				}, {passive: true});
 			});
 
-			['hatsune','uc','sample'].forEach(id=> {
-				document.getElementById(`btn.tmp_${id}`).addEventListener('click', ()=> {
-					vscode.postMessage({cmd: `tmp_${id}`,});
+			Array.from(document.getElementsByClassName('btn_tmp'))
+			.forEach(e=> {
+					e.addEventListener('click', ()=> {
+					vscode.postMessage({cmd: e.id});
 				}, {passive: true});
 			});
 			break;

@@ -28,9 +28,10 @@
 	<div class="col-12 px-1 pt-3"><h5>テンプレートの選択</h5></div>
 
 <nav><div class="nav nav-tabs" id="nav-tab" role="tablist">
-    <a class="nav-link active" id="nav-hatsune-tab" data-bs-toggle="tab" href="#nav-hatsune" role="tab" aria-controls="nav-hatsune" aria-selected="true">横書きノベルゲーム</a>
-    <a class="nav-link" id="nav-uc-tab" data-bs-toggle="tab" href="#nav-uc" role="tab" aria-controls="nav-uc" aria-selected="false">縦書きノベルゲーム</a>
-    <a class="nav-link" id="nav-sample-tab" data-bs-toggle="tab" href="#nav-sample" role="tab" aria-controls="nav-sample" aria-selected="false">小さなサンプル</a>
+	<a class="nav-link active" id="nav-hatsune-tab" data-bs-toggle="tab" href="#nav-hatsune" role="tab" aria-controls="nav-hatsune" aria-selected="true">横書きノベルゲーム</a>
+	<a class="nav-link" id="nav-uc-tab" data-bs-toggle="tab" href="#nav-uc" role="tab" aria-controls="nav-uc" aria-selected="false">縦書きノベルゲーム</a>
+	<a class="nav-link" id="nav-sample-tab" data-bs-toggle="tab" href="#nav-sample" role="tab" aria-controls="nav-sample" aria-selected="false">小さなサンプル</a>
+	<a class="nav-link" id="nav-esm_uc-tab" data-bs-toggle="tab" href="#nav-esm_uc" role="tab" aria-controls="nav-esm_uc" aria-selected="false">【開発中・使用不可】縦書き</a>
 </div></nav>
 
 <div class="container-fluid mt-2">
@@ -39,7 +40,7 @@
 	<div class="tab-pane fade show active" id="nav-hatsune" role="tabpanel" aria-labelledby="nav-hatsune-tab">
 		<div class="card-body text-secondary">
 			<h5 class="card-title">「初音館にて」サンプル</h5>
-			<a class="btn btn-primary" id="btn.tmp_hatsune" role="button">このテンプレを基にする</a>
+			<a class="btn btn-primary btn_tmp" id="tmp_cjs_hatsune" role="button">このテンプレを基にする</a>
 		</div>
 
 <div class="carousel slide" data-bs-ride="carousel">
@@ -69,13 +70,13 @@
 	</a>
 </div>
 
-	</div>
+	</div>	<!-- END -->
 
 	<!-- 縦書きノベルゲーム -->
 	<div class="tab-pane fade" id="nav-uc" role="tabpanel" aria-labelledby="nav-uc-tab">
 		<div class="card-body text-secondary">
 			<h5 class="card-title">「桜の樹の下には」サンプル</h5>
-			<a class="btn btn-primary" id="btn.tmp_uc" role="button">このテンプレを基にする</a>
+			<a class="btn btn-primary btn_tmp" id="tmp_cjs_uc" role="button">このテンプレを基にする</a>
 		</div>
 
 <div class="carousel slide" data-bs-ride="carousel">
@@ -105,13 +106,13 @@
 	</a>
 </div>
 
-	</div>
+	</div>	<!-- END -->
 
 	<!-- 小さなサンプル -->
 	<div class="tab-pane fade" id="nav-sample" role="tabpanel" aria-labelledby="nav-sample-tab">
 		<div class="card-body text-secondary">
 			<h5 class="card-title">シンプルなサンプルです</h5>
-			<a class="btn btn-primary" id="btn.tmp_sample" role="button">このテンプレを基にする</a>
+			<a class="btn btn-primary btn_tmp" id="tmp_cjs_sample" role="button">このテンプレを基にする</a>
 		</div>
 
 <div class="carousel slide" data-bs-ride="carousel">
@@ -141,7 +142,44 @@
 	</a>
 </div>
 
+	</div>	<!-- END -->
+
+	<!-- 縦書きノベルゲーム -->
+	<div class="tab-pane fade" id="nav-esm_uc" role="tabpanel" aria-labelledby="nav-esm_uc-tab">
+		<div class="card-body text-secondary">
+			<h5 class="card-title">「桜の樹の下には」サンプル(ESM)</h5>
+			<a class="btn btn-primary btn_tmp" id="tmp_esm_uc" role="button">このテンプレを基にする</a>
+		</div>
+
+<div class="carousel slide" data-bs-ride="carousel">
+	<ol class="carousel-indicators">
+		<li data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0" class="active"></li>
+		<li data-bs-target="#carouselExampleIndicators" data-bs-slide-to="1"></li>
+		<li data-bs-target="#carouselExampleIndicators" data-bs-slide-to="2"></li>
+	</ol>
+	<div class="carousel-inner">
+		<div class="carousel-item active">
+			<img loading="lazy" src="./tmpwiz/tmp_uc_1.jpg" class="d-block w-100">
+		</div>
+		<div class="carousel-item">
+			<img loading="lazy" src="./tmpwiz/tmp_uc_2.jpg" class="d-block w-100">
+		</div>
+		<div class="carousel-item">
+			<img loading="lazy" src="./tmpwiz/tmp_uc_3.jpg" class="d-block w-100">
+		</div>
 	</div>
+	<a class="carousel-control-prev" href="#carouselExampleIndicators" role="button" data-bs-slide="prev">
+		<span class="carousel-control-prev-icon" aria-hidden="true"></span>
+		<span class="visually-hidden">Previous</span>
+	</a>
+	<a class="carousel-control-next" href="#carouselExampleIndicators" role="button" data-bs-slide="next">
+		<span class="carousel-control-next-icon" aria-hidden="true"></span>
+		<span class="visually-hidden">Next</span>
+	</a>
+</div>
+
+	</div>	<!-- END -->
+
 </div>
 </div>
 

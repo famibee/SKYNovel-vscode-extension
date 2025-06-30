@@ -73,41 +73,45 @@ export function foldProc(wd: string, fnc: (fp: string, nm: string)=> void, fncFl
 	}
 }
 
-export function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
+export function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);
-			return;
+			return false;
 		}
 		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので
 
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		const ret = String(txt.replace(r, rep));
-		if (txt !== ret) writeFileSync(dest, ret);
-		else if (verbose) console.error(`replaceFile fail by same:${src}`);
+		if (txt !== ret) {writeFileSync(dest, ret); return true}
+
+		if (verbose) console.error(`replaceFile fail by same:${src}`);
 	}
 	catch (err) {
 		console.error(`replaceFile src:${src} ${err}`);
 	}
+	return false;
 }
 
-export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verbose = true, dest = src) {
+export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);
-			return;
+			return false;
 		}
 		if (dest !== src) ensureFileSync(dest);	// これが無いとエラーになったので
 
 		const txt = readFileSync(src, {encoding: 'utf8'});
 		let ret = txt;
 		for (const [r, rep] of a) ret = ret.replace(r, rep);
-		if (txt !== ret) writeFileSync(dest, ret);
-		else if (verbose) console.error(`replaceRegsFile fail by same:${src}`);
+		if (txt !== ret) {writeFileSync(dest, ret); return true}
+
+		if (verbose) console.error(`replaceRegsFile fail by same:${src}`);
 	}
 	catch (err) {
 		console.error(`replaceRegsFile src:${src} ${err}`);
 	}
+	return false;
 }
 
 

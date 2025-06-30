@@ -23,7 +23,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-const nNodeReqVer = 22_010_000;
+const nNodeReqVer = 22_017_000;
 
 export const enum eTreeEnv {
 	NODE = 0,
@@ -283,7 +283,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		let newVerSN = '';
 		let newVerTemp = '';
 		await Promise.allSettled([
-			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
+			fetch('https://raw.githubusercontent.com/famibee/skynovel_esm/main/package.json')
 			.then(res=> res.json())
 			.then(json=> {
 				newVerSN = json.version;
@@ -291,7 +291,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				tiSV.description = '-- ' + newVerSN;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
-			fetch('https://raw.githubusercontent.com/famibee/SKYNovel_uc/master/CHANGELOG.md')
+			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
 			.then(res=> res.text())
 			.then(txt=> {
 				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
@@ -366,9 +366,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}});
 				break;
 
-			case 'tmp_hatsune':
-			case 'tmp_uc':
-			case 'tmp_sample':
+			case 'tmp_cjs_hatsune':
+			case 'tmp_cjs_uc':
+			case 'tmp_cjs_sample':
+			case 'tmp_esm_uc':
 				if (! this.#chkSave_ns()) break;
 				if (! this.#canTempWizard) {
 					window.showInformationMessage('拡張機能の起動中です。しばしお待ち下さい');
@@ -394,7 +395,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					}
 
 					// テンプレートからプロジェクト作成
-					this.#crePrjFromTmp(m.cmd.slice(4), fnTo);
+					this.#crePrjFromTmp(m.cmd, fnTo);
 				})
 				break;
 			}
@@ -416,11 +417,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		title		: 'テンプレートからプロジェクト作成',
 		cancellable	: true,
 	}, async (prg, tknCancel)=> {
-		const td = tmpdir() +'/SKYNovel/';
+		const td = tmpdir() +`/${nm}/`;
 		await remove(td);
 		ensureDir(td);
-		const pathZip = td +`temp_${nm}.zip`;
-		const pathUnZip = td +`SKYNovel_${nm}-master/`;
+		const pathZip = td +`${nm}.zip`;
 		await remove(pathZip);
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
@@ -430,7 +430,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			// == zipダウンロード＆解凍
 			prg.report({increment: 10, message: 'ダウンロード中',});
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`, {signal})
+			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
 			.then(async res=> {
 				fncAbort = ()=> {};
 				prg.report({increment: 40, message: 'ZIP生成中',});
@@ -446,6 +446,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				prg.report({increment: 10, message: 'ファイル調整',});
 
 				// prj.json の置換
+				const pathUnZip = td +`${nm}-main/`;
 				const fnPrjJs = pathUnZip +'doc/prj/prj.json';
 				const oPrj = await readJson(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
@@ -498,13 +499,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		if (! existsSync(fnTo + '/CHANGELOG.md')) return Promise.reject();
 
 		const oOldPkgJS = await readJson(fnTo +'/package.json', {encoding: 'utf8'});
-		const nm = oOldPkgJS.repository.url.match(/\/SKYNovel_(\w+)\./)?.[1] ?? '';
+		const nm = oOldPkgJS.repository.url.match(/git@github\.com:famibee\/(\w+)\./)?.[1] ?? '';
 
 		const td = tmpdir() +'/SKYNovel/';
 		await remove(td);
 		ensureDir(td);
-		const pathZip = td +`temp_${nm}.zip`;
-		const pathUnZip = td +`SKYNovel_${nm}-master/`;
+		const pathZip = td +`${nm}.zip`;
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
 		tknCancel.onCancellationRequested(()=> {fncAbort(); return remove(td)});
@@ -513,7 +513,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			// == zipダウンロード＆解凍
 			prg.report({increment: 10, message: 'ダウンロード中',});
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/SKYNovel_${nm}/archive/master.zip`, {signal})
+			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
 			.then(async res=> {
 				fncAbort = ()=> {};
 				prg.report({increment: 40, message: 'ZIP生成中',});
@@ -528,6 +528,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// == ファイル調整
 				prg.report({increment: 10, message: 'ファイル調整',});
 
+				const pathUnZip = td +`${nm}-main/`;
 				const copy = (fn: string, chkExists = false)=> {
 					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
 					return copyFile(pathUnZip + fn, fnTo +'/'+ fn)

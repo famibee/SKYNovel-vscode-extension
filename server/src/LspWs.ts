@@ -14,7 +14,8 @@ const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import type {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import {type IExts, type IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
-import {CodeAction, CodeActionKind, type CodeActionParams, type CompletionItem, CompletionItemKind, type Connection, type Definition, type DefinitionLink, type DefinitionParams, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, type DidChangeWatchedFilesParams, type DocumentLink, type DocumentLinkParams, DocumentSymbol, type DocumentSymbolParams, InlayHint, InlayHintKind, type InlayHintParams, InsertTextFormat, Location, type MarkupContent, type ParameterInformation, Position, type PrepareRenameParams, Range, type ReferenceParams, type RenameParams, type SignatureHelp, type SignatureHelpParams, SignatureInformation, type SymbolInformation, SymbolKind, type TextDocumentChangeEvent, TextDocumentEdit, type TextDocumentPositionParams, type TextDocuments, TextEdit, type WorkspaceEdit, type WorkspaceFolder} from 'vscode-languageserver/node';
+import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
+import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DidChangeWatchedFilesParams, DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import type {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
@@ -550,6 +551,7 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
 		'def_esc.upd'	: ()=> this.#fullScan(),
 		'credel_sn'		: ()=> this.#fullScan(),
+		'onchg_scr'		: ({pp2s})=> this.#onChgScripts(pp2s),
 		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.#genHover(uri, pos)}),
 	};
 	#fullScan() {this.#sendRequest('init');}
@@ -593,6 +595,11 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		const pp = this.#fp2pp(fp);
 //console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${document.version}`);
 
+		const pp2s: {[pp: string]: string} = {};
+		pp2s[pp] = document.getText();
+		this.#onChgScripts(pp2s)
+	}
+	#onChgScripts(pp2s: {[pp: string]: string}) {
 /*	// NOTE: Score
 		if (uri.endsWith('.sn')) Debugger.noticeChgDoc(this.curPrj, e);
 		else {
@@ -618,28 +625,37 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 			.flatMap(m=> [...m.values()]
 			.flatMap(a=> a.map(l=> l.uri)))
 		);
-		const s = document.getText();
-		this.#hScript[pp] = this.#grm.resolveScript(s);
-		this.#scanScript(fp);
-		this.#scanNFD(pp, s, document);
+		for (const [pp, s] of Object.entries(pp2s)) {
+			if (! REG_SCRIPT.test(pp)) continue;
+
+			this.#hScript[pp] = this.#grm.resolveScript(s);
+			const fp = this.#PATH_PRJ + pp;
+			this.#scanScript(fp);
+
+			const d = this.docs.get('file://'+ fp);
+			this.#scanNFD(pp, s, d);
+		}
 
 		// （変更前・変更後問わず）このファイルで定義されたマクロを使用しているファイルは
 		// すべて追加走査（重複走査・永久ループに留意）
 			// 重複定義時は、最初に見つかったもののみ #hMacro(Old) に入っている
 		const mon = {...this.#hOldDefMacro, ...this.#hDefMacro};
-		for (const [nm, {loc}] of Object.entries(mon)) {
-			if (loc.uri !== uri) continue;
+		for (const pp of Object.keys(pp2s)) {
+			const fp = this.#PATH_PRJ + pp;
+			for (const [nm, {loc}] of Object.entries(mon)) {
+				if (loc.uri !== fp) continue;
 
-			// このファイルで使用している、別ファイルで定義されたマクロ
-			// このファイルで定義されたマクロ、を使用している別ファイル
-			for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
-				//if (locUse.uri !== uri) // 略、.delete(uri)するので
-				this.#sFpNeedScan.add(locUse.uri);
+				// このファイルで使用している、別ファイルで定義されたマクロ
+				// このファイルで定義されたマクロ、を使用している別ファイル
+				for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
+					//if (locUse.uri !== uri) // 略、.delete(uri)するので
+					this.#sFpNeedScan.add(locUse.uri);
+				}
 			}
-		}
 
-		// 追加走査
-		this.#sFpNeedScan.delete(fp);	// 処理重複につき
+			// 追加走査
+			this.#sFpNeedScan.delete(fp);	// 処理重複につき
+		}
 		for (const fp2 of this.#sFpNeedScan) this.#scanScript(fp2);
 		this.#scanEnd();
 	}
@@ -1771,27 +1787,30 @@ WorkspaceEdit
 			if (uc === 38) {	// & 変数操作・変数表示
 				p.character += len;
 				if (token.at(-1) === '&') return;
+
 				//変数操作
 				try {
 					const {name, text} = LspWs.#splitAmpersand(token.slice(1));
-					if (! name.startsWith('&')) {
-						const kw = name.trim();
-						this.#hT2Pp2Kw.代入変数名[pp].add(kw);
+					if (name.startsWith('&')) return;
 
-						// doc/prj/script/setting.sn の デフォルトフォント
-						if (kw === 'def_fonts') this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
-						else {
-							// 変数代入文字列をフォント生成対象とする機能
-							const tx = text.trim();
-							if (`"'#`.includes(tx.at(0) ?? '')) {
-								if (this.#nowModeVal2font) f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx.slice(1, -1);
-							}
-						}
+					const kw = name.trim();
+					this.#hT2Pp2Kw.代入変数名[pp].add(kw);
+
+					// doc/prj/script/setting.sn の デフォルトフォント
+					if (kw === 'def_fonts') {
+						this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
+						return;
+					}
+
+					// 変数代入文字列をフォント生成対象とする機能
+					const tx = text.trim();
+					if (`"'#`.includes(tx.at(0) ?? '')) {
+						if (this.#nowModeVal2font) f2s[this.#nowModeVal2fontNm] = (f2s[this.#nowModeVal2fontNm] ?? '') + tx.slice(1, -1);
 					}
 				} catch (e) {console.error(`fn:LspWs.ts #scanScriptSrc & %o`, e);}
 				return;
 			}
-			if ((uc === 42) && (token.length > 1)) {	// * ラベル
+			if (uc === 42 && token.length > 1) {	// * ラベル
 				p.character += len;
 
 				this.#hT2Pp2Kw.ジャンプ先[pp].add(`fn=${fn} label=${token}`);
