@@ -1,3 +1,10 @@
+## v4.20.4
+- fix(src/Project.ts): プラグインフォルダが無い場合に自動ビルドが走らない件
+- fix(src/Project.ts): 暗号化処理初期化で型エラー発生していたのを修正
+- fix(src/Project.ts): ミス修正
+- fix(src/Project.ts): core/plugin フォルダが無い場合は作るように
+	- core/webpack.config.js, core/web4webpack.js などの都合
+- fix(package.json): フォルダが開かれていない場合に表示する【テンプレートから始める】がボタンではなくリンクになっていた件
 ## v4.20.3
 - fix(src/PrjSetting.ts, server/src/LspWs.ts): フォント変更の有無チェックでスクリプトを直接さわらないとエラーが消えない件
 - fix(ActivityBar.ts): NodeJS LTS 更新につき、v22.17.0 LTS 推奨に更新

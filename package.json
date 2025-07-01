@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.20.3",
+	"version": "4.20.4",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -672,7 +672,7 @@
 			},
 			{
 				"view": "skynovel-ws",
-				"contents": "フォルダが開かれていません。[テンプレートから始める](command:skynovel.TempWizard)"
+				"contents": "フォルダが開かれていません。\n[テンプレートから始める](command:skynovel.TempWizard)"
 			}
 		],
 		"customEditors": [
@@ -718,14 +718,14 @@
 		"@types/fluent-ffmpeg": "^2.1.27",
 		"@types/fs-extra": "^11.0.4",
 		"@types/jest": "^30.0.0",
-		"@types/node": "^24.0.7",
+		"@types/node": "^24.0.8",
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
 		"@types/sharp": "^0.32.0",
 		"@types/vscode": "^1.101.0",
 		"@types/vscode-webview": "^1.57.5",
-		"@typescript-eslint/eslint-plugin": "^8.35.0",
-		"@typescript-eslint/parser": "^8.35.0",
+		"@typescript-eslint/eslint-plugin": "^8.35.1",
+		"@typescript-eslint/parser": "^8.35.1",
 		"@vitejs/plugin-vue": "^6.0.0",
 		"@vscode/test-electron": "^2.5.2",
 		"electron": "^37.1.0",

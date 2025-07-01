@@ -119,7 +119,7 @@ export class Project {
 		this.#PATH_WS = v2fp(vfp);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
-//console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
+// console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 
 		const is_new_tmp = existsSync(this.#PATH_WS +'/src/plugin/');
 		this.#FLD_SRC = is_new_tmp ?'src' :'core';
@@ -213,11 +213,11 @@ export class Project {
 			? readJsonSync(fnPass, {throws: false})
 			: {
 				pass	: randomUUID(),
-				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
-				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
+				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
+				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 				keySize	: String(512 / 32),
 				ite		: 500 + Math.floor(new Date().getTime() %300),
-				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8).buffer as ArrayBuffer)),
+				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 			}, subtle);
 		if (! exists_pass) outputFile(fnPass, this.#encry.strHPass);
 
@@ -1473,7 +1473,7 @@ export class Project {
 	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
 	#updPlugin(build = true) {
 		const pathPlg = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/`;
-		if (! existsSync(pathPlg)) return;
+		if (! existsSync(pathPlg)) {ensureDir(pathPlg); this.#build(); return}
 
 		const h4json	: {[def_nm: string]: number}	= {};
 		this.#hDefPlg = {};
@@ -1530,9 +1530,9 @@ export class Project {
 		this.#build = ()=> {};	// onceにする
 		// 起動時にビルドが走るのはこれ
 		// 終了イベントは Project.ts の tasks.onDidEndTaskProcess で
-		let cmd = `cd "${this.#PATH_WS}" ${statBreak} `;
+		let cmd = `cd "${this.#PATH_WS}"`;
 		if (! existsSync(this.#PATH_WS +'/node_modules')) {
-			cmd += `npm i ${statBreak} `;		// 自動で「npm i」
+			cmd += ` ${statBreak} npm i`;		// 自動で「npm i」
 			removeSync(this.#PATH_WS +'/package-lock.json');
 		}
 		const type = 'SKYNovel TaskSys';
