@@ -153,16 +153,6 @@ const	ACT_NFD_CODE	= 'NFD警告';
 
 
 export class LspWs {
-	// === 新キーワード選択値はここに追加する。存在チェックもなるべく同時に
-	// #scanInitAll() （やその前後の流れ）でクリア・初期値
-	readonly	#hKey2KW	: {[key in T_KW]: Set<string>};
-	// キーワード集積・存在チェック用
-	readonly	#hT2Pp2Kw	: {[key in T_KW]: {[pp: string]: Set<string>}};
-
-	// キーワード重複チェック用
-	readonly	#hT2DefKw2ALoc	: {[key in T_CHK重複_KEY]: MAP_KW2ALOC};
-
-
 	// === キーワードスニペット（#prepareSnippet() でkey追加・更新。既存はノータッチ）
 	readonly	#hK2Snp	: {[key: string]: string}	= {
 		イベント名:
@@ -1640,6 +1630,16 @@ WorkspaceEdit
 	#pp2SetQuotePp	: {[pp: PROJECT_PATH]: Set<PROJECT_PATH>}	= {};
 	#pp2AQuoteInlayHint: {[pp: PROJECT_PATH]: InlayHint[]}		= {};
 
+	// === 新キーワード選択値はここに追加する。存在チェックもなるべく同時に
+	// #scanInitAll() （やその前後の流れ）でクリア・初期値
+	readonly	#hKey2KW	: {[key in T_KW]: Set<string>};
+	// キーワード集積・存在チェック用
+	readonly	#hT2Pp2Kw	: {[key in T_KW]: {[pp: string]: Set<string>}};
+
+	// キーワード重複チェック用
+	readonly	#hT2DefKw2ALoc	: {[key in T_CHK重複_KEY]: MAP_KW2ALOC};
+
+
 	#scanInitAll() {
 		this.#hDefMacro = {};
 		this.#hMacro2aLocUse = {};
@@ -1657,6 +1657,7 @@ WorkspaceEdit
 		this.#fp2Diag = {};
 		this.#Uri2Links = {};
 
+		for (const m of Object.values(this.#hKey2KW)) m.clear();
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) m.clear();
 
 		this.#pp2AQuoteLine = {};

@@ -290,17 +290,19 @@ export class Project {
 			}
 		);
 		this.#ps.cnvWatch(	// {jpg,jpeg,png} -> webp
-			new RelativePattern(wsFld, `doc/${FLD_PRJ_BASE}/*/*.{jpg,jpeg,png}`),
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/*/*.{jpg,jpeg,png}`),
 			'doc/prj/*/[FN].webp', async uri=> {
 				if (! this.#ps.oWss['cnv.mat.pic']) return;
 				this.#encIfNeeded(uri);
 			}, this.#ds, async (uri, cre)=> {
+// console.log(`fn:Project.ts pic ${cre ?'CRE' :'CHG'} path=${uri.path}=`);
 				if (this.#preventFileWatch) return;
 
 				this.#chkWVFolder(uri, cre ?'CRE' :'CHG');
 				await this.#ps.onCreChgOptPic(uri);
 				this.#updPathJson();
 			}, async uri=> {
+// console.log(`fn:Project.ts pic DEL path=${uri.path}=`);
 				if (this.#ps.oWss['cnv.mat.pic']) {
 					const {pathCn} = this.#path2cn(uri.path);
 					if (pathCn) await remove(pathCn);
@@ -313,7 +315,7 @@ export class Project {
 			}
 		);
 		this.#ps.cnvWatch(	// {mp3,wav} -> {m4a,aac,ogg}
-			new RelativePattern(wsFld, `doc/${FLD_PRJ_BASE}/*/*.{mp3,wav}`),
+			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/*/*.{mp3,wav}`),
 			`doc/prj/*/[FN].{m4a,aac,ogg}`, async uri=> {
 				if (! this.#ps.oWss['cnv.mat.snd']) return;
 				this.#encIfNeeded(uri);
@@ -337,7 +339,7 @@ export class Project {
 		);
 
 		const onDidDelete = async (uri: Uri)=> {
-//console.log(`fn:Project.ts fwPrj DEL path=${uri.path}=`);
+//console.log(`fn:Project.ts other DEL path=${uri.path}=`);
 			if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
 
 			// Del
@@ -352,7 +354,7 @@ export class Project {
 		this.#ps.cnvWatch(	// other{sn, htm ...} -> {}
 			new RelativePattern(wsFld, `doc/{prj,${FLD_PRJ_BASE}}/**/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}`),
 			'', async uri=> {}, this.#ds, async (uri, cre)=> {
-//console.log(`fn:Project.ts fwPrj ${cre ?'CRE' :'CHG'} path=${uri.path}=`);
+//console.log(`fn:Project.ts other ${cre ?'CRE' :'CHG'} path=${uri.path}=`);
 				if (cre) {
 					const fp = v2fp(uri.path);
 					const pp = this.#fp2pp(fp);

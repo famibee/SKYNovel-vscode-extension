@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.20.4",
+	"version": "4.20.5",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -9,7 +9,7 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.101.0"
+		"vscode": "^1.102.0"
 	},
 	"categories": [
 		"Programming Languages",
@@ -718,18 +718,18 @@
 		"@types/fluent-ffmpeg": "^2.1.27",
 		"@types/fs-extra": "^11.0.4",
 		"@types/jest": "^30.0.0",
-		"@types/node": "^24.0.8",
+		"@types/node": "^24.0.15",
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
 		"@types/sharp": "^0.32.0",
-		"@types/vscode": "^1.101.0",
+		"@types/vscode": "^1.102.0",
 		"@types/vscode-webview": "^1.57.5",
-		"@typescript-eslint/eslint-plugin": "^8.35.1",
-		"@typescript-eslint/parser": "^8.35.1",
+		"@typescript-eslint/eslint-plugin": "^8.37.0",
+		"@typescript-eslint/parser": "^8.37.0",
 		"@vitejs/plugin-vue": "^6.0.0",
 		"@vscode/test-electron": "^2.5.2",
-		"electron": "^37.1.0",
-		"esbuild": "^0.25.5",
+		"electron": "^37.2.3",
+		"esbuild": "^0.25.8",
 		"file-loader": "^6.2.0",
 		"p-queue": "^8.1.0",
 		"png2icons": "^2.0.1",
@@ -737,10 +737,10 @@
 		"terser": "^5.43.1",
 		"ts-loader": "^9.5.2",
 		"typescript": "^5.8.3",
-		"vite": "^7.0.0",
+		"vite": "^7.0.5",
 		"vscode-languageserver-types": "^3.17.5",
 		"vue-loader": "^17.4.2",
-		"webpack": "^5.99.9",
+		"webpack": "^5.100.2",
 		"webpack-cli": "^6.0.1"
 	},
 	"optionalDependencies": {
