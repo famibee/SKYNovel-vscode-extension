@@ -12,7 +12,7 @@ sharp.cache(false);
 
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
-import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'fs';
+import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
 import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';
@@ -154,19 +154,23 @@ function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): void {
 		const pathWk = dirBase +'/'+ name +'.webp';
 		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
-		const info = await sharp(pathBase)
-		//.grayscale()	// TEST
-		.webp({quality: Number(fi.webp_q ?? quality)})
-		.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
+		try {
+			const info = await sharp(pathBase)
+			//.grayscale()	// TEST
+			.webp({quality: Number(fi.webp_q ?? quality)})
+			.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-		await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
+			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
 
-		const baseSize = statSync(pathBase).size;
-		const webpSize = info.size;
-		oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
-		oLog.sum.baseSize += baseSize;
-		oLog.sum.webpSize += webpSize;
-		cnt();
+			const baseSize = statSync(pathBase).size;
+			const webpSize = info.size;
+			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
+			oLog.sum.baseSize += baseSize;
+			oLog.sum.webpSize += webpSize;
+			cnt();
+		} catch (e) {
+			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
+		}
 	});
 }
 

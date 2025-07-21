@@ -8,12 +8,12 @@
 const [, , fld_src='', ...aCmd] = process.argv;
 const minify = aCmd.includes('--minify');
 
-import {exec} from 'child_process';
-import {stat} from 'fs/promises';
+import {exec} from 'node:child_process';
+import {stat} from 'node:fs/promises';
 import {outputFile, writeJsonSync, pathExistsSync, copy} from 'fs-extra/esm';
 const is_win = process.platform === 'win32';
-import {userInfo} from 'os';
-import {extname} from 'path';
+import {userInfo} from 'node:os';
+import {extname} from 'node:path';
 
 import url from 'url';
 const __filename = url.fileURLToPath(import.meta.url);

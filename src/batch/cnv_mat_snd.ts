@@ -15,7 +15,7 @@ ffmpeg.setFfmpegPath(ffmpeg_ins.path);
 
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
-import {existsSync, statSync, readdirSync} from 'fs';
+import {existsSync, statSync, readdirSync} from 'node:fs';
 import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
 import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';

@@ -12,11 +12,14 @@ import PSD from 'psd.js';	// lib
 import sharp from 'sharp';
 sharp.cache(false);
 
-import {mkdtempSync} from 'fs';
+import {mkdtempSync} from 'node:fs';
 import {ensureFileSync, remove, outputFile} from 'fs-extra/esm';
 import {basename, extname} from 'node:path';
 import {styleText} from 'node:util';
+import {fileURLToPath} from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = import.meta.dirname;
 const fn_scr = __filename.slice(__dirname.length +1, -3);
 const pathTmp = mkdtempSync(`/tmp/${fn_scr}-`);
 
@@ -31,13 +34,21 @@ function genPsd2Layer(fld: string, {name, left, top, width, height, layer}: T_PS
 	}\t[add_face name=${fn} dx=${left} dy=${top}${
 		bm === 'normal' ?'' :` blendmode=${bm}`
 	}]\n`;
-//console.log(`fn:PrjSetting.ts lay ${name} (${left}, ${top}, ${width}, ${height}) is_canvas_size:${is_canvas_size} .. ${ret}`);
+//console.log(`fn:cnv_psd_face.ts lay ${name} (${left}, ${top}, ${width}, ${height}) is_canvas_size:${is_canvas_size} .. ${ret}`);
 
-	if (is_canvas_size) {
-		const fnTmp = `${pathTmp}/${fn}.png`
-		const sap = layer.image.saveAsPng(fnTmp)
-		.then(async ()=> {
-//console.log(`fn:cnv_psd_face.ts line:38 === docW:${cvsW} docH:${cvsH} (${left}, ${top}, ${width}, ${height}) fnTmp=${fnTmp}= path_out=${path_out}=`);
+	if (! is_canvas_size) {
+		aP.push(layer.image.saveAsPng(path_out));
+		return ret;
+	}
+
+	// tmp に出力 -> キャンバス拡大してprj下へ
+	const fnTmp = `${pathTmp}/${fn}.png`
+	const sap = async ()=> {
+		console.log(styleText(['blueBright'], `fn:cnv_psd_face.ts canvas(${cvsW},${cvsH}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`));
+// console.log(`fn:cnv_psd_face.ts  == L:${left} R:${cvsW -left -width} T:${top} B:${cvsH -top -height}`);
+		try {
+			await layer.image.saveAsPng(fnTmp);
+
 			await sharp(fnTmp)	// sharp が fnTmp を掴むため temp を使う
 			.extend({
 				left,
@@ -47,10 +58,11 @@ function genPsd2Layer(fld: string, {name, left, top, width, height, layer}: T_PS
 				background	: {r: 0, g: 0, b: 0, alpha: 0},
 			})
 			.toFile(path_out);
-		});
-		aP.push(sap);
-	}
-	else aP.push(layer.image.saveAsPng(path_out));
+		} catch (e) {
+			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
+		}
+	};
+	aP.push(sap());
 
 	return ret;
 }
