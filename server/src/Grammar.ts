@@ -246,6 +246,8 @@ export class Grammar {
 	| (["'\#]).*?\1
 			++ にしたいところだが、jsは未サポートらしい（2022/10/16）
 */
+		// 文字列リテラル(new RegExp("~")) の場合は、バックスラッシュは２つ必要
+			// https://qiita.com/ue5963/items/bd8e32ac9e6b12aa7fab
 		this.#REG_TOKEN = new RegExp(
 		(ce	?`\\${ce}\\S|` :'')+	// エスケープシーケンス
 		'\\n+'+				// 改行

@@ -710,7 +710,7 @@ export class PrjSetting implements Disposable {
 				for (const {nm, val} of e.aRes) a.push([
 					new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 					`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
-				]);
+				]);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 				if (replaceRegsFile(this.#fnSetting, a, false)) {
 					const fp = this.#fnSetting;
 					const pp = fp.slice(this.LEN_PATH_PRJ);

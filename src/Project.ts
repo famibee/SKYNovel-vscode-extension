@@ -36,6 +36,7 @@ type PluginDef = {
 };
 
 		const	FLD_CRYPT_PRJ	= 'crypto_prj';
+		const	FLD_CRYPT_DOC	= 'doc_crypto';
 export	const	FLD_PRJ_BASE	= 'prj_base';
 
 // フォントと使用文字情報
@@ -76,6 +77,8 @@ export class Project {
 	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 	readonly	#REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
 	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
+
+	readonly	#IS_NEW_TMP;
 
 	readonly	#encry;
 
@@ -121,7 +124,7 @@ export class Project {
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 // console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 
-		const is_new_tmp = existsSync(this.#PATH_WS +'/src/plugin/');
+		const is_new_tmp = this.#IS_NEW_TMP = existsSync(this.#PATH_WS +'/src/plugin/');
 		this.#FLD_SRC = is_new_tmp ?'src' :'core';
 			// src なら 2025 新テンプレ
 		if (! is_new_tmp) {	// 旧テンプレ置換
@@ -149,10 +152,10 @@ export class Project {
 			// .gitignore
 			replaceFile(
 				this.#PATH_WS +'/.gitignore',
-				/\/doc\/app\/index\.js\n\/doc\/crypto_prj\n\/doc\/web\.js/,
-				`\/doc\/app\/*.js\n\/doc\/crypto_prj\n\/doc\/web*.js`,
+				new RegExp(`\\/doc\\/app\\/index\\.js\\n\\/doc\\/${FLD_CRYPT_PRJ}\\n\\/doc\\/web\\.js`),
+				`\/doc\/app\/*.js\n\/doc\/${FLD_CRYPT_PRJ}\n\/doc\/web*.js`,
 				false,
-			);
+			);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		}
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
@@ -199,13 +202,11 @@ export class Project {
 				aNeedLib	: ['fs-extra'],
 			},
 		};
-		this.#aRepl = [
-			`${this.#FLD_SRC}/app4webpack.js`,
-			`${this.#FLD_SRC}/web4webpack.js`,
-		];
 
 		// 暗号化処理
-		this.#PATH_CRYPT = this.#PATH_WS +`/doc/${FLD_CRYPT_PRJ}/`;
+		this.#PATH_CRYPT = this.#PATH_WS + `/${
+			is_new_tmp ?FLD_CRYPT_DOC :'doc'
+		}/${FLD_CRYPT_PRJ}/`;
 		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
 		const fnPass = this.#PATH_WS +'/pass.json';
 		const exists_pass = existsSync(fnPass);
@@ -220,6 +221,15 @@ export class Project {
 				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 			}, subtle);
 		if (! exists_pass) outputFile(fnPass, this.#encry.strHPass);
+		this.#aRepl = is_new_tmp
+		? [
+			`${this.#FLD_SRC}/web.ts`,
+			`${this.#FLD_SRC}/renderer/renderer.ts`,
+		]
+		: [
+			`${this.#FLD_SRC}/app4webpack.js`,
+			`${this.#FLD_SRC}/web4webpack.js`,
+		];
 
 		try {
 			this.#fnDiff = `${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`;
@@ -494,6 +504,7 @@ export class Project {
 				pp,
 			};
 		}
+		// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		readonly	#REG_path2cn = new RegExp(`\\/(${FLD_PRJ_BASE}|prj)\\/.+$`);
 		readonly	#REG_fp2pp	= new RegExp(`^.+\\/(${FLD_PRJ_BASE}|prj)\\/`);
 		#fp2pp(fp: string): string {return fp.replace(this.#REG_fp2pp, '')}
@@ -778,6 +789,7 @@ export class Project {
 		wv.postMessage({cmd: 'refresh', o: {htm}});
 	}
 		readonly #regWVFolderMov = /\.(mp4|webm)$/;
+		// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		readonly #regWVFolderGrp = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SP_GSM}$`);
 		readonly #regWVFolderSnd = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SOUND}$`);
 
@@ -1251,15 +1263,20 @@ export class Project {
 				break;
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
+				const cwd = this.#PATH_WS +`/${
+					this.#IS_NEW_TMP && this.#isCryptoMode
+					? FLD_CRYPT_DOC
+					: 'doc'
+				}/`;
 				const arc = archiver.create('zip', {zlib: {level: 9},})
-				.append(createReadStream(this.#PATH_WS +'/doc/web.htm'), {name: 'index.html'})
+				.append(createReadStream(cwd +'web.htm'), {name: 'index.html'})
 				.append(createReadStream(this.#PATH_WS +'/build/include/readme.txt'), {name: 'readme.txt'})
-				.glob('web.js', {cwd: this.#PATH_WS +'/doc/'})
-				.glob('web.*.js', {cwd: this.#PATH_WS +'/doc/'})
+				.glob('web.js', {cwd})
+				.glob('web.*.js', {cwd})
 				.glob(`${
 					this.#isCryptoMode ?FLD_CRYPT_PRJ :'prj'
-				}/**/*`, {cwd: this.#PATH_WS +'/doc/'})
-				.glob('favicon.ico', {cwd: this.#PATH_WS +'/doc/'});
+				}/**/*`, {cwd})
+				.glob('favicon.ico', {cwd});
 
 				const fn_out = `${basename(this.#PATH_WS)}_1.0freem.zip`;
 				const ws = createWriteStream(this.#PATH_WS +`/build/package/${fn_out}`)
@@ -1350,6 +1367,7 @@ export class Project {
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
+			// to 暗号化解除
 			removeSync(this.#PATH_CRYPT);
 
 			removeSync(pathPre);
@@ -1361,16 +1379,22 @@ export class Project {
 				'(hPlg);',
 			);
 			// ビルド関連：パッケージするフォルダ名変更
+			if (this.#IS_NEW_TMP) replaceFile(
+				this.#PATH_WS +'/electron.vite.config.ts',
+				new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
+				`publicDir: '../../doc/'`,
+			); else
 			replaceFile(
 				this.#PATH_WS +'/package.json',
 				new RegExp(`"doc/${FLD_CRYPT_PRJ}\\/",`),
 				'"doc/prj/",',
-			);
+			);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 			this.#updPlugin();
 
 			return;
 		}
 
+		// to 暗号化
 		ensureDir(this.#PATH_CRYPT);
 
 		// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
@@ -1380,6 +1404,11 @@ export class Project {
 			`(hPlg, {cur: '${FLD_CRYPT_PRJ}/', crypto: true});`,
 		);
 		// ビルド関連：パッケージするフォルダ名変更
+		if (this.#IS_NEW_TMP) replaceFile(
+			this.#PATH_WS +'/electron.vite.config.ts',
+			new RegExp(`publicDir: '../../doc/'`),
+			`publicDir: '../../${FLD_CRYPT_DOC}/'`,
+		); else
 		replaceFile(
 			this.#PATH_WS +'/package.json',
 			/"doc\/prj\/",/,

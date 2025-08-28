@@ -1,3 +1,10 @@
+## v4.21.1
+- fix(src/PrjTreeItem.ts): 暗号化処理をEMSテンプレ対応に
+- doc: [page to] で oldest, newest, load ボタンやショートカット追加
+- doc: [page] 記述更新
+	- ページ遷移状態 -> ページ移動状態に表現変更
+- doc: [stop_quake] に canskip 属性があるのは無意味なので削除
+-  m4a（その他拡張子も）を追加しても path.json が更新されない件
 ## v4.21.0
 -feat(src/batch/cnv_psd_face.ts): v4.18.0 からの立ち絵素材生成機能をEMSテンプレ対応に
 -feat: バッチ処理のエラー・処理の流れを修正

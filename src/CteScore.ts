@@ -246,7 +246,7 @@ export class CteScore {
 				).replace(
 					new RegExp(`(${o.nm}=)[^\\] #"']+`),
 					`$1${o.val}`
-				);
+				);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 				if (base === txt) txt = txt.replace(/(])/, ` ${o.nm}=#${o.val}#$1`);	// 属性追加
 				ed.replace(doc.uri, rng, txt);
 				workspace.applyEdit(ed);

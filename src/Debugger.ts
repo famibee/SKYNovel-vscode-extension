@@ -129,7 +129,7 @@ export class Debugger extends EventEmitter {
 			for (const [k, v] of Object.entries(o2)) token = token.replace(
 				new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 				`$1${v}$3`
-			)
+			)	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 			di[':token'] = token;
 
 			// upd text
@@ -198,7 +198,7 @@ export class Debugger extends EventEmitter {
 					for (const [k, v] of Object.entries(o2)) token = token.replace(
 						new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 						`$1${v}$3`
-					)
+					)	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 					di[':token'] = token;
 
 					const ed = new WorkspaceEdit;

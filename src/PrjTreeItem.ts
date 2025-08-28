@@ -75,16 +75,24 @@ export class PrjTreeItem extends TreeItem {
 			children: [
 				{cmd: 'SnUpd',		icon: 'skynovel',	label: 'ベース更新',
 					task_type: 'Sys',
-					npm: `npm update ${statBreak} npm run webpack:dev`},
+					npm: `npm update${
+						is_new_tmp
+						? ''
+						: ` ${statBreak} npm run webpack:dev`
+					}`,
+				},
 				{cmd: 'ReBuild',	icon: 'refresh',	label: 'リビルド',
 					task_type: 'Sys', npm: 'npm run rebuild'},
 				{cmd: 'PrjSet',		icon: 'gear',	label: '設定',	task_type: 'Sys',},
-				{cmd: 'Crypto',		icon: 'gear',	label: '暗号化',task_type: 'Sys',
-					npm: 'npm run webpack:dev'},
+				{cmd: 'Crypto',		icon: 'gear',	label: '暗号化',task_type: 'Sys', npm: is_new_tmp
+					? 'echo "Crypto"'
+					: 'npm run webpack:dev'},
 				{cmd: 'TaskWeb',	icon: 'browser',	label: '起動：ブラウザ版',
 					task_type: 'Web',npm: 'npm run web',	exe: true,},
 				{cmd: 'TaskApp',	icon: 'electron',	label: '起動：アプリ版',
-					task_type: 'App',npm: 'npm run start',	exe: true,},
+					task_type: 'App',
+					npm: `npm run ${is_new_tmp ?'app' :'start'}`,
+					exe: true,},
 				{cmd: '', icon: '',label: '生成', children: [
 					{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
 						npm: `npm run webpack:pro ${statBreak
@@ -114,8 +122,6 @@ export class PrjTreeItem extends TreeItem {
 			],
 		};
 		if (is_new_tmp) {
-			cfg.children![eDevTreeView.SnUpd]!.npm = `npm update`;
-			cfg.children![eDevTreeView.TaskApp]!.npm = 'npm run app';
 			const ePack = cfg.children![eDevTreeView.Pack]!;
 			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_prd')}));
 		}
