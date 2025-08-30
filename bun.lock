@@ -43,7 +43,7 @@
         "@typescript-eslint/parser": "^8.41.0",
         "@vitejs/plugin-vue": "^6.0.1",
         "@vscode/test-electron": "^2.5.2",
-        "electron": "^37.3.1",
+        "electron": "^37.4.0",
         "esbuild": "^0.25.9",
         "file-loader": "^6.2.0",
         "p-queue": "^8.1.0",

@@ -84,7 +84,7 @@ export class PrjSetting implements Disposable {
 		this.#PATH_INS_NSH = this.#PATH_WS +'/build/installer.nsh';
 		if (! existsSync(this.#PATH_INS_NSH)) a.push(()=> copyFile(
 			path_ext +'/res/installer.nsh', this.#PATH_INS_NSH
-		));;
+		));
 
 		this.#PATH_ICON = this.#PATH_WS +'/build/icon.png';
 		if (! existsSync(this.#PATH_ICON)) a.push(()=> copyFile(
@@ -206,9 +206,9 @@ export class PrjSetting implements Disposable {
 	getLocalSNVer(): {verSN: string, verTemp: string} {
 		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 		const fnCngLog = this.#PATH_WS +'/CHANGELOG.md';
-		const lib_name = `@famibee/skynovel${this.is_new_tmp ?'_esm': ''}`
+		const lib_name = `@famibee/skynovel${this.is_new_tmp ?'_esm': ''}`;
 		return {
-			verSN	: oPkg.dependencies[lib_name]?.slice(1) ?? '',
+			verSN	: oPkg.dependencies?.[lib_name]?.slice(1) ?? '',
 			verTemp	: existsSync(fnCngLog)
 				? readFileSync(fnCngLog, {encoding: 'utf8'}).match(/## v(.+)\s/)?.[1] ?? ''
 				: '',
@@ -547,7 +547,7 @@ export class PrjSetting implements Disposable {
 
 			if (c.init.escape !== escOld) this.#setEscape();
 			c.debuger_token ||= randomUUID();
-			this.#writePrjJs();
+			await this.#writePrjJs();
 
 			this.chgTitle(c.book.title);
 
@@ -566,7 +566,10 @@ export class PrjSetting implements Disposable {
 			p.description = c.book.detail;
 			
 			p.build.appId = p.appId;
-			p.build.productName = c.book.title;
+			p.build.productName = c.book.title.normalize('NFD');
+			// p.build.productName = c.book.title;
+				// electron-builder 不具合対策
+				// macOS app crashes when build.productName contains NFC characters · Issue #9264 · electron-userland/electron-builder https://github.com/electron-userland/electron-builder/issues/9264
 			p.build.artifactName=`${c.save_ns}-\${version}-\${arch}.\${ext}`;
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 

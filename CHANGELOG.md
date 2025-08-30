@@ -1,3 +1,8 @@
+## v4.21.2
+- fix(src/PrjSetting.ts): build.productName が NFC正規化文字を含むと macOS アプリが起動せずクラッシュする件
+	- electron-builder 不具合と思われるが、その対策で build.productName を NFD正規化文字列とするように
+- fix(src/Project.ts): electron-builder が win で実行できない不具合修正
+	- 【./node_modules/.bin/electron-builder】指定で実行できないため、パス通し設定を settings.json に追記するように
 ## v4.21.1
 - fix(src/PrjTreeItem.ts): 暗号化処理をEMSテンプレ対応に
 - doc: [page to] で oldest, newest, load ボタンやショートカット追加

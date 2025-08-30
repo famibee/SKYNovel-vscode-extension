@@ -1,0 +1,8 @@
+{
+	"terminal.integrated.env.windows": {
+		"PATH": "${workspaceRoot}\\node_modules\\.bin;${env:PATH}"
+	},
+	"terminal.integrated.env.osx": {
+		"PATH": "${workspaceRoot}/node_modules/.bin:${env:PATH}"
+	}
+}

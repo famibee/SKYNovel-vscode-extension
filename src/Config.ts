@@ -51,8 +51,8 @@ export class Config extends ConfigBase {
 		const fpPrj = this.sys.arg.cur +'prj.json';
 		const fpPath= this.sys.arg.cur +'path.json';
 		try {
-			let o = await readJson(fpPrj, {encoding: 'utf8'});
-			o = {
+			const o = await readJson(fpPrj, {encoding: 'utf8'});
+			await super.load({
 				...DEF_CFG,
 				...o,
 				book	: {...DEF_CFG.book, ...o.book},
@@ -61,8 +61,7 @@ export class Config extends ConfigBase {
 				init	: {...DEF_CFG.init, ...o.init},
 				debug	: {...DEF_CFG.debug, ...o.debug},
 				code	: {...DEF_CFG.code, ...o.code},
-			};
-			await super.load(o);
+			});
 
 			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.arg.cur, clDiag);
 			await outputJson(fpPath, this.hPathFn2Exts);
@@ -71,7 +70,7 @@ export class Config extends ConfigBase {
 
 //			this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
 		}
-		catch (err) {console.error(`Project loadPrjJs ${err} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
+		catch (e) {console.error(`Project loadPrjJs ${e} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
 	}
 
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象

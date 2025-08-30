@@ -172,6 +172,22 @@ export class Project {
 
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg), is_new_tmp);
 		aTiRoot.push(pti);
+		// パス通し設定を settings.json に追記
+		const pathStgJS = this.#PATH_WS +'/.vscode/settings.json';
+		if (existsSync(pathStgJS)) {
+			readJson(pathStgJS, {encoding: 'utf8'}).then(async o=> {
+				if ('terminal.integrated.env.windows' in o) return;
+
+				o['terminal.integrated.env.windows'] = {
+					"PATH": "${workspaceRoot}\\node_modules\\.bin;${env:PATH}"
+				};
+				o['terminal.integrated.env.osx'] = {
+					"PATH": "${workspaceRoot}/node_modules/.bin:${env:PATH}"
+				};
+				await writeFile(pathStgJS, JSON.stringify(o, null, '\t'));
+			});
+		}
+		else copyFile(ctx.extensionPath +'/res/settings.json', pathStgJS)
 
 		this.#hTask2Inf = {
 			cnv_mat_pic: {

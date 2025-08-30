@@ -86,6 +86,7 @@ export	const DEF_CFG: T_CFG = {
 	},
 	debug	: {
 		devtool		: false,
+		dumpHtm		: false,
 		token		: false,
 		tag			: false,
 		putCh		: false,
@@ -93,7 +94,6 @@ export	const DEF_CFG: T_CFG = {
 		baseTx		: false,
 		masume		: false,	// テキストレイヤ：ガイドマス目を表示するか
 		variable	: false,
-		dumpHtm	: false,
 	},
 	code	: {},	// 暗号化しないフォルダ
 	debuger_token	: '',		// デバッガとの接続トークン
