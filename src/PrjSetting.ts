@@ -115,8 +115,8 @@ export class PrjSetting implements Disposable {
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
-				chgTitle(this.cfg.oCfg.book.title);
-				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> this.cfg.oCfg.debuger_token;
+				chgTitle(cfg.oCfg.book.title);
+				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> cfg.oCfg.debuger_token;
 
 				if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
 				else await writeJson(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTIMG);
@@ -127,8 +127,8 @@ export class PrjSetting implements Disposable {
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
 				foldProc(this.#PATH_PRJ, ()=> {}, nm=> {
-					if (nm in this.cfg.oCfg.code) return;
-					this.cfg.oCfg.code[nm] = false;
+					if (nm in cfg.oCfg.code) return;
+					cfg.oCfg.code[nm] = false;
 				});
 			},
 
@@ -140,8 +140,8 @@ export class PrjSetting implements Disposable {
 				.replaceAll('${nonce}', getNonce())
 				.replace('.ts"></script>', '.js"></script>');
 
-				if (this.cfg.oCfg.save_ns === 'hatsune'
-				|| this.cfg.oCfg.save_ns === 'uc') this.open();
+				// テンプレのままなら変更をうながすため設定画面を開く
+				if (this.#setTmp_save_ns.has(cfg.oCfg.save_ns)) this.open();
 			},
 
 			async ()=> {
@@ -166,6 +166,15 @@ export class PrjSetting implements Disposable {
 
 		this.#setEscape = ()=> sendRequest2LSP('def_esc.upd');
 	}
+	#setTmp_save_ns	= new Set([
+		'tmp_esm_uc',
+		'tmp_cjs_sample',
+		'tmp_cjs_hatsune',
+		'tmp_cjs_uc',
+		'sn_sample',
+		'hatsune',
+		'uc',
+	]);
 
 	//MARK: デストラクタ
 //	[Symbol.dispose]() {this.#ds.dispose()}
@@ -533,20 +542,23 @@ export class PrjSetting implements Disposable {
 			const escOld = this.cfg.oCfg.init.escape;
 			// コピー
 			const oc = this.cfg.oCfg;
+			const save_ns = e.oCfg.save_ns ?? oc.save_ns;
 			const c = this.cfg.oCfg = {
 				...oc,
 				book	: {...oc.book, ...e.oCfg.book},
-				save_ns	: e.oCfg.save_ns ?? oc.save_ns,
+				save_ns,
 				window	: {...oc.window, ...e.oCfg.window},
 				log		: {...oc.log, ...e.oCfg.log},
 				init	: {...oc.init, ...e.oCfg.init},
 				debug	: {...oc.debug, ...e.oCfg.debug},
 				code	: {...oc.code, ...e.oCfg.code},
-				debuger_token	: e.oCfg.debuger_token ?? oc.debuger_token,
+				debuger_token	:
+					this.#setTmp_save_ns.has(save_ns)
+					? ''	// テンプレのままなら空白とする（使用者のみセットさせる）
+					: (e.oCfg.debuger_token ?? oc.debuger_token) || randomUUID(),
 			};
 
 			if (c.init.escape !== escOld) this.#setEscape();
-			c.debuger_token ||= randomUUID();
 			await this.#writePrjJs();
 
 			this.chgTitle(c.book.title);
@@ -570,7 +582,7 @@ export class PrjSetting implements Disposable {
 			// p.build.productName = c.book.title;
 				// electron-builder 不具合対策
 				// macOS app crashes when build.productName contains NFC characters · Issue #9264 · electron-userland/electron-builder https://github.com/electron-userland/electron-builder/issues/9264
-			p.build.artifactName=`${c.save_ns}-\${version}-\${arch}.\${ext}`;
+			p.build.artifactName = `\${name}-\${version}-\${arch}.\${ext}`;
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
 			// src/main/main.ts, doc/app.js

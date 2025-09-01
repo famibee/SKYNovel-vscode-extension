@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT, type IDecryptInfo} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
@@ -148,14 +148,6 @@ export class Project {
 				` && npm i",\n\t\t"postinstall": "npm run webpack:dev`,
 				false,
 			);
-
-			// .gitignore
-			replaceFile(
-				this.#PATH_WS +'/.gitignore',
-				new RegExp(`\\/doc\\/app\\/index\\.js\\n\\/doc\\/${FLD_CRYPT_PRJ}\\n\\/doc\\/web\\.js`),
-				`\/doc\/app\/*.js\n\/doc\/${FLD_CRYPT_PRJ}\n\/doc\/web*.js`,
-				false,
-			);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		}
 
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
@@ -220,7 +212,7 @@ export class Project {
 		};
 
 		// 暗号化処理
-		this.#PATH_CRYPT = this.#PATH_WS + `/${
+		this.#PATH_CRYPT = this.#PATH_WS +`/${
 			is_new_tmp ?FLD_CRYPT_DOC :'doc'
 		}/${FLD_CRYPT_PRJ}/`;
 		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
@@ -228,12 +220,12 @@ export class Project {
 		const exists_pass = existsSync(fnPass);
 		this.#encry = new Encryptor(exists_pass
 			? readJsonSync(fnPass, {throws: false})
-			: {
+			: <IDecryptInfo>{
 				pass	: randomUUID(),
 				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
-				keySize	: String(512 / 32),
-				ite		: 500 + Math.floor(new Date().getTime() %300),
+				keySize	: 512 / 32,
+				ite		: 500 + Math.floor((new Date).getTime() %300),
 				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 			}, subtle);
 		if (! exists_pass) outputFile(fnPass, this.#encry.strHPass);
@@ -277,7 +269,6 @@ export class Project {
 			is_new_tmp,
 			this.#LEN_PATH_PRJ,
 		));
-		this.#initCrypto();
 
 		// updPlugin で goAll() が走る
 		const firstInit = ! existsSync(this.#PATH_WS +'/node_modules');
@@ -504,8 +495,11 @@ export class Project {
 		this.#clDiag = languages.createDiagnosticCollection(docsel.language);
 
 		// use #encry、開かれる前にファイル追加・削除の対応
-		this.#basePathJson()
-		.then(()=> this.#sendRequest2LSP('ready'));
+		this.#encry.init().then(async ()=> {
+			this.#initCrypto();
+			await this.#basePathJson()
+			this.#sendRequest2LSP('ready');
+		});
 	}
 
 		#path2cn(fp: string) {
@@ -1318,9 +1312,7 @@ export class Project {
 
 
 	//MARK: 暗号化
-	async	#initCrypto() {
-		await this.#encry.init();
-
+	#initCrypto() {
 		const fnc: (fp: string)=> void = this.#isCryptoMode
 			? fp=> {
 				const uri = Uri.file(fp);
@@ -1384,7 +1376,11 @@ export class Project {
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
 			// to 暗号化解除
-			removeSync(this.#PATH_CRYPT);
+			removeSync(
+				this.#IS_NEW_TMP
+				? this.#PATH_WS + `/${FLD_CRYPT_DOC}/`
+				: this.#PATH_CRYPT
+			);
 
 			removeSync(pathPre);
 
@@ -1395,16 +1391,24 @@ export class Project {
 				'(hPlg);',
 			);
 			// ビルド関連：パッケージするフォルダ名変更
-			if (this.#IS_NEW_TMP) replaceFile(
-				this.#PATH_WS +'/electron.vite.config.ts',
-				new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
-				`publicDir: '../../doc/'`,
-			); else
+			if (this.#IS_NEW_TMP) {
+				replaceFile(
+					this.#PATH_WS +'/electron.vite.config.ts',
+					new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
+					`publicDir: '../../doc/'`,
+				);
 			replaceFile(
+				this.#PATH_WS +'/vite.config.ts',
+				new RegExp(`publicDir: '${FLD_CRYPT_DOC}'`),
+				`publicDir: 'doc'`,
+			);
+			}
+			else replaceFile(
 				this.#PATH_WS +'/package.json',
-				new RegExp(`"doc/${FLD_CRYPT_PRJ}\\/",`),
+				new RegExp(`"doc\\/${FLD_CRYPT_PRJ}\\/",`),
+					// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 				'"doc/prj/",',
-			);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+			);
 			this.#updPlugin();
 
 			return;
@@ -1420,12 +1424,19 @@ export class Project {
 			`(hPlg, {cur: '${FLD_CRYPT_PRJ}/', crypto: true});`,
 		);
 		// ビルド関連：パッケージするフォルダ名変更
-		if (this.#IS_NEW_TMP) replaceFile(
-			this.#PATH_WS +'/electron.vite.config.ts',
-			new RegExp(`publicDir: '../../doc/'`),
-			`publicDir: '../../${FLD_CRYPT_DOC}/'`,
-		); else
-		replaceFile(
+		if (this.#IS_NEW_TMP) {
+			replaceFile(
+				this.#PATH_WS +'/electron.vite.config.ts',
+				/publicDir: '..\/..\/doc\/'/,
+				`publicDir: '../../${FLD_CRYPT_DOC}/'`,
+			);
+			replaceFile(
+				this.#PATH_WS +'/vite.config.ts',
+				/publicDir: 'doc'/,
+				`publicDir: '${FLD_CRYPT_DOC}'`,
+			);
+		}
+		else replaceFile(
 			this.#PATH_WS +'/package.json',
 			/"doc\/prj\/",/,
 			`"doc/${FLD_CRYPT_PRJ}/",`,
@@ -1436,7 +1447,7 @@ export class Project {
 			/[^\s=]+\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			true,
-			pathPre +'index.js',
+			pathPre +`index.${this.#IS_NEW_TMP ?'ts' :'js'}`,
 		);
 		this.#updPlugin();
 
@@ -1453,8 +1464,7 @@ export class Project {
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
-					// ファイル変更時に「Error: EEXIST: file already exists」エラー
-					// となるだけなので
+					// ファイル変更時に「Error: EEXIST: file already exists」エラーとなるだけなので
 				return;
 			}
 
@@ -1490,8 +1500,7 @@ export class Project {
 			if (dir && this.#cfg.oCfg.code[dir[1]!]) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
-					// ファイル変更時に「Error: EEXIST: file already exists」エラー
-					// となるだけなので
+					// ファイル変更時に「Error: EEXIST: file already exists」エラーとなるだけなので
 				return;
 			}
 
@@ -1635,10 +1644,10 @@ export class Project {
 		}
 		#basePathJsonAfter = ()=> {};
 	readonly	#mExt2aFld: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
-		[SEARCH_PATH_ARG_EXT.SP_GSM, ['bg','image']],
-		[SEARCH_PATH_ARG_EXT.SOUND, ['music','sound']],
-		[SEARCH_PATH_ARG_EXT.FONT, ['script']],
-		[SEARCH_PATH_ARG_EXT.SCRIPT, ['script']],
+		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
+		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
+		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
+		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
 	]);
 	#mExt2ToPath	: Map<SEARCH_PATH_ARG_EXT, string[]>	= new Map;
 	#getコピー先候補(ext: string): string[] {

@@ -10,12 +10,12 @@ const watch = aCmd.includes('--watch') ?{} :null;
 const prod = aCmd.includes('--production');
 const node_env = prod ?'production' :'development';
 
-import {build} from 'vite';
+import {build, type BuildEnvironmentOptions} from 'vite';
 import vue from '@vitejs/plugin-vue';
 //console.log(`fn:build.ts __dirname:${__dirname}:`);	// src
-import {context} from 'esbuild';
+import {type BuildOptions, context} from 'esbuild';
 
-const oBuild = {
+const oBuild: BuildOptions = {
 	target		: 'esnext',
 	outdir		: 'dist',
 	bundle		: true,
@@ -42,7 +42,7 @@ const oBuild = {
 build({
 	define: {'process.env.NODE_ENV': JSON.stringify(node_env)},
 	build: {
-		...oBuild,
+		...<BuildEnvironmentOptions>oBuild,
 		lib: {
 			entry	: 'views/setting.ts',
 			fileName: _=> 'setting.js',

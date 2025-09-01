@@ -1,3 +1,15 @@
+## v4.21.3
+- fix(src/Project.ts): 新テンプレでの暗号化処理を修正
+- fix(src/PrjSetting.ts): 設定画面による prj.json 変更で、save_ns がテンプレのままなら debuger_token を空白とする（使用者のみセットさせる）
+- fix(src/PrjSetting.ts): save_ns が以下のどれかの場合は「テンプレのまま変更されていない」と判定するように
+	- tmp_esm_uc
+	- tmp_cjs_sample
+	- tmp_cjs_hatsune
+	- tmp_cjs_uc
+	- sn_sample
+	- hatsune
+	- uc
+- fix(src/PrjSetting.ts): 設定画面による package.json 変更で、artifactName に `\${name}-\${version}-\${arch}.\${ext}` を設定するように。`\${name}`を置換せず。
 ## v4.21.2
 - fix(src/PrjSetting.ts): build.productName が NFC正規化文字を含むと macOS アプリが起動せずクラッシュする件
 	- electron-builder 不具合と思われるが、その対策で build.productName を NFD正規化文字列とするように

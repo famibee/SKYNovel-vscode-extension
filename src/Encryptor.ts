@@ -31,8 +31,9 @@ export function decBase64Str(base64: string): string {return new TextDecoder().d
 export class Encryptor {
 	readonly	#strHPass;
 	readonly	#aae: AesCbcParams;
+
 	constructor(private readonly hPass: IDecryptInfo, private readonly subtle: any) {
-		this.#strHPass = JSON.stringify(this.hPass);
+		this.#strHPass = JSON.stringify(hPass);
 		this.#aae = {name: 'AES-GCM', iv: hexStr2ab(hPass.iv)};
 		// subtle は拡張機能 と snsys_pre の分離の都合で外からもらう
 	}
@@ -40,7 +41,7 @@ export class Encryptor {
 	get strHPass() {return this.#strHPass}
 	#digest(s: string) {return this.subtle.digest('SHA-512', new TextEncoder().encode(s))}
 	//async	hashSHA512(str: string) {return encAbBase64(await this.#digest(this.strHPass + str))}
-	uuidv5(d: string): string {return v5(d, this.hPass.pass);}
+	uuidv5(d: string): string {return v5(d, this.hPass.pass)}
 
 	async	init() {
 		const keyMaterial = await this.subtle.importKey(

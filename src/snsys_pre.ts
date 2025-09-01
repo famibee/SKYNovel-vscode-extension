@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {IPluginInitArg} from './CmnLib';
+import type {IPluginInitArg} from './CmnLib';
 import {Encryptor} from './Encryptor';
 const {subtle} = crypto;
 
@@ -20,18 +20,18 @@ export async function init(pia: IPluginInitArg): Promise<void> {
 	pia.setDecAB(async iab=> {
 		const el = new DataView(iab.slice(0, 4)).getUint32(0, true);
 		const e = iab.slice(4, 4+el);
-//console.log(`fn:snsys_pre.ts setDec      = bin: +:%o -:%o     elen:${el} size:${iad.byteLength}`, ab2hexStr(e.slice(0, 16)), ab2hexStr(e.slice(-16)));
+// console.log(`fn:snsys_pre.ts setDec      = bin: +:%o -:%o     elen:${el} size:${iab.byteLength}`, ab2hexStr(e.slice(0, 16)), ab2hexStr(e.slice(-16)));
 
 		const b = await encry.decAb(e);
 
 	//	const v = new DataView(b.slice(0, 1)).getUint8(0);
 		const ext_num = new DataView(b.slice(1, 2)).getUint8(0);
-//console.log(`fn:snsys_pre.ts                    s:${ab2hexStr(b.slice(0, 16))} ext_num:${ext_num}`);
+// console.log(`fn:snsys_pre.ts                    s:${ab2hexStr(b.slice(0, 16))} ext_num:${ext_num}`);
 
 		const b1 = b.slice(2);
 		const b2 = iab.slice(4+el);
 		const ab = await new Blob([b1, b2]).arrayBuffer();
-//console.log(`fn:snsys_pre.ts setDec      - b1len:${b1.byteLength} + b2len:${b2.byteLength} = full_len:${ab.byteLength}`);
+// console.log(`fn:snsys_pre.ts setDec      - b1len:${b1.byteLength} + b2len:${b2.byteLength} = full_len:${ab.byteLength}`);
 
 		return {ext_num, ab};
 	});

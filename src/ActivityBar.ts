@@ -466,7 +466,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					],
 					[
 						/("artifactName"\s*:\s*").*(")/,
-						`$1${this.#save_ns}-\${version}-\${arch}.\${ext}$2`,
+						`$1\${name}-\${version}-\${arch}.\${ext}$2`,
 					],
 				], false);
 
