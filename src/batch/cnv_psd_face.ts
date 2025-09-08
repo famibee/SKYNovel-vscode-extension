@@ -48,7 +48,7 @@ function genPsd2Layer(fld: string, {name, left, top, width, height, layer}: T_PS
 	}
 
 	// tmp に出力 -> キャンバス拡大してprj下へ
-	const fnTmp = `${pathTmp}/${fn}.png`
+	const fnTmp = `${pathTmp}/${fn}.png`;
 	const sap = async ()=> {
 		console.log(styleText(['blueBright'], `fn:cnv_psd_face.ts b canvas(${cvsW},${cvsH}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`));
 // console.log(`fn:cnv_psd_face.ts  == L:${left} R:${cvsW -left -width} T:${top} B:${cvsH -top -height}`);

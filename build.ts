@@ -8,12 +8,13 @@
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch') ?{} :null;
 const prod = aCmd.includes('--production');
-const node_env = prod ?'production' :'development';
+// const node_env = prod ?'production' :'development';
 
-import {build, type BuildEnvironmentOptions} from 'vite';
-import vue from '@vitejs/plugin-vue';
+// import {build, type BuildEnvironmentOptions} from 'vite';
+// import vue from '@vitejs/plugin-vue';
 //console.log(`fn:build.ts __dirname:${__dirname}:`);	// src
 import {type BuildOptions, context} from 'esbuild';
+// import {resolve} from 'node:path';
 
 const oBuild: BuildOptions = {
 	target		: 'esnext',
@@ -39,30 +40,44 @@ const oBuild: BuildOptions = {
 }
 
 // === vue ===
-build({
-	define: {'process.env.NODE_ENV': JSON.stringify(node_env)},
-	build: {
-		...<BuildEnvironmentOptions>oBuild,
-		lib: {
-			entry	: 'views/setting.ts',
-			fileName: _=> 'setting.js',
-			formats	: ['es'],
-		},
-		minify	: prod ?'terser' :false,
-		watch,
-		emptyOutDir	: false,
-		reportCompressedSize	: false,
-	},
-	plugins: [vue()],
-	optimizeDeps: {
-		entries	: ['views/setting.htm'],
-		include	: [
-			'views/lib/bootstrap.bundle.min.js',
-			'views/lib/fontawesome/all.min.js',
-		],
-	},
-//	assetsInclude: ['lib/ * * / *.woff2'],
-});
+//	上手くいかないので views/vite.config.mts で
+// build({
+// 	define: {'process.env.NODE_ENV': JSON.stringify(node_env)},
+// 	// root: '',
+// 	root: 'views',
+// 	// base: '/views/',		// 必要
+// 	// base: './views',		// 必要
+// 	// base: '../',		// 必要
+// 	base: './',		// 必要
+// 	build: {
+// 		...<BuildEnvironmentOptions>oBuild,
+// 		// outDir: '../dist',
+// 		// assetsDir: '../assets',
+// 		// assetsDir: 'views/assets',
+// 		// assetsDir: './dist/views/assets',
+// 		rollupOptions: {
+// 			input: {
+// 				setting: resolve(__dirname, 'views/setting.html'),
+// 			},
+// 		},
+// 		// emptyOutDir: false,
+// 		emptyOutDir: true,	// dist 下をクリア
+// 		minify	: prod ?'terser' :false,
+// 		watch,
+// 	},
+// 	plugins: [vue()],
+// 	optimizeDeps: {
+// 		// entries	: ['views/setting.html'],
+// 		entries	: ['setting.html'],
+// 		include	: [
+// 			'lib/bootstrap.bundle.min.js',
+// 			'lib/fontawesome/all.min.js',
+// 			// 'views/lib/bootstrap.bundle.min.js',
+// 			// 'views/lib/fontawesome/all.min.js',
+// 		],
+// 	},
+// //	assetsInclude: ['lib/ * * / *.woff2'],
+// });
 
 {	// === snsys_pre ===
 	const ctx = await context({
@@ -87,6 +102,9 @@ build({
 			'./src/batch/subset_font',
 		],
 		bundle		: false,
+			// bundle: true、platform: 'node'でぜんぶバンドルできないか試したが、
+			// 実行時に Error: Dynamic require of "os" is not supported
+			// 【import _os from 'node:os';】をするもたぶん TreeShaking で脱落
 		format		: 'esm',
 	});
 	if (watch) await ctx.watch(); else {

@@ -39,6 +39,8 @@ export	function openURL(url: Uri, pathWs: string) {
 	}
 }
 
+export const PRE_TASK_TYPE = 'SKYNovel Task';
+
 
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
@@ -54,9 +56,9 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 
 		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
 
-		// "type": "SKYNovel TaskSys",
+		const LEN_PRE_TASK_TYPE = PRE_TASK_TYPE.length;
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
-			<TASK_TYPE>(e.execution.task.definition.type.slice(13))
+			<TASK_TYPE>(e.execution.task.definition.type.slice(LEN_PRE_TASK_TYPE))
 		)?.(e));
 
 		// デバッガ

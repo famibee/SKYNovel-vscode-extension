@@ -14,7 +14,7 @@ const AdmZip = require('adm-zip');
 import {type TreeDataProvider, TreeItem, type ExtensionContext, window, commands, Uri, EventEmitter, type WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
-import {copyFile, ensureDir, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
+import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
 
 import {
 	LanguageClient,
@@ -284,16 +284,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		let newVerTemp = '';
 		await Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/skynovel_esm/main/package.json')
-			.then(res=> res.json())
-			.then(json=> {
+			.then(async res=> {
+				const json = await res.json();
 				newVerSN = json.version;
 				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER]!;
 				tiSV.description = '-- ' + newVerSN;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
-			.then(res=> res.text())
-			.then(txt=> {
+			.then(async res=> {
+				const txt = await res.text();
 				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
 				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER]!;
 				tiSV.description = '-- ' + newVerTemp;
@@ -419,7 +419,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}, async (prg, tknCancel)=> {
 		const td = tmpdir() +`/${nm}/`;
 		await remove(td);
-		ensureDir(td);
+		await mkdirs(td);
 		const pathZip = td +`${nm}.zip`;
 		await remove(pathZip);
 		const ac = new AbortController;
@@ -503,7 +503,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		const td = tmpdir() +'/SKYNovel/';
 		await remove(td);
-		ensureDir(td);
+		await mkdirs(td);
 		const pathZip = td +`${nm}.zip`;
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();

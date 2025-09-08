@@ -14,13 +14,23 @@ import {outputFile, writeJsonSync, pathExistsSync, copy} from 'fs-extra/esm';
 const is_win = process.platform === 'win32';
 import {userInfo} from 'node:os';
 import {extname} from 'node:path';
+import url from 'node:url';
 
-import url from 'url';
 const __filename = url.fileURLToPath(import.meta.url);
 
 type LOG = {inp: string, out: string, iSize: number, oSize: number, err: string};
-const oLog: {[nm: string]: LOG} = {};
+let oLog: {[nm: string]: LOG} = {};
 const log_exit = (exit_code = -1)=> {
+	const a = Object.entries(oLog)
+	.sort(([k1], [k2])=> {
+		const n1 = k1.toUpperCase();
+		const n2 = k2.toUpperCase();
+		if (n1 < n2) return -1;
+		if (n1 > n2) return 1;
+		return 0;
+	});
+	oLog = Object.fromEntries(a);
+
 	writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
 	if (exit_code > -1) process.exit(exit_code);
 }
@@ -54,9 +64,8 @@ const fnc: (log: LOG, nm: string, str: string)=> Promise<void> = minify
 
 // const o = require('./font.json');
 // @ts-expect-error
-import o from './font.json' with {type: "json"};
+import o from './font.json' with {type: 'json'};
 // import o from './font.json';
-const a = [];
 
 const {username} = userInfo();
 const PATH_PRJ_FONTS = `${fld_src}/font`;
@@ -67,6 +76,7 @@ const PATH_OS_FONTS = is_win
 	? `C:/Windows/Fonts`
 	: `/Library/Fonts`;
 
+const a = [];
 for (const [nm, v] of Object.entries(o)) {
 	const inp = String((<any>v).inp)
 	.replace('::PATH_PRJ_FONTS::', PATH_PRJ_FONTS)

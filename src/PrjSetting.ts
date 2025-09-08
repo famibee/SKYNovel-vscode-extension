@@ -9,12 +9,13 @@ import {chkUpdate, foldProc, getFn, replaceRegsFile, v2fp} from './CmnLib';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {Config} from './Config';
 import {openURL} from './WorkSpaces';
-import {FLD_PRJ_BASE} from './Project';
-import {DEF_WSS, DEF_OPTSND, DEF_OPTIMG, REG_SN2TEMP} from '../views/types';
-import type {T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_E2V_OPTIMG, T_OPTIMG, T_V2E_WSS, T_E2V_CHG_RANGE_WEBP_Q, T_OPTSND, T_E2V_OPTSND, T_E2V_CHG_RANGE_WEBP_Q_DEF} from '../views/types';
+import {DEF_WSS, REG_SN2TEMP} from '../views/types';
+import type {T_A_CNVFONT, T_E2V_INIT, T_E2V_TEMP, T_TEMP, T_V2E_SELECT_ICON_FILE, T_E2V_CNVFONT, T_V2E_TEMP, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_E2V, T_CMD} from '../views/types';
+import {WfbOptPic} from './WfbOptPic';
+import {WfbOptSnd} from './WfbOptSnd';
 
 import {Disposable, env, type ExtensionContext, RelativePattern, Uri, ViewColumn, type WebviewPanel, window, workspace, type WorkspaceFolder} from 'vscode';
-import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile, writeJson} from 'fs-extra';
+import {copyFile, ensureFile, existsSync, mkdirs, readFile, readFileSync, readJson, readJsonSync, remove, statSync, writeFile} from 'fs-extra';
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
 import {userInfo} from 'os';
@@ -23,14 +24,13 @@ import {userInfo} from 'os';
 export class PrjSetting implements Disposable {
 	readonly	#wss;
 				#oWss			= DEF_WSS;
+	get			oWss() {return this.#oWss}
+
 	readonly	#PATH_WS		: string;
 	readonly	#PATH_PRJ		: string;
 	readonly	#PATH_PRJ_JSON	: string;
-	readonly	#PATH_MAIN_TS	: string;
 	readonly	#PATH_APP_JS	: string;
 	readonly	#PATH_PKG_JSON	: string;
-	readonly	#PATH_PRJ_BASE;
-	readonly	#LEN_PATH_PRJ_BASE;
 
 				#fnSetting		: string;
 	readonly	#PATH_INS_NSH		: string;
@@ -40,11 +40,6 @@ export class PrjSetting implements Disposable {
 
 				#htmSrc	= '';
 
-	readonly	#PATH_OPT_PIC	: string;
-	readonly	#PATH_OPT_SND	: string;
-				#oOptPic	: T_OPTIMG;
-				#oOptSnd	: T_OPTSND;
-
 	// DisposableStack is not implemented
 //	readonly	#ds		= new DisposableStack;
 	readonly	#ds		: Disposable[]	= [];
@@ -52,30 +47,38 @@ export class PrjSetting implements Disposable {
 	readonly	#setEscape: ()=> void;
 
 	//MARK: コンストラクタ
-	constructor(private readonly ctx: ExtensionContext, readonly wsFld: WorkspaceFolder, private readonly cfg: Config, private readonly chgTitle: (title: string)=> void, private readonly sendRequest2LSP: (cmd: string, o?: any)=> void, private readonly cmd: (nm: string, val: string)=> Promise<boolean>, private readonly exeTask: (nm: 'cnv_mat_pic'|'cnv_mat_snd'|'cnv_psd_face'|'cut_round'|'subset_font', arg: string)=> Promise<number>, private readonly optPic: (uri: Uri, sEvt: 'CRE'|'CHG'|'DEL')=> Promise<void>, private readonly fld_src: string, private readonly is_new_tmp: boolean, private readonly LEN_PATH_PRJ: number) {
+	constructor(
+		private readonly ctx: ExtensionContext,
+		readonly wsFld: WorkspaceFolder,
+		private readonly cfg: Config,
+		private readonly chgTitle: (title: string)=> void,
+		private readonly sendRequest2LSP: (cmd: string, o?: any)=> void,
+		private readonly onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
+		private readonly exeTask: (nm: T_CMD, arg: string)=> Promise<number>,
+		private readonly optPic: WfbOptPic,
+		private readonly optSnd: WfbOptSnd,
+		private readonly fld_src: string,
+		private readonly is_new_tmp: boolean,
+		private readonly LEN_PATH_PRJ: number,
+	) {
 		this.#wss = ctx.workspaceState;
 		const oWss = DEF_WSS as {[nm: string]: any};
 		for (const [nm, v] of Object.entries(oWss)) {
 			const d = this.#wss.get(nm);
 			if (d) oWss[nm] = <any>d;
-			else this.#wss.update(nm, v);
+			else /* await */ this.#wss.update(nm, v);
 		}
 		this.#oWss = oWss as any;
-		this.#setOnOptPic();
-		this.#setOnOptSnd();
 
 		this.#PATH_WS = v2fp(wsFld.uri.path);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#PATH_PRJ_JSON = this.#PATH_PRJ +'prj.json';
-		this.#PATH_MAIN_TS = this.#PATH_WS +'/src/main/main.ts';
 		this.#PATH_APP_JS = this.#PATH_WS +'/doc/app.js';
 		this.#PATH_PKG_JSON = this.#PATH_WS +'/package.json';
-		this.#PATH_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
-		this.#LEN_PATH_PRJ_BASE = this.#PATH_PRJ_BASE.length;
 
 		this.#PATH_README4FREEM = this.#PATH_WS +'/build/include/readme.txt';
 		const path_ext = ctx.extensionPath;
-		const a: (()=> Promise<void>)[] = [];
+		const a = [];
 		if (! existsSync(this.#PATH_README4FREEM)) a.push(async ()=> {
 			await ensureFile(this.#PATH_README4FREEM);
 			await copyFile(path_ext +'/res/readme.txt', this.#PATH_README4FREEM);
@@ -98,9 +101,6 @@ export class PrjSetting implements Disposable {
 
 //		setEscape();	// 非同期禁止
 
-		this.#PATH_OPT_PIC = this.#PATH_WS +'/build/cnv_mat_pic.json';
-		this.#PATH_OPT_SND = this.#PATH_WS +'/build/cnv_mat_snd.json';
-
 		this.#hHead2Mes = {
 			'::PATH_PRJ_F'	: `${fld_src}/font/ 下）`,
 			'::PATH_USER_'	: 'OS（ユーザー別）へのインストール済みフォント',
@@ -111,18 +111,12 @@ export class PrjSetting implements Disposable {
 			if (e.fileName.endsWith('/setting.sn')) this.#chkMultiMatch_SettingSn();
 		}, null, ctx.subscriptions);
 
-		const path_vue_root = path_ext +'/views/';
+		const path_vue_root = path_ext +'/dist/';
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		a.push(
 			async ()=> {
 				chgTitle(cfg.oCfg.book.title);
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> cfg.oCfg.debuger_token;
-
-				if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
-				else await writeJson(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTIMG);
-
-				if (existsSync(this.#PATH_OPT_SND)) this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
-				else await writeJson(this.#PATH_OPT_SND, this.#oOptSnd = DEF_OPTSND);
 			},
 
 			async ()=> {// prj.json に既にないディレクトリのcodeがあれば削除
@@ -134,7 +128,7 @@ export class PrjSetting implements Disposable {
 
 			async ()=> {
 				this.#htmSrc = (await readFile(
-					path_vue_root +'setting.htm', {encoding: 'utf8'}
+					path_vue_root +'setting.html', {encoding: 'utf8'}
 				))
 				.replace('<meta_autooff ', '<meta ')// ローカルデバッグしたいので
 				.replaceAll('${nonce}', getNonce())
@@ -145,21 +139,24 @@ export class PrjSetting implements Disposable {
 			},
 
 			async ()=> {
-				await workspace.findFiles(new RelativePattern(wsFld, 'doc/prj/*/setting.sn')).then(async aUri=> aUri.forEach(({path})=> {
+				const aUri = await workspace.findFiles(new RelativePattern(wsFld, 'doc/prj/*/setting.sn'));
+				for (const {path} of aUri) {
 					const fp = v2fp(path);
 					this.#aPathSettingSn.push(fp)
-				}));
+				}
 				this.#chkMultiMatch_SettingSn();
 			},
 
+			()=> mkdirs(this.#PATH_WS +`/${fld_src}/resource/`),
 			async ()=> this.cnvWatch(
 				new RelativePattern(wsFld, `${fld_src}/resource/*.psd`),
 				`doc/prj/face/{[FN]_*.png,face[FN].sn}`, async ({fsPath})=> {
 					const hn = getFn(fsPath);
 					if (chkUpdate(fsPath, `${this.#PATH_PRJ}face/face${hn}.sn`)) await this.exeTask('cnv_psd_face', `"${fsPath}" "${this.#PATH_PRJ}"`);
 				}, this.#ds,
-				(uri, cre)=> this.optPic(uri, cre ?'CRE' :'CHG'),
-				uri=>	 	 this.optPic(uri, 'DEL'))
+				(uri, cre)=> this.optPic.optPic(uri, cre ?'CRE' :'CHG'),
+				uri=>	 	 this.optPic.optPic(uri, 'DEL')
+			),
 		);
 
 		Promise.allSettled(a.map(t=> t()));
@@ -178,14 +175,15 @@ export class PrjSetting implements Disposable {
 
 	//MARK: デストラクタ
 //	[Symbol.dispose]() {this.#ds.dispose()}
-	dispose() {this.#ds.forEach(d=> d.dispose())}
+	dispose() {for (const d of this.#ds) d.dispose()}
 
 
 	//MARK: 変換処理とファイル監視
+	//	fncGen	初期化時・ファイル生成・変更・削除のどれでも通る
 	async cnvWatch(rpInp: RelativePattern, pathOut: string, fncGen: (uri: Uri)=> Promise<void>, aDs: Disposable[], crechg= async (uri: Uri, cre=false)=> {}, del= async (uri: Uri)=> {}) {
 		await workspace.findFiles(rpInp).then(async aUri=> {
 			// バッチ処理等なので並列処理しない
-			for await (const uri of aUri) await fncGen(uri);	// await必須
+			for await (const uri of aUri) fncGen(uri);
 		});
 
 		const fw = workspace.createFileSystemWatcher(rpInp);
@@ -206,9 +204,10 @@ export class PrjSetting implements Disposable {
 	}
 		async	#delOut(pathOut: string, {fsPath}: Uri) {
 			if (pathOut === '') return;
+
 			const hn = getFn(fsPath);
-			return workspace.findFiles(pathOut.replaceAll('[FN]', hn))
-			.then(aUri=> Promise.allSettled(aUri.map(({path})=> remove(path))));
+			const aUri = await workspace.findFiles(pathOut.replaceAll('[FN]', hn));
+			await Promise.allSettled(aUri.map(({path})=> remove(path)));
 		}
 
 
@@ -234,12 +233,12 @@ export class PrjSetting implements Disposable {
 		this.cfg.oCfg.code[basename(path)] = false;
 		//fs.outputJson(this.fnPrjJs, this.oCfg);
 			// これを有効にすると（Cre & Del）時にファイルが壊れるので省略
-		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
+		this.cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
 	}
 	onDelDir({path}: Uri) {
 		delete this.cfg.oCfg.code[basename(path)];
 		this.#writePrjJs();
-		this.#cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
+		this.cmd2Vue(<T_E2V_CFG>{cmd: 'update.oCfg', oCfg: this.cfg.oCfg});
 	}
 	#writePrjJs() {
 		const o = {...this.cfg.oCfg};
@@ -269,7 +268,7 @@ export class PrjSetting implements Disposable {
 		const cntSn = this.#aPathSettingSn.length;
 		if (cntSn !== 1) {
 			this.#fnSetting = '';
-			this.#cmd2Vue(<T_E2V_TEMP>{
+			this.cmd2Vue(<T_E2V_TEMP>{
 				cmd		: 'update.aTemp',
 				err		: (cntSn < 1
 							? 'setting.sn がありません'
@@ -320,7 +319,7 @@ export class PrjSetting implements Disposable {
 			}
 			aTemp.push(o);
 		}
-		this.#cmd2Vue(<T_E2V_TEMP>{
+		this.cmd2Vue(<T_E2V_TEMP>{
 			cmd		: 'update.aTemp',
 			err		: '',
 			aTemp,
@@ -328,158 +327,11 @@ export class PrjSetting implements Disposable {
 	}
 
 
-	//MARK: 更新音声の自動変換
-	async	onCreChgOptSnd(_url: Uri) {}
-	async	onDelOptSnd(_url: Uri) {}
-	#unsetOnOptSnd() {
-		this.onCreChgOptSnd = async ()=> {};
-		this.onDelOptSnd = async ()=> {};
-	}
-	#setOnOptSnd() {
-		if (! this.#oWss['cnv.mat.snd']) {this.#unsetOnOptSnd(); return;}
-
-		this.onCreChgOptSnd = async ({path})=> {
-			path = v2fp(path);
-			if (this.#REG_EXT_SND_REST.test(path)) return;
-
-			// mp3・wavファイルを追加・更新時、退避に上書き移動して aac化
-			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
-
-			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.snd', mode: 'wait'};
-			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-			await this.exeTask(
-				'cnv_mat_snd',
-				`${ isBase ?'base_scan' :'prj_scan'
-				} '{"codec":"${ this.#oWss['cnv.mat.snd.codec'] }"}' "${
-					this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
-			);
-
-			o.mode = 'comp';
-			this.#cmd2Vue(o);
-
-			this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
-			this.#dispOptSnd();
-
-			this.#setOnOptSnd();
-		};
-		this.onDelOptSnd = async ({path})=> {
-			if (! this.#oWss['cnv.mat.snd']) return;
-
-			path = v2fp(path);
-			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
-			if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
-				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
-				for (const ext of ['mp3','wav']) {
-					await remove(path2.replace(/(m4a|aac|ogg)$/, ext));
-				}
-				this.#setOnOptSnd();
-				return;
-			}
-
-			// 退避ファイルを消したら変換後  aac... も削除
-			for (const ext of ['m4a','aac','ogg']) await remove(
-				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
-				.replace(this.#REG_EXT_SND_CNV, '.'+ ext)
-			);
-			const fn = getFn(path);
-			if (fn in this.#oOptSnd.hSize) {
-				const {baseSize, optSize} = this.#oOptSnd.hSize[fn]!;
-				this.#oOptSnd.sum.baseSize -= baseSize;
-				this.#oOptSnd.sum.optSize -= optSize;
-				delete this.#oOptSnd.hSize[fn];
-				await writeJson(this.#PATH_OPT_SND, this.#oOptSnd, {encoding: 'utf8'});
-				this.#dispOptSnd();
-			}
-			this.#setOnOptSnd();
-		};
-	}
-		readonly	#REG_EXT_SND_REST	= /\.(m4a|aac|ogg)$/;
-		readonly	#REG_EXT_SND_CNV	= /\.(mp3|wav)$/;
-
-
-	//MARK: 更新画像の自動変換
-	async	onCreChgOptPic(_url: Uri) {}
-	async	onDelOptPic(_url: Uri) {}
-	#unsetOnOptPic() {
-		this.onCreChgOptPic = async ()=> {};
-		this.onDelOptPic = async ()=> {};
-	}
-	#setOnOptPic() {
-		if (! this.#oWss['cnv.mat.pic']) {this.#unsetOnOptPic(); return;}
-
-		this.onCreChgOptPic = async ({path})=> {
-			path = v2fp(path);
-			if (this.#REG_EXT_PIC_REST.test(path)) return;
-
-			// jpg・pngファイルを追加・更新時、退避に上書き移動して webp化
-			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
-
-			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
-			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-			await this.exeTask(
-				'cnv_mat_pic',
-				`${ isBase ?'base_scan' :'prj_scan'
-				} ${ this.oWss['cnv.mat.webp_quality']
-				} "${this.#PATH_PRJ}" "${this.#PATH_PRJ_BASE}"`,
-			);
-
-			o.mode = 'comp';
-			this.#cmd2Vue(o);
-
-			this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
-			this.#dispOptPic();
-
-			this.#setOnOptPic();
-		};
-		this.onDelOptPic = async ({path})=> {
-			if (! this.#oWss['cnv.mat.pic']) return;
-
-			path = v2fp(path);
-			const isBase = this.#isBaseUrl(path);
-			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
-			if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
-				const path2 = path.replace(this.#PATH_PRJ, this.#PATH_PRJ_BASE);
-				for (const ext of ['jpeg','jpg','png']) {
-					await remove(path2.replace(/webp$/, ext));
-				}
-				this.#setOnOptPic();
-				return;
-			}
-
-			// 退避ファイルを消したら変換後ファイルも削除
-			await remove(
-				path.replace(this.#PATH_PRJ_BASE, this.#PATH_PRJ)
-				.replace(this.#REG_EXT_PIC_CNV, '.webp')
-			);
-			// 退避を消したケースでのみ上方 json 更新（このメソッドが多重発生）
-			const fn = getFn(path);
-			if (fn in this.#oOptPic.hSize) {
-				const {baseSize, webpSize} = this.#oOptPic.hSize[fn]!;
-				this.#oOptPic.sum.baseSize -= baseSize;
-				this.#oOptPic.sum.webpSize -= webpSize;
-				delete this.#oOptPic.hSize[fn];
-				await writeJson(this.#PATH_OPT_PIC, this.#oOptPic, {encoding: 'utf8'});
-				this.#dispOptPic();
-			}
-			this.#setOnOptPic();
-		};
-	}
-		readonly	#REG_EXT_PIC_REST	= /\.webp$/;
-		readonly	#REG_EXT_PIC_CNV	= /\.(jpe?g|png)$/;
-		// prj（変換後フォルダ）下の削除か prj_base（退避素材ファイル）か判定
-		#isBaseUrl(url :string): boolean {return url.slice(0, this.#LEN_PATH_PRJ_BASE) === this.#PATH_PRJ_BASE;}
-
-
 	//MARK: 設定ビューを開く
-	get oWss() {return this.#oWss}
 	#pnlWV	: WebviewPanel | undefined = undefined;
-	#cmd2Vue = (_mes: T_E2V_CFG | T_E2V_INIT | T_E2V_TEMP | T_E2V_NOTICE_COMPONENT | T_E2V_SELECT_ICON_INFO | T_E2V_CNVFONT | T_E2V_OPTIMG | T_E2V_OPTSND)=> {};
+	cmd2Vue = (_mes: T_E2V)=> {};
 	#wvuWs		: Uri;
+	get	wvuWs(): Uri {return this.#wvuWs}
 	#pathIcon	: string;
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
@@ -504,7 +356,7 @@ export class PrjSetting implements Disposable {
 		this.#wvuWs = wv.asWebviewUri(Uri.file(this.#PATH_WS));
 		this.#pathIcon = `${this.#wvuWs}/build/icon.png`;
 
-		this.#cmd2Vue = (mes: any)=> wv.postMessage(mes);
+		this.cmd2Vue = (mes: any)=> wv.postMessage(mes);
 		wv.onDidReceiveMessage(m=> this.#procInput(m), undefined, this.ctx.subscriptions);
 		this.#openSub();
 	}
@@ -524,7 +376,7 @@ export class PrjSetting implements Disposable {
 		const {username} = userInfo();
 		switch (m.cmd) {
 		case '?':
-			this.#cmd2Vue(<T_E2V_INIT>{
+			this.cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
 				oCfg	: this.cfg.oCfg,
 				oWss	: this.#oWss,
@@ -532,8 +384,8 @@ export class PrjSetting implements Disposable {
 				fld_src	: this.fld_src,
 			});
 			await this.dispFontInfo();
-			this.#dispOptPic();
-			this.#dispOptSnd();
+			this.optPic.dispOptPic();
+			this.optSnd.dispOptSnd();
 			this.#chkMultiMatch_SettingSn();
 			break;
 
@@ -586,7 +438,7 @@ export class PrjSetting implements Disposable {
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
 			// src/main/main.ts, doc/app.js
-			if (this.is_new_tmp) replaceRegsFile(this.#PATH_MAIN_TS, [
+			if (this.is_new_tmp) replaceRegsFile(this.#PATH_WS +'/src/main/main.ts', [
 				[
 					/(companyName\s*:\s*)(['"]).*\2/,
 					`$1"${c.book.publisher}"`
@@ -626,51 +478,21 @@ export class PrjSetting implements Disposable {
 			], false);
 		}	break;
 
-		case 'change.range.webp_q_def':{
-			// 変化のたびに動作するので 'update.oWss' と統合してはいけない
-			if (! this.#oWss['cnv.mat.pic']) break;
+		case 'change.range.webp_q_def':
+			await this.optPic.chgWebp_q_def(m);
+			break;
 
-			const e: T_E2V_CHG_RANGE_WEBP_Q_DEF = m;
-			this.#wss.update('cnv.mat.webp_quality', this.#oWss['cnv.mat.webp_quality'] = e.webp_q);
+		case 'change.range.webp_q':
+			await this.optPic.chgWebp_q(m);	// ファイル単体
+			break;
 
-			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
-
-			const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: 'cnv.mat.pic', mode: 'wait'};
-			this.#cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-			this.cmd('cnv.mat.webp_quality', 'all_recnv')
-			.then(async ()=> {
-				this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
-				this.#dispOptPic();
-
-				o.mode = 'comp';
-				this.#cmd2Vue(o);
-
-				this.#setOnOptPic();
-			});
-		}	break;
-
-		case 'change.range.webp_q':{	// ファイル単体
-			if (! this.#oWss['cnv.mat.pic']) break;
-
-			const o: T_E2V_CHG_RANGE_WEBP_Q = m;
-			const fi = this.#oOptPic.hSize[o.nm]!;
-			if (o.no_def) fi.webp_q = o.webp_q;
-			else delete fi.webp_q;
-			await writeJson(this.#PATH_OPT_PIC, this.#oOptPic);
-
-			// Baseフォルダを渡す事で再変換
-			this.onCreChgOptPic(Uri.file(this.#PATH_PRJ_BASE + fi.fld_nm +'.'+ fi.ext));
-		}	break;
-
-		case 'update.oWss':{
+		case 'update.oWss':{	// views/store/stWSS.ts .cmd2Ex() からの
 			const e: T_V2E_WSS = m;
-			const aP: (()=> Promise<void>)[] = [];
 			for (const [id, val] of Object.entries(e.oWss)) {
 				const old_val = (<any>this.#oWss)[id];
 				if (old_val == val) continue;
 
-				this.#wss.update(id, val);
+				await this.#wss.update(id, val);
 				(<any>this.#oWss)[id] = val;
 				switch (id) {
 					case 'cnv.font.subset':		break;
@@ -683,36 +505,29 @@ export class PrjSetting implements Disposable {
 				}
 
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
-				this.#cmd2Vue(o);
-				aP.push(()=> this.cmd(id, String(val)).then(async go=> {
-					if (go) {
-						switch (id) {
-							case 'cnv.mat.pic':
-								this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
-								this.#dispOptPic();
-								break;
+				this.cmd2Vue(o);
 
-							case 'cnv.mat.snd':
-							case 'cnv.mat.snd.codec':
-								this.#oOptSnd = await readJson(this.#PATH_OPT_SND, {encoding: 'utf8'});
-								this.#dispOptSnd();
-								break;
-						}
-						o.mode = 'comp';
+				const go = await this.onSettingEvt(id, String(val));
+				if (go) {
+					switch (id) {
+						case 'cnv.mat.pic':
+							this.optPic.updOptPic();
+							break;
+
+						case 'cnv.mat.snd':
+						case 'cnv.mat.snd.codec':
+							this.optSnd.updOptSnd();
+							break;
 					}
-					else {
-						this.#wss.update(id, (<any>this.#oWss[id]) = old_val);
-						o.mode = 'cancel';
-					}
-					this.#cmd2Vue(o);
-				}));
+					o.mode = 'comp';
+				}
+				else {
+					await this.#wss.update(id, (<any>this.#oWss[id]) = old_val);
+					o.mode = 'cancel';
+				}
+				this.cmd2Vue(o);
+				break;
 			}
-			this.#unsetOnOptPic();	// バッチ処理自身が発端を再度引き起こすので
-			this.#unsetOnOptSnd();	// バッチ処理自身が発端を再度引き起こすので
-			Promise.allSettled(aP.map(t=> t())).then(()=> {
-				this.#setOnOptPic();
-				this.#setOnOptSnd();
-			});
 		}	break;
 
 		case 'update.aTemp':{
@@ -778,8 +593,8 @@ export class PrjSetting implements Disposable {
 					'cut_round',
 					`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}" ${this.is_new_tmp}`,
 				);
-				this.#cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
-					cmd		: 'updimg',
+				this.cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
+					cmd		: 'updpic',
 					pathIcon: this.#pathIcon,
 					err_mes	: exit_code === 0
 						? ''
@@ -794,7 +609,7 @@ export class PrjSetting implements Disposable {
 
 		const fn = `${this.#PATH_WS}/${this.fld_src}/font/subset_font.json`;
 		if (! existsSync(fn)) {
-			this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: []});
+			this.cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: []});
 			return;
 		}
 
@@ -807,28 +622,7 @@ export class PrjSetting implements Disposable {
 			err		: (<any>v).err,
 		}));
 		aFontInfo.sort();
-		this.#cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: aFontInfo});
-	}
-
-	#dispOptPic() {
-		this.#cmd2Vue(<T_E2V_OPTIMG>{
-			cmd: 'update.optImg',
-			oOptImg: <T_OPTIMG>{...this.#oOptPic, sum: {
-				...this.#oOptPic.sum,
-				pathImgCmpWebP	: this.#wvuWs +'/doc/prj/',
-				pathImgCmpBase	: this.#wvuWs +`/doc/${FLD_PRJ_BASE}/`,
-			}},
-		});
-	}
-	#dispOptSnd() {
-		this.#cmd2Vue(<T_E2V_OPTSND>{
-			cmd: 'update.optSnd',
-			oOptSnd: <T_OPTSND>{...this.#oOptSnd, sum: {
-				...this.#oOptSnd.sum,
-				pathSndOpt	: this.#wvuWs +'/doc/prj/',
-				pathSndBase	: this.#wvuWs +`/doc/${FLD_PRJ_BASE}/`,
-			}},
-		});
+		this.cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: aFontInfo});
 	}
 
 }

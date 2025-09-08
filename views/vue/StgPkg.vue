@@ -114,17 +114,17 @@ const qselectIcon: T_V2E_SELECT_ICON_FILE = {
 const selectIcon = ()=> cmd2Ex(qselectIcon);
 
 const srcIcon = ref('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==');
-const updIconImg = (src: string)=> srcIcon.value = src +'?'+ new Date().getTime();
+const updIconPic = (src: string)=> srcIcon.value = src +'?'+ new Date().getTime();
 const fld_src = ref('');
 on('!', (d: T_E2V_INIT)=> {
-	updIconImg(d.pathIcon);
+	updIconPic(d.pathIcon);
 	fld_src.value = d.fld_src;
 });
 
 
 const select_icon_err = ref('');
-on('updimg', (d: T_E2V_SELECT_ICON_INFO)=> {
-	updIconImg(d.pathIcon);
+on('updpic', (d: T_E2V_SELECT_ICON_INFO)=> {
+	updIconPic(d.pathIcon);
 	select_icon_err.value = d.err_mes;
 });
 

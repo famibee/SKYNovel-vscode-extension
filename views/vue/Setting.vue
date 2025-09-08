@@ -35,7 +35,7 @@ import StgBasic from './StgBasic.vue'
 import StgApp from './StgApp.vue'
 import StgTemp from './StgTemp.vue'
 import StgDebug from './StgDebug.vue'
-import StgImgOpt from './StgImgOpt.vue'
+import StgPicOpt from './StgPicOpt.vue'
 import StgSndOpt from './StgSndOpt.vue'
 import StgPkg from './StgPkg.vue'
 
@@ -52,7 +52,7 @@ const aTab: T_TAB[] = [
 	{id: 'app',		nm: 'アプリ',		cmp: StgApp},
 	{id: 'temp',	nm: 'テンプレ',		cmp: StgTemp},
 	{id: 'debug',	nm: 'デバッグ',		cmp: StgDebug},
-	{id: 'imgopt',	nm: '画像最適化',	cmp: StgImgOpt},
+	{id: 'PicOpt',	nm: '画像最適化',	cmp: StgPicOpt},
 	{id: 'sndopt',	nm: '音声最適化',	cmp: StgSndOpt},
 	{id: 'pkg',		nm: 'パッケージ',	cmp: StgPkg},
 ];

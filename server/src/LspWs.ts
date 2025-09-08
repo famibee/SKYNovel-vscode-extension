@@ -159,6 +159,11 @@ export class LspWs {
 `|Click
 RightClick
 MiddleClick
+longpress
+swiperight
+swipeleft
+swipeup
+swipedown
 UpWheel
 DownWheel
 Control

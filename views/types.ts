@@ -5,6 +5,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+export type T_CMD =
+	'cnv_mat_pic'|
+	'cnv_mat_snd'|
+	'cnv_psd_face'|
+	'cut_round'|
+	'subset_font';
+
 export type T_WSS = {
 	'cnv.font.subset'		: boolean,
 //	'cnv.icon.cut_round'	: boolean,		// 使用廃止、cnv.icon.shape に切り替え
@@ -153,43 +160,43 @@ export const DEF_CNVFONT: T_A_CNVFONT = [
 ];
 
 
-export type T_OPTIMG_FILE = {
+export type T_OPTPIC_FILE = {
 	baseSize	: number;
 	webpSize	: number;
 	fld_nm		: string,
 	ext			: 'jpg'|'jpeg'|'png';
 	webp_q?		: number;
 };
-export type T_OPTIMG_FILE_AND_KEY = {
+export type T_OPTPIC_FILE_AND_KEY = {
 	key		: number,
 	nm		: string,
 	id		: string,
-} & T_OPTIMG_FILE;
-export type T_OPTIMG = {
+} & T_OPTPIC_FILE;
+export type T_OPTPIC = {
 	sum: {
 		baseSize		: number;
 		webpSize		: number;
-		pathImgCmpWebP	: string,
-		pathImgCmpBase	: string,
+		pathPicCmpWebP	: string,
+		pathPicCmpBase	: string,
 	},
-	hSize: {[fn: string]: T_OPTIMG_FILE},
+	hSize: {[fn: string]: T_OPTPIC_FILE},
 };
 
-export const DEF_OPTIMG: T_OPTIMG = {
+export const DEF_OPTPIC: T_OPTPIC = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
-		pathImgCmpWebP	: '',
-		pathImgCmpBase	: '',
+		pathPicCmpWebP	: '',
+		pathPicCmpBase	: '',
 	},
 	hSize	: {},
 };
-export const DEF_OPTIMG4TST: T_OPTIMG = {
+export const DEF_OPTPIC4TST: T_OPTPIC = {
 	sum: {
 		baseSize		: 4510000,
 		webpSize		: 1550000,
-		pathImgCmpWebP	: '../',
-		pathImgCmpBase	: '../',
+		pathPicCmpWebP	: '../',
+		pathPicCmpBase	: '../',
 	},
 	hSize: {	// ソートテストのため、わざとソートを乱す
 		'title_base'	: {baseSize: 6000, webpSize: 1000, fld_nm: 'test/title_base', ext: 'jpg'},
@@ -293,9 +300,9 @@ export type T_E2V_CNVFONT = {
 	cmd			: 'update.cnvFont';
 	aCnvFont	: T_A_CNVFONT;
 };
-export type T_E2V_OPTIMG = {
-	cmd			: 'update.optImg';
-	oOptImg		: T_OPTIMG;
+export type T_E2V_OPTPIC = {
+	cmd			: 'update.optPic';
+	oOptPic		: T_OPTPIC;
 };
 export type T_E2V_OPTSND = {
 	cmd			: 'update.optSnd';
@@ -316,6 +323,8 @@ export type T_E2V_TEMP_SUB = {
 	aTemp	: T_TEMP[];
 	err		: string;
 };
+
+export type T_E2V = T_E2V_CFG | T_E2V_INIT | T_E2V_TEMP | T_E2V_NOTICE_COMPONENT | T_E2V_SELECT_ICON_INFO | T_E2V_CNVFONT | T_E2V_OPTPIC | T_E2V_OPTSND;
 
 
 // Vue2Ex
@@ -340,7 +349,7 @@ export type T_V2E_SELECT_ICON_FILE = {
 };
 
 export type T_E2V_SELECT_ICON_INFO = {
-	cmd			: 'updimg';
+	cmd			: 'updpic';
 	pathIcon	: string;
 	err_mes		: string;
 };

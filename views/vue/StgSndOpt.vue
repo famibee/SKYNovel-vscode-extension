@@ -76,7 +76,6 @@ const stWss = useWss();
 const {oWss} = storeToRefs(stWss);
 
 const sortHSize: ()=> T_OPTSND_FILE_AND_KEY[] = ()=> Object.entries(oOptSnd.value.hSize)
-	.map(([nm, v], i)=> ({key: i, nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
-	.sort((a, b)=> (a.nm < b.nm) ?-1 :1);	// 昇順ソート
+	.map(([nm, v], key)=> ({key, nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}));
 
 </script>

@@ -1,3 +1,24 @@
+## v4.22.0
+- feat: 素材自動変換をリファクタリング、クラス化して抽出
+	- src/WatchFile2Batch.ts
+	- src/WfbOptPic.ts
+	- src/WfbOptSnd.ts
+- fix: 設定画面の手直し、ビルド環境修正
+- fix: 非同期処理見直し、手直し
+- feat: ファイル構成変更に伴う自動ファイル移動処理追加
+- fix: ファイル構成変更
+	- バッチファイルとそのログを移動（/build/ -> /src（か core）/batch/）
+	- 画像・音声最適化処理の元ファイル退避先フォルダを移動（/doc/prj_base/ -> /src（か core）/prj_base/）
+- fix: src（か core）/resource フォルダがなければ生成
+- fix: 分かりにくいので ensureDir ではなくエイリアスの mkdirs を使うように
+- fix: キーワードを変数化・共通化
+- fix: 全バッチファイルの非同期処理見直し、手直し
+	- p-queue バージョンは最新で問題ない事を確認
+- fix: バッチファイルのログファイルソートを修正
+	- fix: 表示部でのソートは行わないように
+		- views/vue/StgPicOpt.vue
+		- views/vue/StgSndOpt.vue
+- fix(server/src/LspWs.ts): スニペット追加忘れ修正（longpress・swiperight・swipeleft・swipeup・swipedown）
 ## v4.21.3
 - fix(src/Project.ts): 新テンプレでの暗号化処理を修正
 - fix(src/PrjSetting.ts): 設定画面による prj.json 変更で、save_ns がテンプレのままなら debuger_token を空白とする（使用者のみセットさせる）

@@ -13,18 +13,18 @@ sharp.cache(false);
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
 import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
-import {T_OPTIMG, T_OPTIMG_FILE} from '../../views/types';
+import {mkdirs, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
+import type {T_OPTPIC, T_OPTPIC_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
-function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
+async function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> Promise<void>) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
-		if (d.isDirectory()) {fncFld(nm); continue;}
+		if (d.isDirectory()) {await fncFld(nm); continue;}
 
 		const fp = resolve(wd, nm);
 		fnc(fp, nm);
@@ -74,12 +74,12 @@ const DEST_REP_JSON_RESTORE	= '$1"';
 
 
 const fnLog = __filename +'on';
-let oLog: T_OPTIMG = {
+let oLog: T_OPTPIC = {
 	sum: {
 		baseSize		: 0,
 		webpSize		: 0,
-		pathImgCmpWebP	: '',
-		pathImgCmpBase	: '',
+		pathPicCmpWebP	: '',
+		pathPicCmpBase	: '',
 	},
 	hSize	: {},
 };
@@ -103,13 +103,14 @@ const log_enter = ()=> {
 	oLog = o;
 };
 const log_exit = (exit_code = -1)=> {
-	const a = Object.entries(oLog.hSize);
-	a.sort((p1, p2)=> {
-		const k1 = p1[0], k2 = p2[0];
-		if (k1 < k2) return -1;
-		if (k1 > k2) return 1;
+	const a = Object.entries(oLog.hSize)
+	.sort(([k1], [k2])=> {
+		const n1 = k1.toUpperCase();
+		const n2 = k2.toUpperCase();
+		if (n1 < n2) return -1;
+		if (n1 > n2) return 1;
 		return 0;
-	})
+	});
 	oLog.hSize = Object.fromEntries(a);
 
 	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
@@ -124,8 +125,7 @@ const go = async ()=> {
 	start_cnt = queue.size;
 	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_pic.ts start: ${start_cnt} tasks`));
 
-	queue.start();
-	await queue.onIdle();
+	await queue.start().onIdle();
 	log_exit(0);
 };
 let cnt = ()=> {
@@ -144,8 +144,8 @@ let cnt = ()=> {
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): void {
-	queue.add(async ()=> {
+async function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
+	return queue.add(async ()=> {
 		if (do_move) await move(pathPrj, pathBase, {overwrite: true});
 
 		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
@@ -176,16 +176,19 @@ function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): void {
 
 switch (modeInp) {
 	case 'enable':		// 変換有効化
-		ensureDir(curPrjBase);
-		foldProc(curPrj, ()=> {}, dir=> {
+		await mkdirs(curPrjBase);
+		await foldProc(curPrj, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
-			foldProc(resolve(curPrj, dir), (url, name)=> {
+			await mkdirs(wdBase);
+			await foldProc(resolve(curPrj, dir), (url, nm)=> {
 				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(name)) {cnv(url, resolve(wdBase, name)); return;}
+				if (REG_EXT_ORG.test(nm)) {
+					queue.add(()=> cnv(url, resolve(wdBase, nm)));
+					return;
+				}
 
 				// htm置換（true/*WEBP*/）
-				if (REG_EXT_HTML.test(name)) {
+				if (REG_EXT_HTML.test(nm)) {
 					queue.add(()=> {replaceFile(
 						url,
 						REG_REP_WEBPFLAG,
@@ -196,33 +199,34 @@ switch (modeInp) {
 				}
 
 				// json置換（アニメpng）
-				if (REG_EXT_JSON.test(name)) queue.add(()=> {replaceFile(
+				if (REG_EXT_JSON.test(nm)) queue.add(()=> {replaceFile(
 					url,
 					REG_REP_JSON_CNV,
 					DEST_REP_JSON_CNV,
 				); cnt();});
-			}, ()=> {});
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'disable':		// 変換無効化
-		foldProc(curPrjBase, ()=> {}, dir=> {
-			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
+		await foldProc(curPrjBase, ()=> {}, async dir=> {
+			await foldProc(resolve(curPrjBase, dir), (url, nm)=> {
 				if (! REG_EXT_ORG.test(nm)) return;
 
 				// 対応する素材ファイルが無い場合、削除しないように
 				const urlPrj = resolve(curPrj, dir, nm);
-				queue.add(async ()=> {await move(url, urlPrj, {overwrite: true}); cnt();});
+				queue.add(async ()=> {
+					await move(url, urlPrj, {overwrite: true});
+					cnt();
+				});
 				const {name} = parse(nm);
 				const urlOut = resolve(curPrj, dir, name +'.webp');
 				queue.add(async ()=> {await remove(urlOut); cnt();});
-			}, ()=> {});
+			}, async ()=> {});
 		});
 
-		foldProc(curPrj, ()=> {}, dir=> {
-			foldProc(resolve(curPrj, dir), (url, nm)=> {
+		await foldProc(curPrj, ()=> {}, async dir=> {
+			await foldProc(resolve(curPrj, dir), async (url, nm)=> {
 				// htm置換・(true/*WEBP*/)
 				if (REG_EXT_HTML.test(nm)) {
 					REG_REP_WEBPFLAG.lastIndex = 0;	// /gなので必要
@@ -241,10 +245,8 @@ switch (modeInp) {
 					REG_REP_JSON_RESTORE,
 					DEST_REP_JSON_RESTORE,
 				); cnt();});
-			}, ()=> {});
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'reconv':		// 再変換
@@ -254,41 +256,39 @@ switch (modeInp) {
 		oLog.sum.webpSize = 0;
 
 		for (const {ext, fld_nm} of Object.values(oLog.hSize)) {
-			cnv(
+			queue.add(()=> cnv(
 				resolve(curPrj, fld_nm + '.'+ ext),
 				resolve(curPrjBase, fld_nm + '.'+ ext),
 				false,
-			);
+			));
 		}
-
-		go();
 		break;
 
 	case 'prj_scan':	// prjフォルダ走査
 		log_enter();
 
-		ensureDir(curPrjBase);
-		foldProc(curPrj, ()=> {}, dir=> {
+		await mkdirs(curPrjBase);
+		await foldProc(curPrj, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
-			foldProc(resolve(curPrj, dir), (url, name)=> {
+			await mkdirs(wdBase);
+			await foldProc(resolve(curPrj, dir), (url, nm)=> {
 				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(name)) {
+				if (REG_EXT_ORG.test(nm)) {
 					// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
-					const nm = parse(name).name;
-					if (nm in oLog.hSize) {
-						const {baseSize=0, webpSize=0} = oLog.hSize[nm]!;
+					const {name} = parse(nm);
+					if (name in oLog.hSize) {
+						const {baseSize=0, webpSize=0} = oLog.hSize[name]!;
 						oLog.sum.baseSize -= baseSize;
 						oLog.sum.webpSize -= webpSize;
 					}
 
 					// 最適化処理する
-					cnv(url, resolve(wdBase, name));
+					queue.add(()=> cnv(url, resolve(wdBase, nm)));
 					return;
 				}
 
 				// htm置換（true/*WEBP*/）
-				if (REG_EXT_HTML.test(name)) {
+				if (REG_EXT_HTML.test(nm)) {
 					queue.add(()=> {replaceFile(
 						url,
 						REG_REP_WEBPFLAG,
@@ -299,50 +299,46 @@ switch (modeInp) {
 				}
 
 				// json置換（アニメpng）
-				if (REG_EXT_JSON.test(name)) queue.add(()=> {replaceFile(
+				if (REG_EXT_JSON.test(nm)) queue.add(()=> {replaceFile(
 					url,
 					REG_REP_JSON_CNV,
 					DEST_REP_JSON_CNV,
 				); cnt();});
-			}, ()=> {});
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'base_scan':	// baseフォルダ走査
 		log_enter();
 
-		foldProc(curPrjBase, ()=> {}, dir=> {
+		await foldProc(curPrjBase, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
+			await mkdirs(wdBase);
 			const wdPrj = resolve(curPrj, dir);
-			foldProc(wdBase, (url, name)=> {
+			await foldProc(wdBase, (url, nm)=> {
 				if (! REG_EXT_ORG.test(url)) return;
 
-				const toPath = resolve(wdPrj, name.replace(REG_EXT_ORG, '.webp'));
+				const toPath = resolve(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
 				if (! chkUpdate(url, toPath)) return;
 
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
-				const nm = parse(name).name;
-				if (nm in oLog.hSize) {
-					const {baseSize=0, webpSize=0} = oLog.hSize[nm]!;
+				const {name} = parse(nm);
+				if (name in oLog.hSize) {
+					const {baseSize=0, webpSize=0} = oLog.hSize[name]!;
 					oLog.sum.baseSize -= baseSize;
 					oLog.sum.webpSize -= webpSize;
 				}
 
-				cnv(toPath, url, false);
-			}, ()=> {});
+				queue.add(()=> cnv(toPath, url, false));
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
-	default:		// 現状未使用
+	default:{		// 現状未使用
 		log_enter();
 
 		const {dir, name, ext} = parse(modeInp);
-		const o: T_OPTIMG_FILE = {
+		const o: T_OPTPIC_FILE = {
 			...oLog.hSize[name]!,
 			fld_nm	: basename(dir) +'/'+ name,
 			ext		: <any>ext.slice(1),
@@ -354,8 +350,8 @@ switch (modeInp) {
 			// 第一引数（退避元パス）
 			// 第三引数（退避先パス）
 			// 第四引数（moveする/しない）
-		cnv(modeInp, curPrj, Boolean(curPrjBase));
-
-		go();
-		break;
+		await cnv(modeInp, curPrj, Boolean(curPrjBase));
+	}	break;
 }
+
+await go();

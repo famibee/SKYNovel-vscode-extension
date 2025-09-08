@@ -58,7 +58,7 @@ table .btn:disabled {
 </div>
 
 
-<div v-if="oOptImg.sum.baseSize > 0" class="col-6 col-sm-5 px-1">
+<div v-if="oOptPic.sum.baseSize > 0" class="col-6 col-sm-5 px-1">
 <table class="table table-striped">
 <thead><tr>
 	<th>元画像サイズ合計</th>
@@ -67,16 +67,16 @@ table .btn:disabled {
 </tr></thead><tbody>
 <tr>
 	<td style="text-align: right;"
-		v-text="oOptImg.sum.baseSize.toLocaleString('ja-JP') +' byte'"/>
+		v-text="oOptPic.sum.baseSize.toLocaleString('ja-JP') +' byte'"/>
 	<td style="text-align: right;"
-		v-text="oOptImg.sum.webpSize.toLocaleString('ja-JP') +' byte'"/>
-	<td v-text="(oOptImg.sum.webpSize / oOptImg.sum.baseSize).toLocaleString('ja-JP')"></td>
+		v-text="oOptPic.sum.webpSize.toLocaleString('ja-JP') +' byte'"/>
+	<td v-text="(oOptPic.sum.webpSize / oOptPic.sum.baseSize).toLocaleString('ja-JP')"></td>
 </tr>
 </tbody></table>
 </div>
 
 
-<div v-if="oOptImg.sum.baseSize > 0" class="col-12 px-1"><div>
+<div v-if="oOptPic.sum.baseSize > 0" class="col-12 px-1"><div>
 <div id="clpMatCnv" class="accordion-collapse"><div class="accordion-body p-0 tbody_scroll">
 
 	<table id="tblMatCnv" class="table table-striped table-hover accordion bg-secondary"><thead class="sticky-top"><tr>
@@ -114,19 +114,19 @@ table .btn:disabled {
 		<div class="range-badge" :style="{left: getLeftRangeBadge(e.webp_q, 100, 5)}">
 			<span v-text="e.webp_q" v-show="e.webp_q !== undefined"></span>
 		</div>
-		<input type="range" v-model="oOptImg.hSize[e.nm]!.webp_q"
+		<input type="range" v-model="oOptPic.hSize[e.nm]!.webp_q"
 			max="100" min="5" step="5"
 			:disabled="e.webp_q === undefined || hDisabled['cnv.mat.pic']"
 			@change="chgRangeWebpQ($event, e)" class="form-range my-1 sn-vld"
-			v-if="e.nm in oOptImg.hSize" />
+			v-if="e.nm in oOptPic.hSize" />
 	</div>
 </div>
 
 <div class="col-12 px-1">
 	<div class="position-relative d-flex justify-content-evenly">
 	<ImgComparisonSlider>
-		<img loading="lazy" slot="first" :src="updImg(oOptImg.sum.pathImgCmpWebP + e.fld_nm +'.webp')"/>
-		<img loading="lazy" slot="second" :src="updImg(oOptImg.sum.pathImgCmpBase + e.fld_nm +'.'+ e.ext)"/>
+		<img loading="lazy" slot="first" :src="updPic(oOptPic.sum.pathPicCmpWebP + e.fld_nm +'.webp')"/>
+		<img loading="lazy" slot="second" :src="updPic(oOptPic.sum.pathPicCmpBase + e.fld_nm +'.'+ e.ext)"/>
 		<svg slot="handle" width="100" xmlns="http://www.w3.org/2000/svg" viewBox="-8 -3 16 6">
 			<path stroke="#fff" d="M -5 -2 L -7 0 L -5 2 M -5 -2 L -5 2 M 5 -2 L 7 0 L 5 2 M 5 -2 L 5 2" stroke-width="2" fill="#ffa658" vector-effect="non-scaling-stroke"></path>
 		</svg>
@@ -152,16 +152,15 @@ import {cmd2Ex, getLeftRangeBadge} from '../store/stVSCode';
 import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
-import type {T_OPTIMG_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q} from '../types';
+import type {T_OPTPIC_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q} from '../types';
 import {ImgComparisonSlider} from '@img-comparison-slider/vue';
 
 
 const stOInfo = useOInfo();
-const {oOptImg} = storeToRefs(stOInfo);
+const {oOptPic} = storeToRefs(stOInfo);
 
-const sortHSize: ()=> T_OPTIMG_FILE_AND_KEY[] = ()=> Object.entries(oOptImg.value.hSize)
-	.map(([nm, v], i)=> ({key: i, nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}))
-	.sort((a, b)=> (a.nm < b.nm) ?-1 :1);	// 昇順ソート
+const sortHSize: ()=> T_OPTPIC_FILE_AND_KEY[] = ()=> Object.entries(oOptPic.value.hSize)
+	.map(([nm, v], i)=> ({key: i, nm, id: 'acdMC'+ nm.replaceAll('.', '_'), ...v}));
 
 const chgRangeWebpQDef = (el: any)=> {
 	const webp_q = Number(el.target.value);
@@ -174,10 +173,10 @@ const chgRangeWebpQDef = (el: any)=> {
 const stWss = useWss();
 const {oWss} = storeToRefs(stWss);
 
-const chkChg = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
+const chkChg = (el: any, e :T_OPTPIC_FILE_AND_KEY)=> {
 	const no_def = Boolean(el.target.checked);
 	const webp_q = oWss.value['cnv.mat.webp_quality'];
-	const h = oOptImg.value.hSize[e.nm];
+	const h = oOptPic.value.hSize[e.nm];
 	if (h) {
 		if (no_def) h.webp_q = webp_q;
 		else delete h.webp_q;
@@ -187,11 +186,11 @@ const chkChg = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
 	cmd2Ex(q);
 
 };
-const chgRangeWebpQ = (el: any, e :T_OPTIMG_FILE_AND_KEY)=> {
+const chgRangeWebpQ = (el: any, e :T_OPTPIC_FILE_AND_KEY)=> {
 	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)};
 	cmd2Ex(q);
 }
 
-const updImg = (src: string)=> src +'?'+ new Date().getTime();
+const updPic = (src: string)=> src +'?'+ new Date().getTime();
 
 </script>

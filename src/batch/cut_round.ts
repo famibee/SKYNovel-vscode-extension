@@ -13,23 +13,29 @@ sharp.cache(false);
 import {styleText} from 'node:util';
 import {existsSync} from 'node:fs';
 import {readFile, stat, writeFile} from 'node:fs/promises';
-import {copy, ensureDir, writeJsonSync} from 'fs-extra/esm';
-import {BICUBIC2, BILINEAR, createICNS, createICO} from 'png2icons';
 import {fileURLToPath} from 'node:url';
+import {copy, mkdirs, writeJsonSync} from 'fs-extra/esm';
+import {BICUBIC2, BILINEAR, createICNS, createICO} from 'png2icons';
 
 const __filename = fileURLToPath(import.meta.url);
 
-sharp(src).metadata().then(async (info: any)=> {
-	const oLog: any = {...info, err: '', exif: '', icc: '', iptc: '', xmp: ''};
+sharp(src).metadata().then(async meta=> {
+	const oLog: any = {...meta, err: '', exif: '', icc: '', iptc: '', xmp: ''};
 	const log_exit = (exit_code = -1)=> {
 		writeJsonSync(__filename +'on', oLog, {encoding: 'utf8'});
 		if (exit_code > -1) process.exit(exit_code);
 	}
 	log_exit();
 
+	if (! meta || ! meta.width || ! meta.height) {
+		console.log(styleText(['bgRed', 'white'], `  画像のサイズが不明です`));
+		log_exit(20);
+		return;
+	}
+
 	const wh = 1024;
-	if (info.width < wh || info.height < wh) {
-		oLog.err = `元画像のサイズは ${wh} x ${wh} 以上にして下さい。（width:${info.width} height:${info.height}）`;
+	if (meta.width < wh || meta.height < wh) {
+		oLog.err = `元画像のサイズは ${wh} x ${wh} 以上にして下さい。（width:${meta.width} height:${meta.height}）`;
 		log_exit(10);
 	}
 
@@ -68,7 +74,7 @@ sharp(src).metadata().then(async (info: any)=> {
 		// サムネイル更新
 		const mtPng = (await stat(fnIcon)).mtimeMs;
 		const bIconPng = await readFile(fnIcon);
-		await ensureDir(pathWs +'build/icon/');
+		await mkdirs(pathWs +'build/icon/');
 
 		await Promise.allSettled([
 			async ()=> {
@@ -90,13 +96,14 @@ sharp(src).metadata().then(async (info: any)=> {
 			// 「このアプリについて」用
 			()=> copy(fnIcon, pathWs +is_new_tmp ?'doc/icon.png' :'doc/app/icon.png'),
 		].map(v=> v()));
-
-		console.log(styleText(['bgGreen', 'black'], `fn:cut_round.ts ok.`));
-		process.exit(0);
 	} catch (e) {
 		console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
 		oLog.err = (<Error>e)?.message ?? String(e);
 		log_exit(20);
+		return;
 	}
+
+	console.log(styleText(['bgGreen', 'black'], `fn:cut_round.ts ok.`));
+	process.exit(0);
 
 });

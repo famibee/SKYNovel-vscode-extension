@@ -16,18 +16,18 @@ ffmpeg.setFfmpegPath(ffmpeg_ins.path);
 import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
 import {existsSync, statSync, readdirSync} from 'node:fs';
-import {ensureDir, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
-import {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
+import {mkdirs, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
+import type {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
-function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> void) {
+async function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> Promise<void>) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
-		if (d.isDirectory()) {fncFld(nm); continue;}
+		if (d.isDirectory()) {await fncFld(nm); continue;}
 
 		const fp = resolve(wd, nm);
 		fnc(fp, nm);
@@ -78,13 +78,14 @@ const log_enter = ()=> {
 	oLog = o;
 };
 const log_exit = (exit_code = -1)=> {
-	const a = Object.entries(oLog.hSize);
-	a.sort((p1, p2)=> {
-		const k1 = p1[0], k2 = p2[0];
-		if (k1 < k2) return -1;
-		if (k1 > k2) return 1;
+	const a = Object.entries(oLog.hSize)
+	.sort(([k1], [k2])=> {
+		const n1 = k1.toUpperCase();
+		const n2 = k2.toUpperCase();
+		if (n1 < n2) return -1;
+		if (n1 > n2) return 1;
 		return 0;
-	})
+	});
 	oLog.hSize = Object.fromEntries(a);
 
 	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
@@ -99,8 +100,7 @@ const go = async ()=> {
 	start_cnt = queue.size;
 	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_snd.ts start: ${start_cnt} tasks`));
 
-	queue.start();
-	await queue.onIdle();
+	await queue.start().onIdle();
 	log_exit(0);
 };
 let cnt = ()=> {
@@ -126,8 +126,8 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathInp: string, pathBase: string, do_move: boolean = true): void {
-	queue.add(async ()=> {
+async function cnv(pathInp: string, pathBase: string, do_move: boolean = true): Promise<void> {
+	return queue.add(async ()=> {
 		const {dir, name} = parse(pathInp);
 		if (do_move) await move(pathInp, pathBase, {overwrite: true});
 		else await Promise.allSettled(
@@ -161,34 +161,40 @@ function cnv(pathInp: string, pathBase: string, do_move: boolean = true): void {
 
 switch (modeInp) {
 	case 'enable':		// 変換有効化
-		ensureDir(curPrjBase);
-		foldProc(curPrj, ()=> {}, dir=> {
+		await mkdirs(curPrjBase);
+		await foldProc(curPrj, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
-			foldProc(resolve(curPrj, dir), (url, name)=> {
+			await mkdirs(wdBase);
+			await foldProc(resolve(curPrj, dir), (url, nm)=> {
 				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(name)) {cnv(url, resolve(wdBase, name)); return;}
-			}, ()=> {});
+				if (REG_EXT_ORG.test(nm)) {
+					queue.add(()=> cnv(url, resolve(wdBase, nm)));
+					return;
+				}
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'disable':		// 変換無効化
-		foldProc(curPrjBase, ()=> {}, dir=> {
-			foldProc(resolve(curPrjBase, dir), (url, nm)=> {
+		await foldProc(curPrjBase, ()=> {}, async dir=> {
+			await foldProc(resolve(curPrjBase, dir), (url, nm)=> {
 				if (! REG_EXT_ORG.test(nm)) return;
 
 				// 対応する素材ファイルが無い場合、削除しないように
 				const urlPrj = resolve(curPrj, dir, nm);
-				queue.add(async ()=> {await move(url, urlPrj, {overwrite: true}); cnt();});
+				queue.add(async ()=> {
+					await move(url, urlPrj, {overwrite: true});
+					cnt();
+				});
 				const urlOut = urlPrj.slice(0, -3);
-				['m4a','aac','ogg'].
-				forEach(ext=> queue.add(async ()=> {await remove(urlOut + ext); cnt();}));
-			}, ()=> {});
+				for (const ext of ['m4a','aac','ogg']) {
+					queue.add(async ()=> {
+						await remove(urlOut + ext);
+						cnt();
+					});
+				}
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'reconv':		// 再変換
@@ -198,58 +204,55 @@ switch (modeInp) {
 		oLog.sum.optSize = 0;
 
 		for (const {ext, fld_nm} of Object.values(oLog.hSize)) {
-			cnv(
+			queue.add(()=> cnv(
 				resolve(curPrj, fld_nm + '.'+ ext),
 				resolve(curPrjBase, fld_nm + '.'+ ext),
 				false,
-			);
+			));
 		}
-
-		go();
 		break;
 
 	case 'prj_scan':	// prjフォルダ走査
 		log_enter();
 
-		ensureDir(curPrjBase);
-		foldProc(curPrj, ()=> {}, dir=> {
+		await mkdirs(curPrjBase);
+		await foldProc(curPrj, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
-			foldProc(resolve(curPrj, dir), (url, name)=> {
+			await mkdirs(wdBase);
+			await foldProc(resolve(curPrj, dir), (url, nm)=> {
 				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(name)) {cnv(url, resolve(wdBase, name)); return;}
-			}, ()=> {});
+				if (REG_EXT_ORG.test(nm)) {
+					queue.add(()=> cnv(url, resolve(wdBase, nm)));
+					return;
+				}
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	case 'base_scan':	// baseフォルダ走査
 		log_enter();
 
-		foldProc(curPrjBase, ()=> {}, dir=> {
+		await foldProc(curPrjBase, ()=> {}, async dir=> {
 			const wdBase = resolve(curPrjBase, dir);
-			ensureDir(wdBase);
+			await mkdirs(wdBase);
 			const wdPrj = resolve(curPrj, dir);
-			foldProc(wdBase, (url, name)=> {
+			await foldProc(wdBase, (url, nm)=> {
 				if (! REG_EXT_ORG.test(url)) return;
 
-				const toPath = resolve(wdPrj, name.replace(REG_EXT_ORG, extOut));
+				const toPath = resolve(wdPrj, nm.replace(REG_EXT_ORG, extOut));
 				if (! chkUpdate(url, toPath)) return;
 
 				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
-				const nm = parse(toPath).name;
-				if (nm in oLog.hSize) {
-					const {baseSize=0, optSize=0} = oLog.hSize[nm]!;
+				const {name} = parse(toPath);
+				if (name in oLog.hSize) {
+					const {baseSize=0, optSize=0} = oLog.hSize[name]!;
 					oLog.sum.baseSize -= baseSize;
 					oLog.sum.optSize -= optSize;
 				}
 
-				cnv(toPath, url, false);
-			}, ()=> {});
+				queue.add(()=> cnv(toPath, url, false));
+			}, async ()=> {});
 		});
-
-		go();
 		break;
 
 	default:{
@@ -268,8 +271,7 @@ switch (modeInp) {
 			// 第一引数（退避元パス）
 			// 第三引数（退避先パス）
 			// 第四引数（moveする/しない）
-		cnv(modeInp, curPrj, Boolean(curPrjBase));
-
-		go();
+		await cnv(modeInp, curPrj, Boolean(curPrjBase));
 	}	break;
 }
+await go();

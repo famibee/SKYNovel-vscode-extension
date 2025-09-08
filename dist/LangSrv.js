@@ -751,6 +751,11 @@ ${l}`}:"";for(let{nm:w,txt:T}of h)t.#N[w]=T,t.#a.push({label:w,kind:R.Completion
 `,",")}|`}this.#x=Object.fromEntries(td.map(c=>[c,new Map]));let s=[...Om,...vs];this.#n=Object.fromEntries(s.map(c=>[c,new Set])),this.#f=Object.fromEntries(s.map(c=>[c,{}]))}#r={\u30A4\u30D9\u30F3\u30C8\u540D:`|Click
 RightClick
 MiddleClick
+longpress
+swiperight
+swipeleft
+swipeup
+swipedown
 UpWheel
 DownWheel
 Control
