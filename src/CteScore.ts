@@ -43,7 +43,7 @@ export class CteScore {
 			async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
 				const path = doc.fileName;
 				for (const [cur, v] of Object.entries(CteScore.#hCur2Me)) {
-					if (cur !== path.slice(0, cur.length)) continue;
+					if (! path.startsWith(cur)) continue;
 
 					v.#resolveCustomTextEditor(doc, webviewPanel);
 					break;

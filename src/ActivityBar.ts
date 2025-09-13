@@ -348,7 +348,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		});
 		wp.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
 
-		wp.webview.onDidReceiveMessage(m=> {
+		wp.webview.onDidReceiveMessage(async m=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
 			switch (m.cmd) {
 			case 'get':		wp.webview.postMessage({cmd: 'res', o: {}});	break;
@@ -377,26 +377,25 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}
 
 				// プロジェクトフォルダを置くパスを選んでもらう
-				window.showOpenDialog({
+				const fileUri = await window.showOpenDialog({
 					title	: 'プロジェクトフォルダを置く場所を指定して下さい',
 					canSelectMany	: false,
 					openLabel		: 'フォルダを選択',
 					canSelectFiles	: false,
 					canSelectFolders: true,
-				}).then(fileUri=> {
-					const path_dl = fileUri?.[0]?.fsPath;
-					if (! path_dl) return;	// キャンセル
+				});
+				const path_dl = fileUri?.[0]?.fsPath;
+				if (! path_dl) break;	// キャンセル
 
-					// 既存のフォルダがある際はエラー中断で検討させる
-					const fnTo = path_dl +'/'+ this.#save_ns;
-					if (existsSync(fnTo)) {
-						window.showErrorMessage(`既存のフォルダ ${this.#save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
-						return;
-					}
+				// 既存のフォルダがある際はエラー中断で検討させる
+				const fnTo = path_dl +'/'+ this.#save_ns;
+				if (existsSync(fnTo)) {
+					window.showErrorMessage(`既存のフォルダ ${this.#save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
+					break;
+				}
 
-					// テンプレートからプロジェクト作成
-					this.#crePrjFromTmp(m.cmd, fnTo);
-				})
+				// テンプレートからプロジェクト作成
+				this.#crePrjFromTmp(m.cmd, fnTo);
 				break;
 			}
 		}, false);

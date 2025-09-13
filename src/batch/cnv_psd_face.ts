@@ -65,6 +65,11 @@ function genPsd2Layer(fld: string, {name, left, top, width, height, layer}: T_PS
 			})
 			.toFile(path_out);
 		} catch (e) {
+			console.log(styleText(['bgYellow', 'white'], `  extend(left:${left}, right:${cvsW -left -width}, top:${top}, bottom:${cvsH -top -height})`));
+			console.log(styleText(['bgYellow', 'white'], `  PSD が異常です`+ (
+				left < 0 || cvsW -left -width < 0 ||
+				top < 0 || cvsH -top -height < 0
+			) ?'。レイヤがキャンバスからはみ出ています。レイヤを動かすかトリミングしてください' :''));
 			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
 		}
 	};

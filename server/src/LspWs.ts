@@ -11,7 +11,8 @@ import {AnalyzeTagArg, type HPRM, type PRM_RANGE} from '../../src/AnalyzeTagArg'
 import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 // import hMd from './md.json' with {type: 'json'};
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
-import type {TFONT2STR, TINF_INTFONT, T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
+import type {T_aExt2Snip, T_H_ADIAG, T_QuickPickItemEx} from '../../src/Project';
+import type {TFONT2STR, TINF_INTFONT} from '../../src/WfbOptFont';
 import {type IExts, type IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
 import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
@@ -530,26 +531,33 @@ ${sum}`,}	// --- の前に空行がないとフォントサイズが大きくな
 		this.conn.sendRequest(LspWs.REQ_ID, {cmd, pathWs: this.#PATH_WS, o});
 	}
 	onRequest({cmd, pathWs, o}: {cmd: string, pathWs: string, o: any}) {
-//console.log(`040 fn:LspWs.ts ⬆ onRequest cmd:${cmd} pathWs=${pathWs}= #PATH_WS=${this.#PATH_WS}= o:${Object.keys(o)}:`);
+// console.log(`040 fn:LspWs.ts ⤴ onRequest cmd:${cmd} pathWs=${pathWs}= #PATH_WS=${this.#PATH_WS}= o:${Object.keys(o)}:`);
 		if (pathWs === this.#PATH_WS) this.#hCmd2ReqProc[cmd]?.(o);
 	}
 	#hCmd2ReqProc: {[cmd: string]: (o: any)=> void}	= {
-		'ready': ()=> this.#fullScan(),
-		'init.res':	o=> {
+		'ready'		: ()=> this.#noticeGo(),
+		'go.res'	: o=> {
 			this.#hCmd2ReqProc = this.#hCmd2ReqProc_Inited;
 			this.#scanAll(o);
 		},
 		// これ以上ここに追加してはいけない
 	};
 	readonly	#hCmd2ReqProc_Inited: {[cmd: string]: (o: any)=> void}	= {
-		'init.res'		: o=> this.#scanAll(o),
+		'go.res'		: o=> this.#scanAll(o),
 		'def_plg.upd'	: o=> this.#hDefPlugin = o,
-		'def_esc.upd'	: ()=> this.#fullScan(),
-		'credel_sn'		: ()=> this.#fullScan(),
-		'onchg_scr'		: ({pp2s})=> this.#onChgScripts(pp2s),
-		'hover'	: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.#genHover(uri, pos)}),
+		'def_esc.upd'	: ()=> this.#noticeGo(),
+		'upd_pathjson'	: o=> {
+// console.log(`fn:LspWs.ts upd_pathjson:${JSON.stringify(o)}`);
+			this.#haDiagFiles = o.haDiagFn;
+			this.#noticeGo();
+		},
+		'onchg_scr'	: ({pp2s})=> this.#onChgScripts(pp2s),
+		'hover'		: ({uri, pos})=> this.#sendRequest('hover.res', {uri, ...this.#genHover(uri, pos)}),
 	};
-	#fullScan() {this.#sendRequest('init');}
+	#haDiagFiles	: T_H_ADIAG	= {};
+	#noticeGo() {this.#sendRequest('go', {
+		InfFont	: this.#InfFont,
+	});}	// 必ず go.res が返ってくる
 
 
 	// === ファイル開きイベント ===
@@ -804,7 +812,7 @@ ${
 			}).join('  \n');	// 【半角空白二つ + \n】で改行
 		}
 
-		readonly	#checkRelated = (uri: string)=> this.#PATH_PRJ === this.#fullSchPath2fp(uri).slice(0, this.#LEN_PATH_PRJ);
+		readonly	#checkRelated = (uri: string)=> this.#fullSchPath2fp(uri).startsWith(this.#PATH_PRJ);
 		readonly	#genPrm2Md = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
 			? ('【必須】'+ this.#escHighlight(rangetype))
@@ -1287,23 +1295,25 @@ WorkspaceEdit
 
 	// =======================================
 	#oCfg: any = {};
-	#scanAll(o: {
+	#scanAll({pp2s, hDefPlg, haDiag}: {
 		pp2s	: {[pp: string]: string},
 		hDefPlg	: {[def_nm: string]: PluginDef},	// 'file:///'なし
+		haDiag	: T_H_ADIAG,
 	}) {
-		this.#oCfg = JSON.parse(o.pp2s['prj.json'] ?? '{}');
+		this.#oCfg = JSON.parse(pp2s['prj.json'] ?? '{}');
 		this.#grm.setEscape(this.#oCfg?.init?.escape ?? '');
 
-		this.#hDefPlugin = o.hDefPlg;
+		this.#hDefPlugin = hDefPlg;
+		this.#haDiagFiles = haDiag;
 
 		//console.log(`fn:LspWs.ts #scanAll() 1: #scanBegin()`);
 		this.#scanBegin();
 		//console.log(`fn:LspWs.ts #scanAll() 2: #scanInitAll()`);
 		this.#scanInitAll();
 		//console.log(`fn:LspWs.ts #scanAll() 3: #updPath()`);
-		this.#updPath(o.pp2s['path.json'] ?? '{}');	// 必ず #scanInitAll() 後
+		this.#updPath(pp2s['path.json'] ?? '{}');	// 必ず #scanInitAll() 後
 		//console.log(`fn:LspWs.ts #scanAll() 4: #scanScript()`);
-		for (const [pp, s] of Object.entries(o.pp2s)) {
+		for (const [pp, s] of Object.entries(pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
 
 			this.#hScript[pp] = this.#grm.resolveScript(s);
@@ -1426,6 +1436,14 @@ WorkspaceEdit
 			));
 		}
 
+		// ファイル走査系メッセージ
+		for (const [fp, aD] of Object.entries(this.#haDiagFiles)) {
+			for (const d of aD)
+				(this.#fp2Diag[fp] ??= []).push(Diagnostic.create(
+					Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
+				));
+		}
+
 
 /*	// NOTE: Score
 		if (pp.endsWith('.ssn')) {	// NOTE: Score 変更して動作未確認
@@ -1541,6 +1559,14 @@ WorkspaceEdit
 			]),
 		});
 	}
+		#cnvDiagCh2DS(sev: string): DiagnosticSeverity {
+			switch (sev) {
+				case 'E':	return DiagnosticSeverity.Error;
+				case 'W':	return DiagnosticSeverity.Warning;
+				case 'I':	return DiagnosticSeverity.Information;
+			}
+			return DiagnosticSeverity.Hint;
+		}
 
 
 	readonly	#hDiag	:{[code_name: string]: T_DIAG} = {

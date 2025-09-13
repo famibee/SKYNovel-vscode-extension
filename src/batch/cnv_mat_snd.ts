@@ -186,10 +186,10 @@ switch (modeInp) {
 					await move(url, urlPrj, {overwrite: true});
 					cnt();
 				});
-				const urlOut = urlPrj.slice(0, -3);
+				const delDest = urlPrj.slice(0, -3);
 				for (const ext of ['m4a','aac','ogg']) {
 					queue.add(async ()=> {
-						await remove(urlOut + ext);
+						await remove(delDest + ext);
 						cnt();
 					});
 				}

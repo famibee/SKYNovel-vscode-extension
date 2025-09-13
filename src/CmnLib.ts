@@ -28,7 +28,7 @@ export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
 	// TODO: v2fp() いずれなくす
 /*
-console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
+// console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
 
 fn:Project.ts drop scheme:file
 	fp		:/Users/[]/doc/prj/rule:

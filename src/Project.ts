@@ -9,7 +9,7 @@ import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp
 import type {T_CMD} from '../views/types';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
-import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
+import {ActivityBar, eTreeEnv} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import type {TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
@@ -19,11 +19,13 @@ import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
 import {WatchFile2Batch} from './WatchFile2Batch';
 import {WfbOptPic} from './WfbOptPic';
 import {WfbOptSnd} from './WfbOptSnd';
+import {WfbOptFont} from './WfbOptFont';
 
-import {commands, debug, Diagnostic, DiagnosticSeverity, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, ViewColumn, window, workspace, WorkspaceEdit} from 'vscode';
-import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WebviewPanel, WorkspaceFolder} from 'vscode';
-import {closeSync, createReadStream, createWriteStream, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, globSync, unlink, move, mkdirsSync} from 'fs-extra';
-import {basename, dirname, extname, resolve} from 'node:path';
+import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, window, workspace, WorkspaceEdit} from 'vscode';
+import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
+import {glob, readFile} from 'node:fs/promises';
+import {basename, dirname, extname} from 'node:path';
+import {closeSync, createReadStream, createWriteStream, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirsSync, mkdirs} from 'fs-extra';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
@@ -31,7 +33,6 @@ import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
 import {execSync} from 'child_process';
 import ncu from 'npm-check-updates'
-import {userInfo} from 'os';
 import replaceAsync from 'string-replace-async';
 
 
@@ -44,33 +45,22 @@ type PluginDef = {
 		const	FLD_CRYPT_DOC	= 'doc_crypto';
 export	const	FLD_PRJ_BASE	= 'prj_base';
 
-// フォントと使用文字情報
-export type TFONT2STR = {
-	[font_nm: string]: string;
-};
-type TFONT_ERR = {
-	err	: string;
-	nm	: string;
-	sl	: number;
-	sc	: number;
-	el	: number;
-	ec	: number;
-};
-export type TINF_INTFONT = {
-	defaultFontName	: string;
-	hSn2Font2Str	: {[sn: string]: TFONT2STR};
-	hFp2FontErr		: {[fp: string]: TFONT_ERR[]}
-};
-
 export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
 
-type T_DIFF = {
+export type T_DIFF = {
 	hash: number,	// ファイル変更検知ハッシュ
 	cn	: string,	// ファイル名匿名化辞書
 };
+export type H_T_DIFF = {[pp: string]: T_DIFF};
+
+export type T_DIAG = {
+	mes: string,
+	sev: 'E'|'W'|'I'|'H',
+};
+export type T_H_ADIAG = {[fp: string]: T_DIAG[]};
 
 export type T_CN = {
 	pathCn	: string | undefined,
@@ -98,14 +88,17 @@ export class Project {
 
 	readonly	#encry;
 
+	readonly	#ps;
+
 //	readonly	#ds		= new DisposableStack;
 	readonly	#ds		: Disposable[]	= [];
 
-	readonly	#fnDiff	: string;
-				#hDiff	: {[fn: string]: T_DIFF}	= Object.create(null);
+	// ファイル更新検知ハッシュ
+	readonly	#PATH_DIFF;
+				#hDiff	: H_T_DIFF	= Object.create(null);
 
 
-	private	dspCryptoMode() {}		// 暗号化状態
+	#dspCryptoMode;		// 暗号化状態
 
 	readonly	#aTiFlat: TreeItem[]	= [];
 	enableBtn(enabled: boolean): void {
@@ -121,15 +114,14 @@ export class Project {
 
 	readonly	#sendRequest2LSP: (cmd: string, o?: any)=> void;
 
-	readonly	#clDiag;
+	#haDiagFn	: T_H_ADIAG	= {};
+	#haDiagFont	: T_H_ADIAG	= {};
 
 	readonly	#cfg;
 
 	readonly	#optPic;
 	readonly	#optSnd;
-
-	readonly	#localExtensionResRoots: Uri;
-	readonly	#htmOpFolder;
+	readonly	#optFont;
 
 
 	//MARK: コンストラクタ
@@ -150,15 +142,6 @@ export class Project {
 		const REG_path2 = `\\/(doc\\/prj|${this.#FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
 		this.#REG_fp2pp	= new RegExp('^.+'+ REG_path2);
-
-		const path_view_root = ctx.extensionPath +'/views/';
-		this.#localExtensionResRoots = Uri.file(path_view_root);
-		this.#htmOpFolder = readFileSync(
-			path_view_root +'folder.htm', {encoding: 'utf8'}
-		)
-		.replace('<meta_autooff ', '<meta ')// ローカルデバッグしたいので
-		.replaceAll('${nonce}', getNonce())
-		.replace('.ts"></script>', '.js"></script>');
 
 		this.#hTask2Inf = {
 			cnv_mat_pic: {
@@ -218,45 +201,23 @@ export class Project {
 			`${this.#FLD_SRC}/web4webpack.js`,
 		];
 
-		try {
-			this.#fnDiff = `${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`;
-			if (existsSync(this.#fnDiff)) this.#hDiff = readJsonSync(this.#fnDiff);
-		} catch (e) {this.#hDiff = Object.create(null);}	// diff破損対策
-
 		// プロジェクト管理系
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
 		this.#cfg = new Config(sr, this.#encry);
 
-
-		this.#optPic = new WfbOptPic(
+		WatchFile2Batch.init(
 			ctx,
 			wsFld,
-			()=> this.#ps.oWss,
-			mes=> this.#ps.cmd2Vue(mes),
 			(nm, arg)=> this.#exeTask(nm, arg),
 			()=> this.#updPathJson(),
+			()=> this.#updDiffJson(),
+			this.#hDiff,
 			uri=> this.#encIfNeeded(uri),
 			fp=> this.#path2cn(fp),
+			fp=> this.#fp2pp(fp),
 			this.#FLD_SRC,
-			()=> this.#ps.wvuWs,
 			(nm, val)=> this.#onSettingEvt(nm, val),
-			uri=> this.#chkWVFolder(uri),
 		);
-		this.#optSnd = new WfbOptSnd(
-			ctx,
-			wsFld,
-			()=> this.#ps.oWss,
-			mes=> this.#ps.cmd2Vue(mes),
-			(nm, arg)=> this.#exeTask(nm, arg),
-			()=> this.#updPathJson(),
-			uri=> this.#encIfNeeded(uri),
-			fp=> this.#path2cn(fp),
-			this.#FLD_SRC,
-			()=> this.#ps.wvuWs,
-			(nm, val)=> this.#onSettingEvt(nm, val),
-			uri=> this.#chkWVFolder(uri),
-		);
-
 		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg), is_new_tmp);
 		aTiRoot.push(pti);
 		this.#ds.push(this.#ps = new PrjSetting(
@@ -270,84 +231,97 @@ export class Project {
 			this.#sendRequest2LSP,
 			(nm, val)=> this.#onSettingEvt(nm, val),
 			(nm, arg)=> this.#exeTask(nm, arg),
-			this.#optPic,
-			this.#optSnd,
+			fp=> this.#fp2pp(fp),
+			this.#optPic	= new WfbOptPic,
+			this.#optSnd	= new WfbOptSnd,
+			this.#optFont	= new WfbOptFont,
 			this.#FLD_SRC,
 			is_new_tmp,
-			this.#LEN_PATH_PRJ,
 		));
-
+		WatchFile2Batch.setStg(this.#ps);
 
 		const aTi = pti.children;
-		const aC = (aTi[aTi.length -1] as PrjTreeItem).children;
+		const aC = (aTi.at(-1)! as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
-		const tiDevSnUpd = aTi[eDevTreeView.SnUpd]!;
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
-			tiDevSnUpd.description = o.verSN
+			const ti = aTi[eDevTreeView.SnUpd]!;
+			ti.description = o.verSN
 				? o.verSN.startsWith('ile:') || o.verSN.startsWith('./')
 				? '（相対パス参照中）'
 				: `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
 				: '取得できません';
-			emPrjTD.fire(tiDevSnUpd);
+			emPrjTD.fire(ti);
 			return o;
 		};
+		this.#dspCryptoMode = ()=> {
+			const ti = aTi[eDevTreeView.Crypto]!;
+			ti.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
+			emPrjTD.fire(ti);
+		};
 
-		const {username} = userInfo();
-		this.#aPlaceFont	= [
-			`${this.#PATH_WS}/${this.#FLD_SRC}/font`,
-			is_win
-				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
-				: `/Users/${username}/Library/Fonts`,
-			is_win
-				? 'C:/Windows/Fonts'
-				: '/Library/Fonts',
-		];
+		this.#PATH_DIFF = `${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`;
+		this.#encry.init()
+		.then(()=> Promise.allSettled([
+			async ()=> {
+				await this.#initCrypto();
+				this.#dspCryptoMode();
+			},
 
-		// 診断機能
-		this.#clDiag = languages.createDiagnosticCollection(docsel.language);
+			async ()=> {
+				try {
+					if (existsSync(this.#PATH_DIFF)) this.#hDiff = await readJson(this.#PATH_DIFF);
 
-		// use #encry、開かれる前にファイル追加・削除の対応
-		this.#encry.init().then(async ()=> {
-			this.#initCrypto();
+					const o = this.#hDiff;
+					for (const pp in o) {
+						const fp = `${this.#PATH_CRYPT}${o[pp]!.cn}`;
+						// 存在しなくなってるファイルの情報を削除
+						if (! existsSync(fp)) delete this.#hDiff[pp];
+					}
+				} catch (e) {
+					this.#hDiff = Object.create(null);	// diff破損対策
+				}
+				// this.#updDiffJson();		// 後の #initCrypto() でやる
+			},
 
-			// 旧テンプレ置換
-			if (! is_new_tmp) {
-				// == 以下は updPrjFromTmp() で全置き換えされるのでそのままとする
-				// core/webpack.config.js
-				// 旧ビルドによる中間ファイルを削除
-				globSync(this.#PATH_WS +'/doc/{app/app,web}.vendors-node_modules_*.js').forEach(fn=> unlink(fn));
+			async ()=> {
+				// 旧テンプレ置換
+				if (! is_new_tmp) {
+					// == 以下は updPrjFromTmp() で全置き換えされるのでそのままとする
+					// core/webpack.config.js
+					// 旧ビルドによる中間ファイルを削除
+					for await (const fn of glob(this.#PATH_WS +'/doc/{app/app,web}.vendors-node_modules_*.js')) await unlink(fn);
 
-				// == 以下は 置き換えない系（せいぜい値持ち越し）
-				// package.json
-				replaceFile(	// テンプレ更新のために必ず更新
-					this.#PATH_WS +'/package.json',
-					/github.com:famibee\/SKYNovel_/,
-					`github.com:famibee\/tmp_cjs_`,
-					false,
-				);
+					// == 以下は 置き換えない系（せいぜい値持ち越し）
+					// package.json
+					replaceFile(	// テンプレ更新のために必ず更新
+						this.#PATH_WS +'/package.json',
+						/github.com:famibee\/SKYNovel_/,
+						`github.com:famibee\/tmp_cjs_`,
+						false,
+					);
 
-				replaceFile(	// テンプレ更新しなくても最低限動作するように
-					this.#PATH_WS +'/package.json',
-					/ && npm i && npm run webpack:dev/,
-					` && npm i",\n\t\t"postinstall": "npm run webpack:dev`,
-					false,
-				);
-			}
-			// v4.21.4 バッチファイル位置移動
-			globSync(this.#PATH_WS +'/build/{cnv_*,cut_round,subset_font}.{js,json}').forEach(async fn=> {
-				const dest = fn.replace('/build/', `/${this.#FLD_SRC}/batch/`);
-				await move(fn, dest);
-			});
+					replaceFile(	// テンプレ更新しなくても最低限動作するように
+						this.#PATH_WS +'/package.json',
+						/ && npm i && npm run webpack:dev/,
+						` && npm i",\n\t\t"postinstall": "npm run webpack:dev`,
+						false,
+					);
+				}
+				// v4.21.4 バッチファイル位置移動
+				for await (const fn of glob(this.#PATH_WS +'/build/{cnv_*,cut_round,subset_font}.{js,json}')) {
+					const dest = fn.replace('/build/', `/${this.#FLD_SRC}/batch/`);
+					await move(fn, dest);
+				}
 
-			// v4.21.4 画像・音声最適化処理の元ファイル退避先フォルダ移動
-			const OLD_FLD_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
-			if (existsSync(OLD_FLD_PRJ_BASE)) await move(OLD_FLD_PRJ_BASE, this.#PATH_PRJ_BASE);
+				// v4.21.4 画像・音声最適化処理の元ファイル退避先フォルダ移動
+				const OLD_FLD_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
+				if (existsSync(OLD_FLD_PRJ_BASE)) await move(OLD_FLD_PRJ_BASE, this.#PATH_PRJ_BASE);
 
-			// v4.21.2 パス通し設定を settings.json に追記
-			const pathStgJS = this.#PATH_WS +'/.vscode/settings.json';
-			if (existsSync(pathStgJS)) {
-				readJson(pathStgJS, {encoding: 'utf8'}).then(async o=> {
+				// v4.21.2 パス通し設定を settings.json に追記
+				const pathStgJS = this.#PATH_WS +'/.vscode/settings.json';
+				if (existsSync(pathStgJS)) {
+					const o = await readJson(pathStgJS, {encoding: 'utf8'});
 					if ('terminal.integrated.env.windows' in o) return;
 
 					o['terminal.integrated.env.windows'] = {
@@ -357,171 +331,53 @@ export class Project {
 						"PATH": "${workspaceRoot}/node_modules/.bin:${env:PATH}"
 					};
 					await writeFile(pathStgJS, JSON.stringify(o, null, '\t'));
-				});
-			}
-			else await copyFile(ctx.extensionPath +'/res/settings.json', pathStgJS)
-
-
-			// updPlugin で goAll() が走る
-			const firstInit = ! existsSync(this.#PATH_WS +'/node_modules');
-			if (firstInit) {
-				this.#updPlugin();
-				if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
-			}
-			else this.#updPlugin(false);
-
-
-			// ?
-			const hFld2hFile: {[fld_nm: string]: {[fp: string]: 0}} = {};
-			foldProc(this.#PATH_PRJ, ()=> {}, fld_nm=> {
-				const o: any = hFld2hFile[fld_nm] = {};
-				foldProc(resolve(this.#PATH_PRJ, fld_nm), (vfp, _nm)=> {
-					const fp = v2fp(Uri.file(vfp).path);
-					o[fp] = 0;
-				}, ()=> {});
-			});
-
-
-			// setting.sn
-			await this.#ps.cnvWatch(
-				new RelativePattern(wsFld, 'doc/prj/*/setting.sn'), '', async _uri=> {}, this.#ds, async (uri, cre)=> {
-					if (cre) {
-						this.#ps.onCreSettingSn(uri);
-						this.#encIfNeeded(uri);
-						this.#updPathJson();
-					}
-					else {
-					//	this.#ps.onChgSettingSn(uri);	// ここでやると変更が戻るループ
-						this.#encIfNeeded(uri);
-					}
-				}, async uri=> {
-					this.#ps.onDelSettingSn(uri);
-					this.#updPathJson();
 				}
-			);
+				else await copyFile(ctx.extensionPath +'/res/settings.json', pathStgJS);
+			},
+
+			async ()=> {
+				const firstInit = ! existsSync(this.#PATH_WS +'/node_modules');
+				await this.#updPlugin(firstInit);	// updPlugin で goAll() が走る
+				if (firstInit) {
+					 if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+				}
+				else await actBar.chkLastSNVer([this.getLocalSNVer()]);
+			},
+
 			// {jpg,jpeg,png} -> webp
-			await this.#optPic.init();
+			()=> this.#optPic.init(),
+
 			// {mp3,wav} -> {m4a,aac,ogg}
-			await this.#optSnd.init();
+			()=> this.#optSnd.init(),
 
-			// other{sn, htm ...} -> {}
-			const onDidDelete = async (uri: Uri)=> {
-//console.log(`fn:Project.ts other DEL path=${uri.path}=`);
-				if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
+			// {sn, htm ...} -> {woff2,woff,otf,ttf}
+			()=> this.#optFont.init(),
 
-				// Del
-				const {pathCn, pp} = this.#path2cn(uri.path);
-				if (pathCn) await remove(pathCn);
-		
-				delete this.#hDiff[pp];
-				this.#updDiffJson();
-		
-				this.#updPathJson();
-			};
-			const PATH_CNVWATCH = `{doc/prj,${this.#FLD_SRC}/${FLD_PRJ_BASE}}/`;
-			await this.#ps.cnvWatch(
-				new RelativePattern(wsFld, PATH_CNVWATCH +`**/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}`),
-				'', async _uri=> {}, this.#ds, async (uri, cre)=> {
-//console.log(`fn:Project.ts other ${cre ?'CRE' :'CHG'} path=${uri.path}=`);
-					if (cre) {
-						const fp = v2fp(uri.path);
-						const pp = this.#fp2pp(fp);
-						const fld_nm = dirname(pp);
-						(hFld2hFile[fld_nm] ??= {})[fp] = 0;
-
-						if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
-
-						// Cre
-						this.#encIfNeeded(uri);
-						this.#updPathJson();
-					}
-					else {
-						if (uri.path.slice(0, this.#LEN_PATH_PRJ) !== this.#PATH_PRJ) return;
-
-						// Chg
-						this.#encIfNeeded(uri);
-					}
-				}, uri=> onDidDelete(uri)	// フォルダごと削除すると、発生しない！
-			);
-
-
-			// ファイル増減を監視し、path.json を自動更新など各種処理
-			this.#ds.push(workspace.createFileSystemWatcher(
+			// path.json 変更時に暗号化処理起動
+			async ()=> this.#ds.push(workspace.createFileSystemWatcher(
 				new RelativePattern(wsFld, 'doc/prj/prj.json')
-			).onDidChange(uri=> this.#encIfNeeded(uri)));
+			).onDidChange(uri=> this.#encIfNeeded(uri))),
 
+			async ()=> {
+				debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
+				debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
 
-			// prjルートフォルダ監視
-			const fwFld = workspace.createFileSystemWatcher(
-				new RelativePattern(wsFld, 'doc/prj/[a-zA-Z0-9]*')
-			);	// '.' 始まりフォルダを除外
-			this.#ds.push(fwFld.onDidCreate(uri=> {
-				if (! statSync(uri.path).isDirectory()) return;
-//console.log(`fn:Project.ts fwFld CRE:${uri.path.slice(this.#LEN_PATH_PRJ)}:`);
+				// デバッグ中のみ有効なホバー
+				ctx.subscriptions.push(languages.registerEvaluatableExpressionProvider(docsel, {
+					provideEvaluatableExpression(doc, pos): ProviderResult<EvaluatableExpression> {
+						const r = doc.getWordRangeAtPosition(pos, Project.#REG_VAR);
+						if (! r) return Promise.reject('No word here.');
 
-				this.#ps.onCreDir(uri);
-			}));
-			/*	this.#ds.adopt(fwFld.onDidChange(uri=> {
-				// フォルダ名では Change が発生せず、Cre → Del。fwPrj は「発生しない」
-				// path.json, prj.json のみ発生する
-			}));	*/
-			this.#ds.push(fwFld.onDidDelete(async uri=> {
-				//if (! statSync(uri.path).isDirectory()) return;
-					// すでに削除されてしまっているので
-
-				const fld_nm = uri.path.slice(this.#LEN_PATH_PRJ);
-//console.log(`fn:Project.ts fwFld DEL:${fld_nm}:`);
-				await Promise.allSettled(
-					Object.keys(hFld2hFile[fld_nm]!)
-					.map(fp=> onDidDelete(Uri.file(fp)))
-				);
-				delete hFld2hFile[fld_nm];
-
-				await remove(
-					(this.#isCryptoMode
-					? this.#PATH_CRYPT
-					: this.#PATH_PRJ_BASE) + fld_nm
-				);
-
-				if (this.#pnlWVFolder) {
-					this.#pnlWVFolder?.dispose();
-					this.#pnlWVFolder = undefined;
-					this.#uriOpFolder = null;
-				}
-
-				this.#ps.onDelDir(uri);
-			}));
-
-
-			if (! firstInit) await actBar.chkLastSNVer([this.getLocalSNVer()]);
-
-			const tiDevCrypto = aTi[eDevTreeView.Crypto]!;
-			this.dspCryptoMode = ()=> {
-				tiDevCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
-				emPrjTD.fire(tiDevCrypto);
-			};
-			this.dspCryptoMode();
-
-
-			debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
-			debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
-
-			// デバッグ中のみ有効なホバー
-			ctx.subscriptions.push(languages.registerEvaluatableExpressionProvider(docsel, {
-				provideEvaluatableExpression(doc: TextDocument, pos: Position): ProviderResult<EvaluatableExpression> {
-					const r = doc.getWordRangeAtPosition(pos, Project.#REG_VAR);
-					if (! r) return Promise.reject('No word here.');
-
-					const txt = doc.getText(r);
-					const hc = txt.at(0);
-					if (hc === '[' || hc === '*' || hc === ';'
-					|| txt.at(-1)=== '=') return Promise.reject('No word here.');
-					return new EvaluatableExpression(r, txt);
-				},
-			}));
-
-
-			await this.#basePathJson()
+						const txt = doc.getText(r);
+						const hc = txt.at(0);
+						if (hc === '[' || hc === '*' || hc === ';'
+						|| txt.at(-1)=== '=') return Promise.reject('No word here.');
+						return new EvaluatableExpression(r, txt);
+					},
+				}));
+			},
+		].map(p=> p()))).then(async ()=> {
+			await this.#basePathJson();
 			this.#sendRequest2LSP('ready');
 		});
 	}
@@ -549,8 +405,6 @@ export class Project {
 				#aDbgSS			: DebugSession[]	= [];
 	#onDidTermDbgSS = ()=> {}
 
-	readonly	#ps	: PrjSetting;
-
 	//MARK: デストラクタ
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
@@ -573,9 +427,11 @@ export class Project {
 
 
 	//MARK: LSPから受信
-	onRequest(hd: any) {
-		switch (hd.cmd) {
-			case 'init':{
+	onRequest({cmd, o}: {cmd: string, o: any}) {
+// console.log(`fn:Project.ts ⤵ onRequest cmd:${cmd} o:%o`, o);
+		switch (cmd) {
+			// #noticeGo() から。何度も来る
+			case 'go':{
 				const pp2s: {[pp: string]: string} = {};
 				treeProc(this.#PATH_PRJ, fp=> {
 					if (! /\.(ss?n|json)$/.test(fp)) return;
@@ -587,56 +443,44 @@ export class Project {
 					pp2s[pp] = (REG_SCRIPT.test(fp) ?td?.getText() :undefined)
 						?? readFileSync(fp, {encoding: 'utf8'});
 				});
-				this.#sendRequest2LSP(hd.cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg,});
+
+				//NOTE: #haDiagFont はここで毎回更新すべきか、フォント最適化スイッチをさわったときか、本文にフォントファイルに含まれない文字が増えたときか、減ったときは、など議論がある
+				// ひとまず処理がさほど重くなさそうなので毎回やる
+				this.#haDiagFont = this.#optFont.updDiag(o.InfFont);
+				const haDiag = {...this.#haDiagFn, ...this.#haDiagFont};
+
+				this.#sendRequest2LSP(cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg, haDiag});
 			}	break;
 
+			// #scanEnd() から
 			case 'analyze_inf':{
 				this.#aPickItems = [
 					...aPickItems,
 
 					{kind: QuickPickItemKind.Separator, label: ''},
 
-					...(<T_QuickPickItemEx[]>hd.o.aQuickPickMac)
+					...(<T_QuickPickItemEx[]>o.aQuickPickMac)
 					.map(({label, description, uri})=> ({
 						label, description, uri: Uri.parse(uri),
 					})),
 
 					{kind: QuickPickItemKind.Separator, label: ''},
 
-					...(<T_QuickPickItemEx[]>hd.o.aQuickPickPlg)
+					...(<T_QuickPickItemEx[]>o.aQuickPickPlg)
 					.map(({label, description, uri})=> ({
 						label, description, uri: Uri.parse(uri),
 					})),
 				];
 
-				this.#InfFont = hd.o.InfFont;
-//console.log(`fn:Project.ts InfFont ${JSON.stringify(this.#InfFont)}`);
+				this.#mExt2Snip = new Map(<T_aExt2Snip>o.aExt2Snip);
 
-				this.#mExt2Snip = new Map(<T_aExt2Snip>hd.o.aExt2Snip);
-//console.log(`fn:Project.ts mExt2Snip ${JSON.stringify(<T_aExt2Snip>hd.o.aExt2Snip)}`);
-
-				this.#clDiag.clear();
-				for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
-					const aD: Diagnostic[] = [];
-//console.log(`080 fn:Project.ts analyze_inf uri:${uri}:`);
-					for (const {err, nm, sl, sc, el, ec} of a) {
-						if (this.#getFontNm2path(nm)) continue;
-
-						aD.push(new Diagnostic(
-							new Range(sl, sc, el, ec), err,
-							DiagnosticSeverity.Error,
-						));
-					}
-					this.#clDiag.set(Uri.file(fp), aD);
-				}
-
-				this.#basePathJsonAfter = ()=> this.#sendRequest2LSP('credel_sn');
+				this.#sendReqPathJson = o=> this.#sendRequest2LSP('upd_pathjson', o);
 			}	break;
 
 			case 'hover.res':	{
-				const {path} = Uri.parse(hd.o?.uri);
-//console.log(`fn:Project.ts hover.res path:${path}: hd.o=${JSON.stringify(hd.o)}`);
-				this.#hPath2Proc[path]?.(hd.o);
+				const {path} = Uri.parse(o?.uri);
+//console.log(`fn:Project.ts hover.res path:${path}: o=${JSON.stringify(o)}`);
+				this.#hPath2Proc[path]?.(o);
 			}	break;
 		}
 	}
@@ -701,22 +545,6 @@ export class Project {
 	get	#vpPrj(): string {return this.wsFld.uri.toString() +'/doc/prj/'}
 		readonly	#whThumbnail = 200;
 
-	#getFontNm2path(font_nm: string): string {
-		for (const base of this.#aPlaceFont) {
-			for (const ext of ['woff2','otf','ttf','WOFF2','OTF','TTF']) {
-				const path = `${base}/${font_nm}.${ext}`;
-				if (existsSync(path)) return path;
-			}
-		}
-		return '';
-	};
-	#InfFont	: TINF_INTFONT	= {	// フォントと使用文字情報
-		defaultFontName	: '',
-		hSn2Font2Str	: {},
-		hFp2FontErr		: {},
-	};
-	readonly	#aPlaceFont;
-
 
 	#aPickItems	: QuickPickItemEx[] = [];
 	openReferencePallet() {
@@ -729,119 +557,7 @@ export class Project {
 
 
 	//MARK: ビューオープン
-	opView(uri: Uri) {
-		const vfp = uri.path;
-		const fp = v2fp(vfp);
-		if (fp === this.#PATH_PRJ +'prj.json') {this.#ps.open(); return;}
-
-		this.#opFolder(uri);
-	}
-	#opFolder(uri: Uri) {
-		// フォルダビュー
-		const column = window.activeTextEditor?.viewColumn;
-		const wp = this.#pnlWVFolder;
-		if (this.#uriOpFolder === uri && wp) {wp.reveal(column); return;}
-
-		if (! wp) {
-			const wp = this.#pnlWVFolder = window.createWebviewPanel('SKYNovel-folder', '', column || ViewColumn.One, {
-				enableScripts		: true,
-			//	retainContextWhenHidden: true,// 楽だがメモリオーバーヘッド高らしい
-				localResourceRoots	: [
-					this.#localExtensionResRoots,
-					Uri.file(this.#PATH_WS),
-				],
-			});
-			const wv = wp.webview;
-			this.ctx.subscriptions.push(
-				wp.onDidDispose(()=> this.#pnlWVFolder = undefined, undefined, this.ctx.subscriptions),	// 閉じられたとき
-
-				wv.onDidReceiveMessage(m=> {switch (m.cmd) {
-					case 'info': window.showInformationMessage(m.text); break;
-					case 'warn': window.showWarningMessage(m.text); break;
-				}}, false),
-			);
-
-			wv.html = this.#htmOpFolder
-				.replaceAll('${webview.cspSource}', wv.cspSource)
-				.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(this.#localExtensionResRoots)}/`)
-				.replace(/<!--SOL-->.+?<!--EOL-->/s, '');
-					// https://regex101.com/r/8RaTsD/1
-		}
-		this.#uriOpFolder = uri;
-
-		this.#updWVFolder(uri);
-	}
-		#pnlWVFolder	: WebviewPanel | undefined	= undefined;
-		#uriOpFolder	: Uri | null				= null;
-		#uriWvPrj		: Uri | null				= null;
-
-	#updWVFolder(uri: Uri) {
-		const vfp = uri.path;
-		const fp = v2fp(vfp);
-		const pp = this.#fp2pp(fp);
-		this.#pnlWVFolder!.title = pp +' フォルダ';
-
-		let htm = '';
-		const wv = this.#pnlWVFolder!.webview;
-		this.#uriWvPrj = wv.asWebviewUri(Uri.file(this.#PATH_PRJ));
-		foldProc(fp, (vfp2, nm)=> {
-			const fp2 = v2fp(Uri.file(vfp2).path);
-			const pp2 = this.#fp2pp(fp2);
-			if (this.#regWVFolderMov.test(fp2)) {	// GrpよりMovを先に
-				htm +=
-`<div class="col pe-0">
-	<div class="card text-bg-secondary">
-		<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${this.#uriWvPrj}${pp2}" class="card-img-top"></video>
-		<div class="card-body">
-			<a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
-		</div>
-	</div>
-</div>`;
-				return;
-			}
-
-			if (this.#regWVFolderGrp.test(pp2)) {
-				htm +=
-`<div class="col pe-0">
-	<img loading="lazy" src="${this.#uriWvPrj}${pp2}" title="${nm}"/>
-</div>`;
-				return;
-			}
-
-			if (this.#regWVFolderSnd.test(pp2)) {
-				htm +=
-`<div class="col pe-0">
-	<div class="card text-bg-secondary">
-		<audio controls src="${this.#uriWvPrj}${pp2}" class="card-img-top"></audio>
-		<div class="card-body">
-			<a href="${this.#uriWvPrj}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
-		</div>
-	</div>
-</div>`;
-				return;
-			}
-
-		}, ()=> {});
-		wv.postMessage({cmd: 'refresh', o: {htm}});
-	}
-		readonly #regWVFolderMov = /\.(mp4|webm)$/;
-		// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
-		readonly #regWVFolderGrp = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SP_GSM}$`);
-		readonly #regWVFolderSnd = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SOUND}$`);
-
-		#chkWVFolder({path}: Uri) {
-//console.log(`fn:Project.ts #chkWVFolder sEvt:${sEvt} path=${path}=`);
-			const uriOF = this.#uriOpFolder;
-			if (! this.#pnlWVFolder || ! uriOF) return;
-			const fp = v2fp(path);			// /c:/
-			const fpOF = v2fp(uriOF.path);	// /C:/
-			if (! fp.startsWith(fpOF)) return;
-
-			if (this.#tiDelayFolder) clearTimeout(this.#tiDelayFolder);	// 遅延
-			this.#tiDelayFolder = setTimeout(()=> this.#updWVFolder(uriOF), 500);
-		}
-		#tiDelayFolder: NodeJS.Timeout | undefined = undefined;
-
+	opView(uri: Uri) {this.#ps.pnlWVFolder.open(uri)}
 
 	//MARK: 設定パネルイベント
 	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
@@ -852,7 +568,10 @@ export class Project {
 		case 'cnv.font.subset':
 			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			await this.#subsetFont(chkBoolean(val));
+			if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) break;
+
+			if (chkBoolean(val)) await this.#optFont.enable();
+			else await this.#optFont.disable();
 			break;
 
 		case 'cnv.mat.pic':
@@ -912,8 +631,7 @@ export class Project {
 	readonly	#hTask2Inf;
 	#exeTask(nm: T_CMD, arg: string): Promise<number> {
 		// バッチ実行中のファイル変更検知を抑制
-		this.#optPic.watchFile = false;
-		this.#optSnd.watchFile = false;
+		WatchFile2Batch.watchFile = false;
 
 		const inf = this.#hTask2Inf[nm];
 		return new Promise(fin=> window.withProgress({
@@ -949,76 +667,12 @@ export class Project {
 				fin(e.exitCode ?? 0);
 
 				// バッチ実行中のファイル変更検知を再開
-				this.#optPic.watchFile = true;
-				this.#optSnd.watchFile = true;
+				WatchFile2Batch.watchFile = true;
 
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);
 			});
 		})));
-	}
-	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/i;
-	static	readonly	DEF_FONT = ':DEF_FONT:';
-	async	#subsetFont(minify: boolean) {
-		if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) return;
-
-		// 旧フォントファイルはすべて一度削除
-		foldProc(
-			this.#PATH_PRJ +'script/',
-			(fp, nm)=> {if (this.#REG_FONT.test(nm)) removeSync(fp)},
-			()=> {},
-		);
-
-		if (! minify) {
-			// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-			await this.#exeTask('subset_font', `"${this.#FLD_SRC}"`);
-			this.#ps.dispFontInfo();		// フォント情報更新
-			return;
-		}
-
-		// フォント出現箇所から生成すべき最小限のフォント情報についてまとめる
-		const oFont: {[font_nm: string]: {
-			inp	: string;
-			txt	: string;
-		}} = {};
-		oFont[Project.DEF_FONT] = {inp: '', txt: ''};
-
-		const ensureFont2Str = (font_nm: string)=> oFont[font_nm] ??= {
-			inp	: this.#getFontNm2path(font_nm)
-				.replace(new RegExp(`^.+/${this.#FLD_SRC}/font`), '::PATH_PRJ_FONTS::')
-				.replace(
-					is_win
-					? /C:\/Users\/[^\/]+\/AppData\/Local\/Microsoft\/Windows\/Fonts/
-					: /\/Users\/[^\/]+\/Library\/Fonts/,
-					'::PATH_USER_FONTS::'
-				)
-				.replace(is_win ?`C:/Windows/Fonts` :`/Library/Fonts`, '::PATH_OS_FONTS::'),
-			txt	: '',
-		};
-		const o = this.#InfFont;
-		for (const f2s of Object.values(o.hSn2Font2Str)) {
-			for (const [font_nm, v] of Object.entries(f2s)) {
-				ensureFont2Str(font_nm);
-				oFont[font_nm]!.txt += v;
-			}
-		}
-		ensureFont2Str(o.defaultFontName);
-			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
-		oFont[o.defaultFontName]!.txt += oFont[Project.DEF_FONT]!.txt;
-		delete oFont[Project.DEF_FONT];
-
-		for (const v of Object.values(oFont)) {	// 文字重複しない最小限とするように
-			const s = new Set<string>(Array.from(v.txt));	// 一意化
-				// txt.split('')や [...txt] はサロゲートペアで問題
-			v.txt = [...s].sort().join('');	// sort()は不要だが綺麗
-		//	v.txt = [...s].join('');
-		}
-		const pathFont = `${this.#PATH_WS}/${this.#FLD_SRC}/font/`;
-		await outputJson(`${pathFont}font.json`, oFont);
-
-		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
-		await this.#exeTask('subset_font', `"${this.#FLD_SRC}" --minify`);
-		this.#ps.dispFontInfo();		// フォント情報更新
 	}
 
 
@@ -1111,14 +765,14 @@ export class Project {
 
 			case 'Crypto':
 				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
-				.then(a=> {
-					if (a !== 'はい') {done(0); return;}
+				.then(async ans=> {
+					if (ans !== 'はい') {done(0); return}
 
-					this.#termDbgSS().then(()=> {
-						this.#tglCryptoMode();
+					try {
+						await this.#termDbgSS();
+						await this.#tglCryptoMode();
 						this.#onBtn_sub(ti, 'Crypto_waited', cfg, done);
-					})
-					.catch(err=> console.error(err));
+					} catch (e) {console.error(e)}
 				});
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
@@ -1157,7 +811,7 @@ export class Project {
 					window.showErrorMessage(
 						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
 					)
-					.then(a=> {switch (a) {
+					.then(ans=> {switch (ans) {
 						case 'フォルダを開く':
 							env.openExternal(Uri.file(dirname(fp)));	break;
 						case 'Online Converter':
@@ -1200,7 +854,7 @@ export class Project {
 				break;
 
 			case 'Crypto_waited':
-				this.hOnEndTask.set(task_type, ()=> {this.dspCryptoMode(); done();});
+				this.hOnEndTask.set(task_type, ()=> {this.#dspCryptoMode(); done();});
 				break;
 
 			case 'PackWin':
@@ -1319,25 +973,31 @@ export class Project {
 
 
 	//MARK: 暗号化
-	#initCrypto() {
-		const fnc: (fp: string)=> void = this.#isCryptoMode
-			? fp=> {
+	async #initCrypto() {
+		const fnc: (fp: string)=> Promise<void> = this.#isCryptoMode
+			? async fp=> {
 				const uri = Uri.file(fp);
-				if (this.#isDiff(uri)) this.#encFile(uri);
+				if (this.#isDiff(uri)) await this.#encFile(uri);
 			}
-			: fp=> {
+			: async fp=> {
 				const uri = Uri.file(fp);
 				this.#isDiff(uri);
 			};
 		treeProc(this.#PATH_PRJ, fnc);
 		this.#updDiffJson();
 	}
-	#encIfNeeded(uri: Uri) {
-		if (this.#isCryptoMode && this.#isDiff(uri)) this.#encFile(uri);
+	//MARK: （必要なら）ファイルを暗号化する
+	async #encIfNeeded(uri: Uri) {
+		// isDiff() を必ず処理したいので先に
+		if (this.#isDiff(uri) && this.#isCryptoMode) await this.#encFile(uri);
 		this.#updDiffJson();
 	}
-	#updDiffJson() {writeJsonSync(this.#fnDiff, this.#hDiff);}
 
+	//MARK: ファイルハッシュの保存
+	#updDiffJson() {writeJsonSync(this.#PATH_DIFF, this.#hDiff)}
+
+	//MARK: ファイルハッシュの検知と辞書更新
+	//	ファイル差異があるか返す
 	#isDiff({path}: Uri): boolean {
 		const fp = v2fp(path);
 		const {pathCn, diff, pp} = this.#path2cn(fp);
@@ -1377,19 +1037,19 @@ export class Project {
 
 
 	readonly	#aRepl;
-	#tglCryptoMode() {
+	async #tglCryptoMode() {
 		const pathPre = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/snsys_pre/`;
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
 			// to 暗号化解除
-			removeSync(
+			await remove(
 				this.#IS_NEW_TMP
 				? this.#PATH_WS + `/${FLD_CRYPT_DOC}/`
 				: this.#PATH_CRYPT
 			);
 
-			removeSync(pathPre);
+			await remove(pathPre);
 
 			// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 			for (const url of this.#aRepl) replaceFile(
@@ -1404,11 +1064,11 @@ export class Project {
 					new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
 					`publicDir: '../../doc/'`,
 				);
-			replaceFile(
-				this.#PATH_WS +'/vite.config.ts',
-				new RegExp(`publicDir: '${FLD_CRYPT_DOC}'`),
-				`publicDir: 'doc'`,
-			);
+				replaceFile(
+					this.#PATH_WS +'/vite.config.ts',
+					new RegExp(`publicDir: '${FLD_CRYPT_DOC}'`),
+					`publicDir: 'doc'`,
+				);
 			}
 			else replaceFile(
 				this.#PATH_WS +'/package.json',
@@ -1416,13 +1076,13 @@ export class Project {
 					// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 				'"doc/prj/",',
 			);
-			this.#updPlugin();
+			await this.#updPlugin();
 
 			return;
 		}
 
 		// to 暗号化
-		mkdirsSync(this.#PATH_CRYPT);
+		await mkdirs(this.#PATH_CRYPT);
 
 		// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 		for (const url of this.#aRepl) replaceFile(
@@ -1456,16 +1116,16 @@ export class Project {
 			true,
 			pathPre +`index.${this.#IS_NEW_TMP ?'ts' :'js'}`,
 		);
-		this.#updPlugin();
+		await this.#updPlugin();
 
 		this.#hDiff = Object.create(null);
-		this.#initCrypto();
+		await this.#initCrypto();
 	}
 
 	async #encFile({path}: Uri) {
 		const fp = v2fp(path);
 		const pp = this.#fp2pp(fp);
-//console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp].cn}`);
+// console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]!.cn}`);
 		try {
 			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp]!.cn;
 			if (! this.#REG_NEEDCRYPTO.test(fp)) {
@@ -1477,15 +1137,15 @@ export class Project {
 
 			if (this.#REG_FULLCRYPTO.test(pp)) {	// この中はSync
 				if (pp !== 'path.json') {	// 内容も変更
-					const s = readFileSync(fp, {encoding: 'utf8'});
+					const s = await readFile(fp, {encoding: 'utf8'});
 					await outputFile(path_enc, await this.#encry.enc(s));
 					return;
 				}
 
-				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);	// 遅延
+				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);// 遅延
 				this.#tiDelayEnc = setTimeout(async ()=> {
 					// ファイル名匿名化
-					const hPath: IFn2Path = readJsonSync(fp, {encoding: 'utf8'});
+					const hPath: IFn2Path = await readJson(fp, {encoding: 'utf8'});
 					for (const hExt2N of Object.values(hPath)) {
 						for (const [ext, pp2] of Object.entries(hExt2N)) {
 							if (ext === ':cnt') continue;
@@ -1534,20 +1194,20 @@ export class Project {
 
 	readonly	#REG_PLGADDTAG	= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
-	#updPlugin(build = true) {
+	async #updPlugin(build = true) {
 		const pathPlg = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/`;
-		if (! existsSync(pathPlg)) {mkdirsSync(pathPlg); this.#build(); return}
+		if (! existsSync(pathPlg)) {await mkdirs(pathPlg); this.#build(); return}
 
 		const h4json	: {[def_nm: string]: number}	= {};
 		this.#hDefPlg = {};
-		foldProc(pathPlg, ()=> {}, nm=> {
+		foldProc(pathPlg, ()=> {}, async nm=> {
 			h4json[nm] = 0;
 
 			let path = `${pathPlg}${nm}/index.`;
 			if (existsSync(path +'js')) path += 'js'; else
 			if (existsSync(path +'ts')) path += 'ts'; else return;
 
-			const txt = readFileSync(path, 'utf8');
+			const txt = await readFile(path, 'utf8');
 			let a;
 			// 全ループリセットかかるので不要	.lastIndex = 0;	// /gなので必要
 			while (a = this.#REG_PLGADDTAG.exec(txt)) {
@@ -1572,13 +1232,14 @@ export class Project {
 		this.#sendRequest2LSP('def_plg.upd', this.#hDefPlg);
 
 		const sPlgIdx = pathPlg.slice(0, -1);
-		outputJson(sPlgIdx +'.json', h4json)
-		.then(build ?()=> this.#build() :()=> {})
-		.catch(e=> console.error(`Project updPlugin ${e}`));
+		await outputJson(sPlgIdx +'.json', h4json);
+		if (build) try {
+			this.#build();
+		} catch (e) {console.error(`Project updPlugin ${e}`)}
 
 		// 旧式プラグインインデックスを更新
 		if (existsSync(sPlgIdx +'.js')) {
-			remove(sPlgIdx +'.js');
+			await remove(sPlgIdx +'.js');
 
 			for (const url of this.#aRepl) replaceFile(
 				this.#PATH_WS +'/'+ url,
@@ -1638,7 +1299,9 @@ export class Project {
 	}
 		async #basePathJson() {		// 初期化冒頭で直接呼ばれる
 			// path.json 更新（暗号化もここ「のみ」で）
-			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#clDiag);
+// console.log(`fn:Project.ts basePathJson`);
+			this.#haDiagFn = {};
+			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
 
 			// ドロップ時コピー先候補
 			for (const [spae, aFld] of this.#mExt2aFld) {
@@ -1647,16 +1310,16 @@ export class Project {
 				this.#mExt2ToPath.set(spae, aPath);
 			}
 
-			this.#basePathJsonAfter();
+			this.#sendReqPathJson({haDiagFn: this.#haDiagFn});
 		}
-		#basePathJsonAfter = ()=> {};
-	readonly	#mExt2aFld: Map<SEARCH_PATH_ARG_EXT, string[]> = new Map([
+		#sendReqPathJson = (_o: any)=> {};
+	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
 		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
 		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
 		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
 		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
 	]);
-	#mExt2ToPath	: Map<SEARCH_PATH_ARG_EXT, string[]>	= new Map;
+	#mExt2ToPath	= new Map<SEARCH_PATH_ARG_EXT, string[]>;
 	#getコピー先候補(ext: string): string[] {
 		let aコピー先候補: string[] = [];
 		for (const [spae, a] of this.#mExt2ToPath.entries()) {
@@ -1686,14 +1349,14 @@ export class Project {
 			switch (scheme) {
 			case 'file':
 				if (statSync(path).isDirectory()) {	// フォルダドロップ
-					if (fp.slice(0, this.#PATH_PRJ.length) !== this.#PATH_PRJ) return null;	// プロジェクト外なら鼻も引っ掛けない
+					if (! fp.startsWith(this.#PATH_PRJ)) return null;	// プロジェクト外なら鼻も引っ掛けない
 
-					this.opView(uri);
-					return null;
+					if (fp === this.#PATH_PRJ +'prj.json') this.#ps.open()
+					else this.#ps.pnlWVFolder.open(uri);
 				}
 				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
 
-				if (fp.slice(0, this.#PATH_PRJ.length) === this.#PATH_PRJ) break;	// プロジェクト内からのドラッグ
+				if (fp.startsWith(this.#PATH_PRJ)) break;	// プロジェクト内からのドラッグ
 
 				// プロジェクト外からのドラッグ
 				// ファイルコピー
@@ -1728,9 +1391,7 @@ export class Project {
 				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
 
 				// webviewからのドラッグ
-				if (this.#uriWvPrj) {
-					if (path.startsWith(this.#uriWvPrj.path)) break;	// from WV
-				}
+				if (this.#ps.pnlWVFolder.isOpend(path)) break;// from WV
 
 				const uriDL = uri.toString();
 //console.log(`fn:Project.ts urlDL=${uriDL}=`);
@@ -1751,7 +1412,7 @@ export class Project {
 						break;
 				}
 				fpNew = this.#PATH_PRJ + ppNew;
-				writeFile(fpNew, new Uint8Array(await res.arrayBuffer()));
+				await writeFile(fpNew, new Uint8Array(await res.arrayBuffer()));
 
 				window.showInformationMessage(`素材をダウンロードしました。 path=${ppNew}`);
 				// サイドバーに表示
@@ -1790,7 +1451,7 @@ export class Project {
 
 		return null;
 	}
-		#mExt2Snip: Map<SEARCH_PATH_ARG_EXT, string> = new Map;
+		#mExt2Snip = new Map<SEARCH_PATH_ARG_EXT, string>;
 
 		readonly	#REG_FIELD	= /(?<=\s)[^\s=[\]]+(?:=(?:[^"'#\s;\]]+|(["'#]).*?\1)?)?/g;	// https://regex101.com/r/1m4Hgp/1 7 matches 95 steps, 0.4ms
 		#createWsEd_repVal(uri: Uri, range: Range, nm: string, val: string) {

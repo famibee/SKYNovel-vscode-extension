@@ -1,3 +1,22 @@
+## v4.23.0
+- feat(src/WatchFile2Batch.ts): フォルダごと追加・削除した際にもファイル追加・削除時に発動する機能を実行するように
+- feat(src/WatchFile2Batch.ts): ファイル名変更イベントを処理するように。ファイル削除・追加時の処理を行う
+- feat(src/batch/cnv_psd_face.ts): 立ち絵素材生成機能でレイヤがキャンバス外にはみ出す場合にエラーメッセージを出すように
+- feat(src/Config.ts): ファイル名は濁点(゛)・半濁点(゜)など合成文字を避けるよう警告
+- feat(src/Project.ts): src/diff.json に追加し削除したファイル名が残るので拡張機能起動時に削除するように
+- fix(src/WatchFile2Batch.ts): src（か core）/resource フォルダへの psd 追加時に、画像最適化OFFでも処理が走る件
+- fix(src/WatchFile2Batch.ts): ファイル追加・更新・削除イベントからの処理が動かない件（前回のデグレード）
+- fix(src/Project.ts): 新テンプレで暗号化ができなかった件
+- refactor: フォントサイズ最適化処理クラス化など、リファクタリング
+- refactor: LSP まわりをリファクタリング
+- refactor: 巨大クラス(src/Project.ts, src/PrjSetting.ts)をリファクタリング
+	- 新クラス作成
+		- src/WatchFile2Batch.ts
+		- src/WfbOptFont.ts
+		- src/WfbOptPic.ts
+		- src/WfbOptSnd.ts
+		- src/WfbSettingSn.ts
+		- src/WPFolder.ts
 ## v4.22.0
 - feat: 素材自動変換をリファクタリング、クラス化して抽出
 	- src/WatchFile2Batch.ts
@@ -42,7 +61,7 @@
 - doc: [page] 記述更新
 	- ページ遷移状態 -> ページ移動状態に表現変更
 - doc: [stop_quake] に canskip 属性があるのは無意味なので削除
--  m4a（その他拡張子も）を追加しても path.json が更新されない件
+- fix: m4a（その他拡張子も）を追加しても path.json が更新されない件
 ## v4.21.0
 -feat(src/batch/cnv_psd_face.ts): v4.18.0 からの立ち絵素材生成機能をEMSテンプレ対応に
 -feat: バッチ処理のエラー・処理の流れを修正

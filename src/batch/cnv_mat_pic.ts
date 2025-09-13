@@ -220,8 +220,8 @@ switch (modeInp) {
 					cnt();
 				});
 				const {name} = parse(nm);
-				const urlOut = resolve(curPrj, dir, name +'.webp');
-				queue.add(async ()=> {await remove(urlOut); cnt();});
+				const delDest = resolve(curPrj, dir, name +'.webp');
+				queue.add(async ()=> {await remove(delDest); cnt();});
 			}, async ()=> {});
 		});
 
