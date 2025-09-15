@@ -14,8 +14,9 @@ import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
 import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {mkdirs, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
-import type {T_OPTPIC, T_OPTPIC_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';
+
+import type {T_OPTPIC, T_OPTPIC_FILE} from '../../views/types';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -144,7 +145,7 @@ let cnt = ()=> {
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-async function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
+function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
 	return queue.add(async ()=> {
 		if (do_move) await move(pathPrj, pathBase, {overwrite: true});
 
@@ -160,19 +161,21 @@ async function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): 
 			.webp({quality: Number(fi.webp_q ?? quality)})
 			.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
-
 			const baseSize = statSync(pathBase).size;
 			const webpSize = info.size;
 			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
 			oLog.sum.baseSize += baseSize;
 			oLog.sum.webpSize += webpSize;
+
+			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
 			cnt();
 		} catch (e) {
 			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
 		}
 	});
 }
+
+(async ()=> {
 
 switch (modeInp) {
 	case 'enable':		// 変換有効化
@@ -282,7 +285,7 @@ switch (modeInp) {
 						oLog.sum.webpSize -= webpSize;
 					}
 
-					// 最適化処理する
+					// 変換
 					queue.add(()=> cnv(url, resolve(wdBase, nm)));
 					return;
 				}
@@ -355,3 +358,5 @@ switch (modeInp) {
 }
 
 await go();
+
+})();

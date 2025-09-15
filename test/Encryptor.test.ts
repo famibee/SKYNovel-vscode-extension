@@ -68,7 +68,7 @@ it('enc dec AbBase64', ()=> {
 		// Base64 エンコード・デコード：画像などのデータをBase64文字列に変換、逆変換 | ラッコツールズ🔧 https://rakko.tools/tools/24/
 
 	const b2 = 'n++gHsN5YofNGF5t02lkUw==';
-	expect(encAbBase64(decBase64Ab(b2))).toBe(b2);
+	expect(encAbBase64(decBase64Ab(b2).buffer)).toBe(b2);
 });
 
 
@@ -82,7 +82,7 @@ it('main_sn_full', async ()=> {
 	const chk_hex = '095b6164645f6c6179206c617965723d';
 	expect(srcH).toBe(chk_hex);
 
-	const enc = await encry.encAb(new TextEncoder().encode(src));	// 暗号化
+	const enc = await encry.encAb(new TextEncoder().encode(src).buffer);	// 暗号化
 	expect(enc.byteLength).toBe(3047);	// ファイルサイズ
 
 	expect(Buffer.from(enc.slice(0, 16)).toString('hex')).toBe('9fc4783607f28259dbb25787738e9881');

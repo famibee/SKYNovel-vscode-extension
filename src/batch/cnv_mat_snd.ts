@@ -17,8 +17,9 @@ import {resolve, parse, basename} from 'node:path';
 import {styleText} from 'node:util';
 import {existsSync, statSync, readdirSync} from 'node:fs';
 import {mkdirs, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
-import type {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 import {fileURLToPath} from 'node:url';
+
+import type {T_OPTSND, T_OPTSND_FILE} from '../../views/types';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -126,7 +127,7 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-async function cnv(pathInp: string, pathBase: string, do_move: boolean = true): Promise<void> {
+function cnv(pathInp: string, pathBase: string, do_move: boolean = true): Promise<void> {
 	return queue.add(async ()=> {
 		const {dir, name} = parse(pathInp);
 		if (do_move) await move(pathInp, pathBase, {overwrite: true});
@@ -143,7 +144,7 @@ async function cnv(pathInp: string, pathBase: string, do_move: boolean = true): 
 		await new Promise<void>(re=> ffmpeg(pathBase)
 		.save(pathWk)	// 一度作業中ファイルは退避先に作る
 	//	.on('start', (cl: any)=> console.log(`@@ ${cl} @@`))
-		.on('error', (err: any)=> console.error(err))
+		.on('error', (e: any)=> console.error(e))
 		.on('end', async (_stdout: any, _stderr: any)=> {
 			const baseSize = statSync(pathBase).size;
 			const optSize = statSync(pathWk).size;
@@ -158,6 +159,8 @@ async function cnv(pathInp: string, pathBase: string, do_move: boolean = true): 
 	});
 }
 
+
+(async ()=> {
 
 switch (modeInp) {
 	case 'enable':		// 変換有効化
@@ -274,4 +277,7 @@ switch (modeInp) {
 		await cnv(modeInp, curPrj, Boolean(curPrjBase));
 	}	break;
 }
+
 await go();
+
+})();

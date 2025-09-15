@@ -5,23 +5,22 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_E2V_INIT, T_V2E_SELECT_ICON_FILE, T_E2V_CFG, T_E2V_SELECT_ICON_INFO, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_E2V, T_CMD} from '../views/types';
+import type {T_E2V_INIT, T_E2V_CFG, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_E2V} from '../views/types';
 import {DEF_WSS} from '../views/types';
-import {chkUpdate, foldProc, getFn, replaceRegsFile, v2fp} from './CmnLib';
+import {foldProc, replaceRegsFile, v2fp} from './CmnLib';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import {Config} from './Config';
 import {openURL} from './WorkSpaces';
-import {FLD_PRJ_BASE} from './Project';
-import {WatchFile2Batch} from './WatchFile2Batch';
 import {WfbOptPic} from './WfbOptPic';
 import {WfbOptSnd} from './WfbOptSnd';
 import {WfbOptFont} from './WfbOptFont';
 import {WPFolder} from './WPFolder';
 import {WfbSettingSn} from './WfbSettingSn';
+import {HDiff} from './HDiff';
 
 import type {ExtensionContext, WebviewPanel, WorkspaceFolder} from 'vscode';
 import {Disposable, env, Uri, ViewColumn, window} from 'vscode';
-import {copyFile, ensureFile, existsSync, mkdirs, readFile, readFileSync, readJson, readJsonSync, writeFile} from 'fs-extra';
+import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, writeFile} from 'fs-extra';
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
 import {userInfo} from 'os';
@@ -64,8 +63,7 @@ export class PrjSetting implements Disposable {
 		private readonly chgTitle: (title: string)=> void,
 				readonly sendRequest2LSP: (cmd: string, o?: any)=> void,
 		private readonly onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
-		private readonly exeTask: (nm: T_CMD, arg: string)=> Promise<number>,
-				readonly fp2pp	: (fp: string)=> string,
+				readonly diff	: HDiff,
 		private readonly optPic	: WfbOptPic,
 		private readonly optSnd	: WfbOptSnd,
 		private readonly optFont: WfbOptFont,
@@ -91,7 +89,7 @@ export class PrjSetting implements Disposable {
 			ctx,
 			this.#PATH_WS,
 			this.#PATH_PRJ,
-			fp2pp,
+			diff,
 		);
 		this.#stgSn = new WfbSettingSn(sendRequest2LSP);
 
@@ -135,19 +133,6 @@ export class PrjSetting implements Disposable {
 
 			// setting.sn
 			()=> this.#stgSn.init(),
-
-			// 立ち絵素材生成機能
-			()=> mkdirs(this.#PATH_WS +`/${FLD_SRC}/resource/`),
-			()=> WatchFile2Batch.watchFld(
-				`${FLD_SRC}/resource/*.psd`,
-				`{doc/prj,${FLD_SRC}/${FLD_PRJ_BASE}}/face/{[FN]_*.png,[FN]_*.webp,face[FN].sn}`,
-				async ({fsPath})=> {
-					const hn = getFn(fsPath);
-					if (chkUpdate(fsPath, `${this.#PATH_PRJ}face/face${hn}.sn`)) await this.exeTask('cnv_psd_face', `"${fsPath}" "${this.#PATH_PRJ}"`);
-				},
-				()=> this.optPic.facePsdCreChg(),
-				async uri=> {await this.optPic.facePsdDel(uri); return true},
-			),
 
 			// ふりーむ向け
 			async ()=> {
@@ -448,30 +433,7 @@ export class PrjSetting implements Disposable {
 			window.showInformationMessage(`クリップボードに【アプリ版（通常実行）セーブデータ保存先パス】をコピーしました`);
 		},
 
-		'selectFile'	: async ({title, openlabel, path}: T_V2E_SELECT_ICON_FILE)=> {
-			//if (id !== 'icon') return;
-			const fileUri = await window.showOpenDialog({
-				title	: `${title}を選択して下さい`,
-				openLabel		: openlabel ?? 'ファイルを選択',
-				canSelectMany	: false,
-				canSelectFiles	: false,
-				canSelectFolders: false,
-			});
-			const src = fileUri?.[0]?.fsPath;
-			if (! src) return;	// キャンセル
-
-			const exit_code = await this.exeTask(
-				'cut_round',
-				`"${src}" ${this.#oWss['cnv.icon.shape']} "${path}" ${this.is_new_tmp}`,
-			);
-			this.cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
-				cmd		: 'updpic',
-				pathIcon: this.#pathIcon,
-				err_mes	: exit_code === 0
-					? ''
-					: (await readJson(this.#PATH_WS +'/build/cut_round.json', {encoding: 'utf8'})).err
-			});
-		},
+		'selectFile'	: m=> this.optPic.cnvIconShape(m, this.#pathIcon),
 	};
 
 }

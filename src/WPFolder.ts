@@ -8,6 +8,7 @@
 import {foldProc, v2fp} from './CmnLib';
 import {getNonce} from './ActivityBar';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
+import {HDiff} from './HDiff';
 
 import type {ExtensionContext, WebviewPanel} from 'vscode';
 import {ViewColumn, Uri, window} from 'vscode';
@@ -28,7 +29,7 @@ export class WPFolder {
 		private	readonly	ctx			: ExtensionContext,
 		private	readonly	PATH_WS		: string,
 		private	readonly	PATH_PRJ	: string,
-		private	readonly	fp2pp		: (fp: string)=> string,
+		private	readonly	diff		: HDiff,
 	) {
 		const path_root = ctx.extensionPath +'/views/';
 		this.#localExtensionResRoots = Uri.file(path_root);
@@ -81,7 +82,7 @@ export class WPFolder {
 	#update(uri: Uri) {
 		const vfp = uri.path;
 		const fp = v2fp(vfp);
-		const pp = this.fp2pp(fp);
+		const pp = this.diff.fp2pp(fp);
 		this.#wp!.title = pp +' フォルダ';
 
 		let htm = '';
@@ -89,7 +90,7 @@ export class WPFolder {
 		this.#uriWvPrj = wv.asWebviewUri(Uri.file(this.PATH_PRJ));
 		foldProc(fp, (vfp2, nm)=> {
 			const fp2 = v2fp(Uri.file(vfp2).path);
-			const pp2 = this.fp2pp(fp2);
+			const pp2 = this.diff.fp2pp(fp2);
 			if (this.#REG_MOV.test(fp2)) {	// GrpよりMovを先に
 				htm +=
 `<div class="col pe-0">

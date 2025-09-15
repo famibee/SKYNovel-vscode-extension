@@ -66,7 +66,12 @@ export const enum eDevTreeView {
 
 
 export class PrjTreeItem extends TreeItem {
-	static	create(ctx: ExtensionContext, wsFld: WorkspaceFolder, onBtn: ON_BTN, is_new_tmp: boolean): PrjTreeItem {
+	static	create(
+		ctx: ExtensionContext,
+		wsFld: WorkspaceFolder,
+		onBtn: ON_BTN,
+		is_new_tmp: boolean,
+	): PrjTreeItem {
 		const cfg: TREEITEM_CFG = {
 			cmd		: '',
 			icon	: '',

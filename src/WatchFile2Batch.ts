@@ -5,15 +5,19 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_CMD} from '../views/types';
+import type {T_CMD, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../views/types';
 import {getFn, v2fp} from './CmnLib';
-import type {T_DIFF, T_CN, H_T_DIFF} from './Project';
-import {FLD_PRJ_BASE} from './Project';
-import {PrjSetting} from './PrjSetting';
+import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
+import type {Config} from './Config';
+import type {HDiff} from './HDiff';
+import {PRE_TASK_TYPE} from './WorkSpaces';
+import {FLD_PRJ_BASE, T_H_ADIAG} from './Project';
+import type {PrjSetting} from './PrjSetting';
+import {PrjBtnName, statBreak, TASK_TYPE} from './PrjTreeItem';
 
-import type {ExtensionContext, Memento, WorkspaceFolder} from 'vscode';
-import {Disposable, FileType, RelativePattern, Uri, workspace} from 'vscode';
-import {remove, statSync} from 'fs-extra';
+import type {ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
+import {Disposable, FileType, ProgressLocation, RelativePattern, Uri, workspace, window, tasks, Task, ShellExecution} from 'vscode';
+import {copy, existsSync, readJson, remove, statSync} from 'fs-extra';
 import {minimatch} from 'minimatch';
 
 
@@ -27,15 +31,16 @@ type T_WATCHRP2CREDELPROC = {
 export class WatchFile2Batch {
 	protected static	ctx		: ExtensionContext;
 	protected static	wsFld	: WorkspaceFolder;
-	protected static	exeTask	: (nm: T_CMD, arg: string)=> Promise<number>;
-	protected static	updPathJson	: ()=> void;
-	private static		updDiffJson	: ()=> void;
-	private static		hDiff	: H_T_DIFF;
-	private static		encIfNeeded	: (uri: Uri)=> Promise<void>;
-	private static		path2cn	: (fp: string)=> T_CN;
-	protected static	fp2pp	: (fp: string)=> string;
+			static		#diff	: HDiff;
+			static		fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
+			static		#encIfNeeded	: (uri: Uri)=> Promise<void>;
 	protected static	FLD_SRC	: string;
 	protected static	onSettingEvt: (nm: string, val: string)=> Promise<boolean>;
+	protected static	hTaskExe	: Map<PrjBtnName, TaskExecution>;
+	protected static	hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>;
+	protected static	is_new_tmp	: boolean;
+
+	static	#basePathJson	: ()=> void;
 
 	protected static	wss		: Memento;
 	protected static	PATH_WS			: string;
@@ -43,42 +48,85 @@ export class WatchFile2Batch {
 	protected static	PATH_PRJ		: string;
 	protected static	PATH_PRJ_BASE	: string;
 
-	private static	readonly	ds	: Disposable[]	= [];
+	static	readonly	#ds	: Disposable[]	= [];
 
 	static	#watchFile = false;
-	static set watchFile(v: boolean) {this.#watchFile = v}
+	protected static set watchFile(v: boolean) {this.#watchFile = v}
 
 	//MARK: 初期化
 	static init(
 		ctx		: ExtensionContext,
 		wsFld	: WorkspaceFolder, 
-		exeTask	: (nm: T_CMD, arg: string)=> Promise<number>,
-		updPathJson	: ()=> void,
-		updDiffJson	: ()=> void,
-		hDiff	: {[fn: string]: T_DIFF},
+		cfg		: Config,
+		diff	: HDiff,
+		encFile		: (uri: Uri)=> Promise<void>,
 		encIfNeeded	: (uri: Uri)=> Promise<void>,
-		path2cn	: (fp: string)=> T_CN,
-		fp2pp	: (fp: string)=> string,
-		FLD_SRC	: string,
+		FLD_SRC		: string,
 		onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
+		hTaskExe	: Map<PrjBtnName, TaskExecution>,
+		hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
+		is_new_tmp	: boolean,
 	) {
 		this.ctx = ctx;
 		this.wsFld = wsFld;
-		this.exeTask = exeTask;
-		this.updPathJson = updPathJson;
-		this.updDiffJson = updDiffJson;
-		this.hDiff = hDiff;
-		this.encIfNeeded = encIfNeeded;
-		this.path2cn = path2cn;
-		this.fp2pp = fp2pp;
+		this.#basePathJson = async ()=> {
+		// path.json 更新（暗号化もここ「のみ」で）
+// console.log(`fn:WatchFile2Batch.ts basePathJson`);
+			this.#haDiagFn = {};
+			await cfg.loadEx(uri=> encFile(uri), this.#haDiagFn);
+
+			// ドロップ時コピー先候補
+			for (const [spae, aFld] of this.#mExt2aFld) {
+				const aPath: string[] = [];
+				for (const fld_nm of aFld) if (existsSync(this.PATH_WS +`/doc/prj/${fld_nm}/`)) aPath.push(fld_nm);
+				this.#mExt2ToPath.set(spae, aPath);
+			}
+
+			this.#sendReqPathJson({haDiagFn: this.#haDiagFn});
+		};
+		this.#diff = diff;
+		this.#encIfNeeded = encIfNeeded;
 		this.FLD_SRC = FLD_SRC;
 		this.onSettingEvt = onSettingEvt;
+		this.hTaskExe = hTaskExe;
+		this.hOnEndTask = hOnEndTask;
+		this.is_new_tmp = is_new_tmp;
 
 		this.wss = ctx.workspaceState;
 		this.PATH_WS = v2fp(wsFld.uri.path);
 		this.PATH_WS_LEN = this.PATH_WS.length;
 		this.PATH_PRJ = this.PATH_WS +'/doc/prj/';
 		this.PATH_PRJ_BASE = this.PATH_WS +`/${FLD_SRC}/${FLD_PRJ_BASE}/`;
+
+		this.#hTask2Inf = {
+			cnv_mat_pic: {
+				title		: '画像ファイル最適化',
+				pathCpyTo	: `${FLD_SRC}/batch`,
+				aNeedLib	: ['fs-extra','sharp','p-queue'],
+			},
+			cnv_mat_snd: {
+				title		: '音声ファイル最適化',
+				pathCpyTo	: `${FLD_SRC}/batch`,
+				aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue'],
+					// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
+					// https://aminevsky.github.io/blog/posts/pqueue-sample/
+			},
+			cnv_psd_face: {
+				title		: 'PSDファイル変換',
+				pathCpyTo	: `${FLD_SRC}/batch`,
+				aNeedLib	: ['fs-extra','psd.js','sharp'],
+			},
+			cut_round: {
+				title		: 'アイコン生成・加工中',
+				pathCpyTo	: `${FLD_SRC}/batch`,
+				aNeedLib	: ['fs-extra','sharp', 'png2icons'],
+			},
+			subset_font: {
+				title		: 'フォントサイズ最適化',
+				pathCpyTo	: `${FLD_SRC}/font`,
+				aNeedLib	: ['fs-extra'],
+			},
+		};
 
 		// ファイル名変更イベントを処理
 		workspace.onDidRenameFiles(({files})=> {
@@ -131,7 +179,7 @@ export class WatchFile2Batch {
 
 			// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
 			const nm = getFn(oldUri.path) +'/';
-			const aPp2 = Object.keys(this.hDiff)
+			const aPp2 = Object.keys(this.#diff.hDiff)
 			.filter(pp=> pp.startsWith(nm))
 			.map(pp=> 'doc/prj/'+ pp);
 			for (const w of this.#aWatchRp2CreDelProc) {
@@ -150,14 +198,117 @@ export class WatchFile2Batch {
 		// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
 		protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
 
-	static	setStg(ps: PrjSetting) {this.ps = ps}
+	static	init2th(ps: PrjSetting) {
+		this.ps = ps;
+		this.#basePathJson();
+	}
 	protected static	ps	: PrjSetting;
 
+	static	init3th(fnc: (o: any)=> void) {this.#sendReqPathJson = fnc}
+	static	#sendReqPathJson = (_o: any)=> {};
+
 	//MARK: デストラクタ
-	static	dispose() {for (const d of this.ds) d.dispose()}
+	static	dispose() {for (const d of this.#ds) d.dispose()}
 
 
-	//MARK: #フォルダ監視
+	static	#haDiagFn	: T_H_ADIAG	= {};
+	static get haDiagFn() {return this.#haDiagFn}
+	static	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
+		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
+		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
+		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
+		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
+	]);
+	static	#mExt2ToPath	= new Map<SEARCH_PATH_ARG_EXT, string[]>;
+
+	protected static	updPathJson() {
+		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
+		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
+	}
+	static	#tiDelayPathJson: NodeJS.Timeout | undefined = undefined;
+
+
+	//MARK: タスク実行
+	static #hTask2Inf	: {[nm: string]: {
+		title		: string,
+		pathCpyTo	: string,
+		aNeedLib	: string[],
+	}};
+	protected static	exeTask(nm: T_CMD, arg: string): Promise<number> {
+		// バッチ実行中のファイル変更検知を抑制
+		WatchFile2Batch.watchFile = false;
+
+		const inf = this.#hTask2Inf[nm]!;
+		return new Promise(fin=> window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: inf.title,
+			cancellable	: false,
+		}, prg=> new Promise<void>(async donePrg=> {
+			const pathJs = this.PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
+			let init = '';
+		//	if (! existsSync(pathJs)) {		// 後から fs-extra を追加したので互換性のため
+				const oPkg = await readJson(this.PATH_WS +'/package.json', {encoding: 'utf8'});
+				const sNeedInst = inf.aNeedLib
+				.filter(nm=> ! oPkg.devDependencies[nm])
+				.join(' ');
+				init = `npm i -D ${sNeedInst} ${statBreak} `;
+		//	}
+			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
+
+			try {
+				const r = await tasks.executeTask(new Task(
+					{type: PRE_TASK_TYPE +'Sys'},	// タスクの一意性
+					this.wsFld,
+					inf.title,		// UIに表示
+					'SKYNovel',		// source
+					new ShellExecution(
+						`cd "${this.PATH_WS}" ${statBreak} ${init} node ./${inf.pathCpyTo}/${nm}.js ${arg}`
+					),
+				));
+				this.hTaskExe.set(<any>nm, r);
+			} catch (e) {console.error('Project exeTask() e:%o', e)}
+
+			this.hOnEndTask.set('Sys', e=> {
+				fin(e.exitCode ?? 0);
+
+				// バッチ実行中のファイル変更検知を再開
+				WatchFile2Batch.watchFile = true;
+
+				prg.report({message: '完了', increment: 100});
+				setTimeout(()=> donePrg(), 4000);
+			});
+		})));
+	}
+
+
+	//MARK: アイコン加工
+	async cnvIconShape({title, openlabel, path}: T_V2E_SELECT_ICON_FILE, pathIcon: string) {
+		//if (id !== 'icon') return;
+		const fileUri = await window.showOpenDialog({
+			title	: `${title}を選択して下さい`,
+			openLabel		: openlabel ?? 'ファイルを選択',
+			canSelectMany	: false,
+			canSelectFiles	: false,
+			canSelectFolders: false,
+		});
+		const src = fileUri?.[0]?.fsPath;
+		if (! src) return;	// キャンセル
+
+		const exit_code = await WatchFile2Batch.exeTask(
+			'cut_round',
+			`"${src}" ${WatchFile2Batch.ps.oWss['cnv.icon.shape']} "${path}" ${WatchFile2Batch.is_new_tmp}`,
+		);
+		WatchFile2Batch.ps.cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
+			cmd		: 'updpic',
+			pathIcon,
+			err_mes	: exit_code === 0
+				? ''
+				: (await readJson(WatchFile2Batch.PATH_WS +'/build/cut_round.json', {encoding: 'utf8'})).err
+		});
+	}
+
+
+	//MARK: フォルダ監視
 	static async watchFld(
 		pattern	: string,	// 生成物入力パス Grb パターン
 		pathDest: string,	// 生成物出力パス Grb パターン
@@ -169,7 +320,7 @@ export class WatchFile2Batch {
 
 		const rpInp = new RelativePattern(this.wsFld, pattern);
 		const encIfNeeded = pattern.startsWith('doc/prj/*/')
-			? (uri: Uri)=> this.encIfNeeded(uri)
+			? (uri: Uri)=> this.#encIfNeeded(uri)
 			: async ()=> {};
 		if (init) {
 			const aUri = await workspace.findFiles(rpInp);
@@ -181,7 +332,7 @@ export class WatchFile2Batch {
 			// this.updPathJson();	// よそでやると思うので
 		}
 		const fw = workspace.createFileSystemWatcher(rpInp, !crechg, !crechg, !del);	// ignore なので無効にするときに true
-		if (crechg) this.ds.push(
+		if (crechg) this.#ds.push(
 			fw.onDidCreate(async uri=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld CRE watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
 
@@ -197,23 +348,23 @@ export class WatchFile2Batch {
 				// this.updPathJson();	// 不要（必要なら crechg で）
 			}),
 		);
-		if (del) this.ds.push(fw.onDidDelete(async uri=> {
+		if (del) this.#ds.push(fw.onDidDelete(async uri=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld DEL watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
 			if (this.#watchFile) {
 				await this.#delDest(pathDest, uri);
 				if (await del(uri)) {
-					const {pathCn, pp} = this.path2cn(uri.path);
+					const {pathCn, pp} = this.#diff.path2cn(uri.path);
 					if (pathCn) await remove(pathCn);
 
-					delete this.hDiff[pp];
-					this.updDiffJson();
+					this.#diff.delhDiff(pp);
+					await this.#diff.updDiffJson();
 				}
 			}
 			this.updPathJson();
 		}));
 	}
 	static #aWatchRp2CreDelProc: T_WATCHRP2CREDELPROC[]	= [];
-	static async	#delDest(ptDest: string, {path}: Uri) {
+	static async #delDest(ptDest: string, {path}: Uri) {
 		if (ptDest === '') return;
 
 		const hn = getFn(path);

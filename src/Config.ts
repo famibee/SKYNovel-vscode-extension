@@ -12,10 +12,11 @@ import {DEF_CFG} from '../views/types';
 import {Encryptor} from './Encryptor';
 import type {T_DIAG, T_H_ADIAG} from './Project';
 
+import {Uri, window} from 'vscode';
 import {parse, resolve} from 'node:path';
 import {imageSizeFromFile} from 'image-size/fromFile';
-import {readJson, existsSync, outputJson, readFileSync, writeJsonSync} from 'fs-extra';
-import {Uri, window} from 'vscode';
+import {readJson, existsSync, outputJson, writeJson} from 'fs-extra';
+import {readFile} from 'node:fs/promises';
 
 
 export class SysExtension implements ISysRoots {
@@ -64,7 +65,7 @@ export class Config extends ConfigBase {
 				code	: {...DEF_CFG.code, ...o.code},
 			});
 
-			this.hPathFn2Exts = this.#get_hPathFn2Exts(this.sys.arg.cur, haDiagFn);
+			this.hPathFn2Exts = await this.#get_hPathFn2Exts(this.sys.arg.cur, haDiagFn);
 			await outputJson(fpPath, this.hPathFn2Exts);
 
 			if (this.sys.crypto) encFile(Uri.file(fpPath));
@@ -77,7 +78,7 @@ export class Config extends ConfigBase {
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
-	#get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG): IFn2Path {
+	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG): Promise<IFn2Path> {
 		const hFn2Path: IFn2Path = {};
 
 	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
@@ -101,7 +102,7 @@ export class Config extends ConfigBase {
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
-					const s = readFileSync(fp, {encoding: 'utf8'});
+					const s = await readFile(fp, {encoding: 'utf8'});
 					const snm = nm.slice(0, -a2[0].length);	// 拡張子を外したもの
 					const p = hFn2Path[snm];
 					if (p) p[a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
@@ -146,7 +147,7 @@ export class Config extends ConfigBase {
 						};
 					}
 				}
-				writeJsonSync(fnJs, oJs);
+				await writeJson(fnJs, oJs);
 				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
 
 				this.#addPath(hFn2Path, dir, `${a[1]}.json`, aD);
@@ -160,7 +161,7 @@ export class Config extends ConfigBase {
 		const {name: fn, base, ext} = parse(nm);
 		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
-		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <any>1};
+		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <any>0};
 		else if (ext2 in hExts) {
 			aD.push({mes: `プロジェクト内でファイル【${base}】が重複しています。フォルダを縦断検索するため許されません`, sev: 'W'});
 			return;

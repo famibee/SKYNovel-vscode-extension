@@ -1,3 +1,13 @@
+## v4.23.1
+- fix(src/batch/cnv_mat_pic.ts): トップレベル await に警告が出るので即時実行関数式に
+- fix(src/batch/cnv_mat_snd.ts): トップレベル await に警告が出るので即時実行関数式に
+- fix(src/Config.ts): path.json のファイル名重複カウント数が 1 多かったのを修正
+- refactor: 巨大クラス(src/Project.ts)をリファクタリング
+	- 新クラス作成、ファイル更新検知ハッシュ src/HDiff.ts
+	- #exeTask()、#updPathJson() -> src/WatchFile2Batch.ts へ移動
+- refactor: 巨大クラス(src/PrjSetting.ts)をリファクタリング
+	- 立ち絵素材生成機能（-> src/WfbOptPic.ts）へ移動
+- test（test/Encryptor.test.ts）: テスト失敗を修正
 ## v4.23.0
 - feat(src/WatchFile2Batch.ts): フォルダごと追加・削除した際にもファイル追加・削除時に発動する機能を実行するように
 - feat(src/WatchFile2Batch.ts): ファイル名変更イベントを処理するように。ファイル削除・追加時の処理を行う

@@ -6,7 +6,6 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT, type IDecryptInfo} from './CmnLib';
-import type {T_CMD} from '../views/types';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -20,16 +19,16 @@ import {WatchFile2Batch} from './WatchFile2Batch';
 import {WfbOptPic} from './WfbOptPic';
 import {WfbOptSnd} from './WfbOptSnd';
 import {WfbOptFont} from './WfbOptFont';
+import {HDiff} from './HDiff';
 
 import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, window, workspace, WorkspaceEdit} from 'vscode';
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {glob, readFile} from 'node:fs/promises';
 import {basename, dirname, extname} from 'node:path';
-import {closeSync, createReadStream, createWriteStream, existsSync, openSync, outputFile, outputJson, readFileSync, readJsonSync, readSync, remove, removeSync, writeJsonSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirsSync, mkdirs} from 'fs-extra';
+import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readFileSync, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirsSync, mkdirs} from 'fs-extra';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
-import * as crc32 from 'crc-32';
 import * as archiver from 'archiver';
 import {execSync} from 'child_process';
 import ncu from 'npm-check-updates'
@@ -41,32 +40,23 @@ type PluginDef = {
 	uri: string, sl: number, sc: number, el: number, ec: number,
 };
 
-		const	FLD_CRYPT_PRJ	= 'crypto_prj';
-		const	FLD_CRYPT_DOC	= 'doc_crypto';
+export	const	FLD_CRYPT_PRJ	= 'crypto_prj';
+export	const	FLD_CRYPT_DOC	= 'doc_crypto';
 export	const	FLD_PRJ_BASE	= 'prj_base';
+
+export	const	REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
+export	const	REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
 
 export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
 
-export type T_DIFF = {
-	hash: number,	// ファイル変更検知ハッシュ
-	cn	: string,	// ファイル名匿名化辞書
-};
-export type H_T_DIFF = {[pp: string]: T_DIFF};
-
 export type T_DIAG = {
 	mes: string,
 	sev: 'E'|'W'|'I'|'H',
 };
 export type T_H_ADIAG = {[fp: string]: T_DIAG[]};
-
-export type T_CN = {
-	pathCn	: string | undefined,
-	diff	: T_DIFF | undefined,
-	pp		: string,
-};
 
 
 export class Project {
@@ -80,23 +70,15 @@ export class Project {
 
 	readonly	#PATH_CRYPT;
 	#isCryptoMode	= false;
-	readonly	#REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
-	readonly	#REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
-	readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 
 	readonly	#IS_NEW_TMP;
 
 	readonly	#encry;
-
+	readonly	#diff;	// ファイル更新検知ハッシュ
 	readonly	#ps;
 
 //	readonly	#ds		= new DisposableStack;
 	readonly	#ds		: Disposable[]	= [];
-
-	// ファイル更新検知ハッシュ
-	readonly	#PATH_DIFF;
-				#hDiff	: H_T_DIFF	= Object.create(null);
-
 
 	#dspCryptoMode;		// 暗号化状態
 
@@ -125,7 +107,15 @@ export class Project {
 
 
 	//MARK: コンストラクタ
-	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar, private readonly wsFld: WorkspaceFolder, readonly aTiRoot: TreeItem[], private readonly emPrjTD: EventEmitter<TreeItem | undefined>, private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>, readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void) {
+	constructor(
+		private readonly ctx: ExtensionContext,
+		private readonly actBar: ActivityBar,
+		private readonly wsFld: WorkspaceFolder,
+		readonly aTiRoot: TreeItem[],
+		private readonly emPrjTD: EventEmitter<TreeItem | undefined>,
+		private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
+		readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void,
+	) {
 		const vfp = wsFld.uri.path;
 		this.#PATH_WS = v2fp(vfp);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
@@ -133,45 +123,8 @@ export class Project {
 // console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 
 		const is_new_tmp = this.#IS_NEW_TMP = existsSync(this.#PATH_WS +'/src/plugin/');
-		this.#FLD_SRC = is_new_tmp ?'src' :'core';
-			// src なら 2025 新テンプレ
+		this.#FLD_SRC = is_new_tmp ?'src' :'core';	// src なら 2025 新テンプレ
 		this.#PATH_PRJ_BASE = this.#PATH_WS +`/${this.#FLD_SRC}/${FLD_PRJ_BASE}/`;
-
-		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
-
-		const REG_path2 = `\\/(doc\\/prj|${this.#FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
-		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
-		this.#REG_fp2pp	= new RegExp('^.+'+ REG_path2);
-
-		this.#hTask2Inf = {
-			cnv_mat_pic: {
-				title		: '画像ファイル最適化',
-				pathCpyTo	: `${this.#FLD_SRC}/batch`,
-				aNeedLib	: ['fs-extra','sharp','p-queue'],
-			},
-			cnv_mat_snd: {
-				title		: '音声ファイル最適化',
-				pathCpyTo	: `${this.#FLD_SRC}/batch`,
-				aNeedLib	: ['fs-extra','@ffmpeg-installer/ffmpeg','fluent-ffmpeg','p-queue'],
-					// p-queue は v6 まで CJS だった。それが v7 で ESM に変わった
-					// https://aminevsky.github.io/blog/posts/pqueue-sample/
-			},
-			cnv_psd_face: {
-				title		: 'PSDファイル変換',
-				pathCpyTo	: `${this.#FLD_SRC}/batch`,
-				aNeedLib	: ['fs-extra','psd.js','sharp'],
-			},
-			cut_round: {
-				title		: 'アイコン生成・加工中',
-				pathCpyTo	: `${this.#FLD_SRC}/batch`,
-				aNeedLib	: ['fs-extra','sharp', 'png2icons'],
-			},
-			subset_font: {
-				title		: 'フォントサイズ最適化',
-				pathCpyTo	: `${this.#FLD_SRC}/font`,
-				aNeedLib	: ['fs-extra'],
-			},
-		};
 
 		// 暗号化処理
 		this.#PATH_CRYPT = this.#PATH_WS +`/${
@@ -205,20 +158,32 @@ export class Project {
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
 		this.#cfg = new Config(sr, this.#encry);
 
+		this.#diff = new HDiff(
+			`${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`,
+			this.#FLD_SRC,
+			this.#PATH_CRYPT,
+			this.#encry,
+		);
+		this.#sendRequest2LSP = (cmd, o = {})=> sendRequest2LSP(cmd, wsFld.uri, o);
 		WatchFile2Batch.init(
 			ctx,
 			wsFld,
-			(nm, arg)=> this.#exeTask(nm, arg),
-			()=> this.#updPathJson(),
-			()=> this.#updDiffJson(),
-			this.#hDiff,
+			this.#cfg,
+			this.#diff,
+			uri=> this.#encFile(uri),
 			uri=> this.#encIfNeeded(uri),
-			fp=> this.#path2cn(fp),
-			fp=> this.#fp2pp(fp),
 			this.#FLD_SRC,
 			(nm, val)=> this.#onSettingEvt(nm, val),
+			this.#hTaskExe,
+			this.hOnEndTask,
+			is_new_tmp,
+	);
+		const pti = PrjTreeItem.create(
+			ctx,
+			wsFld,
+			(ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg),
+			is_new_tmp,
 		);
-		const pti = PrjTreeItem.create(ctx, wsFld, (ti, btn_nm, cfg)=> this.#onBtn(ti, btn_nm, cfg), is_new_tmp);
 		aTiRoot.push(pti);
 		this.#ds.push(this.#ps = new PrjSetting(
 			ctx,
@@ -230,37 +195,34 @@ export class Project {
 			},
 			this.#sendRequest2LSP,
 			(nm, val)=> this.#onSettingEvt(nm, val),
-			(nm, arg)=> this.#exeTask(nm, arg),
-			fp=> this.#fp2pp(fp),
+			this.#diff,
 			this.#optPic	= new WfbOptPic,
 			this.#optSnd	= new WfbOptSnd,
 			this.#optFont	= new WfbOptFont,
 			this.#FLD_SRC,
 			is_new_tmp,
 		));
-		WatchFile2Batch.setStg(this.#ps);
 
 		const aTi = pti.children;
 		const aC = (aTi.at(-1)! as PrjTreeItem).children;
 		this.#aTiFlat = [...aTi.slice(0, -1), ...aC];
+		const tiSnUpd = aTi[eDevTreeView.SnUpd]!;
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
-			const ti = aTi[eDevTreeView.SnUpd]!;
-			ti.description = o.verSN
+			tiSnUpd.description = o.verSN
 				? o.verSN.startsWith('ile:') || o.verSN.startsWith('./')
 				? '（相対パス参照中）'
 				: `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
 				: '取得できません';
-			emPrjTD.fire(ti);
+			emPrjTD.fire(tiSnUpd);
 			return o;
 		};
+		const tiCrypto = aTi[eDevTreeView.Crypto]!;
 		this.#dspCryptoMode = ()=> {
-			const ti = aTi[eDevTreeView.Crypto]!;
-			ti.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
-			emPrjTD.fire(ti);
+			tiCrypto.description = `-- ${this.#isCryptoMode ?'する' :'しない'}`;
+			emPrjTD.fire(tiCrypto);
 		};
 
-		this.#PATH_DIFF = `${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`;
 		this.#encry.init()
 		.then(()=> Promise.allSettled([
 			async ()=> {
@@ -268,21 +230,7 @@ export class Project {
 				this.#dspCryptoMode();
 			},
 
-			async ()=> {
-				try {
-					if (existsSync(this.#PATH_DIFF)) this.#hDiff = await readJson(this.#PATH_DIFF);
-
-					const o = this.#hDiff;
-					for (const pp in o) {
-						const fp = `${this.#PATH_CRYPT}${o[pp]!.cn}`;
-						// 存在しなくなってるファイルの情報を削除
-						if (! existsSync(fp)) delete this.#hDiff[pp];
-					}
-				} catch (e) {
-					this.#hDiff = Object.create(null);	// diff破損対策
-				}
-				// this.#updDiffJson();		// 後の #initCrypto() でやる
-			},
+			()=> this.#diff.init(),
 
 			async ()=> {
 				// 旧テンプレ置換
@@ -376,27 +324,12 @@ export class Project {
 					},
 				}));
 			},
-		].map(p=> p()))).then(async ()=> {
-			await this.#basePathJson();
+		].map(p=> p()))).then(()=> {
+			WatchFile2Batch.init2th(this.#ps);
+
 			this.#sendRequest2LSP('ready');
 		});
 	}
-
-		#path2cn(fp: string): T_CN {
-			fp = v2fp(Uri.file(fp).path);
-			const pp = this.#fp2pp(fp);
-			const diff = this.#hDiff[pp];
-			return {
-				pathCn: diff
-					? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/${FLD_CRYPT_PRJ}/${diff.cn}`)
-					: undefined,
-				diff,
-				pp,
-			};
-		}
-		readonly	#REG_path2cn;
-		readonly	#REG_fp2pp;
-		#fp2pp(fp: string): string {return fp.replace(this.#REG_fp2pp, '')}
 
 	static	readonly	#REG_VAR	= /;.+|[\[*]?[\d\w\.]+=?/;
 	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
@@ -474,7 +407,7 @@ export class Project {
 
 				this.#mExt2Snip = new Map(<T_aExt2Snip>o.aExt2Snip);
 
-				this.#sendReqPathJson = o=> this.#sendRequest2LSP('upd_pathjson', o);
+				WatchFile2Batch.init3th(o=> this.#sendRequest2LSP('upd_pathjson', o));
 			}	break;
 
 			case 'hover.res':	{
@@ -616,64 +549,8 @@ export class Project {
 		async #delOldCrypto(regDiff: RegExp) {
 			if (! this.#isCryptoMode) return;
 
-			const a = [];
-			for (const pp in this.#hDiff) {
-				if (! regDiff.test(pp)) continue;
-
-				const diff = this.#hDiff[pp]!;
-				a.push(remove(`${this.#PATH_CRYPT}${diff.cn}`));
-			}
-			await Promise.allSettled(a);
+			await this.#diff.delOldCrypto(regDiff);
 		}
-
-
-	//MARK: タスク実行
-	readonly	#hTask2Inf;
-	#exeTask(nm: T_CMD, arg: string): Promise<number> {
-		// バッチ実行中のファイル変更検知を抑制
-		WatchFile2Batch.watchFile = false;
-
-		const inf = this.#hTask2Inf[nm];
-		return new Promise(fin=> window.withProgress({
-			location	: ProgressLocation.Notification,
-			title		: inf.title,
-			cancellable	: false,
-		}, prg=> new Promise<void>(async donePrg=> {
-			const pathJs = this.#PATH_WS +`/${inf.pathCpyTo}/${nm}.js`;
-			let init = '';
-		//	if (! existsSync(pathJs)) {		// 後から fs-extra を追加したので互換性のため
-				const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
-				const sNeedInst = inf.aNeedLib
-				.filter(nm=> ! oPkg.devDependencies[nm])
-				.join(' ');
-				init = `npm i -D ${sNeedInst} ${statBreak} `;
-		//	}
-			await copy(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);
-
-			try {
-				const r = await tasks.executeTask(new Task(
-					{type: PRE_TASK_TYPE +'Sys'},	// タスクの一意性
-					this.wsFld,
-					inf.title,		// UIに表示
-					'SKYNovel',		// source
-					new ShellExecution(
-						`cd "${this.#PATH_WS}" ${statBreak} ${init} node ./${inf.pathCpyTo}/${nm}.js ${arg}`
-					),
-				));
-				this.#hTaskExe.set(<any>nm, r);
-			} catch (e) {console.error('Project exeTask() e:%o', e)}
-
-			this.hOnEndTask.set('Sys', e=> {
-				fin(e.exitCode ?? 0);
-
-				// バッチ実行中のファイル変更検知を再開
-				WatchFile2Batch.watchFile = true;
-
-				prg.report({message: '完了', increment: 100});
-				setTimeout(()=> donePrg(), 4000);
-			});
-		})));
-	}
 
 
 	//MARK: ボタンの処理
@@ -977,63 +854,21 @@ export class Project {
 		const fnc: (fp: string)=> Promise<void> = this.#isCryptoMode
 			? async fp=> {
 				const uri = Uri.file(fp);
-				if (this.#isDiff(uri)) await this.#encFile(uri);
+				if (this.#diff.isDiff(uri)) await this.#encFile(uri);
 			}
 			: async fp=> {
 				const uri = Uri.file(fp);
-				this.#isDiff(uri);
+				this.#diff.isDiff(uri);
 			};
 		treeProc(this.#PATH_PRJ, fnc);
-		this.#updDiffJson();
+		await this.#diff.updDiffJson();
 	}
 	//MARK: （必要なら）ファイルを暗号化する
 	async #encIfNeeded(uri: Uri) {
 		// isDiff() を必ず処理したいので先に
-		if (this.#isDiff(uri) && this.#isCryptoMode) await this.#encFile(uri);
-		this.#updDiffJson();
+		if (this.#diff.isDiff(uri) && this.#isCryptoMode) await this.#encFile(uri);
+		await this.#diff.updDiffJson();
 	}
-
-	//MARK: ファイルハッシュの保存
-	#updDiffJson() {writeJsonSync(this.#PATH_DIFF, this.#hDiff)}
-
-	//MARK: ファイルハッシュの検知と辞書更新
-	//	ファイル差異があるか返す
-	#isDiff({path}: Uri): boolean {
-		const fp = v2fp(path);
-		const {pathCn, diff, pp} = this.#path2cn(fp);
-// console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
-		if (pathCn && ! existsSync(pathCn)) return true;
-
-		let hash = 0;
-		if (this.#REG_FULLCRYPTO.test(fp)) {
-			hash = crc32.buf(Buffer.from(readFileSync(fp, {encoding: 'utf8'}), 'binary'), 0);
-		//	hash = crc32.str(readFileSync(fp, {encoding: 'utf8'}));
-				// 高速らしい SheetJS/js-crc32: :cyclone: JS 標準 CRC-32 および CRC32C の実装 https://github.com/SheetJS/js-crc32
-		}
-		else {
-			this.#bufChkDiff.fill(0, 0, Project.#LEN_CHKDIFF);
-			const fd = openSync(fp, 'r');
-			readSync(fd, this.#bufChkDiff, 0, Project.#LEN_CHKDIFF, 0);
-			closeSync(fd);
-			hash = crc32.buf(this.#bufChkDiff, 0);
-		}
-// console.log(`fn:Project.ts      B:${diff?.hash !== hash} b0:${diff?.hash} b1:${hash}`);
-		if (diff?.hash === hash) return false;
-
-		this.#hDiff[pp] = {
-			hash,
-			cn	: this.#REG_NEEDCRYPTO.test(pp)
-				? pp.replace(this.#REG_SPATH2HFN, `$1/${this.#encry.uuidv5(pp)}$2`)
-				.replace(this.#REG_REPPATHJSON, '.bin')
-				: pp,
-		};
-		return true;
-	}
-	static	readonly	#LEN_CHKDIFF	= 1024 *20;		// o
-//	static	readonly	#LEN_CHKDIFF	= 1024 *10;		// x 変更を検知しない場合があった
-//	static	readonly	#LEN_CHKDIFF	= 1024;			// x 変更を検知しない場合があった
-	readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
-	#bufChkDiff = new Uint8Array(Project.#LEN_CHKDIFF);
 
 
 	readonly	#aRepl;
@@ -1118,24 +953,24 @@ export class Project {
 		);
 		await this.#updPlugin();
 
-		this.#hDiff = Object.create(null);
+		this.#diff.clear();
 		await this.#initCrypto();
 	}
 
 	async #encFile({path}: Uri) {
 		const fp = v2fp(path);
-		const pp = this.#fp2pp(fp);
-// console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#hDiff[pp]!.cn}`);
+		const pp = this.#diff.fp2pp(fp);
+// console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.hDiff[pp]!.cn}`);
 		try {
-			const path_enc = this.#PATH_CRYPT + this.#hDiff[pp]!.cn;
-			if (! this.#REG_NEEDCRYPTO.test(fp)) {
+			const path_enc = this.#PATH_CRYPT + this.#diff.hDiff[pp]!.cn;
+			if (! REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラーとなるだけなので
 				return;
 			}
 
-			if (this.#REG_FULLCRYPTO.test(pp)) {	// この中はSync
+			if (REG_FULLCRYPTO.test(pp)) {	// この中はSync
 				if (pp !== 'path.json') {	// 内容も変更
 					const s = await readFile(fp, {encoding: 'utf8'});
 					await outputFile(path_enc, await this.#encry.enc(s));
@@ -1151,7 +986,7 @@ export class Project {
 							if (ext === ':cnt') continue;
 							if (ext.endsWith(':id')) continue;
 							const dir = this.#REG_DIR.exec(pp2);
-							const d = this.#hDiff[pp2];
+							const d = this.#diff.hDiff[pp2];
 							if (dir && this.#cfg.oCfg.code[dir[1]!] || ! d) continue;
 
 							hExt2N[ext] = d.cn;
@@ -1196,7 +1031,11 @@ export class Project {
 	#hDefPlg	: {[def_nm: string]: PluginDef}	= {};
 	async #updPlugin(build = true) {
 		const pathPlg = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/`;
-		if (! existsSync(pathPlg)) {await mkdirs(pathPlg); this.#build(); return}
+		if (! existsSync(pathPlg)) {
+			await mkdirs(pathPlg);
+			this.#build();
+			return;
+		}
 
 		const h4json	: {[def_nm: string]: number}	= {};
 		this.#hDefPlg = {};
@@ -1292,33 +1131,6 @@ export class Project {
 	}
 
 
-	#tiDelayPathJson: NodeJS.Timeout | undefined = undefined;
-	#updPathJson() {
-		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
-		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
-	}
-		async #basePathJson() {		// 初期化冒頭で直接呼ばれる
-			// path.json 更新（暗号化もここ「のみ」で）
-// console.log(`fn:Project.ts basePathJson`);
-			this.#haDiagFn = {};
-			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
-
-			// ドロップ時コピー先候補
-			for (const [spae, aFld] of this.#mExt2aFld) {
-				const aPath: string[] = [];
-				for (const fld_nm of aFld) if (existsSync(this.#PATH_WS +`/doc/prj/${fld_nm}/`)) aPath.push(fld_nm);
-				this.#mExt2ToPath.set(spae, aPath);
-			}
-
-			this.#sendReqPathJson({haDiagFn: this.#haDiagFn});
-		}
-		#sendReqPathJson = (_o: any)=> {};
-	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
-		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
-		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
-		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
-		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
-	]);
 	#mExt2ToPath	= new Map<SEARCH_PATH_ARG_EXT, string[]>;
 	#getコピー先候補(ext: string): string[] {
 		let aコピー先候補: string[] = [];

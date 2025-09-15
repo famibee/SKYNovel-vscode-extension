@@ -5,14 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {getFn, v2fp} from './CmnLib';
-import {FLD_PRJ_BASE} from './Project';
-import {WatchFile2Batch} from './WatchFile2Batch';
 import type {T_E2V_CHG_RANGE_WEBP_Q, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_NOTICE_COMPONENT, T_E2V_OPTPIC, T_OPTPIC} from '../views/types';
 import {DEF_OPTPIC} from '../views/types';
+import {chkUpdate, getFn, v2fp} from './CmnLib';
+import {FLD_PRJ_BASE} from './Project';
+import {WatchFile2Batch} from './WatchFile2Batch';
 
 import {Uri} from 'vscode';
-import {existsSync, readJson, remove, writeJson} from 'fs-extra';
+import {existsSync, mkdirs, readJson, remove, writeJson} from 'fs-extra';
 
 const PROC_ID = 'cnv.mat.pic';
 
@@ -48,6 +48,19 @@ export class WfbOptPic extends WatchFile2Batch {
 
 		if (existsSync(this.#PATH_OPT_PIC)) this.#oOptPic = await readJson(this.#PATH_OPT_PIC, {encoding: 'utf8'});
 		else await writeJson(this.#PATH_OPT_PIC, this.#oOptPic = DEF_OPTPIC);
+
+		// 立ち絵素材生成機能
+		await mkdirs(WatchFile2Batch.PATH_WS +`/${WatchFile2Batch.FLD_SRC}/resource/`),
+		await WatchFile2Batch.watchFld(
+			`${WatchFile2Batch.FLD_SRC}/resource/*.psd`,
+			`{doc/prj,${WatchFile2Batch.FLD_SRC}/${FLD_PRJ_BASE}}/face/{[FN]_*.png,[FN]_*.webp,face[FN].sn}`,
+			async ({fsPath})=> {
+				const hn = getFn(fsPath);
+				if (chkUpdate(fsPath, `${WatchFile2Batch.PATH_PRJ}face/face${hn}.sn`)) await WatchFile2Batch.exeTask('cnv_psd_face', `"${fsPath}" "${WatchFile2Batch.PATH_PRJ}"`);
+			},
+			()=> this.#facePsdCreChg(),
+			async uri=> {await this.facePsdDel(uri); return true},
+		);
 	}
 	async #onCreChgOptPic(uri: Uri, _cre=false) {
 // console.log(`fn:WfbOptPic.ts line:32 crechg sw:${WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
@@ -132,7 +145,7 @@ export class WfbOptPic extends WatchFile2Batch {
 		this.dispOptPic();
 	}
 	//MARK: 立ち絵 PSD 生成物を素材最適化・暗号化
-	async facePsdCreChg() {
+	async #facePsdCreChg() {
 		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
 
 		// WatchFile2Batch.watchFile = false;	// 画像素材最適化ONならそちらでやる
