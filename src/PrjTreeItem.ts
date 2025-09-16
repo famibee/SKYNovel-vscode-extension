@@ -128,7 +128,7 @@ export class PrjTreeItem extends TreeItem {
 		};
 		if (is_new_tmp) {
 			const ePack = cfg.children![eDevTreeView.Pack]!;
-			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_prd')}));
+			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_bld')}));
 		}
 
 		const pathWs = wsFld.uri.fsPath;

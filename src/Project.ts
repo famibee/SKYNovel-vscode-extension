@@ -25,7 +25,7 @@ import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownS
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {glob, readFile} from 'node:fs/promises';
 import {basename, dirname, extname} from 'node:path';
-import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readFileSync, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirsSync, mkdirs} from 'fs-extra';
+import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readFileSync, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs} from 'fs-extra';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
@@ -568,7 +568,7 @@ export class Project {
 			// NOTE: Stop 実装方法策定中につき無効化中
 		['TaskAppDbgStop', ['','','','','','','','','','','','']],
 	]);
-	#onBtn(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG) {
+	async #onBtn(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG) {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
 
 		// 値を壊してボタン消去など
@@ -581,18 +581,18 @@ export class Project {
 		});
 
 		if (btn_nm === 'TaskWebStop' || btn_nm === 'TaskAppStop') {
-			this.#onBtn_sub(ti, btn_nm, cfg, ()=> {});
+			await this.#onBtn_sub(ti, btn_nm, cfg, ()=> {});
 			return;
 		}
 		window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: String(ti.label) ?? '',
 			cancellable	: false,
-		}, prg=> new Promise(done=> {
+		}, prg=> new Promise(async done=> {
 			const iconPath = ti.iconPath;
 			ti.iconPath = new ThemeIcon('sync~spin');
 
-			this.#onBtn_sub(ti, btn_nm, cfg, (timeout = 4000)=> {
+			await this.#onBtn_sub(ti, btn_nm, cfg, (timeout = 4000)=> {
 				ti.iconPath = iconPath;
 
 				for (const ti of this.#aTiFlat) {
@@ -608,32 +608,34 @@ export class Project {
 			})
 		}));
 	}
-	#onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
+	async #onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		let cmd = `cd "${this.#PATH_WS}" ${statBreak} `;
 		if (! existsSync(this.#PATH_WS +'/node_modules')) {
 			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
-			removeSync(this.#PATH_WS +'/package-lock.json');
+			await remove(this.#PATH_WS +'/package-lock.json');
 		}
 
 		// メイン処理
 		if (cfg.npm) cmd += cfg.npm;
 		switch (btn_nm) {	// タスク前処理
 			case 'SnUpd':
-				this.#termDbgSS()
-				.then(()=> this.actBar.updPrjFromTmp(this.#PATH_WS))
-				.then(()=> ncu({	// ncu -u --target minor
-					packageFile: this.#PATH_WS +'/package.json',
-					// Defaults:
-					// jsonUpgraded: true,
-					// silent: true,
-					upgrade: true,
-					target: 'minor',
-				})
-				.then(()=> {
+				try {
+					await this.#termDbgSS();
+					await this.actBar.updPrjFromTmp(this.#PATH_WS);
+					await ncu({	// ncu -u --target minor
+						packageFile: this.#PATH_WS +'/package.json',
+						// Defaults:
+						// jsonUpgraded: true,
+						// silent: true,
+						upgrade: true,
+						target: 'minor',
+					});
 					this.getLocalSNVer();
-					this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
-				}))
-				.catch(()=> done(0));
+					await this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
+				} catch (e) {
+					console.error(`fn:Project.ts onBtn_sub SnUpd e:%o`, e);
+					done(0);
+				}
 				return;
 
 			case 'SnUpd_waited':	break;	// Promise待ち後
@@ -641,58 +643,58 @@ export class Project {
 			case 'PrjSet':	this.#ps.open();	done(0);	return;
 
 			case 'Crypto':
-				window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい')
-				.then(async ans=> {
+				try {
+					const ans = await window.showInformationMessage('暗号化（する / しない）を切り替えますか？', {modal: true}, 'はい');
 					if (ans !== 'はい') {done(0); return}
 
-					try {
-						await this.#termDbgSS();
-						await this.#tglCryptoMode();
-						this.#onBtn_sub(ti, 'Crypto_waited', cfg, done);
-					} catch (e) {console.error(e)}
-				});
+					await this.#termDbgSS();
+					await this.#tglCryptoMode();
+					await this.#onBtn_sub(ti, 'Crypto_waited', cfg, done);
+				} catch (e) {
+					console.error(`fn:Project.ts onBtn_sub Crypto e:%o`, e);
+				}
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
 
 			case 'TaskWebDbg':
 			case 'TaskAppDbg':
-				this.#termDbgSS().then(()=> {
-					this.#onDidTermDbgSS = ()=> {
-						this.#onDidTermDbgSS = ()=> {};
-						done(0);
-					};
-					debug.startDebugging(
-						this.wsFld,
-						btn_nm === 'TaskWebDbg' ?'webデバッグ' :'appデバッグ',
-					);
-				});
+				await this.#termDbgSS();
+				this.#onDidTermDbgSS = ()=> {
+					this.#onDidTermDbgSS = ()=> {};
+					done(0);
+				};
+				await debug.startDebugging(
+					this.wsFld,
+					`${btn_nm === 'TaskWebDbg' ?'web' :'app'}デバッグ`,
+				);
 				return;
 
 			case 'TaskWebStop':
-			case 'TaskAppStop':	this.#termDbgSS();	done(0);	return;
+			case 'TaskAppStop':
+				await this.#termDbgSS();	done(0);	return;
 
 			case 'PackWin':
 			case 'PackWin32':
 			case 'PackMac':
 			case 'PackMacArm64':
-			case 'PackLinux':	this.#termDbgSS();	break;
+			case 'PackLinux':	await this.#termDbgSS();	break;
 
 			case 'PackFreem':
-				this.#termDbgSS();
+				await this.#termDbgSS();
 
 				let find_ng = false;
-				treeProc(this.#PATH_PRJ, fp=> {
+				treeProc(this.#PATH_PRJ, async fp=> {
 					if (find_ng || ! fp.endsWith('.svg')) return;
 
 					find_ng = true;
-					window.showErrorMessage(
+					await window.showErrorMessage(
 						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
 					)
-					.then(ans=> {switch (ans) {
+					.then(async ans=> {switch (ans) {
 						case 'フォルダを開く':
-							env.openExternal(Uri.file(dirname(fp)));	break;
+							await env.openExternal(Uri.file(dirname(fp)));	break;
 						case 'Online Converter':
-							env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
+							await env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
 							break;
 					}});
 				});
@@ -710,8 +712,8 @@ export class Project {
 				)) break;
 
 				done();
-				window.showErrorMessage(`管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
-				.then(a=> {if (a) env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
+				await window.showErrorMessage(`管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned`, {modal: true}, '参考サイトを開く')
+				.then(async a=> {if (a) await env.openExternal(Uri.parse('https://qiita.com/Targityen/items/3d2e0b5b0b7b04963750'));});
 				return;
 		}
 
@@ -727,11 +729,11 @@ export class Project {
 		switch (btn_nm) {	// タスク後処理
 			//case 'SnUpd':	// ここには来ない
 			case 'SnUpd_waited':	// Promise待ち後
-				this.hOnEndTask.set(task_type, ()=> {this.getLocalSNVer(); done();});
+				this.hOnEndTask.set(task_type, ()=> {this.getLocalSNVer(); done()});
 				break;
 
 			case 'Crypto_waited':
-				this.hOnEndTask.set(task_type, ()=> {this.#dspCryptoMode(); done();});
+				this.hOnEndTask.set(task_type, ()=> {this.#dspCryptoMode(); done()});
 				break;
 
 			case 'PackWin':
@@ -739,14 +741,15 @@ export class Project {
 			case 'PackMac':
 			case 'PackMacArm64':
 			case 'PackLinux':	this.hOnEndTask.set(task_type, async ()=> {
+			try {
 				// アップデート用ファイル作成
-				const oPkg = readJsonSync(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
+				const oPkg = await readJson(this.#PATH_WS +'/package.json', {encoding: 'utf8'});
 
 				const pathPkg = this.#PATH_WS +'/build/package';
 				const pathUpd = pathPkg +'/update';
 				const fnUcJs = pathUpd +'/_index.json';
 				let oUc = existsSync(fnUcJs)
-					? readJsonSync(fnUcJs, {encoding: 'utf8'})
+					? await readJson(fnUcJs, {encoding: 'utf8'})
 					: {};
 
 //console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
@@ -755,7 +758,8 @@ export class Project {
 				const fnYml = pathPkg +`/latest${
 					isMacBld ?'-mac' :isLinBld ?'-linux' :''
 				}.yml`;
-				const sYml = readFileSync(fnYml, {encoding: 'utf8'});
+				if (! existsSync(fnYml)) throw '必要なファイルが生成されませんでした';
+				const sYml = await readFile(fnYml, {encoding: 'utf8'});
 				const mv = /version: (.+)/.exec(sYml);
 				if (! mv) throw `[Pack...] .yml に version が見つかりません`;
 				const ver = mv[1];
@@ -763,7 +767,7 @@ export class Project {
 				if (oUc.version != ver || oUc.name != oPkg.name) {
 					oUc = {};
 					await remove(pathUpd);
-					mkdirsSync(pathUpd);
+					await mkdirs(pathUpd);
 				}
 				oUc.version = oPkg.version;
 				oUc.name = oPkg.name;
@@ -792,25 +796,29 @@ export class Project {
 
 				// 古い（暗号化ファイル名）更新ファイルを削除
 				const REG_OLD_SAMEKEY = new RegExp('^'+ key +'-');
-				foldProc(pathUpd, (fp, nm)=> {
-					if (REG_OLD_SAMEKEY.test(nm)) removeSync(fp);
+				foldProc(pathUpd, async (fp, nm)=> {
+					if (REG_OLD_SAMEKEY.test(nm)) await remove(fp);
 				}, ()=> {});
 
 				// （暗号化ファイル名）更新ファイルをコピー
-				copy(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
+				await copy(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
 					// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
 					// という相反する要望を充たすような
 					// 既存ファイル削除にも便利
 
 				done();
-				window.showInformationMessage(
+				const a = await window.showInformationMessage(
 					`${cfg.label} パッケージを生成しました`,
 					'出力フォルダを開く',
-				).then(a=> {if (a) env.openExternal(Uri.file(pathPkg))});
-			});
+				);
+				if (a) await env.openExternal(Uri.file(pathPkg));
+			} catch (e) {
+				done();
+				await window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${e}`);
+			}});
 				break;
 
-			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
+			case 'PackFreem':	this.hOnEndTask.set(task_type, async ()=> {
 				const cwd = this.#PATH_WS +`/${
 					this.#IS_NEW_TMP && this.#isCryptoMode
 					? FLD_CRYPT_DOC
@@ -836,11 +844,11 @@ export class Project {
 					).then(a=> {if (a) env.openExternal(Uri.file(this.#PATH_WS +'/build/package/'))})
 				});
 				arc.pipe(ws);
-				arc.finalize();	// zip圧縮実行
+				await arc.finalize();	// zip圧縮実行
 			});
 				break;
 		}
-		tasks.executeTask(t)
+		await tasks.executeTask(t)
 		.then(
 			re=> this.#hTaskExe.set(btn_nm, re),
 			rj=> console.error(`fn:Project onBtn_sub() rj:${rj.message}`)

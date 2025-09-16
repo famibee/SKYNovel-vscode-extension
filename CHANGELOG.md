@@ -1,3 +1,6 @@
+## v4.23.2
+- fix: パッケージ中にエラー発生時にサイドメニューのボタンが押せない状態から抜けられなくなる件
+- fix(src/PrjTreeItem.ts): 新テンプレにおけるアプリビルドの npm scripts 名変更（app_prd -> app_bld）
 ## v4.23.1
 - fix(src/batch/cnv_mat_pic.ts): トップレベル await に警告が出るので即時実行関数式に
 - fix(src/batch/cnv_mat_snd.ts): トップレベル await に警告が出るので即時実行関数式に
