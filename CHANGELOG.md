@@ -1,3 +1,5 @@
+## v4.24.1
+- fix: 画像最適化処理・音声最適化処理の非同期処理を修正
 ## v4.24.0
 - feat(src/Project.ts): sn・json の文字コードが ASCII と UTF8 以外の場合はエラーに
 	- VS Codeでエンコーディングを変更、自動判別するには：Visual Studio Code TIPS - ＠IT https://atmarkit.itmedia.co.jp/ait/articles/1806/01/news051.html

@@ -127,36 +127,34 @@ const extOut = '.'+ (codec === 'opus' ?'m4a' :codec);
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathInp: string, pathBase: string, do_move: boolean = true): Promise<void> {
-	return queue.add(async ()=> {
-		const {dir, name} = parse(pathInp);
-		if (do_move) await move(pathInp, pathBase, {overwrite: true});
-		else await Promise.allSettled(
-			['m4a','aac','ogg']
-			.map(ext=> remove(dir +'/'+ name +'.'+ ext))
-		);
+async function cnv(pathInp: string, pathBase: string, do_move: boolean = true): Promise<void> {
+	const {dir, name} = parse(pathInp);
+	if (do_move) await move(pathInp, pathBase, {overwrite: true});
+	else await Promise.allSettled(
+		['m4a','aac','ogg']
+		.map(ext=> remove(dir +'/'+ name +'.'+ ext))
+	);
 
-		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-		const {dir: dirBase, ext} = parse(pathBase);
-		const pathWk = dirBase +'/'+ name + extCnv;
-		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, optSize: 0, ext: <any>'',};
+	// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+	const {dir: dirBase, ext} = parse(pathBase);
+	const pathWk = dirBase +'/'+ name + extCnv;
+	const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, optSize: 0, ext: <any>'',};
 
-		await new Promise<void>(re=> ffmpeg(pathBase)
-		.save(pathWk)	// 一度作業中ファイルは退避先に作る
-	//	.on('start', (cl: any)=> console.log(`@@ ${cl} @@`))
-		.on('error', (e: any)=> console.error(e))
-		.on('end', async (_stdout: any, _stderr: any)=> {
-			const baseSize = statSync(pathBase).size;
-			const optSize = statSync(pathWk).size;
-			oLog.hSize[name] = {...fi, baseSize, optSize, ext: <any>ext.slice(1),};
-			oLog.sum.baseSize += baseSize;
-			oLog.sum.optSize += optSize;
+	await new Promise<void>(re=> ffmpeg(pathBase)
+	.save(pathWk)	// 一度作業中ファイルは退避先に作る
+//	.on('start', (cl: any)=> console.log(`@@ ${cl} @@`))
+	.on('error', (e: any)=> console.error(e))
+	.on('end', async (_stdout: any, _stderr: any)=> {
+		const baseSize = statSync(pathBase).size;
+		const optSize = statSync(pathWk).size;
+		oLog.hSize[name] = {...fi, baseSize, optSize, ext: <any>ext.slice(1),};
+		oLog.sum.baseSize += baseSize;
+		oLog.sum.optSize += optSize;
 
-			await move(pathWk, dir +'/'+ name + extOut, {overwrite: true});
-			cnt();
-			re();
-		}));
-	});
+		await move(pathWk, dir +'/'+ name + extOut, {overwrite: true});
+		cnt();
+		re();
+	}));
 }
 
 

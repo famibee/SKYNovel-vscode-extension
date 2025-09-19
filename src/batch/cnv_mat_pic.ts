@@ -145,34 +145,32 @@ let cnt = ()=> {
  * @param {boolean} do_move	退避moveするか
  * @returns {void} 返り値
  */
-function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
-	return queue.add(async ()=> {
-		if (do_move) await move(pathPrj, pathBase, {overwrite: true});
+async function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
+	if (do_move) await move(pathPrj, pathBase, {overwrite: true});
 
-		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-		const {dir, name} = parse(pathPrj);
-		const {dir: dirBase, ext} = parse(pathBase);
-		const pathWk = dirBase +'/'+ name +'.webp';
-		const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
+	// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+	const {dir, name} = parse(pathPrj);
+	const {dir: dirBase, ext} = parse(pathBase);
+	const pathWk = dirBase +'/'+ name +'.webp';
+	const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
 
-		try {
-			const info = await sharp(pathBase)
-			//.grayscale()	// TEST
-			.webp({quality: Number(fi.webp_q ?? quality)})
-			.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
+	try {
+		const info = await sharp(pathBase)
+		//.grayscale()	// TEST
+		.webp({quality: Number(fi.webp_q ?? quality)})
+		.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-			const baseSize = statSync(pathBase).size;
-			const webpSize = info.size;
-			oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
-			oLog.sum.baseSize += baseSize;
-			oLog.sum.webpSize += webpSize;
+		const baseSize = statSync(pathBase).size;
+		const webpSize = info.size;
+		oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
+		oLog.sum.baseSize += baseSize;
+		oLog.sum.webpSize += webpSize;
 
-			await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
-			cnt();
-		} catch (e) {
-			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
-		}
-	});
+		await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
+		cnt();
+	} catch (e) {
+		console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
+	}
 }
 
 (async ()=> {
