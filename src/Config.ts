@@ -10,7 +10,8 @@ import {ConfigBase} from './ConfigBase';
 import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
 import {DEF_CFG} from '../views/types';
 import {Encryptor} from './Encryptor';
-import type {T_DIAG, T_H_ADIAG} from './Project';
+import {hDiagL2s} from './Project';
+import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './Project';
 
 import {Uri, window} from 'vscode';
 import {parse, resolve} from 'node:path';
@@ -49,7 +50,7 @@ export class Config extends ConfigBase {
 	constructor(override readonly sys: SysExtension, private encry: Encryptor) {super(sys)}
 	setCryptoMode(v: boolean) {this.sys.crypto = v;}
 
-	async loadEx(encFile: (uri: Uri)=> Promise<void>, haDiagFn: T_H_ADIAG) {
+	async loadEx(encFile: (uri: Uri)=> Promise<void>, haDiagFn: T_H_ADIAG_L2S) {
 		const fpPrj = this.sys.arg.cur +'prj.json';
 		const fpPath= this.sys.arg.cur +'path.json';
 		try {
@@ -78,7 +79,7 @@ export class Config extends ConfigBase {
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
-	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG): Promise<IFn2Path> {
+	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG_L2S): Promise<IFn2Path> {
 		const hFn2Path: IFn2Path = {};
 
 	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
@@ -88,14 +89,15 @@ export class Config extends ConfigBase {
 		//		URLエンコードされていない物を想定。
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
+		const {mes, sev} = hDiagL2s.ファイル名合成文字!;
 		foldProc($cur, ()=> {}, dir=> {
 			const wd = resolve($cur, dir);
 			foldProc(wd, async (fp, nm)=> {
-				const aD: T_DIAG[] = [];
+				const aD: T_DIAG_L2S[] = [];
 				this.#addPath(hFn2Path, dir, nm, aD);
 
 				// 合成文字が含まれてたら警告を出す
-				if (nm.normalize('NFC').length !== nm.normalize('NFD').length) aD.push({mes:`ファイル名は濁点(゛)・半濁点(゜)など合成文字を避けて下さい。トラブルの元です`, sev: 'W'});
+				if (nm.normalize('NFC').length !== nm.normalize('NFD').length) aD.push({mes, sev});
 				if (aD.length > 0) haDiagFn[fp] = aD;
 
 				// スプライトシート用json自動生成機能
@@ -157,13 +159,14 @@ export class Config extends ConfigBase {
 
 		return hFn2Path;
 	}
-	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: T_DIAG[]) {
+	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: T_DIAG_L2S[]) {
 		const {name: fn, base, ext} = parse(nm);
 		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
 		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <any>0};
 		else if (ext2 in hExts) {
-			aD.push({mes: `プロジェクト内でファイル【${base}】が重複しています。フォルダを縦断検索するため許されません`, sev: 'W'});
+			const {mes, sev} = hDiagL2s.ファイル重複!;
+			aD.push({mes: mes.replace('$', base), sev});
 			return;
 		}
 

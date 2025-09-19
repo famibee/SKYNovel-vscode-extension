@@ -24,8 +24,9 @@ import {HDiff} from './HDiff';
 import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, window, workspace, WorkspaceEdit} from 'vscode';
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {glob, readFile} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
+import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs} from 'fs-extra';
 import {basename, dirname, extname} from 'node:path';
-import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readFileSync, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs} from 'fs-extra';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
@@ -33,6 +34,7 @@ import * as archiver from 'archiver';
 import {execSync} from 'child_process';
 import ncu from 'npm-check-updates'
 import replaceAsync from 'string-replace-async';
+import Encoding from 'encoding-japanese';
 
 
 type BtnEnable = '_off'|'Stop'|'';
@@ -52,11 +54,26 @@ export type T_QuickPickItemEx = {label: string, description: string, uri: string
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
 
-export type T_DIAG = {
+export type T_DIAG_L2S = {
 	mes: string,
 	sev: 'E'|'W'|'I'|'H',
 };
-export type T_H_ADIAG = {[fp: string]: T_DIAG[]};
+export type T_H_ADIAG_L2S = {[fp: string]: T_DIAG_L2S[]};
+
+export const hDiagL2s	:{[code_name: string]: T_DIAG_L2S} = {
+	ファイル重複: {
+		mes	: 'プロジェクト内でファイル【$】が重複しています。フォルダを縦断検索するため許されません',
+		sev	: 'W',
+	},
+	ファイル名合成文字: {
+		mes	: 'ファイル名は濁点(゛)・半濁点(゜)など合成文字を避けて下さい。トラブルの元です',
+		sev	: 'W',
+	},
+	文字コード異常: {
+		mes	: '文字コードが異常（$）です。UTF8 か ASCII にして下さい',
+		sev	: 'E',
+	},
+}
 
 
 export class Project {
@@ -96,8 +113,8 @@ export class Project {
 
 	readonly	#sendRequest2LSP: (cmd: string, o?: any)=> void;
 
-	#haDiagFn	: T_H_ADIAG	= {};
-	#haDiagFont	: T_H_ADIAG	= {};
+	#haDiagFont		: T_H_ADIAG_L2S	= {};
+	#haDiagChrCd	: T_H_ADIAG_L2S	= {};
 
 	readonly	#cfg;
 
@@ -140,7 +157,7 @@ export class Project {
 				salt	: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 				iv		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 				keySize	: 512 / 32,
-				ite		: 500 + Math.floor((new Date).getTime() %300),
+				ite		: 500 + Math.floor((new Date).getTime() % 300),
 				stk		: ab2hexStr(getRandomValues(new Uint32Array(128 / 8)).buffer),
 			}, subtle);
 		if (! exists_pass) /*await*/ outputFile(fnPass, this.#encry.strHPass);
@@ -169,6 +186,7 @@ export class Project {
 			ctx,
 			wsFld,
 			this.#cfg,
+			this,
 			this.#diff,
 			uri=> this.#encFile(uri),
 			uri=> this.#encIfNeeded(uri),
@@ -177,7 +195,7 @@ export class Project {
 			this.#hTaskExe,
 			this.hOnEndTask,
 			is_new_tmp,
-	);
+		);
 		const pti = PrjTreeItem.create(
 			ctx,
 			wsFld,
@@ -324,8 +342,8 @@ export class Project {
 					},
 				}));
 			},
-		].map(p=> p()))).then(()=> {
-			WatchFile2Batch.init2th(this.#ps);
+		].map(p=> p()))).then(async ()=> {
+			await WatchFile2Batch.init2th(this.#ps);
 
 			this.#sendRequest2LSP('ready');
 		});
@@ -365,24 +383,24 @@ export class Project {
 		switch (cmd) {
 			// #noticeGo() から。何度も来る
 			case 'go':{
-				const pp2s: {[pp: string]: string} = {};
-				treeProc(this.#PATH_PRJ, fp=> {
-					if (! /\.(ss?n|json)$/.test(fp)) return;
-
-					fp = v2fp(Uri.file(fp).path);
-					// まだセーブしてない Dirty状態の場合があるので doc優先
-					const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
-					const pp = fp.slice(this.#LEN_PATH_PRJ);
-					pp2s[pp] = (REG_SCRIPT.test(fp) ?td?.getText() :undefined)
-						?? readFileSync(fp, {encoding: 'utf8'});
-				});
-
 				//NOTE: #haDiagFont はここで毎回更新すべきか、フォント最適化スイッチをさわったときか、本文にフォントファイルに含まれない文字が増えたときか、減ったときは、など議論がある
 				// ひとまず処理がさほど重くなさそうなので毎回やる
 				this.#haDiagFont = this.#optFont.updDiag(o.InfFont);
-				const haDiag = {...this.#haDiagFn, ...this.#haDiagFont};
 
-				this.#sendRequest2LSP(cmd +'.res', {pp2s, hDefPlg: this.#hDefPlg, haDiag});
+				// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+				const pp2s: {[pp: string]: string} = {};
+				this.#haDiagChrCd = {};
+				treeProc(this.#PATH_PRJ, fp=> {
+					if (! /\.(ss?n|json)$/.test(fp)) return;
+
+					this.#chkChrCd(fp, pp2s);
+				});
+
+				this.#sendRequest2LSP(cmd +'.res', {
+					pp2s,
+					hDefPlg	: this.#hDefPlg,
+					haDiag	: this.#haDiag,
+				});
 			}	break;
 
 			// #scanEnd() から
@@ -407,7 +425,7 @@ export class Project {
 
 				this.#mExt2Snip = new Map(<T_aExt2Snip>o.aExt2Snip);
 
-				WatchFile2Batch.init3th(o=> this.#sendRequest2LSP('upd_pathjson', o));
+				WatchFile2Batch.init3th(()=> this.#sendRequest2LSP('need_go'));
 			}	break;
 
 			case 'hover.res':	{
@@ -417,6 +435,47 @@ export class Project {
 			}	break;
 		}
 	}
+	#chkChrCd(fp: string, pp2s?: {[pp: string]: string}) {
+		const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
+		const pp = fp.slice(this.#LEN_PATH_PRJ);
+		const str = REG_SCRIPT.test(fp) ?td?.getText() :undefined;
+		let cc: string;
+		if (str) {
+			if (pp2s) pp2s[pp] = str;
+			cc = Encoding.detect(str) as string;
+		}
+		else {
+			const buf = readFileSync(fp);
+			cc = Encoding.detect(buf) as string;
+			if (pp2s) pp2s[pp] = buf.toString('utf-8');
+		}
+		if (/(UTF8|ASCII)$/.test(cc)) {delete this.#haDiagChrCd[fp]; return}
+
+		// 同じ警告は削除
+		const {mes, sev} = hDiagL2s.文字コード異常!;
+		this.#haDiagChrCd[fp] = [{mes: mes.replace('$', cc), sev}];
+	}
+	noticeChgTxt(fp: string) {
+		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+		if (! /\.(ss?n|json)$/.test(fp)) return;
+
+		this.#chkChrCd(fp);
+		this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
+	}
+	noticeDelTxt(fp: string): boolean {
+		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+		if (! /\.(ss?n|json)$/.test(fp)) return false;
+
+		delete this.#haDiagChrCd[fp];
+		this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
+
+		return true;
+	}
+		get #haDiag() {return {
+			...WatchFile2Batch.haDiagFn,
+			...this.#haDiagFont,
+			...this.#haDiagChrCd,
+		}}
 
 	//MARK: ホバーイベント
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
@@ -683,11 +742,11 @@ export class Project {
 				await this.#termDbgSS();
 
 				let find_ng = false;
-				treeProc(this.#PATH_PRJ, async fp=> {
+				treeProc(this.#PATH_PRJ, fp=> {
 					if (find_ng || ! fp.endsWith('.svg')) return;
 
 					find_ng = true;
-					await window.showErrorMessage(
+					window.showErrorMessage(
 						`ふりーむ！では svg ファイル使用禁止です。png などに置き換えて下さい`, 'フォルダを開く', 'Online Converter',
 					)
 					.then(async ans=> {switch (ans) {
@@ -859,12 +918,12 @@ export class Project {
 
 	//MARK: 暗号化
 	async #initCrypto() {
-		const fnc: (fp: string)=> Promise<void> = this.#isCryptoMode
-			? async fp=> {
+		const fnc: (fp: string)=> void = this.#isCryptoMode
+			? fp=> {
 				const uri = Uri.file(fp);
-				if (this.#diff.isDiff(uri)) await this.#encFile(uri);
+				if (this.#diff.isDiff(uri)) /*await*/ this.#encFile(uri);
 			}
-			: async fp=> {
+			: fp=> {
 				const uri = Uri.file(fp);
 				this.#diff.isDiff(uri);
 			};

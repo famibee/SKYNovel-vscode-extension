@@ -22,14 +22,17 @@ export class WfbSettingSn extends WatchFile2Batch {
 	async init() {
 		await WatchFile2Batch.watchFld(
 			'doc/prj/*/setting.sn', '',
-			async ({path})=> {this.#fnSetting = path},
-			async ({path}, cre)=> {
+			async ({path})=> {
+				this.#fnSetting = path;	// 存在しない場合も
+				this.chkMultiMatch = this.#chkMultiMatch_proc;
+				this.chkMultiMatch();
+				this.update = this.#update_proc;
+			},
+			async (_uri, cre)=> {
 				if (cre) this.chkMultiMatch();
 				// else this.onChgSettingSn(uri);	// ここでやると変更が戻るループ
-			}, async ({path})=> true,
+			}, async ()=> true,
 		);
-
-		this.chkMultiMatch();
 
 		workspace.onDidSaveTextDocument(e=> {
 			if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
@@ -40,7 +43,9 @@ export class WfbSettingSn extends WatchFile2Batch {
 	#preventUpdHowl = true;	// 更新ハウリングを防ぐ
 		// ついでに初回の不要な 'update.aTemp' を止めるため true 始まりで
 
-	chkMultiMatch() {
+	//MARK: 重複チェック
+	chkMultiMatch = ()=> {};
+	#chkMultiMatch_proc() {
 		this.#preventUpdHowl = true;
 
 		const aTemp	: T_TEMP[]	= [];
@@ -88,9 +93,11 @@ export class WfbSettingSn extends WatchFile2Batch {
 			aTemp,
 		});
 	}
-		#fnSetting	: string;
+		#fnSetting	= '';
 
-	async update_aTemp(e: T_V2E_TEMP) {
+	//MARK: 更新
+	update = async (e: T_V2E_TEMP)=> {};
+	async #update_proc(e: T_V2E_TEMP) {
 		if (this.#preventUpdHowl) {
 			this.#preventUpdHowl = false;
 			return;

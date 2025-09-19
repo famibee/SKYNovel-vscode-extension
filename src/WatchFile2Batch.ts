@@ -11,7 +11,8 @@ import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {Config} from './Config';
 import type {HDiff} from './HDiff';
 import {PRE_TASK_TYPE} from './WorkSpaces';
-import {FLD_PRJ_BASE, T_H_ADIAG} from './Project';
+import {FLD_PRJ_BASE} from './Project';
+import type {Project, T_H_ADIAG_L2S} from './Project';
 import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, TASK_TYPE} from './PrjTreeItem';
 
@@ -31,6 +32,7 @@ type T_WATCHRP2CREDELPROC = {
 export class WatchFile2Batch {
 	protected static	ctx		: ExtensionContext;
 	protected static	wsFld	: WorkspaceFolder;
+	protected static	prj		: Project;
 			static		#diff	: HDiff;
 			static		fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
 			static		#encIfNeeded	: (uri: Uri)=> Promise<void>;
@@ -40,7 +42,7 @@ export class WatchFile2Batch {
 	protected static	hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>;
 	protected static	is_new_tmp	: boolean;
 
-	static	#basePathJson	: ()=> void;
+	static	#basePathJson	: ()=> Promise<void>;
 
 	protected static	wss		: Memento;
 	protected static	PATH_WS			: string;
@@ -58,6 +60,7 @@ export class WatchFile2Batch {
 		ctx		: ExtensionContext,
 		wsFld	: WorkspaceFolder, 
 		cfg		: Config,
+		prj		: Project,
 		diff	: HDiff,
 		encFile		: (uri: Uri)=> Promise<void>,
 		encIfNeeded	: (uri: Uri)=> Promise<void>,
@@ -69,8 +72,9 @@ export class WatchFile2Batch {
 	) {
 		this.ctx = ctx;
 		this.wsFld = wsFld;
+		this.prj = prj;
 		this.#basePathJson = async ()=> {
-		// path.json 更新（暗号化もここ「のみ」で）
+			// path.json 更新（暗号化もここ「のみ」で）
 // console.log(`fn:WatchFile2Batch.ts basePathJson`);
 			this.#haDiagFn = {};
 			await cfg.loadEx(uri=> encFile(uri), this.#haDiagFn);
@@ -82,7 +86,7 @@ export class WatchFile2Batch {
 				this.#mExt2ToPath.set(spae, aPath);
 			}
 
-			this.#sendReqPathJson({haDiagFn: this.#haDiagFn});
+			this.#sendReqPathJson();
 		};
 		this.#diff = diff;
 		this.#encIfNeeded = encIfNeeded;
@@ -198,20 +202,22 @@ export class WatchFile2Batch {
 		// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
 		protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
 
-	static	init2th(ps: PrjSetting) {
+	static	async init2th(ps: PrjSetting) {
 		this.ps = ps;
-		this.#basePathJson();
+		await this.#basePathJson();
+
+		this.#watchFile = true;
 	}
 	protected static	ps	: PrjSetting;
 
-	static	init3th(fnc: (o: any)=> void) {this.#sendReqPathJson = fnc}
-	static	#sendReqPathJson = (_o: any)=> {};
+	static	init3th(fnc: ()=> void) {this.#sendReqPathJson = fnc}
+	static	#sendReqPathJson = ()=> {};
 
 	//MARK: デストラクタ
 	static	dispose() {for (const d of this.#ds) d.dispose()}
 
 
-	static	#haDiagFn	: T_H_ADIAG	= {};
+	static	#haDiagFn	: T_H_ADIAG_L2S	= {};
 	static get haDiagFn() {return this.#haDiagFn}
 	static	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
 		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
@@ -236,7 +242,7 @@ export class WatchFile2Batch {
 	}};
 	protected static	exeTask(nm: T_CMD, arg: string): Promise<number> {
 		// バッチ実行中のファイル変更検知を抑制
-		WatchFile2Batch.watchFile = false;
+		WatchFile2Batch.#watchFile = false;
 
 		const inf = this.#hTask2Inf[nm]!;
 		return new Promise(fin=> window.withProgress({
@@ -272,7 +278,7 @@ export class WatchFile2Batch {
 				fin(e.exitCode ?? 0);
 
 				// バッチ実行中のファイル変更検知を再開
-				WatchFile2Batch.watchFile = true;
+				WatchFile2Batch.#watchFile = true;
 
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);

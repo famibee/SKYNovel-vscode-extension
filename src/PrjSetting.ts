@@ -59,7 +59,7 @@ export class PrjSetting implements Disposable {
 	constructor(
 		private readonly ctx: ExtensionContext,
 		readonly wsFld: WorkspaceFolder,
-		private readonly cfg: Config,
+		private readonly cfg	: Config,
 		private readonly chgTitle: (title: string)=> void,
 				readonly sendRequest2LSP: (cmd: string, o?: any)=> void,
 		private readonly onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
@@ -99,7 +99,7 @@ export class PrjSetting implements Disposable {
 
 //		setEscape();	// 非同期禁止
 
-		this.#setEscape = ()=> sendRequest2LSP('def_esc.upd');
+		this.#setEscape = ()=> sendRequest2LSP('need_go');
 
 		const path_ext = ctx.extensionPath;
 		const path_vue_root = path_ext +'/dist/';
@@ -408,7 +408,7 @@ export class PrjSetting implements Disposable {
 			}
 		},
 
-		'update.aTemp'		: m=> this.#stgSn.update_aTemp(m),
+		'update.aTemp'		: m=> this.#stgSn.update(m),
 
 		'info'	: m=> window.showInformationMessage(m.mes) as Promise<void>,
 		'warn'	: m=> window.showWarningMessage(m.mes) as Promise<void>,

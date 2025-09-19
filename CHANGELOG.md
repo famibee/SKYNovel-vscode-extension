@@ -1,3 +1,8 @@
+## v4.24.0
+- feat(src/Project.ts): sn・json の文字コードが ASCII と UTF8 以外の場合はエラーに
+	- VS Codeでエンコーディングを変更、自動判別するには：Visual Studio Code TIPS - ＠IT https://atmarkit.itmedia.co.jp/ait/articles/1806/01/news051.html
+- fix(src/WfbSettingSn.ts): （シンプルテンプレなど）setting.sn が存在しないプロジェクトで内部的にエラーが発生していた件
+	- v4.23.1 デグレード
 ## v4.23.2
 - fix: パッケージ中にエラー発生時にサイドメニューのボタンが押せない状態から抜けられなくなる件
 - fix(src/PrjTreeItem.ts): 新テンプレにおけるアプリビルドの npm scripts 名変更（app_prd -> app_bld）

@@ -7,7 +7,7 @@
 
 import type {T_A_CNVFONT, T_E2V_CNVFONT, T_E2V_NOTICE_COMPONENT} from '../views/types';
 import {foldProc, is_win} from './CmnLib';
-import type {T_DIAG, T_H_ADIAG} from './Project';
+import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './Project';
 import {WatchFile2Batch} from './WatchFile2Batch';
 
 import {existsSync, outputJson, readJson, remove} from 'fs-extra';
@@ -63,11 +63,13 @@ export class WfbOptFont extends WatchFile2Batch {
 		await WatchFile2Batch.watchFld(
 			'doc/prj/*/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}', '',
 			async ()=> {},	// 処理はないが暗号化処理を動かしたい
-			async ()=> {},	// 処理はないが暗号化処理を動かしたい
-			async ()=> true,// 処理はないが暗号化処理を動かしたい
+			async ({path}, _cre)=> WatchFile2Batch.prj.noticeChgTxt(path),
+			async ({path})=> {
+				WatchFile2Batch.prj.noticeDelTxt(path);
+				return true;
+			},
 		);
 	}
-
 
 	//MARK: 変換有効化
 	async enable() {
@@ -161,12 +163,12 @@ export class WfbOptFont extends WatchFile2Batch {
 	};
 
 
-	updDiag(InfFont: TINF_INTFONT): T_H_ADIAG {
+	updDiag(InfFont: TINF_INTFONT): T_H_ADIAG_L2S {
 		this.#InfFont = InfFont;
 
-		const haDiag: T_H_ADIAG = {};
+		const haDiag: T_H_ADIAG_L2S = {};
 		for (const [fp, a] of Object.entries(this.#InfFont.hFp2FontErr)) {
-			const aD: T_DIAG[] = [];
+			const aD: T_DIAG_L2S[] = [];
 			for (const {err, nm} of a) {
 				if (this.#getFontNm2path(nm)) continue;
 

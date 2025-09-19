@@ -24,6 +24,7 @@ export const is_mac = process.platform === 'darwin';
 //const is_linux = process.platform === 'linux';
 
 
+// =============== Plugin
 export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
 	// TODO: v2fp() いずれなくす
@@ -158,6 +159,8 @@ export type PLUGIN_DECAB_RET = {
 	ab		: ArrayBuffer;
 };
 
+
+// =============== Plugin
 export type IPluginInitArg = {
 //	getInfo(): T_PLUGIN_INFO;
 //	addTag(tag_name: string, tag_fnc: ITag): void;

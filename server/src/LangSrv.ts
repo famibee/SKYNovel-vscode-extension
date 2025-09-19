@@ -327,19 +327,27 @@ conn.onShutdown(()=> {for (const wf of aLspWs) wf.destroy(); aLspWs = [];});
 
 // === ファイル開きイベント（ファイルを開いたときにも） ===
 const hDocThrowOpCl: {[uri: string]: 0} = {};
-docs.onDidOpen(chg=> {	// 開いた時のみのイベントにする
-	const {uri} = chg.document;
+docs.onDidOpen(e=> {	// 開いた時のみのイベントにする
+	const {uri} = e.document;
 	hDocThrowOpCl[uri] = 0;
-	for (const wf of aLspWs) wf.onDidOpen(chg);
+	for (const wf of aLspWs) wf.onDidOpen(e);
 });
 
 // === ファイル変更イベント（手入力が対象） ===
-docs.onDidChangeContent(chg=> {	// 変更時のみのイベントにする
-	const {uri} = chg.document;
+docs.onDidChangeContent(e=> {	// 変更時のみのイベントにする
+	const {uri} = e.document;
 	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
 
-	for (const wf of aLspWs) wf.onDidChangeContent(chg);
+	for (const wf of aLspWs) wf.onDidChangeContent(e);
 });
+
+// === ファイル保存前イベント ===
+// docs.onWillSave(e=> {
+// 	const {uri} = e.document;
+// 	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
+
+// 	for (const wf of aLspWs) wf.onWillSave(e);
+// });
 
 // === ファイル閉じイベント
 docs.onDidClose(({document: {uri}})=> delete hDocThrowOpCl[uri]);
@@ -348,9 +356,9 @@ docs.onDidClose(({document: {uri}})=> delete hDocThrowOpCl[uri]);
 // === ファイル変更イベント（手入力以外が対象） ===
 //	// LanguageClientOptions.synchronize.fileEvents での設定によるイベント
 //	// Changed は保存時に発生する
-conn.onDidChangeWatchedFiles(chg=> {
-	for (const wf of aLspWs) wf.onDidChangeWatchedFiles(chg);
-});
+// conn.onDidChangeWatchedFiles(e=> {
+// 	for (const wf of aLspWs) wf.onDidChangeWatchedFiles(e);
+// });
 
 
 

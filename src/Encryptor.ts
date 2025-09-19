@@ -12,7 +12,9 @@ import {v5} from 'uuid';
 
 // hex String 2 ArrayBuf (nodejs の Buffer を使わない)
 export function hexStr2ab(i: string): ArrayBuffer {
-	return new Uint8Array((i.match(/../g) ?? []).map(h=> parseInt(h, 16))).buffer;
+	return new Uint8Array(
+		(i.match(/../g)?.map(h=> parseInt(h, 16)) ?? []
+	)).buffer;
 }
 export function ab2hexStr(ab: ArrayBuffer) {
 	return [...new Uint8Array(ab)].map(x=> x.toString(16).padStart(2, '0')).join('');
