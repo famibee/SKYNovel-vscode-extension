@@ -1,3 +1,7 @@
+## v4.24.2
+-fix(src/Project.ts): 開いた sn で文字コードが utf8・utf16 が区別なく UNICODE になる件
+-fix(server/src/LspWs.ts): 文字コードエラー -> エラー で両方のエラー表示が残る件
+-fix(server/src/LspWs.ts): utf8 にしてエラーにすると、以前のエラーが復活する件
 ## v4.24.1
 - fix: 画像最適化処理・音声最適化処理の非同期処理を修正
 ## v4.24.0

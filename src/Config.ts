@@ -5,13 +5,12 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, uint} from './CmnLib';
+import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './CmnLib';
+import {foldProc, hDiagL2s, uint} from './CmnLib';
 import {ConfigBase} from './ConfigBase';
 import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
 import {DEF_CFG} from '../views/types';
 import {Encryptor} from './Encryptor';
-import {hDiagL2s} from './Project';
-import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './Project';
 
 import {Uri, window} from 'vscode';
 import {parse, resolve} from 'node:path';

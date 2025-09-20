@@ -6,13 +6,12 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_CMD, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../views/types';
-import {getFn, v2fp} from './CmnLib';
+import {type T_H_ADIAG_L2S, getFn, v2fp} from './CmnLib';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {Config} from './Config';
 import type {HDiff} from './HDiff';
 import {PRE_TASK_TYPE} from './WorkSpaces';
-import {FLD_PRJ_BASE} from './Project';
-import type {Project, T_H_ADIAG_L2S} from './Project';
+import {type Project, FLD_PRJ_BASE} from './Project';
 import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, TASK_TYPE} from './PrjTreeItem';
 

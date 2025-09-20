@@ -6,8 +6,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_A_CNVFONT, T_E2V_CNVFONT, T_E2V_NOTICE_COMPONENT} from '../views/types';
+import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './CmnLib';
 import {foldProc, is_win} from './CmnLib';
-import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './Project';
 import {WatchFile2Batch} from './WatchFile2Batch';
 
 import {existsSync, outputJson, readJson, remove} from 'fs-extra';

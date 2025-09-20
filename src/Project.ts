@@ -5,7 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT, type IDecryptInfo} from './CmnLib';
+import type {IDecryptInfo, T_H_ADIAG_L2S} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT, hDiagL2s} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -53,27 +54,6 @@ export type T_QuickPickItemEx = {label: string, description: string, uri: string
 
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
-
-export type T_DIAG_L2S = {
-	mes: string,
-	sev: 'E'|'W'|'I'|'H',
-};
-export type T_H_ADIAG_L2S = {[fp: string]: T_DIAG_L2S[]};
-
-export const hDiagL2s	:{[code_name: string]: T_DIAG_L2S} = {
-	ファイル重複: {
-		mes	: 'プロジェクト内でファイル【$】が重複しています。フォルダを縦断検索するため許されません',
-		sev	: 'W',
-	},
-	ファイル名合成文字: {
-		mes	: 'ファイル名は濁点(゛)・半濁点(゜)など合成文字を避けて下さい。トラブルの元です',
-		sev	: 'W',
-	},
-	文字コード異常: {
-		mes	: '文字コードが異常（$）です。UTF8 か ASCII にして下さい',
-		sev	: 'E',
-	},
-}
 
 
 export class Project {
@@ -440,16 +420,17 @@ export class Project {
 		const pp = fp.slice(this.#LEN_PATH_PRJ);
 		const str = REG_SCRIPT.test(fp) ?td?.getText() :undefined;
 		let cc: string;
-		if (str) {
+		if (str) {		// 「開いた sn」のみが来る？
 			if (pp2s) pp2s[pp] = str;
-			cc = Encoding.detect(str) as string;
+			cc = td?.encoding ?? '';	// Encoding で UNICODE でも詳細が取れる
 		}
 		else {
 			const buf = readFileSync(fp);
-			cc = Encoding.detect(buf) as string;
 			if (pp2s) pp2s[pp] = buf.toString('utf-8');
+			cc = Encoding.detect(buf) as string;
 		}
-		if (/(UTF8|ASCII)$/.test(cc)) {delete this.#haDiagChrCd[fp]; return}
+		if (/(UTF8|ASCII)$/i.test(cc)) {delete this.#haDiagChrCd[fp]; return}
+			// td?.encoding が小文字「utf8」なので
 
 		// 同じ警告は削除
 		const {mes, sev} = hDiagL2s.文字コード異常!;

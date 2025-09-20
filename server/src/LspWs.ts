@@ -5,13 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {getFn, int, is_win, REG_SCRIPT} from '../../src/CmnLib';
+import type {T_H_ADIAG_L2S} from '../../src/CmnLib';
+import {getFn, int, is_win, REG_SCRIPT, S_文字コードが異常} from '../../src/CmnLib';
 import {Grammar, type Script} from './Grammar';
 import {AnalyzeTagArg, type HPRM, type PRM_RANGE} from '../../src/AnalyzeTagArg';
 import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 // import hMd from './md.json' with {type: 'json'};
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
-import type {T_aExt2Snip, T_H_ADIAG_L2S, T_QuickPickItemEx} from '../../src/Project';
+import type {T_aExt2Snip, T_QuickPickItemEx} from '../../src/Project';
 import type {TFONT2STR, TINF_INTFONT} from '../../src/WfbOptFont';
 import {type IExts, type IFn2Path, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
@@ -1375,15 +1376,16 @@ WorkspaceEdit
 	#updDiag(haDiag	: T_H_ADIAG_L2S) {
 		// ファイル走査系メッセージ
 		for (const [fp, aD] of Object.entries(haDiag)) {
-			const a = this.#fp2Diag[fp] ?? [];
-			for (const d of aD) a.push(Diagnostic.create(
-				Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
-			));
-
-			// 同じ警告は削除
-			this.#fp2Diag[fp] = a.filter((e, i)=> a.findIndex(e2=>
-				e2.message + String(e2.range) ===
-				e.message + String(e.range)) === i);
+			this.#fp2Diag[fp] = [
+				...this.#fp2Diag[fp]?.filter((e, i, a)=>a.findIndex(e2=>
+					e2.message + String(e2.range) ===	// 同じ警告は削除
+					e.message + String(e.range)) === i
+					&& ! e.message.startsWith(S_文字コードが異常)
+				),
+				...aD.map(d=> Diagnostic.create(
+					Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
+				)),
+			];
 		}
 
 		for (const [fp, diagnostics] of Object.entries(this.#fp2Diag)) {

@@ -24,7 +24,7 @@ export const is_mac = process.platform === 'darwin';
 //const is_linux = process.platform === 'linux';
 
 
-// =============== Plugin
+// =============== LSP
 export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
 	// TODO: v2fp() いずれなくす
@@ -43,6 +43,28 @@ fn:Project.ts drop scheme:file
 	path	=/C:/Users/[]/doc/prj/rule=
 	fsPath	-c:\Users\[]\doc\prj\rule-
 */
+
+export type T_DIAG_L2S = {
+	mes: string,
+	sev: 'E'|'W'|'I'|'H',
+};
+export type T_H_ADIAG_L2S = {[fp: string]: T_DIAG_L2S[]};
+
+export const S_文字コードが異常 = '文字コードが異常';
+export const hDiagL2s	:{[code_name: string]: T_DIAG_L2S} = {
+	ファイル重複: {
+		mes	: 'プロジェクト内でファイル【$】が重複しています。フォルダを縦断検索するため許されません',
+		sev	: 'W',
+	},
+	ファイル名合成文字: {
+		mes	: 'ファイル名は濁点(゛)・半濁点(゜)など合成文字を避けて下さい。トラブルの元です',
+		sev	: 'W',
+	},
+	文字コード異常: {
+		mes	: `${S_文字コードが異常}（$）です。UTF8 か ASCII にして下さい`,
+		sev	: 'E',
+	},
+}
 
 
 // 階層フォルダ逐次処理
