@@ -37,7 +37,6 @@ export class HDiff {
 		private readonly PATH_CRYPT: string,
 		private readonly encry: Encryptor,
 	) {
-
 		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
 		this.#REG_fp2pp	= new RegExp('^.+'+ REG_path2);
@@ -54,11 +53,12 @@ export class HDiff {
 		}
 	}
 	clear() {this.#hDiff = Object.create(null)}
-	get hDiff() {return this.#hDiff}
-	delhDiff(pp: string) {delete this.hDiff[pp]}
+	del(pp: string) {delete this.#hDiff[pp]}
+	get(pp: string) {return this.#hDiff[pp]}
+	get keys() {return Object.keys(this.#hDiff)}
 
 
-	path2cn(fp: string): T_CN {
+	path2cn(fp: string) {
 		fp = v2fp(Uri.file(fp).path);
 		const pp = this.fp2pp(fp);
 		const diff = this.#hDiff[pp];
@@ -72,22 +72,19 @@ export class HDiff {
 	}
 	readonly	#REG_path2cn;
 	readonly	#REG_fp2pp;
-	fp2pp(fp: string): string {return fp.replace(this.#REG_fp2pp, '')}
+	fp2pp(fp: string) {return fp.replace(this.#REG_fp2pp, '')}
 
 
-	async delOldCrypto(regDiff: RegExp) {
-		const a = [];
-		for (const pp in this.#hDiff) {
-			if (! regDiff.test(pp)) continue;
-
-			const diff = this.#hDiff[pp]!;
-			a.push(remove(`${this.PATH_CRYPT}${diff.cn}`));
-		}
-		await Promise.allSettled(a);
+	async filter(regDiff: RegExp) {
+		return Promise.allSettled(
+			Object.entries(this.#hDiff)
+			.filter(([pp, ])=> regDiff.test(pp))
+			.map(([, {cn}])=> remove(`${this.PATH_CRYPT}${cn}`))
+		);
 	}
 
 	//MARK: ファイルハッシュの保存
-	readonly updDiffJson = ()=> writeJson(this.PATH_DIFF, this.#hDiff);
+	readonly save = ()=> writeJson(this.PATH_DIFF, this.#hDiff);
 
 
 	//MARK: ファイルハッシュの検知と辞書更新
@@ -117,7 +114,8 @@ export class HDiff {
 		this.#hDiff[pp] = {
 			hash,
 			cn	: REG_NEEDCRYPTO.test(pp)
-				? pp.replace(this.#REG_SPATH2HFN, `$1/${this.encry.uuidv5(pp)}$2`)
+				? pp
+				.replace(this.#REG_SPATH2HFN, `$1/${this.encry.uuidv5(pp)}$2`)
 				.replace(this.#REG_REPPATHJSON, '.bin')
 				: pp,
 		};

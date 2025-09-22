@@ -34,12 +34,12 @@ export class WatchFile2Batch {
 	protected static	prj		: Project;
 			static		#diff	: HDiff;
 			static		fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
-			static		#encIfNeeded	: (uri: Uri)=> Promise<void>;
+	protected static	encIfNeeded	: (uri: Uri)=> Promise<void>;
 	protected static	FLD_SRC	: string;
-	protected static	onSettingEvt: (nm: string, val: string)=> Promise<boolean>;
 	protected static	hTaskExe	: Map<PrjBtnName, TaskExecution>;
 	protected static	hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>;
 	protected static	is_new_tmp	: boolean;
+			static	#isCryptoMode	: ()=> boolean;
 
 	static	#basePathJson	: ()=> Promise<void>;
 
@@ -64,10 +64,10 @@ export class WatchFile2Batch {
 		encFile		: (uri: Uri)=> Promise<void>,
 		encIfNeeded	: (uri: Uri)=> Promise<void>,
 		FLD_SRC		: string,
-		onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
 		hTaskExe	: Map<PrjBtnName, TaskExecution>,
 		hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
 		is_new_tmp	: boolean,
+		isCryptoMode	: ()=> boolean,
 	) {
 		this.ctx = ctx;
 		this.wsFld = wsFld;
@@ -88,12 +88,12 @@ export class WatchFile2Batch {
 			this.#sendReqPathJson();
 		};
 		this.#diff = diff;
-		this.#encIfNeeded = encIfNeeded;
+		this.encIfNeeded = encIfNeeded;
 		this.FLD_SRC = FLD_SRC;
-		this.onSettingEvt = onSettingEvt;
 		this.hTaskExe = hTaskExe;
 		this.hOnEndTask = hOnEndTask;
 		this.is_new_tmp = is_new_tmp;
+		this.#isCryptoMode = isCryptoMode;
 
 		this.wss = ctx.workspaceState;
 		this.PATH_WS = v2fp(wsFld.uri.path);
@@ -151,7 +151,7 @@ export class WatchFile2Batch {
 
 		// フォルダ追加・削除イベント検知
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(wsFld, 'doc/prj/*'));
-		fwFld.onDidCreate(async newUri=> {
+		fwFld.onDidCreate(newUri=> this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts FLD/Create uri:${newUri.path}`);
 			if (! statSync(newUri.path).isDirectory()) return;
 
@@ -172,9 +172,8 @@ export class WatchFile2Batch {
 					if (match) w.crechg(Uri.file(this.PATH_WS +'/'+ pp2), true);
 				}
 			}
-			this.updPathJson();	// 必須
-		});
-		fwFld.onDidDelete(async oldUri=> {
+		}));
+		fwFld.onDidDelete(oldUri=> this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts FLD/Delete uri:${oldUri.path}`);
 			// if (! statSync(uri.path).isDirectory()) return;	// 無いのでエラーになる
 
@@ -182,7 +181,7 @@ export class WatchFile2Batch {
 
 			// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
 			const nm = getFn(oldUri.path) +'/';
-			const aPp2 = Object.keys(this.#diff.hDiff)
+			const aPp2 = this.#diff.keys
 			.filter(pp=> pp.startsWith(nm))
 			.map(pp=> 'doc/prj/'+ pp);
 			for (const w of this.#aWatchRp2CreDelProc) {
@@ -195,8 +194,7 @@ export class WatchFile2Batch {
 					if (match) w.del(Uri.file(this.PATH_WS +'/'+ pp2));
 				}
 			}
-			this.updPathJson();	// 必須
-		});
+		}));
 	}
 		// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
 		protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
@@ -325,48 +323,45 @@ export class WatchFile2Batch {
 
 		const rpInp = new RelativePattern(this.wsFld, pattern);
 		const encIfNeeded = pattern.startsWith('doc/prj/*/')
-			? (uri: Uri)=> this.#encIfNeeded(uri)
+			? (uri: Uri)=> this.encIfNeeded(uri)
 			: async ()=> {};
 		if (init) {
-			const aUri = await workspace.findFiles(rpInp);
-			// バッチ処理等なので並列処理しない、直列処理
-			for (const uri of aUri) {
-				await init(uri);
-				await encIfNeeded(uri);
-			}
-			// this.updPathJson();	// よそでやると思うので
+			await Promise.allSettled(
+				(await workspace.findFiles(rpInp))
+				.map(async uri=> {
+					await init(uri);	// バッチ処理等なので並列処理しない
+					return encIfNeeded(uri);
+				})
+			);
 		}
 		const fw = workspace.createFileSystemWatcher(rpInp, !crechg, !crechg, !del);	// ignore なので無効にするときに true
 		if (crechg) this.#ds.push(
-			fw.onDidCreate(async uri=> {
+			fw.onDidCreate(uri=> this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld CRE watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
 
 				if (this.#watchFile) await crechg(uri, true);
 				await encIfNeeded(uri);
-				this.updPathJson();
-			}),
-			fw.onDidChange(async uri=> {
+			})),
+			fw.onDidChange(uri=> this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld CHG watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
 				await this.#delDest(pathDest, uri);
 				if (this.#watchFile) await crechg(uri, false);
 				await encIfNeeded(uri);
-				// this.updPathJson();	// 不要（必要なら crechg で）
-			}),
+			})),
 		);
-		if (del) this.#ds.push(fw.onDidDelete(async uri=> {
+		if (del) this.#ds.push(fw.onDidDelete(uri=> this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld DEL watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
-			if (this.#watchFile) {
-				await this.#delDest(pathDest, uri);
-				if (await del(uri)) {
-					const {pathCn, pp} = this.#diff.path2cn(uri.path);
-					if (pathCn) await remove(pathCn);
+			if (! this.#watchFile) return
 
-					this.#diff.delhDiff(pp);
-					await this.#diff.updDiffJson();
-				}
+			await this.#delDest(pathDest, uri);
+			if (await del(uri)) {
+				const {pathCn, pp} = this.#diff.path2cn(uri.path);
+				if (pathCn) await remove(pathCn);
+
+				this.#diff.del(pp);
+				await this.#diff.save();
 			}
-			this.updPathJson();
-		}));
+		})));
 	}
 	static #aWatchRp2CreDelProc: T_WATCHRP2CREDELPROC[]	= [];
 	static async #delDest(ptDest: string, {path}: Uri) {
@@ -375,6 +370,38 @@ export class WatchFile2Batch {
 		const hn = getFn(path);
 		const aUri = await workspace.findFiles(ptDest.replace('[FN]', hn));
 		await Promise.allSettled(aUri.map(({path})=> remove(path)));
+	}
+
+	//MARK: 直列実行キュー追加
+	static #addSeq(fnc: ()=> Promise<void>) {	// 追加は必ず同期で
+		// 末尾に追加 - push
+		if (this.#aQSeq.push(fnc) !== 1) return;
+			// 空じゃなかったならすでに動いてる
+			// const isEmpty = this.#aQ.length === 0;
+			// this.#aQSeq.push(fnc);	// 末尾に追加 - push
+			// if (! isEmpty) return;
+		/* await */ this.#doSeq();	// これを実行する段でキューが空でも構わない
+	}
+	static	readonly	#aQSeq: (()=> Promise<void>)[] = [];
+
+	//MARK: 直列実行キュー実行
+	static async #doSeq() {
+		let fncDo;
+		while (fncDo = this.#aQSeq.at(0)) {
+			await fncDo();
+			this.#aQSeq.shift();	// 先頭を削除 - shift
+		}
+			// キュー追加とのアトミックな兼ね合いから、すぐに削除しない
+			// while (fncDo = this.#aQSeq.shift()) await fncDo();
+
+		this.updPathJson();
+	}
+
+
+	protected static async delOldDiff(reg: RegExp) {
+		if (! this.#isCryptoMode) return;
+
+		await this.#diff.filter(reg);
 	}
 
 }

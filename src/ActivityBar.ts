@@ -256,11 +256,11 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	}
 
 	// refreshEnvボタン
-	#refreshEnv() {
+	async #refreshEnv() {
 		this.#workSps.enableBtn(false);
-		this.#chkEnv(ok=> {
+		await this.#chkEnv(async ok=> {
 			this.#workSps.enableBtn(ok);
-			if (ok) this.#workSps.refreshEnv();
+			if (ok) await this.chkLastSNVer(this.#workSps.aLocalSNVer);
 			else this.#openEnvInfo();
 		});
 	}

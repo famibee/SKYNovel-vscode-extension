@@ -9,13 +9,17 @@ import type {IPluginInitArg} from './CmnLib';
 import {Encryptor} from './Encryptor';
 const {subtle} = crypto;
 
-export async function init(pia: IPluginInitArg): Promise<void> {
+export async function init(pia: IPluginInitArg) {
 	const p = pia.tstDecryptInfo();	// この行変更したら生成ファイルを開いて要動作確認
 	const encry = new Encryptor(p, subtle);
 	await encry.init();
 
-	pia.setDec(async (ext, tx)=> REG_FULL_CRYPTO.test(ext) ?await encry.dec(tx) :tx);
-	const REG_FULL_CRYPTO = /(^|\.)(sn|ssn|json|html?)$/;
+	pia.setDec(async (ext, tx)=> {
+// console.log(`fn:snsys_pre.ts setDec ext:${ext}`);
+		return REG_FULL_CRYPTO.test(ext) ?await encry.dec(tx) :tx
+	});
+	// pia.setDec(async (ext, tx)=> REG_FULL_CRYPTO.test(ext) ?await encry.dec(tx) :tx);
+	const REG_FULL_CRYPTO = /(^|\.)(ss?n|json|html?)$/;
 
 	pia.setDecAB(async iab=> {
 		const el = new DataView(iab.slice(0, 4)).getUint32(0, true);

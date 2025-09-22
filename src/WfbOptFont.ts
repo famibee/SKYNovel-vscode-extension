@@ -98,7 +98,7 @@ export class WfbOptFont extends WatchFile2Batch {
 		if (! minify) {
 			// 【node subset_font.js】を実行。終了を待ったり待たなかったり
 			await WatchFile2Batch.exeTask('subset_font', `"${WatchFile2Batch.FLD_SRC}"`);
-			this.dispFontInfo();	// フォント情報更新
+			this.disp();	// フォント情報更新
 
 			o.mode = 'comp';
 			WatchFile2Batch.ps.cmd2Vue(o);
@@ -148,7 +148,7 @@ export class WfbOptFont extends WatchFile2Batch {
 
 		// 【node subset_font.js】を実行。終了を待ったり待たなかったり
 		await WatchFile2Batch.exeTask('subset_font', `"${WatchFile2Batch.FLD_SRC}" --minify`);
-		this.dispFontInfo();	// フォント情報更新
+		this.disp();	// フォント情報更新
 
 		o.mode = 'comp';
 		WatchFile2Batch.ps.cmd2Vue(o);
@@ -190,7 +190,7 @@ export class WfbOptFont extends WatchFile2Batch {
 		readonly	#aPlaceFont;
 
 	readonly	#hHead2Mes: {[head: string]: string};
-	async dispFontInfo() {
+	async disp() {
 		if (! WatchFile2Batch.ps.isOpenPnlWV) return;
 
 		const fn = `${WatchFile2Batch.PATH_WS}/${WatchFile2Batch.FLD_SRC}/font/subset_font.json`;

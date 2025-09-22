@@ -7,19 +7,19 @@
 
 import type {T_E2V_INIT, T_E2V_CFG, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_E2V} from '../views/types';
 import {DEF_WSS} from '../views/types';
-import {foldProc, replaceRegsFile, v2fp} from './CmnLib';
+import {chkBoolean, replaceRegsFile, v2fp} from './CmnLib';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
-import {Config} from './Config';
+import type {Config} from './Config';
 import {openURL} from './WorkSpaces';
-import {WfbOptPic} from './WfbOptPic';
-import {WfbOptSnd} from './WfbOptSnd';
-import {WfbOptFont} from './WfbOptFont';
+import type {WfbOptPic} from './WfbOptPic';
+import type {WfbOptSnd} from './WfbOptSnd';
+import type {WfbOptFont} from './WfbOptFont';
 import {WPFolder} from './WPFolder';
 import {WfbSettingSn} from './WfbSettingSn';
-import {HDiff} from './HDiff';
+import type {HDiff} from './HDiff';
 
-import type {ExtensionContext, WebviewPanel, WorkspaceFolder} from 'vscode';
-import {Disposable, env, Uri, ViewColumn, window} from 'vscode';
+import type {Disposable, ExtensionContext, WebviewPanel, WorkspaceFolder} from 'vscode';
+import {env, Uri, ViewColumn, window} from 'vscode';
 import {copyFile, ensureFile, existsSync, readFile, readFileSync, readJson, readJsonSync, writeFile} from 'fs-extra';
 import {basename} from 'path';
 import {randomUUID} from 'crypto';
@@ -60,9 +60,8 @@ export class PrjSetting implements Disposable {
 		private readonly ctx: ExtensionContext,
 		readonly wsFld: WorkspaceFolder,
 		private readonly cfg	: Config,
-		private readonly chgTitle: (title: string)=> void,
+		private readonly setTitle: (title: string)=> void,
 				readonly sendRequest2LSP: (cmd: string, o?: any)=> void,
-		private readonly onSettingEvt: (nm: string, val: string)=> Promise<boolean>,
 				readonly diff	: HDiff,
 		private readonly optPic	: WfbOptPic,
 		private readonly optSnd	: WfbOptSnd,
@@ -106,16 +105,8 @@ export class PrjSetting implements Disposable {
 		this.#localExtensionResRoots = Uri.file(path_vue_root);
 		Promise.allSettled([
 			async ()=> {
-				chgTitle(cfg.oCfg.book.title);
+				setTitle(cfg.oCfg.book.title);
 				PrjSetting.#hWsFld2token[wsFld.uri.path] = ()=> cfg.oCfg.debuger_token;
-			},
-
-			// prj.json に既にないディレクトリのcodeがあれば削除
-			async ()=> {
-				foldProc(this.#PATH_PRJ, ()=> {}, nm=> {
-					if (nm in cfg.oCfg.code) return;
-					cfg.oCfg.code[nm] = false;
-				});
 			},
 
 			// 設定画面
@@ -156,7 +147,7 @@ export class PrjSetting implements Disposable {
 			},
 		].map(p=> p()));
 	}
-	#setTmp_save_ns	= new Set([
+	readonly	#setTmp_save_ns	= new Set([
 		'tmp_esm_uc',
 		'tmp_cjs_sample',
 		'tmp_cjs_hatsune',
@@ -183,7 +174,7 @@ export class PrjSetting implements Disposable {
 		};
 	}
 
-	static	readonly	#hWsFld2token: {[path: string]: ()=> string}= {};
+	static	readonly	#hWsFld2token: {[path: string]: ()=> string} = {};
 	static	getDebugertoken(wsFld: WorkspaceFolder | undefined) {
 		if (! wsFld) return '';
 		return PrjSetting.#hWsFld2token[wsFld.uri.path]?.() ?? '';
@@ -214,10 +205,10 @@ export class PrjSetting implements Disposable {
 
 	//MARK: 設定ビューを開く
 	#pnlWV	: WebviewPanel | undefined = undefined;
-	get isOpenPnlWV(): boolean {return !!this.#pnlWV}
+	get isOpenPnlWV() {return !!this.#pnlWV}
 	cmd2Vue = (_mes: T_E2V)=> {};
-	#wvuWs		: Uri;
-	get	wvuWs(): Uri {return this.#wvuWs}
+	#wvuWs	: Uri;
+	get	wvuWs() {return this.#wvuWs}
 	#pathIcon	: string;
 	open() {
 		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
@@ -247,9 +238,6 @@ export class PrjSetting implements Disposable {
 		this.#openSub();
 	}
 		#openSub() {
-			const a: string[] = [];
-			foldProc(this.#PATH_PRJ, ()=> {}, nm=> a.push(nm));
-
 			const wv = this.#pnlWV!.webview;
 			wv.html = this.#htmSrc
 			.replaceAll('${webview.cspSource}', wv.cspSource)
@@ -257,7 +245,7 @@ export class PrjSetting implements Disposable {
 		}
 
 	//MARK: パネル入力の対応
-	#hCmd2ProcInput	: {[cmd: string]: (m: any)=> Promise<void>}	= {
+	readonly #hCmd2ProcInput: {[cmd: string]: (m: any)=> Promise<void>}	= {
 		'?'	: async ()=> {
 			this.cmd2Vue(<T_E2V_INIT>{
 				cmd		: '!',
@@ -266,9 +254,9 @@ export class PrjSetting implements Disposable {
 				pathIcon: this.#pathIcon,
 				fld_src	: this.FLD_SRC,
 			});
-			this.optPic.dispOptPic();
-			this.optSnd.dispOptSnd();
-			await this.optFont.dispFontInfo();
+			await this.optPic.disp();
+			await this.optSnd.disp();
+			await this.optFont.disp();
 			this.#stgSn.chkMultiMatch();
 		},
 
@@ -295,10 +283,10 @@ export class PrjSetting implements Disposable {
 			if (c.init.escape !== escOld) this.#setEscape();
 			await this.#writePrjJs();
 
-			this.chgTitle(c.book.title);
+			this.setTitle(c.book.title);
 
 			// package.json
-			const CopyrightYear = String(new Date().getFullYear());
+			const CopyrightYear = new Date().getFullYear();
 			const p = await readJson(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 			p.name = c.save_ns;
 			p.appBundleId = p.appId
@@ -364,7 +352,7 @@ export class PrjSetting implements Disposable {
 
 		'change.range.webp_q'	: m=> this.optPic.chgWebp_q(m),
 
-		// views/store/stWSS.ts .cmd2Ex() からの
+		// views/store/stWSS.ts .cmd2Ex() からのイベント
 		'update.oWss'	: async (e: T_V2E_WSS)=> {
 			for (const [id, val] of Object.entries(e.oWss)) {
 				const old_val = (<any>this.#oWss)[id];
@@ -385,16 +373,16 @@ export class PrjSetting implements Disposable {
 				const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id, mode: 'wait'};
 				this.cmd2Vue(o);
 
-				const go = await this.onSettingEvt(id, String(val));
+				const go = await this.#onSettingEvt(id, String(val));
 				if (go) {
 					switch (id) {
 						case 'cnv.mat.pic':
-							this.optPic.updOptPic();
+							await this.optPic.disp();
 							break;
 
 						case 'cnv.mat.snd':
 						case 'cnv.mat.snd.codec':
-							this.optSnd.updOptSnd();
+							await this.optSnd.disp();
 							break;
 					}
 					o.mode = 'comp';
@@ -435,5 +423,42 @@ export class PrjSetting implements Disposable {
 
 		'selectFile'	: m=> this.optPic.cnvIconShape(m, this.#pathIcon),
 	};
+
+	//MARK: 設定パネルイベント
+	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
+	async #onSettingEvt(nm: string, val: string): Promise<boolean> {
+//console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
+		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
+		switch (nm) {
+		case 'cnv.font.subset':
+			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+
+			if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) break;
+
+			if (chkBoolean(val)) await this.optFont.enable();
+			else await this.optFont.disable();
+			break;
+
+		case 'cnv.mat.pic':
+			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+
+			if (chkBoolean(val)) await this.optPic.enable();
+			else await this.optPic.disable();
+			break;
+
+		case 'cnv.mat.snd':
+			if (await window.showInformationMessage('音声ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
+
+			if (chkBoolean(val)) await this.optSnd.enable();
+			else await this.optSnd.disable();
+			break;
+
+		case 'cnv.mat.snd.codec':
+			await this.optSnd.reconv();
+			break;
+		}
+
+		return true;
+	}
 
 }

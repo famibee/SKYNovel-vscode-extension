@@ -263,10 +263,8 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	}
 
 
-	refreshEnv() {
-		const a = [];
-		for (const prj of this.#mPrj.values()) a.push(prj.getLocalSNVer());
-		this.actBar.chkLastSNVer(a);
+	get aLocalSNVer() {
+		return this.#mPrj.values().map(v=> v.getLocalSNVer()).toArray();
 	}
 
 /*

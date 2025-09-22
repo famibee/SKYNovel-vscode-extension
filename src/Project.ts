@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {IDecryptInfo, T_H_ADIAG_L2S} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, chkBoolean, v2fp, REG_SCRIPT, hDiagL2s} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, v2fp, REG_SCRIPT, hDiagL2s} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -62,8 +62,8 @@ export class Project {
 	readonly	#LEN_PATH_PRJ;
 
 	readonly	#FLD_SRC;
-
 	readonly	#PATH_PRJ_BASE;
+	readonly	#PATH_PLG_PRE;
 
 	readonly	#PATH_CRYPT;
 	#isCryptoMode	= false;
@@ -115,16 +115,17 @@ export class Project {
 	) {
 		const vfp = wsFld.uri.path;
 		this.#PATH_WS = v2fp(vfp);
-		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
-		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 // console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
+		this.#PATH_PRJ = `${this.#PATH_WS}/doc/prj/`;
+		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 
-		const is_new_tmp = this.#IS_NEW_TMP = existsSync(this.#PATH_WS +'/src/plugin/');
+		const is_new_tmp = this.#IS_NEW_TMP = existsSync(`${this.#PATH_WS}/src/plugin/`);
 		this.#FLD_SRC = is_new_tmp ?'src' :'core';	// src なら 2025 新テンプレ
-		this.#PATH_PRJ_BASE = this.#PATH_WS +`/${this.#FLD_SRC}/${FLD_PRJ_BASE}/`;
+		this.#PATH_PRJ_BASE = `${this.#PATH_WS}/${this.#FLD_SRC}/${FLD_PRJ_BASE}/`;
+		this.#PATH_PLG_PRE = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/snsys_pre/`;
 
 		// 暗号化処理
-		this.#PATH_CRYPT = this.#PATH_WS +`/${
+		this.#PATH_CRYPT = `${this.#PATH_WS}/${
 			is_new_tmp ?FLD_CRYPT_DOC :'doc'
 		}/${FLD_CRYPT_PRJ}/`;
 		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
@@ -171,10 +172,10 @@ export class Project {
 			uri=> this.#encFile(uri),
 			uri=> this.#encIfNeeded(uri),
 			this.#FLD_SRC,
-			(nm, val)=> this.#onSettingEvt(nm, val),
 			this.#hTaskExe,
 			this.hOnEndTask,
 			is_new_tmp,
+			()=> this.#isCryptoMode,
 		);
 		const pti = PrjTreeItem.create(
 			ctx,
@@ -192,7 +193,6 @@ export class Project {
 				emPrjTD.fire(pti);
 			},
 			this.#sendRequest2LSP,
-			(nm, val)=> this.#onSettingEvt(nm, val),
 			this.#diff,
 			this.#optPic	= new WfbOptPic,
 			this.#optSnd	= new WfbOptSnd,
@@ -226,9 +226,13 @@ export class Project {
 			async ()=> {
 				await this.#initCrypto();
 				this.#dspCryptoMode();
-			},
 
-			()=> this.#diff.init(),
+				// prj.json に既にないディレクトリのcodeがあれば削除
+				foldProc(this.#PATH_PRJ, ()=> {}, nm=> {
+					if (nm in this.#cfg.oCfg.code) return;
+					this.#cfg.oCfg.code[nm] = false;
+				});
+			},
 
 			async ()=> {
 				// 旧テンプレ置換
@@ -261,7 +265,7 @@ export class Project {
 				}
 
 				// v4.21.4 画像・音声最適化処理の元ファイル退避先フォルダ移動
-				const OLD_FLD_PRJ_BASE = this.#PATH_WS +`/doc/${FLD_PRJ_BASE}/`;
+				const OLD_FLD_PRJ_BASE = `${this.#PATH_WS}/doc/${FLD_PRJ_BASE}/`;
 				if (existsSync(OLD_FLD_PRJ_BASE)) await move(OLD_FLD_PRJ_BASE, this.#PATH_PRJ_BASE);
 
 				// v4.21.2 パス通し設定を settings.json に追記
@@ -299,29 +303,29 @@ export class Project {
 			// {sn, htm ...} -> {woff2,woff,otf,ttf}
 			()=> this.#optFont.init(),
 
-			// path.json 変更時に暗号化処理起動
-			async ()=> this.#ds.push(workspace.createFileSystemWatcher(
-				new RelativePattern(wsFld, 'doc/prj/prj.json')
-			).onDidChange(uri=> this.#encIfNeeded(uri))),
+			()=> this.#diff.init(),
 
-			async ()=> {
-				debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS());
-				debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds));
+			async ()=> this.#ds.push(
+				// path.json 変更時に暗号化処理起動
+				workspace.createFileSystemWatcher(
+					new RelativePattern(wsFld, 'doc/prj/prj.json')
+				).onDidChange(uri=> this.#encIfNeeded(uri)),
+
+				debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS()),
+				debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds)),
 
 				// デバッグ中のみ有効なホバー
-				ctx.subscriptions.push(languages.registerEvaluatableExpressionProvider(docsel, {
-					provideEvaluatableExpression(doc, pos): ProviderResult<EvaluatableExpression> {
-						const r = doc.getWordRangeAtPosition(pos, Project.#REG_VAR);
-						if (! r) return Promise.reject('No word here.');
+				languages.registerEvaluatableExpressionProvider(docsel, {provideEvaluatableExpression(doc, pos): ProviderResult<EvaluatableExpression> {
+					const r = doc.getWordRangeAtPosition(pos, Project.#REG_VAR);
+					if (! r) return Promise.reject('No word here.');
 
-						const txt = doc.getText(r);
-						const hc = txt.at(0);
-						if (hc === '[' || hc === '*' || hc === ';'
-						|| txt.at(-1)=== '=') return Promise.reject('No word here.');
-						return new EvaluatableExpression(r, txt);
-					},
-				}));
-			},
+					const txt = doc.getText(r);
+					const hc = txt.at(0);
+					if (hc === '[' || hc === '*' || hc === ';'
+					|| txt.endsWith('=')) return Promise.reject('No word here.');
+					return new EvaluatableExpression(r, txt);
+				}}),
+			),
 		].map(p=> p()))).then(async ()=> {
 			await WatchFile2Batch.init2th(this.#ps);
 
@@ -415,6 +419,7 @@ export class Project {
 			}	break;
 		}
 	}
+	//MARK: 文字コードチェック（オマケでLSPに渡すファイルデータを連想配列に）
 	#chkChrCd(fp: string, pp2s?: {[pp: string]: string}) {
 		const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
 		const pp = fp.slice(this.#LEN_PATH_PRJ);
@@ -515,7 +520,7 @@ export class Project {
 				// 【file:///Users/...】 LSPの doc 特定で使う
 		});
 	}
-	get	#vpPrj(): string {return this.wsFld.uri.toString() +'/doc/prj/'}
+	get	#vpPrj() {return this.wsFld.uri.toString() +'/doc/prj/'}
 		readonly	#whThumbnail = 200;
 
 
@@ -531,66 +536,6 @@ export class Project {
 
 	//MARK: ビューオープン
 	opView(uri: Uri) {this.#ps.pnlWVFolder.open(uri)}
-
-	//MARK: 設定パネルイベント
-	// 主に設定画面からのアクション。falseを返すとスイッチなどコンポーネントを戻せる
-	async #onSettingEvt(nm: string, val: string): Promise<boolean> {
-//console.log(`fn:Project.ts #cmd nm:${nm} val:${val}`);
-		// 最新は val。this.ctx.workspaceState.get(（など）) は前回値
-		switch (nm) {
-		case 'cnv.font.subset':
-			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-
-			if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) break;
-
-			if (chkBoolean(val)) await this.#optFont.enable();
-			else await this.#optFont.disable();
-			break;
-
-		case 'cnv.mat.pic':
-			if (await window.showInformationMessage('画像ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-
-			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
-			await this.#delOldCrypto(this.#REG_DiffExtPic);
-
-			if (chkBoolean(val)) await this.#optPic.enable();
-			else await this.#optPic.disable();
-			break;
-
-		case 'cnv.mat.webp_quality':
-			await this.#optPic.reconv();
-			break;
-
-		case 'cnv.mat.snd':
-			if (await window.showInformationMessage('音声ファイル最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
-
-			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
-			await this.#delOldCrypto(this.#REG_DiffExtSnd);
-
-			if (chkBoolean(val)) await this.#optSnd.enable();
-			else await this.#optSnd.disable();
-			break;
-
-		case 'cnv.mat.snd.codec':
-			if (! this.#ps.oWss['cnv.mat.snd']) break;
-
-			// 現状、UI的に「常にエンコーダー変更」なので、旧全生成物削除→全変換
-			// 暗号化状態でのエンコーダー変更の場合、変更前の暗号化ファイルを削除
-			await this.#delOldCrypto(this.#REG_DiffExtSnd);
-
-			await this.#optSnd.reconv();
-			break;
-		}
-
-		return true;
-	}
-		readonly	#REG_DiffExtPic	= /\.(jpe?g|png|svg|webp)$/;
-		readonly	#REG_DiffExtSnd	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
-		async #delOldCrypto(regDiff: RegExp) {
-			if (! this.#isCryptoMode) return;
-
-			await this.#diff.delOldCrypto(regDiff);
-		}
 
 
 	//MARK: ボタンの処理
@@ -624,7 +569,7 @@ export class Project {
 			await this.#onBtn_sub(ti, btn_nm, cfg, ()=> {});
 			return;
 		}
-		window.withProgress({
+		await window.withProgress({
 			location	: ProgressLocation.Notification,
 			title		: String(ti.label) ?? '',
 			cancellable	: false,
@@ -859,7 +804,7 @@ export class Project {
 				break;
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, async ()=> {
-				const cwd = this.#PATH_WS +`/${
+				const cwd = `${this.#PATH_WS}/${
 					this.#IS_NEW_TMP && this.#isCryptoMode
 					? FLD_CRYPT_DOC
 					: 'doc'
@@ -875,7 +820,7 @@ export class Project {
 				.glob('favicon.ico', {cwd});
 
 				const fn_out = `${basename(this.#PATH_WS)}_1.0freem.zip`;
-				const ws = createWriteStream(this.#PATH_WS +`/build/package/${fn_out}`)
+				const ws = createWriteStream(`${this.#PATH_WS}/build/package/${fn_out}`)
 				.on('close', ()=> {
 					done();
 					window.showInformationMessage(
@@ -909,30 +854,29 @@ export class Project {
 				this.#diff.isDiff(uri);
 			};
 		treeProc(this.#PATH_PRJ, fnc);
-		await this.#diff.updDiffJson();
+		await this.#diff.save();
 	}
 	//MARK: （必要なら）ファイルを暗号化する
 	async #encIfNeeded(uri: Uri) {
 		// isDiff() を必ず処理したいので先に
 		if (this.#diff.isDiff(uri) && this.#isCryptoMode) await this.#encFile(uri);
-		await this.#diff.updDiffJson();
+		await this.#diff.save();
 	}
 
 
 	readonly	#aRepl;
 	async #tglCryptoMode() {
-		const pathPre = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/snsys_pre/`;
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
 			// to 暗号化解除
 			await remove(
 				this.#IS_NEW_TMP
-				? this.#PATH_WS + `/${FLD_CRYPT_DOC}/`
+				? `${this.#PATH_WS}/${FLD_CRYPT_DOC}/`
 				: this.#PATH_CRYPT
 			);
 
-			await remove(pathPre);
+			await remove(this.#PATH_PLG_PRE);
 
 			// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 			for (const url of this.#aRepl) replaceFile(
@@ -997,7 +941,7 @@ export class Project {
 			/[^\s=]+\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			true,
-			pathPre +`index.${this.#IS_NEW_TMP ?'ts' :'js'}`,
+			this.#PATH_PLG_PRE +`index.${this.#IS_NEW_TMP ?'ts' :'js'}`,
 		);
 		await this.#updPlugin();
 
@@ -1008,9 +952,9 @@ export class Project {
 	async #encFile({path}: Uri) {
 		const fp = v2fp(path);
 		const pp = this.#diff.fp2pp(fp);
-// console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.hDiff[pp]!.cn}`);
+// console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.get(pp)!.cn}`);
 		try {
-			const path_enc = this.#PATH_CRYPT + this.#diff.hDiff[pp]!.cn;
+			const path_enc = this.#PATH_CRYPT + this.#diff.get(pp)!.cn;
 			if (! REG_NEEDCRYPTO.test(fp)) {
 				await copy(fp, path_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
@@ -1019,30 +963,13 @@ export class Project {
 			}
 
 			if (REG_FULLCRYPTO.test(pp)) {	// この中はSync
-				if (pp !== 'path.json') {	// 内容も変更
-					const s = await readFile(fp, {encoding: 'utf8'});
-					await outputFile(path_enc, await this.#encry.enc(s));
+				if (pp === 'path.json') {
+					await this.#encFile_pathjson(fp, path_enc);
 					return;
 				}
 
-				if (this.#tiDelayEnc) clearTimeout(this.#tiDelayEnc);// 遅延
-				this.#tiDelayEnc = setTimeout(async ()=> {
-					// ファイル名匿名化
-					const hPath: IFn2Path = await readJson(fp, {encoding: 'utf8'});
-					for (const hExt2N of Object.values(hPath)) {
-						for (const [ext, pp2] of Object.entries(hExt2N)) {
-							if (ext === ':cnt') continue;
-							if (ext.endsWith(':id')) continue;
-							const dir = this.#REG_DIR.exec(pp2);
-							const d = this.#diff.hDiff[pp2];
-							if (dir && this.#cfg.oCfg.code[dir[1]!] || ! d) continue;
-
-							hExt2N[ext] = d.cn;
-						}
-					}
-					const s2 = JSON.stringify(hPath);
-					await outputFile(path_enc, await this.#encry.enc(s2));
-				}, 500);
+				const s = await readFile(fp, {encoding: 'utf8'});
+				await outputFile(path_enc, await this.#encry.enc(s));
 				return;
 			}
 
@@ -1071,7 +998,23 @@ export class Project {
 			} src:${fp}`);
 		}
 	}
-		#tiDelayEnc: NodeJS.Timeout | undefined = undefined;
+		async #encFile_pathjson(fp: string, path_enc: string) {
+			const hPath: IFn2Path = await readJson(fp, {encoding: 'utf8'});
+			for (const hExt2N of Object.values(hPath)) {
+				for (const [ext, pp] of Object.entries(hExt2N)) {
+					if (ext === ':cnt') continue;
+					if (ext.endsWith(':id')) continue;
+
+					const dir = this.#REG_DIR.exec(pp);
+					const d = this.#diff.get(pp);
+					if (dir && this.#cfg.oCfg.code[dir[1]!] || !d) continue;
+
+					hExt2N[ext] = d.cn;
+				}
+			}
+			const s = JSON.stringify(hPath);
+			await outputFile(path_enc, await this.#encry.enc(s));
+		}
 		readonly #REG_DIR	= /(^.+)\//;
 
 

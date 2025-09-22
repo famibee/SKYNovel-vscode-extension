@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.24.2",
+	"version": "4.24.3",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -709,7 +709,7 @@
 		"vee-validate": "^4.15.1",
 		"vscode-languageclient": "^9.0.1",
 		"vue": "^3.5.21",
-		"yup": "^1.7.0"
+		"yup": "^1.7.1"
 	},
 	"devDependencies": {
 		"@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -740,7 +740,7 @@
 		"terser": "^5.44.0",
 		"ts-loader": "^9.5.4",
 		"typescript": "^5.9.2",
-		"vite": "^7.1.6",
+		"vite": "^7.1.7",
 		"vscode-languageserver-types": "^3.17.5",
 		"vue-loader": "^17.4.2",
 		"webpack": "^5.101.3",

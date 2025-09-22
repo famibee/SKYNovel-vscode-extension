@@ -7,7 +7,7 @@
 
 import {Encryptor, encAbBase64, decBase64Ab, encStrBase64, decBase64Str, ab2hexStr, hexStr2ab} from '../src/Encryptor';
 import {EncryptorTransform} from '../src/EncryptorTransform';
-import {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
+import type {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
 
 import {readFile, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
 const {subtle} = (await import('crypto')).webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
