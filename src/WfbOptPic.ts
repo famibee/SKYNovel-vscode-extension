@@ -7,12 +7,11 @@
 
 import type {T_E2V_CHG_RANGE_WEBP_Q, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_NOTICE_COMPONENT, T_E2V_OPTPIC, T_OPTPIC} from '../views/types';
 import {DEF_OPTPIC} from '../views/types';
-import {chkUpdate, getFn, v2fp} from './CmnLib';
+import {getFn, v2fp} from './CmnLib';
 import {FLD_PRJ_BASE} from './Project';
 import {WatchFile2Batch} from './WatchFile2Batch';
 
-import {Uri} from 'vscode';
-import {workspace} from 'vscode';
+import {Uri, workspace} from 'vscode';
 import {existsSync, mkdirs, readJson, remove, writeJson} from 'fs-extra';
 
 const PROC_ID = 'cnv.mat.pic';
@@ -30,97 +29,81 @@ export class WfbOptPic extends WatchFile2Batch {
 	}
 
 	//MARK: 初期化
-	async init() {
-		await WatchFile2Batch.watchFld(
+	async init() {await Promise.allSettled([
+		// 画像最適化
+		WatchFile2Batch.watchFld(
 			ptnSrcBaseInPrj,
 			'doc/prj/*/[FN].webp',
-			async ()=> {},	// 処理はないが暗号化処理を動かしたい
-			this.#onCreChgInp,
-			async uri=> {
-// console.log(`fn:WfbOptPic.ts del sw:${WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
-				if (! WatchFile2Batch.ps.oWss[PROC_ID]) return true;
-
-				WatchFile2Batch.ps.pnlWVFolder.updateDelay(uri);
-				await this.#onDelInp(uri);
-				return true;
-			}
-		);
-		await WatchFile2Batch.watchFld(
+			async ()=> {},	// 処理はないが処理を動かしたい
+			(uri, cre)=> this.#onCreChg(uri, cre),
+			uri=> this.#onDel(uri),
+		),
+		// 退避素材の更新
+		WatchFile2Batch.watchFld(
 			`${WatchFile2Batch.FLD_SRC}/${FLD_PRJ_BASE}/*/*.{jpg,jpeg,png}`,
 			'',
 			undefined,
-			this.#onCreChgInp,
+			(uri, cre)=> this.#onCreChg(uri, cre),
 			undefined,
-		);
-
-		if (existsSync(this.#PATH_LOG)) this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		else await writeJson(this.#PATH_LOG, this.#oLog = DEF_OPTPIC);
+		),
+		async ()=> {
+			if (existsSync(this.#PATH_LOG)) this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
+			else await writeJson(this.#PATH_LOG, this.#oLog = DEF_OPTPIC);
+		},
 
 		// 立ち絵素材生成機能
-		await mkdirs(WatchFile2Batch.PATH_WS +`/${WatchFile2Batch.FLD_SRC}/resource/`),
-		await WatchFile2Batch.watchFld(
+		mkdirs(WatchFile2Batch.PATH_WS +`/${WatchFile2Batch.FLD_SRC}/resource/`),
+		WatchFile2Batch.watchFld(
 			`${WatchFile2Batch.FLD_SRC}/resource/*.psd`,
 			`{doc/prj,${WatchFile2Batch.FLD_SRC}/${FLD_PRJ_BASE}}/face/{[FN]_*.png,[FN]_*.webp,face[FN].sn}`,
-			async ({fsPath})=> {
-				const hn = getFn(fsPath);
-				if (chkUpdate(fsPath, `${WatchFile2Batch.PATH_PRJ}face/face${hn}.sn`)) await WatchFile2Batch.exeTask('cnv_psd_face', `"${fsPath}" "${WatchFile2Batch.PATH_PRJ}"`);
-			},
-			()=> this.#facePsdCreChg(),
-			async uri=> {await this.facePsdDel(uri); return true},
-		);
-	}
-	async #onCreChgInp(uri: Uri, _cre=false) {
-// console.log(`fn:WfbOptPic.ts line:32 crechg sw:${WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-// console.log(`fn:WfbOptPic.ts crechg uri:${uri.path} cre:${_cre}`);
-		WatchFile2Batch.ps.pnlWVFolder.updateDelay(uri);
-		await this.#procOpt(uri);		// 更新の自動変換
-	}
+			uri=> this.#onInitFacePsd(uri),
+			(uri, cre)=> this.#onCreChgFacePsd(uri, cre),
+			async ()=> true,	// 処理はないが処理を動かしたい
+		),
+	])}
 
 	//MARK: #on追加・更新
-	#oLog	: T_OPTPIC;
-	async #procOpt({path}: Uri) {
-		path = v2fp(path);
-		if (this.#REG_EXT_PIC_REST.test(path)) return;
+	async #onCreChg(uri: Uri, _cre=false) {
+// console.log(`fn:WfbOptPic.ts onCreChgInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path} cre:${_cre}`);
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
 
-		// WatchFile2Batch.watchFile = false;	// cnv_mat_pic() exeTask() でやる
-		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
-		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-		// 画像ファイルを追加・更新時、退避に上書き移動して最適化
+		// 素材ファイルを追加・更新時、退避に上書き移動して最適化
+		const path = v2fp(uri.path);
 		const isBase = this.isBaseUrl(path);
 		await this.#cnv_mat(isBase ?'base_scan' :'prj_scan');
 
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-
-		o.mode = 'comp';
-		WatchFile2Batch.ps.cmd2Vue(o);
-		// WatchFile2Batch.watchFile = true;	// cnv_mat_pic() exeTask() でやる
+		// 最適化ファイルを暗号化
+		const pathEncOpt = this.#prjBase2Prj(path);	// isBase 両対応
+		await WatchFile2Batch.encIfNeeded(Uri.file(pathEncOpt));
 	}
-	//MARK: #on削除
-	async #onDelInp({path}: Uri) {
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
+		#prjBase2Prj(path: string) {
+			return path
+			.replace(WatchFile2Batch.PATH_PRJ_BASE, WatchFile2Batch.PATH_PRJ)
+			.replace(this.#REG_SRC_EXT, '.webp');
+		}
+		readonly	#REG_SRC_EXT	= /\.(jpeg|jpg|png)$/;
 
-		WatchFile2Batch.watchFile = false;	// バッチ処理自身が発端を引き起こすので
-		path = v2fp(path);
+	//MARK: #on削除
+	async #onDel(uri: Uri) {
+// console.log(`fn:WfbOptPic.ts onDelInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return true;
+
+		const path = v2fp(uri.path);
 		const isBase = this.isBaseUrl(path);
-		if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
+		if (! isBase) {
+			// 変換後ファイルを消したら退避ファイルも削除
 			const path2 = path.replace(WatchFile2Batch.PATH_PRJ, WatchFile2Batch.PATH_PRJ_BASE);
-			for await (const ext of ['jpeg','jpg','png']) {
-				remove(path2.replace(/webp$/, ext));
-			}
-			WatchFile2Batch.watchFile = true;
-			return;
+			await Promise.allSettled(
+				['jpeg','jpg','png']
+				.map(ext=> remove(path2.replace(/webp$/, ext)))
+			);
+			return true;
 		}
 
 		// 退避ファイルを消したら変換後ファイルも削除
-		await remove(
-			path.replace(WatchFile2Batch.PATH_PRJ_BASE, WatchFile2Batch.PATH_PRJ)
-			.replace(this.#REG_EXT_PIC_CNV, '.webp')
-		);
-		// 退避を消したケースでのみ上方 json 更新（このメソッドが多重発生）
+		await remove(this.#prjBase2Prj(path));
+
+		// 退避を消したケースでのみログ更新（このメソッドが多重発生）
 		const fn = getFn(path);
 		if (fn in this.#oLog.hSize) {
 			const {baseSize, webpSize} = this.#oLog.hSize[fn]!;
@@ -130,11 +113,14 @@ export class WfbOptPic extends WatchFile2Batch {
 			await writeJson(this.#PATH_LOG, this.#oLog, {encoding: 'utf8'});
 			this.#dispBase();
 		}
-		WatchFile2Batch.watchFile = true;
+		return true;
 	}
-		readonly	#REG_EXT_PIC_REST	= /\.(m4a|aac|ogg)$/;
-		readonly	#REG_EXT_PIC_CNV	= /\.(mp3|wav)$/;
 
+	//MARK: 情報出力・表示更新
+	async disp() {
+		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
+		this.#dispBase();
+	}
 	//MARK: 情報表示更新
 	#dispBase() {
 		WatchFile2Batch.ps.cmd2Vue(<T_E2V_OPTPIC>{
@@ -146,83 +132,7 @@ export class WfbOptPic extends WatchFile2Batch {
 			}},
 		});
 	}
-	//MARK: 情報出力・表示更新
-	async disp() {
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-	}
-	//MARK: 立ち絵 PSD 生成物を素材最適化・暗号化
-	async #facePsdCreChg() {
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-		// WatchFile2Batch.watchFile = false;	// 画像素材最適化ONならそちらでやる
-		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
-		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-		// 画像ファイルを追加・更新時、退避に上書き移動して最適化
-		await this.#cnv_mat('prj_scan');
-
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-
-		o.mode = 'comp';
-		WatchFile2Batch.ps.cmd2Vue(o);
-		// WatchFile2Batch.watchFile = true;	// 画像素材最適化ONならそちらでやる
-	}
-	//MARK: 立ち絵 PSD 生成物を削除
-	async facePsdDel(uri: Uri) {
-		WatchFile2Batch.ps.pnlWVFolder.updateDelay(uri);
-		await this.#onDelInp(uri);
-	}
-
-	//MARK: 基本の変換画質変更
-	async chgWebp_q_def(e: T_E2V_CHG_RANGE_WEBP_Q_DEF) {
-		// 変化のたびに動作するので 'update.oWss' と統合してはいけない
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-		WatchFile2Batch.watchFile = false;	// バッチ処理自身が発端を引き起こすので
-
-		await WatchFile2Batch.wss.update('cnv.mat.webp_quality', WatchFile2Batch.ps.oWss['cnv.mat.webp_quality'] = e.webp_q);
-
-		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
-		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-		await this.#reconv();
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-
-		o.mode = 'comp';
-		WatchFile2Batch.ps.cmd2Vue(o);
-		WatchFile2Batch.watchFile = true;
-	}
-	//MARK: 再変換
-	async #reconv() {
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-		await this.#cnv_mat('reconv');
-		// WatchFile2Batch.updPathJson();	// 現状、別拡張子に変わらないので不要
-	}
-		readonly	#cnv_mat = (modeInp: string)=> WatchFile2Batch.exeTask(
-			'cnv_mat_pic',
-			`${modeInp} ${WatchFile2Batch.ps.oWss['cnv.mat.webp_quality']
-			} "${WatchFile2Batch.PATH_PRJ}" "${WatchFile2Batch.PATH_PRJ_BASE}"`,
-		);
-
-	//MARK: ファイル個別変換画質変更
-	async chgWebp_q(o: T_E2V_CHG_RANGE_WEBP_Q) {
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-		WatchFile2Batch.watchFile = false;	// バッチ処理自身が発端を引き起こすので
-		const fi = this.#oLog.hSize[o.nm]!;
-		if (o.no_def) fi.webp_q = o.webp_q;
-		else delete fi.webp_q;
-		await writeJson(this.#PATH_LOG, this.#oLog);
-
-		// Baseフォルダを渡す事で再変換
-		await this.#procOpt(Uri.file(WatchFile2Batch.PATH_PRJ_BASE + fi.fld_nm +'.'+ fi.ext));
-		// this.dispOptPic();	// 中でやる
-		// WatchFile2Batch.watchFile = true;	// 中でやる
-	}
+	#oLog	: T_OPTPIC;
 
 
 	//MARK: 変換有効化
@@ -230,20 +140,103 @@ export class WfbOptPic extends WatchFile2Batch {
 
 	//MARK: 変換無効化
 	async disable() {return this.#procOnOff('disable', ptnSrcBaseInPrj)}
-		async #procOnOff(proc: 'enable'|'disable', ptn: string) {
-			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
-			await WatchFile2Batch.delOldDiff(this.#REG_DiffExtPic);
 
-			await this.#cnv_mat(proc);
+	async #procOnOff(proc: 'enable'|'disable', ptn: string) {
+		WatchFile2Batch.watchFile = false;
 
-			// 最適化ファイル・復元したファイルを暗号化
-			await Promise.allSettled(
-				(await workspace.findFiles(ptn))
-				.map(uri=> WatchFile2Batch.encIfNeeded(uri))
-			);
+		// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
+		await WatchFile2Batch.delOldDiff(this.#REG_DiffExtPic);
 
-			WatchFile2Batch.updPathJson();
-		}
-		readonly	#REG_DiffExtPic	= /\.(jpe?g|png|svg|webp)$/;
+		await this.#cnv_mat(proc);
+
+		// 最適化ファイル・復元したファイルを暗号化
+		await Promise.allSettled((await workspace.findFiles(ptn))
+			.map(uri=> WatchFile2Batch.encIfNeeded(uri))
+		);
+
+		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.watchFile = true;
+	}
+	readonly	#REG_DiffExtPic	= /\.(jpe?g|png|svg|webp)$/;
+
+	//MARK: バッチ処理
+	async #cnv_mat(modeInp: string) {
+		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
+		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
+
+		await WatchFile2Batch.exeTask(
+			'cnv_mat_pic',
+			`${modeInp} ${
+				WatchFile2Batch.ps.oWss['cnv.mat.webp_quality']
+			} "${WatchFile2Batch.PATH_PRJ}" "${
+				WatchFile2Batch.PATH_PRJ_BASE}"`,
+		);
+		await this.disp();
+
+		o.mode = 'comp';
+		WatchFile2Batch.ps.cmd2Vue(o);
+	}
+
+
+	//MARK: PSD から立ち絵素材生成・素材最適化・暗号化
+	async #onInitFacePsd(uri: Uri) {
+		const {fsPath} = uri;
+// console.log(`fn:WfbOptPic.ts onInitFacePsd fsPath:${fsPath}`);
+		const hn = getFn(fsPath);
+		if (WatchFile2Batch.chkUpdate(fsPath, `${WatchFile2Batch.PATH_PRJ}face/face${hn}.sn`)) await this.#onCreChgFacePsd(uri, false);
+	}
+	//MARK: PSD 変更
+	async #onCreChgFacePsd(uri: Uri, _cre=false) {
+		const {fsPath} = uri;
+// console.log(`fn:WfbOptPic.ts onCreChgFacePsd _cre:${_cre} fsPath:${fsPath}`);
+		await this.#exe_cnv_psd_face(fsPath);
+
+		// 画像ファイルを追加・更新時、退避に上書き移動して最適化
+		if (WatchFile2Batch.ps.oWss[PROC_ID]) await this.#cnv_mat('prj_scan');
+
+		// 生成ファイルを暗号化
+		const hn = getFn(fsPath);
+		const aUri = await workspace.findFiles('doc/prj/*/[FN]_*.{jpg,jpeg,png,webp}'.replaceAll('[FN]', hn));
+
+		// （aUri は画像素材だけなので）doc/prj/*/face[FN].sn をねじ込む
+		const pathSn = aUri.at(0)?.path.replace(/[^\/]+\.\w+$/, `face${hn}.sn`);
+		if (pathSn && existsSync(pathSn)) aUri.push(Uri.file(pathSn));
+
+		await Promise.allSettled(aUri.map(u=> WatchFile2Batch.encIfNeeded(u)));
+	}
+		readonly #exe_cnv_psd_face = (fsPath: string)=> WatchFile2Batch.exeTask('cnv_psd_face', `"${fsPath}" "${WatchFile2Batch.PATH_PRJ}"`);
+
+
+	//MARK: 基本の変換画質変更
+	async chgWebp_q_def(e: T_E2V_CHG_RANGE_WEBP_Q_DEF) {
+		// 変化のたびに動作するので 'update.oWss' と統合してはいけない
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
+
+		WatchFile2Batch.watchFile = false;
+
+		await WatchFile2Batch.wss.update('cnv.mat.webp_quality', WatchFile2Batch.ps.oWss['cnv.mat.webp_quality'] = e.webp_q);
+
+		await this.#cnv_mat('reconv');
+
+		WatchFile2Batch.watchFile = true;
+	}
+
+	//MARK: ファイル個別変換画質変更
+	async chgWebp_q(o: T_E2V_CHG_RANGE_WEBP_Q) {
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
+
+		WatchFile2Batch.watchFile = false;
+
+		const fi = this.#oLog.hSize[o.nm]!;
+		if (o.no_def) fi.webp_q = o.webp_q;
+		else delete fi.webp_q;
+		await writeJson(this.#PATH_LOG, this.#oLog);
+		this.#dispBase();
+
+		// Baseフォルダを渡す事で再変換
+		await this.#onCreChg(Uri.file(WatchFile2Batch.PATH_PRJ_BASE + fi.fld_nm +'.'+ fi.ext));
+
+		WatchFile2Batch.watchFile = true;
+	}
 
 }

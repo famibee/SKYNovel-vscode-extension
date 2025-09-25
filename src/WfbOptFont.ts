@@ -59,15 +59,13 @@ export class WfbOptFont extends WatchFile2Batch {
 	}
 
 	//MARK: 初期化
-	async init() {
+	async init(noticeChgTxt: (fp: string)=> void, noticeDelTxt :(fp: string)=> boolean) {
+		// フォントファイルやテキスト系ファイルの監視
 		await WatchFile2Batch.watchFld(
 			'doc/prj/*/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}', '',
-			async ()=> {},	// 処理はないが暗号化処理を動かしたい
-			async ({path}, _cre)=> WatchFile2Batch.prj.noticeChgTxt(path),
-			async ({path})=> {
-				WatchFile2Batch.prj.noticeDelTxt(path);
-				return true;
-			},
+			async ()=> {},	// 処理はないが処理を動かしたい
+			async ({path}, _cre)=> noticeChgTxt(path),
+			async ({path})=> noticeDelTxt(path),
 		);
 	}
 
@@ -152,7 +150,7 @@ export class WfbOptFont extends WatchFile2Batch {
 
 		o.mode = 'comp';
 		WatchFile2Batch.ps.cmd2Vue(o);
-		// WatchFile2Batch.watchFile = true;	// dispFontInfo() でやる
+		WatchFile2Batch.watchFile = true;
 	}
 	readonly	#REG_FONT	= /\.(woff2?|otf|ttf)$/i;
 	readonly	#DEF_FONT = ':DEF_FONT:';

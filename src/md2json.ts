@@ -29,7 +29,7 @@ const hMd: {[name: string]: MD_STRUCT} = {};
 const REG_TAG2MB = /~~~skynovel\n(.+?)\n~~~|\[([a-z_]+)]/gs;
 const repTag2MB = (md: string)=> md
 	.replace(REG_TAG2MB, (a, p1, p2)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.html#${p2})`)
-	.replace(/<br\/?>/g, '  \n');
+	.replaceAll(/<br\/?>/g, '  \n');
 
 import {copy, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 

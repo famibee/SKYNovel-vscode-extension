@@ -6,12 +6,12 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {docsel, is_win, replaceRegsFile, v2fp} from './CmnLib';
-import {WorkSpaces} from './WorkSpaces';
-import {ToolBox} from './ToolBox';
-import {TreeDPDoc} from './TreeDPDoc';
+import type {WorkSpaces} from './WorkSpaces';
+import type {ToolBox} from './ToolBox';
 const AdmZip = require('adm-zip');
 
-import {type TreeDataProvider, TreeItem, type ExtensionContext, window, commands, Uri, EventEmitter, type WebviewPanel, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
+import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
+import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
@@ -23,7 +23,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-const nNodeReqVer = 22_017_000;
+const nNodeReqVer = 22_020_000;
 
 export const enum eTreeEnv {
 	NODE = 0,
@@ -74,53 +74,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	readonly #aTiEnv: TreeItem[] = [];
 	static aReady	= [false, false, false, false, false];
 
-	#workSps;
+	#workSps: WorkSpaces;
 	#tlBox	: ToolBox;
 
 
 	//MARK: コンストラクタ
 	private constructor(private readonly ctx: ExtensionContext) {
-		// LSP
-		const module = ctx.asAbsolutePath('dist/LangSrv.js');
-		const so: ServerOptions = {
-			run		: {module, transport: TransportKind.ipc},
-			debug	: {module, transport: TransportKind.ipc,
-				options: {execArgv: ['--nolazy',
-				'--inspect='+ (7000 + Math.round(Math.random() *999))
-			//	'--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
-			]},}
-		};
-		const co: LanguageClientOptions = {
-			documentSelector: [docsel],
-			synchronize: {
-				fileEvents: [
-//					workspace.createFileSystemWatcher('**/.clientrc'),
-					workspace.createFileSystemWatcher('**/doc/prj/path.json'),
-						// LSPへファイル名キーワード更新のための情報提供
-				],
-			},
-		};
-		const lsp = new LanguageClient(
-			'SKYNovelLangSrv',
-			'SKYNovel Language Server',	// 開発ホストの【出力】タブに出る名前
-			so,
-			co,
-		);
-		ctx.subscriptions.push({dispose: ()=> lsp.stop()});
-
-		// WorkSpaces
-		this.#workSps = new WorkSpaces(ctx, this);
-
-		// link WorkSpaces & LSP
-		ctx.subscriptions.push(lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
-			switch (hd.cmd) {
-				case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
-				case 'error':	console.error(hd.txt);	return;
-			}
-//console.log(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
-			this.#workSps.onRequest(hd);
-		}));
-
 		// 環境設定チェック
 		this.#aTiEnv = this.#aEnv.map(v=> {
 			const ti = new TreeItem(v.label);
@@ -128,22 +87,66 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			ti.contextValue = v.label;
 			return ti;
 		});
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-dev', this));
-		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)));
-		ctx.subscriptions.push(commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()));
 
-		Promise.allSettled([
-			lsp.start(),
-			this.#chkEnv(()=> {
-				ctx.subscriptions.push(commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()));	// refreshボタン
-				ctx.subscriptions.push(commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()));
+		Promise.all([
+			import('./WorkSpaces'),
+			import('./ToolBox'),
+			import('./TreeDPDoc'),
+		]).then(async ([{WorkSpaces}, {ToolBox}, {TreeDPDoc}])=> {
+			// WorkSpaces
+			this.#workSps = new WorkSpaces(ctx, this);
 
-				this.#tlBox = ToolBox.init(ctx);
+			// LSP
+			const module = ctx.asAbsolutePath('dist/LangSrv.js');
+			const so: ServerOptions = {
+				run		: {module, transport: TransportKind.ipc},
+				debug	: {module, transport: TransportKind.ipc,
+					options: {execArgv: ['--nolazy',
+					'--inspect='+ (7000 + Math.round(Math.random() *999))
+					// '--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
+				]},}
+			};
+			const co: LanguageClientOptions = {
+				documentSelector: [docsel],
+				synchronize: {
+					fileEvents: [
+						// workspace.createFileSystemWatcher('**/.clientrc'),
+						workspace.createFileSystemWatcher('**/doc/prj/path.json'),
+							// LSPへファイル名キーワード更新のための情報提供
+					],
+				},
+			};
+			const lsp = new LanguageClient(
+				'SKYNovelLangSrv',
+				'SKYNovel Language Server',	// 開発ホストの【出力】タブに出る名前
+				so,
+				co,
+			);
+			ctx.subscriptions.push(
+				{dispose: ()=> lsp.stop()},
+				lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
+					switch (hd.cmd) {
+						case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
+						case 'error':	console.error(hd.txt);	return;
+					}
+//console.log(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
+					this.#workSps.onRequest(hd);
+				}),
+			);
 
-				ctx.subscriptions.push(languages.registerHoverProvider(docsel, this.#workSps));
-			}),
-		]).then(()=> {
-			ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-ws', this.#workSps));
+			await Promise.allSettled([
+				lsp.start(),
+				this.#chkEnv(()=> ctx.subscriptions.push(
+					window.registerTreeDataProvider('skynovel-dev', this),
+					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
+					commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
+					commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
+					commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+					languages.registerHoverProvider(docsel, this.#workSps),
+					window.registerTreeDataProvider('skynovel-ws', this.#workSps),
+				)),
+				this.#tlBox = ToolBox.init(ctx),
+			]);
 			this.#canTempWizard = true;
 
 			this.#workSps.start((cmd, uriWs, o)=> {

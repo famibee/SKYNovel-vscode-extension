@@ -6,23 +6,23 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_CMD, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../views/types';
-import {type T_H_ADIAG_L2S, getFn, v2fp} from './CmnLib';
+import {type T_H_ADIAG_L2S, chkUpdate, getFn, v2fp} from './CmnLib';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {Config} from './Config';
 import type {HDiff} from './HDiff';
 import {PRE_TASK_TYPE} from './WorkSpaces';
-import {type Project, FLD_PRJ_BASE} from './Project';
+import {FLD_PRJ_BASE} from './Project';
 import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, TASK_TYPE} from './PrjTreeItem';
 
-import type {ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
+import type {ExtensionContext, FileRenameEvent, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
 import {Disposable, FileType, ProgressLocation, RelativePattern, Uri, workspace, window, tasks, Task, ShellExecution} from 'vscode';
 import {copy, existsSync, readJson, remove, statSync} from 'fs-extra';
 import {minimatch} from 'minimatch';
 
 
 type T_WATCHRP2CREDELPROC = {
-	pattern	: string,
+	pat		: string,
 	crechg?	: (uri: Uri, cre: boolean)=> Promise<void>,
 	del?	: (uri: Uri)=> Promise<boolean>,
 };
@@ -31,7 +31,6 @@ type T_WATCHRP2CREDELPROC = {
 export class WatchFile2Batch {
 	protected static	ctx		: ExtensionContext;
 	protected static	wsFld	: WorkspaceFolder;
-	protected static	prj		: Project;
 			static		#diff	: HDiff;
 			static		fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
 	protected static	encIfNeeded	: (uri: Uri)=> Promise<void>;
@@ -59,7 +58,6 @@ export class WatchFile2Batch {
 		ctx		: ExtensionContext,
 		wsFld	: WorkspaceFolder, 
 		cfg		: Config,
-		prj		: Project,
 		diff	: HDiff,
 		encFile		: (uri: Uri)=> Promise<void>,
 		encIfNeeded	: (uri: Uri)=> Promise<void>,
@@ -71,7 +69,6 @@ export class WatchFile2Batch {
 	) {
 		this.ctx = ctx;
 		this.wsFld = wsFld;
-		this.prj = prj;
 		this.#basePathJson = async ()=> {
 			// path.json 更新（暗号化もここ「のみ」で）
 // console.log(`fn:WatchFile2Batch.ts basePathJson`);
@@ -132,72 +129,76 @@ export class WatchFile2Batch {
 		};
 
 		// ファイル名変更イベントを処理
-		workspace.onDidRenameFiles(({files})=> {
-// console.log(`fn:WatchFile2Batch.ts onDidRenameFiles files:%o`, files);
-			for (const {oldUri, newUri} of files) {
-				const ppOld = oldUri.path.slice(this.PATH_WS_LEN +1);
-				const isOldRnInPrj = ppOld.startsWith('doc/');
-				const ppNew = newUri.path.slice(this.PATH_WS_LEN +1);
-				const isNewRnInPrj = ppNew.startsWith('doc/');
-// console.log(`  newPath:${ppNew} isOldRnInPrj:${isOldRnInPrj} isNewRnInPrj:${isNewRnInPrj}`);
-				for (const w of this.#aWatchRp2CreDelProc) {
-					const {pattern} = w;
-// if (minimatch(ppOld, pattern)) console.log(`  minimatch del:${!!w.del} crechg:${!!w.crechg} -- ptn:${pattern}`);
-					if (isOldRnInPrj && w.del && minimatch(ppOld, pattern)) w.del(oldUri);
-					if (isNewRnInPrj && w.crechg && minimatch(ppNew, pattern)) w.crechg(newUri, true);
-				}
-			}
-		});
+		workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));
 
 		// フォルダ追加・削除イベント検知
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(wsFld, 'doc/prj/*'));
-		fwFld.onDidCreate(newUri=> this.#addSeq(async ()=> {
-// console.log(`fn:WatchFile2Batch.ts FLD/Create uri:${newUri.path}`);
-			if (! statSync(newUri.path).isDirectory()) return;
-
-			this.ps.onCreDir(newUri);	//NOTE: PrjJs の暗号化はどうなってる？
-
-			// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
-			const nm = getFn(newUri.path) +'/';
-			const aPp2 = (await workspace.fs.readDirectory(newUri))
-			.filter(([, ty])=> ty === FileType.File)
-			.map(([fp2pp, ])=> 'doc/prj/'+ nm + fp2pp);
-			for (const w of this.#aWatchRp2CreDelProc) {
-				const {pattern} = w;
-				if (! w.crechg || ! pattern.startsWith('doc/prj/')) continue;
-
-				for (const pp2 of aPp2) {
-					const match = minimatch(pp2, pattern);
-// console.log(`fn:WatchFile2Batch.ts ++ match:${match} pattern:${pattern} pp2:${pp2}`);
-					if (match) w.crechg(Uri.file(this.PATH_WS +'/'+ pp2), true);
-				}
-			}
-		}));
-		fwFld.onDidDelete(oldUri=> this.#addSeq(async ()=> {
-// console.log(`fn:WatchFile2Batch.ts FLD/Delete uri:${oldUri.path}`);
-			// if (! statSync(uri.path).isDirectory()) return;	// 無いのでエラーになる
-
-			this.ps.onDelDir(oldUri);	//NOTE: PrjJs の暗号化はどうなってる？
-
-			// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
-			const nm = getFn(oldUri.path) +'/';
-			const aPp2 = this.#diff.keys
-			.filter(pp=> pp.startsWith(nm))
-			.map(pp=> 'doc/prj/'+ pp);
-			for (const w of this.#aWatchRp2CreDelProc) {
-				const {pattern} = w;
-				if (! w.del || ! pattern.startsWith('doc/prj/')) continue;
-
-				for (const pp2 of aPp2) {
-					const match = minimatch(pp2, pattern);
-// console.log(`fn:WatchFile2Batch.ts -- match:${match} pattern:${pattern} pp2:${pp2}`);
-					if (match) w.del(Uri.file(this.PATH_WS +'/'+ pp2));
-				}
-			}
-		}));
+		fwFld.onDidCreate(newUri=> this.#addSeq(()=> this.#seqDidCreate(newUri)));
+		fwFld.onDidDelete(oldUri=> this.#addSeq(()=> this.#seqDidDelete(oldUri)));
 	}
-		// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
-		protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
+	static #onDidRenameFiles({files}: FileRenameEvent) {
+// console.log(`fn:WatchFile2Batch.ts onDidRenameFiles files:%o`, files);
+		for (const {oldUri, newUri} of files) {
+			const ppOld = oldUri.path.slice(this.PATH_WS_LEN +1);
+			const isOldRnInPrj = ppOld.startsWith('doc/');
+			const ppNew = newUri.path.slice(this.PATH_WS_LEN +1);
+			const isNewRnInPrj = ppNew.startsWith('doc/');
+// console.log(`  newPath:${ppNew} isOldRnInPrj:${isOldRnInPrj} isNewRnInPrj:${isNewRnInPrj}`);
+			for (const w of this.#aWatchRp2CreDelProc) {
+				const {pat} = w;
+// if (minimatch(ppOld, pattern)) console.log(`  minimatch del:${!!w.del} crechg:${!!w.crechg} -- ptn:${pattern}`);
+				if (isOldRnInPrj && w.del && minimatch(ppOld, pat)) w.del(oldUri);
+				if (isNewRnInPrj && w.crechg && minimatch(ppNew, pat)) w.crechg(newUri, true);
+			}
+		}
+	}
+	static async #seqDidCreate(newUri: Uri) {
+// console.log(`fn:WatchFile2Batch.ts FLD/Create uri:${newUri.path}`);
+		if (! statSync(newUri.path).isDirectory()) return;
+
+		this.ps.onCreDir(newUri);	//NOTE: PrjJs の暗号化はどうなってる？
+
+		// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
+		const nm = getFn(newUri.path) +'/';
+		const aPp2 = (await workspace.fs.readDirectory(newUri))
+		.filter(([, ty])=> ty === FileType.File)
+		.map(([fp2pp, ])=> 'doc/prj/'+ nm + fp2pp);
+		for (const w of this.#aWatchRp2CreDelProc) {
+			const {pat} = w;
+			if (! w.crechg || ! pat.startsWith('doc/prj/')) continue;
+
+			for (const pp2 of aPp2) {
+				const match = minimatch(pp2, pat);
+// console.log(`fn:WatchFile2Batch.ts ++ match:${match} pattern:${pattern} pp2:${pp2}`);
+				if (match) w.crechg(Uri.file(this.PATH_WS +'/'+ pp2), true);
+			}
+		}
+	}
+	static async #seqDidDelete(oldUri: Uri) {
+// console.log(`fn:WatchFile2Batch.ts FLD/Delete uri:${oldUri.path}`);
+		// if (! statSync(uri.path).isDirectory()) return;	// 無いのでエラーになる
+
+		this.ps.onDelDir(oldUri);	//NOTE: PrjJs の暗号化はどうなってる？
+
+		// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
+		const nm = getFn(oldUri.path) +'/';
+		const aPp2 = this.#diff.keys
+		.filter(pp=> pp.startsWith(nm))
+		.map(pp=> 'doc/prj/'+ pp);
+		for (const w of this.#aWatchRp2CreDelProc) {
+			const {pat} = w;
+			if (! w.del || ! pat.startsWith('doc/prj/')) continue;
+
+			for (const pp2 of aPp2) {
+				const match = minimatch(pp2, pat);
+// console.log(`fn:WatchFile2Batch.ts -- match:${match} pattern:${pattern} pp2:${pp2}`);
+				if (match) w.del(Uri.file(this.PATH_WS +'/'+ pp2));
+			}
+		}
+	}
+
+	// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
+	protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
 
 	static	async init2th(ps: PrjSetting) {
 		this.ps = ps;
@@ -238,9 +239,6 @@ export class WatchFile2Batch {
 		aNeedLib	: string[],
 	}};
 	protected static	exeTask(nm: T_CMD, arg: string): Promise<number> {
-		// バッチ実行中のファイル変更検知を抑制
-		WatchFile2Batch.#watchFile = false;
-
 		const inf = this.#hTask2Inf[nm]!;
 		return new Promise(fin=> window.withProgress({
 			location	: ProgressLocation.Notification,
@@ -273,9 +271,6 @@ export class WatchFile2Batch {
 
 			this.hOnEndTask.set('Sys', e=> {
 				fin(e.exitCode ?? 0);
-
-				// バッチ実行中のファイル変更検知を再開
-				WatchFile2Batch.#watchFile = true;
 
 				prg.report({message: '完了', increment: 100});
 				setTimeout(()=> donePrg(), 4000);
@@ -312,80 +307,124 @@ export class WatchFile2Batch {
 
 
 	//MARK: フォルダ監視
-	static async watchFld(
-		pattern	: string,	// 生成物入力パス Grb パターン
+	protected static async watchFld(
+		pat		: string,	// 生成物入力パス Grb パターン
 		pathDest: string,	// 生成物出力パス Grb パターン
 		init?	: (uri: Uri)=> Promise<void>,
 		crechg?	: (uri: Uri, cre: boolean)=> Promise<void>,
 		del?	: (uri: Uri)=> Promise<boolean>,
 	) {
-		this.#aWatchRp2CreDelProc.push({pattern, crechg, del});
+		this.#aWatchRp2CreDelProc.push({pat, crechg, del});
 
-		const rpInp = new RelativePattern(this.wsFld, pattern);
-		const encIfNeeded = pattern.startsWith('doc/prj/*/')
-			? (uri: Uri)=> this.encIfNeeded(uri)
-			: async ()=> {};
-		if (init) {
-			await Promise.allSettled(
-				(await workspace.findFiles(rpInp))
-				.map(async uri=> {
-					await init(uri);	// バッチ処理等なので並列処理しない
-					return encIfNeeded(uri);
-				})
-			);
-		}
-		const fw = workspace.createFileSystemWatcher(rpInp, !crechg, !crechg, !del);	// ignore なので無効にするときに true
-		if (crechg) this.#ds.push(
-			fw.onDidCreate(uri=> this.#addSeq(async ()=> {
-// console.log(`fn:WatchFile2Batch.ts watchFld CRE watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
-
-				if (this.#watchFile) await crechg(uri, true);
-				await encIfNeeded(uri);
-			})),
-			fw.onDidChange(uri=> this.#addSeq(async ()=> {
-// console.log(`fn:WatchFile2Batch.ts watchFld CHG watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
-				await this.#delDest(pathDest, uri);
-				if (this.#watchFile) await crechg(uri, false);
-				await encIfNeeded(uri);
-			})),
-		);
-		if (del) this.#ds.push(fw.onDidDelete(uri=> this.#addSeq(async ()=> {
-// console.log(`fn:WatchFile2Batch.ts watchFld DEL watchFile:${this.#watchFile} pat【${rpInp.pattern}】 uri:${uri.path}`);
-			if (! this.#watchFile) return
-
-			await this.#delDest(pathDest, uri);
-			if (await del(uri)) {
-				const {pathCn, pp} = this.#diff.path2cn(uri.path);
-				if (pathCn) await remove(pathCn);
-
-				this.#diff.del(pp);
-				await this.#diff.save();
+		const encIfNeeded = pat.startsWith('doc/prj/*/')
+			? async (uri: Uri)=> {
+				// 最適化などで拡張子変更の場合あり、ファイル存在確認必須
+				if (existsSync(uri.path)) this.encIfNeeded(uri)
 			}
-		})));
+			: async ()=> {};
+		if (init) await Promise.allSettled((await workspace.findFiles(pat))
+			.map(async uri=> {
+				await init(uri);	// バッチ処理等なので並列処理しない
+				return encIfNeeded(uri);
+			})
+		);
+		const fw = workspace.createFileSystemWatcher(
+			new RelativePattern(this.wsFld, pat),
+			! crechg,	// ignore なので無効にするときに true
+			! crechg,
+			! del,
+		);
+		if (crechg) this.#ds.push(
+			fw.onDidCreate(uri=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld CRE pat【${pat}】 uri:${uri.path}`);
+				this.#addSeq(async ()=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld CRE - START`);
+					await crechg(uri, true);
+					await encIfNeeded(uri);
+					this.ps.pnlWVFolder.updateDelay(uri);
+// console.log(`fn:WatchFile2Batch.ts watchFld CRE - END`);
+				});
+			}),
+			fw.onDidChange(uri=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld CHG uri:${uri.path}`);
+				this.#addSeq(async ()=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld CHG = START`);
+					await this.#delDest(pathDest, uri);
+					await crechg(uri, false);
+					await encIfNeeded(uri);
+					this.ps.pnlWVFolder.updateDelay(uri);
+// console.log(`fn:WatchFile2Batch.ts watchFld CHG = END`);
+				});
+			}),
+		);
+		if (del) this.#ds.push(fw.onDidDelete(uri=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld DEL pat【${pat}】 uri:${uri.path}`);
+			this.#addSeq(async ()=> {
+// console.log(`fn:WatchFile2Batch.ts watchFld DEL --- START`);
+				await this.#delDest(pathDest, uri);
+				if (await del(uri)) {
+					const {pathCn, pp} = this.#diff.path2cn(uri.path);
+					if (pathCn) await remove(pathCn);
+
+					this.#diff.del(pp);
+					await this.#diff.save();
+				}
+				this.ps.pnlWVFolder.updateDelay(uri);
+// console.log(`fn:WatchFile2Batch.ts watchFld DEL --- END`);
+			});
+		}));
 	}
 	static #aWatchRp2CreDelProc: T_WATCHRP2CREDELPROC[]	= [];
+
+	//MARK: 暗号化対応ファイル新旧チェック
+	static chkUpdate(pathSrc: string, pathDest: string) {
+		const {pathCn} = this.#diff.path2cn(pathDest);
+		return chkUpdate(pathSrc, pathCn ?? pathDest);
+	}
+
+	//MARK: パターンマッチファイル削除・暗号化ファイルも削除
 	static async #delDest(ptDest: string, {path}: Uri) {
 		if (ptDest === '') return;
 
 		const hn = getFn(path);
-		const aUri = await workspace.findFiles(ptDest.replace('[FN]', hn));
-		await Promise.allSettled(aUri.map(({path})=> remove(path)));
+		const aUri = await workspace.findFiles(ptDest.replaceAll('[FN]', hn));
+		await Promise.allSettled(aUri.map(async ({path})=> {
+			// パターンにマッチするファイルを削除
+			await remove(path);
+
+			// 暗号化ファイルも削除
+			const {pathCn, pp} = this.#diff.path2cn(path);
+			if (pathCn) await remove(pathCn);
+			this.#diff.del(pp);
+		}));
+		await this.#diff.save();
 	}
 
 	//MARK: 直列実行キュー追加
 	static #addSeq(fnc: ()=> Promise<void>) {	// 追加は必ず同期で
+// console.log(`fn:WatchFile2Batch.ts addSeq watchFile:${this.#watchFile}`);
+		if (! this.#watchFile) {
+			this.updPathJson();
+			return;
+		}
+
 		// 末尾に追加 - push
 		if (this.#aQSeq.push(fnc) !== 1) return;
 			// 空じゃなかったならすでに動いてる
 			// const isEmpty = this.#aQ.length === 0;
 			// this.#aQSeq.push(fnc);	// 末尾に追加 - push
 			// if (! isEmpty) return;
-		/* await */ this.#doSeq();	// これを実行する段でキューが空でも構わない
+		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
+		this.#tiDelay = setTimeout(()=> this.#doSeq(), 100);
+			// 実行する段でキューが空でも構わない
+			// 遅延するのは、ファイル置き換えのときに onDidDelete -> onDidCreate イベントが発生するが、それより後に処理を開始したいので
 	}
 	static	readonly	#aQSeq: (()=> Promise<void>)[] = [];
+	static	#tiDelay: NodeJS.Timeout | undefined = undefined;
 
 	//MARK: 直列実行キュー実行
 	static async #doSeq() {
+		this.#watchFile = false;
 		let fncDo;
 		while (fncDo = this.#aQSeq.at(0)) {
 			await fncDo();
@@ -395,6 +434,7 @@ export class WatchFile2Batch {
 			// while (fncDo = this.#aQSeq.shift()) await fncDo();
 
 		this.updPathJson();
+		this.#watchFile = true;
 	}
 
 

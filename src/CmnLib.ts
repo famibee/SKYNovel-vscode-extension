@@ -138,6 +138,7 @@ export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verb
 }
 
 
+//MARK: ファイル新旧チェック
 export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
 	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
 	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);

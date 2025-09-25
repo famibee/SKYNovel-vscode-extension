@@ -61,7 +61,6 @@
 		//"extendedDiagnostics": true,	// コンパイル時に TypeScript が時間を費やしている場所を検出
 
 		/* Other */
-		// experimentalDecorators
 		"incremental": true			// 差分ビルド
 	},
 	"include": ["src/**/*", "views/**/*"],

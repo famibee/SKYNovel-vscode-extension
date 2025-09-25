@@ -1298,7 +1298,12 @@ WorkspaceEdit
 		if (! this.#checkRelated(uri)) return null;
 
 		const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
-		return [this.#hDoc2InlayHint[pp], this.#pp2AQuoteInlayHint[pp]].flat();
+		return [
+			this.#hDoc2InlayHint[pp],
+			this.#pp2AQuoteInlayHint[pp],
+		]
+		.flatMap(v=> v || []);
+			// JavaScriptにおける配列の空要素除去filterパターン #JavaScript - Qiita https://qiita.com/akameco/items/1636e0448e81e17e3646
 	}
 
 
@@ -1376,16 +1381,16 @@ WorkspaceEdit
 	#updDiag(haDiag	: T_H_ADIAG_L2S) {
 		// ファイル走査系メッセージ
 		for (const [fp, aD] of Object.entries(haDiag)) {
-			this.#fp2Diag[fp] = [
-				...this.#fp2Diag[fp]?.filter((e, i, a)=>a.findIndex(e2=>
-					e2.message + String(e2.range) ===	// 同じ警告は削除
-					e.message + String(e.range)) === i
-					&& ! e.message.startsWith(S_文字コードが異常)
-				),
-				...aD.map(d=> Diagnostic.create(
-					Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
-				)),
-			];
+			this.#fp2Diag[fp] = (fp in this.#fp2Diag)
+			? this.#fp2Diag[fp].filter((e, i, a)=>a.findIndex(e2=>
+				e2.message + String(e2.range) ===	// 同じ警告は削除
+				e.message + String(e.range)) === i
+				&& ! e.message.startsWith(S_文字コードが異常)
+			)
+			: [];
+			this.#fp2Diag[fp].push(...aD.map(d=> Diagnostic.create(
+				Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
+			)));
 		}
 
 		for (const [fp, diagnostics] of Object.entries(this.#fp2Diag)) {

@@ -20,6 +20,7 @@ export class WfbSettingSn extends WatchFile2Batch {
 
 	//MARK: 初期化
 	async init() {
+		// 設定スクリプトの更新
 		await WatchFile2Batch.watchFld(
 			'doc/prj/*/setting.sn', '',
 			async ({path})=> {

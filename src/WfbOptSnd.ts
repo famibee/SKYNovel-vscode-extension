@@ -11,8 +11,7 @@ import {getFn, v2fp} from './CmnLib';
 import {FLD_PRJ_BASE} from './Project';
 import {WatchFile2Batch} from './WatchFile2Batch';
 
-import type {Uri} from 'vscode';
-import {workspace} from 'vscode';
+import {Uri, workspace} from 'vscode';
 import {existsSync, readJson, remove, writeJson} from 'fs-extra';
 
 const PROC_ID = 'cnv.mat.snd';
@@ -30,83 +29,85 @@ export class WfbOptSnd extends WatchFile2Batch {
 	}
 
 	//MARK: 初期化
-	async init() {
-		await WatchFile2Batch.watchFld(
+	async init() {await Promise.allSettled([
+		// 音声最適化
+		WatchFile2Batch.watchFld(
 			ptnSrcBaseInPrj,
 			'doc/prj/*/[FN].{m4a,aac,ogg}',
-			async ()=> {},	// 処理はないが暗号化処理を動かしたい
-			this.#onCreChgInp,
-			async uri=> {
-// console.log(`fn:OptSnd.ts del sw:${WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
-				if (! WatchFile2Batch.ps.oWss[PROC_ID]) return true;
-
-				WatchFile2Batch.ps.pnlWVFolder.updateDelay(uri);
-				await this.#onDelInp(uri);
-				return true;
-			},
-		);
-		await WatchFile2Batch.watchFld(
+			async ()=> {},	// 処理はないが処理を動かしたい
+			(uri, cre)=> this.#onCreChg(uri, cre),
+			uri=> this.#onDel(uri),
+		),
+		// 退避素材の更新
+		WatchFile2Batch.watchFld(
 			`${WatchFile2Batch.FLD_SRC}/${FLD_PRJ_BASE}/*/*.{mp3,wav}`,
-			`doc/prj/*/[FN].{m4a,aac,ogg}`,
+			'',
 			undefined,
-			this.#onCreChgInp,
+			(uri, cre)=> this.#onCreChg(uri, cre),
 			undefined,
-		);
-
-		if (existsSync(this.#PATH_LOG)) this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		else await writeJson(this.#PATH_LOG, this.#oLog = DEF_OPTSND);
-	}
-	async #onCreChgInp(uri: Uri, _cre=false) {
-// console.log(`fn:WfbOptSnd.ts line:32 crechg sw:${WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-// console.log(`fn:OptSnd.ts crechg uri:${uri.path} cre:${_cre}`);
-		WatchFile2Batch.ps.pnlWVFolder.updateDelay(uri);
-		await this.#procOpt(uri);	// 更新の自動変換
-	}
+		),
+		async ()=> {
+			if (existsSync(this.#PATH_LOG)) this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
+			else await writeJson(this.#PATH_LOG, this.#oLog = DEF_OPTSND);
+		},
+	])}
 
 	//MARK: #on追加・更新
-	#oLog	: T_OPTSND;
-	async #procOpt({path}: Uri) {
-		path = v2fp(path);
-		if (this.#REG_EXT_SND_REST.test(path)) return;
+	async #onCreChg(uri: Uri, _cre=false) {
+// console.log(`fn:WfbOptSnd.ts onCreChgInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path} cre:${_cre}`);
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
 
-		// WatchFile2Batch.watchFile = false;	// cnv_mat_snd() exeTask() でやる
-		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
-		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
-
-		// ファイルを追加・更新時、退避に上書き移動して最適化
+		// 素材ファイルを追加・更新時、退避に上書き移動して最適化
+		const path = v2fp(uri.path);
 		const isBase = this.isBaseUrl(path);
 		await this.#cnv_mat(isBase ?'base_scan' :'prj_scan');
 
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-
-		o.mode = 'comp';
-		WatchFile2Batch.ps.cmd2Vue(o);
-		// WatchFile2Batch.watchFile = true;	// cnv_mat_snd() exeTask() でやる
+		// 最適化ファイルを暗号化
+		await WatchFile2Batch.encIfNeeded(
+			Uri.file(this.#prjBase2Prj(path))	// isBase 両対応
+		);
 	}
-	//MARK: #on削除
-	async #onDelInp({path}: Uri) {
-		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
-
-		WatchFile2Batch.watchFile = false;	// バッチ処理自身が発端を再度引き起こすので
-		path = v2fp(path);
-		const isBase = this.isBaseUrl(path);
-		if (! isBase) {		// 変換後ファイルを消したら退避ファイルも削除
-			const path2 = path.replace(WatchFile2Batch.PATH_PRJ, WatchFile2Batch.PATH_PRJ_BASE);
-			for await (const ext of ['mp3','wav']) {
-				remove(path2.replace(/(m4a|aac|ogg)$/, ext));
+		#prjBase2Prj(path: string) {
+			path = path
+			.replace(WatchFile2Batch.PATH_PRJ_BASE, WatchFile2Batch.PATH_PRJ);
+			for (const ext of ['m4a','aac','ogg']) {
+				const pathDest = path
+				.replace(this.#REG_SRC_EXT, '.'+ ext);
+				if (existsSync(pathDest)) return pathDest;
 			}
-			WatchFile2Batch.watchFile = true;
-			return;
+
+			return path;
+		}
+		readonly	#REG_SRC_EXT	= /\.(mp3|wav)$/;
+
+	//MARK: #on削除
+	async #onDel(uri: Uri): Promise<boolean> {
+// console.log(`fn:OptSnd.ts onDelInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
+		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return true;
+
+		const path = v2fp(uri.path);
+		const isBase = this.isBaseUrl(path);
+		if (! isBase) {
+			// 変換後ファイルを消したら退避ファイルも削除
+			const path2 = path.replace(WatchFile2Batch.PATH_PRJ, WatchFile2Batch.PATH_PRJ_BASE);
+			await Promise.allSettled(
+				['mp3','wav']
+				.map(ext=> remove(path2.replace(/(m4a|aac|ogg)$/, ext)))
+			);
+			return true;
 		}
 
-		// 退避ファイルを消したら変換後  aac... も削除
-		for await (const ext of ['m4a','aac','ogg']) remove(
-			path.replace(WatchFile2Batch.PATH_PRJ_BASE, WatchFile2Batch.PATH_PRJ)
-			.replace(this.#REG_EXT_SND_CNV, '.'+ ext)
+		// 退避ファイルを消したら変換後ファイルも削除
+		await Promise.allSettled(
+			['m4a','aac','ogg']
+			.map(ext=> remove(
+				path
+				.replace(WatchFile2Batch.PATH_PRJ_BASE, WatchFile2Batch.PATH_PRJ)
+				.replace(this.#REG_SRC_EXT, '.'+ ext)
+			))
 		);
+
+		// 退避を消したケースでのみログ更新（このメソッドが多重発生）
 		const fn = getFn(path);
 		if (fn in this.#oLog.hSize) {
 			const {baseSize, optSize} = this.#oLog.hSize[fn]!;
@@ -116,11 +117,14 @@ export class WfbOptSnd extends WatchFile2Batch {
 			await writeJson(this.#PATH_LOG, this.#oLog, {encoding: 'utf8'});
 			this.#dispBase();
 		}
-		WatchFile2Batch.watchFile = true;
+		return true;
 	}
-		readonly	#REG_EXT_SND_REST	= /\.(m4a|aac|ogg)$/;
-		readonly	#REG_EXT_SND_CNV	= /\.(mp3|wav)$/;
 
+	//MARK: 情報出力・表示更新
+	async disp() {
+		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
+		this.#dispBase();
+	}
 	//MARK: 情報表示更新
 	#dispBase() {
 		WatchFile2Batch.ps.cmd2Vue(<T_E2V_OPTSND>{
@@ -132,11 +136,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 			}},
 		});
 	}
-	//MARK: 情報出力・表示更新
-	async disp() {
-		this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
-		this.#dispBase();
-	}
+	#oLog	: T_OPTSND;
 
 
 	//MARK: 変換有効化
@@ -144,25 +144,48 @@ export class WfbOptSnd extends WatchFile2Batch {
 
 	//MARK: 変換無効化
 	async disable() {return this.#procOnOff('disable', ptnSrcBaseInPrj)}
-		async #procOnOff(proc: 'enable'|'disable', ptn: string) {
-			// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
-			await WatchFile2Batch.delOldDiff(this.#REG_DiffExtSnd);
 
-			await this.#cnv_mat(proc);
+	async #procOnOff(proc: 'enable'|'disable', ptn: string) {
+		WatchFile2Batch.watchFile = false;
 
-			// 最適化ファイル・復元したファイルを暗号化
-			await Promise.allSettled(
-				(await workspace.findFiles(ptn))
-				.map(uri=> WatchFile2Batch.encIfNeeded(uri))
-			);
+		// 暗号化状態での最適化状態切り替えの場合、切り替え前の暗号化ファイルを削除
+		await WatchFile2Batch.delOldDiff(this.#REG_DiffExtSnd);
 
-			WatchFile2Batch.updPathJson();
-		}
-		readonly	#REG_DiffExtSnd	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
+		await this.#cnv_mat(proc);
+
+		// 最適化ファイル・復元したファイルを暗号化
+		await Promise.allSettled((await workspace.findFiles(ptn))
+			.map(uri=> WatchFile2Batch.encIfNeeded(uri))
+		);
+
+		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.watchFile = true;
+	}
+	readonly	#REG_DiffExtSnd	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
+
+	async #cnv_mat(modeInp: string) {
+		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
+		WatchFile2Batch.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
+
+		WatchFile2Batch.exeTask(
+			'cnv_mat_snd',
+			`${modeInp} '{"codec":"${
+				WatchFile2Batch.ps.oWss['cnv.mat.snd.codec']
+			}"}' "${WatchFile2Batch.PATH_PRJ}" "${
+				WatchFile2Batch.PATH_PRJ_BASE}"`,
+		);
+		await this.disp();
+
+		o.mode = 'comp';
+		WatchFile2Batch.ps.cmd2Vue(o);
+	}
+
 
 	//MARK: 再変換
 	async reconv() {
 		if (! WatchFile2Batch.ps.oWss['cnv.mat.snd']) return;
+
+		WatchFile2Batch.watchFile = false;
 
 		// 現状、UI的に「常にエンコーダー変更」なので、旧全生成物削除→全変換
 		// 暗号化状態でのエンコーダー変更の場合、変更前の暗号化ファイルを削除
@@ -172,11 +195,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 
 		await this.#cnv_mat('reconv');
 		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.watchFile = true;
 	}
-		readonly	#cnv_mat = (modeInp: string)=> WatchFile2Batch.exeTask(
-			'cnv_mat_snd',
-			`${modeInp} '{"codec":"${WatchFile2Batch.ps.oWss['cnv.mat.snd.codec']
-			}"}' "${WatchFile2Batch.PATH_PRJ}" "${WatchFile2Batch.PATH_PRJ_BASE}"`,
-		);
 
 }

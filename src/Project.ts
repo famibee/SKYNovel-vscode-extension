@@ -105,12 +105,12 @@ export class Project {
 
 	//MARK: コンストラクタ
 	constructor(
-		private readonly ctx: ExtensionContext,
-		private readonly actBar: ActivityBar,
-		private readonly wsFld: WorkspaceFolder,
-		readonly aTiRoot: TreeItem[],
+		private readonly ctx	: ExtensionContext,
+		private readonly actBar	: ActivityBar,
+		private readonly wsFld	: WorkspaceFolder,
+				readonly aTiRoot: TreeItem[],
 		private readonly emPrjTD: EventEmitter<TreeItem | undefined>,
-		private readonly hOnEndTask: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
+		private readonly hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
 		readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void,
 	) {
 		const vfp = wsFld.uri.path;
@@ -167,7 +167,6 @@ export class Project {
 			ctx,
 			wsFld,
 			this.#cfg,
-			this,
 			this.#diff,
 			uri=> this.#encFile(uri),
 			uri=> this.#encIfNeeded(uri),
@@ -272,15 +271,15 @@ export class Project {
 				const pathStgJS = this.#PATH_WS +'/.vscode/settings.json';
 				if (existsSync(pathStgJS)) {
 					const o = await readJson(pathStgJS, {encoding: 'utf8'});
-					if ('terminal.integrated.env.windows' in o) return;
-
-					o['terminal.integrated.env.windows'] = {
-						"PATH": "${workspaceRoot}\\node_modules\\.bin;${env:PATH}"
-					};
-					o['terminal.integrated.env.osx'] = {
-						"PATH": "${workspaceRoot}/node_modules/.bin:${env:PATH}"
-					};
-					await writeFile(pathStgJS, JSON.stringify(o, null, '\t'));
+					if (! ('terminal.integrated.env.windows' in o)) {
+						o['terminal.integrated.env.windows'] = {
+							"PATH": "${workspaceRoot}\\node_modules\\.bin;${env:PATH}"
+						};
+						o['terminal.integrated.env.osx'] = {
+							"PATH": "${workspaceRoot}/node_modules/.bin:${env:PATH}"
+						};
+						await writeFile(pathStgJS, JSON.stringify(o, null, '\t'));
+					}
 				}
 				else await copyFile(ctx.extensionPath +'/res/settings.json', pathStgJS);
 			},
@@ -301,7 +300,24 @@ export class Project {
 			()=> this.#optSnd.init(),
 
 			// {sn, htm ...} -> {woff2,woff,otf,ttf}
-			()=> this.#optFont.init(),
+			()=> this.#optFont.init(
+				fp=> {
+					this.#encIfNeeded(Uri.file(fp));
+					if (! /\.(ss?n|json)$/.test(fp)) return;
+
+					// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+					this.#chkChrCd(fp);
+					this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
+				},
+				fp=> {
+					if (! /\.(ss?n|json)$/.test(fp)) return false;
+
+					delete this.#haDiagChrCd[fp];
+					this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
+
+					return true;
+				},
+			),
 
 			()=> this.#diff.init(),
 
@@ -440,22 +456,6 @@ export class Project {
 		// 同じ警告は削除
 		const {mes, sev} = hDiagL2s.文字コード異常!;
 		this.#haDiagChrCd[fp] = [{mes: mes.replace('$', cc), sev}];
-	}
-	noticeChgTxt(fp: string) {
-		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
-		if (! /\.(ss?n|json)$/.test(fp)) return;
-
-		this.#chkChrCd(fp);
-		this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
-	}
-	noticeDelTxt(fp: string): boolean {
-		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
-		if (! /\.(ss?n|json)$/.test(fp)) return false;
-
-		delete this.#haDiagChrCd[fp];
-		this.#sendRequest2LSP('upd_diag', {haDiag: this.#haDiag});
-
-		return true;
 	}
 		get #haDiag() {return {
 			...WatchFile2Batch.haDiagFn,

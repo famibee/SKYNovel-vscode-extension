@@ -1,5 +1,25 @@
+## v4.25.0
+- feat(src/WatchFile2Batch.ts): 起動時、PSD ファイル処理必要性チェックの sn 新旧比較を暗号化状態対応に
+- feat(src/WatchFile2Batch.ts): ファイル更新・変更時、最適化処理など生成物を削除しているが、その暗号化ファイルも削除するように
+- fix: イベント発生とその処理、非同期処理の見直し
+	- fix(src/WatchFile2Batch.ts): バッチ実行中のファイル変更検知抑制で、排他的フラグ（WatchFile2Batch.#watchFile）立てを exeTask() ではなく #addSeq() 単位で行うように
+	- fix(src/WatchFile2Batch.ts): ファイル置き換えのときに onDidDelete -> onDidCreate と二つイベントが発生するが、それより後に処理を開始したいので遅延するように
+	- fix: 暗号化 ON＋画像最適化 ON で、以下を動作確認や修正
+		- ✅ prj/bg に jpg ドラッグで最適化・暗号化も
+		- ✅ src/prj_base/bg に jpg ドラッグで最適化・暗号化も
+		- ✅ 音声最適化でも同様に
+	- fix: 立ち絵素材生成機能で PSD 更新で処理をしていなかった件
+		- ✅ 立ち絵素材生成
+		- ✅ 画像最適化
+		- ✅ 暗号化
+		- ✅ 素材最適化＋暗号化
+- fix(src/ActivityBar.ts): Node.js v22 アクティブ LTS 開始 につき、環境チェック値も更新【v22.20.0 以上必須】
+- perf(src/ActivityBar.ts): 初期化プロセス並列化・遅延モジュールロード推進
+- fix(server/src/LspWs.ts): LSP 側の診断情報処理でエラーになっていた件
+- fix(views/lib): bootstrap-5.3.8 に更新
+- refactor: リファクタリング
 ## v4.24.3
--fix: 暗号化 ON状態で、最適化すると暗号化出力が消える件
+- fix: 暗号化 ON状態で、最適化すると暗号化出力が消える件
 	- 暗号化 ON
 		- ❌ 音声最適化 ->ON
 			- 暗号化ファイルが消えてしまう
@@ -9,15 +29,15 @@
 	- 暗号化 OFF
 		- ✅ 音声最適化 ->ON
 		- ✅ 音声最適化 ->OFF
--fix: 暗号化 ON状態で、ファイル上書き更新すると二回に一回ぐらいの頻度で暗号化ファイルが消える
--fix: 暗号化 ON＋画像非最適化状態
+- fix: 暗号化 ON状態で、ファイル上書き更新すると二回に一回ぐらいの頻度で暗号化ファイルが消える
+- fix: 暗号化 ON＋画像非最適化状態
 	- ファイル個別更新 -> 暗号化は出来てる
--fix(src/md/wait_tsy.md): [wait_tsy] の chk_exist_tw 属性廃止の対応
+- fix(src/md/wait_tsy.md): [wait_tsy] の chk_exist_tw 属性廃止の対応
 - refactor: 巨大クラス(src/Project.ts)をリファクタリング
 ## v4.24.2
--fix(src/Project.ts): 開いた sn で文字コードが utf8・utf16 が区別なく UNICODE になる件
--fix(server/src/LspWs.ts): 文字コードエラー -> エラー で両方のエラー表示が残る件
--fix(server/src/LspWs.ts): utf8 にしてエラーにすると、以前のエラーが復活する件
+- fix(src/Project.ts): 開いた sn で文字コードが utf8・utf16 が区別なく UNICODE になる件
+- fix(server/src/LspWs.ts): 文字コードエラー -> エラー で両方のエラー表示が残る件
+- fix(server/src/LspWs.ts): utf8 にしてエラーにすると、以前のエラーが復活する件
 ## v4.24.1
 - fix: 画像最適化処理・音声最適化処理の非同期処理を修正
 ## v4.24.0
