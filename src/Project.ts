@@ -55,6 +55,8 @@ export type T_QuickPickItemEx = {label: string, description: string, uri: string
 export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
 export type T_aExt2Snip = T_Ext2Snip[];
 
+export type T_PP2S = {[pp: string]: string};
+
 
 export class Project {
 	readonly	#PATH_WS;
@@ -343,9 +345,13 @@ export class Project {
 				}}),
 			),
 		].map(p=> p()))).then(async ()=> {
-			await WatchFile2Batch.init2th(this.#ps);
+			await WatchFile2Batch.init2th(
+				this.#ps,
+				()=> this.#sendRequest2LSP('need_go'),
+			);
 
-			this.#sendRequest2LSP('ready');
+// console.log(`Seq_ 3 fn:Project.ts constructor.ready`);
+			this.#sendRequest2LSP('ready');	// src/Project.ts 準備完了
 		});
 	}
 
@@ -359,10 +365,7 @@ export class Project {
 	//MARK: デストラクタ
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
-	dispose() {
-		WatchFile2Batch.dispose();
-		for (const d of this.#ds) d.dispose();
-	}
+	dispose() {for (const d of this.#ds) d.dispose()}
 
 
 	#termDbgSS() {
@@ -379,21 +382,18 @@ export class Project {
 
 	//MARK: LSPから受信
 	onRequest({cmd, o}: {cmd: string, o: any}) {
-// console.log(`fn:Project.ts ⤵ onRequest cmd:${cmd} o:%o`, o);
+// console.log(`Seq_21 ⬇受 cmd:${cmd} fn:Project.ts onRequest o:%o`, o);	//NOTE: 要点
 		switch (cmd) {
-			// #noticeGo() から。何度も来る
-			case 'go':{
+			case 'go':{	// #noticeGo() から。何度も来る
 				//NOTE: #haDiagFont はここで毎回更新すべきか、フォント最適化スイッチをさわったときか、本文にフォントファイルに含まれない文字が増えたときか、減ったときは、など議論がある
 				// ひとまず処理がさほど重くなさそうなので毎回やる
 				this.#haDiagFont = this.#optFont.updDiag(o.InfFont);
 
 				// sn,json は ASCII と UTF8 以外の文字コードをエラーに
-				const pp2s: {[pp: string]: string} = {};
+				const pp2s: T_PP2S = {};
 				this.#haDiagChrCd = {};
 				treeProc(this.#PATH_PRJ, fp=> {
-					if (! /\.(ss?n|json)$/.test(fp)) return;
-
-					this.#chkChrCd(fp, pp2s);
+					if (/\.(ss?n|json)$/.test(fp)) this.#chkChrCd(fp, pp2s);
 				});
 
 				this.#sendRequest2LSP(cmd +'.res', {
@@ -403,8 +403,7 @@ export class Project {
 				});
 			}	break;
 
-			// #scanEnd() から
-			case 'analyze_inf':{
+			case 'analyze_inf':{	// #scanEnd() から
 				this.#aPickItems = [
 					...aPickItems,
 
@@ -424,8 +423,6 @@ export class Project {
 				];
 
 				this.#mExt2Snip = new Map(<T_aExt2Snip>o.aExt2Snip);
-
-				WatchFile2Batch.init3th(()=> this.#sendRequest2LSP('need_go'));
 			}	break;
 
 			case 'hover.res':	{
@@ -436,7 +433,7 @@ export class Project {
 		}
 	}
 	//MARK: 文字コードチェック（オマケでLSPに渡すファイルデータを連想配列に）
-	#chkChrCd(fp: string, pp2s?: {[pp: string]: string}) {
+	#chkChrCd(fp: string, pp2s?: T_PP2S) {
 		const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
 		const pp = fp.slice(this.#LEN_PATH_PRJ);
 		const str = REG_SCRIPT.test(fp) ?td?.getText() :undefined;

@@ -64,8 +64,14 @@ export class WfbOptFont extends WatchFile2Batch {
 		await WatchFile2Batch.watchFld(
 			'doc/prj/*/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}', '',
 			async ()=> {},	// 処理はないが処理を動かしたい
-			async ({path}, _cre)=> noticeChgTxt(path),
-			async ({path})=> noticeDelTxt(path),
+			async ({path}, cre)=> {
+				if (cre && /\.ss?n$/.test(path)) WatchFile2Batch.sendNeedGo();
+				return noticeChgTxt(path);
+			},
+			async ({path})=> {
+				if (/\.ss?n$/.test(path)) WatchFile2Batch.sendNeedGo();
+				return noticeDelTxt(path);
+			},
 		);
 	}
 

@@ -16,7 +16,7 @@ import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, TASK_TYPE} from './PrjTreeItem';
 
 import type {ExtensionContext, FileRenameEvent, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
-import {Disposable, FileType, ProgressLocation, RelativePattern, Uri, workspace, window, tasks, Task, ShellExecution} from 'vscode';
+import {FileType, ProgressLocation, RelativePattern, Uri, workspace, window, tasks, Task, ShellExecution} from 'vscode';
 import {copy, existsSync, readJson, remove, statSync} from 'fs-extra';
 import {minimatch} from 'minimatch';
 
@@ -48,8 +48,6 @@ export class WatchFile2Batch {
 	protected static	PATH_PRJ		: string;
 	protected static	PATH_PRJ_BASE	: string;
 
-	static	readonly	#ds	: Disposable[]	= [];
-
 	static	#watchFile = false;
 	protected static set watchFile(v: boolean) {this.#watchFile = v}
 
@@ -71,18 +69,15 @@ export class WatchFile2Batch {
 		this.wsFld = wsFld;
 		this.#basePathJson = async ()=> {
 			// path.json 更新（暗号化もここ「のみ」で）
-// console.log(`fn:WatchFile2Batch.ts basePathJson`);
+// console.log(`fn:WatchFile2Batch.ts #basePathJson`);
 			this.#haDiagFn = {};
 			await cfg.loadEx(uri=> encFile(uri), this.#haDiagFn);
 
 			// ドロップ時コピー先候補
-			for (const [spae, aFld] of this.#mExt2aFld) {
-				const aPath: string[] = [];
-				for (const fld_nm of aFld) if (existsSync(this.PATH_WS +`/doc/prj/${fld_nm}/`)) aPath.push(fld_nm);
-				this.#mExt2ToPath.set(spae, aPath);
-			}
-
-			this.#sendReqPathJson();
+			for (const [spae, aFld] of this.#mExt2aFld) this.#mExt2ToPath.set(
+				spae,
+				aFld.filter(fld_nm=> existsSync(this.PATH_WS +`/doc/prj/${fld_nm}/`)),
+			);
 		};
 		this.#diff = diff;
 		this.encIfNeeded = encIfNeeded;
@@ -200,19 +195,16 @@ export class WatchFile2Batch {
 	// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
 	protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
 
-	static	async init2th(ps: PrjSetting) {
+	static	async init2th(ps: PrjSetting, fnc: ()=> void) {
+	// static	async init2th(ps: PrjSetting, fnc: ()=> void) {
 		this.ps = ps;
+		this.sendNeedGo = fnc;
 		await this.#basePathJson();
 
 		this.#watchFile = true;
 	}
 	protected static	ps	: PrjSetting;
-
-	static	init3th(fnc: ()=> void) {this.#sendReqPathJson = fnc}
-	static	#sendReqPathJson = ()=> {};
-
-	//MARK: デストラクタ
-	static	dispose() {for (const d of this.#ds) d.dispose()}
+	protected static	sendNeedGo = ()=> {};
 
 
 	static	#haDiagFn	: T_H_ADIAG_L2S	= {};
@@ -334,7 +326,7 @@ export class WatchFile2Batch {
 			! crechg,
 			! del,
 		);
-		if (crechg) this.#ds.push(
+		if (crechg) this.ctx.subscriptions.push(
 			fw.onDidCreate(uri=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld CRE pat【${pat}】 uri:${uri.path}`);
 				this.#addSeq(async ()=> {
@@ -357,7 +349,7 @@ export class WatchFile2Batch {
 				});
 			}),
 		);
-		if (del) this.#ds.push(fw.onDidDelete(uri=> {
+		if (del) this.ctx.subscriptions.push(fw.onDidDelete(uri=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld DEL pat【${pat}】 uri:${uri.path}`);
 			this.#addSeq(async ()=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld DEL --- START`);
@@ -378,8 +370,13 @@ export class WatchFile2Batch {
 
 	//MARK: 暗号化対応ファイル新旧チェック
 	static chkUpdate(pathSrc: string, pathDest: string) {
-		const {pathCn} = this.#diff.path2cn(pathDest);
-		return chkUpdate(pathSrc, pathCn ?? pathDest);
+		if (this.#isCryptoMode()) {
+			const {pathCn} = this.#diff.path2cn(pathDest);
+			if (! pathCn) return true;
+			return chkUpdate(pathSrc, pathCn);
+		}
+
+		return chkUpdate(pathSrc, pathDest);
 	}
 
 	//MARK: パターンマッチファイル削除・暗号化ファイルも削除

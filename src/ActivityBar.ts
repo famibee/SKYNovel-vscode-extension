@@ -5,25 +5,18 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, is_win, replaceRegsFile, v2fp} from './CmnLib';
+import {is_win, replaceRegsFile} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
-import type {ToolBox} from './ToolBox';
 const AdmZip = require('adm-zip');
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
-import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, languages, workspace} from 'vscode';
+import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
 
-import {
-	LanguageClient,
-	type LanguageClientOptions,
-	type ServerOptions,
-	TransportKind
-} from 'vscode-languageclient/node';
-
 const nNodeReqVer = 22_020_000;
+
 
 export const enum eTreeEnv {
 	NODE = 0,
@@ -32,7 +25,6 @@ export const enum eTreeEnv {
 	TEMP_VER,
 	PY_FONTTOOLS,
 };
-
 
 export function getNonce() {
 	let text = '';
@@ -43,14 +35,11 @@ export function getNonce() {
 	return text;
 }
 
-
 let extPath = '';
 export function oIcon(name: string) {return {
 	light	: Uri.file(extPath +`/res/light/${name}.svg`),
 	dark	: Uri.file(extPath +`/res/dark/${name}.svg`),
 }};
-
-
 
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
@@ -64,23 +53,42 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static stop() {ActivityBar.#actBar.#dispose()}
 
 
-	readonly #aEnv: {label: string, icon: string}[]	= [
-		{icon: 'node-js-brands',label: 'Node.js',},
-		{icon: 'npm-brands',	label: 'npm',},
-		{icon: 'skynovel',		label: 'SKYNovel（最新）',},
-		{icon: 'skynovel',		label: 'テンプレ（最新）',},
-		{icon: 'python-brands',	label: 'fonttools',},
-	];
-	readonly #aTiEnv: TreeItem[] = [];
-	static aReady	= [false, false, false, false, false];
-
 	#workSps: WorkSpaces;
-	#tlBox	: ToolBox;
 
 
 	//MARK: コンストラクタ
 	private constructor(private readonly ctx: ExtensionContext) {
-		// 環境設定チェック
+		Promise.all([
+			import('./WorkSpaces'),
+		]).then(async ([{WorkSpaces}])=> {
+			ctx.subscriptions.push(this.#workSps = new WorkSpaces(ctx, this));
+			this.#canTempWizard = true;
+			await this.#workSps.start();
+
+			// other
+			await Promise.allSettled([
+				this.#chkEnv(()=> ctx.subscriptions.push(
+					window.registerTreeDataProvider('skynovel-dev', this),
+					commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
+					commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
+					commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+				)),
+				import('./TreeDPDoc')
+				.then(({TreeDPDoc})=> ctx.subscriptions.push(
+					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
+				)),
+				import('./ToolBox')
+				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx))),
+			]);
+		});
+	}
+
+	#dispose() {
+		if (this.#pnlWV) this.#pnlWV.dispose();
+	}
+
+	//MARK: 環境確認
+	async #chkEnv(finish: (ok: boolean)=> void) {
 		this.#aTiEnv = this.#aEnv.map(v=> {
 			const ti = new TreeItem(v.label);
 			if (v.label) ti.iconPath = oIcon(v.icon);
@@ -88,175 +96,109 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 
-		Promise.all([
-			import('./WorkSpaces'),
-			import('./ToolBox'),
-			import('./TreeDPDoc'),
-		]).then(async ([{WorkSpaces}, {ToolBox}, {TreeDPDoc}])=> {
-			// WorkSpaces
-			this.#workSps = new WorkSpaces(ctx, this);
-
-			// LSP
-			const module = ctx.asAbsolutePath('dist/LangSrv.js');
-			const so: ServerOptions = {
-				run		: {module, transport: TransportKind.ipc},
-				debug	: {module, transport: TransportKind.ipc,
-					options: {execArgv: ['--nolazy',
-					'--inspect='+ (7000 + Math.round(Math.random() *999))
-					// '--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
-				]},}
-			};
-			const co: LanguageClientOptions = {
-				documentSelector: [docsel],
-				synchronize: {
-					fileEvents: [
-						// workspace.createFileSystemWatcher('**/.clientrc'),
-						workspace.createFileSystemWatcher('**/doc/prj/path.json'),
-							// LSPへファイル名キーワード更新のための情報提供
-					],
-				},
-			};
-			const lsp = new LanguageClient(
-				'SKYNovelLangSrv',
-				'SKYNovel Language Server',	// 開発ホストの【出力】タブに出る名前
-				so,
-				co,
-			);
-			ctx.subscriptions.push(
-				{dispose: ()=> lsp.stop()},
-				lsp.onRequest(ActivityBar.#REQ_ID, hd=> {
-					switch (hd.cmd) {
-						case 'log':		// 本来はリリース版で 'log' をコメントすべきだが
-						case 'error':	console.error(hd.txt);	return;
-					}
-//console.log(`060 fn:ActivityBar.ts ⬇ lsp.onRequest hd:${JSON.stringify(hd).slice(0, 200)}`);
-					this.#workSps.onRequest(hd);
-				}),
-			);
-
-			await Promise.allSettled([
-				lsp.start(),
-				this.#chkEnv(()=> ctx.subscriptions.push(
-					window.registerTreeDataProvider('skynovel-dev', this),
-					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
-					commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
-					commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
-					commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
-					languages.registerHoverProvider(docsel, this.#workSps),
-					window.registerTreeDataProvider('skynovel-ws', this.#workSps),
-				)),
-				this.#tlBox = ToolBox.init(ctx),
-			]);
-			this.#canTempWizard = true;
-
-			this.#workSps.start((cmd, uriWs, o)=> {
-				// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
-//console.log(`030 fn:ActivityBar.ts ⬆ lsp.sendRequest cmd:${cmd} pathWs=${v2fp(uriWs.path)}=`);
-				lsp.sendRequest(ActivityBar.#REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
-			});
-		});
-	}
-	static readonly #REQ_ID = ':SKYNovel:';
-
-	#dispose() {
-		if (this.#pnlWV) this.#pnlWV.dispose();
-		this.#workSps.dispose();
-		this.#tlBox.dispose();
-	}
-
-	//MARK: 環境確認
-	async #chkEnv(finish: (ok: boolean)=> void) {
 		const tiNode = this.#aTiEnv[eTreeEnv.NODE]!;
 		const tiNpm = this.#aTiEnv[eTreeEnv.NPM]!;
 		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS]!;
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
 		ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = false;
-		exec('pip list', async (e, stdout)=> {
-			if (e) {
-				tiPFT.description = `-- pip error`;
-				tiPFT.iconPath = oIcon('error');
-				this.#onDidChangeTreeData.fire(tiPFT);
-				finish(false);
-				return;
-			}
-			if (! /^fonttools\s/gm.test(stdout)
-			|| ! /^brotli\s/gm.test(stdout)) await new Promise<void>(re=> exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
+
+		await Promise.allSettled([
+			exec('pip list', async (e, stdout)=> {
 				if (e) {
-					tiPFT.description = `-- install失敗`;
+					tiPFT.description = `-- pip error`;
 					tiPFT.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiPFT);
 					finish(false);
 					return;
 				}
+				if (! /^fonttools\s/gm.test(stdout)
+				|| ! /^brotli\s/gm.test(stdout)) await new Promise<void>(re=> exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
+					if (e) {
+						tiPFT.description = `-- install失敗`;
+						tiPFT.iconPath = oIcon('error');
+						this.#onDidChangeTreeData.fire(tiPFT);
+						finish(false);
+						return;
+					}
+					re();
+				}));
+				ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
+				tiPFT.description = `-- ready`;
+				tiPFT.iconPath = oIcon('python-brands');
+				this.#onDidChangeTreeData.fire(tiPFT);
+
+				// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
+				if (is_win) {
+					exec('python -m site --user-site', async (e, stdout)=> {
+						if (e) {finish(false); return;}		// ありえないが
+						const path = stdout.slice(0, -15) +'Scripts\\;';
+						const col = this.ctx.environmentVariableCollection;
+						col.prepend('PATH', path);
+					});
+				}
+			}),
+			new Promise<void>(re=> exec('node -v', (e, stdout)=> {
+				if (e) {
+					tiNode.description = `-- 見つかりません`;
+					tiNode.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiNode);
+
+					tiNpm.description = `-- （割愛）`;
+					tiNpm.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiNpm);
+					finish(false);
+					return;
+				}
+
+				const vNode = String(stdout).slice(1, -1);
+				const splVNode = vNode.split('.');
+				const nVNode = Number(splVNode[0]) *1_000_000
+					+Number(splVNode[1]) *1_000 +Number(splVNode[2]);
+					// compare-versions だと windows10 で不具合になるので手作りに
+				if (nVNode < nNodeReqVer) {
+					tiNode.description = `-- ${vNode} (${(nNodeReqVer / 1_000_000).toFixed(3)}.0 以上必須)`;
+					tiNode.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiNode);
+
+					tiNpm.description = `-- （割愛）`;
+					tiNpm.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiNpm);
+					finish(false);
+					return;
+				}
+				ActivityBar.aReady[eTreeEnv.NODE] = true;
+				tiNode.description = `-- ${vNode}`;
+				tiNode.iconPath = oIcon('node-js-brands');
+				this.#onDidChangeTreeData.fire(tiNode);
 				re();
-			}));
-			ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
-			tiPFT.description = `-- ready`;
-			tiPFT.iconPath = oIcon('python-brands');
-			this.#onDidChangeTreeData.fire(tiPFT);
-
-			// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
-			if (is_win) {
-				exec('python -m site --user-site', async (e, stdout)=> {
-					if (e) {finish(false); return;}		// ありえないが
-					const path = stdout.slice(0, -15) +'Scripts\\;';
-					const col = this.ctx.environmentVariableCollection;
-					col.prepend('PATH', path);
-				});
-			}
-		});
-		await new Promise<void>(re=> exec('node -v', (e, stdout)=> {
-			if (e) {
-				tiNode.description = `-- 見つかりません`;
-				tiNode.iconPath = oIcon('error');
-				this.#onDidChangeTreeData.fire(tiNode);
-
-				tiNpm.description = `-- （割愛）`;
-				tiNpm.iconPath = oIcon('error');
+			})),
+			new Promise<void>(re=> exec('npm -v', (e, stdout)=> {
+				if (e) {
+					tiNpm.description = `-- 見つかりません`;
+					tiNpm.iconPath = oIcon('error');
+					this.#onDidChangeTreeData.fire(tiNpm);
+					finish(false);
+					return;
+				}
+				ActivityBar.aReady[eTreeEnv.NPM] = true;
+				tiNpm.description = `-- ${stdout.trimEnd()}`;
+				tiNpm.iconPath = oIcon('npm-brands');
 				this.#onDidChangeTreeData.fire(tiNpm);
-				finish(false);
-				return;
-			}
-
-			const vNode = String(stdout).slice(1, -1);
-			const splVNode = vNode.split('.');
-			const nVNode = Number(splVNode[0]) *1_000_000
-				+Number(splVNode[1]) *1_000 +Number(splVNode[2]);
-				// compare-versions だと windows10 で不具合になるので手作りに
-			if (nVNode < nNodeReqVer) {
-				tiNode.description = `-- ${vNode} (${(nNodeReqVer / 1_000_000).toFixed(3)}.0 以上必須)`;
-				tiNode.iconPath = oIcon('error');
-				this.#onDidChangeTreeData.fire(tiNode);
-
-				tiNpm.description = `-- （割愛）`;
-				tiNpm.iconPath = oIcon('error');
-				this.#onDidChangeTreeData.fire(tiNpm);
-				finish(false);
-				return;
-			}
-			ActivityBar.aReady[eTreeEnv.NODE] = true;
-			tiNode.description = `-- ${vNode}`;
-			tiNode.iconPath = oIcon('node-js-brands');
-			this.#onDidChangeTreeData.fire(tiNode);
-			re();
-		}));
-		await new Promise<void>(re=> exec('npm -v', (e, stdout)=> {
-			if (e) {
-				tiNpm.description = `-- 見つかりません`;
-				tiNpm.iconPath = oIcon('error');
-				this.#onDidChangeTreeData.fire(tiNpm);
-				finish(false);
-				return;
-			}
-			ActivityBar.aReady[eTreeEnv.NPM] = true;
-			tiNpm.description = `-- ${stdout.trimEnd()}`;
-			tiNpm.iconPath = oIcon('npm-brands');
-			this.#onDidChangeTreeData.fire(tiNpm);
-			re();
-		}));
-		finish(true);
+				re();
+			})),
+		]).then(()=> finish(true));
 	}
+	readonly #aEnv: {label: string, icon: string}[]	= [
+		{icon: 'node-js-brands',label: 'Node.js',},
+		{icon: 'npm-brands',	label: 'npm',},
+		{icon: 'skynovel',		label: 'SKYNovel（最新）',},
+		{icon: 'skynovel',		label: 'テンプレ（最新）',},
+		{icon: 'python-brands',	label: 'fonttools',},
+	];
+	#aTiEnv: TreeItem[] = [];
+	static aReady	= [false, false, false, false, false];
+
 
 	// refreshEnvボタン
 	async #refreshEnv() {

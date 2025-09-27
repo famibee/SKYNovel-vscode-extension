@@ -50,7 +50,6 @@ export type T_DIAG_L2S = {
 };
 export type T_H_ADIAG_L2S = {[fp: string]: T_DIAG_L2S[]};
 
-export const S_文字コードが異常 = '文字コードが異常';
 export const hDiagL2s	:{[code_name: string]: T_DIAG_L2S} = {
 	ファイル重複: {
 		mes	: 'プロジェクト内でファイル【$】が重複しています。フォルダを縦断検索するため許されません',
@@ -61,7 +60,7 @@ export const hDiagL2s	:{[code_name: string]: T_DIAG_L2S} = {
 		sev	: 'W',
 	},
 	文字コード異常: {
-		mes	: `${S_文字コードが異常}（$）です。UTF8 か ASCII にして下さい`,
+		mes	: `文字コードが異常（$）です。UTF8 か ASCII にして下さい`,
 		sev	: 'E',
 	},
 }

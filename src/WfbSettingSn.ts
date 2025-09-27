@@ -9,6 +9,7 @@ import {replaceRegsFile} from './CmnLib';
 import {WatchFile2Batch} from './WatchFile2Batch';
 import type {T_E2V_TEMP, T_TEMP, T_V2E_TEMP} from '../views/types';
 import {REG_SN2TEMP} from '../views/types';
+import type {T_PP2S} from './Project';
 
 import {workspace} from 'vscode';
 import {readFileSync} from 'fs-extra';
@@ -114,7 +115,7 @@ export class WfbSettingSn extends WatchFile2Batch {
 			if (replaceRegsFile(this.#fnSetting, a, false)) {
 				const fp = this.#fnSetting;
 				const pp = WatchFile2Batch.fp2pp(fp);
-				const pp2s: {[pp: string]: string} = {};
+				const pp2s: T_PP2S = {};
 				pp2s[pp] = readFileSync(fp, {encoding: 'utf8'});
 				this.sendRequest2LSP('onchg_scr', {pp2s});
 			}

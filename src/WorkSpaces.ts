@@ -17,6 +17,13 @@ import {MD_STRUCT} from './md2json';
 import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win} from 'vscode';
 import {existsSync} from 'fs-extra';
 
+import {
+	LanguageClient,
+	type LanguageClientOptions,
+	type ServerOptions,
+	TransportKind
+} from 'vscode-languageclient/node';
+
 
 export type QuickPickItemEx = QuickPickItem & {
 	uri?	: Uri;
@@ -41,11 +48,14 @@ export	function openURL(url: Uri, pathWs: string) {
 
 export const PRE_TASK_TYPE = 'SKYNovel Task';
 
+const REQ_ID = ':SKYNovel:';
+
 
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
-	#mPrj	= new Map<string, Project>;
+	readonly	#mPrj	= new Map<string, Project>;
+	readonly	#lsp;
 
 	//MARK: コンストラクタ
 	constructor(private readonly ctx: ExtensionContext, private readonly actBar: ActivityBar) {
@@ -54,7 +64,49 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 		itmStt.busy = true;	// ピン留めしてなくてもアイコン回転で表示してくれる
 		itmStt.detail = 'refresh';	// text - detail と表示される
 
-		workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e));
+// console.log(`Seq_ 1 fn:WorkSpaces.ts constructor`);
+		// LSP
+		const module = ctx.asAbsolutePath('dist/LangSrv.js');
+		const so: ServerOptions = {
+			run		: {module, transport: TransportKind.ipc},
+			debug	: {module, transport: TransportKind.ipc,
+				options: {execArgv: ['--nolazy',
+				'--inspect='+ (7000 + Math.round(Math.random() *999))
+				// '--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
+			]},}
+		};
+		const co: LanguageClientOptions = {
+			documentSelector: [docsel],
+			synchronize: {
+				fileEvents: [
+					// workspace.createFileSystemWatcher('**/.clientrc'),
+					workspace.createFileSystemWatcher('**/doc/prj/path.json'),
+						// LSPへファイル名キーワード更新のための情報提供
+				],
+			},
+		};
+		this.#lsp = new LanguageClient(
+			'SKYNovelLangSrv',
+			'SKYNovel Language Server',	// 開発ホストの【出力】タブに出る名前
+			so,
+			co,
+		);
+		ctx.subscriptions.push(
+			languages.registerHoverProvider(docsel, this),
+			window.registerTreeDataProvider('skynovel-ws', this),
+			{dispose: ()=> this.#lsp.stop()},
+			this.#lsp.onRequest(REQ_ID, hd=> {
+				switch (hd.cmd) {
+					case 'log':	// 本来はリリース版で 'log' をコメントすべきだが
+					case 'error':	console.error(hd.txt);	return;
+				}
+				this.onRequest(hd);
+			}),
+			languages.registerHoverProvider(docsel, this),
+			window.registerTreeDataProvider('skynovel-ws', this),
+
+			workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e)),
+		);
 
 		const LEN_PRE_TASK_TYPE = PRE_TASK_TYPE.length;
 		tasks.onDidEndTaskProcess(e=> this.#hOnEndTask.get(
@@ -127,7 +179,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			}
 		});
 
-		commands.registerCommand('skynovel.tiLayers.selectNode', node=> Debugger.send2SN('_selectNode', {node}));
+		ctx.subscriptions.push(
+			commands.registerCommand('skynovel.tiLayers.selectNode', node=> Debugger.send2SN('_selectNode', {node})),
+		);
 
 		itmStt.detail = 'layers';	// text - detail と表示される
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
@@ -215,25 +269,35 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 	}
 
 
-	#sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void	= ()=> {};
-	start(sendRequest2LSP: (cmd: string, uriWs: Uri, o: any)=> void) {
+	//MARK: 処理開始
+	async start() {
+// console.log(`Seq_ 2 fn:WorkSpaces.ts lsp.start`);
+		await this.#lsp.start();
+		this.#sendRequest2LSP = (cmd, uriWs, o)=> {
+			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
+// console.log(`Seq_11 ⬆送 cmd:${cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${v2fp(uriWs.path)}=`);
+			return this.#lsp.sendRequest(REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
+		};
+
+		this.ctx.subscriptions.push(
+			commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()),
+			commands.registerCommand('skynovel.opView', uri=> {
+				const {path} = uri;
+				for (const [vfpWs, prj] of this.#mPrj.entries()) {
+					if (! path.startsWith(vfpWs)) continue;
+					prj.opView(uri);
+				}
+			}),
+		);
+
+
 		// これは #refresh() 直前のここで
 		if (is_mac) updStatBreak('&&');
 		else if (is_win) {
 			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows'));
 			updStatBreak(chkShell.endsWith('cmd.exe') ?'&' :';');
 		}
-		this.#sendRequest2LSP = sendRequest2LSP;
 		this.#refresh();
-
-		this.ctx.subscriptions.push(commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()));
-		this.ctx.subscriptions.push(commands.registerCommand('skynovel.opView', uri=> {
-			const {path} = uri;
-			for (const [vfpWs, prj] of this.#mPrj.entries()) {
-				if (! path.startsWith(vfpWs)) continue;
-				prj.opView(uri);
-			}
-		}));
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
@@ -242,6 +306,8 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			commands.executeCommand('editor.action.triggerParameterHints')});
 */
 	}
+	//MARK: LSP サーバーへメッセージ送信
+	#sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void	= async ()=> {};
 
 	#openReferencePallet() {
 		const aWsFld = workspace.workspaceFolders;
@@ -321,7 +387,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 
 	onRequest(hd: any) {
-//console.log(`070 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
+// console.log(`056 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
 		// TODO: 辱コード
 		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
 //		const prj = this.#mPrj.get(hd.pathWs);
@@ -341,7 +407,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	#makePrj(wsFld: WorkspaceFolder) {
 		const vfpWs = wsFld.uri.path;
 		const pathWs = v2fp(vfpWs);
-//console.log(`010 fn:WorkSpaces.ts #makePrj vfpWs=${vfpWs}=`);
+// console.log(`010 fn:WorkSpaces.ts #makePrj  vfpWs=${vfpWs}=`);
 		if (! existsSync(pathWs +'/package.json')
 		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;
 

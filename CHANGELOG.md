@@ -1,3 +1,6 @@
+## v4.25.1
+- fix(server/src/LspWs.ts): スクリプト変更でファイル存在チェックなどが反応しない件
+- fix(src/ActivityBar.ts): 初期化プロセス手直し
 ## v4.25.0
 - feat(src/WatchFile2Batch.ts): 起動時、PSD ファイル処理必要性チェックの sn 新旧比較を暗号化状態対応に
 - feat(src/WatchFile2Batch.ts): ファイル更新・変更時、最適化処理など生成物を削除しているが、その暗号化ファイルも削除するように
