@@ -7,7 +7,7 @@
 
 import type {T_E2V_INIT, T_E2V_CFG, T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_E2V} from '../views/types';
 import {DEF_WSS} from '../views/types';
-import {chkBoolean, replaceRegsFile, v2fp} from './CmnLib';
+import {chkBoolean, replaceRegsFile, fsp2fp} from './CmnLib';
 import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
 import type {Config} from './Config';
 import {openURL} from './WorkSpaces';
@@ -78,7 +78,7 @@ export class PrjSetting implements Disposable {
 		}
 		this.#oWss = oWss as any;
 
-		this.#PATH_WS = v2fp(wsFld.uri.path);
+		this.#PATH_WS = fsp2fp(wsFld.uri.path);
 		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
 		this.#PATH_PRJ_JSON = this.#PATH_PRJ +'prj.json';
 		this.#PATH_APP_JS = this.#PATH_WS +'/doc/app.js';

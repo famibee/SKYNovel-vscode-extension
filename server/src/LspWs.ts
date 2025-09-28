@@ -15,19 +15,26 @@ import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 import type {IExts, IFn2Path} from '../../src/ConfigBase';
 import {SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
-import type {T_aExt2Snip, T_PP2S, T_QuickPickItemEx} from '../../src/Project';
 import type {TFONT2STR, TINF_INTFONT} from '../../src/WfbOptFont';
 
 import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
 import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, PublishDiagnosticsParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import type {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
-type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
-type PROJECT_PATH	= string;	// script/main.sn
-type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
-//type VSC_FULL_PATH= string;	// c:\[user]\...\[prj]\doc\prj\script\main.sn
-type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
-									// scheme つき
+export type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
+export type PROJECT_PATH	= string;	// script/main.sn
+export type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
+//export type VSC_FULL_PATH	= string;	// c:\[user]\...\[prj]\doc\prj\script\main.sn
+export type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
+										// scheme つき
+
+
+export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
+export type T_aExt2Snip = T_Ext2Snip[];
+
+export type T_PP2S = {[pp: string]: string};
+
+export type T_QuickPickItemEx = {label: string, description: string, uri: string};
 
 
 type ARG_TAG_PROC = {

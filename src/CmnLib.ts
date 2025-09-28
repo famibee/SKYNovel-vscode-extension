@@ -25,9 +25,10 @@ export const is_mac = process.platform === 'darwin';
 
 
 // =============== LSP
-export function v2fp(s: string) {return s.replace(/(?:\/\w:)?/, '');}
+import {FULL_PATH, FULL_SCH_PATH} from '../server/src/LspWs';
+export function fsp2fp(s: FULL_SCH_PATH): FULL_PATH {return s.replace(/(?:\/\w:)?/, '');}
+	// FULL_SCH_PATH は uri.path など
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
-	// TODO: v2fp() いずれなくす
 /*
 // console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
 
@@ -42,6 +43,9 @@ fn:Project.ts drop scheme:file
 	uri		:file:///c%3A/Users/[]/doc/prj/rule:
 	path	=/C:/Users/[]/doc/prj/rule=
 	fsPath	-c:\Users\[]\doc\prj\rule-
+
+	★ファイル、パス、名前空間の命名 - Win32 アプリ | Microsoft Learn https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#namespaces
+		> ファイルI/Oにおいて、パス文字列の先頭に「\\?\」を付けると、Windows APIは文字列解析を一切行わず、それに続く文字列をファイルシステムに直接送信します。例えば、ファイルシステムが長いパスとファイル名をサポートしている場合、 Windows APIによって強制されるMAX_PATHの制限を超えることができます。
 */
 
 export type T_DIAG_L2S = {
@@ -73,7 +77,7 @@ import {readdirSync, existsSync, readFileSync, ensureFileSync, statSync, writeFi
 const REG_SYS_FN = /^(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
 	// 6 matches (144 steps, 0.1ms)【\n 入注意】 https://regex101.com/r/uFkUrb/1
 
-export function treeProc(wd: string, fnc: (fp: string)=> void) {
+export function treeProc(wd: FULL_SCH_PATH, fnc: (fp: FULL_PATH)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
@@ -84,7 +88,7 @@ export function treeProc(wd: string, fnc: (fp: string)=> void) {
 	}
 }
 
-export function foldProc(wd: string, fnc: (fp: string, nm: string)=> void, fncFld: (nm: string)=> void) {
+export function foldProc(wd: FULL_SCH_PATH, fnc: (fp: FULL_PATH, nm: string)=> void, fncFld: (nm: string)=> void) {
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = String(d.name).normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
@@ -95,7 +99,7 @@ export function foldProc(wd: string, fnc: (fp: string, nm: string)=> void, fncFl
 	}
 }
 
-export function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src): boolean {
+export function replaceFile(src: FULL_SCH_PATH, r: RegExp, rep: string, verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);
@@ -115,7 +119,7 @@ export function replaceFile(src: string, r: RegExp, rep: string, verbose = true,
 	return false;
 }
 
-export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verbose = true, dest = src): boolean {
+export function replaceRegsFile(src: FULL_SCH_PATH, a: [r: RegExp, rep: string][], verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);
@@ -138,7 +142,7 @@ export function replaceRegsFile(src: string, a: [r: RegExp, rep: string][], verb
 
 
 //MARK: ファイル新旧チェック
-export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
+export function chkUpdate(path1: FULL_PATH, path2: FULL_PATH, doesnt_exist = true): boolean {
 	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
 	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
 	if (! existsSync(path2)) return doesnt_exist;

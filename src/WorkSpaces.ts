@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, v2fp, is_win, is_mac} from './CmnLib';
+import {docsel, fsp2fp, is_win, is_mac} from './CmnLib';
 import {ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -276,7 +276,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#sendRequest2LSP = (cmd, uriWs, o)=> {
 			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
 // console.log(`Seq_11 ⬆送 cmd:${cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${v2fp(uriWs.path)}=`);
-			return this.#lsp.sendRequest(REQ_ID, {cmd, pathWs: v2fp(uriWs.path), o});
+			return this.#lsp.sendRequest(REQ_ID, {cmd, pathWs: fsp2fp(uriWs.path), o});
 		};
 
 		this.ctx.subscriptions.push(
@@ -406,7 +406,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 	#makePrj(wsFld: WorkspaceFolder) {
 		const vfpWs = wsFld.uri.path;
-		const pathWs = v2fp(vfpWs);
+		const pathWs = fsp2fp(vfpWs);
 // console.log(`010 fn:WorkSpaces.ts #makePrj  vfpWs=${vfpWs}=`);
 		if (! existsSync(pathWs +'/package.json')
 		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;

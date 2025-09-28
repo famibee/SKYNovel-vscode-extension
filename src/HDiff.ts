@@ -5,8 +5,9 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {v2fp} from './CmnLib';
-import {FLD_CRYPT_DOC, FLD_CRYPT_PRJ, FLD_PRJ_BASE, REG_FULLCRYPTO, REG_NEEDCRYPTO} from './Project';
+import {fsp2fp} from './CmnLib';
+import {FULL_PATH, FULL_SCH_PATH, PROJECT_PATH} from '../server/src/LspWs';
+import {FLD_CRYPT_DOC, FLD_PRJ_BASE, REG_FULLCRYPTO, REG_NEEDCRYPTO} from './Project';
 import {Encryptor} from './Encryptor';
 
 import {Uri} from 'vscode';
@@ -19,23 +20,23 @@ export type T_DIFF = {
 	hash: number,	// ファイル変更検知ハッシュ
 	cn	: string,	// ファイル名匿名化辞書
 };
-export type H_T_DIFF = {[pp: string]: T_DIFF};
+export type H_T_DIFF = {[pp: PROJECT_PATH]: T_DIFF};
 
 export type T_CN = {
 	pathCn	: string | undefined,
 	diff	: T_DIFF | undefined,
-	pp		: string,
+	pp		: PROJECT_PATH,
 };
 
 
 export class HDiff {
-	#hDiff	: H_T_DIFF	= Object.create(null);
+	#pp2hDiff	: H_T_DIFF	= Object.create(null);
 
 	constructor(
-		private readonly PATH_DIFF: string,
-				readonly FLD_SRC: string,
-		private readonly PATH_CRYPT: string,
-		private readonly encry: Encryptor,
+		private readonly PATH_DIFF	: FULL_SCH_PATH,
+				readonly FLD_SRC	: string,
+		private readonly PATH_CRYPT	: FULL_SCH_PATH,
+		private readonly encry		: Encryptor,
 	) {
 		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
 		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
@@ -43,28 +44,28 @@ export class HDiff {
 	}
 
 	async init() {
-		if (existsSync(this.PATH_DIFF)) this.#hDiff = await readJson(this.PATH_DIFF);
+		if (existsSync(this.PATH_DIFF)) this.#pp2hDiff = await readJson(this.PATH_DIFF);
 
-		const o = this.#hDiff;
+		const o = this.#pp2hDiff;
 		for (const pp in o) {
 			const fp = `${this.PATH_CRYPT}${o[pp]!.cn}`;
 			// 存在しなくなってるファイルの情報を削除
-			if (! existsSync(fp)) delete this.#hDiff[pp];
+			if (! existsSync(fp)) delete this.#pp2hDiff[pp];
 		}
 	}
-	clear() {this.#hDiff = Object.create(null)}
-	del(pp: string) {delete this.#hDiff[pp]}
-	get(pp: string) {return this.#hDiff[pp]}
-	get keys() {return Object.keys(this.#hDiff)}
+	clear() {this.#pp2hDiff = Object.create(null)}
+	del(pp: PROJECT_PATH) {delete this.#pp2hDiff[pp]}
+	get(pp: PROJECT_PATH) {return this.#pp2hDiff[pp]}
+	get keysPP(): PROJECT_PATH[] {return Object.keys(this.#pp2hDiff)}
 
 
-	path2cn(fp: string) {
-		fp = v2fp(Uri.file(fp).path);
+	path2cn(fp: FULL_PATH): T_CN {
+		fp = fsp2fp(Uri.file(fp).path);
 		const pp = this.fp2pp(fp);
-		const diff = this.#hDiff[pp];
+		const diff = this.#pp2hDiff[pp];
 		return {
 			pathCn: diff
-				? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/${FLD_CRYPT_PRJ}/${diff.cn}`)
+				? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/prj/${diff.cn}`)
 				: undefined,
 			diff,
 			pp,
@@ -72,25 +73,25 @@ export class HDiff {
 	}
 	readonly	#REG_path2cn;
 	readonly	#REG_fp2pp;
-	fp2pp(fp: string) {return fp.replace(this.#REG_fp2pp, '')}
+	fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.replace(this.#REG_fp2pp, '')}
 
 
-	async filter(regDiff: RegExp) {
+	filter(regDiff: RegExp) {
 		return Promise.allSettled(
-			Object.entries(this.#hDiff)
+			Object.entries(this.#pp2hDiff)
 			.filter(([pp, ])=> regDiff.test(pp))
 			.map(([, {cn}])=> remove(`${this.PATH_CRYPT}${cn}`))
 		);
 	}
 
 	//MARK: ファイルハッシュの保存
-	readonly save = ()=> writeJson(this.PATH_DIFF, this.#hDiff);
+	readonly save = ()=> writeJson(this.PATH_DIFF, this.#pp2hDiff);
 
 
 	//MARK: ファイルハッシュの検知と辞書更新
 	//	ファイル差異があるか返す
 	isDiff({path}: Uri): boolean {
-		const fp = v2fp(path);
+		const fp = fsp2fp(path);
 		const {pathCn, diff, pp} = this.path2cn(fp);
 // console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
 		if (pathCn && ! existsSync(pathCn)) return true;
@@ -111,7 +112,7 @@ export class HDiff {
 // console.log(`fn:Project.ts      B:${diff?.hash !== hash} b0:${diff?.hash} b1:${hash}`);
 		if (diff?.hash === hash) return false;
 
-		this.#hDiff[pp] = {
+		this.#pp2hDiff[pp] = {
 			hash,
 			cn	: REG_NEEDCRYPTO.test(pp)
 				? pp
@@ -125,7 +126,7 @@ export class HDiff {
 	//	readonly	#LEN_CHKDIFF	= 1024 *10;	// x 変更を検知しない場合があった
 	//	readonly	#LEN_CHKDIFF	= 1024;		// x 変更を検知しない場合があった
 		readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
-	#bufChkDiff = new Uint8Array(this.#LEN_CHKDIFF);
+		#bufChkDiff = new Uint8Array(this.#LEN_CHKDIFF);
 		readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 
 }

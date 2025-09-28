@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_CMD, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../views/types';
-import {type T_H_ADIAG_L2S, chkUpdate, getFn, v2fp} from './CmnLib';
+import {type T_H_ADIAG_L2S, chkUpdate, getFn, fsp2fp} from './CmnLib';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {Config} from './Config';
 import type {HDiff} from './HDiff';
@@ -88,7 +88,7 @@ export class WatchFile2Batch {
 		this.#isCryptoMode = isCryptoMode;
 
 		this.wss = ctx.workspaceState;
-		this.PATH_WS = v2fp(wsFld.uri.path);
+		this.PATH_WS = fsp2fp(wsFld.uri.path);
 		this.PATH_WS_LEN = this.PATH_WS.length;
 		this.PATH_PRJ = this.PATH_WS +'/doc/prj/';
 		this.PATH_PRJ_BASE = this.PATH_WS +`/${FLD_SRC}/${FLD_PRJ_BASE}/`;
@@ -177,14 +177,14 @@ export class WatchFile2Batch {
 
 		// パターンマッチを考慮しつつ、擬似的に削除イベントを発生させる
 		const nm = getFn(oldUri.path) +'/';
-		const aPp2 = this.#diff.keys
+		const aPP2 = this.#diff.keysPP
 		.filter(pp=> pp.startsWith(nm))
 		.map(pp=> 'doc/prj/'+ pp);
 		for (const w of this.#aWatchRp2CreDelProc) {
 			const {pat} = w;
 			if (! w.del || ! pat.startsWith('doc/prj/')) continue;
 
-			for (const pp2 of aPp2) {
+			for (const pp2 of aPP2) {
 				const match = minimatch(pp2, pat);
 // console.log(`fn:WatchFile2Batch.ts -- match:${match} pattern:${pattern} pp2:${pp2}`);
 				if (match) w.del(Uri.file(this.PATH_WS +'/'+ pp2));

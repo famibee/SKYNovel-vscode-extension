@@ -9,7 +9,7 @@ import {replaceRegsFile} from './CmnLib';
 import {WatchFile2Batch} from './WatchFile2Batch';
 import type {T_E2V_TEMP, T_TEMP, T_V2E_TEMP} from '../views/types';
 import {REG_SN2TEMP} from '../views/types';
-import type {T_PP2S} from './Project';
+import type {T_PP2S} from '../server/src/LspWs';
 
 import {workspace} from 'vscode';
 import {readFileSync} from 'fs-extra';

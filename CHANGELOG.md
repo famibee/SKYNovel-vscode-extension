@@ -1,5 +1,11 @@
+## v4.25.2
+- fix: 暗号化フォルダ移動、念のため暗号化 OFF -> ON に
+	- 旧テンプレ：doc/crypto_prj        -> doc_crypto/prj
+	- 新テンプレ：doc_crypto/crypto_prj -> doc_crypto/prj
+- refactor: Project <-> LSP での type や値は LSP 側 server/src/LspWs.ts に置く方針で
 ## v4.25.1
 - fix(server/src/LspWs.ts): スクリプト変更でファイル存在チェックなどが反応しない件
+- fix(src/WatchFile2Batch.ts): 起動時、PSD ファイル処理必要性チェックの sn 新旧比較で、非暗号化状態でのミスを修正
 - fix(src/ActivityBar.ts): 初期化プロセス手直し
 ## v4.25.0
 - feat(src/WatchFile2Batch.ts): 起動時、PSD ファイル処理必要性チェックの sn 新旧比較を暗号化状態対応に

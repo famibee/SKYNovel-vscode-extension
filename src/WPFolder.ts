@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, v2fp} from './CmnLib';
+import {foldProc, fsp2fp} from './CmnLib';
 import {getNonce} from './ActivityBar';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import {HDiff} from './HDiff';
@@ -81,7 +81,7 @@ export class WPFolder {
 	//MARK: ビュー更新
 	#update(uri: Uri) {
 		const vfp = uri.path;
-		const fp = v2fp(vfp);
+		const fp = fsp2fp(vfp);
 		const pp = this.diff.fp2pp(fp);
 		this.#wp!.title = pp +' フォルダ';
 
@@ -89,7 +89,7 @@ export class WPFolder {
 		const wv = this.#wp!.webview;
 		this.#uriWvPrj = wv.asWebviewUri(Uri.file(this.PATH_PRJ));
 		foldProc(fp, (vfp2, nm)=> {
-			const fp2 = v2fp(Uri.file(vfp2).path);
+			const fp2 = fsp2fp(Uri.file(vfp2).path);
 			const pp2 = this.diff.fp2pp(fp2);
 			if (this.#REG_MOV.test(fp2)) {	// GrpよりMovを先に
 				htm +=
@@ -137,8 +137,8 @@ export class WPFolder {
 	updateDelay({path}: Uri) {
 		const uri = this.#uriOpFolder;
 		if (! this.#wp || ! uri) return;
-		const fp = v2fp(path);			// /c:/
-		const fpOF = v2fp(uri.path);	// /C:/
+		const fp = fsp2fp(path);			// /c:/
+		const fpOF = fsp2fp(uri.path);	// /C:/
 		if (! fp.startsWith(fpOF)) return;
 
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延

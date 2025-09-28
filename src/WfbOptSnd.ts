@@ -7,7 +7,7 @@
 
 import type {T_E2V_NOTICE_COMPONENT, T_E2V_OPTSND, T_OPTSND} from '../views/types';
 import {DEF_OPTSND} from '../views/types';
-import {getFn, v2fp} from './CmnLib';
+import {getFn, fsp2fp} from './CmnLib';
 import {FLD_PRJ_BASE} from './Project';
 import {WatchFile2Batch} from './WatchFile2Batch';
 
@@ -58,7 +58,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
 
 		// 素材ファイルを追加・更新時、退避に上書き移動して最適化
-		const path = v2fp(uri.path);
+		const path = fsp2fp(uri.path);
 		const isBase = this.isBaseUrl(path);
 		await this.#cnv_mat(isBase ?'base_scan' :'prj_scan');
 
@@ -85,7 +85,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 // console.log(`fn:OptSnd.ts onDelInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
 		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return true;
 
-		const path = v2fp(uri.path);
+		const path = fsp2fp(uri.path);
 		const isBase = this.isBaseUrl(path);
 		if (! isBase) {
 			// 変換後ファイルを消したら退避ファイルも削除

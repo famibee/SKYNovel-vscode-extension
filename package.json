@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.25.1",
+	"version": "4.25.2",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -731,7 +731,7 @@
 		"@typescript-eslint/parser": "^8.44.1",
 		"@vitejs/plugin-vue": "^6.0.1",
 		"@vscode/test-electron": "^2.5.2",
-		"electron": "^38.1.2",
+		"electron": "^38.2.0",
 		"esbuild": "^0.25.10",
 		"file-loader": "^6.2.0",
 		"p-queue": "^8.1.1",

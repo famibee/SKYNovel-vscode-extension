@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {IDecryptInfo, T_H_ADIAG_L2S} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, v2fp, REG_SCRIPT, hDiagL2s} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, fsp2fp, REG_SCRIPT, hDiagL2s} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar, eTreeEnv} from './ActivityBar';
@@ -16,6 +16,7 @@ import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
 import {aPickItems, type QuickPickItemEx, openURL, PRE_TASK_TYPE} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
+import {FULL_PATH, FULL_SCH_PATH, PROJECT_PATH, T_aExt2Snip, T_PP2S, T_QuickPickItemEx} from '../server/src/LspWs';
 import {WatchFile2Batch} from './WatchFile2Batch';
 import {WfbOptPic} from './WfbOptPic';
 import {WfbOptSnd} from './WfbOptSnd';
@@ -26,7 +27,7 @@ import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownS
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskExecution, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {glob, readFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
-import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs} from 'fs-extra';
+import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs, moveSync} from 'fs-extra';
 import {basename, dirname, extname} from 'node:path';
 import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
@@ -43,19 +44,11 @@ type PluginDef = {
 	uri: string, sl: number, sc: number, el: number, ec: number,
 };
 
-export	const	FLD_CRYPT_PRJ	= 'crypto_prj';
 export	const	FLD_CRYPT_DOC	= 'doc_crypto';
 export	const	FLD_PRJ_BASE	= 'prj_base';
 
 export	const	REG_NEEDCRYPTO		= /\.(ss?n|json|html?|jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv|html?)$/;
 export	const	REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
-
-export type T_QuickPickItemEx = {label: string, description: string, uri: string};
-
-export type T_Ext2Snip = [SEARCH_PATH_ARG_EXT, string];
-export type T_aExt2Snip = T_Ext2Snip[];
-
-export type T_PP2S = {[pp: string]: string};
 
 
 export class Project {
@@ -116,7 +109,7 @@ export class Project {
 		readonly sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void,
 	) {
 		const vfp = wsFld.uri.path;
-		this.#PATH_WS = v2fp(vfp);
+		this.#PATH_WS = fsp2fp(vfp);
 // console.log(`020 fn:Project.ts construct #PATH_WS=${this.#PATH_WS}=`);
 		this.#PATH_PRJ = `${this.#PATH_WS}/doc/prj/`;
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
@@ -127,9 +120,27 @@ export class Project {
 		this.#PATH_PLG_PRE = `${this.#PATH_WS}/${this.#FLD_SRC}/plugin/snsys_pre/`;
 
 		// 暗号化処理
-		this.#PATH_CRYPT = `${this.#PATH_WS}/${
-			is_new_tmp ?FLD_CRYPT_DOC :'doc'
-		}/${FLD_CRYPT_PRJ}/`;
+		this.#PATH_CRYPT = `${this.#PATH_WS}/${FLD_CRYPT_DOC}/prj/`;
+		{
+			// v4.25.2 暗号化フォルダ移動
+			const OLD_FLD_DOC_CRYPTO = `${this.#PATH_WS}/doc/crypto_prj/`;
+			if (existsSync(OLD_FLD_DOC_CRYPTO)) {
+				moveSync(OLD_FLD_DOC_CRYPTO, this.#PATH_CRYPT);
+			}
+			const gi = `${this.#PATH_WS}/.gitignore`;
+			if (existsSync(gi)) replaceFile(
+				gi,
+				/\/doc\/crypto_prj\n/,
+				`/${FLD_CRYPT_DOC}\n`,
+				false,
+			);
+			replaceFile(
+				this.#PATH_WS +'/package.json',
+				/"doc\/crypto_prj\/",/,
+				`"${FLD_CRYPT_DOC}/prj/",`,
+				false,
+			);
+		}
 		this.#isCryptoMode = existsSync(this.#PATH_CRYPT);
 		const fnPass = this.#PATH_WS +'/pass.json';
 		const exists_pass = existsSync(fnPass);
@@ -433,9 +444,9 @@ export class Project {
 		}
 	}
 	//MARK: 文字コードチェック（オマケでLSPに渡すファイルデータを連想配列に）
-	#chkChrCd(fp: string, pp2s?: T_PP2S) {
-		const td = workspace.textDocuments.find(v=> v2fp(v.uri.path) === fp);
-		const pp = fp.slice(this.#LEN_PATH_PRJ);
+	#chkChrCd(fp: FULL_SCH_PATH, pp2s?: T_PP2S) {
+		const td = workspace.textDocuments.find(v=> fsp2fp(v.uri.path) === fp);
+		const pp = this.#fp2pp(fp);
 		const str = REG_SCRIPT.test(fp) ?td?.getText() :undefined;
 		let cc: string;
 		if (str) {		// 「開いた sn」のみが来る？
@@ -459,6 +470,7 @@ export class Project {
 			...this.#haDiagFont,
 			...this.#haDiagChrCd,
 		}}
+		#fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.#LEN_PATH_PRJ)}
 
 	//MARK: ホバーイベント
 	#hPath2Proc: {[path: string]: (o: any)=> void}	= {};
@@ -802,18 +814,14 @@ export class Project {
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, async ()=> {
 				const cwd = `${this.#PATH_WS}/${
-					this.#IS_NEW_TMP && this.#isCryptoMode
-					? FLD_CRYPT_DOC
-					: 'doc'
+					this.#isCryptoMode ?FLD_CRYPT_DOC :'doc'
 				}/`;
 				const arc = archiver.create('zip', {zlib: {level: 9},})
 				.append(createReadStream(cwd +'web.htm'), {name: 'index.html'})
 				.append(createReadStream(this.#PATH_WS +'/build/include/readme.txt'), {name: 'readme.txt'})
 				.glob('web.js', {cwd})
 				.glob('web.*.js', {cwd})
-				.glob(`${
-					this.#isCryptoMode ?FLD_CRYPT_PRJ :'prj'
-				}/**/*`, {cwd})
+				.glob('prj/**/*', {cwd})
 				.glob('favicon.ico', {cwd});
 
 				const fn_out = `${basename(this.#PATH_WS)}_1.0freem.zip`;
@@ -867,11 +875,7 @@ export class Project {
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
 		if (! this.#isCryptoMode) {
 			// to 暗号化解除
-			await remove(
-				this.#IS_NEW_TMP
-				? `${this.#PATH_WS}/${FLD_CRYPT_DOC}/`
-				: this.#PATH_CRYPT
-			);
+			await remove(`${this.#PATH_WS}/${FLD_CRYPT_DOC}/`);
 
 			await remove(this.#PATH_PLG_PRE);
 
@@ -894,12 +898,26 @@ export class Project {
 					`publicDir: 'doc'`,
 				);
 			}
-			else replaceFile(
-				this.#PATH_WS +'/package.json',
-				new RegExp(`"doc\\/${FLD_CRYPT_PRJ}\\/",`),
-					// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
-				'"doc/prj/",',
-			);
+			else {
+				replaceFile(
+					this.#PATH_WS +'/package.json',
+					new RegExp(`${FLD_CRYPT_DOC}\\/`, 'g'),
+						// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+					'doc/',
+				);
+				replaceFile(
+					this.#PATH_WS +'/core/wds.config.js',
+					new RegExp(`\\/${FLD_CRYPT_DOC}'`, 'g'),
+						// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+					`/doc'`,
+				);
+				replaceFile(
+					this.#PATH_WS +'/core/webpack.config.js',
+					new RegExp(`'\\/${FLD_CRYPT_DOC}`, 'g'),
+						// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+					`'/doc`,
+				);
+			}
 			await this.#updPlugin();
 
 			return;
@@ -912,7 +930,7 @@ export class Project {
 		for (const url of this.#aRepl) replaceFile(
 			this.#PATH_WS +'/'+ url,
 			/\(hPlg\);/,
-			`(hPlg, {cur: '${FLD_CRYPT_PRJ}/', crypto: true});`,
+			`(hPlg, {cur: 'prj/', crypto: true});`,
 		);
 		// ビルド関連：パッケージするフォルダ名変更
 		if (this.#IS_NEW_TMP) {
@@ -927,11 +945,27 @@ export class Project {
 				`publicDir: '${FLD_CRYPT_DOC}'`,
 			);
 		}
-		else replaceFile(
-			this.#PATH_WS +'/package.json',
-			/"doc\/prj\/",/,
-			`"doc/${FLD_CRYPT_PRJ}/",`,
-		);
+		else {
+			replaceFile(
+				this.#PATH_WS +'/package.json',
+				/doc\//g,
+				`${FLD_CRYPT_DOC}/`,
+			);
+			replaceFile(
+				this.#PATH_WS +'/core/wds.config.js',
+				/\/doc'/g,
+				`/${FLD_CRYPT_DOC}'`,
+			);
+			replaceFile(
+				this.#PATH_WS +'/core/webpack.config.js',
+				/'\/doc/g,
+				`'/${FLD_CRYPT_DOC}`,
+			);
+			await copy(
+				this.#PATH_WS +'/doc/web.htm',
+				this.#PATH_WS +`/${FLD_CRYPT_DOC}/web.htm`
+			);
+		}
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
 			this.ctx.extensionPath +`/dist/snsys_pre.js`,
@@ -947,7 +981,7 @@ export class Project {
 	}
 
 	async #encFile({path}: Uri) {
-		const fp = v2fp(path);
+		const fp = fsp2fp(path);
 		const pp = this.#diff.fp2pp(fp);
 // console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.get(pp)!.cn}`);
 		try {
@@ -1140,7 +1174,7 @@ export class Project {
 		for (const uri of aUri) {
 			const {path, scheme} = uri;
 			const ext = extname(path).slice(1);
-			const fp = v2fp(path);
+			const fp = fsp2fp(path);
 //console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
 
 			let fpNew = fp;
@@ -1163,7 +1197,7 @@ export class Project {
 				switch (aコピー先候補.length) {
 					case 0:		// 候補もなし、スクリプトと同じフォルダにコピー
 						const tp = td.uri.path;
-						fpNew = v2fp(
+						fpNew = fsp2fp(
 							tp.slice(0, -basename(tp).length) + basename(fp)
 						);
 						break;
