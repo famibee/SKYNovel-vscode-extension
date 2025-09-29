@@ -92,6 +92,14 @@ export class Project {
 	#haDiagChrCd	: T_H_ADIAG_L2S	= {};
 
 	readonly	#cfg;
+	static		#haDiagFn	: T_H_ADIAG_L2S	= {};
+
+	static	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
+		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
+		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
+		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
+		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
+	]);
 
 	readonly	#optPic;
 	readonly	#optSnd;
@@ -121,8 +129,7 @@ export class Project {
 
 		// 暗号化処理
 		this.#PATH_CRYPT = `${this.#PATH_WS}/${FLD_CRYPT_DOC}/prj/`;
-		{
-			// v4.25.2 暗号化フォルダ移動
+		{	// v4.25.2 暗号化フォルダ移動
 			const OLD_FLD_DOC_CRYPTO = `${this.#PATH_WS}/doc/crypto_prj/`;
 			if (existsSync(OLD_FLD_DOC_CRYPTO)) {
 				moveSync(OLD_FLD_DOC_CRYPTO, this.#PATH_CRYPT);
@@ -169,6 +176,7 @@ export class Project {
 		const sr = new SysExtension({cur: this.#PATH_PRJ, crypto: this.#isCryptoMode, dip: ''});
 		this.#cfg = new Config(sr, this.#encry);
 
+		// ファイル変更チェック・暗号化ファイル名辞書
 		this.#diff = new HDiff(
 			`${this.#PATH_WS}/${this.#FLD_SRC}/diff.json`,
 			this.#FLD_SRC,
@@ -179,10 +187,23 @@ export class Project {
 		WatchFile2Batch.init(
 			ctx,
 			wsFld,
-			this.#cfg,
-			this.#diff,
-			uri=> this.#encFile(uri),
+			async ()=> {
+				// path.json 更新（暗号化もここ「のみ」で）
+// console.log(`fn:Project.ts #basePathJson`);
+				Project.#haDiagFn = {};
+				await this.#cfg.loadEx(uri=> this.#encFile(uri), Project.#haDiagFn);
+
+				// ドロップ時コピー先候補
+				for (const [spae, aFld] of Project.#mExt2aFld) this.#mExt2ToPath.set(
+					spae,
+					aFld.filter(fld_nm=> existsSync(this.#PATH_WS +`/doc/prj/${fld_nm}/`)),
+				);
+
+				// スクリプト判定起動
+				this.#sendRequest2LSP('need_go');
+			},
 			uri=> this.#encIfNeeded(uri),
+			this.#diff,
 			this.#FLD_SRC,
 			this.#hTaskExe,
 			this.hOnEndTask,
@@ -275,7 +296,6 @@ export class Project {
 					const dest = fn.replace('/build/', `/${this.#FLD_SRC}/batch/`);
 					await move(fn, dest);
 				}
-
 				// v4.21.4 画像・音声最適化処理の元ファイル退避先フォルダ移動
 				const OLD_FLD_PRJ_BASE = `${this.#PATH_WS}/doc/${FLD_PRJ_BASE}/`;
 				if (existsSync(OLD_FLD_PRJ_BASE)) await move(OLD_FLD_PRJ_BASE, this.#PATH_PRJ_BASE);
@@ -335,7 +355,7 @@ export class Project {
 			()=> this.#diff.init(),
 
 			async ()=> this.#ds.push(
-				// path.json 変更時に暗号化処理起動
+				// prj.json 変更時に暗号化処理起動
 				workspace.createFileSystemWatcher(
 					new RelativePattern(wsFld, 'doc/prj/prj.json')
 				).onDidChange(uri=> this.#encIfNeeded(uri)),
@@ -466,7 +486,7 @@ export class Project {
 		this.#haDiagChrCd[fp] = [{mes: mes.replace('$', cc), sev}];
 	}
 		get #haDiag() {return {
-			...WatchFile2Batch.haDiagFn,
+			...Project.#haDiagFn,
 			...this.#haDiagFont,
 			...this.#haDiagChrCd,
 		}}
@@ -981,13 +1001,13 @@ export class Project {
 	}
 
 	async #encFile({path}: Uri) {
-		const fp = fsp2fp(path);
-		const pp = this.#diff.fp2pp(fp);
+		const fsp = fsp2fp(path);
+		const pp = this.#diff.fp2pp(fsp);
 // console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.get(pp)!.cn}`);
 		try {
-			const path_enc = this.#PATH_CRYPT + this.#diff.get(pp)!.cn;
-			if (! REG_NEEDCRYPTO.test(fp)) {
-				await copy(fp, path_enc, {overwrite: true});
+			const fsp_enc = this.#PATH_CRYPT + this.#diff.get(pp)!.cn;
+			if (! REG_NEEDCRYPTO.test(pp)) {
+				await copy(fsp, fsp_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラーとなるだけなので
 				return;
@@ -995,42 +1015,42 @@ export class Project {
 
 			if (REG_FULLCRYPTO.test(pp)) {	// この中はSync
 				if (pp === 'path.json') {
-					await this.#encFile_pathjson(fp, path_enc);
+					await this.#encFile_pathjson(fsp, fsp_enc);
 					return;
 				}
 
-				const s = await readFile(fp, {encoding: 'utf8'});
-				await outputFile(path_enc, await this.#encry.enc(s));
+				const s = await readFile(fsp, {encoding: 'utf8'});
+				await outputFile(fsp_enc, await this.#encry.enc(s));
 				return;
 			}
 
 			const dir = this.#REG_DIR.exec(pp);
 			if (dir && this.#cfg.oCfg.code[dir[1]!]) {
-				await copy(fp, path_enc, {overwrite: true});
+				await copy(fsp, fsp_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp2 ${e}`));
 					// ファイル変更時に「Error: EEXIST: file already exists」エラーとなるだけなので
 				return;
 			}
 
-			const u2 = path_enc.replace(/\.[^.]+$/, '.bin');
+			const u2 = fsp_enc.replace(/\.[^.]+$/, '.bin');
 			await ensureFile(u2);	// touch
 			const ws = createWriteStream(u2)
 			.on('error', e=> {ws.destroy(); console.error(`enc ws=%o`, e);});
 
-			const rs = createReadStream(fp)
+			const rs = createReadStream(fsp)
 			.on('error', e=> console.error(`enc rs=%o`, e));
 
-			const tr = new EncryptorTransform(this.#encry, fp);
+			const tr = new EncryptorTransform(this.#encry, fsp);
 			rs.pipe(tr).pipe(ws);
 		}
 		catch (e) {
 			console.error(`enc other ${
 				e instanceof Error ?e.message :''
-			} src:${fp}`);
+			} src:${fsp}`);
 		}
 	}
-		async #encFile_pathjson(fp: string, path_enc: string) {
-			const hPath: IFn2Path = await readJson(fp, {encoding: 'utf8'});
+		async #encFile_pathjson(fsp: FULL_SCH_PATH, fsp_enc: FULL_SCH_PATH) {
+			const hPath: IFn2Path = await readJson(fsp, {encoding: 'utf8'});
 			for (const hExt2N of Object.values(hPath)) {
 				for (const [ext, pp] of Object.entries(hExt2N)) {
 					if (ext === ':cnt') continue;
@@ -1044,7 +1064,7 @@ export class Project {
 				}
 			}
 			const s = JSON.stringify(hPath);
-			await outputFile(path_enc, await this.#encry.enc(s));
+			await outputFile(fsp_enc, await this.#encry.enc(s));
 		}
 		readonly #REG_DIR	= /(^.+)\//;
 

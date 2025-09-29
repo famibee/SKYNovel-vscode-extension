@@ -6,9 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_CMD, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../views/types';
-import {type T_H_ADIAG_L2S, chkUpdate, getFn, fsp2fp} from './CmnLib';
-import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
-import type {Config} from './Config';
+import {chkUpdate, getFn, fsp2fp} from './CmnLib';
 import type {HDiff} from './HDiff';
 import {PRE_TASK_TYPE} from './WorkSpaces';
 import {FLD_PRJ_BASE} from './Project';
@@ -27,38 +25,41 @@ type T_WATCHRP2CREDELPROC = {
 	del?	: (uri: Uri)=> Promise<boolean>,
 };
 
+type T_QSeq = {
+	uniq	: string;
+	fnc		: ()=> Promise<void>;
+};
+
 
 export class WatchFile2Batch {
 	protected static	ctx		: ExtensionContext;
 	protected static	wsFld	: WorkspaceFolder;
+			static		#basePathJson	: ()=> Promise<void>;
+	protected static	fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
 			static		#diff	: HDiff;
-			static		fp2pp(fp: string) {return this.#diff.fp2pp(fp)}
 	protected static	encIfNeeded	: (uri: Uri)=> Promise<void>;
 	protected static	FLD_SRC	: string;
 	protected static	hTaskExe	: Map<PrjBtnName, TaskExecution>;
 	protected static	hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>;
-	protected static	is_new_tmp	: boolean;
-			static	#isCryptoMode	: ()=> boolean;
+			static		#is_new_tmp	: boolean;
+			static		#isCryptoMode	: ()=> boolean;
 
-	static	#basePathJson	: ()=> Promise<void>;
-
-	protected static	wss		: Memento;
+	protected static	wss				: Memento;
 	protected static	PATH_WS			: string;
-	protected static	PATH_WS_LEN		: number;
+			static		#PATH_WS_LEN	: number;
 	protected static	PATH_PRJ		: string;
 	protected static	PATH_PRJ_BASE	: string;
 
-	static	#watchFile = false;
+			static		#watchFile	= false;
 	protected static set watchFile(v: boolean) {this.#watchFile = v}
 
 	//MARK: 初期化
 	static init(
 		ctx		: ExtensionContext,
 		wsFld	: WorkspaceFolder, 
-		cfg		: Config,
-		diff	: HDiff,
-		encFile		: (uri: Uri)=> Promise<void>,
+		basePathJson	: ()=> Promise<void>,
 		encIfNeeded	: (uri: Uri)=> Promise<void>,
+		diff	: HDiff,
 		FLD_SRC		: string,
 		hTaskExe	: Map<PrjBtnName, TaskExecution>,
 		hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
@@ -67,29 +68,18 @@ export class WatchFile2Batch {
 	) {
 		this.ctx = ctx;
 		this.wsFld = wsFld;
-		this.#basePathJson = async ()=> {
-			// path.json 更新（暗号化もここ「のみ」で）
-// console.log(`fn:WatchFile2Batch.ts #basePathJson`);
-			this.#haDiagFn = {};
-			await cfg.loadEx(uri=> encFile(uri), this.#haDiagFn);
-
-			// ドロップ時コピー先候補
-			for (const [spae, aFld] of this.#mExt2aFld) this.#mExt2ToPath.set(
-				spae,
-				aFld.filter(fld_nm=> existsSync(this.PATH_WS +`/doc/prj/${fld_nm}/`)),
-			);
-		};
-		this.#diff = diff;
+		this.#basePathJson = basePathJson;
 		this.encIfNeeded = encIfNeeded;
+		this.#diff = diff;
 		this.FLD_SRC = FLD_SRC;
 		this.hTaskExe = hTaskExe;
 		this.hOnEndTask = hOnEndTask;
-		this.is_new_tmp = is_new_tmp;
+		this.#is_new_tmp = is_new_tmp;
 		this.#isCryptoMode = isCryptoMode;
 
 		this.wss = ctx.workspaceState;
 		this.PATH_WS = fsp2fp(wsFld.uri.path);
-		this.PATH_WS_LEN = this.PATH_WS.length;
+		this.#PATH_WS_LEN = this.PATH_WS.length;
 		this.PATH_PRJ = this.PATH_WS +'/doc/prj/';
 		this.PATH_PRJ_BASE = this.PATH_WS +`/${FLD_SRC}/${FLD_PRJ_BASE}/`;
 
@@ -127,16 +117,17 @@ export class WatchFile2Batch {
 		workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));
 
 		// フォルダ追加・削除イベント検知
-		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(wsFld, 'doc/prj/*'));
-		fwFld.onDidCreate(newUri=> this.#addSeq(()=> this.#seqDidCreate(newUri)));
-		fwFld.onDidDelete(oldUri=> this.#addSeq(()=> this.#seqDidDelete(oldUri)));
+		const ptnFld = 'doc/prj/*';
+		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(wsFld, ptnFld));
+		fwFld.onDidCreate(newUri=> this.#addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
+		fwFld.onDidDelete(oldUri=> this.#addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
 	}
 	static #onDidRenameFiles({files}: FileRenameEvent) {
 // console.log(`fn:WatchFile2Batch.ts onDidRenameFiles files:%o`, files);
 		for (const {oldUri, newUri} of files) {
-			const ppOld = oldUri.path.slice(this.PATH_WS_LEN +1);
+			const ppOld = oldUri.path.slice(this.#PATH_WS_LEN +1);
 			const isOldRnInPrj = ppOld.startsWith('doc/');
-			const ppNew = newUri.path.slice(this.PATH_WS_LEN +1);
+			const ppNew = newUri.path.slice(this.#PATH_WS_LEN +1);
 			const isNewRnInPrj = ppNew.startsWith('doc/');
 // console.log(`  newPath:${ppNew} isOldRnInPrj:${isOldRnInPrj} isNewRnInPrj:${isNewRnInPrj}`);
 			for (const w of this.#aWatchRp2CreDelProc) {
@@ -192,7 +183,7 @@ export class WatchFile2Batch {
 		}
 	}
 
-	// prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
+	//MARK: prj（変換後フォルダ）下の変化か prj_base（退避素材ファイル）か判定
 	protected isBaseUrl(url :string) {return url.startsWith(WatchFile2Batch.PATH_PRJ_BASE)}
 
 	static	async init2th(ps: PrjSetting, fnc: ()=> void) {
@@ -207,21 +198,12 @@ export class WatchFile2Batch {
 	protected static	sendNeedGo = ()=> {};
 
 
-	static	#haDiagFn	: T_H_ADIAG_L2S	= {};
-	static get haDiagFn() {return this.#haDiagFn}
-	static	readonly	#mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
-		[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
-		[SEARCH_PATH_ARG_EXT.SOUND,		['music','sound']],
-		[SEARCH_PATH_ARG_EXT.FONT,		['script']],
-		[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
-	]);
-	static	#mExt2ToPath	= new Map<SEARCH_PATH_ARG_EXT, string[]>;
-
-	protected static	updPathJson() {
-		if (this.#tiDelayPathJson) clearTimeout(this.#tiDelayPathJson);	// 遅延
-		this.#tiDelayPathJson = setTimeout(()=> this.#basePathJson(), 500);
+	//MARK: 遅延 PathJson 更新
+	protected static	lasyPathJson() {
+		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
+		this.#tiLasyPathJson = setTimeout(()=> this.#basePathJson(), 500);
 	}
-	static	#tiDelayPathJson: NodeJS.Timeout | undefined = undefined;
+	static	#tiLasyPathJson: NodeJS.Timeout | undefined = undefined;
 
 
 	//MARK: タスク実行
@@ -286,7 +268,7 @@ export class WatchFile2Batch {
 
 		const exit_code = await WatchFile2Batch.exeTask(
 			'cut_round',
-			`"${src}" ${WatchFile2Batch.ps.oWss['cnv.icon.shape']} "${path}" ${WatchFile2Batch.is_new_tmp}`,
+			`"${src}" ${WatchFile2Batch.ps.oWss['cnv.icon.shape']} "${path}" ${WatchFile2Batch.#is_new_tmp}`,
 		);
 		WatchFile2Batch.ps.cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
 			cmd		: 'updpic',
@@ -305,6 +287,7 @@ export class WatchFile2Batch {
 		init?	: (uri: Uri)=> Promise<void>,
 		crechg?	: (uri: Uri, cre: boolean)=> Promise<void>,
 		del?	: (uri: Uri)=> Promise<boolean>,
+		updPathJson	= false,
 	) {
 		this.#aWatchRp2CreDelProc.push({pat, crechg, del});
 
@@ -334,8 +317,9 @@ export class WatchFile2Batch {
 					await crechg(uri, true);
 					await encIfNeeded(uri);
 					this.ps.pnlWVFolder.updateDelay(uri);
+					if (updPathJson) this.lasyPathJson();
 // console.log(`fn:WatchFile2Batch.ts watchFld CRE - END`);
-				});
+				}, `CRE ${pat}`);
 			}),
 			fw.onDidChange(uri=> {
 // console.log(`fn:WatchFile2Batch.ts watchFld CHG uri:${uri.path}`);
@@ -346,7 +330,7 @@ export class WatchFile2Batch {
 					await encIfNeeded(uri);
 					this.ps.pnlWVFolder.updateDelay(uri);
 // console.log(`fn:WatchFile2Batch.ts watchFld CHG = END`);
-				});
+				}, `CHG ${pat}`);
 			}),
 		);
 		if (del) this.ctx.subscriptions.push(fw.onDidDelete(uri=> {
@@ -362,8 +346,9 @@ export class WatchFile2Batch {
 					await this.#diff.save();
 				}
 				this.ps.pnlWVFolder.updateDelay(uri);
+				if (updPathJson) this.lasyPathJson();
 // console.log(`fn:WatchFile2Batch.ts watchFld DEL --- END`);
-			});
+			}, `DEL ${pat}`);
 		}));
 	}
 	static #aWatchRp2CreDelProc: T_WATCHRP2CREDELPROC[]	= [];
@@ -398,39 +383,34 @@ export class WatchFile2Batch {
 	}
 
 	//MARK: 直列実行キュー追加
-	static #addSeq(fnc: ()=> Promise<void>) {	// 追加は必ず同期で
+	static #addSeq(fnc: ()=> Promise<void>, uniq: string) {	// 追加は必ず同期で
 // console.log(`fn:WatchFile2Batch.ts addSeq watchFile:${this.#watchFile}`);
-		if (! this.#watchFile) {
-			this.updPathJson();
-			return;
-		}
+		if (! this.#watchFile) return;
 
 		// 末尾に追加 - push
-		if (this.#aQSeq.push(fnc) !== 1) return;
+		if (this.#aQSeq.push({uniq, fnc}) !== 1) return;
 			// 空じゃなかったならすでに動いてる
 			// const isEmpty = this.#aQ.length === 0;
 			// this.#aQSeq.push(fnc);	// 末尾に追加 - push
 			// if (! isEmpty) return;
-		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
-		this.#tiDelay = setTimeout(()=> this.#doSeq(), 100);
+		if (this.#tiLasyQ) clearTimeout(this.#tiLasyQ);	// 遅延
+		this.#tiLasyQ = setTimeout(()=> this.#doSeq(), 100);
 			// 実行する段でキューが空でも構わない
 			// 遅延するのは、ファイル置き換えのときに onDidDelete -> onDidCreate イベントが発生するが、それより後に処理を開始したいので
 	}
-	static	readonly	#aQSeq: (()=> Promise<void>)[] = [];
-	static	#tiDelay: NodeJS.Timeout | undefined = undefined;
+	static	#aQSeq: T_QSeq[] = [];
+	static	#tiLasyQ: NodeJS.Timeout | undefined = undefined;
 
 	//MARK: 直列実行キュー実行
 	static async #doSeq() {
 		this.#watchFile = false;
-		let fncDo;
-		while (fncDo = this.#aQSeq.at(0)) {
-			await fncDo();
-			this.#aQSeq.shift();	// 先頭を削除 - shift
-		}
-			// キュー追加とのアトミックな兼ね合いから、すぐに削除しない
-			// while (fncDo = this.#aQSeq.shift()) await fncDo();
 
-		this.updPathJson();
+		let q: T_QSeq | undefined;
+		while (q = this.#aQSeq.shift()) {
+			this.#aQSeq = this.#aQSeq.filter(v=> v.uniq !== q!.uniq)
+			await q.fnc();
+		}
+
 		this.#watchFile = true;
 	}
 

@@ -1,3 +1,9 @@
+## v4.25.3
+- fix(src/WatchFile2Batch.ts): ファイルを一気に追加・変更・削除すると、一回ずつ処理が走るのをひとまとめに
+- fix: ファイル追加・削除でファイル不存在エラーが消える・出現するように
+- fix(src/WatchFile2Batch.ts): path.json 更新処理を手直し
+- fix(src/WfbOptSnd.ts): 画像最適化・音声最適化処理のログの扱い処理が実行されていなかった件
+- refactor: リファクタリング
 ## v4.25.2
 - fix: 暗号化フォルダ移動、念のため暗号化 OFF -> ON に
 	- 旧テンプレ：doc/crypto_prj        -> doc_crypto/prj

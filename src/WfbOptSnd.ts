@@ -37,6 +37,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 			async ()=> {},	// 処理はないが処理を動かしたい
 			(uri, cre)=> this.#onCreChg(uri, cre),
 			uri=> this.#onDel(uri),
+			true,
 		),
 		// 退避素材の更新
 		WatchFile2Batch.watchFld(
@@ -44,12 +45,13 @@ export class WfbOptSnd extends WatchFile2Batch {
 			'',
 			undefined,
 			(uri, cre)=> this.#onCreChg(uri, cre),
-			undefined,
+			uri=> this.#onDel(uri),
+			true,
 		),
-		async ()=> {
+		(async ()=> {
 			if (existsSync(this.#PATH_LOG)) this.#oLog = await readJson(this.#PATH_LOG, {encoding: 'utf8'});
 			else await writeJson(this.#PATH_LOG, this.#oLog = DEF_OPTSND);
-		},
+		})(),
 	])}
 
 	//MARK: #on追加・更新
@@ -110,7 +112,9 @@ export class WfbOptSnd extends WatchFile2Batch {
 		// 退避を消したケースでのみログ更新（このメソッドが多重発生）
 		const fn = getFn(path);
 		if (fn in this.#oLog.hSize) {
-			const {baseSize, optSize} = this.#oLog.hSize[fn]!;
+			const s = this.#oLog.hSize[fn];
+			if (! s) return false;
+			const {baseSize, optSize} = s;
 			this.#oLog.sum.baseSize -= baseSize;
 			this.#oLog.sum.optSize -= optSize;
 			delete this.#oLog.hSize[fn];
@@ -158,7 +162,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 			.map(uri=> WatchFile2Batch.encIfNeeded(uri))
 		);
 
-		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.lasyPathJson();
 		WatchFile2Batch.watchFile = true;
 	}
 	readonly	#REG_DiffExtSnd	= /\.(mp3|m4a|ogg|aac|flac|wav)$/;
@@ -194,7 +198,7 @@ export class WfbOptSnd extends WatchFile2Batch {
 		if (! WatchFile2Batch.ps.oWss[PROC_ID]) return;
 
 		await this.#cnv_mat('reconv');
-		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.lasyPathJson();
 		WatchFile2Batch.watchFile = true;
 	}
 

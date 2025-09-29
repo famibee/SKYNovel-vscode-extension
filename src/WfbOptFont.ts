@@ -72,19 +72,20 @@ export class WfbOptFont extends WatchFile2Batch {
 				if (/\.ss?n$/.test(path)) WatchFile2Batch.sendNeedGo();
 				return noticeDelTxt(path);
 			},
+			true,
 		);
 	}
 
 	//MARK: 変換有効化
 	async enable() {
 		await this.#subsetFont(true);
-		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.lasyPathJson();
 	}
 
 	//MARK: 変換無効化
 	async disable() {
 		await this.#subsetFont(false);
-		WatchFile2Batch.updPathJson();
+		WatchFile2Batch.lasyPathJson();
 	}
 	//MARK: フォント最適化
 	async	#subsetFont(minify: boolean) {
