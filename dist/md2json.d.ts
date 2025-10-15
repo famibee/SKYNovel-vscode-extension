@@ -1,11 +1,11 @@
-export interface MD_PARAM_DETAILS {
+export type MD_PARAM_DETAILS = {
     name: string;
     required: string;
     def: string;
     rangetype: string;
     comment: string;
-}
-export interface MD_STRUCT {
+};
+export type MD_STRUCT = {
     sum: string;
     param: MD_PARAM_DETAILS[];
     snippet: {
@@ -13,4 +13,4 @@ export interface MD_STRUCT {
         txt: string;
     }[];
     detail: string;
-}
+};

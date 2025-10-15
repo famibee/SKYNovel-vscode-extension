@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -5,14 +9,18 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {Transform} from 'stream';
-import {Encryptor} from './Encryptor';
-import {Buffer} from 'buffer';
-import {extname} from 'path';
+import type {Encryptor} from './Encryptor';
+
+import {Transform} from 'node:stream';
+import {Buffer} from 'node:buffer';
+import {extname} from 'node:path';
+
+
+const LEN_CODE	= 1024 *10;
+
 
 export class EncryptorTransform extends Transform {
-	static	readonly #LEN_CODE	= 1024 *10;
-	#len_code	= EncryptorTransform.#LEN_CODE;
+	#len_code	= LEN_CODE;
 	#ite		= 2;
 	#bh			: Buffer<ArrayBuffer>;
 
@@ -42,8 +50,9 @@ export class EncryptorTransform extends Transform {
 //console.log(`fn:EncryptorTransform.ts short_path:${short_path} id:${extname(short_path).slice(1)} ext_num:${this.#bh[1]}`);
 	}
 
-	override _transform(chunk: any, _enc: BufferEncoding, cb: ()=> void) {
-		const size = chunk.length;
+	override _transform(chunk: any, _enc: string, cb: ()=> void) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		const size: number = chunk.length;
 		if (this.#len_code === 0) {
 //console.log(`fn:EncryptorTransform.ts A size:${size}`);
 			this.push(chunk); cb(); return;}
@@ -61,7 +70,7 @@ export class EncryptorTransform extends Transform {
 		this.#bh.set(chunk.slice(0, this.#len_code), this.#ite);
 		this.#ite += this.#len_code;
 		const code_size = this.#len_code;
-		this.#codeArea().then(()=> {
+		void this.#codeArea().then(()=> {
 			if (size > code_size) {
 //console.log(`fn:EncryptorTransform.ts a len:${size - code_size}`);
 				this.push(chunk.slice(code_size));}
@@ -70,7 +79,7 @@ export class EncryptorTransform extends Transform {
 	}
 	override _final(cb: ()=> void) {
 //console.log(`fn:EncryptorTransform.ts _final`);
-		this.#codeArea().then(()=> cb());
+		void this.#codeArea().then(()=> cb());
 	}
 	async	#codeArea() {
 		if (this.#len_code === 0) return;

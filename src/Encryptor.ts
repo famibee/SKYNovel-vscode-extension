@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -6,6 +9,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {IDecryptInfo} from './CmnLib';
+
 import {v5} from 'uuid';
 //x	const {subtle} = crypto;	// subtleの扱い、拡張機能と snsys_pre で変える必要があるので
 
@@ -44,6 +48,7 @@ export class Encryptor {
 	readonly	#strHPass;
 	readonly	#acp;
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	constructor(private readonly hPass: IDecryptInfo, private readonly subtle: any) {
 		this.#strHPass = JSON.stringify(hPass);
 		this.#acp = {name: 'AES-GCM', iv: hexStr2ab(hPass.iv)};
@@ -58,6 +63,7 @@ export class Encryptor {
 	uuidv5(d: string) {return v5(d, this.hPass.pass)}
 
 	async	init() {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const keyMaterial = await this.subtle.importKey(
 			'raw',
 			await this.#digest(this.hPass.pass),
@@ -65,6 +71,7 @@ export class Encryptor {
 			false,
 			['deriveKey'],
 		);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		this.#key = await this.subtle.deriveKey(
 			{
 				name: 'PBKDF2',
@@ -80,7 +87,7 @@ export class Encryptor {
 	}
 	#key: CryptoKey;
 
-	async	encAb(ab: ArrayBuffer): Promise<ArrayBuffer> {
+	encAb(ab: ArrayBuffer): Promise<ArrayBuffer> {
 		return this.subtle.encrypt(this.#acp, this.#key, ab);
 	}
 	async	enc(tx: string): Promise<string> {
@@ -91,7 +98,7 @@ export class Encryptor {
 		);
 	}
 
-	async	decAb(ab: ArrayBuffer): Promise<ArrayBuffer> {
+	decAb(ab: ArrayBuffer): Promise<ArrayBuffer> {
 		return this.subtle.decrypt(this.#acp, this.#key, ab);
 	}
 	async	dec(encTx: string): Promise<string> {

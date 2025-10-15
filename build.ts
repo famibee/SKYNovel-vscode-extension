@@ -7,7 +7,7 @@
 
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch') ?{} :null;
-const prod = aCmd.includes('--production');
+// const prod = aCmd.includes('--production');
 // const node_env = prod ?'production' :'development';
 
 // import {build, type BuildEnvironmentOptions} from 'vite';
@@ -96,10 +96,8 @@ const oBuild: BuildOptions = {
 		...oBuild,
 		entryPoints	: [
 			'./src/batch/cnv_mat_pic',
-			'./src/batch/cnv_mat_snd',
 			'./src/batch/cnv_psd_face',
 			'./src/batch/cut_round',
-			'./src/batch/subset_font',
 		],
 		bundle		: false,
 			// bundle: true、platform: 'node'でぜんぶバンドルできないか試したが、

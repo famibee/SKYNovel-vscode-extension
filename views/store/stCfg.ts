@@ -7,8 +7,8 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_CFG, DEF_CFG4TST} from '../types';
-import type {T_CFG, T_E2V_CFG} from '../types';
+import {DEF_CFG, DEF_CFG4TST} from '../../src/types';
+import type {T_CFG, T_E2V_CFG, T_V2E_CFG} from '../../src/types';
 import {cmd2Ex, isVSCode, on} from './stVSCode';
 
 export const useCfg = defineStore('doc/prj/prj.json', {
@@ -24,9 +24,9 @@ export const useCfg = defineStore('doc/prj/prj.json', {
 			// 状態が変化するたびに	// 主にDebugチェックボックス用
 			this.$subscribe(()=> this.subscribe(toRaw(this.oCfg)));
 			// 拡張機能メインから値取得	// 必ず this.$subscribe()以後に
-			on('update.oCfg', ({oCfg}: T_E2V_CFG)=> this.oCfg = oCfg);
+			on('update.oCfg', (d: T_E2V_CFG)=> this.oCfg = d.oCfg);
 		},
 		// useField を使うと $subscribe が効かない
-		subscribe(oCfg: T_CFG) {cmd2Ex(<T_E2V_CFG>{cmd:'update.oCfg', oCfg})},
+		subscribe(oCfg: T_CFG) {cmd2Ex(<T_V2E_CFG>{cmd: 'update.oCfg', oCfg})},
 	},
 });

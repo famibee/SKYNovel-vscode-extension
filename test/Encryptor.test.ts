@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-confusing-void-expression */
+/* eslint-disable no-undef */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -35,9 +37,9 @@ beforeEach(async ()=> {
 	hSN = {
 		setDec	: fnc=> fncDec = fnc,
 		setDecAB: fnc=> fncDecAB = fnc,
-		setEnc	: ()=> {},
-		getStK	: ()=> {},
-		getHash	: ()=> {},	// infDecrypt.stk,
+		setEnc	: ()=> { /* empty */ },
+		getStK	: ()=> { /* empty */ },
+		getHash	: ()=> { /* empty */ },	// infDecrypt.stk,
 		tstDecryptInfo	: ()=> infDecrypt,
 	};
 });
@@ -207,12 +209,12 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 	expect(stt.size).toBe(3995);	// ファイルサイズ
 
 	const rs = createReadStream(path_src)
-	.on('error', e=> console.error(`encrypter rs=%o`, e));
+	.on('error', e=> console.error('encrypter rs=%o', e));
 
 	const path_enc = 'test/mat/wood04.bin';
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
-	.on('close', async ()=> {
+	.on('close', ()=> {(async ()=> {
 		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('ad0f00009695501650aeee38a2923b87');
 
 		const stt_bin = statSync(path_enc);
@@ -240,8 +242,8 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 		expect(decH.slice(-32)).toBe('62697320492032303034303632000094');
 
 		done();
-	})
-	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
+	})()})
+	.on('error', e=> {console.error('encrypter ws=%o', e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
@@ -256,12 +258,12 @@ it('free0509_mp3_stream_transform', ()=> new Promise<void>(done=> {
 	expect(stt.size).toBe(1796953);	// ファイルサイズ
 
 	const rs = createReadStream(path_src)
-	.on('error', e=> console.error(`encrypter rs=%o`, e));
+	.on('error', e=> console.error('encrypter rs=%o', e));
 
 	const path_enc = 'test/mat/free0509.bin';
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
-	.on('close', async ()=> {
+	.on('close', ()=> {(async ()=> {
 		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('122800009695501650aeee38a2922be6');
 
 		const stt_bin = statSync(path_enc);
@@ -287,8 +289,8 @@ it('free0509_mp3_stream_transform', ()=> new Promise<void>(done=> {
 		expect(decH.slice(-32)).toBe('766581408179687474703a2f2f777700');
 
 		done();
-	})
-	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
+	})()})
+	.on('error', e=> {console.error('encrypter ws=%o', e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
@@ -303,12 +305,12 @@ it('_yesno_png_stream_transform', ()=> new Promise<void>(done=> {
 	expect(stt.size).toBe(18722);	// ファイルサイズ
 
 	const rs = createReadStream(path_src)
-	.on('error', e=> console.error(`encrypter rs=%o`, e));
+	.on('error', e=> console.error('encrypter rs=%o', e));
 
 	const path_enc = 'test/mat/_yesno.bin';
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
-	.on('close', async ()=> {
+	.on('close', ()=> {(async ()=> {
 		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969d90022deae332b8983be6');
 
 		const stt_bin = statSync(path_enc);
@@ -334,8 +336,8 @@ it('_yesno_png_stream_transform', ()=> new Promise<void>(done=> {
 		expect(decH.slice(-32)).toBe('53f9df960000000049454e44ae426082');
 
 		done();
-	})
-	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
+	})()})
+	.on('error', e=> {console.error('encrypter ws=%o', e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
@@ -350,12 +352,12 @@ it('title_jpg_stream_transform', ()=> new Promise<void>(done=> {
 	expect(stt.size).toBe(406121);	// ファイルサイズ
 
 	const rs = createReadStream(path_src)
-	.on('error', e=> console.error(`encrypter rs=%o`, e));
+	.on('error', e=> console.error('encrypter rs=%o', e));
 
 	const path_enc = 'test/mat/title.bin';
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
-	.on('close', async ()=> {
+	.on('close', ()=> {(async ()=> {
 		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000969ee68a9c4dee28e8d472a0');
 
 		const stt_bin = statSync(path_enc);
@@ -381,8 +383,8 @@ it('title_jpg_stream_transform', ()=> new Promise<void>(done=> {
 		expect(decH.slice(-32)).toBe('211a108d084684234211a108d085ffd9');
 
 		done();
-	})
-	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
+	})()})
+	.on('error', e=> {console.error('encrypter ws=%o', e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);
@@ -397,12 +399,12 @@ it('nc10889_mp4_stream_transform', ()=> new Promise<void>(done=> {
 	expect(stt.size).toBe(369411);	// ファイルサイズ
 
 	const rs = createReadStream(path_src)
-	.on('error', e=> console.error(`encrypter rs=%o`, e));
+	.on('error', e=> console.error('encrypter rs=%o', e));
 
 	const path_enc = 'test/mat/nc10889.bin';
 	ensureFileSync(path_enc);	// touch
 	const ws = createWriteStream(path_enc)
-	.on('close', async ()=> {
+	.on('close', ()=> {(async ()=> {
 		expect((await readFile(path_enc, { encoding: 'hex' })).slice(0, 32)).toBe('12280000968b195263b5884cdbe25696');
 
 		const stt_bin = statSync(path_enc);
@@ -428,8 +430,8 @@ it('nc10889_mp4_stream_transform', ()=> new Promise<void>(done=> {
 		expect(decH.slice(-32)).toBe('7061636b657420656e643d2277223f3e');
 
 		done();
-	})
-	.on('error', e=> {console.error(`encrypter ws=%o`, e); done()});
+	})()})
+	.on('error', e=> {console.error('encrypter ws=%o', e); done()});
 
 	const tr = new EncryptorTransform(encry, path_src);
 	rs.pipe(tr).pipe(ws);

@@ -7,6 +7,7 @@
 
 export type HArg = {
 	':タグ名'?	: string;
+	canskip?	: boolean;
 
 	layer?	: string;	// レイヤ系
 	class?	: string;
@@ -39,6 +40,11 @@ export type HArg = {
 	kinsoku_sol?	: string;
 	kinsoku_eol?	: string;
 	kinsoku_dns?	: string;
+	kinsoku_bura?	: string;
+	bura?	: boolean;
+	break_fixed?		: boolean;
+	break_fixed_left?	: number;
+	break_fixed_top?	: number;
 
 	time?	: number;
 	rule?	: string;
@@ -84,7 +90,7 @@ export type HArg = {
 	call?	: boolean;
 	global?	: boolean;
 	name?	: string;
-	clear_local_event?	: string;
+	clear_local_event?	: boolean;
 
 	style?			: string;
 	style_hover?	: string;
@@ -114,14 +120,15 @@ export type HArg = {
 	type?	: string;	// 3Dレイヤで使用
 	camera_target?	: string;
 
-	breakout?	: Function;
 	arg?	: HArg;
-	fnc?	: (e: Event)=> void;
+	fnc?	: ()=> void;
 
 	filter?	: string;
+	matrix?	: string;
+	clear_filter?	: boolean;
+	enable_filter?	: boolean;
 
 	ease?	: string;
-	canskip?	:boolean;
 
 	centering?	:boolean;
 	x?		: number | string;
@@ -132,11 +139,6 @@ export type HArg = {
 	var_name?	: string;
 	set_fnc?	: string;
 	break_fnc?	: string;
-
-	swipe?	: string;
-	f2tap?	: string;
-	f2move?	: string;
-	f3tap?	: string;
 
 	from?	: number;
 	to?		: number | string;
@@ -153,6 +155,7 @@ export type HArg = {
 	join?	: boolean;
 	do_rec?	: boolean;
 	pan?	: number;
+	stop?	: boolean;
 
 	clear?	: boolean;
 
@@ -165,13 +168,14 @@ export type HArg = {
 	':col_e'?	: number;
 	':idx_tkn'?	: number;
 	':token'?	: string;
+	':redraw'?	: boolean;
 	design_unit?: boolean;	// デザインモードでこのマクロへの引数変更とするか（内部をサーチさせない）
 
 //	stepin?		: boolean;		// 拡張機能のみ使用：false指定でステップインしない
 //	nowarn_unused?	: boolean;	// 拡張機能のみ使用：未使用警告を出さない
 }
-export interface ITag { (hArg: HArg): boolean; }
-export interface IHTag { [name: string]: ITag; }
+export type ITag = (hArg: HArg)=> boolean;
+export type IHTag = { [name: string]: ITag; }
 
 
 export type Script = {
@@ -221,7 +225,7 @@ export class Grammar {
 
 	#REG_TOKEN	: RegExp;
 	setEscape(ce: string) {
-		if (this.#hC2M && (ce in this.#hC2M)) throw '[エスケープ文字] char【'+ ce +'】が登録済みの括弧マクロまたは一文字マクロです';
+		if (ce in this.#hC2M) throw '[エスケープ文字] char【'+ ce +'】が登録済みの括弧マクロまたは一文字マクロです';
 
 		// 1078 match 16468 step (3.0ms) PCRE2 https://regex101.com/r/gVCcus/1
 		/*
@@ -246,20 +250,20 @@ export class Grammar {
 	| (["'\#]).*?\1
 			++ にしたいところだが、jsは未サポートらしい（2022/10/16）
 */
-		// 文字列リテラル(new RegExp("~")) の場合は、バックスラッシュは２つ必要
+		// 文字列リテラル(new RegExp('\')) の場合は、バックスラッシュは２つ必要
 			// https://qiita.com/ue5963/items/bd8e32ac9e6b12aa7fab
 		this.#REG_TOKEN = new RegExp(
 		(ce	?`\\${ce}\\S|` :'')+	// エスケープシーケンス
 		'\\n+'+				// 改行
 		'|\\t+'+			// タブ
-		`|\\[let_ml\\s+[^\\]]+\\]`+
-			`.+?`+		// [let_ml]〜[endlet_ml]間のテキスト
-		`(?=\\[endlet_ml[\\]\\s])`+
-		`|\\[(?:`+
-			`(?=([^"'#;\\]]+))\\1|`+	// タグ
-			`(["'#]).*?\\2` +
+		'|\\[let_ml\\s+[^\\]]+\\]'+
+			'.+?'+		// [let_ml]〜[endlet_ml]間のテキスト
+		'(?=\\[endlet_ml[\\]\\s])'+
+		'|\\[(?:'+
+			'(?=([^"\'#;\\]]+))\\1|'+	// タグ
+			'(["\'#]).*?\\2' +
 				// . は (?:\\${ ce??'\\' }.|[^\\1]) でなくてよさげ
-		`|;[^\\n]*)*?]`+
+		'|;[^\\n]*)*?]'+
 		'|;[^\\n]*'+		// コメント
 		'|&[^&\\n]+&'+			// ＆表示＆
 		'|&&?[^&;\\n\\t]+'+		// ＆代入
@@ -267,12 +271,12 @@ export class Grammar {
 		`|[^\\n\\t\\[;${ce ?`\\${ce}` :''}]+`,		// 本文
 		'gs');
 		this.#REG_CANTC2M = new RegExp(`[\\w\\s;[\\]*=&｜《》${ce ?`\\${ce}` :''}]`);
-		this.#REG_TOKEN_NOTXT = new RegExp(`[\\n\\t;\\[*&${ce ?`\\${ce}` :''}]`);
+		// this.#REG_TOKEN_NOTXT = new RegExp(`[\\n\\t;\\[*&${ce ?`\\${ce}` :''}]`);
 	}
 
 
 	// 括弧マクロの定義
-	bracket2macro(hArg: HArg, hTag: IHTag, scr: Script, start_idx: number) {
+	bracket2macro(hArg: HArg, hTag: IHTag, _scr: Script, _start_idx: number) {
 		const {name, text} = hArg;
 		if (! name) throw '[bracket2macro] nameは必須です';
 		if (! text) throw '[bracket2macro] textは必須です';
@@ -281,7 +285,6 @@ export class Grammar {
 		if (text.length !== 2) throw '[bracket2macro] textは括弧の前後を示す二文字を指定してください';
 		if (! (name in hTag)) throw `[bracket2macro] 未定義のタグ又はマクロ[${name}]です`;
 
-		this.#hC2M ??= {};
 		const cl = text.charAt(1);
 		if (op in this.#hC2M) throw '[bracket2macro] text【'+ op +'】が登録済みの括弧マクロまたは一文字マクロです';
 		if (cl in this.#hC2M) throw '[bracket2macro] text【'+ cl +'】が登録済みの括弧マクロまたは一文字マクロです';
@@ -291,15 +294,14 @@ export class Grammar {
 		this.#hC2M[cl] = '0';	// チェック用ダミー
 		this.#hC2M[op] = `[${name} text=`;
 
-		this.addC2M(`\\${op}[^\\${cl}]*\\${cl}`, `\\${op}\\${cl}`);
+		// this.addC2M(`\\${op}[^\\${cl}]*\\${cl}`, `\\${op}\\${cl}`);
 
-		this.#replaceScr_C2M(scr, start_idx);
+		// this.#replaceScr_C2M(scr, start_idx);	// オーバースペックかも
 	}
 	// 一文字マクロの定義
-	char2macro(hArg: HArg, hTag: IHTag, scr: Script, start_idx: number) {
+	char2macro(hArg: HArg, hTag: IHTag, _scr: Script, _start_idx: number) {
 		const {char, name} = hArg;
 		if (! char) throw '[char2macro] charは必須です';
-		this.#hC2M ??= {};
 		if (char in this.#hC2M) throw '[char2macro] char【'+ char +'】が登録済みの括弧マクロまたは一文字マクロです';
 		if (this.#REG_CANTC2M.test(char)) throw '[char2macro] char【'+ char +'】は一文字マクロに使用できない文字です';
 
@@ -308,20 +310,20 @@ export class Grammar {
 
 		this.#hC2M[char] = `[${name}]`;
 
-		this.addC2M(`\\${char}`, `\\${char}`);
+		// this.addC2M(`\\${char}`, `\\${char}`);
 
-		this.#replaceScr_C2M(scr, start_idx);
+		// this.#replaceScr_C2M(scr, start_idx);	// オーバースペックかも
 	}
 	#REG_CANTC2M	: RegExp;
-	#REGC2M			= new RegExp('');
-	#regStrC2M		= '';
-	#regStrC2M4not	= '';
-	addC2M(a: string, b: string) {
-		this.#regStrC2M += `${a}|`;
-		this.#regStrC2M4not += `${b}`;
-		this.#REGC2M = new RegExp(
-			`(${this.#regStrC2M}[^${this.#regStrC2M4not}]+)`, 'g');
-	}
+	// #REGC2M			= new RegExp('');
+	// #regStrC2M		= '';
+	// #regStrC2M4not	= '';
+	// addC2M(a: string, b: string) {
+	// 	this.#regStrC2M += `${a}|`;
+	// 	this.#regStrC2M4not += b;
+	// 	this.#REGC2M = new RegExp(
+	// 		`(${this.#regStrC2M}[^${this.#regStrC2M4not}]+)`, 'g');
+	// }
 
 
 	resolveScript(txt: string): Script {
@@ -336,13 +338,12 @@ export class Grammar {
 			const [, a, b] = r;
 			return [a, b];
 		}) ?? [];
-
 		const scr = {aToken :a, len :a.length, aLNum :[]};
-		this.#replaceScr_C2M(scr);
+		// this.#replaceScr_C2M(scr);	// オーバースペックかも
 		return scr;
 	}
-	testTagLetml(tkn: string): boolean {return /^\[let_ml\s/.test(tkn);};
-	testTagEndLetml(tkn: string): boolean {return /^\[endlet_ml\s*]/.test(tkn);};
+	testTagLetml(tkn: string) {return /^\[let_ml\s/.test(tkn)}
+	testTagEndLetml(tkn: string) {return /^\[endlet_ml\s*]/.test(tkn)}
 
 	analyzToken(token: string): RegExpExecArray | null {	// 4LspWs
 		this.#REG_TOKEN.lastIndex = 0;	// /gなので必要
@@ -350,38 +351,6 @@ export class Grammar {
 	}
 
 
-	#hC2M	: {[char: string]: string};
-	#REG_TOKEN_NOTXT	: RegExp;
-	#replaceScr_C2M(scr: Script, start_idx = 0): void {
-		if (! this.#hC2M) return;
-
-		for (let i=scr.len- 1; i >= start_idx; --i) {
-			const token = scr.aToken[i];
-			const c = token.at(0);
-			if (! c) continue;
-			if (this.testNoTxt(c)) continue;
-
-			const lnum = scr.aLNum[i];
-			const a = token.match(this.#REGC2M);
-			if (! a) continue;
-			let del = 1;
-			for (let j=a.length -1; j>=0; --j) {
-				let ch = a[j];
-				const macro = this.#hC2M[c];
-				if (macro) {
-					ch = macro +((macro.at(-1) === ']')
-						? ''
-						: (`'${ch.slice(1, -1)}']`));
-					// 文字列は半角空白を意識して''で囲むが、いずれ変えたい場合がある？
-				}
-				scr.aToken.splice(i, del, ch);
-
-				scr.aLNum.splice(i, del, lnum);
-				del = 0;
-			}
-		}
-		scr.len = scr.aToken.length;
-	}
-	testNoTxt(ch: string): boolean {return this.#REG_TOKEN_NOTXT.test(ch)};	//4tst
+	#hC2M	: {[char: string]: string}	= {};
 
 }

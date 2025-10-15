@@ -5,10 +5,11 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {fsp2fp} from './CmnLib';
-import {FULL_PATH, FULL_SCH_PATH, PROJECT_PATH} from '../server/src/LspWs';
-import {FLD_CRYPT_DOC, FLD_PRJ_BASE, REG_FULLCRYPTO, REG_NEEDCRYPTO} from './Project';
-import {Encryptor} from './Encryptor';
+import type {FULL_PATH, FULL_SCH_PATH, PROJECT_PATH} from './CmnLib';
+import {vsc2fp} from './CmnLib';
+import {FLD_CRYPT_DOC, REG_FULLCRYPTO, REG_NEEDCRYPTO} from './Project';
+import {FLD_PRJ_BASE} from './PrjCmn';
+import type {Encryptor} from './Encryptor';
 
 import {Uri} from 'vscode';
 import * as crc32 from 'crc-32';
@@ -30,7 +31,7 @@ export type T_CN = {
 
 
 export class HDiff {
-	#pp2hDiff	: H_T_DIFF	= Object.create(null);
+	#pp2hDiff	: H_T_DIFF	= <H_T_DIFF>Object.create(null);
 
 	constructor(
 		private readonly PATH_DIFF	: FULL_SCH_PATH,
@@ -38,29 +39,30 @@ export class HDiff {
 		private readonly PATH_CRYPT	: FULL_SCH_PATH,
 		private readonly encry		: Encryptor,
 	) {
-		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
 		this.#REG_fp2pp	= new RegExp('^.+'+ REG_path2);
 	}
 
 	async init() {
-		if (existsSync(this.PATH_DIFF)) this.#pp2hDiff = await readJson(this.PATH_DIFF);
+		if (existsSync(this.PATH_DIFF)) this.#pp2hDiff = <H_T_DIFF>await readJson(this.PATH_DIFF);
 
-		const o = this.#pp2hDiff;
-		for (const pp in o) {
-			const fp = `${this.PATH_CRYPT}${o[pp]!.cn}`;
+		for (const [pp, {cn}] of Object.entries(this.#pp2hDiff)) {
+			const fp = `${this.PATH_CRYPT}${cn}`;
 			// 存在しなくなってるファイルの情報を削除
+			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 			if (! existsSync(fp)) delete this.#pp2hDiff[pp];
 		}
 	}
-	clear() {this.#pp2hDiff = Object.create(null)}
+	clear() {this.#pp2hDiff = <H_T_DIFF>Object.create(null)}
+	// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 	del(pp: PROJECT_PATH) {delete this.#pp2hDiff[pp]}
 	get(pp: PROJECT_PATH) {return this.#pp2hDiff[pp]}
 	get keysPP(): PROJECT_PATH[] {return Object.keys(this.#pp2hDiff)}
 
 
 	path2cn(fp: FULL_PATH): T_CN {
-		fp = fsp2fp(Uri.file(fp).path);
+		fp = vsc2fp(Uri.file(fp).path);
 		const pp = this.fp2pp(fp);
 		const diff = this.#pp2hDiff[pp];
 		return {
@@ -91,7 +93,7 @@ export class HDiff {
 	//MARK: ファイルハッシュの検知と辞書更新
 	//	ファイル差異があるか返す
 	isDiff({path}: Uri): boolean {
-		const fp = fsp2fp(path);
+		const fp = vsc2fp(path);
 		const {pathCn, diff, pp} = this.path2cn(fp);
 // console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
 		if (pathCn && ! existsSync(pathCn)) return true;
@@ -125,7 +127,7 @@ export class HDiff {
 		readonly	#LEN_CHKDIFF	= 1024 *20;	// o
 	//	readonly	#LEN_CHKDIFF	= 1024 *10;	// x 変更を検知しない場合があった
 	//	readonly	#LEN_CHKDIFF	= 1024;		// x 変更を検知しない場合があった
-		readonly	#REG_SPATH2HFN	= /([^\/]+)\/[^\/]+(\.\w+)/;
+		readonly	#REG_SPATH2HFN	= /([^/]+)\/[^/]+(\.\w+)/;
 		#bufChkDiff = new Uint8Array(this.#LEN_CHKDIFF);
 		readonly	#REG_REPPATHJSON	= /\.(jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)/g;
 

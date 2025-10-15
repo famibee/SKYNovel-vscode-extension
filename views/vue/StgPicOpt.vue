@@ -152,7 +152,7 @@ import {cmd2Ex, getLeftRangeBadge} from '../store/stVSCode';
 import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
-import type {T_OPTPIC_FILE_AND_KEY, T_E2V_CHG_RANGE_WEBP_Q_DEF, T_E2V_CHG_RANGE_WEBP_Q} from '../types';
+import type {T_OPTPIC_FILE_AND_KEY, T_V2E_CHG_RANGE_WEBP_Q_DEF, T_V2E_CHG_RANGE_WEBP_Q} from '../../src/types';
 import {ImgComparisonSlider} from '@img-comparison-slider/vue';
 
 
@@ -165,7 +165,7 @@ const sortHSize: ()=> T_OPTPIC_FILE_AND_KEY[] = ()=> Object.entries(oOptPic.valu
 const chgRangeWebpQDef = (el: any)=> {
 	const webp_q = Number(el.target.value);
 	oWss.value['cnv.mat.webp_quality'] = webp_q;
-	const q: T_E2V_CHG_RANGE_WEBP_Q_DEF = {cmd: 'change.range.webp_q_def', webp_q};
+	const q: T_V2E_CHG_RANGE_WEBP_Q_DEF = {cmd: 'change.range.webp_q_def', webp_q};
 	cmd2Ex(q);
 }
 
@@ -182,12 +182,12 @@ const chkChg = (el: any, e :T_OPTPIC_FILE_AND_KEY)=> {
 		else delete h.webp_q;
 	}
 
-	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q};
+	const q: T_V2E_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def, webp_q};
 	cmd2Ex(q);
 
 };
 const chgRangeWebpQ = (el: any, e :T_OPTPIC_FILE_AND_KEY)=> {
-	const q: T_E2V_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)};
+	const q: T_V2E_CHG_RANGE_WEBP_Q = {cmd: 'change.range.webp_q', nm: e.nm, no_def: true, webp_q: Number(el.target.value)};
 	cmd2Ex(q);
 }
 

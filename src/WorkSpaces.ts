@@ -5,18 +5,19 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, fsp2fp, is_win, is_mac} from './CmnLib';
-import {ActivityBar, oIcon} from './ActivityBar';
+import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp} from './CmnLib';
+import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {Debugger} from './Debugger';
 import {CteScore} from './CteScore';
-import {PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
-import {MD_STRUCT} from './md2json';
+import {type PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
+import type {T_MES_L2S} from '../server/src/LangSrv';
+import type {T_ALL_L2S, T_ALL_S2L, T_ALL_S2L_WS} from '../server/src/LspWs';
+import hMd from './md.json';
 
-import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win} from 'vscode';
+import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win, ThemeIcon} from 'vscode';
 import {existsSync} from 'fs-extra';
-
 import {
 	LanguageClient,
 	type LanguageClientOptions,
@@ -28,7 +29,7 @@ import {
 export type QuickPickItemEx = QuickPickItem & {
 	uri?	: Uri;
 }
-export const	aPickItems	: QuickPickItemEx[] = [];
+export const aPickItems	: QuickPickItemEx[] = [];
 
 
 export	function openURL(url: Uri, pathWs: string) {
@@ -47,8 +48,6 @@ export	function openURL(url: Uri, pathWs: string) {
 }
 
 export const PRE_TASK_TYPE = 'SKYNovel Task';
-
-const REQ_ID = ':SKYNovel:';
 
 
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
@@ -71,7 +70,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 			run		: {module, transport: TransportKind.ipc},
 			debug	: {module, transport: TransportKind.ipc,
 				options: {execArgv: ['--nolazy',
-				'--inspect='+ (7000 + Math.round(Math.random() *999))
+				'--inspect='+ String(7000 + Math.round(Math.random() *999))
 				// '--inspect=6009'	// .vscode/launch.json とポート番号を合わせる
 			]},}
 		};
@@ -95,15 +94,13 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 			languages.registerHoverProvider(docsel, this),
 			window.registerTreeDataProvider('skynovel-ws', this),
 			{dispose: ()=> this.#lsp.stop()},
-			this.#lsp.onRequest(REQ_ID, hd=> {
+			this.#lsp.onRequest(REQ_ID, (hd: T_ALL_S2L)=> {
 				switch (hd.cmd) {
 					case 'log':	// 本来はリリース版で 'log' をコメントすべきだが
 					case 'error':	console.error(hd.txt);	return;
 				}
 				this.onRequest(hd);
 			}),
-			languages.registerHoverProvider(docsel, this),
-			window.registerTreeDataProvider('skynovel-ws', this),
 
 			workspace.onDidChangeWorkspaceFolders(e=> this.#refresh(e)),
 		);
@@ -117,7 +114,7 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 		itmStt.detail = 'initDebug';	// text - detail と表示される
 		const emDbgLayTd = new EventEmitter<TreeItem | undefined>;
 //		const hLay2TI: {[layer: string]: TreeItem} = {};
-		initDebug(ctx, o=> {
+		initDebug(ctx, (o: HArg)=> {
 			switch (o.タグ名) {
 				case ':connect':
 					this.#tiLayers = [];
@@ -128,20 +125,20 @@ export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, Do
 					break;
 
 				case 'add_lay':{
-					const t = new TreeItem(o.layer);
-//					hLay2TI[o.layer] = t;
+					const t = new TreeItem(o.layer ?? '');
+					// hLay2TI[o.layer] = t;
 					if (o.class === 'txt') {
 						t.iconPath = oIcon('comment');
-						t.tooltip = `文字レイヤ layer=${o.layer}`;
+						t.tooltip = `文字レイヤ layer=${o.layer ?? ''}`;
 //						t.tooltip = new MarkdownString(`文字レイヤ layer=${o.layer}`);
 						t.collapsibleState = TreeItemCollapsibleState.Expanded;
 					}
 					else {
 						t.iconPath = oIcon(o.layer === 'base' ?'image' :'user');
-						t.tooltip = `画像レイヤ layer=${o.layer}`;
+						t.tooltip = `画像レイヤ layer=${o.layer ?? ''}`;
 //						t.tooltip = new MarkdownString(`画像レイヤ layer=${o.layer}`);
 					}
-	//				t.collapsibleState = TreeItemCollapsibleState.Expanded;
+					// t.collapsibleState = TreeItemCollapsibleState.Expanded;
 					t.command = {
 						command		: 'skynovel.tiLayers.selectNode',
 						title		: 'Select Node',
@@ -180,6 +177,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		});
 
 		ctx.subscriptions.push(
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			commands.registerCommand('skynovel.tiLayers.selectNode', node=> Debugger.send2SN('_selectNode', {node})),
 		);
 
@@ -187,10 +185,14 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		ctx.subscriptions.push(window.registerTreeDataProvider('skynovel-layers', {
 			getChildren: t=> {
 				if (! t) return this.#tiLayers;
-
-				const icon: any = t.iconPath;
+				const icon = t.iconPath;
+				if (! icon) return this.#tiLayers;
+//
 				const a: {label: string, icon: string}[]
-				= icon.dark.endsWith('comment.svg')
+				= typeof icon === 'string'
+				|| icon instanceof ThemeIcon
+				|| icon instanceof Uri
+				|| icon.dark.path.endsWith('comment.svg')
 				? [
 					{label: 'ボタン',		icon: 'hand-point-down'},
 //					{label: 'トゥイーン',	icon: 'object-group'},
@@ -204,6 +206,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 					command	: {
 						command		: 'skynovel.tiLayers.selectNode',
 						title		: 'Select Node',
+						// eslint-disable-next-line @typescript-eslint/restrict-plus-operands, @typescript-eslint/no-base-to-string
 						arguments	: [t.label +'/'+ v.label],
 					},
 				}));
@@ -222,7 +225,6 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		this.#removeStatusItem('init');
 
-		const hMd: {[tag_nm: string]: MD_STRUCT} = require('./md.json');
 		for (const [tag_nm, {sum}] of Object.entries(hMd)) aPickItems.push({
 			label		: tag_nm,
 			description	: sum,
@@ -271,17 +273,17 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 	//MARK: 処理開始
 	async start() {
-// console.log(`Seq_ 2 fn:WorkSpaces.ts lsp.start`);
+// console.log('req_ 2 fn:WorkSpaces.ts lsp.start');
 		await this.#lsp.start();
-		this.#sendRequest2LSP = (cmd, uriWs, o)=> {
+		this.#req2LSP = (uriWs, o)=> {
 			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
-// console.log(`Seq_11 ⬆送 cmd:${cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${v2fp(uriWs.path)}=`);
-			return this.#lsp.sendRequest(REQ_ID, {cmd, pathWs: fsp2fp(uriWs.path), o});
+// console.log(`Seq_11 ⬆送 cmd:${o.cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${vsc2fp(uriWs.path)}=`);
+			return this.#lsp.sendRequest(REQ_ID, <T_MES_L2S>{...o, pathWs: fullSchPath2fp(uriWs.path)});
 		};
 
 		this.ctx.subscriptions.push(
 			commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()),
-			commands.registerCommand('skynovel.opView', uri=> {
+			commands.registerCommand('skynovel.opView', (uri: Uri)=> {
 				const {path} = uri;
 				for (const [vfpWs, prj] of this.#mPrj.entries()) {
 					if (! path.startsWith(vfpWs)) continue;
@@ -307,7 +309,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 */
 	}
 	//MARK: LSP サーバーへメッセージ送信
-	#sendRequest2LSP: (cmd: string, uriWs: Uri, o?: any)=> void	= async ()=> {};
+	#req2LSP: (uriWs: Uri, o: T_ALL_L2S)=> Promise<void>	= async ()=> { /* empty */ };
 
 	#openReferencePallet() {
 		const aWsFld = workspace.workspaceFolders;
@@ -352,6 +354,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	}
 	#removeStatusItem(id: string) {
 		this.#hItmLangStt[id]?.dispose();
+		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete this.#hItmLangStt[id];
 	}
 
@@ -364,15 +367,18 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 		if (! e)  {		// 起動時
 			for (const wsFld of aWsFld) this.#makePrj(wsFld);
 			if (this.#aTiRoot.length === 0) return;
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			this.#aTiRoot[0]!.collapsibleState = TreeItemCollapsibleState.Expanded;	// 利便性的に先頭は開く
 			this.#emPrjTD.fire(undefined);
 			return;
 		}
 
 		// フォルダ増減時
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);
 			// 最後の一つと思われる
 		else {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const removed = e.removed[0]!;
 			const nm = removed.name;	// 一つだけ対応
 			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
@@ -386,7 +392,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	readonly onDidChangeTreeData = this.#emPrjTD.event;
 
 
-	onRequest(hd: any) {
+	onRequest(hd: T_ALL_S2L_WS) {
 // console.log(`056 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
 		// TODO: 辱コード
 		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
@@ -406,18 +412,18 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 	#makePrj(wsFld: WorkspaceFolder) {
 		const vfpWs = wsFld.uri.path;
-		const pathWs = fsp2fp(vfpWs);
+		const pathWs = vsc2fp(vfpWs);
 // console.log(`010 fn:WorkSpaces.ts #makePrj  vfpWs=${vfpWs}=`);
 		if (! existsSync(pathWs +'/package.json')
 		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;
 
-		this.#mPrj.set(vfpWs, new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, this.#sendRequest2LSP));
+		this.#mPrj.set(vfpWs, new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, (o: T_ALL_L2S)=> this.#req2LSP(wsFld.uri, o)));
 	}
 
 	#hOnEndTask = new Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>([]);
 
 	getTreeItem = (t: TreeItem)=> t;
-	getChildren = (t?: TreeItem)=> t ?(t as PrjTreeItem)?.children ?? [] :this.#aTiRoot;
+	getChildren = (t?: TreeItem)=> t ?(<PrjTreeItem>t).children :this.#aTiRoot;
 
 	dispose() {
 		for (const prj of this.#mPrj.values()) prj.dispose();

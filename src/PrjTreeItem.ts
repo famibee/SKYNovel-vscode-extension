@@ -8,36 +8,36 @@
 import {is_win} from './CmnLib';
 import {oIcon} from './ActivityBar';
 
-import {TreeItem, TreeItemCollapsibleState, commands, ExtensionContext, ThemeIcon, WorkspaceFolder} from 'vscode';
+import type {ExtensionContext, WorkspaceFolder} from 'vscode';
+import {TreeItem, TreeItemCollapsibleState, commands, ThemeIcon} from 'vscode';
 
 
-const aPrjBtnName = [
-	'SnUpd',
-	'SnUpd_waited',
-	'ReBuild',
-	'PrjSet',
-	'Crypto',
-	'Crypto_waited',
-	'TaskWeb',
-	'TaskWebDbg',
-	'TaskWebStop',
-	'TaskApp',
-	'TaskAppStop',
-	'TaskAppDbg',
-	'TaskAppDbgStop',
-	'PackWin',
-	'PackWin32',
-	'PackMac',
-	'PackMacArm64',
-	'PackLinux',
-	'PackFreem',
-] as const;
-export type PrjBtnName = typeof aPrjBtnName[keyof typeof aPrjBtnName];
+export type PrjBtnName = 
+	'Batch'|
+	'SnUpd'|
+	'SnUpd_waited'|
+	'ReBuild'|
+	'PrjSet'|
+	'Crypto'|
+	'Crypto_waited'|
+	'TaskWeb'|
+	'TaskWebDbg'|
+	'TaskWebStop'|
+	'TaskApp'|
+	'TaskAppStop'|
+	'TaskAppDbg'|
+	'TaskAppDbgStop'|
+	'PackWin'|
+	'PackWin32'|
+	'PackMac'|
+	'PackMacArm64'|
+	'PackLinux'|
+	'PackFreem';
 
 export type TASK_TYPE = 'Sys'|'Web'|'App'|'Pkg';
 
-export interface TREEITEM_CFG {
-	cmd		: PrjBtnName|'',
+export type TREEITEM_CFG = {
+	cmd		: PrjBtnName | '',
 	exe?	: boolean,
 	icon	: string,
 	label	: string,
@@ -62,15 +62,15 @@ export const enum eDevTreeView {
 	TaskWeb,
 	TaskApp,
 	Pack,
-};
+}
 
 
 export class PrjTreeItem extends TreeItem {
 	static	create(
-		ctx: ExtensionContext,
-		wsFld: WorkspaceFolder,
-		onBtn: ON_BTN,
-		is_new_tmp: boolean,
+		ctx			: ExtensionContext,
+		wsFld		: WorkspaceFolder,
+		onBtn		: ON_BTN,
+		is_new_tmp	: boolean,
 	): PrjTreeItem {
 		const cfg: TREEITEM_CFG = {
 			cmd		: '',
@@ -127,7 +127,9 @@ export class PrjTreeItem extends TreeItem {
 			],
 		};
 		if (is_new_tmp) {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const ePack = cfg.children![eDevTreeView.Pack]!;
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_bld')}));
 		}
 
@@ -136,7 +138,7 @@ export class PrjTreeItem extends TreeItem {
 		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
 
 		// registerCommand()の登録が複数プロジェクトで重複しないよう
-		PrjTreeItem.regCmds = ()=> {};
+		PrjTreeItem.regCmds = ()=> { /* empty */ };
 		PrjTreeItem.#hPathWs2onBtn[pathWs] = onBtn;
 
 		return pti;
@@ -151,8 +153,9 @@ export class PrjTreeItem extends TreeItem {
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';
 		else {
 			this.description = cfg.desc ?? '';
+			
 			if (cfg.cmd) {
-				const cntVal = this.contextValue = 'skynovel.dev'+ cfg.cmd;
+				const cntVal = this.contextValue = 'skynovel.dev'+ <string>cfg.cmd;
 				PrjTreeItem.regCmds(ctx, cntVal, cfg);
 			}
 		}
@@ -169,10 +172,11 @@ export class PrjTreeItem extends TreeItem {
 	}
 	private	static	regCmds(ctx: ExtensionContext, cntVal: string, cfg: TREEITEM_CFG) {
 		if (cfg.cmd === '') return;
+
 		PrjTreeItem.#regCmd(ctx, cntVal, cfg.cmd, cfg);
 		if (cfg.exe) {
-			PrjTreeItem.#regCmd(ctx, cntVal +'Dbg', <PrjBtnName>(cfg.cmd +'Dbg'), cfg);
-			PrjTreeItem.#regCmd(ctx, cntVal +'Stop',<PrjBtnName>(cfg.cmd +'Stop'),cfg);
+			PrjTreeItem.#regCmd(ctx, cntVal +'Dbg', <PrjBtnName>(<string>cfg.cmd +'Dbg'), cfg);
+			PrjTreeItem.#regCmd(ctx, cntVal +'Stop',<PrjBtnName>(<string>cfg.cmd +'Stop'),cfg);
 		}
 	}
 	static	#regCmd(ctx: ExtensionContext, cntVal: string, btn_nm2: PrjBtnName, cfg: TREEITEM_CFG) {
@@ -182,5 +186,5 @@ export class PrjTreeItem extends TreeItem {
 		));
 	}
 
-	get children() {return this.#children;}
+	get children() {return this.#children}
 }

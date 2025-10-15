@@ -5,15 +5,18 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {is_win, replaceRegsFile} from './CmnLib';
+import type {T_TMPWIZ} from './types';
+import {is_win, replaceRegsFile, repWvUri} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
-const AdmZip = require('adm-zip');
+import type {T_CFG} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
 import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
+const AdmZip = require('adm-zip');
 
 const nNodeReqVer = 22_020_000;
 
@@ -24,7 +27,7 @@ export const enum eTreeEnv {
 	SKYNOVEL_VER,
 	TEMP_VER,
 	PY_FONTTOOLS,
-};
+}
 
 export function getNonce() {
 	let text = '';
@@ -39,7 +42,7 @@ let extPath = '';
 export function oIcon(name: string) {return {
 	light	: Uri.file(extPath +`/res/light/${name}.svg`),
 	dark	: Uri.file(extPath +`/res/dark/${name}.svg`),
-}};
+}}
 
 
 export class ActivityBar implements TreeDataProvider<TreeItem> {
@@ -47,10 +50,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static start(ctx: ExtensionContext) {
 		extPath = ctx.extensionPath;
 
-		ActivityBar.#actBar = new ActivityBar(ctx);
+		this.#actBar = new ActivityBar(ctx);
 	}
 	static #actBar: ActivityBar;
-	static stop() {ActivityBar.#actBar.#dispose()}
+	static stop() {this.#actBar.#dispose()}
 
 
 	#workSps: WorkSpaces;
@@ -67,12 +70,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			// other
 			await Promise.allSettled([
-				this.#chkEnv(()=> ctx.subscriptions.push(
-					window.registerTreeDataProvider('skynovel-dev', this),
-					commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
-					commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
-					commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
-				)),
+				this.#chkEnv(ok=> Promise.try(()=> {
+					if (! ok) return;
+
+					ctx.subscriptions.push(
+						window.registerTreeDataProvider('skynovel-dev', this),
+						commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
+						commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
+						commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+					);
+				})),
 				import('./TreeDPDoc')
 				.then(({TreeDPDoc})=> ctx.subscriptions.push(
 					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
@@ -80,15 +87,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				import('./ToolBox')
 				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx))),
 			]);
-		});
+		})
+		.catch((e: unknown)=> console.error('fn:ActivityBar.ts constructor %o', e))
 	}
 
 	#dispose() {
-		if (this.#pnlWV) this.#pnlWV.dispose();
+		if (this.#wp) this.#wp.dispose();
 	}
 
 	//MARK: 環境確認
-	async #chkEnv(finish: (ok: boolean)=> void) {
+	async #chkEnv(finish: (ok: boolean)=> Promise<void>) {
 		this.#aTiEnv = this.#aEnv.map(v=> {
 			const ti = new TreeItem(v.label);
 			if (v.label) ti.iconPath = oIcon(v.icon);
@@ -96,62 +104,67 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			return ti;
 		});
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const tiNode = this.#aTiEnv[eTreeEnv.NODE]!;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const tiNpm = this.#aTiEnv[eTreeEnv.NPM]!;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS]!;
 		ActivityBar.aReady[eTreeEnv.NODE] = false;
 		ActivityBar.aReady[eTreeEnv.NPM] = false;
 		ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = false;
 
 		await Promise.allSettled([
-			exec('pip list', async (e, stdout)=> {
+			new Promise<void>(re=> exec('pip list', (e, stdout)=> {
 				if (e) {
-					tiPFT.description = `-- pip error`;
+					tiPFT.description = '-- pip error';
 					tiPFT.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiPFT);
-					finish(false);
+					re();
 					return;
 				}
-				if (! /^fonttools\s/gm.test(stdout)
-				|| ! /^brotli\s/gm.test(stdout)) await new Promise<void>(re=> exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
-					if (e) {
-						tiPFT.description = `-- install失敗`;
-						tiPFT.iconPath = oIcon('error');
-						this.#onDidChangeTreeData.fire(tiPFT);
-						finish(false);
-						return;
-					}
-					re();
-				}));
-				ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
-				tiPFT.description = `-- ready`;
-				tiPFT.iconPath = oIcon('python-brands');
-				this.#onDidChangeTreeData.fire(tiPFT);
 
-				// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
-				if (is_win) {
-					exec('python -m site --user-site', async (e, stdout)=> {
-						if (e) {finish(false); return;}		// ありえないが
+				const fnc = ()=> {
+					ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
+					tiPFT.description = '-- ready';
+					tiPFT.iconPath = oIcon('python-brands');
+					this.#onDidChangeTreeData.fire(tiPFT);
+
+					// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
+					if (! is_win) re();
+					exec('python -m site --user-site', (e, stdout)=> {
+						if (e) {re(); return;}		// ありえないが
 						const path = stdout.slice(0, -15) +'Scripts\\;';
 						const col = this.ctx.environmentVariableCollection;
 						col.prepend('PATH', path);
 					});
-				}
-			}),
+				};
+
+				if (! /^fonttools\s/gm.test(stdout)
+				|| ! /^brotli\s/gm.test(stdout)) exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
+					if (e) {
+						tiPFT.description = '-- install失敗';
+						tiPFT.iconPath = oIcon('error');
+						this.#onDidChangeTreeData.fire(tiPFT);
+					}
+					else fnc();
+					re();
+				});
+			})),
 			new Promise<void>(re=> exec('node -v', (e, stdout)=> {
 				if (e) {
-					tiNode.description = `-- 見つかりません`;
+					tiNode.description = '-- 見つかりません';
 					tiNode.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiNode);
 
-					tiNpm.description = `-- （割愛）`;
+					tiNpm.description = '-- （割愛）';
 					tiNpm.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiNpm);
-					finish(false);
+					re();
 					return;
 				}
 
-				const vNode = String(stdout).slice(1, -1);
+				const vNode = stdout.slice(1, -1);
 				const splVNode = vNode.split('.');
 				const nVNode = Number(splVNode[0]) *1_000_000
 					+Number(splVNode[1]) *1_000 +Number(splVNode[2]);
@@ -161,10 +174,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					tiNode.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiNode);
 
-					tiNpm.description = `-- （割愛）`;
+					tiNpm.description = '-- （割愛）';
 					tiNpm.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiNpm);
-					finish(false);
+					re();
 					return;
 				}
 				ActivityBar.aReady[eTreeEnv.NODE] = true;
@@ -175,10 +188,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			})),
 			new Promise<void>(re=> exec('npm -v', (e, stdout)=> {
 				if (e) {
-					tiNpm.description = `-- 見つかりません`;
+					tiNpm.description = '-- 見つかりません';
 					tiNpm.iconPath = oIcon('error');
 					this.#onDidChangeTreeData.fire(tiNpm);
-					finish(false);
+					re();
 					return;
 				}
 				ActivityBar.aReady[eTreeEnv.NPM] = true;
@@ -187,7 +200,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.#onDidChangeTreeData.fire(tiNpm);
 				re();
 			})),
-		]).then(()=> finish(true));
+		])
+		.then(()=> finish(true))
+		.catch(()=> finish(false));
 	}
 	readonly #aEnv: {label: string, icon: string}[]	= [
 		{icon: 'node-js-brands',label: 'Node.js',},
@@ -214,11 +229,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	readonly getTreeItem = (t: TreeItem)=> t;
 
-	// 起動時？　と refreshボタンで呼ばれる
-	getChildren(t?: TreeItem): Thenable<TreeItem[]> {
+	// 起動時？ と refreshボタンで呼ばれる
+	getChildren(t?: TreeItem): Promise<TreeItem[]> {
 		if (! t) return Promise.resolve(this.#aTiEnv);
 
 		const ret: TreeItem[] = [];
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE]!.iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
@@ -230,22 +246,27 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		await Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/skynovel_esm/main/package.json')
 			.then(async res=> {
-				const json = await res.json();
+				const json = <{version: string}>await res.json();
+				if (! ('version' in json)) throw 'ネット上の package.json が異常です';
 				newVerSN = json.version;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER]!;
 				tiSV.description = '-- ' + newVerSN;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
-			}),
+			})
+			.catch((e: unknown)=> console.error('fn:ActivityBar.ts line:260 %o', e))
+			,
 			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
 			.then(async res=> {
 				const txt = await res.text();
-				newVerTemp = txt.match(/## v(.+)\s/)?.[1] ?? '';
+				newVerTemp = (/## v(.+)\s/.exec(txt))?.[1] ?? '';
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER]!;
 				tiSV.description = '-- ' + newVerTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 		]);
-		aLocalSNVer.forEach(async o=> {
+		for (const o of aLocalSNVer) {
 			if (o.verTemp && newVerTemp !== o.verTemp) {
 				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ ${o.verTemp}->${newVerTemp}）`);
 				return;
@@ -253,47 +274,46 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 			if (o.verSN === '' || o.verSN.startsWith('ile:') || o.verSN.startsWith('./')) return;
 			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.verSN}->${newVerSN}）`);
-		});
+		}
 	}
 
 	//MARK: 環境確認パネル
-	#pnlWV: WebviewPanel | null = null;
+	#wp: WebviewPanel | null = null;
 	#openEnvInfo() {
 		const column = window.activeTextEditor?.viewColumn;
-		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
+		if (this.#wp) {this.#wp.reveal(column); return;}
 
-		const pathDoc = this.ctx.extensionPath +'/views';
-		const uriDoc = Uri.file(pathDoc);
-		this.#pnlWV = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column || ViewColumn.One, {
+		const path_doc = this.ctx.extensionPath +'/views';
+		const uf_path_doc = Uri.file(path_doc);
+		this.#wp = window.createWebviewPanel('SKYNovel-envinfo', '開発環境準備', column ?? ViewColumn.One, {
 			enableScripts: false,
-			localResourceRoots: [uriDoc],
+			localResourceRoots: [uf_path_doc],
 		});
-		this.#pnlWV.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
+		this.#wp.onDidDispose(()=> this.#wp = null);	// 閉じられたとき
 
-		readFile(pathDoc +'/envinfo.htm', 'utf-8', (e, data)=> {
+		readFile(path_doc +'/envinfo.htm', 'utf-8', (e, inp)=> {
 			if (e) throw e;
+			if (! this.#wp) return;
 
-			const wv = this.#pnlWV!.webview;
-			this.#pnlWV!.webview.html = data
-			.replaceAll('${webview.cspSource}', wv.cspSource)
-			.replaceAll(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uriDoc)}/`);
+			const wv = this.#wp.webview;
+			this.#wp.webview.html = repWvUri(inp, wv, uf_path_doc);
 		});
 	}
 
 	//MARK: テンプレ選択パネル
 	#openTempWizard() {
 		const column = window.activeTextEditor?.viewColumn;
-		if (this.#pnlWV) {this.#pnlWV.reveal(column); return;}
+		if (this.#wp) {this.#wp.reveal(column); return;}
 
 		const path_doc = this.ctx.extensionPath +'/views';
 		const uf_path_doc = Uri.file(path_doc);
-		const wp = this.#pnlWV = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column || ViewColumn.One, {
+		const wp = this.#wp = window.createWebviewPanel('SKYNovel-tmpwiz', 'テンプレートから始める', column ?? ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [uf_path_doc],
 		});
-		wp.onDidDispose(()=> this.#pnlWV = null);	// 閉じられたとき
+		wp.onDidDispose(()=> this.#wp = null);	// 閉じられたとき
 
-		wp.webview.onDidReceiveMessage(async m=> {
+		wp.webview.onDidReceiveMessage((m: T_TMPWIZ)=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);
 			switch (m.cmd) {
 			case 'get':		wp.webview.postMessage({cmd: 'res', o: {}});	break;
@@ -322,36 +342,37 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}
 
 				// プロジェクトフォルダを置くパスを選んでもらう
-				const fileUri = await window.showOpenDialog({
+				window.showOpenDialog({
 					title	: 'プロジェクトフォルダを置く場所を指定して下さい',
 					canSelectMany	: false,
 					openLabel		: 'フォルダを選択',
 					canSelectFiles	: false,
 					canSelectFolders: true,
+				})
+				.then(fileUri=> {
+					const path_dl = fileUri?.[0]?.fsPath;
+					if (! path_dl) return;	// キャンセル
+
+					// 既存のフォルダがある際はエラー中断で検討させる
+					const fnTo = path_dl +'/'+ this.#save_ns;
+					if (existsSync(fnTo)) {
+						window.showErrorMessage(`既存のフォルダ ${this.#save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
+						return;
+					}
+
+					// テンプレートからプロジェクト作成
+					this.#crePrjFromTmp(m.cmd, fnTo);
 				});
-				const path_dl = fileUri?.[0]?.fsPath;
-				if (! path_dl) break;	// キャンセル
-
-				// 既存のフォルダがある際はエラー中断で検討させる
-				const fnTo = path_dl +'/'+ this.#save_ns;
-				if (existsSync(fnTo)) {
-					window.showErrorMessage(`既存のフォルダ ${this.#save_ns} があります`, {detail: 'フォルダ名を変えるか、既存のフォルダを削除して下さい', modal: true});
-					break;
-				}
-
-				// テンプレートからプロジェクト作成
-				this.#crePrjFromTmp(m.cmd, fnTo);
 				break;
 			}
 		}, false);
 
-		readFile(path_doc +'/tmpwiz.htm', 'utf-8', (e, data)=> {
+		readFile(path_doc +'/tmpwiz.htm', 'utf-8', (e, inp)=> {
 			if (e) throw e;
+			if (! this.#wp) return;
 
-			const wv = this.#pnlWV!.webview;
-			this.#pnlWV!.webview.html = data
-			.replaceAll('${webview.cspSource}', wv.cspSource)
-			.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(uf_path_doc)}/`);
+			const wv = this.#wp.webview;
+			this.#wp.webview.html = repWvUri(inp, wv, uf_path_doc);
 		});
 	}
 		#canTempWizard	= false;
@@ -368,7 +389,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		await remove(pathZip);
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
-		tknCancel.onCancellationRequested(()=> {fncAbort(); return remove(td)});
+		tknCancel.onCancellationRequested(()=> {fncAbort(); return void remove(td)});
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
@@ -376,15 +397,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			const {signal} = ac;
 			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
 			.then(async res=> {
-				fncAbort = ()=> {};
+				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});
-				if (tknCancel.isCancellationRequested || ! res.ok) {rj(); return;}
+				if (tknCancel.isCancellationRequested || ! res.ok) {rj(new Error('キャンセルボタンが押されました')); return;}
 
 				const ab = await res.arrayBuffer();
 				await writeFile(pathZip, Buffer.from(ab));
 				prg.report({increment: 10, message: 'ZIP解凍中',});
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 				new AdmZip(pathZip).extractAllTo(td, true);	// overwrite
-				if (tknCancel.isCancellationRequested) {rj(); return;}
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				if (tknCancel.isCancellationRequested) {rj(new Error('キャンセルボタンが押されました')); return;}
 
 				// == ファイル調整
 				prg.report({increment: 10, message: 'ファイル調整',});
@@ -392,7 +415,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// prj.json の置換
 				const pathUnZip = td +`${nm}-main/`;
 				const fnPrjJs = pathUnZip +'doc/prj/prj.json';
-				const oPrj = await readJson(fnPrjJs, {encoding: 'utf8'});
+				const oPrj = <T_CFG>await readJson(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
 				oPrj.debuger_token = '';
 				await outputJson(fnPrjJs, oPrj, {spaces: '\t'});
@@ -410,7 +433,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					],
 					[
 						/("artifactName"\s*:\s*").*(")/,
-						`$1\${name}-\${version}-\${arch}.\${ext}$2`,
+						'$1${name}-${version}-${arch}.${ext}$2',
 					],
 				], false);
 
@@ -419,14 +442,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 				prg.report({increment: 30, message: '完了。フォルダを開きます',});
 				setTimeout(()=> {
-					if (tknCancel.isCancellationRequested) {rj(); return;}
+					if (tknCancel.isCancellationRequested) {rj(new Error('キャンセルボタンが押されました')); return;}
 
 					// フォルダをワークスペースで開く
 					commands.executeCommand('vscode.openFolder', Uri.file(fnTo), false);
 					re();
 				}, 4000);
 			})
-			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
+			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${e}`));
 		});
 	});
 	#save_ns	= '';
@@ -440,10 +464,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		title		: 'テンプレートからプロジェクト更新',
 		cancellable	: true,
 	}, async (prg, tknCancel)=> {
-		if (! existsSync(fnTo + '/CHANGELOG.md')) return Promise.reject();
+		if (! existsSync(fnTo + '/CHANGELOG.md')) return Promise.reject(new Error('CHANGELOG.md がありません'));
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const oOldPkgJS = await readJson(fnTo +'/package.json', {encoding: 'utf8'});
-		const nm = oOldPkgJS.repository.url.match(/git@github\.com:famibee\/(\w+)\./)?.[1] ?? '';
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+		const nm: string = oOldPkgJS.repository.url.match(/git@github\.com:famibee\/(\w+)\./)?.[1] ?? '';
 
 		const td = tmpdir() +'/SKYNovel/';
 		await remove(td);
@@ -459,49 +485,59 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			const {signal} = ac;
 			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
 			.then(async res=> {
-				fncAbort = ()=> {};
+				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});
-				if (tknCancel.isCancellationRequested || ! res.ok) {rj(); return;}
+				if (tknCancel.isCancellationRequested || ! res.ok) {rj(new Error('キャンセルボタンが押されました')); return;}
 
 				const ab = await res.arrayBuffer();
 				await writeFile(pathZip, Buffer.from(ab));
 				prg.report({increment: 10, message: 'ZIP解凍中',});
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 				new AdmZip(pathZip).extractAllTo(td, true);	// overwrite
-				if (tknCancel.isCancellationRequested) {rj(); return;}
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				if (tknCancel.isCancellationRequested) {rj(new Error('キャンセルボタンが押されました')); return;}
 
 				// == ファイル調整
 				prg.report({increment: 10, message: 'ファイル調整',});
 
 				const pathUnZip = td +`${nm}-main/`;
-				const copy = (fn: string, chkExists = false)=> {
-					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return;
+				const copy = async (fn: string, chkExists = false)=> {
+					if (chkExists && ! existsSync(fnTo +'/'+ fn)) return (()=> { /* empty */ })();
 					return copyFile(pathUnZip + fn, fnTo +'/'+ fn)
 				};
 				// build/		// しばしノータッチ
 
 				const is_new_tmp = existsSync(pathUnZip +'src/plugin/');
 				const fld_src = is_new_tmp ?'src' :'core';
-				copy(`${fld_src}/plugin/humane/index.js`, true);
-				// src/app4webpack.js	やや難
-				copy(`${fld_src}/wds.config.js`);
-				// src/web4webpack.js	やや難
-				copy(`${fld_src}/webpack.config.js`);
+				await Promise.allSettled([
+					copy(`${fld_src}/plugin/humane/index.js`, true),
+					// src/app4webpack.js	やや難
+					copy(`${fld_src}/wds.config.js`),
+					// src/web4webpack.js	やや難
+					copy(`${fld_src}/webpack.config.js`),
 
-				// doc/prj/		// しばしノータッチ
+					// doc/prj/		// しばしノータッチ
 
-				copy('CHANGELOG.md');
+					copy('CHANGELOG.md'),
+				]);
 
 				// package.json
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				const oNewPkgJS = await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
 				const lib_name = `@famibee/skynovel${is_new_tmp ?'_esm': ''}`
-				const v = oOldPkgJS.dependencies[lib_name];
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+				const v = <string>oOldPkgJS.dependencies[lib_name];
 				if (v.startsWith('ile:') || v.startsWith('./')) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					oNewPkgJS.dependencies[lib_name] = v;
 				}
 				await outputJson(fnTo +'/package.json', {
 					...oOldPkgJS,
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					dependencies	: oNewPkgJS.dependencies,
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					devDependencies	: oNewPkgJS.devDependencies,
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					scripts			: oNewPkgJS.scripts,
 				}, {spaces: '\t'});
 					// TODO: プラグインはまた別個にライブラリを考慮し更新
@@ -509,7 +545,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				prg.report({increment: 30, message: 'ファイル準備完了',});
 				setTimeout(re, 4000);
 			})
-			.catch(reason=> window.showErrorMessage(`エラーです:${reason}`));
+			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${e}`));
 		});
 	});
 

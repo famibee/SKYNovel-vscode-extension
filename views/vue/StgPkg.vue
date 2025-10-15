@@ -95,7 +95,7 @@ import {useWss, hDisabled} from '../store/stWSS';
 import {storeToRefs} from 'pinia';
 import {useOInfo} from '../store/stOInfo';
 import {ref} from 'vue';
-import type {T_E2V_INIT, T_E2V_SELECT_ICON_INFO, T_V2E_SELECT_ICON_FILE} from '../types';
+import type {T_E2V_INIT, T_E2V_SELECT_ICON_INFO, T_V2E_selectFile} from '../../src/types';
 
 
 const stOInfo = useOInfo();
@@ -105,13 +105,13 @@ const stWss = useWss();
 const {oWss} = storeToRefs(stWss);
 
 
-const qselectIcon: T_V2E_SELECT_ICON_FILE = {
+const qSelIcon: T_V2E_selectFile = {
 	cmd			: 'selectFile',
 	title		: 'アプリアイコン',
 	openlabel	: '素材画像を選択',
 	path		: 'build/icon.png',
 };
-const selectIcon = ()=> cmd2Ex(qselectIcon);
+const selectIcon = ()=> cmd2Ex(qSelIcon);
 
 const srcIcon = ref('data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjY0MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMCAwIDY0MCA2NDAiIHdpZHRoPSI2NDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxkZWZzPjxwYXRoIGlkPSJhIiBkPSJtMCAzMjBjMCAxNzYuNzIgMTQzLjI4IDMyMCAzMjAgMzIwczMyMC0xNDMuMjggMzIwLTMyMC0xNDMuMjgtMzIwLTMyMC0zMjAtMzIwIDE0My4yOC0zMjAgMzIwem0yMDAgMTAwdi0yMDBoODB2MjAwem0xNjAgMHYtMjAwaDgwdjIwMHoiLz48L2RlZnM+PHBhdGggZD0ibTE0Ny40OSAxODAuNDFoMzUyLjR2MjgyLjY5aC0zNTIuNHoiIGZpbGw9IiNmZmYiLz48dXNlIGZpbGw9IiMyZTJlMmUiIHhsaW5rOmhyZWY9IiNhIi8+PHVzZSBmaWxsPSJub25lIiB4bGluazpocmVmPSIjYSIvPjwvc3ZnPg==');
 const updIconPic = (src: string)=> srcIcon.value = src +'?'+ new Date().getTime();

@@ -5,15 +5,16 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {chkBoolean} from './CmnLib';
-import {AnalyzeTagArg, HPRM} from './AnalyzeTagArg';
-import {IFn2Path} from './ConfigBase';
+import {chkBoolean, type HArg, repWvUri} from './CmnLib';
+import {AnalyzeTagArg, type HPRM} from './AnalyzeTagArg';
+import type {IFn2Path} from './ConfigBase';
 import {getNonce} from './ActivityBar';
 
-import {TextDocument, WebviewPanel, CancellationToken, Uri, ExtensionContext, window, Webview, Range, WorkspaceEdit, workspace, Position} from 'vscode';
+import type {CancellationToken, ExtensionContext, TextDocument, WebviewPanel, Webview} from 'vscode';
+import {Uri, Position, Range, window, WorkspaceEdit, workspace} from 'vscode';
 import {readFileSync} from 'fs-extra';
 
-interface HTDS {
+type HTDS = {
 	col?		: string,
 	td_style?	: string,
 	btn_style?	: string,
@@ -35,12 +36,85 @@ interface HTDS {
 	detail?		: string,
 }
 
+
+//MARK: Vue2Ex
+export type T_Vue2ExBase = {
+	cmd		: unknown;
+}
+export type T_Vue2Ex_cmd = T_V2EScore['cmd'];
+
+export type T_V2E_info = T_Vue2ExBase & {
+	cmd		: 'info';
+	text	: string;
+};
+export type T_V2E_warn = T_Vue2ExBase & {
+	cmd		: 'warn';
+	text	: string;
+};
+export type T_V2E_err = T_Vue2ExBase & {
+	cmd		: 'err';
+	text	: string;
+};
+
+export type T_V2E_loaded = T_Vue2ExBase & {
+	cmd		: 'loaded';
+};
+
+export type T_V2E_save_tbody = T_Vue2ExBase & {
+	cmd		: 'save_tbody';
+	tbody	: string;
+};
+
+export type T_V2E_move = T_Vue2ExBase & {
+	cmd		: 'move';
+	from	: number;
+	to		: number;
+};
+
+export type T_V2E_tool_put = T_Vue2ExBase & {
+	cmd		: 'tool_put';
+	scr		: string;
+	row		: number;
+	to		: number;
+};
+
+export type T_V2E_del = T_Vue2ExBase & {
+	cmd		: 'del';
+	lnum	: number;
+};
+
+export type T_V2E_input = T_Vue2ExBase & {
+	cmd		: 'input';
+	ln		: number;
+	nm		: string;
+	val		: string;
+};
+
+export type T_V2E_req_wds = T_Vue2ExBase & {
+	cmd		: 'req_wds';
+	key		: string;
+};
+
+type T_V2EScore
+	= T_V2E_info
+	| T_V2E_warn
+	| T_V2E_err
+	| T_V2E_loaded
+	| T_V2E_save_tbody
+	| T_V2E_move
+	| T_V2E_tool_put
+	| T_V2E_del
+	| T_V2E_input
+	| T_V2E_req_wds
+;
+
+
 export class CteScore {
-	static	#localExtensionResRoots: Uri;
+	static	#uriRes: Uri;
 	static	#htmBaseSrc	= '';
 	static	init(ctx: ExtensionContext): void {
 		window.registerCustomEditorProvider('SKYNovel.score', {
-			async resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken): Promise<void> {
+			resolveCustomTextEditor(doc: TextDocument, webviewPanel: WebviewPanel, _token: CancellationToken) {
 				const path = doc.fileName;
 				for (const [cur, v] of Object.entries(CteScore.#hCur2Me)) {
 					if (! path.startsWith(cur)) continue;
@@ -72,14 +146,14 @@ export class CteScore {
 
 		});
 
-		const path_ext_htm = ctx.extensionPath +`/views/`;
-		CteScore.#localExtensionResRoots = Uri.file(path_ext_htm);
+		const path_ext_htm = ctx.extensionPath +'/views/';
+		CteScore.#uriRes = Uri.file(path_ext_htm);
 		CteScore.#htmBaseSrc =
 		readFileSync(path_ext_htm +'score.htm', {encoding: 'utf8'})
 		.replace('<meta_autooff ', '<meta ')	// ローカルデバッグしたいので
 		.replace(/\$\{nonce}/g, getNonce())
 		.replace(/<tbody>[\s\S]+<\/tbody>/, '<tbody/>')
-		.replace(/(<div class="card-group">)[\s\S]+(<\/div><!-- card-group  -->)/, '$1 $2');
+		.replace(/(<div class="card-group">)[\s\S]+(<\/div><!-- card-group -->)/, '$1 $2');
 	}
 
 	static	#hCur2Me		: {[path: string]: CteScore}	= {};
@@ -101,15 +175,10 @@ export class CteScore {
 		};
 
 		const wv = this.#hPath2Wv[path];
-		if (wv) wv.html = this.#repWvUri(this.#hPath2Tokens[path].htm, wv);
-	}
-	#repWvUri(inp: string, wv: Webview): string {
-		return inp
-		.replaceAll('${webview.cspSource}', wv.cspSource)
-		.replace(/(href|src)="\.\//g, `$1="${wv.asWebviewUri(CteScore.#localExtensionResRoots)}/`);	// ファイルごとだけでなく分割ごとにも値が変わる
+		if (wv) wv.html = repWvUri(this.#hPath2Tokens[path].htm, wv, CteScore.#uriRes);
 	}
 
-	add_lay(_o: any) {
+	add_lay(_o: HArg) {
 //console.log(`fn:CteScore.ts line:91 [add_lay] layer:${_o.layer} class:${_o.class}`);
 	}
 
@@ -143,10 +212,10 @@ export class CteScore {
 			ln	: sl,
 			htm	: (txt === '\n'
 				? this.#token2html({line: sl +1}, '\n\n', -1)
-				: this.#repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
+				: repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
 					? ''	// \t(9) タブ、\n(10) 改行
 					: this.#token2html({line: sl +1}, t, 0)
-				).join(''), wv))
+				).join(''), wv, CteScore.#uriRes))
 				.replace(/<tr .+>|<\/tr>/g, ''),
 		});
 		return false;
@@ -164,9 +233,9 @@ export class CteScore {
 		const wv = this.#hPath2Wv[path] = webviewPanel.webview;
 		wv.options = {
 			enableScripts: true,
-			localResourceRoots: [CteScore.#localExtensionResRoots, t.uriPrj],
+			localResourceRoots: [CteScore.#uriRes, t.uriPrj],
 		};
-		wv.onDidReceiveMessage(o=> {
+		wv.onDidReceiveMessage((o: T_V2EScore)=> {
 			switch (o.cmd) {
 			case 'info':	window.showInformationMessage(o.text); break;
 			case 'warn':	window.showWarningMessage(o.text); break;
@@ -179,7 +248,7 @@ export class CteScore {
 				break;
 
 			case 'move':{
-				const from = o.from, to = o.to;
+				const {from, to} = o;
 				if (from === to) break;
 
 				t.skipupd = true;
@@ -199,17 +268,19 @@ export class CteScore {
 				break;
 
 			case 'tool_put':{
-				const scr = String(o.scr)
+				const scr = o.scr
 				.replace(/\$\{(.+)\}/g, (_, p1)=> {
 					let ret = '';
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
 					for (const i of this.#hBufWords[p1]!) {ret = `#${i}#`; break;}
 					return ret;
 				});
+// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 /**/console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
 				wv.postMessage({
 					cmd	: 'tool_res',
 					row	: o.row,
-					htm	: this.#repWvUri(this.#token2html({line: o.row}, scr, o.row), wv),
+					htm	: repWvUri(this.#token2html({line: o.row}, scr, o.row), wv, CteScore.#uriRes),
 				});
 
 				t.skipupd = true;
@@ -227,6 +298,7 @@ export class CteScore {
 				break;
 
 			case 'input':{
+// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 /**/console.log(`fn:CteScore.ts line:184 input ln:${o.ln} nm=${o.nm}= val=${o.val}=`);
 				t.skipupd = true;
 				const ed = new WorkspaceEdit;
@@ -246,7 +318,7 @@ export class CteScore {
 				).replace(
 					new RegExp(`(${o.nm}=)[^\\] #"']+`),
 					`$1${o.val}`
-				);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+				);	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 				if (base === txt) txt = txt.replace(/(])/, ` ${o.nm}=#${o.val}#$1`);	// 属性追加
 				ed.replace(doc.uri, rng, txt);
 				workspace.applyEdit(ed);
@@ -254,22 +326,26 @@ export class CteScore {
 				const a_tag = CteScore.analyzTagArg(txt);
 				const g = a_tag?.groups;
 				if (! g) break;
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				const t2t = this.#hTag2Tds[g.name!];
 				if (! t2t) break;
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				CteScore.#alzTagArg.parse(g.args!);
 				const oTds = t2t(CteScore.#alzTagArg.hPrm);
 				wv.postMessage({cmd: 'upd_btn_face', ln: o.ln, htm: `
 <i class="fas ${oTds.icon}" aria-hidden="true"></i>
-${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val});
+${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val: o.val});
 			}	break;
 
 			case 'req_wds':
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				wv.postMessage({cmd: 'res_wds', key: o.key, aWd: [...this.#hBufWords[o.key]!.values()]});
 				break;
 			}
 		}, false);
 
-		wv.html = this.#repWvUri(this.#hPath2Tokens[doc.uri.path]!.htm, wv);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		wv.html = repWvUri(this.#hPath2Tokens[doc.uri.path]!.htm, wv, CteScore.#uriRes);
 
 		// 空ファイルなら適当なテンプレを挿入
 		if (doc.getText(new Range(0, 0, 1, 1)) === '') {
@@ -286,6 +362,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			path	: string;
 			fn		: string;
 		}[]} =	{};
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const t = this.#hPath2Tokens[path]!;
 		const hPath = this.#hPrj2hPath;
 		for (const [fn, p] of Object.entries(hPath)) {
@@ -299,6 +376,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 			}
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const wv = this.#hPath2Wv[path]!;
 		wv.postMessage({
 			cmd			: 'upd_db',
@@ -329,7 +407,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		let tds = '';
 		switch (token.charCodeAt(0)) {	// TokenTopUnicode
 			case 9: return '';	// \t タブ
-			case 10:	// \n 改行
+			case 10:{	// \n 改行
 				const dl = ((idx === 0 && stt.line === 1) ?1 :0);
 				const len = token.length +dl;
 				stt.line += len -dl;
@@ -339,10 +417,11 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 					str_r += this.#make_tr(i, this.#make_tds(0, i, 'btn-rounded', 'fa-expand', '（空行）'));
 				}
 				return str_r;
+			}
 
-			case 38:	// & 変数操作・変数表示
+			case 38:{	// & 変数操作・変数表示
 				// NOTE: [let]があるので不要かも
-				const is_dsp = (token.at(-1) === '&');
+				const is_dsp = token.endsWith('&');
 				tds = this.#make_tds(
 					0, stt.line, 'btn-secondary dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-calculator',
@@ -353,20 +432,20 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 						}…`,
 					is_dsp ?token.slice(1, -1) :token.slice(1), `
 	<div class="form-outline col-12">
-		<input type="text" data-nm="&" id="${idx}txf" class="form-control" value="${token.slice(1)}"/>
-		<label class="form-label" for="${idx}txf">${
+		<input type="text" data-nm="&" id="${String(idx)}txf" class="form-control" value="${token.slice(1)}"/>
+		<label class="form-label" for="${String(idx)}txf">${
 			is_dsp ?'変数表示' :'変数操作'
 		}</label>
 	</div>`		);
-				break;
+			}	break;
 
 			case 59:	// ; コメント
 				tds = this.#make_tds(
 					0, stt.line, 'btn-outline-light btn-rounded dropdown-toggle" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-comment-dots', token.slice(1, 11)+'…', token.slice(1), `
 	<div class="form-outline col-12">
-		<input type="text" data-nm=";" id="${idx}txf" class="form-control" value="${token.slice(1)}"/>
-		<label class="form-label" for="${idx}txf">コメント</label>
+		<input type="text" data-nm=";" id="${String(idx)}txf" class="form-control" value="${token.slice(1)}"/>
+		<label class="form-label" for="${String(idx)}txf">コメント</label>
 	</div>`		);
 				break;
 
@@ -375,27 +454,28 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 					0, stt.line, 'btn-outline-light dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false" data-face="true',
 					'fa-tag', token.slice(1), token.slice(1), `
 	<div class="form-outline col-12">
-		<input type="text" data-nm="*" id="${idx}txf" class="form-control" value="${token.slice(1)}"/>
-		<label class="form-label" for="${idx}txf">ラベル</label>
+		<input type="text" data-nm="*" id="${String(idx)}txf" class="form-control" value="${token.slice(1)}"/>
+		<label class="form-label" for="${String(idx)}txf">ラベル</label>
 	</div>`		);
 				break;
 
-			case 91:	// [ タグ開始
+			case 91:{	// [ タグ開始
 				let lineTkn = 0;	// 複数行タグでの行カウント補正
 				let j = -1;
 				while ((j = token.indexOf('\n', j +1)) >= 0) ++lineTkn;
 				if (lineTkn > 0) stt.line += lineTkn;
 
+				// eslint-disable-next-line no-cond-assign
 				if (tds = this.#make_tds_tag(token, stt.line, idx)) break;
-				return '';
+			}	return '';
 
 			default:	// 文字表示
 				tds = this.#make_tds(
 					5, stt.line, 'btn-outline-primary text-white dropdown-toggle sn-ext_txt" data-face="true" data-mdb-toggle="dropdown" aria-expanded="false',
 					'fa-align-left', '', '', `
 	<div class="form-outline col-12">
-		<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2" data-nm="text" id="${idx}ta">${token}</textarea>
-		<label class="form-label" for="${idx}ta">本文テキスト</label>
+		<textarea class="form-control" placeholder="本文テキストを入力" cols="40" rows="2" data-nm="text" id="${String(idx)}ta">${token}</textarea>
+		<label class="form-label" for="${String(idx)}ta">本文テキスト</label>
 	</div>`		);
 		}
 
@@ -403,7 +483,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 	}
 	#make_tr(line: number, tds: string): string {
 		return `
-<tr data-row="${line}">
+<tr data-row="${String(line)}">
 	${tds}
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
@@ -418,12 +498,15 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		const g = a_tag?.groups;
 		if (! g) return '';
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const t2t = this.#hTag2Tds[g.name!];
 		if (! t2t) return this.#make_tds(
 			0, line, 'btn-light',
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			'fa-code', g.name!, g.args,
 		);
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		CteScore.#alzTagArg.parse(g.args!);
 		const oTds = t2t(CteScore.#alzTagArg.hPrm);
 		const len = oTds.args ?oTds.args.length : 0;
@@ -432,14 +515,16 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 		:	len === 2 ?'col-2'
 		:	'';
 		return this.#make_tds(
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			oTds.col ?this.#hCn2Col[oTds.col]! :0, line,
 			(oTds.btn_style ?? 'btn-secondary')
-			+ (oTds.args ?` dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false` :''),
+			+ (oTds.args ?' dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false' :''),
 			oTds.icon, oTds.btn_face,
 			oTds.tooltip ?? g.args,
 			oTds.args ?oTds.args.map((v, i)=> {
 				let ret = '';
 				let fo = 'form-outline px-2';
+				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 				const id = `sn-${row}:${i}`;
 				switch (v.type) {
 					case 'bool':
@@ -447,14 +532,14 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 						ret = `
 <div class="form-control ${frm_style}">
 <div class="form-check">
-	<input type="checkbox" id="${id}chk" class="form-check-input" data-nm="${v.name}" value="${v.val}"${chkBoolean(v.val) ?' checked' :''}/>
+	<input type="checkbox" id="${id}chk" class="form-check-input" data-nm="${v.name}" value="${v.val ?? ''}"${chkBoolean(v.val) ?' checked' :''}/>
 	<label class="form-check-label" for="${id}chk">${v.hint ?? v.name}</label>
 </div>
 </div>`;				break;
 
 					case 'textarea':
 						ret = `
-<textarea id="${id}ta" class="form-control" placeholder="${v.hint ?? v.name}を入力" cols="40" rows="2" data-nm="${v.name}">${v.val}</textarea>
+<textarea id="${id}ta" class="form-control" placeholder="${v.hint ?? v.name}を入力" cols="40" rows="2" data-nm="${v.name}">${v.val ?? ''}</textarea>
 <label class="form-label" for="${id}ta">${v.hint ?? v.name}</label>`;
 						break;
 
@@ -463,12 +548,12 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 						ret = `
 <div class="form-control">
 <label class="form-label select-label" for="${id}sel">${v.hint ?? v.name}</label>
-<select class="select" id="${id}sel" data-nm="${v.name}" data-key="${v.key}"${
+<select class="select" id="${id}sel" data-nm="${v.name}" data-key="${v.key ?? ''}"${
 	v.exts ?`data-exts="${v.exts}"` :''
 }${
 	v.filter ?`data-filter="${v.filter}"` :''
 }>
-	<option selected>${v.val}</option>
+	<option selected>${v.val ?? ''}</option>
 	<option>...</option>
 	<option>...</option>
 </select>
@@ -478,14 +563,14 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style}">`, nm: o.nm, val: o.val
 						fo = 'p-0';	// form-outlineを使うとエラー
 						ret = `
 <div class="range form-control">
-	<label class="form-label" for="${id}rng">${v.hint ?? v.name}（${v.min} - ${v.max}）</label>
-	<input type="range" id="${id}rng" data-nm="${v.name}" class="form-range" min=${v.min} max=${v.max} step=${v.step} value="${v.val}"/>
+	<label class="form-label" for="${id}rng">${v.hint ?? v.name}（${v.min ?? ''} - ${v.max ?? ''}）</label>
+	<input type="range" id="${id}rng" data-nm="${v.name}" class="form-range" min=${v.min ?? ''} max=${v.max ?? ''} step=${v.step ?? ''} value="${v.val ?? ''}"/>
 </div>`;				break;
 
 					default:	ret = `
 <input type="${
 v.type === 'num' ?'number' :'text'
-}" id="${id}txf" class="form-control ${frm_style}" data-nm="${v.name}" value="${v.val}"/>
+}" id="${id}txf" class="form-control ${frm_style}" data-nm="${v.name}" value="${v.val ?? ''}"/>
 <label class="form-label" for="${id}txf">${v.hint ?? v.name}</label>`;
 				}
 				return `
@@ -503,8 +588,11 @@ v.type === 'bool' ?' pt-2' :''
 	}
 
 
+	// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 	undefMacro(def_nm: string) {delete this.#hTag2Tds[def_nm];}
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	defMacro(def_nm: string, hPrm: any) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		this.#hTag2Tds[def_nm] = ()=> ({...{
 			icon		: 'icon未指定',
 			btn_face	: 'btn_face未指定',
@@ -528,14 +616,14 @@ v.type === 'bool' ?' pt-2' :''
 		jump		: hPrm=> ({
 			icon		: 'fa-external-link-alt',
 			btn_face	: 'ジャンプ'
-				+ (hPrm.fn?.val ?` ${hPrm.fn?.val}` :'')
-				+ (hPrm.label?.val ?` ${hPrm.label?.val}` :''),
+				+ (hPrm.fn?.val ?` ${hPrm.fn.val}` :'')
+				+ (hPrm.label?.val ?` ${hPrm.label.val}` :''),
 		}),
 		call		: hPrm=> ({
 			icon		: 'fa-exchange-alt',
 			btn_face	: 'コール'
-				+ (hPrm.fn?.val ?` ${hPrm.fn?.val}` :'')
-				+ (hPrm.label?.val ?` ${hPrm.label?.val}` :''),
+				+ (hPrm.fn?.val ?` ${hPrm.fn.val}` :'')
+				+ (hPrm.label?.val ?` ${hPrm.label.val}` :''),
 		}),
 		return		: _=> ({
 			icon		: 'fa-long-arrow-alt-left',
@@ -550,18 +638,18 @@ v.type === 'bool' ?' pt-2' :''
 				}`,
 				icon	: is_grp ?'fa-image' :'fa-align-left',
 				btn_face	: (is_grp ?'画像' :'文字') +'レイヤ追加 '
-					+ hPrm.layer?.val,
+					+ (hPrm.layer?.val ?? ''),
 			};
 		},
 		clear_lay	: hPrm=> ({
 			col			: hPrm.layer?.val ?? 'base',
-			btn_style	: `btn-outline-primary text-white`,
+			btn_style	: 'btn-outline-primary text-white',
 			icon		: 'fa-ban',
 			btn_face	: 'レイヤ設定消去',
 		}),
 		lay			: hPrm=> ({
 			col			: hPrm.layer?.val ?? 'base',
-			btn_style	: `btn-outline-primary text-white`,
+			btn_style	: 'btn-outline-primary text-white',
 			icon		: 'fa-cog',
 			btn_face	: 'レイヤ設定',
 		}),
@@ -587,27 +675,26 @@ v.type === 'bool' ?' pt-2' :''
 		scene_change	: hPrm=> ({
 			col			: 'base',
 			td_style	: 'sn-cmb-'
-				+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg?.val}` :'end'),
+				+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg.val}` :'end'),
 			btn_style	: 'btn-success text-black',
 			icon		: 'fa-door-open',
 			btn_face	: '場面転換'
-				+ (hPrm.rule?.val ?` ${hPrm.rule?.val}ルールで` :'')
+				+ (hPrm.rule?.val ?` ${hPrm.rule.val}ルールで` :'')
 				+ (hPrm.time?.val ?` ${hPrm.time.val}msで` :'')
-				+ (` ${hPrm.bg?.val}へ変更`),
-			//	+ (` ${hPrm.bg?.val}へ変更` ?? '(消去)'),	// なにこれ
+				+ (hPrm.bg ? ` ${hPrm.bg.val}へ変更` :'(消去)'),
 			args		: [
-				{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg\/'},
+				{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg/'},
 				{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},
-				{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule\/'},
+				{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule/'},
 			],
 		}),
 		scene_reserve	: hPrm=> ({
 			col			: hPrm.layer?.val ?? '0',
 			td_style	: 'sn-cmb-'
-				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn?.val}` :'end'),
+				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn.val}` :'end'),
 			btn_style	: 'btn-success btn-rounded text-black',
 			icon		: 'fa-user-ninja',
-			btn_face	: `場面準備 ${hPrm.fn?.val}`,
+			btn_face	: `場面準備 ${hPrm.fn?.val ?? ''}`,
 			args		: [
 				{name: 'layer', type: 'select', val: hPrm.layer?.val ?? '0', hint: '画像レイヤ', key: '画像レイヤ名'},
 				{name: 'fn', type: 'select', val: hPrm.fn?.val ?? '(消去)', hint: '画像名', key: '画像ファイル名'},
@@ -621,16 +708,16 @@ v.type === 'bool' ?' pt-2' :''
 			return {
 				col			: 'base',
 				td_style	: 'sn-cmb-'
-					+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg?.val}` :'end'),
+					+ (hPrm.bg?.val ?`start" data-fn="${hPrm.bg.val}` :'end'),
 				btn_style	: 'btn-success',
 				icon		: 'fa-images',
 				btn_face	: (hPrm.bg?.val ?? '(消去)')
-					+ (hPrm.rule?.val ?` ${hPrm.rule?.val}ルールで` :'')
+					+ (hPrm.rule?.val ?` ${hPrm.rule.val}ルールで` :'')
 					+ (hPrm.time?.val ?` へ変更 ${hPrm.time.val}msで` :''),
 				args		: [
-					{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg\/'},
+					{name: 'bg', type: 'select', val: hPrm.bg?.val ?? '(消去)', hint: '背景の画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'bg/'},
 					{name: 'time', type: 'num', val: hPrm.time?.val ?? '1000', hint: 'かける時間'},
-					{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule\/'},
+					{name: 'rule', type: 'select', val: hPrm.rule?.val ?? '', hint: 'ルール画像名', key: '画像ファイル名', exts: CteScore.#EXTS_PIC, filter: 'rule/'},
 
 					{name: 'l0', type: 'select', val: hPrm.l0?.val ?? '(消去)', hint: 'レイヤ0の画像名', key: '画像ファイル名'},
 					{name: 'f0', type: 'str', val: hPrm.f0?.val ?? '', hint: 'レイヤ0のface属性'},
@@ -653,7 +740,7 @@ v.type === 'bool' ?' pt-2' :''
 		},
 		fg			: hPrm=> ({
 			col			: hPrm.layer?.val ?? '命令',
-			btn_style	: `btn-success`,
+			btn_style	: 'btn-success',
 			icon		: 'fa-image',
 			btn_face	: hPrm.fn?.val ?? '',
 		}),
@@ -662,8 +749,8 @@ v.type === 'bool' ?' pt-2' :''
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-sign-out-alt',
-			btn_face	: (hPrm.text?.val ?`文字ボタン「${hPrm.text?.val}」` :'')
-						+ (hPrm.pic?.val ?`画像ボタン ${hPrm.pic?.val}` :''),
+			btn_face	: (hPrm.text?.val ?`文字ボタン「${hPrm.text.val}」` :'')
+						+ (hPrm.pic?.val ?`画像ボタン ${hPrm.pic.val}` :''),
 		}),
 		enable_event: hPrm=> ({
 			col			: 'mes',
@@ -679,7 +766,7 @@ v.type === 'bool' ?' pt-2' :''
 			btn_face	: 'イベント予約'
 				+ (hPrm.global?.val === 'true' ?'（毎回）' :'（一回だけ）')
 				+ (hPrm.del?.val === 'true' ?'の削除 ' :'')
-				+ hPrm.key?.val,
+				+ (hPrm.key?.val ?? ''),
 		}),
 
 		waitclick	: _=> ({
@@ -716,17 +803,17 @@ v.type === 'bool' ?' pt-2' :''
 		let			: hPrm=> ({
 			btn_style	: 'btn-secondary',
 			icon		: 'fa-calculator',
-			btn_face	: `変数操作 ${hPrm.name?.val}=…`,
+			btn_face	: `変数操作 ${hPrm.name?.val ?? ''}=…`,
 		}),
 
 		bgm			: hPrm=> ({
 			col			: 'BGM',
 			td_style	: 'sn-cmb-'
-				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn?.val}` :'end'),
+				+ (hPrm.fn?.val ?`start" data-fn="${hPrm.fn.val}` :'end'),
 			btn_style	: 'btn-info',
 			icon		: 'fa-play',
 			btn_face	: hPrm.fn?.val ?? '',
-			tooltip		: `fn=${hPrm.fn?.val}`,
+			tooltip		: `fn=${hPrm.fn?.val ?? ''}`,
 		}),
 		stopbgm		: _=> ({
 			col			: 'BGM',
@@ -740,17 +827,17 @@ v.type === 'bool' ?' pt-2' :''
 			td_style	: 'sn-cmb-end',
 			btn_style	: 'btn-outline-info',
 			icon		: 'fa-volume-down',
-			btn_face	: `フェードアウト ${hPrm.time?.val}ms かけて`,
+			btn_face	: `フェードアウト ${hPrm.time?.val ?? ''}ms かけて`,
 		}),
 
 		wait		: hPrm=> ({
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-hourglass-start',
-			btn_face	: `${hPrm.time?.val ?? 0}ms`,
+			btn_face	: `${hPrm.time?.val ?? '0'}ms`,
 			tooltip		: '待機'
-				+ (hPrm.time?.val ?` time=${hPrm.time?.val}ms` :'')
-				+ (hPrm.canskip?.val ?` スキップできるか=${hPrm.canskip?.val}` :''),
+				+ (hPrm.time?.val ?` time=${hPrm.time.val}ms` :'')
+				+ (hPrm.canskip?.val ?` スキップできるか=${hPrm.canskip.val}` :''),
 		}),
 		s			: _=> ({
 			col			: 'mes',
@@ -786,7 +873,7 @@ v.type === 'bool' ?' pt-2' :''
 
 		アルバム解放	: hPrm=> ({
 			icon		: 'fa-th',
-			btn_face	: 'アルバム解放 '+ hPrm.name?.val,
+			btn_face	: 'アルバム解放 '+ (hPrm.name?.val ?? ''),
 			args		: [
 				{name: 'name', type: 'str', val: hPrm.name?.val ?? '', hint: '素材識別名'},
 			],
@@ -809,7 +896,7 @@ v.type === 'bool' ?' pt-2' :''
 	#make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = '', detail = ''): string {
 		return '<td></td>'.repeat(col) +`
 	<td class="p-0 ${td_style}">
-		<button type="button" class="btn btn-block btn-sm ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${line}btn" draggable="true"${
+		<button type="button" class="btn btn-block btn-sm ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${String(line)}btn" draggable="true"${
 			tooltip
 			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
 			:''
@@ -821,7 +908,7 @@ v.type === 'bool' ?' pt-2' :''
 	'<td></td>'.repeat(this.#MAX_COL -col) +`
 	<td class="p-0">${
 		detail || `
-		<button type="button" class="btn btn-block btn-sm px-2 text-start text-lowercase ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${line}detail" draggable="true"${
+		<button type="button" class="btn btn-block btn-sm px-2 text-start text-lowercase ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${String(line)}detail" draggable="true"${
 			tooltip
 			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
 			:''

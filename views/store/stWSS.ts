@@ -7,8 +7,8 @@
 
 import {defineStore} from 'pinia';
 import {ref, toRaw} from 'vue';
-import {DEF_WSS} from '../types';
-import type {T_E2V_NOTICE_COMPONENT, T_V2E_WSS, T_WSS} from '../types';
+import {DEF_WSS} from '../../src/types';
+import type {T_E2V_NOTICE_COMPONENT, T_V2E_oWss, T_WSS} from '../../src/types';
 import {cmd2Ex, on} from './stVSCode';
 
 export const hDisabled = ref({
@@ -27,7 +27,7 @@ export const useWss = defineStore('workspaceState', {
 				if (hDisabled.value['cnv.font.subset']) return;
 				if (hDisabled.value['cnv.mat.pic']) return;
 				if (hDisabled.value['cnv.mat.snd']) return;
-				cmd2Ex(<T_V2E_WSS>{cmd: 'update.oWss', oWss: toRaw(this.oWss)});
+				cmd2Ex(<T_V2E_oWss>{cmd: 'update.oWss', oWss: toRaw(this.oWss)});
 			});
 
 			on('notice.Component', ({id, mode}: T_E2V_NOTICE_COMPONENT)=> {

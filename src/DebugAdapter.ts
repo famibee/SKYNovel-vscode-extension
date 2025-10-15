@@ -5,28 +5,21 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {
-	debug, type WorkspaceFolder, type DebugConfiguration,
-	type DebugAdapterDescriptorFactory, type ProviderResult,
-	type ExtensionContext, DebugAdapterInlineImplementation,	// インライン型アダプタ
-} from 'vscode';
-import {
-	Logger, logger,
-	LoggingDebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint
-} from '@vscode/debugadapter';
-import type {DebugProtocol} from '@vscode/debugprotocol';
-import {basename} from 'path';
-import {Debugger} from './Debugger';
-const {Subject} = require('await-notify');
-
 import {docsel} from './CmnLib';
+import {Debugger} from './Debugger';
+
+import {basename} from 'node:path';
+import type {DebugConfiguration, DebugAdapterDescriptorFactory, ProviderResult, ExtensionContext, WorkspaceFolder} from 'vscode';
+import {debug, DebugAdapterInlineImplementation} from 'vscode';
+import {Breakpoint, BreakpointEvent, Handles, InitializedEvent, LoggingDebugSession, OutputEvent, StoppedEvent, TerminatedEvent, Thread, StackFrame, Scope, Source} from '@vscode/debugadapter';
+import {Logger, logger} from '@vscode/debugadapter';
+import type {DebugProtocol} from '@vscode/debugprotocol';
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void {
 	// デバッグ構成解決【.vscode/launch.json がない場合のデバッグ構成作成初期値】
-	const lng = docsel.language ?? '';
+	const lng = docsel.language || '';
 	debug.registerDebugConfigurationProvider(lng, {
 		provideDebugConfigurations: _=> [
 			{
@@ -85,6 +78,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 					'<node_internals>/**/*.js'
 				],
 				...cfg,
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				env: {SKYNOVEL_DBG: 'on', SKYNOVEL_PORT: cfg.port ?? 3776, ...cfg.env,},
 			};
 		}
@@ -115,7 +109,7 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 	let daii: DebugAdapterInlineImplementation | null = null;
 
 
-function timeout(ms: number) {return new Promise(re=> setTimeout(()=> re(0), ms));}
+// function timeout(ms: number) {return new Promise(re=> setTimeout(()=> re(0), ms));}
 //function timeout(ms: number) {return new Promise(re=> setTimeout(re, ms));}
 
 class DebugAdapter extends LoggingDebugSession {
@@ -125,6 +119,7 @@ class DebugAdapter extends LoggingDebugSession {
 	readonly	#dbg		: Debugger;	// runtime (or debugger)
 
 	// セッションごと【▶（デバッグの開始）や⟲（再起動ボタン）】に生成する
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	constructor(readonly wsFld: WorkspaceFolder, hookTag: (o: any)=> void) {
 		super('sn_debug.txt');
 
@@ -151,7 +146,7 @@ class DebugAdapter extends LoggingDebugSession {
 		this.#dbg.on('breakpointValidated', (bp: DebugProtocol.Breakpoint)=> {
 			this.sendEvent(new BreakpointEvent('changed', bp));
 		});
-		this.#dbg.on('output', (text, filePath, line, column)=> {
+		this.#dbg.on('output', (text: string, filePath: string, line: number, column: number)=> {
 //console.log(`fn:DebugAdapter.ts line:129 dbg -> output`);
 			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
 
@@ -325,8 +320,9 @@ class DebugAdapter extends LoggingDebugSession {
 
 	// コンフィギュレーションシーケンスの最後にコールされる
 	// すべてのブレークポイントなどがDAに送信され、「起動」を開始できることを示す
-	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.#cfgDone.notify();}	// 設定が完了したことを VSCode に通知
-	readonly	#cfgDone = new Subject;	// 設定完了
+	protected override configurationDoneRequest(_res: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.ConfigurationDoneArguments): void {this.#cfgDone()}	// 設定が完了したことを VSCode に通知
+	// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+	readonly #cfgDone = Promise.withResolvers<void>().resolve;
 
 
 //	protected sendErrorResponse(response: DebugProtocol.Response, codeOrMessage: number | DebugProtocol.Message, format?: string, variables?: any, dest?: ErrorDestination): void;
@@ -337,7 +333,7 @@ class DebugAdapter extends LoggingDebugSession {
 //	protected launchRequest(_res: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {}	// 現状使わない
 	protected override attachRequest(res: DebugProtocol.AttachResponse, args: DebugProtocol.AttachRequestArguments): void {
 		logger.setup(Logger.LogLevel.Stop, false);
-		this.#dbg.attach(args as DebugConfiguration);
+		this.#dbg.attach(<DebugConfiguration>args);
 //		res.body = {};
 		this.sendResponse(res);
 	}
@@ -355,8 +351,8 @@ class DebugAdapter extends LoggingDebugSession {
 */
 
 	// （エミュレートではない）再起動
-	protected override async restartRequest(res: DebugProtocol.RestartResponse, _args: DebugProtocol.RestartArguments): Promise<void> {
-		await this.#dbg.restart(res.request_seq);
+	protected override restartRequest(res: DebugProtocol.RestartResponse, _args: DebugProtocol.RestartArguments) {
+		void this.#dbg.restart(res.request_seq);
 //		res.body = {};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
 	}
@@ -381,33 +377,36 @@ class DebugAdapter extends LoggingDebugSession {
 		const a = args.breakpoints ?? [];
 		res.body = {
 			breakpoints: this.#dbg.setBreakPoints(
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				args.source.path!,
 				a.map(o=> <DebugProtocol.SourceBreakpoint>{
 					...o,
 					line: this.convertClientLineToDebugger(o.line),
 				}),
 			)
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			.map((o, i)=> new Breakpoint(o.verified, a[i]!.line, o.col,))
 		};
 		this.sendResponse(res);
 	}
 
 	// 関数ブレークポイント
-	protected override async setFunctionBreakPointsRequest(res: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments, _req?: DebugProtocol.Request): Promise<void> {
+	protected override setFunctionBreakPointsRequest(res: DebugProtocol.SetFunctionBreakpointsResponse, args: DebugProtocol.SetFunctionBreakpointsArguments, _req?: DebugProtocol.Request) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		for (const dbp of args.breakpoints) {
 			a.push(dbp);
 			res.body.breakpoints.push({verified: true,});
 		}
-		await this.#dbg.setFuncBreakpoint(res.request_seq, a);
+		void this.#dbg.setFuncBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);
 	}
 
 //	protected setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments, request?: DebugProtocol.Request): void {}
 
-	protected override restartFrameRequest(res: DebugProtocol.RestartFrameResponse, args: DebugProtocol.RestartFrameArguments, req?: DebugProtocol.Request): void {
+	protected override restartFrameRequest(_res: DebugProtocol.RestartFrameResponse, _args: DebugProtocol.RestartFrameArguments, _req?: DebugProtocol.Request): void {
 //console.log(`fn:DebugAdapter.ts line:386 restartFrameRequest(res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)})`);
 
 // args.frameId: number ... 0〜	SKYNovelでいうスタック深さ
@@ -435,22 +434,24 @@ class DebugAdapter extends LoggingDebugSession {
 
 
 	// スタックトレースビュー
-	protected override async stackTraceRequest(res: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): Promise<void> {
+	protected override stackTraceRequest(res: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments) {
 		const start = typeof args.startFrame === 'number' ?args.startFrame :0;
 		const maxLevels = typeof args.levels === 'number' ?args.levels :1000;
 		const end = start + maxLevels;
-		const stk = await this.#dbg.stack(res.request_seq, start, end);
-		res.body = {	// これによりVSCodeは現在地を知る
-			stackFrames: stk.map((f, i)=> new StackFrame(
-				i,
-				f.nm,
-				this.#createSource(f.fn),
-				this.convertDebuggerLineToClient(f.ln),
-				this.convertDebuggerColumnToClient(f.col),
-			)),
-			totalFrames: stk.length,
-		};
-		this.sendResponse(res);
+		void this.#dbg.stack(res.request_seq, start, end)
+		.then(stk=> {
+			res.body = {	// これによりVSCodeは現在地を知る
+				stackFrames: stk.map((f, i)=> new StackFrame(
+					i,
+					f.nm,
+					this.#createSource(f.fn),
+					this.convertDebuggerLineToClient(f.ln),
+					this.convertDebuggerColumnToClient(f.col),
+				)),
+				totalFrames: stk.length,
+			};
+			this.sendResponse(res);
+		});
 	}
 
 
@@ -482,13 +483,14 @@ class DebugAdapter extends LoggingDebugSession {
 	readonly	#mapCancelationTokens = new Map<number, boolean>;
 	readonly	#mapIsLongrunning	= new Map<number, boolean>;
 	static	readonly	#REG_SN_VAR	= /^(?:const\.)?sn\./;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	#hScope	: {[scope: string]: {[nm: string]: any}}	= {
 		'tmp'	: {},
 		'sys'	: {},
 		'save'	: {},
 		'mp'	: {},
 	};
-	protected override async variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, req?: DebugProtocol.Request): Promise<void> {
+	protected override variablesRequest(res: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, req?: DebugProtocol.Request) {
 		const aVar: DebugProtocol.Variable[] = [];
 //console.log(`fn:DebugAdapter.ts line:325 variablesRequest(res=${JSON.stringify(res, null, 2)}= args=${JSON.stringify(args, null, 2)}= request:${JSON.stringify(request, null, 2)})`);
 		if (this.#mapIsLongrunning.get(args.variablesReference)) {
@@ -496,10 +498,12 @@ class DebugAdapter extends LoggingDebugSession {
 			if (req) this.#mapCancelationTokens.set(req.seq, false);
 
 			for (let i=0; i<100; ++i) {
-				await timeout(1000);
+				// await timeout(1000);		//NOTE: これなに？？
 				aVar.push({
+					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 					name	: `i_${i}`,
 					type	: 'integer',
+					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 					value	: `${i}`,
 					variablesReference	: 0,
 				});
@@ -518,42 +522,53 @@ class DebugAdapter extends LoggingDebugSession {
 					id = id.slice(0, -3);
 				}
 
-				let h: {[nm: string]: any} = {};
-				if (id in this.#hScope) {
-					this.#hScope[id] = h
-					= await this.#dbg.var(res.request_seq, id);
-				}
-				else {	// 構造化された変数（子要素）
-					const a = `${id}:`.split(':', 2);
-					const h2 = this.#hScope[a[0]!];
-					if (h2) {
-						const v2 = h2[a[1]!];
-						if (v2) h = JSON.parse(String(v2));
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				type T_H = {[nm: string]: any};
+				const fnc = id in this.#hScope
+					? this.#dbg.var(res.request_seq, id)
+					: Promise.try(()=> {
+						let h: T_H = {};
+						const a = `${id}:`.split(':', 2);
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						const h2 = this.#hScope[a[0]!];
+						if (h2) {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-non-null-assertion
+							const v2 = h2[a[1]!];
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+							if (v2) h = JSON.parse(String(v2));
+						}
+
+						return h;
+					})
+				;
+				void ((): Promise<T_H>=> fnc)().then(h=> {
+					for (const [key, v2] of Object.entries(h)) {
+						if (DebugAdapter.#REG_SN_VAR.test(key) === tst_sn) continue;
+
+						const v = String(v2);
+						const o: DebugProtocol.Variable = {
+							name	: key,
+							type	: this.#getType(v),
+							value	: v,
+							presentationHint: {
+								kind	: 'property',
+								visibility	: 'public',
+							//	lazy	: true,		// NOTE: 使えるとこで使うべし
+							},
+							variablesReference: 0,	// > 0の場合、変数は構造化されている
+						};
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						if (key.startsWith('const.')) o.presentationHint!.attributes = ['constant'];
+						if (v === '[object Object]') o.value = JSON.stringify(v2);
+						else if (o.type === 'object' || o.type === 'array')
+						this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
+						= this.#hdlsVar.create(`${id}:${key}`);
+
+						aVar.push(o);
 					}
-				}
-				for (const [key, v2] of Object.entries(h)) {
-					if (DebugAdapter.#REG_SN_VAR.test(key) === tst_sn) continue;
+				});
 
-					const v = String(v2);
-					const o: DebugProtocol.Variable = {
-						name	: key,
-						type	: this.#getType(v),
-						value	: v,
-						presentationHint: {
-							kind	: 'property',
-							visibility	: 'public',
-						//	lazy	: true,		// NOTE: 使えるとこで使うべし
-						},
-						variablesReference: 0,	// > 0の場合、変数は構造化されている
-					};
-					if (key.startsWith('const.')) o.presentationHint!.attributes = ['constant'];
-					if (v === '[object Object]') o.value = JSON.stringify(v2);
-					else if (o.type === 'object' || o.type === 'array')
-					this.#hNm2HdlNm[`${id}:${key}`] = o.variablesReference
-					= this.#hdlsVar.create(`${id}:${key}`);
 
-					aVar.push(o);
-				}
 /*
 				// cancelation support for long running requests
 				const nm = id + '_long_running';
@@ -615,8 +630,8 @@ class DebugAdapter extends LoggingDebugSession {
 	}
 
 	// 変数値変更
-	protected override async setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request): Promise<void> {
-		await this.#dbg.setVariable(res.request_seq, args.name, args.value);
+	protected override setVariableRequest(res: DebugProtocol.SetVariableResponse, args: DebugProtocol.SetVariableArguments, _req?: DebugProtocol.Request) {
+		void this.#dbg.setVariable(res.request_seq, args.name, args.value);
 		res.body = {value: args.value,};
 		this.sendResponse(res);	// この変更はウォッチ式にも反映される
 	}
@@ -654,14 +669,14 @@ class DebugAdapter extends LoggingDebugSession {
 		this.sendResponse(res);
 	}
 
-	protected override async evaluateRequest(res: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
+	protected override evaluateRequest(res: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
 		switch (args.context) {
-			case 'hover':
+			case 'hover':{
 				// 変数の値を表示
 				const v = this.#getVar(args.expression);	// 評価する式
 				if (! v.exist) {
 					res.body = {
-						result: `変数 ${v.fullnm} はありません`,
+						result: `変数 ${v.fullnm ?? '?'} はありません`,
 						variablesReference: 0,
 					};
 					break;
@@ -669,8 +684,8 @@ class DebugAdapter extends LoggingDebugSession {
 
 				const hdlnm = this.#hNm2HdlNm[v.fullnm ?? ''];
 				res.body = {
-					result: `変数（${v.fullnm}）の値${
-						hdlnm ?'' :`【${ v.ret }】`
+					result: `変数（${v.fullnm ?? '?'}）の値${
+						hdlnm ?'' :`【${ String(v.ret) }】`
 					}`,
 					presentationHint: {
 						kind: 'property', visibility: 'public',
@@ -678,26 +693,29 @@ class DebugAdapter extends LoggingDebugSession {
 					},
 					variablesReference: hdlnm ?? 0,	// > 0の場合、評価結果は構造化
 				};
+			}	break;
+
+			case 'watch':
+				void this.#dbg.eval(res.request_seq, args.expression)
+				.then(v=> {
+					if (v) res.body = {
+						result: v,
+						presentationHint: {kind: 'formula', visibility: 'public',},
+						variablesReference: 0,
+					};
+					else res.body = {result: '【null】', variablesReference: 0,};
+				});
 				break;
 
-			case 'watch':{
-				const v = await this.#dbg.eval(res.request_seq, args.expression);
-				if (v) res.body = {
-					result: v,
-					presentationHint: {kind: 'formula', visibility: 'public',},
+			case 'repl':
+				void this.#dbg.eval(res.request_seq, args.expression)
+				.then(v=> res.body = {
+					result: v ?`=${v}` :'【null】',
 					variablesReference: 0,
-				};
-				else res.body = {result: `【null】`, variablesReference: 0,};
-			}	break;
+				});
 
-			case 'repl':{
-				const v = await this.#dbg.eval(res.request_seq, args.expression);
-				res.body = {
-					result: v ?`=${v}` :`【null】`,
-					variablesReference: 0,
-			};
 //console.log(`fn:DebugAdapter.ts line:622 exp:${args.expression} v:${v} type:${res.body.type}`);
-			}	break;
+				break;
 /*
 				let reply: string | undefined = undefined;
 				// 'evaluate' は 'repl' からのブレークポイントの作成と削除をサポート
@@ -749,9 +767,11 @@ class DebugAdapter extends LoggingDebugSession {
 
 		this.sendResponse(res);
 	}
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	#getVar(txt: string): {exist: boolean, ret?: any, fullnm?: string, const?: boolean,} {
 		const a = `${txt}:`.split(':', 2);
 		const scope = (a[1] === '') ?'tmp' :a[0];
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const nm = (a[1] === '') ?a[0]! :a[1]!;
 		switch (scope) {
 			case 'tmp':
@@ -761,8 +781,10 @@ class DebugAdapter extends LoggingDebugSession {
 			default: return {exist: false};
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const h = this.#hScope[scope]!;
 		return (nm in h)
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: nm.startsWith('const.')}
 			: {exist: false,fullnm: `${scope}:${nm}`};
 	}
@@ -827,8 +849,10 @@ class DebugAdapter extends LoggingDebugSession {
 		if (args.variablesReference && args.name) {
 			const v = this.#getVar(args.name);
 			if (v.exist) res.body = {
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				dataId: v.fullnm!,
-				description: `変数値変更：${v.fullnm}`,
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				description: `変数値変更：${v.fullnm!}`,
 			//	accessTypes: ['readWrite'],	// 'read'|'write'|'readWrite'
 					// readWriteは【値がアクセスされたときに中断】でしか設定できず、
 					// 【参照されたときに】という「read時のみ」なブレークができない。
@@ -846,7 +870,8 @@ class DebugAdapter extends LoggingDebugSession {
 
 	// データブレークポイントをデバッガーへ
 	// NOTE: これのみ、フォルダ開き時にブレークポイント情報再送が行われない挙動
-	protected override async setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): Promise<void> {
+	protected override setDataBreakpointsRequest(res: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const a: any[] = [];
 		res.body = {breakpoints: []};
 		for (const dbp of args.breakpoints) {
@@ -855,7 +880,7 @@ class DebugAdapter extends LoggingDebugSession {
 		}
 		// 現状設定されたすべてのデータブレークポイント群を渡す。削除時も同様
 		// チェックボックスOFFは削除扱い
-		await this.#dbg.setDataBreakpoint(res.request_seq, a);
+		void this.#dbg.setDataBreakpoint(res.request_seq, a);
 
 		this.sendResponse(res);
 	}
@@ -893,7 +918,7 @@ class DebugAdapter extends LoggingDebugSession {
 
 //	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments, request?: DebugProtocol.Request): void;
 
-	protected override loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, args: DebugProtocol.LoadedSourcesArguments, req?: DebugProtocol.Request): void {
+	protected override loadedSourcesRequest(res: DebugProtocol.LoadedSourcesResponse, _args: DebugProtocol.LoadedSourcesArguments, _req?: DebugProtocol.Request): void {
 //console.log(`fn:DebugAdapter.ts line:741 loadedSourcesRequest() res:${JSON.stringify(res)} args:${JSON.stringify(args)} req:${JSON.stringify(req)}`);
 
 

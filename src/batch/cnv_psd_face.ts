@@ -5,128 +5,42 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , src='', path_prj] = process.argv;
+import type {T_BJ_Psd2Layer} from '../types';
 
-import * as T_PSD from 'psd';	// type
-import PSD from 'psd.js';	// lib
 import sharp from 'sharp';
 sharp.cache(false);
 
-import {mkdtempSync} from 'node:fs';
-import {ensureFileSync, remove, outputFile} from 'fs-extra/esm';
-import {basename, extname} from 'node:path';
-import {styleText} from 'node:util';
 import {fileURLToPath} from 'node:url';
+import {styleText} from 'node:util';
+import {readJson, writeJsonSync} from 'fs-extra/esm';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = import.meta.dirname;
-const fn_scr = __filename.slice(__dirname.length +1, -3);
-const pathTmp = mkdtempSync(`/tmp/${fn_scr}-`);
+const fnBJ = __filename +'on';
+const PATH_PRJ = process.cwd() +'/doc/prj/';
 
-function getFn(path: string) {return basename(path, extname(path))};
+function exit(mes: string, exit_code = 0) {
+	if (exit_code === 0)
+		console.log(styleText(['bgGreen', 'black'], '  [OK] %o'), mes);
+	else console.log(styleText(['bgRed', 'white'], '  [ERR] %o'), mes);
 
-function genPsd2Layer(fld: string, {name, left, top, width, height, layer}: T_PSD.Node.Layer, is_canvas_size: boolean, aP: Promise<void>[], cvsW: number, cvsH: number) {
-	const fn = fld +'_'+ name.replaceAll(REG_NG_PSD_LAYNM, '#');	// ファイル名的にアカン文字を置換
-	const path_out = `${path_prj}face/${fn}.png`;
-	const bm = layer.blendingMode();
-	const ret = `${
-		is_canvas_size ?';' :''
-	}\t[add_face name=${fn} dx=${left} dy=${top}${
-		bm === 'normal' ?'' :` blendmode=${bm}`
-	}]\n`;
-//console.log(`fn:cnv_psd_face.ts lay ${name} (${left}, ${top}, ${width}, ${height}) is_canvas_size:${is_canvas_size} .. ${ret}`);
-
-	if (! is_canvas_size) {
-		const sap = async ()=> {
-			console.log(styleText(['blueBright'], `fn:cnv_psd_face.ts f canvas(${cvsW},${cvsH}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`));
-
-			await layer.image.saveAsPng(path_out);
-		};
-		aP.push(sap());
-		// aP.push(layer.image.saveAsPng(path_out));
-		return ret;
-	}
-
-	// tmp に出力 -> キャンバス拡大してprj下へ
-	const fnTmp = `${pathTmp}/${fn}.png`;
-	const sap = async ()=> {
-		console.log(styleText(['blueBright'], `fn:cnv_psd_face.ts b canvas(${cvsW},${cvsH}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`));
-// console.log(`fn:cnv_psd_face.ts  == L:${left} R:${cvsW -left -width} T:${top} B:${cvsH -top -height}`);
-		try {
-			await layer.image.saveAsPng(fnTmp);
-
-			await sharp(fnTmp)	// sharp が fnTmp を掴むため temp を使う
-			.extend({
-				left,
-				right	: cvsW -left -width,
-				top,
-				bottom	: cvsH -top -height,
-				background	: {r: 0, g: 0, b: 0, alpha: 0},
-			})
-			.toFile(path_out);
-		} catch (e) {
-			console.log(styleText(['bgYellow', 'white'], `  extend(left:${left}, right:${cvsW -left -width}, top:${top}, bottom:${cvsH -top -height})`));
-			console.log(styleText(['bgYellow', 'white'], `  PSD が異常です`+ (
-				left < 0 || cvsW -left -width < 0 ||
-				top < 0 || cvsH -top -height < 0
-			) ?'。レイヤがキャンバスからはみ出ています。レイヤを動かすかトリミングしてください' :''));
-			console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
-		}
-	};
-	aP.push(sap());
-
-	return ret;
+	process.exit(exit_code);
 }
-	const REG_NG_PSD_LAYNM	= /[\\\/:*?"<>|\.\s]/g;
 
 
-const aP: Promise<void>[] = [];
-//for (const uri of aUri) this.#genPsd2Face(uri, aP);
-PSD.open(src).then((psd: T_PSD)=> {
-	const t = psd.tree();
-	const {document: {width, height}} = t.export();
-	const hn = getFn(src);
-	let out = `;#ED FACE
-; *******************************************************
-;#ED {"width":${width}, "height":${height}}
-`;
-	const a = t.descendants(); // =lay+grp に注意
-	const len = a.length;
-	let idxLast = len;
-	// 末尾のフォルダかレイヤ群を「is_canvas_size」とする
-	while (0 <= --idxLast) {
-		const {type, parent} = a[idxLast]!;
-		if (type === 'group' || parent.isRoot()) break;
+readJson(fnBJ, {encoding: 'utf8'})
+.then(async (oBJ: T_BJ_Psd2Layer)=> {try {
+	function log_exit(mes: string, exit_code = 0) {
+		writeJsonSync(fnBJ, oBJ, {encoding: 'utf8'});
+		exit(mes, exit_code);
 	}
 
-	let nm = '';
-	for (let i=0; i<len; ++i) {
-		const nc = a[i]!;
-		const {type, name, parent} = nc;
-		if (type === 'group') {
-			out += `;#ED FACE_FOLDER ${name}\n`;
-			nm = '_'+ name;
-			continue;
-		}
+	await Promise.allSettled(oBJ.aOrder.map(({fp_tmp, extend, pp_out})=>
+		sharp(fp_tmp)
+		.extend(extend)
+		.toFile(PATH_PRJ + pp_out)
+	));
 
-		if (parent.isRoot()) {
-			if (nm !== '') out += `;#ED FACE_FOLDER /\n`;
-			nm = '';
-		}
-		out += genPsd2Layer(hn + nm, nc, idxLast <= i, aP, width, height);
-	}
+	log_exit('終了しました');
 
-	out += `
-; *******************************************************
-
-[return]\n`;
-
-	const fnOut = path_prj +`face/face${hn}.sn`;
-	ensureFileSync(fnOut);	// 作業フォルダ作りも兼ねる
-	aP.push(outputFile(fnOut, out, 'utf8'))
-	Promise.allSettled(aP).then(async ()=> {
-		await remove(pathTmp);
-		console.log(styleText(['bgGreen', 'black'], `fn:cnv_psd_face.ts ok.`));
-		process.exit(0);
-	});
-});
+} catch (e) {exit(oBJ.err = String(e), 20)}})
+.catch((e: unknown)=> {exit(String(e), 10)});

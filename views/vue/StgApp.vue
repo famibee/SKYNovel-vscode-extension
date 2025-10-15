@@ -57,7 +57,7 @@ import {storeToRefs} from 'pinia';
 import {useField} from 'vee-validate';
 import * as yup from 'yup';
 import {on} from '../store/stVSCode';
-import type {T_CFG} from '../types';
+import type {T_CFG} from '../../src/types';
 
 const stCfg = useCfg();
 const {oCfg} = storeToRefs(stCfg);
@@ -121,7 +121,7 @@ const {value: v_bg_color} = useField<string>(
 );
 
 
-on('init', ()=> {	// useField()の後に初期値を更新したいので
+on('init.Vue', ()=> {	// useField()の後に初期値を更新したいので
 	const o: T_CFG = oCfg.value;
 	v_width.value = o.window!.width;
 	v_height.value = o.window!.height;

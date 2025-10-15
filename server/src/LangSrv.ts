@@ -5,16 +5,32 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import type {T_ALL_L2S} from './LspWs';
 import {LspWs} from './LspWs';
+import {FULL_PATH, fullSchPath2fp, REQ_ID} from '../../src/CmnLib';
 
 import {
 	CodeActionKind,
 	createConnection,
 	DidChangeConfigurationNotification,
 	ProposedFeatures,
+	TextDocumentIdentifier,
 	TextDocuments,
 	TextDocumentSyncKind} from 'vscode-languageserver/node';
 import {TextDocument} from 'vscode-languageserver-textdocument';
+
+
+export type T_MES_L2S = T_ALL_L2S & {
+	pathWs	: string;
+};
+
+function getLspWs(tdi: TextDocumentIdentifier): LspWs | undefined {
+	const fp = fullSchPath2fp(tdi.uri);		// 'file://'外し
+	const pathWs = [...mLspWs.keys()].find(wsFld=> fp.startsWith(wsFld));
+	if (! pathWs) return undefined;
+
+	return mLspWs.get(pathWs);
+}
 
 
 const conn = createConnection(ProposedFeatures.all);
@@ -22,7 +38,7 @@ const conn = createConnection(ProposedFeatures.all);
 	console.error = (...args)=> conn.console.error(String(args));
 		// 拡張機能ホストの[出力]-[SKYNovel Language Server]に出る
 	process.on('unhandledRejection', e=> {
-		conn.console.error(`Unhandled exception ${e}`);
+		conn.console.error(`Unhandled exception ${String(e)}`);
 	});
 
 const docs = new TextDocuments(TextDocument);
@@ -30,7 +46,8 @@ const docs = new TextDocuments(TextDocument);
 let hasCfgCap = false;
 let hasDiagRelatedInfCap = false;
 
-let aLspWs: LspWs[]	= [];
+const mLspWs = new Map<FULL_PATH, LspWs>();
+
 
 conn.onInitialize(prm=> {
 	const cap = prm.capabilities;
@@ -44,44 +61,42 @@ conn.onInitialize(prm=> {
 
 	conn.onInitialized(()=> {
 		// すべての構成変更を登録
-		if (hasCfgCap) conn.client.register(DidChangeConfigurationNotification.type, undefined);
+		if (hasCfgCap) void conn.client.register(DidChangeConfigurationNotification.type, undefined);
 
 		// vsix デバッグ用（【出力】-【ログ（ウインドウ）】にも出す）
 		console.log = (...args)=> {
 			const txt = String(args);
 			conn.console.log(txt);
-			conn.sendRequest(LspWs.REQ_ID, {cmd: 'log', txt});
+			void conn.sendRequest(REQ_ID, {cmd: 'log', txt});
 		};
 		console.error = (...args)=> {
 			const txt = String(args);
 			conn.console.error(txt);
-			conn.sendRequest(LspWs.REQ_ID, {cmd: 'error', txt});
+			void conn.sendRequest(REQ_ID, {cmd: 'error', txt});
 		};
 
-		conn.onRequest(LspWs.REQ_ID, hd=> {
-			for (const wf of aLspWs) wf.onRequest(hd);
-		});
+		// クライアントからの受信
+		conn.onRequest(REQ_ID, (ls: T_MES_L2S)=> mLspWs.get(ls.pathWs)?.onRequest(ls));
 
-		// === コード内に挿入して表示するインレイヒント ===
-		if (inlayHintSupport) conn.languages.inlayHint.on(prm=> {
-			for (const wf of aLspWs) {
-				const ret = wf.onInlayHint(prm);
-				if (ret) return ret;
-			}
-
-			return null;
-		});
+		// コード内に挿入して表示するインレイヒント
+		if (inlayHintSupport) conn.languages.inlayHint
+		.on(prm=> getLspWs(prm.textDocument)?.onInlayHint(prm));
 
 		// 起動時のワークスペースのフォルダに対し管理オブジェクトを生成
-		aLspWs = (prm.workspaceFolders ?? []).map(wf=> new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
+		mLspWs.clear();
+		for (const wf of prm.workspaceFolders ?? []) mLspWs.set(
+			fullSchPath2fp(wf.uri),
+			new LspWs(wf, conn, docs, hasDiagRelatedInfCap),
+		);
+
+		// aLspWs = (prm.workspaceFolders ?? []).map(wf=> new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
 		// ワークスペースのフォルダ数変化
 		if (hasWsFldCap) conn.workspace.onDidChangeWorkspaceFolders(e=> {
-			for (const {uri} of e.removed) {
-				aLspWs = aLspWs.filter(wf=> wf.destroy(uri));
-			}
-			for (const wf of e.added) {
-				aLspWs.push(new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
-			}
+			for (const {uri} of e.removed) mLspWs.delete(uri);
+			for (const wf of e.added) mLspWs.set(
+				fullSchPath2fp(wf.uri),
+				new LspWs(wf, conn, docs, hasDiagRelatedInfCap),
+			);
 		});
 	});
 
@@ -95,7 +110,7 @@ conn.onInitialize(prm=> {
 				resolveProvider		: true,
 				triggerCharacters	: ['[', ' ', '='],
 			},
-		///	hoverProvider	: true,		// 識別子上にマウスホバーしたとき表示するヒント
+		//	hoverProvider	: true,		// 識別子上にマウスホバーしたとき表示するヒント
 			// client側で行うこととする
 
 			signatureHelpProvider: {	// 引数の説明
@@ -160,7 +175,7 @@ conn.onInitialize(prm=> {
 		//	semanticTokensProvider?: SemanticTokensOptions | SemanticTokensRegistrationOptions;
 			// Semantic Tokens｜Language Server Protocol に対応したミニ言語処理系を作る https://zenn.dev/takl/books/0fe11c6e177223/viewer/d2d307
 			// Semantic Highlight Guide | Visual Studio Code Extension API https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide
-			// NOTE: 色づけ、LSPでやったほうが軽い？　優先順位低いが
+			// NOTE: 色づけ、LSPでやったほうが軽い？ 優先順位低いが
 
 		//	monikerProvider?: boolean | MonikerOptions | MonikerRegistrationOptions;
 
@@ -223,11 +238,13 @@ conn.onHover(prm=> {
 // === コード補完機能 ===
 //	// 自動補完（初期リストを返すハンドラー）
 conn.onCompletion(prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onCompletion(prm);
-		if (ret) {wfCompletioning = wf; return ret;}
-	}
-	return [];
+	const wf = getLspWs(prm.textDocument);
+	if (! wf) return undefined;
+
+	const aCi = wf.onCompletion(prm);
+	if (aCi) {wfCompletioning = wf; return aCi;}
+
+	return undefined;
 });
 let wfCompletioning: LspWs;
 //	// 自動補完候補の選択（補完リストで選択された項目の追加情報を解決するハンドラー）
@@ -235,65 +252,29 @@ conn.onCompletionResolve(ci=> wfCompletioning.onCompletionResolve(ci));
 
 
 // === 引数の説明 ===
-conn.onSignatureHelp(prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onSignatureHelp(prm);
-		if (ret) return ret;
-	}
-	return null;
-});
+conn.onSignatureHelp(prm=> getLspWs(prm.textDocument)?.onSignatureHelp(prm));
 
 
 // === 定義へ移動、定義をここに表示 ===
-conn.onDefinition((prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onDefinition(prm);
-		if (ret) return ret;
-	}
-	return null;
-}));
+conn.onDefinition((prm=> getLspWs(prm.textDocument)?.onDefinition(prm)));
 
 // === 参照へ移動、参照をここに表示 ===
-conn.onReferences((prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onReferences(prm);
-		if (ret) return ret;
-	}
-	return null;
-}));
+conn.onReferences((prm=> getLspWs(prm.textDocument)?.onReferences(prm)));
 
 
 //conn.onWorkspaceSymbol
 
 // === ドキュメントアウトライン ===
-conn.onDocumentSymbol((prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onDocumentSymbol(prm);
-		if (ret) return ret;
-	}
-	return null;
-}));
+conn.onDocumentSymbol((prm=> getLspWs(prm.textDocument)?.onDocumentSymbol(prm)));
 
 
 // === コードアクション ===
-conn.onCodeAction((prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onCodeAction(prm);
-		if (ret) return ret;
-	}
-	return null;
-}));
+conn.onCodeAction((prm=> getLspWs(prm.textDocument)?.onCodeAction(prm)));
 
 
 // === リンク ===
-conn.onDocumentLinks((prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onDocumentLinks(prm);
-		if (ret) return ret;
-//		if (ret) {wfDocumentLinks = wf; return ret;}
-	}
-	return null;
-}));
+conn.onDocumentLinks((prm=> getLspWs(prm.textDocument)?.onDocumentLinks(prm)));
+	// if (wf) wfDocumentLinks = wf;
 /*
 	let wfDocumentLinks: LspWs;
 	conn.onDocumentLinkResolve(prm=> {
@@ -305,40 +286,33 @@ conn.onDocumentLinks((prm=> {
 
 
 // === シンボルの名前変更・準備 ===
-conn.onPrepareRename(prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onPrepareRename(prm);
-		if (ret) return ret;
-	}
-	return null;
-});
+conn.onPrepareRename(prm=> getLspWs(prm.textDocument)?.onPrepareRename(prm));
 // === シンボルの名前変更 ===
-conn.onRenameRequest(prm=> {
-	for (const wf of aLspWs) {
-		const ret = wf.onRenameRequest(prm);
-		if (ret) return ret;
-	}
-	return null;
+conn.onRenameRequest(prm=> getLspWs(prm.textDocument)?.onRenameRequest(prm));
+
+
+conn.onShutdown(()=> {
+	mLspWs.forEach(wf=> wf.destroy());
+	mLspWs.clear();
 });
-
-
-conn.onShutdown(()=> {for (const wf of aLspWs) wf.destroy(); aLspWs = [];});
 
 
 // === ファイル開きイベント（ファイルを開いたときにも） ===
 const hDocThrowOpCl: {[uri: string]: 0} = {};
-docs.onDidOpen(e=> {	// 開いた時のみのイベントにする
-	const {uri} = e.document;
+docs.onDidOpen(prm=> {	// 開いた時のみのイベントにする
+	const {uri} = prm.document;
 	hDocThrowOpCl[uri] = 0;
-	for (const wf of aLspWs) wf.onDidOpen(e);
+
+	return getLspWs(prm.document)?.onDidOpen(prm);
 });
 
 // === ファイル変更イベント（手入力が対象） ===
-docs.onDidChangeContent(e=> {	// 変更時のみのイベントにする
-	const {uri} = e.document;
+docs.onDidChangeContent(prm=> {	// 変更時のみのイベントにする
+	const {uri} = prm.document;
+	// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 	if (uri in hDocThrowOpCl) {delete hDocThrowOpCl[uri]; return;}
 
-	for (const wf of aLspWs) wf.onDidChangeContent(e);
+	getLspWs(prm.document)?.onDidChangeContent(prm);
 });
 
 // === ファイル保存前イベント ===
@@ -350,6 +324,7 @@ docs.onDidChangeContent(e=> {	// 変更時のみのイベントにする
 // });
 
 // === ファイル閉じイベント
+// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 docs.onDidClose(({document: {uri}})=> delete hDocThrowOpCl[uri]);
 
 

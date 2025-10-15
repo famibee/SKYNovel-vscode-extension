@@ -5,356 +5,66 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-const [, , modeInp='', quality, curPrj='', curPrjBase=''] = process.argv;
+import type {T_BJ_OPTPIC, T_OPTPIC_FILE} from '../types';
 
 import sharp from 'sharp';
 sharp.cache(false);
 
-import {resolve, parse, basename} from 'node:path';
-import {styleText} from 'node:util';
-import {existsSync, statSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {mkdirs, move, readJsonSync, remove, writeJsonSync} from 'fs-extra/esm';
 import {fileURLToPath} from 'node:url';
-
-import type {T_OPTPIC, T_OPTPIC_FILE} from '../../views/types';
+import {parse, basename} from 'node:path';
+import {styleText} from 'node:util';
+import {statSync} from 'node:fs';
+import {move, readJson, writeJsonSync} from 'fs-extra/esm';
 
 const __filename = fileURLToPath(import.meta.url);
+const fnBJ = __filename +'on';
+const PATH_PRJ = process.cwd();
 
-const REG_SYS_FN = /^.+\/(_notes|Icon\r|\.[^\/]+|[^\/]+\.(db|ini|git))$/;
-async function foldProc(wd: string, fnc: (url: string, nm: string)=> void, fncFld: (nm: string)=> Promise<void>) {
-	for (const d of readdirSync(wd, {withFileTypes: true})) {
-		const nm = String(d.name).normalize('NFC');
-		if (REG_SYS_FN.test(nm)) continue;
-		if (d.isDirectory()) {await fncFld(nm); continue;}
+function exit(mes: string, exit_code = 0) {
+	if (exit_code === 0)
+	   console.log(styleText(['bgGreen', 'black'], '  [OK] %o'), mes);
+	else console.log(styleText(['bgRed', 'white'], '  [ERR] %o'), mes);
 
-		const fp = resolve(wd, nm);
-		fnc(fp, nm);
-	}
-}
-function replaceFile(src: string, r: RegExp, rep: string, verbose = true, dest = src) {
-	try {
-		if (! existsSync(src)) {
-			console.error(`No change, No replace src:${src}`);
-			return;
-		}
-
-		const txt = readFileSync(src, {encoding: 'utf8'});
-		const ret = String(txt.replace(r, rep));
-		if (txt !== ret) writeFileSync(dest, ret);
-		else if (verbose) console.log(styleText('magentaBright', `replaceFile fail by same:${src}`));
-	}
-	catch (err) {
-		console.error(`replaceFile src:${src} ${err}`);
-	}
-}
-
-export function chkUpdate(path1: string, path2: string, doesnt_exist = true): boolean {
-	// Node jsで始めるfilesystem3 | https://kawano-shuji.com/justdiary/2020/08/09/node-js%E3%81%A7%E5%A7%8B%E3%82%81%E3%82%8Bfilesystem3/
-	if (! existsSync(path1)) console.error(`chkUpdate err path1=${path1}=`);
-	if (! existsSync(path2)) return doesnt_exist;
-
-	const s1 = statSync(path1, {bigint: true});
-	const s2 = statSync(path2, {bigint: true});
-	return s1.mtimeMs > s2.mtimeMs;
+	process.exit(exit_code);
 }
 
 
-const REG_EXT_ORG	= /\.(jpe?g|png)$/;
-// (jpe?g|png|svg|webp|mp3|m4a|ogg|aac|flac|wav|mp4|webm|ogv)
-const REG_EXT_HTML	= /\.(htm|html)$/;
-const REG_REP_WEBPFLAG	= /\w+\/\*WEBP\*\//g;
-const REG_EXT_JSON	= /\.json$/;
-
-const REG_REP_JSON_CNV	= /("image"\s*:\s*")([^.]+(?:\.\d+x\d+)?).*\.(jpe?g|png)"/;
-const DEST_REP_JSON_CNV	= '$1$2.webp","image_bkup":"$2.$3"';
-	// https://regex101.com/r/Vd8HQp/1	テスト用に /g をつけている
-
-const REG_REP_JSON_RESTORE	= /webp","image_bkup":".+(jpe?g|png)"/;
-const DEST_REP_JSON_RESTORE	= '$1"';
-	// https://regex101.com/r/7dqoPZ/1	テスト用に /g をつけている
-
-
-const fnLog = __filename +'on';
-let oLog: T_OPTPIC = {
-	sum: {
-		baseSize		: 0,
-		webpSize		: 0,
-		pathPicCmpWebP	: '',
-		pathPicCmpBase	: '',
-	},
-	hSize	: {},
-};
-const log_enter = ()=> {
-	if (! existsSync(fnLog)) return;
-
-	// 元素材がなければログ削除
-	const o = {...oLog};
-	oLog = readJsonSync(fnLog, {encoding: 'utf8'});
-	o.sum = {...oLog.sum};
-	for (const name in oLog.hSize) {
-		const {fld_nm, ext, baseSize, webpSize} = oLog.hSize[name]!;
-		const pp = fld_nm + '.'+ ext;
-		if (existsSync(resolve(curPrj, pp))
-		|| existsSync(resolve(curPrjBase, pp))) o.hSize[name] = oLog.hSize[name]!;
-		else {
-			o.sum.baseSize -= baseSize;
-			o.sum.webpSize -= webpSize;
-		}
+readJson(fnBJ, {encoding: 'utf8'})
+.then(async (oBJ: T_BJ_OPTPIC)=> {try {
+	function log_exit(mes: string, exit_code = 0) {
+		writeJsonSync(fnBJ, oBJ, {encoding: 'utf8'});
+		exit(mes, exit_code);
 	}
-	oLog = o;
-};
-const log_exit = (exit_code = -1)=> {
-	const a = Object.entries(oLog.hSize)
-	.sort(([k1], [k2])=> {
-		const n1 = k1.toUpperCase();
-		const n2 = k2.toUpperCase();
-		if (n1 < n2) return -1;
-		if (n1 > n2) return 1;
-		return 0;
-	});
-	oLog.hSize = Object.fromEntries(a);
 
-	writeJsonSync(fnLog, oLog, {encoding: 'utf8'});
-	if (exit_code > -1) process.exit(exit_code);
-}
+	const {quality, FLD_PRJ_BASE} = oBJ.order;
+	await Promise.allSettled(oBJ.aOrder.map(async ({
+		pathPrj,
+		pathBase,
+	})=> {
+		const src = PATH_PRJ +'/doc/prj/'+ pathPrj;
+		const dest = PATH_PRJ +'/'+ FLD_PRJ_BASE + pathBase;
 
+		// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
+		const {dir, name} = parse(src);
+		const {dir: dirBase, ext} = parse(dest);
+		const pathWk = dirBase +'/'+ name +'.webp';
+		const fi = oBJ.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: ''};
 
-import PQueue from 'p-queue';
-const queue = new PQueue({concurrency: 50, autoStart: false});
-let start_cnt = 0;
-const go = async ()=> {
-	start_cnt = queue.size;
-	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_pic.ts start: ${start_cnt} tasks`));
-
-	await queue.start().onIdle();
-	log_exit(0);
-};
-let cnt = ()=> {
-	const s = queue.size;
-	if (s % 50 > 0) return;
-	if (s === 0) {cnt = ()=> {}; return;}
-
-	console.log(styleText(['bgGreen', 'black'], `fn:cnv_mat_pic.ts ${s}/${start_cnt} tasks`));
-};
-
-
-/**
- * 
- * @param {string} pathPrj	退避元パス (jpe?g|png)
- * @param {string} pathBase	退避先パス (jpe?g|png)
- * @param {boolean} do_move	退避moveするか
- * @returns {void} 返り値
- */
-async function cnv(pathPrj: string, pathBase: string, do_move: boolean = true): Promise<void> {
-	if (do_move) await move(pathPrj, pathBase, {overwrite: true});
-
-	// 退避素材フォルダから元々フォルダに最適化中間ファイル生成
-	const {dir, name} = parse(pathPrj);
-	const {dir: dirBase, ext} = parse(pathBase);
-	const pathWk = dirBase +'/'+ name +'.webp';
-	const fi = oLog.hSize[name] ??= {fld_nm: basename(dir) +'/'+ name, baseSize: 0, webpSize: 0, ext: <any>'',};
-
-	try {
-		const info = await sharp(pathBase)
+		const info = await sharp(dest)
 		//.grayscale()	// TEST
-		.webp({quality: Number(fi.webp_q ?? quality)})
+		.webp({quality: fi.webp_q ?? quality})
 		.toFile(pathWk);	// 一度作業中ファイルは退避先に作る
 
-		const baseSize = statSync(pathBase).size;
+		const baseSize = statSync(dest).size;
 		const webpSize = info.size;
-		oLog.hSize[name] = {...fi, baseSize, webpSize, ext: <any>ext.slice(1),};
-		oLog.sum.baseSize += baseSize;
-		oLog.sum.webpSize += webpSize;
+		oBJ.hSize[name] = {...fi, baseSize, webpSize, ext: <T_OPTPIC_FILE['ext']>ext.slice(1),};
+		oBJ.sum.baseSize += baseSize;
+		oBJ.sum.webpSize += webpSize;
 
 		await move(pathWk, dir +'/'+ name +'.webp', {overwrite: true});
-		cnt();
-	} catch (e) {
-		console.log(styleText(['bgRed', 'white'], `  [ERR] %o`), e);
-	}
-}
+	}));
 
-(async ()=> {
+	log_exit('終了しました');
 
-switch (modeInp) {
-	case 'enable':		// 変換有効化
-		await mkdirs(curPrjBase);
-		await foldProc(curPrj, ()=> {}, async dir=> {
-			const wdBase = resolve(curPrjBase, dir);
-			await mkdirs(wdBase);
-			await foldProc(resolve(curPrj, dir), (url, nm)=> {
-				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(nm)) {
-					queue.add(()=> cnv(url, resolve(wdBase, nm)));
-					return;
-				}
-
-				// htm置換（true/*WEBP*/）
-				if (REG_EXT_HTML.test(nm)) {
-					queue.add(()=> {replaceFile(
-						url,
-						REG_REP_WEBPFLAG,
-						'true/*WEBP*/',
-						false,
-					); cnt();});
-					return;
-				}
-
-				// json置換（アニメpng）
-				if (REG_EXT_JSON.test(nm)) queue.add(()=> {replaceFile(
-					url,
-					REG_REP_JSON_CNV,
-					DEST_REP_JSON_CNV,
-				); cnt();});
-			}, async ()=> {});
-		});
-		break;
-
-	case 'disable':		// 変換無効化
-		await foldProc(curPrjBase, ()=> {}, async dir=> {
-			await foldProc(resolve(curPrjBase, dir), (url, nm)=> {
-				if (! REG_EXT_ORG.test(nm)) return;
-
-				// 対応する素材ファイルが無い場合、削除しないように
-				const urlPrj = resolve(curPrj, dir, nm);
-				queue.add(async ()=> {
-					await move(url, urlPrj, {overwrite: true});
-					cnt();
-				});
-				const {name} = parse(nm);
-				const delDest = resolve(curPrj, dir, name +'.webp');
-				queue.add(async ()=> {await remove(delDest); cnt();});
-			}, async ()=> {});
-		});
-
-		await foldProc(curPrj, ()=> {}, async dir=> {
-			await foldProc(resolve(curPrj, dir), async (url, nm)=> {
-				// htm置換・(true/*WEBP*/)
-				if (REG_EXT_HTML.test(nm)) {
-					REG_REP_WEBPFLAG.lastIndex = 0;	// /gなので必要
-					queue.add(()=> {replaceFile(
-						url,
-						REG_REP_WEBPFLAG,
-						'false/*WEBP*/',
-						false,
-					); cnt();});
-					return;
-				}
-
-				// json置換（アニメpng）
-				if (REG_EXT_JSON.test(nm)) queue.add(()=> {replaceFile(
-					url,
-					REG_REP_JSON_RESTORE,
-					DEST_REP_JSON_RESTORE,
-				); cnt();});
-			}, async ()=> {});
-		});
-		break;
-
-	case 'reconv':		// 再変換
-		// 現状、UI的に「常にエンコーダー同一・パラメータ変更」なので、上書き全変換でよい
-		log_enter();
-		oLog.sum.baseSize = 
-		oLog.sum.webpSize = 0;
-
-		for (const {ext, fld_nm} of Object.values(oLog.hSize)) {
-			queue.add(()=> cnv(
-				resolve(curPrj, fld_nm + '.'+ ext),
-				resolve(curPrjBase, fld_nm + '.'+ ext),
-				false,
-			));
-		}
-		break;
-
-	case 'prj_scan':	// prjフォルダ走査
-		log_enter();
-
-		await mkdirs(curPrjBase);
-		await foldProc(curPrj, ()=> {}, async dir=> {
-			const wdBase = resolve(curPrjBase, dir);
-			await mkdirs(wdBase);
-			await foldProc(resolve(curPrj, dir), (url, nm)=> {
-				// 退避素材フォルダに元素材を移動
-				if (REG_EXT_ORG.test(nm)) {
-					// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
-					const {name} = parse(nm);
-					if (name in oLog.hSize) {
-						const {baseSize=0, webpSize=0} = oLog.hSize[name]!;
-						oLog.sum.baseSize -= baseSize;
-						oLog.sum.webpSize -= webpSize;
-					}
-
-					// 変換
-					queue.add(()=> cnv(url, resolve(wdBase, nm)));
-					return;
-				}
-
-				// htm置換（true/*WEBP*/）
-				if (REG_EXT_HTML.test(nm)) {
-					queue.add(()=> {replaceFile(
-						url,
-						REG_REP_WEBPFLAG,
-						'true/*WEBP*/',
-						false,
-					); cnt();});
-					return;
-				}
-
-				// json置換（アニメpng）
-				if (REG_EXT_JSON.test(nm)) queue.add(()=> {replaceFile(
-					url,
-					REG_REP_JSON_CNV,
-					DEST_REP_JSON_CNV,
-				); cnt();});
-			}, async ()=> {});
-		});
-		break;
-
-	case 'base_scan':	// baseフォルダ走査
-		log_enter();
-
-		await foldProc(curPrjBase, ()=> {}, async dir=> {
-			const wdBase = resolve(curPrjBase, dir);
-			await mkdirs(wdBase);
-			const wdPrj = resolve(curPrj, dir);
-			await foldProc(wdBase, (url, nm)=> {
-				if (! REG_EXT_ORG.test(url)) return;
-
-				const toPath = resolve(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
-				if (! chkUpdate(url, toPath)) return;
-
-				// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
-				const {name} = parse(nm);
-				if (name in oLog.hSize) {
-					const {baseSize=0, webpSize=0} = oLog.hSize[name]!;
-					oLog.sum.baseSize -= baseSize;
-					oLog.sum.webpSize -= webpSize;
-				}
-
-				queue.add(()=> cnv(toPath, url, false));
-			}, async ()=> {});
-		});
-		break;
-
-	default:{		// 現状未使用
-		log_enter();
-
-		const {dir, name, ext} = parse(modeInp);
-		const o: T_OPTPIC_FILE = {
-			...oLog.hSize[name]!,
-			fld_nm	: basename(dir) +'/'+ name,
-			ext		: <any>ext.slice(1),
-		};
-		oLog.sum.baseSize -= o.baseSize;
-		oLog.sum.webpSize -= o.webpSize;
-
-		// 引数は全ファイル走査とは別の意味を持つ
-			// 第一引数（退避元パス）
-			// 第三引数（退避先パス）
-			// 第四引数（moveする/しない）
-		await cnv(modeInp, curPrj, Boolean(curPrjBase));
-	}	break;
-}
-
-await go();
-
-})();
+} catch (e) {exit(String(e), 20)}})
+.catch((e: unknown)=> {exit(String(e), 10)});

@@ -7,9 +7,10 @@
 
 import {getNonce} from './ActivityBar';
 
-import {WebviewViewProvider, ExtensionContext, WebviewView, WebviewViewResolveContext, CancellationToken, Uri, window} from 'vscode';
+import type {WebviewViewProvider, ExtensionContext, WebviewView, WebviewViewResolveContext, CancellationToken} from 'vscode';
+import {Uri, window} from 'vscode';
 
-interface CTG_ACMD {
+type CTG_ACMD = {
 	カテゴリ	: string;
 	要素: {
 		icon	: string;
@@ -19,6 +20,7 @@ interface CTG_ACMD {
 	}[];
 }
 
+
 export class ToolBox implements WebviewViewProvider {
 	static	init(ctx: ExtensionContext): ToolBox {
 		const tl = new ToolBox(ctx);
@@ -26,9 +28,10 @@ export class ToolBox implements WebviewViewProvider {
 		return tl;
 	}
 
-	readonly	#localExtensionResRoots: Uri;
+	readonly	#uriRes: Uri;
 	private	constructor(readonly ctx: ExtensionContext) {
-		this.#localExtensionResRoots = Uri.file(ctx.extensionPath +'/views');
+		this.#uriRes = Uri.file(ctx.extensionPath +'/views');
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 /**/	this.#aCtgACmd0 = this.#aCtgACmd0 ?? [];
 	}
 
@@ -78,18 +81,19 @@ export class ToolBox implements WebviewViewProvider {
 		const wv = wvv.webview;
 		wv.options = {
 			enableScripts: true,
-			localResourceRoots: [this.#localExtensionResRoots],
+			localResourceRoots: [this.#uriRes],
 		};
 		const nonce = getNonce();
-		const uri = wv.asWebviewUri(this.#localExtensionResRoots);
+		const uri = wv.asWebviewUri(this.#uriRes);
+		const {path} = uri;
 		wv.html = `<!doctype html><html>
 <head><meta charset="utf-8"/>
 <title>スコア ツールボックス</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${wv.cspSource} https:; script-src 'nonce-${nonce}' ${wv.cspSource}; style-src ${wv.cspSource} 'unsafe-inline'; font-src ${wv.cspSource};"/>
-<link rel="stylesheet" href="${uri}/lib/bootstrap.min.css">
-<link rel="stylesheet" href="${uri}/lib/bootstrap2vscode.css">
-<link rel="stylesheet" href="${uri}/lib/fontawesome/all.min.css">
+<link rel="stylesheet" href="${path}/lib/bootstrap.min.css">
+<link rel="stylesheet" href="${path}/lib/bootstrap2vscode.css">
+<link rel="stylesheet" href="${path}/lib/fontawesome/all.min.css">
 <style>
 	body {
 		padding: 0 var(--container-paddding);
@@ -101,9 +105,9 @@ export class ToolBox implements WebviewViewProvider {
 	}
 	.btn {text-transform: none; font-size: 14px;}
 </style>
-<script defer nonce="${nonce}" src="${uri}/lib/bootstrap.bundle.min.js"></script>
-<script defer nonce="${nonce}" src="${uri}/lib/fontawesome/all.min.js"></script>
-<script defer nonce="${nonce}" src="${uri}/toolbox.js"></script>
+<script defer nonce="${nonce}" src="${path}/lib/bootstrap.bundle.min.js"></script>
+<script defer nonce="${nonce}" src="${path}/lib/fontawesome/all.min.js"></script>
+<script defer nonce="${nonce}" src="${path}/toolbox.js"></script>
 </head>
 <body>
 
@@ -121,14 +125,14 @@ export class ToolBox implements WebviewViewProvider {
 </body>
 </html>`;
 
-		wvv.webview.onDidReceiveMessage(m=> {
-			switch (m.cmd) {
-			case 'info':	window.showInformationMessage(m.text); break;
-			case 'warn':	window.showWarningMessage(m.text); break;
+		wvv.webview.onDidReceiveMessage(({cmd, text}: {cmd: string; text: string;})=> {
+			switch (cmd) {
+			case 'info':	window.showInformationMessage(text); break;
+			case 'warn':	window.showWarningMessage(text); break;
 			}
 		}, false);
 	}
 
-	dispose() {}
+	dispose() { /* empty */ }
 
 }

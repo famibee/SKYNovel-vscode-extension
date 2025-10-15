@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2022-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -5,37 +6,41 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_DIAG_L2S, T_H_ADIAG_L2S} from './CmnLib';
 import {foldProc, hDiagL2s, uint} from './CmnLib';
 import {ConfigBase} from './ConfigBase';
-import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots} from './ConfigBase';
-import {DEF_CFG} from '../views/types';
-import {Encryptor} from './Encryptor';
+import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots, T_CFG} from './ConfigBase';
+import {DEF_CFG} from './types';
+import type {Encryptor} from './Encryptor';
+import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../server/src/LspWs';
+
+import {imageSizeFromFile} from 'image-size/fromFile';
 
 import {Uri, window} from 'vscode';
 import {parse, resolve} from 'node:path';
-import {imageSizeFromFile} from 'image-size/fromFile';
-import {readJson, existsSync, outputJson, writeJson} from 'fs-extra';
 import {readFile} from 'node:fs/promises';
+import {readJson, existsSync, outputJson, writeJson} from 'fs-extra';
 
 
 export class SysExtension implements ISysRoots {
 	constructor(readonly arg: HSysBaseArg) {}
 	async loadPath(hPathFn2Exts: IFn2Path, _cfg: IConfig) {
 		const fn = this.arg.cur +'path.json';
-		const oJs = await readJson(fn, {encoding: 'utf8'});
+		const oJs = <IFn2Path>await readJson(fn, {encoding: 'utf8'});
 		for (const [nm, v] of Object.entries(oJs)) {
-			const h = hPathFn2Exts[nm] = <any>v;
+			const h = hPathFn2Exts[nm] = v;
 			for (const [ext, w] of Object.entries(h)) {
-				if (ext !== ':cnt') h[ext] = this.arg.cur + w;
+				if (ext !== ':cnt') h[ext] = this.arg.cur + <string>w;
 			}
 		}
-	};
+	}
 	readonly	dec	= (_ext: string, d: string)=> Promise.resolve(d);
 	readonly	decAB = (ab: ArrayBuffer)=> Promise.resolve(ab);
 
 	set crypto(v: boolean) {this.arg.crypto = v;}
-	readonly	fetch = async (url: string)=> new Response(await readJson(url, {encoding: 'utf8'}));
+	readonly	fetch = async (url: string)=> new Response(
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+		await readJson(url, {encoding: 'utf8'})
+	);
 	readonly	hash: (_data: string)=> '';
 
 	protected $path_downloads	= '';
@@ -53,25 +58,27 @@ export class Config extends ConfigBase {
 		const fpPrj = this.sys.arg.cur +'prj.json';
 		const fpPath= this.sys.arg.cur +'path.json';
 		try {
-			const o = await readJson(fpPrj, {encoding: 'utf8'});
-			await super.load({
-				...DEF_CFG,
+			const o = <T_CFG>await readJson(fpPrj, {encoding: 'utf8'});
+			const d = structuredClone(DEF_CFG);
+			await super.load(<T_CFG>{
+				...d,
 				...o,
-				book	: {...DEF_CFG.book, ...o.book},
-				window	: {...DEF_CFG.window, ...o.window},
-				log		: {...DEF_CFG.log, ...o.log},
-				init	: {...DEF_CFG.init, ...o.init},
-				debug	: {...DEF_CFG.debug, ...o.debug},
-				code	: {...DEF_CFG.code, ...o.code},
+				book	: {...d.book, ...o.book},
+				window	: {...d.window, ...o.window},
+				log		: {...d.log, ...o.log},
+				init	: {...d.init, ...o.init},
+				debug	: {...d.debug, ...o.debug},
+				code	: {...d.code, ...o.code},
 			});
 
 			this.hPathFn2Exts = await this.#get_hPathFn2Exts(this.sys.arg.cur, haDiagFn);
 			await outputJson(fpPath, this.hPathFn2Exts);
 
-			if (this.sys.crypto) encFile(Uri.file(fpPath));
+			if (this.sys.crypto) await encFile(Uri.file(fpPath));
 
 //			this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
 		}
+		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 		catch (e) {console.error(`Project loadPrjJs ${e} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
 	}
 
@@ -80,6 +87,7 @@ export class Config extends ConfigBase {
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
 	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG_L2S): Promise<IFn2Path> {
 		const hFn2Path: IFn2Path = {};
+		const aDo: Promise<void>[] = [];
 
 	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
 		// ｛ファイル名：｛拡張子：パス｝｝形式で格納。
@@ -88,11 +96,12 @@ export class Config extends ConfigBase {
 		//		URLエンコードされていない物を想定。
 		//		パスのみURLエンコード済みの、File.urlと同様の物を。
 		//		あとで実際にロード関数に渡すので。
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const {mes, sev} = hDiagL2s.ファイル名合成文字!;
-		foldProc($cur, ()=> {}, dir=> {
+		foldProc($cur, ()=> { /* empty */ }, dir=> {
 			const wd = resolve($cur, dir);
-			foldProc(wd, async (fp, nm)=> {
-				const aD: T_DIAG_L2S[] = [];
+			foldProc(wd, (fp, nm)=> {
+				const aD: T_H_ADIAG[] = [];
 				this.#addPath(hFn2Path, dir, nm, aD);
 
 				// 合成文字が含まれてたら警告を出す
@@ -103,73 +112,85 @@ export class Config extends ConfigBase {
 				// breakline.5x20.png などから breakline.json を（無ければ）生成
 				const a2 = nm.match(this.#REG_NEEDHASH);
 				if (a2) {
-					const s = await readFile(fp, {encoding: 'utf8'});
 					const snm = nm.slice(0, -a2[0].length);	// 拡張子を外したもの
 					const p = hFn2Path[snm];
-					if (p) p[a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
+					if (p) {
+						aDo.push((async ()=> {
+							const s = await readFile(fp, {encoding: 'utf8'});
+							// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+							p[a2[1] +':id'] = 'u5:'+ this.encry.uuidv5(s);
+						})());
+					}
 				}
 				const a = nm.match(this.#REG_SPRSHEETIMG);
 				if (! a) return;
 
-				const fnJs = resolve(wd, a[1] +'.json');
+				const [, basename='', axLen='', ayLen='', ] = a;
+				const fnJs = resolve(wd, basename +'.json');
 				if (existsSync(fnJs)) return;
 
-				const {width = 0, height = 0} = await imageSizeFromFile(fp);
-				const xLen = uint(a[2]);
-				const yLen = uint(a[3]);
-				const w = width /xLen;
-				const h = height /yLen;
-				const basename = a[1];
-				const ext = a[4];
+				aDo.push((async ()=> {
+					const {width, height} = await imageSizeFromFile(fp);
+					const xLen = uint(axLen);
+					const yLen = uint(ayLen);
+					const w = width /xLen;
+					const h = height /yLen;
+					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+					const ext = a[4]!;
 
-				const oJs :any = {
-					frames: {},
-					meta: {
-						app: 'skynovel',
-						version: '1.0',
-						image: a[0],
-						format: 'RGBA8888',
-						size: {w: width, h :height},
-						scale: 1,
-						animationSpeed: 1,	// 0.01~1.00
-					},
-				};
-				let cnt = 0;
-				for (let ix=0; ix<xLen; ++ix) {
-					for (let iy=0; iy<yLen; ++iy) {
-						oJs.frames[basename + String(++cnt).padStart(4, '0') +'.'+ ext] = {
-							frame	: {x: ix *w, y: iy*h, w: w, h :h},
-							rotated	: false,
-							trimmed	: false,
-							spriteSourceSize
-								: {x: 0, y: 0, w: width, h :height},
-							sourceSize	: {w: w, h :h},
-							pivot		: {x: 0.5, y: 0.5},
-						};
+					const oJs = {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+						frames: <any>{},
+						meta: {
+							app: 'skynovel',
+							version: '1.0',
+							image: a[0],
+							format: 'RGBA8888',
+							size: {w: width, h :height},
+							scale: 1,
+							animationSpeed: 1,	// 0.01~1.00
+						},
+					};
+					let cnt = 0;
+					for (let ix=0; ix<xLen; ++ix) {
+						for (let iy=0; iy<yLen; ++iy) {
+							oJs.frames[basename + String(++cnt).padStart(4, '0') +'.'+ ext] = {
+								frame	: {x: ix *w, y: iy*h, w: w, h :h},
+								rotated	: false,
+								trimmed	: false,
+								spriteSourceSize
+									: {x: 0, y: 0, w: width, h :height},
+								sourceSize	: {w: w, h :h},
+								pivot		: {x: 0.5, y: 0.5},
+							};
+						}
 					}
-				}
-				await writeJson(fnJs, oJs);
-				window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${a[1]}.json を自動生成しました`);
+					await writeJson(fnJs, oJs);
+					window.showInformationMessage(`[SKYNovel] ${nm} からスプライトシート用 ${basename}.json を自動生成しました`);
 
-				this.#addPath(hFn2Path, dir, `${a[1]}.json`, aD);
-				if (aD.length > 0) haDiagFn[fp] = aD;
-			}, ()=> {});
+					this.#addPath(hFn2Path, dir, `${basename}.json`, aD);
+					if (aD.length > 0) haDiagFn[fp] = aD;
+				})());
+			}, ()=> { /* empty */ });
 		});
+
+		await Promise.allSettled(aDo);
 
 		return hFn2Path;
 	}
-	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: T_DIAG_L2S[]) {
+	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: T_H_ADIAG[]) {
 		const {name: fn, base, ext} = parse(nm);
 		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
-		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <any>0};
+		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <never>0};
 		else if (ext2 in hExts) {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const {mes, sev} = hDiagL2s.ファイル重複!;
 			aD.push({mes: mes.replace('$', base), sev});
 			return;
 		}
 
-		hExts[':cnt'] = <any>(uint(hExts[':cnt']) +1);
+		hExts[':cnt'] = <never>(uint(hExts[':cnt']) +1);
 		hExts[ext2] = dir +'/'+ nm;
 	}
 

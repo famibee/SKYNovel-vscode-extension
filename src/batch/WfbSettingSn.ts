@@ -5,40 +5,45 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {replaceRegsFile} from './CmnLib';
-import {WatchFile2Batch} from './WatchFile2Batch';
-import type {T_E2V_TEMP, T_TEMP, T_V2E_TEMP} from '../views/types';
-import {REG_SN2TEMP} from '../views/types';
-import type {T_PP2S} from '../server/src/LspWs';
+import type {T_E2V_TEMP, T_TEMP, T_V2E_aTemp} from '../types';
+import {REG_SN2TEMP} from '../types';
+import {replaceRegsFile} from '../CmnLib';
+import type {T_reqPrj2LSP} from '../Project';
+import type {PrjCmn} from '../PrjCmn';
+import {WatchFile} from './WatchFile';
+import type {T_PP2SNSTR} from '../../server/src/LspWs';
 
 import {workspace} from 'vscode';
 import {readFileSync} from 'fs-extra';
 
 
-export class WfbSettingSn extends WatchFile2Batch {
+export class WfbSettingSn extends WatchFile {
 	//MARK: コンストラクタ
-	constructor(private readonly sendRequest2LSP: (cmd: string, o?: any)=> void) {super()}
+	constructor(
+							pc			: PrjCmn,
+		private readonly	reqPrj2LSP	: T_reqPrj2LSP,
+	) {super(pc)}
 
 	//MARK: 初期化
 	async init() {
 		// 設定スクリプトの更新
-		await WatchFile2Batch.watchFld(
+		await this.watchFld(
 			'doc/prj/*/setting.sn', '',
-			async ({path})=> {
+			async ({path})=> Promise.try(()=> {
 				this.#fnSetting = path;	// 存在しない場合も
-				this.chkMultiMatch = this.#chkMultiMatch_proc;
+				this.chkMultiMatch = ()=> this.#chkMultiMatch_proc();
 				this.chkMultiMatch();
-				this.update = this.#update_proc;
-			},
-			async (_uri, cre)=> {
+				this.update = e=> this.#update_proc(e);
+			}),
+			async (_uri, cre)=> Promise.try(()=> {
 				if (cre) this.chkMultiMatch();
 				// else this.onChgSettingSn(uri);	// ここでやると変更が戻るループ
-			}, async ()=> true,
+			}), async ()=> Promise.resolve(true),
 		);
 
 		workspace.onDidSaveTextDocument(e=> {
 			if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
-		}, null, WatchFile2Batch.ctx.subscriptions);
+		}, null, this.pc.ctx.subscriptions);
 	}
 
 
@@ -46,7 +51,7 @@ export class WfbSettingSn extends WatchFile2Batch {
 		// ついでに初回の不要な 'update.aTemp' を止めるため true 始まりで
 
 	//MARK: 重複チェック
-	chkMultiMatch = ()=> {};
+	chkMultiMatch = ()=> { /* empty */ };
 	#chkMultiMatch_proc() {
 		this.#preventUpdHowl = true;
 
@@ -67,7 +72,7 @@ export class WfbSettingSn extends WatchFile2Batch {
 				type: 'txt',
 				val	: sep ?val.slice(1, -1) :val,
 			};
-			if (lbl.at(0) === '{') o = {...o, ...JSON.parse(lbl)};
+			if (lbl.at(0) === '{') o = {...o, ...<T_TEMP>JSON.parse(lbl)};
 			switch (o.type) {	// 型チェック
 				case 'rng':	break;
 		/*
@@ -89,7 +94,7 @@ export class WfbSettingSn extends WatchFile2Batch {
 			}
 			aTemp.push(o);
 		}
-		WatchFile2Batch.ps.cmd2Vue(<T_E2V_TEMP>{
+		void this.pc.ps.cmd2Vue(<T_E2V_TEMP>{
 			cmd		: 'update.aTemp',
 			err		: '',
 			aTemp,
@@ -98,8 +103,8 @@ export class WfbSettingSn extends WatchFile2Batch {
 		#fnSetting	= '';
 
 	//MARK: 更新
-	update = async (e: T_V2E_TEMP)=> {};
-	async #update_proc(e: T_V2E_TEMP) {
+	update = (_e: T_V2E_aTemp)=> { /* empty */ };
+	#update_proc(e: T_V2E_aTemp) {
 		if (this.#preventUpdHowl) {
 			this.#preventUpdHowl = false;
 			return;
@@ -111,13 +116,13 @@ export class WfbSettingSn extends WatchFile2Batch {
 			for (const {nm, val} of e.aRes) a.push([
 				new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
 				`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
-			]);	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+			]);	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 			if (replaceRegsFile(this.#fnSetting, a, false)) {
 				const fp = this.#fnSetting;
-				const pp = WatchFile2Batch.fp2pp(fp);
-				const pp2s: T_PP2S = {};
+				const pp = this.pc.diff.fp2pp(fp);
+				const pp2s: T_PP2SNSTR = {};
 				pp2s[pp] = readFileSync(fp, {encoding: 'utf8'});
-				this.sendRequest2LSP('onchg_scr', {pp2s});
+				void this.reqPrj2LSP({cmd: 'onchg_scr', pp2s});
 			}
 				// 【file:///Users/...】 LSPの doc 特定で使う
 		}, 500);

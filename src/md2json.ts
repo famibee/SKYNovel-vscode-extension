@@ -5,11 +5,14 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import {copySync, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
+
+
 // src/md/*.md ファイルをまとめて md.json にするツール
 // パフォーマンスというかディスクアクセス改善用
 
 // 属性	必須	省略時	値域・型	コメント
-export interface MD_PARAM_DETAILS {
+export type MD_PARAM_DETAILS = {
 	name		: string;
 	required	: string;
 	def			: string;
@@ -18,7 +21,7 @@ export interface MD_PARAM_DETAILS {
 }
 const idx2nmParam = ['name', 'required', 'def', 'rangetype', 'comment'];
 
-export interface MD_STRUCT {
+export type MD_STRUCT = {
 	sum		: string,
 	param	: MD_PARAM_DETAILS[],
 	snippet	: {nm: string, txt: string}[],
@@ -28,10 +31,9 @@ const hMd: {[name: string]: MD_STRUCT} = {};
 
 const REG_TAG2MB = /~~~skynovel\n(.+?)\n~~~|\[([a-z_]+)]/gs;
 const repTag2MB = (md: string)=> md
-	.replace(REG_TAG2MB, (a, p1, p2)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.html#${p2})`)
+	.replace(REG_TAG2MB, (a, p1, p2: string)=> p1 ?a :`[[${p2}]](https://famibee.github.io/SKYNovel/tag.html#${p2})`)
 	.replaceAll(/<br\/?>/g, '  \n');
 
-import {copy, readdirSync, readFileSync, writeFileSync} from 'fs-extra';
 
 const path = './src/md/';
 for (const {name} of readdirSync(path, {withFileTypes: true})
@@ -41,15 +43,15 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 
 	const [t0='', t1='', t2='', ...t9] = txt.split(/\*{3}\n*/);	// *** で分割
 	const prm = t1.trim();
-	const aPrm = (prm === '') ?[] :prm.split('\n').map(line=> {
-		const o: any = {};
+	const param: MD_PARAM_DETAILS[] = (prm === '')
+	? []
+	: prm.split('\n').map(line=> <MD_PARAM_DETAILS>Object.fromEntries(
 		line.slice(2).split('`')	//「- 」以降からバッククオート「`」区切り
-		.forEach((c, i)=> o[idx2nmParam[i] ?? ''] = repTag2MB(c));
-		return o;
-	});
+		.map((c, i)=> [idx2nmParam[i] ?? '', repTag2MB(c)])
+	));
 	hMd[nm] = {
 		sum		: t0.trim(),
-		param	: aPrm,
+		param,
 		snippet	: `\t${t2.trim()}`.split('\n*\n').map(sn=> {
 			const i = sn.indexOf('\t');
 			const a2 = sn.slice(i +1);
@@ -60,8 +62,8 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 }
 
 writeFileSync('./src/md.json', JSON.stringify(hMd));
-copy('./src/md.json', './server/src/md.json');	// 2 LSP
-copy('./src/md.json', './dist/md.json');		// 2 LSP
+copySync('./src/md.json', './server/src/md.json');	// 2 LSP
+copySync('./src/md.json', './dist/md.json');		// 2 LSP
 
 	/* === OK、美しい or 役立つ
 - 列挙

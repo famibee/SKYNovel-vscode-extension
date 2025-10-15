@@ -1,3 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2018-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -8,15 +16,18 @@
 import {uint} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
-import {DebugConfiguration, WorkspaceFolder, WorkspaceEdit, Range, Uri, workspace, TextDocumentChangeEvent, window, Position, debug, RelativePattern} from 'vscode';
-import {DebugProtocol} from '@vscode/debugprotocol';
+import {Server, type Socket} from 'socket.io';
+import {imageSizeFromFile} from 'image-size/fromFile';
+
+import type {DebugConfiguration, TextDocumentChangeEvent, WorkspaceFolder} from 'vscode';
+import {debug, Position, Range, Uri, workspace, window, WorkspaceEdit, RelativePattern} from 'vscode';
+import type {DebugProtocol} from '@vscode/debugprotocol';
+import {basename, dirname} from 'node:path';
 import {readFileSync, writeFileSync} from 'fs-extra';
 import {EventEmitter} from 'events';
-import {Server, Socket} from 'socket.io';
-const {imageSizeFromFile} = require('image-size/fromFile');
-const path = require('path');
 
-export interface InfoBreakpoint {
+
+export type InfoBreakpoint = {
 	id		: number;
 	ln		: number;
 	col		: number;
@@ -25,20 +36,20 @@ export interface InfoBreakpoint {
 	hitCondition?	: number;
 }
 
+
 export class Debugger extends EventEmitter {
 	#pathWs	= '';
 	constructor(private readonly wsFld: WorkspaceFolder, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
 		super();
-		if (wsFld) {
-			this.#pathWs = wsFld.uri.path;
-			Debugger.#hcurPrj2Dbg[this.#pathWs +'/doc/prj/'] = this;
-		}
+		this.#pathWs = wsFld.uri.path;
+		Debugger.#hcurPrj2Dbg[this.#pathWs +'/doc/prj/'] = this;
 	}
 	static	#hcurPrj2Dbg: {[curPrj: string]: Debugger}	= {};
 	static	send2SN(type: string, o: object = {}) {
 		const pathWs = debug.activeDebugSession?.workspaceFolder?.uri.fsPath;
 		if (! pathWs) return;
 
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const dbg = Debugger.#hcurPrj2Dbg[pathWs +'/doc/prj/']!;
 		dbg.send2SN(type, o);
 	}
@@ -60,10 +71,11 @@ export class Debugger extends EventEmitter {
 			return false;
 		};
 
-		new Server(args.port, {cors: {origin: args.weburi}})
+		new Server(args.port, {cors: {origin: <string>args.weburi}})
 		.on('connection', (sk: Socket)=> {
 			sk.on('data', (type: string, o: any)=> {
 //console.log(`fn:Debugger.ts 新RSV sn -> dbgs id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				if (! this.#hProcSnRes[type]!(type, o)) return;
 				this.#hProcSnRes[type] = ()=> false;
 			});
@@ -77,15 +89,16 @@ export class Debugger extends EventEmitter {
 				this.end = fncEnd;
 				this.end();
 				this.send2SN('disconnect', {});
-				this.send2SN = ()=> {};
+				this.send2SN = ()=> { /* empty */ };
 				sk.disconnect();
 			};
 		});
 	}
 
-	private	send2SN(_type: string, _o: object = {}) {}
+	private	send2SN(_type: string, _o: object = {}) { /* empty */ }
 
 	end() {
+		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete Debugger.#hcurPrj2Dbg[this.#pathWs];
 		this.hookTag({タグ名: ':disconnect'});
 	}
@@ -106,7 +119,7 @@ export class Debugger extends EventEmitter {
 				uri: Uri.file(o[':path'].replace('${pathbase}', this.#pathWs +'/doc')),
 				rng: new Range(ln, col_s, ln, col_e),
 			};
-				// TODO: スクリプト編集とこの辞書の更新は？　:lnとか変わる
+				// TODO: スクリプト編集とこの辞書の更新は？ :lnとか変わる
 
 			this.hookTag(o);
 
@@ -125,11 +138,11 @@ export class Debugger extends EventEmitter {
 			const di = this.#hDCId2DI[id_tag];
 			if (! di) return false;
 
-			let token = String(di[':token']);
+			let token = di[':token'];
 			for (const [k, v] of Object.entries(o2)) token = token.replace(
 				new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 				`$1${v}$3`
-			)	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+			)	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 			di[':token'] = token;
 
 			// upd text
@@ -175,7 +188,7 @@ export class Debugger extends EventEmitter {
 			else {	// プロジェクトに存在しないファイルなのでコピー
 				// web old_url:prj/other/MnuUp_btnPage1.png
 				// app old_url:（略）sn_uc_score/doc/prj/other/MnuUp_btnPage1.png
-				const parent = path.basename(path.dirname(old_url));
+				const parent = basename(dirname(old_url));
 					// 変更前画像のフォルダ
 				urlWrite = this.#pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
 
@@ -186,19 +199,19 @@ export class Debugger extends EventEmitter {
 
 			// ファイル生成、を検知しての prj.json 更新を待って次へ
 			const fwPathJs = workspace.createFileSystemWatcher(
-				new RelativePattern(this.wsFld, `doc/prj/path.json`)
+				new RelativePattern(this.wsFld, 'doc/prj/path.json')
 			);
 			fwPathJs.onDidChange(()=> {
 				fwPathJs.dispose();
 
 				// スクリプト更新
-				let token = String(di[':token']);
+				let token = di[':token'];
 				const o2: {[nm: string]: string} = {fn, b_pic: fn, pic: fn};
 				const fnc = ()=> {
 					for (const [k, v] of Object.entries(o2)) token = token.replace(
 						new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
 						`$1${v}$3`
-					)	// (new RegExp("~")) の場合は、バックスラッシュは２つ必要
+					)	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 					di[':token'] = token;
 
 					const ed = new WorkspaceEdit;
@@ -206,9 +219,9 @@ export class Debugger extends EventEmitter {
 					workspace.applyEdit(ed);
 				};
 				imageSizeFromFile(urlWrite)
-				.then((s: any)=> {
-					o2.width = s.width;
-					o2.height = s.height;
+				.then(({width, height}: {width: number, height: number})=> {
+					o2.width = String(width);
+					o2.height = String(height);
 					fnc();
 				})
 				.catch(()=> fnc());	// サイズが取れない場合
@@ -309,9 +322,11 @@ export class Debugger extends EventEmitter {
 
 		const o: {[ln: number]: InfoBreakpoint} = {};
 		this.#loadSource(fn);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const sl = this.#hScriptLines[fn]!;
 		const len_sl = sl.length;
 		for (const v of aBp) {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			while (sl[v.ln -1]!.replace(/;.*$/, '').trim() === '') {
 				if (v.ln++ === len_sl) {v.verified = false; break;}
 			}

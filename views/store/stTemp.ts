@@ -7,8 +7,8 @@
 
 import {defineStore} from 'pinia';
 import {toRaw} from 'vue';
-import {DEF_TEMP4TST, DEF_TEMP} from '../types';
-import type {T_E2V_TEMP, T_V2E_TEMP} from '../types';
+import {DEF_TEMP4TST, DEF_TEMP} from '../../src/types';
+import type {T_E2V_TEMP, T_V2E_aTemp} from '../../src/types';
 import {cmd2Ex, isVSCode, on} from './stVSCode';
 
 let init = false;
@@ -31,7 +31,7 @@ export const useTemp = ()=> {
 		init = true;
 		// 状態が変化するたびに
 		// useField を使うと $subscribe が効かない
-		st.$subscribe(()=> cmd2Ex(<T_V2E_TEMP>{
+		st.$subscribe(()=> cmd2Ex(<T_V2E_aTemp>{
 			cmd	: 'update.aTemp',
 			aRes: st.aTemp.map(({type, nm, val, num, bol})=> {switch (type) {
 				case 'txt':	return {nm, val: toRaw(val)};

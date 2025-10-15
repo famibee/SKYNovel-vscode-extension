@@ -7,7 +7,7 @@
 
 import {ActivityBar} from './ActivityBar';
 
-import {ExtensionContext} from 'vscode';
+import type {ExtensionContext} from 'vscode';
 
 // ロード時に一度だけ呼ばれる
 export function activate(ctx: ExtensionContext) {ActivityBar.start(ctx);}

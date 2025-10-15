@@ -7,9 +7,10 @@
 
 import {oIcon} from './ActivityBar';
 
-import {TreeDataProvider, TreeItem, ExtensionContext, commands, env, Uri, TreeItemCollapsibleState, ThemeIcon} from 'vscode';
+import type {TreeDataProvider, ExtensionContext} from 'vscode';
+import {commands, env, TreeItem, ThemeIcon, TreeItemCollapsibleState, Uri} from 'vscode';
 
-interface	TTmpTI {
+type TTmpTI = {
 	label		: string;
 	icon?		: string;
 	url?		: string;
@@ -49,7 +50,8 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 
 	#generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
 		return aTi.map((o, idx)=> {
-			const id = (parent === 'doc' ?`skynovel.` :'') +`${parent}/${idx}`;
+			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			const id = (parent === 'doc' ?'skynovel.' :'') +`${parent}/${idx}`;
 			const t = new TreeItem(o.label);
 			t.contextValue = id;
 			if (o.children) {
@@ -59,6 +61,7 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 			else t.iconPath = o.icon ?oIcon(o.icon) :ThemeIcon.File;
 
 			if (o.url) this.ctx.subscriptions.push(commands.registerCommand(
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				id, ()=> env.openExternal(Uri.parse(o.url!))
 			));
 
@@ -70,6 +73,7 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 	getChildren(t?: TreeItem): TreeItem[] {	// 下に子が居ると何度も呼ばれる
 		if (! t) return this.#aTiRoot;
 		const aTi = this.#aTreeTmp.find(v=> v.label === t.label);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		return aTi?.children ?this.#generate(t.contextValue!, aTi.children) :[];
 	}
 }
