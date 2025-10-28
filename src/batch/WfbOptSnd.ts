@@ -62,15 +62,15 @@ export class WfbOptSnd extends WatchFile {
 		);
 	}
 		#prjBase2Prj(path: string) {
-			path = path
+			const pathRet = path
 			.replace(this.pc.PATH_PRJ_BASE, this.pc.PATH_PRJ);
 			for (const ext of ['m4a','aac','ogg']) {
-				const pathDest = path
+				const pathDest = pathRet
 				.replace(this.#REG_SRC_EXT, '.'+ ext);
 				if (existsSync(pathDest)) return pathDest;
 			}
 
-			return path;
+			return pathRet;
 		}
 		readonly	#REG_SRC_EXT	= /\.(mp3|wav)$/;
 

@@ -9,6 +9,7 @@ import type {IPluginInitArg} from './CmnLib';
 import {Encryptor} from './Encryptor';
 const {subtle} = crypto;
 
+
 export async function init(pia: IPluginInitArg) {
 	const p = pia.tstDecryptInfo();	// この行変更したら生成ファイルを開いて要動作確認
 	const encry = new Encryptor(p, subtle);

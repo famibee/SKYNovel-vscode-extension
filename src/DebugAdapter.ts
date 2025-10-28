@@ -11,8 +11,7 @@ import {Debugger} from './Debugger';
 import {basename} from 'node:path';
 import type {DebugConfiguration, DebugAdapterDescriptorFactory, ProviderResult, ExtensionContext, WorkspaceFolder} from 'vscode';
 import {debug, DebugAdapterInlineImplementation} from 'vscode';
-import {Breakpoint, BreakpointEvent, Handles, InitializedEvent, LoggingDebugSession, OutputEvent, StoppedEvent, TerminatedEvent, Thread, StackFrame, Scope, Source} from '@vscode/debugadapter';
-import {Logger, logger} from '@vscode/debugadapter';
+import {Breakpoint, BreakpointEvent, Handles, InitializedEvent, logger, Logger, LoggingDebugSession, OutputEvent, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread} from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
 
 
@@ -100,7 +99,9 @@ export function initDebug(ctx: ExtensionContext, hookTag: (o: any)=> void): void
 	const dadf: DebugAdapterDescriptorFactory = {
 		createDebugAdapterDescriptor: ds=> {
 			if (! ds.workspaceFolder) return undefined;
-			return daii ??= new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag));
+
+			daii ??= new DebugAdapterInlineImplementation(new DebugAdapter(ds.workspaceFolder, hookTag));
+			return daii;
 		},
 	};
 	ctx.subscriptions.push(debug.registerDebugAdapterDescriptorFactory(lng, dadf));
@@ -709,10 +710,10 @@ class DebugAdapter extends LoggingDebugSession {
 
 			case 'repl':
 				void this.#dbg.eval(res.request_seq, args.expression)
-				.then(v=> res.body = {
+				.then(v=> {res.body = {
 					result: v ?`=${v}` :'【null】',
 					variablesReference: 0,
-				});
+				}});
 
 //console.log(`fn:DebugAdapter.ts line:622 exp:${args.expression} v:${v} type:${res.body.type}`);
 				break;
@@ -770,9 +771,9 @@ class DebugAdapter extends LoggingDebugSession {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	#getVar(txt: string): {exist: boolean, ret?: any, fullnm?: string, const?: boolean,} {
 		const a = `${txt}:`.split(':', 2);
-		const scope = (a[1] === '') ?'tmp' :a[0];
+		const scope = a[1] === '' ?'tmp' :a[0];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const nm = (a[1] === '') ?a[0]! :a[1]!;
+		const nm = a[1] === '' ?a[0]! :a[1]!;
 		switch (scope) {
 			case 'tmp':
 			case 'sys':
@@ -783,7 +784,7 @@ class DebugAdapter extends LoggingDebugSession {
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const h = this.#hScope[scope]!;
-		return (nm in h)
+		return nm in h
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			? {exist: true, fullnm: `${scope}:${nm}`, ret: h[nm], const: nm.startsWith('const.')}
 			: {exist: false,fullnm: `${scope}:${nm}`};
@@ -936,7 +937,7 @@ class DebugAdapter extends LoggingDebugSession {
 			 * The short name of the source. Every source returned from the debug adapter has a name.
 			 * When sending a source to the debug adapter this name is optional.
 			ソースの短い名前。デバッグ・アダプタから返されるソースにはすべて名前があります。
-			デバッグ・アダプタにソースを送信する場合、この名前はオプションです。			
+			デバッグ・アダプタにソースを送信する場合、この名前はオプションです。
 			 */
 //			name?: string;
 

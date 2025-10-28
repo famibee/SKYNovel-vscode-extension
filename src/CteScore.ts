@@ -208,11 +208,11 @@ export class CteScore {
 		if (txt === '') {wv.postMessage({cmd: 'del', ln: sl}); return false;}
 
 		wv.postMessage({
-			cmd	: (sl === el && txt.at(-1) === '\n') ?'ins' :'rep',
+			cmd	: sl === el && txt.at(-1) === '\n' ?'ins' :'rep',
 			ln	: sl,
 			htm	: (txt === '\n'
 				? this.#token2html({line: sl +1}, '\n\n', -1)
-				: repWvUri(aToken.map(t=> (t.charCodeAt(0) < 11)
+				: repWvUri(aToken.map(t=> t.charCodeAt(0) < 11
 					? ''	// \t(9) タブ、\n(10) 改行
 					: this.#token2html({line: sl +1}, t, 0)
 				).join(''), wv, CteScore.#uriRes))
@@ -285,7 +285,7 @@ export class CteScore {
 
 				t.skipupd = true;
 				const ed = new WorkspaceEdit;
-				ed.insert(doc.uri, new Position(o.to, 0), (scr === '\n\n') ?'\n' :(scr +'\n'));
+				ed.insert(doc.uri, new Position(o.to, 0), scr === '\n\n' ?'\n' :scr +'\n');
 				workspace.applyEdit(ed);
 			}	break;
 
@@ -309,7 +309,7 @@ export class CteScore {
 					case 59:	// ; コメント
 					case 91:	// [ タグ開始
 				*/
-				const base = (o.nm.charCodeAt(0) < 60)
+				const base = o.nm.charCodeAt(0) < 60
 					? o.nm + o.val +'\n'
 					: doc.getText(rng);
 				let txt = base.replace(
@@ -382,7 +382,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 			cmd			: 'upd_db',
 			pathPrj		: String(wv.asWebviewUri(t.uriPrj)),	// 最後に「/」必要
 			hFld2url	: hFld2,
-			hPath		: hPath,
+			hPath,
 		});
 	}
 
@@ -390,7 +390,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 	updWords(key: string, Words: Set<string>) {
 		this.#hBufWords[key] = Words;
 		for (const v of Object.values(this.#hPath2Wv)) {
-			v.postMessage({cmd: 'del_wds', key: key});
+			v.postMessage({cmd: 'del_wds', key});
 		}
 	}
 
@@ -408,7 +408,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 		switch (token.charCodeAt(0)) {	// TokenTopUnicode
 			case 9: return '';	// \t タブ
 			case 10:{	// \n 改行
-				const dl = ((idx === 0 && stt.line === 1) ?1 :0);
+				const dl = idx === 0 && stt.line === 1 ?1 :0;
 				const len = token.length +dl;
 				stt.line += len -dl;
 				if (len === 1) return '';
@@ -630,7 +630,7 @@ v.type === 'bool' ?' pt-2' :''
 			btn_face	: '戻る',
 		}),
 		add_lay		: hPrm=> {
-			const is_grp = (hPrm.class?.val === 'grp');
+			const is_grp = hPrm.class?.val === 'grp';
 			return {
 				col			: hPrm.layer?.val ?? 'base',
 				btn_style	: `btn-${
@@ -665,8 +665,8 @@ v.type === 'bool' ?' pt-2' :''
 						? 'success'
 						: 'secondary text-white'
 				}`,
-				icon		: (layer === 'base') ?'fa-image' :'fa-user',
-				btn_face	: hPrm.fn?.val ?? ((layer === 'base') ?'(消去)' :'(退場)'),
+				icon		: layer === 'base' ?'fa-image' :'fa-user',
+				btn_face	: hPrm.fn?.val ?? (layer === 'base' ?'(消去)' :'(退場)'),
 				args		: [
 					{name: 'fn', type: 'select', val: hPrm.fn?.val ?? '(消去)', hint: '画像名', key: '画像ファイル名'},
 				]
@@ -756,7 +756,7 @@ v.type === 'bool' ?' pt-2' :''
 			col			: 'mes',
 			btn_style	: 'btn-primary',
 			icon		: 'fa-check-square',
-			btn_face	: `イベント発生 ${(hPrm.enabled?.val === 'true')
+			btn_face	: `イベント発生 ${hPrm.enabled?.val === 'true'
 				?'させる' :'させない'}`,
 		}),
 		event		: hPrm=> ({
@@ -891,7 +891,6 @@ v.type === 'bool' ?' pt-2' :''
 		'BGM'	: 6,
 		'SE'	: 7,
 		'詳細'	: 8,
-	
 	};
 	#make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = '', detail = ''): string {
 		return '<td></td>'.repeat(col) +`

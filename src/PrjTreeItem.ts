@@ -12,7 +12,7 @@ import type {ExtensionContext, WorkspaceFolder} from 'vscode';
 import {TreeItem, TreeItemCollapsibleState, commands, ThemeIcon} from 'vscode';
 
 
-export type PrjBtnName = 
+export type PrjBtnName =
 	'Batch'|
 	'SnUpd'|
 	'SnUpd_waited'|
@@ -153,7 +153,7 @@ export class PrjTreeItem extends TreeItem {
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';
 		else {
 			this.description = cfg.desc ?? '';
-			
+
 			if (cfg.cmd) {
 				const cntVal = this.contextValue = 'skynovel.dev'+ <string>cfg.cmd;
 				PrjTreeItem.regCmds(ctx, cntVal, cfg);

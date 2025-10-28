@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-confusing-void-expression */
-/* eslint-disable no-undef */
 /* ***** BEGIN LICENSE BLOCK *****
 	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
 
@@ -35,8 +33,8 @@ beforeEach(async ()=> {
 	fncDec = ()=> Promise.resolve('');
 	fncDecAB = ()=> Promise.resolve({ext_num: 0, ab: new ArrayBuffer(0)});
 	hSN = {
-		setDec	: fnc=> fncDec = fnc,
-		setDecAB: fnc=> fncDecAB = fnc,
+		setDec	: fnc=> {fncDec = fnc},
+		setDecAB: fnc=> {fncDecAB = fnc},
 		setEnc	: ()=> { /* empty */ },
 		getStK	: ()=> { /* empty */ },
 		getHash	: ()=> { /* empty */ },	// infDecrypt.stk,
@@ -191,8 +189,8 @@ it('prj_json_simple by Plugin unknown ext', async ()=> {
 
 // B,C
 it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
-//it('wood04_mp3_stream_transform', done=> {
 		// この形式でないと jest拡張機能が成功扱いしてくれない
+		// ('wood04_mp3_stream_transform', done=> {
 	// 暗号化
 	const path_src = 'test/mat/wood04.mp3';
 	/*	cfg.cnv_path = (path: string): string => {

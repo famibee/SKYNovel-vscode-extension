@@ -61,8 +61,8 @@ export class HDiff {
 	get keysPP(): PROJECT_PATH[] {return Object.keys(this.#pp2hDiff)}
 
 
-	path2cn(fp: FULL_PATH): T_CN {
-		fp = vsc2fp(Uri.file(fp).path);
+	path2cn(afp: FULL_PATH): T_CN {
+		const fp = vsc2fp(Uri.file(afp).path);
 		const pp = this.fp2pp(fp);
 		const diff = this.#pp2hDiff[pp];
 		return {

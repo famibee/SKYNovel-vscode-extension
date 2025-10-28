@@ -159,7 +159,7 @@ export class PrjSetting implements Disposable {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 			verSN	: oPkg.dependencies?.[lib_name]?.slice(1) ?? '',
 			verTemp	: existsSync(fnCngLog)
-				? (/## v(.+)\s/.exec(readFileSync(fnCngLog, {encoding: 'utf8'})))?.[1] ?? ''
+				? /## v(.+)\s/.exec(readFileSync(fnCngLog, {encoding: 'utf8'}))?.[1] ?? ''
 				: '',
 		};
 	}

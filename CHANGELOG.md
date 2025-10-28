@@ -1,3 +1,13 @@
+## v4.26.1
+- fix: ESLint 設定手直し
+	- @eslint/js: configs.recommended
+	- typescript-eslint: configs.strictTypeChecked
+	- typescript-eslint: configs.stylisticTypeChecked
+	- jest.configs['flat/recommended']
+	- plgImport.flatConfigs.recommended
+	- plgImport.flatConfigs.typescript
+- fix: 使い回す定数オブジェクトはファクトリメソッドで
+	- なんらかの理由で定数が変更されたりディープコピーに弱かったりするため
 ## v4.26.0
 - feat: バッチ処理方針変更。なるべく本体側で行い、最小限の実処理のみ委託するように
 	- やりとりの数が増えるとオーバーヘッドになるので、ログファイルに依頼の配列を内蔵（order 渡し -> log 返し）
@@ -24,8 +34,8 @@
 			- メンテが四年前 -> 二年前、多機能につき
 - fix: ESLint 導入、一部指摘無効化しつつも全ソースクリンナップ完了
 	- @eslint/js: configs.recommended
-	- typescript-eslint: tseslint.configs.strictTypeChecked
-	- typescript-eslint: tseslint.configs.stylisticTypeChecked
+	- typescript-eslint: configs.strictTypeChecked
+	- typescript-eslint: configs.stylisticTypeChecked
 - refactor: 大リファクタリング大会
 ## v4.25.3
 - fix(src/WatchFile2Batch.ts): ファイルを一気に追加・変更・削除すると、一回ずつ処理が走るのをひとまとめに

@@ -51,12 +51,11 @@ const mLspWs = new Map<FULL_PATH, LspWs>();
 
 conn.onInitialize(prm=> {
 	const cap = prm.capabilities;
-	hasCfgCap = !!cap.workspace?.configuration;
-	const hasWsFldCap = !!cap.workspace?.workspaceFolders;
-	hasDiagRelatedInfCap = !!(
-		cap.textDocument?.publishDiagnostics?.relatedInformation
-	);
-	const inlayHintSupport = !!cap.workspace?.inlayHint?.refreshSupport;
+	hasCfgCap = Boolean(cap.workspace?.configuration);
+	const hasWsFldCap = Boolean(cap.workspace?.workspaceFolders);
+	hasDiagRelatedInfCap =
+	!! cap.textDocument?.publishDiagnostics?.relatedInformation;
+	const inlayHintSupport = Boolean(cap.workspace?.inlayHint?.refreshSupport);
 	//let inlayValueSupport = false;
 
 	conn.onInitialized(()=> {
@@ -256,24 +255,24 @@ conn.onSignatureHelp(prm=> getLspWs(prm.textDocument)?.onSignatureHelp(prm));
 
 
 // === 定義へ移動、定義をここに表示 ===
-conn.onDefinition((prm=> getLspWs(prm.textDocument)?.onDefinition(prm)));
+conn.onDefinition(prm=> getLspWs(prm.textDocument)?.onDefinition(prm));
 
 // === 参照へ移動、参照をここに表示 ===
-conn.onReferences((prm=> getLspWs(prm.textDocument)?.onReferences(prm)));
+conn.onReferences(prm=> getLspWs(prm.textDocument)?.onReferences(prm));
 
 
 //conn.onWorkspaceSymbol
 
 // === ドキュメントアウトライン ===
-conn.onDocumentSymbol((prm=> getLspWs(prm.textDocument)?.onDocumentSymbol(prm)));
+conn.onDocumentSymbol(prm=> getLspWs(prm.textDocument)?.onDocumentSymbol(prm));
 
 
 // === コードアクション ===
-conn.onCodeAction((prm=> getLspWs(prm.textDocument)?.onCodeAction(prm)));
+conn.onCodeAction(prm=> getLspWs(prm.textDocument)?.onCodeAction(prm));
 
 
 // === リンク ===
-conn.onDocumentLinks((prm=> getLspWs(prm.textDocument)?.onDocumentLinks(prm)));
+conn.onDocumentLinks(prm=> getLspWs(prm.textDocument)?.onDocumentLinks(prm));
 	// if (wf) wfDocumentLinks = wf;
 /*
 	let wfDocumentLinks: LspWs;

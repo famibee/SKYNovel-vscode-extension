@@ -1,4 +1,4 @@
 {
 	"extends": "./tsconfig.json",
-	"include": ["src", "views", ".*.mts"]
+	"include": ["src", "views", "views/vite.config.mts"]
 }

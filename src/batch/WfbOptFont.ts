@@ -162,7 +162,7 @@ export class WfbOptFont extends WatchFile {
 		hSn2Font2Str	: {},
 		hFp2FontErr		: {},
 	};
-	readonly	#ensureFont2Str = (font_nm: string, hFont: T_H_FONTJSON)=> hFont[font_nm] ??= {
+	readonly	#ensureFont2Str = (font_nm: string, hFont: T_H_FONTJSON)=> {hFont[font_nm] ??= {
 		inp	: this.#getFontNm2path(font_nm)
 			.replace(new RegExp(`^.+/${this.pc.FLD_SRC}/font`), '::PATH_PRJ_FONTS::')
 				// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
@@ -174,11 +174,11 @@ export class WfbOptFont extends WatchFile {
 			)
 			.replace(is_win ?'C:/Windows/Fonts' :'/Library/Fonts', '::PATH_OS_FONTS::'),
 		txt	: '',
-	};
+	}};
 
 	//MARK: 実処理
 	async #proc(minify: boolean, hFont?: T_H_FONTJSON) {
-		hFont ??= <T_H_FONTJSON>await readJson(this.#PATH_FONT_JSON, {encoding: 'utf8'});
+		const oFont = hFont ?? <T_H_FONTJSON>await readJson(this.#PATH_FONT_JSON, {encoding: 'utf8'});
 
 		const aP: Promise<void>[] = [];
 		let start_cnt = 0;
@@ -204,15 +204,15 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 					return;
 				}
 
-				stderr = stderr.replaceAll(this.pc.PATH_WS, '::PATH_WS::')
-				outputFileSync(fnTmp, stderr, {encoding: 'utf8'});
+				const err = stderr.replaceAll(this.pc.PATH_WS, '::PATH_WS::');
+				outputFileSync(fnTmp, err, {encoding: 'utf8'});
 
 				prg.report({
 					increment: ++start_cnt /aP.length *100,
 					message: `処理中 ${String(start_cnt)}/${String(aP.length)} tasks`,
 				});
 
-				const a = /Missing glyphs for requested Unicodes: (\[[^\]]+])/.exec(stderr);	// 1 match (45 steps, 100us) PCRE2 https://regex101.com/r/q0SRoe/1
+				const a = /Missing glyphs for requested Unicodes: (\[[^\]]+])/.exec(err);	// 1 match (45 steps, 100us) PCRE2 https://regex101.com/r/q0SRoe/1
 				if (a) {
 					const aCode = <string[]>JSON.parse(a[1]?.replaceAll('\'', '"') ?? '[]');
 					rj(new Error(`${nm} 出力警告：フォントファイルに含まれない文字【${
@@ -242,7 +242,7 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 			message?: string;
 			increment?: number;
 		}>, tknCancel: CancellationToken)=> {
-			for (const [nm, {inp, txt}] of Object.entries(hFont)) {
+			for (const [nm, {inp, txt}] of Object.entries(oFont)) {
 				let inp2 = inp;
 				for (const fnc of this.#A_REP_MASKP2FP) inp2 = fnc(inp2);
 				const ssf = oBJ[nm] = {
@@ -268,7 +268,7 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 			ssf.iSize = (await stat(ssf.inp)).size;
 			ssf.oSize = (await stat(ssf.out)).size;
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			ssf.inp = hFont[nm]!.inp;	// プライベートな環境値を塗りつぶす
+			ssf.inp = oFont[nm]!.inp;	// プライベートな環境値を塗りつぶす
 		}
 
 		// フォント情報更新
@@ -316,6 +316,7 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 				return;
 			}
 
+			// eslint-disable-next-line no-param-reassign
 			oBJ = <T_H_BJ_subset_font>await readJson(this.#PATH_BATOUT_JSON);
 		}
 

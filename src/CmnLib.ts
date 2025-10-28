@@ -193,7 +193,7 @@ export	function chkBoolean(v: unknown): boolean {
 
 	// eslint-disable-next-line @typescript-eslint/no-base-to-string
 	const v2 = String(v);
-	return (v2 === 'false')? false : Boolean(v2);
+	return v2 === 'false'? false : Boolean(v2);
 }
 
 export	function getFn(path: string) {return basename(path, extname(path))}

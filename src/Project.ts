@@ -784,7 +784,7 @@ export class Project {
 					const ver = mv[1];
 	//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					if (oUc.version != ver || oUc.name != oPkg.name) {
+					if (oUc.version !== ver || oUc.name !== oPkg.name) {
 						oUc = {};
 						await remove(pathUpd);
 						await mkdirs(pathUpd);
@@ -1073,7 +1073,7 @@ export class Project {
 					const dir = this.#REG_DIR.exec(<string>pp);
 					const d = this.#diff.get(<string>pp);
 					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					if (dir && this.#cfg.oCfg.code[dir[1]!] || !d) continue;
+					if (dir && this.#cfg.oCfg.code[dir[1]!] || ! d) continue;
 
 					hExt2N[ext] = d.cn;
 				}
@@ -1333,7 +1333,7 @@ export class Project {
 		#createWsEd_repVal(uri: Uri, range: Range, nm: string, val: string) {
 			const we = new WorkspaceEdit;
 			const v2 = /[\s=]/.test(val)
-				? (/['#]/.test(val) ? `"${val}"` : `'${val}'`)
+				? /['#]/.test(val) ? `"${val}"` : `'${val}'`
 				: val;
 			we.replace(uri, range, nm + '=' + v2);
 			return we;

@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_E2V_NOTICE_COMPONENT, T_E2V_OPTSND, T_OPTSND, T_OPTSND_FILE} from '../types';
-import {DEF_OPTSND} from '../types';
+import {creOPTSND} from '../types';
 import {chkUpdate, foldProc, getFn} from '../CmnLib';
 import {type PrjCmn, FLD_PRJ_BASE} from '../PrjCmn';
 
@@ -40,7 +40,7 @@ export class BatOptSnd {
 
 		(async ()=> {
 			if (existsSync(this.#PATH_BJ)) this.#oBJ = <T_OPTSND>await readJson(this.#PATH_BJ, {encoding: 'utf8'});
-			else await writeJson(this.#PATH_BJ, this.#oBJ = DEF_OPTSND);
+			else await writeJson(this.#PATH_BJ, this.#oBJ = creOPTSND());
 		})();
 	}
 
@@ -147,7 +147,7 @@ export class BatOptSnd {
 			case 'reconv':		// 再変換
 				// 現状、UI的に「常にエンコーダー同一・パラメータ変更」なので、上書き全変換でよい
 				this.#log_enter(this.pc.PATH_PRJ, this.pc.PATH_PRJ_BASE);
-				this.#oBJ.sum.baseSize = 
+				this.#oBJ.sum.baseSize =
 				this.#oBJ.sum.optSize = 0;
 
 				for (const {ext, fld_nm} of Object.values(this.#oBJ.hSize)) {
@@ -256,7 +256,7 @@ export class BatOptSnd {
 	}
 
 
-	//MARK: 
+	//MARK: ログ準備
 	#log_enter(curPrj: string, curPrjBase: string) {
 		const o = this.#oBJ;
 		for (const [fn, of] of Object.entries(this.#oBJ.hSize)) {
@@ -274,7 +274,7 @@ export class BatOptSnd {
 
 
 	/**
-	 * 
+	 *
 	 * @param {string} pathPrj	退避元パス (jpe?g|png)
 	 * @param {string} pathBase	退避先パス (jpe?g|png)
 	 * @param {boolean} do_move	退避moveするか

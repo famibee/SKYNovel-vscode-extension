@@ -38,7 +38,7 @@ export	function openURL(url: Uri, pathWs: string) {
 			workspace.openTextDocument(pathWs + url.path)
 			.then(doc=> vsc_win.showTextDocument(doc));
 			break;
-	
+
 		case 'ws-folder':
 			env.openExternal(Uri.file(pathWs + url.path));
 			break;
@@ -350,7 +350,8 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 */
 	readonly	#hItmLangStt	: {[id: string]: LanguageStatusItem} = {};
 	#addStatusItem(id: string): LanguageStatusItem {
-		return this.#hItmLangStt[id] = languages.createLanguageStatusItem(id, docsel);
+		const ret = this.#hItmLangStt[id] = languages.createLanguageStatusItem(id, docsel);
+		return ret;
 	}
 	#removeStatusItem(id: string) {
 		this.#hItmLangStt[id]?.dispose();

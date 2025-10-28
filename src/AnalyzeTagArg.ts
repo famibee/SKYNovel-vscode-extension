@@ -5,17 +5,6 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-export function idx2LnCol(sSn: string, idx: number, lenNm = 0, ln = 0, ch = 0): {ln: number; ch: number;} {
-	const sBefore = sSn.slice(0, idx);
-	const a = sBefore.split('\n');
-	const len = a.length;
-	return {
-		ln	: ln +len -1,
-		ch	: len < 2 ?ch +1+lenNm +idx :a.at(-1)?.length ?? 0,
-	};
-}
-
-
 export type PRM = {
 	val		: string;
 	def?	: string;
@@ -31,6 +20,17 @@ export type PRM_RANGE = {
 	v_ch	: number;
 	v_len	: number;
 }
+
+export function idx2LnCol(sSn: string, idx: number, lenNm = 0, ln = 0, ch = 0): {ln: number; ch: number;} {
+	const sBefore = sSn.slice(0, idx);
+	const a = sBefore.split('\n');
+	const len = a.length;
+	return {
+		ln	: ln +len -1,
+		ch	: len < 2 ?ch +1+lenNm +idx :a.at(-1)?.length ?? 0,
+	};
+}
+
 
 export class AnalyzeTagArg {
 	// 87 match 2725 step(0.5ms) PCRE2 https://regex101.com/r/aeN57J/1

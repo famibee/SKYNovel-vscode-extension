@@ -9,8 +9,7 @@ import {defineStore} from 'pinia';
 import {useCfg} from '../store/stCfg';
 import {useWss} from '../store/stWSS';
 import type {T_E2V_INIT, T_E2V, T_Ex2Vue_cmd, T_V2E_Q} from '../../src/types';
-// eslint-disable-next-line no-undef
-const vscode = ('acquireVsCodeApi' in window) ?acquireVsCodeApi() :undefined;
+const vscode = 'acquireVsCodeApi' in window ?acquireVsCodeApi() :undefined;
 export const isVSCode = vscode !== undefined;
 
 export const cmd2Ex: (o: unknown)=> void = vscode
@@ -23,6 +22,7 @@ export const copyTxt = (id: string)=> cmd2Ex({cmd: 'copyTxt', id});
 
 
 const hHook: {[nm: string]: ((d: T_E2V)=> void)[]} = {};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function on(nm: T_Ex2Vue_cmd, fnc: (d: any)=> void) {
 	(hHook[nm] ??= []).push(fnc);
 }
@@ -47,7 +47,7 @@ let init = false;
 export const useVSCode = ()=> {
 	// 本来の store生成
 	const st = defineStore('vscode.getState', {
-		state	: ()=> (oVSCode),	// 初期値を返す関数
+		state	: ()=> oVSCode,	// 初期値を返す関数
 	//	getters	: {},	// state 及び他の getter へのアクセスが可能
 	//	actions	: {},	// State の更新
 	})();
@@ -74,7 +74,7 @@ export const useVSCode = ()=> {
 
 export const getLeftRangeBadge = (value=0, max=0, min=0)=> {
 	const val = (value - min) *100 /(max - min);
-	const pos = 10 -(val *0.2);
+	const pos = 10 -val *0.2;
 	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 	return `calc(${val}% + (${pos}px))`;
 };

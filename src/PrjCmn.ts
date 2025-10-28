@@ -203,8 +203,8 @@ export class PrjCmn {
 		let q: T_QSeq | undefined;
 		// eslint-disable-next-line no-cond-assign
 		while (q = this.#aQSeq.shift()) {
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			this.#aQSeq = this.#aQSeq.filter(v=> v.uniq !== q!.uniq)
+			const uniq = q.uniq;
+			this.#aQSeq = this.#aQSeq.filter(v=> v.uniq !== uniq)
 			await q.fnc();
 		}
 

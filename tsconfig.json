@@ -45,8 +45,6 @@
 		//"noPropertyAccessFromIndexSignature": false,	// インデックス型のプロパティ参照に[]を必須にする
 		"noUncheckedIndexedAccess": true,	// undefined の可能性があるプロパティへのアクセスを厳密に
 		"noUnusedLocals": true,		// 使っていないローカル変数をエラーに
-
-
 		"noUnusedParameters": false,	// NOTE: vueビルドでエラーが発生するので
 			// https://stackoverflow.com/questions/70051535/props-is-declared-but-its-value-is-never-read-error-occurred-in-vue3-type
 			// https://github.com/vuejs/core/issues/4668
@@ -59,6 +57,8 @@
 		//verbatimModuleSyntax	false
 		//emitDecoratorMetadata		// 出力 js に型を発行
 		//"extendedDiagnostics": true,	// コンパイル時に TypeScript が時間を費やしている場所を検出
+		"noUncheckedSideEffectImports": true,
+		"libReplacement": false,
 
 		/* Other */
 		"incremental": true			// 差分ビルド

@@ -31,11 +31,11 @@ export class WPFolder {
 		const path_res = this.pc.ctx.extensionPath +'/views/';
 		this.#uriRes = Uri.file(path_res);
 		void readFile(path_res +'folder.htm', {encoding: 'utf8'})
-		.then(t=> this.#htmSrc = t
+		.then(t=> {this.#htmSrc = t
 			.replace('<meta_autooff ', '<meta ')// ローカルデバッグしたいので
 			.replaceAll('${nonce}', getNonce())
 			.replace('.ts"></script>', '.js"></script>')
-		);
+		});
 	}
 
 
@@ -57,7 +57,7 @@ export class WPFolder {
 			});
 			const wv = wp.webview;
 			this.pc.ctx.subscriptions.push(
-				wp.onDidDispose(()=> this.#wp = undefined, undefined, this.pc.ctx.subscriptions),	// 閉じられたとき
+				wp.onDidDispose(()=> {this.#wp = undefined}, undefined, this.pc.ctx.subscriptions),	// 閉じられたとき
 
 				wv.onDidReceiveMessage(({cmd, text}: {cmd: string, text: string})=> {switch (cmd) {
 					case 'info': window.showInformationMessage(text); break;
@@ -150,7 +150,7 @@ export class WPFolder {
 
 	//MARK: ？？？
 	isOpend(path: string) {
-		return !!this.#uriWvPrj && path.startsWith(this.#uriWvPrj.path);
+		return this.#uriWvPrj && path.startsWith(this.#uriWvPrj.path);
 	}
 
 	//MARK: ビュークローズ

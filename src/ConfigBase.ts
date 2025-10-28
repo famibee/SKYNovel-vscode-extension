@@ -42,7 +42,7 @@ export type T_CFG = {
 	},
 	log		: {max_len: number},	// プレイヤーが読んだ文章を読み返せる履歴の長さ
 	init	: {
-		bg_color			: string,	// 背景色
+		bg_color			: string | number,	// 背景色
 		tagch_msecwait		: number,	// 通常文字表示待ち時間（未読／既読）
 		auto_msecpagewait	: number,	// 自動文字表示、行待ち時間（未読／既読）
 		escape				: string,	// エスケープ文字
@@ -62,7 +62,7 @@ export type T_CFG = {
 	debuger_token	: string,	// デバッガとの接続トークン
 }
 
-export	const DEF_CFG: T_CFG = {
+export function creCfg(): T_CFG {return {
 	save_ns		: '',		// 扱うセーブデータを一意に識別するキーワード文字列
 	window	: {		// アプリケーションウインドウサイズ
 		width	: 300,
@@ -97,7 +97,7 @@ export	const DEF_CFG: T_CFG = {
 	},
 	code	: {},	// 暗号化しないフォルダ
 	debuger_token	: '',		// デバッガとの接続トークン
-};
+}}
 
 
 export type IExts = {
@@ -105,7 +105,6 @@ export type IExts = {
 } & {
 	[ext: string]	: string;	// pp
 };
-// export type IExts = { [ext: string]: string; };
 export type IFn2Path = { [fn: string]: IExts; };
 
 export type T_SEARCHPATH = (fn: string, extptn?: SEARCH_PATH_ARG_EXT)=> string;
@@ -135,7 +134,7 @@ export type HSysBaseArg = {
 
 
 export class ConfigBase implements IConfig {
-	oCfg	= structuredClone(DEF_CFG);
+	oCfg	= creCfg();
 
 	userFnTail		= '';	// 4tst public
 	protected	hPathFn2Exts	: IFn2Path	= {};

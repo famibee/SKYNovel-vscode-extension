@@ -36,7 +36,7 @@ export class ToolBox implements WebviewViewProvider {
 	}
 
 	readonly #aCtgACmd	: CTG_ACMD[]= [
-/**/	];readonly #aCtgACmd0 : CTG_ACMD[]= [
+/**/	]; readonly #aCtgACmd0 : CTG_ACMD[]= [
 		// Solid Icons | Font Awesome https://fontawesome.com/icons?d=gallery&s=solid&m=free
 		{カテゴリ: 'テキスト系', 要素: [
 			{icon: 'fa-align-left', name: 'テキスト', style: 'btn-primary', scr: '[ch text=##]'},

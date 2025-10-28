@@ -19,7 +19,7 @@ const hMd = <{[tag_nm: string]: MD_STRUCT}>require('./md.json');
 // import hMd from './md.json' with {type: 'json'};
 // import hMd from './md.json' assert {type: 'json'};
 import type {IExts, IFn2Path, T_CFG} from '../../src/ConfigBase';
-import {DEF_CFG, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
+import {creCfg, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
 import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
 import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, PublishDiagnosticsParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
@@ -531,13 +531,17 @@ sys:TextLayer.Back.Alpha`.split('\n');
 		this.#hTagProc.let_replace =
 		this.#hTagProc.let_round =
 		this.#hTagProc.let_search =
-		this.#hTagProc.let_substr = this.#hTagProc.let;
-		this.#hTagProc.set_frame = this.#hTagProc.let_frame;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		this.#hTagProc.let_substr = this.#hTagProc.let!;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		this.#hTagProc.set_frame = this.#hTagProc.let_frame!;
 
 		this.#hTagProc.event =
 		this.#hTagProc.jump =
-		this.#hTagProc.return = this.#hTagProc.s;
-		this.#hTagProc.else = this.#hTagProc.elsif;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		this.#hTagProc.return = this.#hTagProc.s!;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		this.#hTagProc.else = this.#hTagProc.elsif!;
 
 		for (const [key, sn] of Object.entries(this.#hK2Snp)) {
 			const re = sn.slice(1, -1)
@@ -627,7 +631,7 @@ ${sum}`,
 	};
 	readonly	#hCmd2ReqProc_Inited: {[cmd: string]: (o: T_ALL_L2S)=> void}	= {
 		'go.res'		: (o: T_L2S_go_res)=> this.#scanAll(o),	// 終了時に 'analyze_inf'
-		'def_plg.upd'	: (o: T_L2S_def_plg_upd)=> this.#hDefPlugin = o.hDefPlugin,
+		'def_plg.upd'	: (o: T_L2S_def_plg_upd)=> {this.#hDefPlugin = o.hDefPlugin},
 		'need_go'		: ()=> this.#noticeGo(),
 
 		// 開いてないのに変更する、主に setting.sn 用
@@ -822,13 +826,11 @@ ${sum}`,
 			const onePrmMd = this.#p_prm2md(p, hRng, param, hVal);
 			return {range: u.rng, value: `~~~skynovel
 (マクロ) [${u.nm}${
-	onePrmMd ?? (	// オンマウスの属性のみ
+	onePrmMd ?? 	// オンマウスの属性のみ
 		param.slice(0, this.#属性表示最大数)	// 属性群を列挙
 		.map(mpd=> this.#genPrm2Md(mpd)).join('')
 		+ (param.length > this.#属性表示最大数 ?' ...以下略': '') +`]
-~~~`
-	)
-}
+~~~`}
 ---
 ${
 	(sum +' \n').replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ String(loc.range.start.line +1) })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
@@ -843,13 +845,11 @@ ${
 			const onePrmMd = this.#p_prm2md(p, hRng, param, hVal);
 			return {range: u.rng, value: `~~~skynovel
 (タグ) [${u.nm}${
-	onePrmMd ?? (	// オンマウスの属性のみ
+	onePrmMd ?? 	// オンマウスの属性のみ
 		param.slice(0, this.#属性表示最大数)	// 属性群を列挙
 		.map(mpd=> this.#genPrm2Md(mpd)).join('')
 		+ (param.length > this.#属性表示最大数 ?' ...以下略': '') +`]
-~~~`
-	)
-}
+~~~`}
 ---
 ${
 	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
@@ -905,8 +905,8 @@ ${
 
 		readonly	#genPrm2Md = ({name, required, def, rangetype}: MD_PARAM_DETAILS)=> ` ${name}=${
 			required === 'y'
-			? ('【必須】'+ this.#escHighlight(rangetype))
-			: (this.#escHighlight(rangetype) +'|'+ this.#escHighlight(def))
+			? '【必須】'+ this.#escHighlight(rangetype)
+			: this.#escHighlight(rangetype) +'|'+ this.#escHighlight(def)
 		}`;
 		readonly	#escHighlight = (s = '')=> {
 			if (s.at(0) === '\'' && s.at(-1) === '\'') return s;
@@ -1030,7 +1030,7 @@ ${
 			//	this.#cteScore.updWords(key, set);	// NOTE: Score
 					// この中は参照渡しとReq/Res型なので、更新確認は別にいらない
 			}
-			this.#hK2Snp[key] = (str === '||') ?`:${key}` :str;
+			this.#hK2Snp[key] = str === '||' ?`:${key}` :str;
 		}
 		if (eq) return;	// 以降の不要処理を防ぐが、オーバースペックかも
 
@@ -1371,7 +1371,7 @@ WorkspaceEdit
 
 
 	// =======================================
-	#oCfg = DEF_CFG;
+	#oCfg = creCfg();
 	#scanAll({pp2s, hDefPlg, haDiag}: T_L2S_go_res) {
 		this.#oCfg = <T_CFG>JSON.parse(pp2s['prj.json'] ?? '{}');
 		this.#grm.setEscape(this.#oCfg?.init?.escape ?? '');
@@ -2111,7 +2111,7 @@ WorkspaceEdit
 					for (const v of val.split(',')) {
 						rng.v_len = v.length;
 						this.#chkRangeType(aDi, use_nm, hArg, <T_KW>one_rt, v, name, rng);	// Position から作り直さないと反映されない
-						rng.k_ch = (rng.v_ch += rng.v_len +1);
+						rng.k_ch = rng.v_ch += rng.v_len +1;
 						this.#fp2Diag[fp] = aDi;
 					}
 					continue;
@@ -2247,8 +2247,8 @@ WorkspaceEdit
 			return Range.create(k_ln, k_ch, v_ln, v_ch +v_len);
 		}
 
-		#chkLiteral(fn: string): boolean {return !!fn && /^[^*%&"'#]/.test(fn) && fn.at(-1) !== '*'}
-		#chkLiteral4lbl(lbl: string): boolean {return !!lbl && /^\*[^*%&"'#]/.test(lbl)}
+		#chkLiteral(fn: string): boolean {return /^[^*%&"'#]/.test(fn) && fn.at(-1) !== '*'}
+		#chkLiteral4lbl(lbl: string): boolean {return /^\*[^*%&"'#]/.test(lbl)}
 		#REG_TAG_NAME	= /(?<name>[^\s;\]]+)/;
 
 
@@ -2329,13 +2329,13 @@ WorkspaceEdit
 			this.#aDsOutlineStack.push(arg.aDsOutline);
 			arg.aDsOutline = ds.children ?? [];
 		},
-		elsif: arg=> {	
+		elsif: arg=> {
 			this.#hTagProc.if(arg);
 
 			arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [];
 		},
 		// else:  = elsif
-		endif: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		endif: arg=> {arg.aDsOutline = this.#aDsOutlineStack.pop() ?? []},
 
 		// event:  = s
 
@@ -2351,7 +2351,7 @@ WorkspaceEdit
 
 			const {pp, hArg, p} = arg;
 			const fn = hArg.fn?.val ?? getFn(pp);
-			if (!fn || fn.at(-1) !== '*') return;
+			if (! fn || fn.at(-1) !== '*') return;
 
 			const a = this.#cnvFnWildcard2A(fn);
 			const i = InlayHint.create({...p}, a.length === 0 ?'対象なし' :a.join(','), InlayHintKind.Parameter);
@@ -2382,7 +2382,7 @@ WorkspaceEdit
 				v_ln, v_ch +v_len,
 			)));
 		},
-		endmacro: arg=> arg.aDsOutline = this.#aDsOutlineStack.pop() ?? [],
+		endmacro: arg=> {arg.aDsOutline = this.#aDsOutlineStack.pop() ?? []},
 		macro: arg=> {
 			const {uri, token, rng, aDi, pBefore, p, hArg, hRng} = arg;
 			const nm = hArg.name?.val;
@@ -2435,7 +2435,7 @@ WorkspaceEdit
 				pBefore.line, pBefore.character,
 				p.line, p.character,
 			);
-			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');	
+			const sum = hArg.sum?.val.replaceAll('\\n', '  \n');
 			const {v_ln, v_ch} = hRng.name;
 			this.#hDefMacro[nm] = {
 				loc		: Location.create(uri, rng2),
@@ -2510,7 +2510,7 @@ WorkspaceEdit
 		lay: arg=> {
 			this.#hTagProc.span(arg);
 		},
-	}	
+	}
 	readonly	#aDsOutlineStack	: DocumentSymbol[][]	= [];
 		#cnvFnWildcard2A(fn: string): string[] {
 			const EXT = 'sn';
@@ -2580,7 +2580,7 @@ WorkspaceEdit
 		return {
 			name: equa[0].replaceAll('＝', '==').replaceAll('≠', '!='),
 			text: equa[1].replaceAll('＝', '==').replaceAll('≠', '!='),
-			cast: ((cnt_equa === 3) ?equa[2].trim() :null)
+			cast: cnt_equa === 3 ?equa[2].trim() :null,
 		};
 	}
 

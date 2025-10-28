@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {defineStore} from 'pinia';
-import {DEF_BJ_OPTPIC, DEF_BJ_OPTPIC4TST, DEF_OPTSND, DEF_OPTSND4TST} from '../../src/types';
+import {creBJ_OPTPIC, creBJ_OPTPIC4TST, creOPTSND, creOPTSND4TST} from '../../src/types';
 import type {T_A_CNVFONT, T_BJ_OPTPIC, T_E2V_CNVFONT, T_E2V_OPTPIC, T_OPTSND, T_E2V_OPTSND} from '../../src/types';
 import {isVSCode, on} from './stVSCode';
 
@@ -31,8 +31,8 @@ export const useOInfo = ()=> {
 	const st = defineStore('OInfo', {
 		state	: ()=> ({
 			aCnvFont	: DEF_CNVFONT,
-			oOptPic		: isVSCode ?DEF_BJ_OPTPIC :DEF_BJ_OPTPIC4TST,
-			oOptSnd		: isVSCode ?DEF_OPTSND :DEF_OPTSND4TST,
+			oOptPic		: isVSCode ?creBJ_OPTPIC() :creBJ_OPTPIC4TST(),
+			oOptSnd		: isVSCode ?creOPTSND() :creOPTSND4TST(),
 		}),	// 初期値を返す関数
 	//	getters	: {},	// state 及び他の getter へのアクセスが可能
 		actions	: {	// State の更新

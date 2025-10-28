@@ -266,8 +266,7 @@ export type T_BJ_OPTPIC = {
 	hSize: {[fn: string]: T_OPTPIC_FILE};
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-export const DEF_BJ_OPTPIC: T_BJ_OPTPIC = {
+export function creBJ_OPTPIC(): T_BJ_OPTPIC {return {
 	order: {
 		quality	: 0,
 		FLD_PRJ_BASE	: '',
@@ -280,9 +279,8 @@ export const DEF_BJ_OPTPIC: T_BJ_OPTPIC = {
 		pathPicCmpBase	: '',
 	},
 	hSize	: {},
-} as const;
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-export const DEF_BJ_OPTPIC4TST: T_BJ_OPTPIC = {
+}}
+export function creBJ_OPTPIC4TST(): T_BJ_OPTPIC {return {
 	order: {
 		quality	: 0,
 		FLD_PRJ_BASE	: '',
@@ -299,7 +297,7 @@ export const DEF_BJ_OPTPIC4TST: T_BJ_OPTPIC = {
 		'breakpage_b'	: {baseSize: 6002, webpSize: 3000, fld_nm: 'test/breakpage_b', ext: 'png', webp_q: 45,},
 		'breakline.5x20': {baseSize: 6001, webpSize: 2000, fld_nm: 'test/breakline.5x20', ext: 'png'},
 	},
-} as const;
+}}
 
 
 // --------------------------------------------------------------------
@@ -325,9 +323,7 @@ export type T_OPTSND = {
 	};
 	hSize: {[fn: string]: T_OPTSND_FILE};
 }
-
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-export const DEF_OPTSND: T_OPTSND = {
+export function creOPTSND(): T_OPTSND {return {
 	sum: {
 		baseSize	: 0,
 		optSize		: 0,
@@ -335,9 +331,8 @@ export const DEF_OPTSND: T_OPTSND = {
 		pathSndBase	: '',
 	},
 	hSize	: {},
-} as const;
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-export const DEF_OPTSND4TST: T_OPTSND = {
+}}
+export function creOPTSND4TST(): T_OPTSND {return {
 	sum: {
 		baseSize	: 4510001,
 		optSize		: 1550001,
@@ -349,11 +344,11 @@ export const DEF_OPTSND4TST: T_OPTSND = {
 		'bow'	: {baseSize: 4002, optSize: 3010, fld_nm: 'test/bow', ext: 'mp4',},
 		'wood04': {baseSize: 4001, optSize: 2010, fld_nm: 'test/wood04', ext: 'wav'},
 	},
-} as const;
+}}
 
 
 // --------------------------------------------------------------------
-//MARK: 
+//MARK: テンプレート
 export const REG_SN2TEMP = /;[^\n]*|(?:&(\S+)|\[let\s+name\s*=\s*(\S+)\s+text)\s*=\s*((["'#]).+?\4|[^;\s]+)(?:[^;\n]*;(.*))?/g;	// https://regex101.com/r/FpmGwf/1
 
 export type T_TEMP = {

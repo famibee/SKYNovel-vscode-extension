@@ -43,7 +43,7 @@ for (const {name} of readdirSync(path, {withFileTypes: true})
 
 	const [t0='', t1='', t2='', ...t9] = txt.split(/\*{3}\n*/);	// *** で分割
 	const prm = t1.trim();
-	const param: MD_PARAM_DETAILS[] = (prm === '')
+	const param: MD_PARAM_DETAILS[] = prm === ''
 	? []
 	: prm.split('\n').map(line=> <MD_PARAM_DETAILS>Object.fromEntries(
 		line.slice(2).split('`')	//「- 」以降からバッククオート「`」区切り

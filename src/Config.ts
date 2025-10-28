@@ -7,9 +7,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {foldProc, hDiagL2s, uint} from './CmnLib';
-import {ConfigBase} from './ConfigBase';
+import {ConfigBase, creCfg} from './ConfigBase';
 import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots, T_CFG} from './ConfigBase';
-import {DEF_CFG} from './types';
 import type {Encryptor} from './Encryptor';
 import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../server/src/LspWs';
 
@@ -59,7 +58,7 @@ export class Config extends ConfigBase {
 		const fpPath= this.sys.arg.cur +'path.json';
 		try {
 			const o = <T_CFG>await readJson(fpPrj, {encoding: 'utf8'});
-			const d = structuredClone(DEF_CFG);
+			const d = creCfg();
 			await super.load(<T_CFG>{
 				...d,
 				...o,
@@ -155,12 +154,12 @@ export class Config extends ConfigBase {
 					for (let ix=0; ix<xLen; ++ix) {
 						for (let iy=0; iy<yLen; ++iy) {
 							oJs.frames[basename + String(++cnt).padStart(4, '0') +'.'+ ext] = {
-								frame	: {x: ix *w, y: iy*h, w: w, h :h},
+								frame	: {x: ix *w, y: iy*h, w, h},
 								rotated	: false,
 								trimmed	: false,
 								spriteSourceSize
 									: {x: 0, y: 0, w: width, h :height},
-								sourceSize	: {w: w, h :h},
+								sourceSize	: {w, h},
 								pivot		: {x: 0.5, y: 0.5},
 							};
 						}

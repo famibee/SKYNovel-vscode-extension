@@ -235,7 +235,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		const ret: TreeItem[] = [];
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE]!.iconPath = oIcon((ActivityBar.aReady[eTreeEnv.NODE]) ?'node-js-brands' :'error');
+		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE]!.iconPath = oIcon(ActivityBar.aReady[eTreeEnv.NODE] ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
@@ -259,7 +259,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
 			.then(async res=> {
 				const txt = await res.text();
-				newVerTemp = (/## v(.+)\s/.exec(txt))?.[1] ?? '';
+				newVerTemp = /## v(.+)\s/.exec(txt)?.[1] ?? '';
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER]!;
 				tiSV.description = '-- ' + newVerTemp;
@@ -289,7 +289,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			enableScripts: false,
 			localResourceRoots: [uf_path_doc],
 		});
-		this.#wp.onDidDispose(()=> this.#wp = null);	// 閉じられたとき
+		this.#wp.onDidDispose(()=> {this.#wp = null});	// 閉じられたとき
 
 		readFile(path_doc +'/envinfo.htm', 'utf-8', (e, inp)=> {
 			if (e) throw e;
@@ -311,7 +311,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			enableScripts: true,
 			localResourceRoots: [uf_path_doc],
 		});
-		wp.onDidDispose(()=> this.#wp = null);	// 閉じられたとき
+		wp.onDidDispose(()=> {this.#wp = null});	// 閉じられたとき
 
 		wp.webview.onDidReceiveMessage((m: T_TMPWIZ)=> {
 //console.log(`fn:ActivityBar.ts line:198 common m:%o`, m);

@@ -105,10 +105,10 @@ export class Debugger extends EventEmitter {
 
 	readonly	#hProcSnRes
 	: {[type: string]: (type: string, o: any)=> boolean}	= {
-		stopOnEntry: type=> {this.#sendEvent2Adpt(type);	return false;},
-		stopOnStep: type=> {this.#sendEvent2Adpt(type);	return false;},
-		stopOnBreakpoint: type=> {this.#sendEvent2Adpt(type);	return false;},
-		stopOnDataBreakpoint: type=> {this.#sendEvent2Adpt(type);return false;},
+		stopOnEntry: type=> {this.#sendEvent2Adpt(type);	return false},
+		stopOnStep: type=> {this.#sendEvent2Adpt(type);	return false},
+		stopOnBreakpoint: type=> {this.#sendEvent2Adpt(type);	return false},
+		stopOnDataBreakpoint: type=> {this.#sendEvent2Adpt(type); return false},
 
 		_recodeDesign: (_, o)=> {
 			const ln = uint(o[':ln']) -1;
@@ -194,7 +194,7 @@ export class Debugger extends EventEmitter {
 
 				const oAP: {[nm: string]: string | number} = {':cnt': 1};
 				oAP[ext] = `${parent}/${fn}.${ext}`;
-				this.send2SN('_addPath', {fn: fn, o: oAP});
+				this.send2SN('_addPath', {fn, o: oAP});
 			}
 
 			// ファイル生成、を検知しての prj.json 更新を待って次へ
@@ -263,7 +263,7 @@ export class Debugger extends EventEmitter {
 
 
 	restart = (ri: number)=> new Promise<void>(res=> {
-		this.send2SN('restart', {ri: ri});					// request
+		this.send2SN('restart', {ri});					// request
 		this.#hProcSnRes[ri] = ()=> {res(); return true;}	// response
 	});
 
@@ -333,7 +333,7 @@ export class Debugger extends EventEmitter {
 			o[v.ln] = v;
 			this.#sendEvent2Adpt('breakpointValidated', v);
 		}
-		this.send2SN('add_break', {fn: fn, o: o});
+		this.send2SN('add_break', {fn, o});
 		this.#hFn2hLineBP[fn] = o;
 
 		return aBp;
@@ -349,19 +349,19 @@ export class Debugger extends EventEmitter {
 	#aDataBreak: any[] = [];
 	setDataBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
 		this.#aDataBreak = a;
-		this.send2SN('set_data_break', {ri: ri, a: a});			// request
+		this.send2SN('set_data_break', {ri, a});			// request
 		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
 	#aFuncBreak: any[] = [];
 	setFuncBreakpoint = (ri: number, a: any[])=> new Promise<void>(res=> {
 		this.#aFuncBreak = a;
-		this.send2SN('set_func_break', {ri: ri, a: a});			// request
+		this.send2SN('set_func_break', {ri, a});			// request
 		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 
 	setVariable = (ri: number, nm: string, val: string)=> new Promise<void>(res=> {
-		this.send2SN('set_var', {ri: ri, nm: nm, val: val});	// request
+		this.send2SN('set_var', {ri, nm, val});	// request
 		this.#hProcSnRes[ri] = (_, o)=> {res(o.v); return true;}	// response
 	});
 

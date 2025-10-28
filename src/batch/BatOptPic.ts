@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_E2V_NOTICE_COMPONENT, T_E2V_OPTPIC, T_BJ_OPTPIC} from '../types';
-import {DEF_BJ_OPTPIC} from '../types';
+import {creBJ_OPTPIC} from '../types';
 import {chkUpdate, foldProc, getFn, replaceFile} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
 import type {PrjCmn} from '../PrjCmn';
@@ -54,7 +54,7 @@ export class BatOptPic {
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 				if (this.oBJ.order) return;	// v4.26.0 以前への対応
 			}
-			await writeJson(this.#PATH_BJ, this.oBJ = structuredClone(DEF_BJ_OPTPIC));
+			await writeJson(this.#PATH_BJ, this.oBJ = creBJ_OPTPIC());
 		})();
 	}
 
@@ -108,9 +108,7 @@ export class BatOptPic {
 		increment?: number;
 	}>, tknCancel: CancellationToken) {
 		this.oBJ = {
-			...structuredClone(DEF_BJ_OPTPIC),	// 必ずこれで
-			// ...{...DEF_BJ_OPTPIC},			// x
-			// ...DEF_BJ_OPTPIC,	// DEF_BJ_OPTPIC そのものがマージされる！？
+			...creBJ_OPTPIC(),
 			order: {
 				quality		: this.pc.ps.oWss['cnv.mat.webp_quality'],
 				FLD_PRJ_BASE: `${this.pc.FLD_SRC}/${FLD_PRJ_BASE}/`,
@@ -201,7 +199,7 @@ export class BatOptPic {
 			case 'reconv':		// 再変換
 				// 現状、UI的に「常にエンコーダー同一・パラメータ変更」なので、上書き全変換でよい
 				this.#log_enter(this.pc.PATH_PRJ, this.pc.PATH_PRJ_BASE);
-				this.oBJ.sum.baseSize = 
+				this.oBJ.sum.baseSize =
 				this.oBJ.sum.webpSize = 0;
 
 				for (const {ext, fld_nm} of Object.values(this.oBJ.hSize)) {
@@ -356,7 +354,7 @@ export class BatOptPic {
 	}
 
 
-	//MARK: 
+	//MARK: ログ準備
 	#log_enter(curPrj: string, curPrjBase: string) {
 		const o = this.oBJ;
 		for (const [fn, of] of Object.entries(this.oBJ.hSize)) {
