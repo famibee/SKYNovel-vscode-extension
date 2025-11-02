@@ -1,6 +1,8 @@
 # SKYNovel Extension for VSCode
-[![MIT License](https://img.shields.io/github/license/famibee/SKYNovel-vscode-extension.svg)](LICENSE)
-> ![](https://img.shields.io/badge/platform-windows%20%7C%20macos-lightgrey.svg)
+[![MIT](https://img.shields.io/badge/MIT-green?style=for-the-badge)](https://github.com/famibee/skynovel_esm/blob/master/LICENSE)
+![VSCode](https://img.shields.io/badge/VSCode-0078D4?style=for-the-badge&logo=visual%20studio%20code&logoColor=white)
+![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/famibee/SKYNovel-vscode-extension?color=brightgreen)
 ![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
 
