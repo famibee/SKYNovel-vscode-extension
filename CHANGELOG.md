@@ -1,3 +1,5 @@
+## v4.26.2
+- fix: マクロ・プラグイン定義ジャンプリンクが表示されなくなっていた件
 ## v4.26.1
 - fix: ESLint 設定手直し
 	- @eslint/js: configs.recommended

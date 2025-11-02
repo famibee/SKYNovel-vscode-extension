@@ -361,7 +361,7 @@ export function	splitAmpersand(token: string): {
 	const cnt_equa = equa.length;
 	if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
 
-	const [e0, e1, e2] = equa;
+	const [e0='', e1='', e2=''] = equa;
 	if (e1.startsWith('&')) throw '「&計算」書式では「&」指定が不要です';
 	return {
 		name: e0.replaceAll('＝', '==').replaceAll('≠', '!='),
@@ -477,7 +477,7 @@ export class Grammar {
 
 
 	resolveScript(txt: string): Script {
-		const a: string[] = txt
+		const a = <string[]>txt
 		.replaceAll(/\r\n?/g, '\n')
 		.match(this.#REG_TOKEN)
 		?.flatMap(tkn=> {

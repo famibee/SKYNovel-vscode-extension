@@ -133,7 +133,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
 					if (! is_win) re();
 					exec('python -m site --user-site', (e, stdout)=> {
-						if (e) {re(); return;}		// ありえないが
+						if (e) {re(); return}	// ありえないが
 						const path = stdout.slice(0, -15) +'Scripts\\;';
 						const col = this.ctx.environmentVariableCollection;
 						col.prepend('PATH', path);

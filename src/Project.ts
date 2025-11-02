@@ -489,65 +489,67 @@ export class Project {
 	#hFp2AHoverProc: {[fp: FULL_PATH]: ((o: T_S2L_hover_res)=> void)[]} = {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		const fp = vsc2fp(doc.uri.path);
-		return new Promise<Hover>(rs=> {
-			// ホバーイベントを伝え、文字列加工だけ任せ文字列を返してもらい、ここで表示
-			(this.#hFp2AHoverProc[fp] ??= []).push(({value})=> {
-				const a = value.split(/(?=\n---\n)/);
+		const {promise, resolve, reject} = Promise.withResolvers<Hover>();
+		(this.#hFp2AHoverProc[fp] ??= []).push(({value})=> {
+			const a = value.split(/(?=\n---\n)/);
 // console.log(`fn:Project.ts hover.res 受信 len:${String(a.length)} o:${value}:`);
-				if (a.length !== 3) {
-					const ms = new MarkdownString(value);
-					ms.isTrusted = true;
-				//	ms.supportHtml = true;
-					rs(new Hover(ms));
-					return;
-				}
+			if (a.length !== 3) {
+				const ms = new MarkdownString(value);
+				ms.isTrusted = true;
+			//	ms.supportHtml = true;
+				resolve(new Hover(ms));
+				return;
+			}
 
-				// 中央部分のみ置換。SQLジャンクション的なものの対策
-				const [args='', ...detail] = a;
-				new AsyncReplace(detail.join('')).replaceAll(
-					/<!-- ({.+?}) -->/g,
-					async (e1: string)=> {
-	const {name, val} = <{name: string, val: string}>JSON.parse(e1.slice(5, -4));
-	const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
-	const vfpImg = `${this.#pc.URI_WS}/doc/prj/${ppImg}`;
+			// 中央部分のみ置換。SQLジャンクション的なものの対策
+			const [args='', ...detail] = a;
+			new AsyncReplace(detail.join('')).replaceAll(
+				/<!-- ({.+?}) -->/g,
+				async (e1: string)=> {
+const {name, val} = <{name: string, val: string}>JSON.parse(e1.slice(5, -4));
+const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
+const vfpImg = `${this.#pc.URI_WS}/doc/prj/${ppImg}`;
 // console.log(`fn:Project.ts   vfpImg=${vfpImg}`);
 
-	const srcEx = `${vfpImg}|width=${String(this.#whThumbnail)}|height=${String(this.#whThumbnail)}`;
+const srcEx = `${vfpImg}|width=${String(this.#whThumbnail)}|height=${String(this.#whThumbnail)}`;
 // console.log(`fn:Project.ts   srcEx =${srcEx}`);
 
-	const {width, height} = await imageSizeFromFile(uri2path(vfpImg));
+const {width, height} = await imageSizeFromFile(uri2path(vfpImg));
 // console.log(`fn:Project.ts   w:${String(width)} h:${String(height)}`);
 
-	const exImg = encodeURIComponent(JSON.stringify([Uri.file(vfpImg)]));
-		// これが file で下が parse なのは動作と以下資料から
-		// visual studio code - How to open a file externally using built-in commands? - Stack Overflow https://stackoverflow.com/questions/72194573/how-to-open-a-file-externally-using-built-in-commands
-		// Opening folders in Visual Studio Code from an extension | Elio Struyf https://www.eliostruyf.com/opening-folders-visual-studio-code-extension/
+const exImg = encodeURIComponent(JSON.stringify([Uri.file(vfpImg)]));
+	// これが file で下が parse なのは動作と以下資料から
+	// visual studio code - How to open a file externally using built-in commands? - Stack Overflow https://stackoverflow.com/questions/72194573/how-to-open-a-file-externally-using-built-in-commands
+	// Opening folders in Visual Studio Code from an extension | Elio Struyf https://www.eliostruyf.com/opening-folders-visual-studio-code-extension/
 
-	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-	return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg} "ファイルを見る") [サイドバーに表示](${
-		String(Uri.parse(`command:revealInExplorer?${exImg}`))
-	} "サイドバーに表示")
-	[フォルダを開く](${
-		String(Uri.parse(`command:revealFileInOS?${exImg}`))
-	} "フォルダを開く")  \n`
+// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg} "ファイルを見る") [サイドバーに表示](${
+	String(Uri.parse(`command:revealInExplorer?${exImg}`))
+} "サイドバーに表示")
+[フォルダを開く](${
+	String(Uri.parse(`command:revealFileInOS?${exImg}`))
+} "フォルダを開く")  \n`
 //	+ `<img src="${vfpImg}?t=${timestamp}" title="${val}" width="${this.#whThumbnail}" height="${this.#whThumbnail *height /width}">`;
-		// TODO: 画像ファイルを更新してもサムネイルが更新されない
+	// TODO: 画像ファイルを更新してもサムネイルが更新されない
 //	+ `![${val}](${srcEx}?t=${timestamp} "${val}")`;
-	+ `![${val}](${srcEx} "${val}")`;
++ `![${val}](${srcEx} "${val}")`;
 
-					}
-				)
-				.then(ar=> {
-					const ms = new MarkdownString(args + ar.toString());
-					ms.isTrusted = true;
-				//	ms.supportHtml = true;
-					rs(new Hover(ms));
-				})
-				.catch((e: unknown)=> console.error(e));
-			});
-			void this.reqPrj2LSP({cmd: 'hover', fp, pos});
-				// 【file:///Users/...】 LSPの doc 特定で使う
+				}
+			)
+			.then(ar=> {
+				const ms = new MarkdownString(args + ar.toString());
+				ms.isTrusted = true;
+			//	ms.supportHtml = true;
+// console.log(`fn:Project.ts Hover 最終文字列=${ms.value}`);
+				resolve(new Hover(ms));
+			})
+			.catch((e: unknown)=> {console.error(e); reject()});
 		});
+
+		void this.reqPrj2LSP({cmd: 'hover', fp, pos});
+			// 【file:///Users/...】 LSPの doc 特定で使う
+
+		return promise;
 	}
 		readonly	#whThumbnail = 200;
 

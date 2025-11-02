@@ -833,7 +833,7 @@ ${sum}`,
 ~~~`}
 ---
 ${
-	(sum +' \n').replace('\n', `[定義位置：${ getFn(loc.uri) }](${ loc.uri }#L${ String(loc.range.start.line +1) })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
+	(sum +' \n').replace('\n', `[定義位置：${ getFn(loc.uri) }](file://${ loc.uri }#L${ String(loc.range.start.line +1) })${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
 }`
 			};
 		}
@@ -864,7 +864,7 @@ ${
 (プラグイン定義タグ) [${u.nm}]
 ~~~
 ---
-[定義位置：${ getFn(pd.uri) }](${ pd.uri }#L${ String(pd.sl +1) })`
+[定義位置：${ getFn(pd.uri) }](file://${ pd.uri }#L${ String(pd.sl +1) })`
 		};
 
 		return undefined;
@@ -1256,7 +1256,7 @@ ${
 	onDocumentLinks(prm: DocumentLinkParams): DocumentLink[] | DocumentSymbol[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
 		const fp = fullSchPath2fp(uri);
-// console.log(`fn:LspWs.ts onDocumentLinks fp:${fp} A:${JSON.stringify(this.#Uri2Links[fp])}`);
+// console.log(`fn:LspWs.ts onDocumentLinks fp:${fp} = ${JSON.stringify(this.#Uri2Links[fp])}`);
 		return this.#Uri2Links[fp];
 	}
 /*
@@ -2576,11 +2576,12 @@ WorkspaceEdit
 			// != を弾けないので中途半端ではある
 		const cnt_equa = equa.length;
 		if (cnt_equa < 2 || cnt_equa > 3) throw '「&計算」書式では「=」指定が一つか二つ必要です';
-		if (equa[1].startsWith('&')) throw '「&計算」書式では「&」指定が不要です';
+		const [e0='', e1='', e2=''] = equa;
+		if (e1.startsWith('&')) throw '「&計算」書式では「&」指定が不要です';
 		return {
-			name: equa[0].replaceAll('＝', '==').replaceAll('≠', '!='),
-			text: equa[1].replaceAll('＝', '==').replaceAll('≠', '!='),
-			cast: cnt_equa === 3 ?equa[2].trim() :null,
+			name: e0.replaceAll('＝', '==').replaceAll('≠', '!='),
+			text: e1.replaceAll('＝', '==').replaceAll('≠', '!='),
+			cast: cnt_equa === 3 ?e2.trim() :null,
 		};
 	}
 
