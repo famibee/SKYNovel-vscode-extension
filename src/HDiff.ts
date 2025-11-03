@@ -50,8 +50,7 @@ export class HDiff {
 		for (const [pp, {cn}] of Object.entries(this.#pp2hDiff)) {
 			const fp = `${this.PATH_CRYPT}${cn}`;
 			// 存在しなくなってるファイルの情報を削除
-			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-			if (! existsSync(fp)) delete this.#pp2hDiff[pp];
+			if (! existsSync(fp)) this.del(pp);
 		}
 	}
 	clear() {this.#pp2hDiff = <H_T_DIFF>Object.create(null)}
@@ -64,7 +63,7 @@ export class HDiff {
 	path2cn(afp: FULL_PATH): T_CN {
 		const fp = vsc2fp(Uri.file(afp).path);
 		const pp = this.fp2pp(fp);
-		const diff = this.#pp2hDiff[pp];
+		const diff = this.get(pp);
 		return {
 			pathCn: diff
 				? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/prj/${diff.cn}`)
@@ -87,7 +86,20 @@ export class HDiff {
 	}
 
 	//MARK: ファイルハッシュの保存
-	readonly save = ()=> writeJson(this.PATH_DIFF, this.#pp2hDiff);
+	async save() {
+		// ソート
+		const a = Object.entries(this.#pp2hDiff)
+		.sort(([k1], [k2])=> {
+			const n1 = k1.toUpperCase();
+			const n2 = k2.toUpperCase();
+			if (n1 < n2) return -1;
+			if (n1 > n2) return 1;
+			return 0;
+		});
+		this.#pp2hDiff = Object.fromEntries(a);
+
+		return writeJson(this.PATH_DIFF, this.#pp2hDiff);
+	}
 
 
 	//MARK: ファイルハッシュの検知と辞書更新

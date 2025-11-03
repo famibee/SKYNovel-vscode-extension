@@ -1,3 +1,5 @@
+## v4.26.4
+- fix: diff.json をソートするように
 ## v4.26.3
 - fix: win/mac 版パッケージビルド時に electron-builder@26.0.15 をインストールするように
 	- electron-builder が beta版を正規ルートでリリースしてパッケージビルドできなくなるため、その対応
