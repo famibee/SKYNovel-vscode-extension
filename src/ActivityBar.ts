@@ -135,8 +135,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					exec('python -m site --user-site', (e, stdout)=> {
 						if (e) {re(); return}	// ありえないが
 						const path = stdout.slice(0, -15) +'Scripts\\;';
-						const col = this.ctx.environmentVariableCollection;
-						col.prepend('PATH', path);
+						this.ctx.environmentVariableCollection.prepend('PATH', path);
 					});
 				};
 

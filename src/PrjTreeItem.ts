@@ -72,6 +72,15 @@ export class PrjTreeItem extends TreeItem {
 		onBtn		: ON_BTN,
 		is_new_tmp	: boolean,
 	): PrjTreeItem {
+		const bld = `npm i -D electron-builder@26.0.15 ${statBreak} npm run webpack:pro ${statBreak} npx electron-builder`;
+
+		// const bld = `npm i -D electron-builder@26.0.15 ${statBreak} npm run webpack:pro ${statBreak} export PYTHON_PATH="/usr/bin/python3" ${statBreak} alias python="python3" ${statBreak} npx electron-builder`;
+			// 26.0.15だと、下の【GitHub Personal Access Token is not set】も出ない
+		// const bld = `export PYTHON_PATH="/usr/bin/python3" ${statBreak} alias python="python3" ${statBreak} npx electron-builder`;
+			// FileNotFoundError: [Errno 2] No such file or directory: 'build/include/readme.txt'
+			// 【build/include/readme.txt】部分を消すと
+			//  ⨯ GitHub Personal Access Token is not set, neither programmatically, nor using env "GH_TOKEN"
+
 		const cfg: TREEITEM_CFG = {
 			cmd		: '',
 			icon	: '',
@@ -98,31 +107,18 @@ export class PrjTreeItem extends TreeItem {
 					task_type: 'App',
 					npm: `npm run ${is_new_tmp ?'app' :'start'}`,
 					exe: true,},
-				{cmd: '', icon: '',label: '生成', children: [
-					{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64',
-						npm: `npm run webpack:pro ${statBreak
-						} electron-builder -w --x64`},
-					//	} electron-builder -w --x64 --ia32`},
+				{cmd: '', icon: '', label: '生成', children: [
+					{cmd: 'PackWin',	icon: 'windows',	label: 'Windows exe x64', npm: `${bld} -w --x64`},
+					//	-w --x64 --ia32`},
 							// 一パッケージに統合型、ファイルサイズ二倍になる
-					{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32',
-						npm: `npm run webpack:pro ${statBreak
-						} electron-builder -w --ia32`},
-					{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64',
-						npm: `npm run webpack:pro ${statBreak
-						} electron-builder -m --x64`,
-						forMac: true,},
-					{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64',
-						npm: `npm run webpack:pro ${statBreak
-						} electron-builder -m --arm64`,
-						forMac: true,},
+					{cmd: 'PackWin32',	icon: 'windows',	label: 'Windows exe ia32', npm: `${bld} -w --ia32`},
+					{cmd: 'PackMac',	icon: 'macosx',		label: 'macOS dmg x64', npm: `${bld} -m --x64`, forMac: true,},
+					{cmd: 'PackMacArm64',	icon: 'macosx',	label: 'macOS dmg arm64', npm: `${bld} -m --arm64`, forMac: true,},
 						// Appleシリコンサポート| Electronブログ https://www.electronjs.org/blog/apple-silicon
 							// 将来的にはarm64、x64アプリを1つのユニバーサルバイナリに「マージ」できるパッケージをリリースする予定ですが、このバイナリは巨大であり、ユーザーへの出荷にはおそらく理想的ではないことに注意してください。
-					{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage',
-						npm: `npm run webpack:pro ${statBreak
-						} electron-builder -l`},
+					{cmd: 'PackLinux',	icon: 'linux',		label: 'Linux AppImage', npm: `${bld} -l`},
 						// Command Line Interface (CLI) - electron-builder https://www.electron.build/cli
-					{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip',
-						npm: 'npm run webpack:pro'},
+					{cmd: 'PackFreem',	icon: 'freem',		label: 'ふりーむ！形式 zip', npm: 'npm run webpack:pro'},
 				]},
 			],
 		};
