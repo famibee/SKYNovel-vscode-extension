@@ -1,6 +1,6 @@
 {
 	"name": "skynovel2",
-	"version": "4.26.4",
+	"version": "4.27.0",
 	"publisher": "famibee2",
 	"displayName": "SKYNovel",
 	"description": "It supports development of SKYNovel for VSCode, VSCodeでSKYNovelの開発をサポートする拡張機能",
@@ -10,7 +10,7 @@
 	"license": "MIT",
 	"engines": {
 		"vscode": "^1.105.0",
-		"node": ">=22.19"
+		"node": ">=24.11"
 	},
 	"categories": [
 		"Programming Languages",

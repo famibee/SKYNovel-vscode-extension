@@ -1,3 +1,6 @@
+## v4.27.0
+- feat: エンジンバージョンを cjs と esm の別々に表示・管理するように
+- fix(src/ActivityBar.ts): Node.js v24 アクティブ LTS 開始 につき、環境チェック値も更新【v24.11.0 以上必須】
 ## v4.26.4
 - fix: diff.json をソートするように
 ## v4.26.3

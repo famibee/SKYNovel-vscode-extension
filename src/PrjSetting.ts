@@ -8,10 +8,10 @@
 import type {T_V2E_CFG, T_E2V_CFG, T_E2V, T_V2E, T_E2V_INIT, T_E2V_NOTICE_COMPONENT, TK_WSS} from './types';
 import {DEF_WSS} from './types';
 import {chkBoolean, replaceRegsFile, repWvUri} from './CmnLib';
-import {ActivityBar, eTreeEnv, getNonce} from './ActivityBar';
+import {ActivityBar, getNonce} from './ActivityBar';
 import type {Config} from './Config';
 import {openURL} from './WorkSpaces';
-import type {T_reqPrj2LSP} from './Project';
+import type {T_LocalSNVer, T_reqPrj2LSP} from './Project';
 import type {PrjCmn} from './PrjCmn';
 import type {WfbOptPic} from './batch/WfbOptPic';
 import type {WfbOptSnd} from './batch/WfbOptSnd';
@@ -150,15 +150,16 @@ export class PrjSetting implements Disposable {
 	dispose() {for (const d of this.#ds) d.dispose()}
 
 
-	getLocalSNVer(): {verSN: string, verTemp: string} {
+	getLocalSNVer(): T_LocalSNVer {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 		const fnCngLog = this.pc.PATH_WS +'/CHANGELOG.md';
 		const lib_name = `@famibee/skynovel${this.pc.IS_NEW_TMP ?'_esm': ''}`;
 		return {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-			verSN	: oPkg.dependencies?.[lib_name]?.slice(1) ?? '',
-			verTemp	: existsSync(fnCngLog)
+			ver_sn	: oPkg.dependencies?.[lib_name]?.slice(1) ?? '',
+			is_new_tmp	: this.pc.IS_NEW_TMP,
+			ver_temp	: existsSync(fnCngLog)
 				? /## v(.+)\s/.exec(readFileSync(fnCngLog, {encoding: 'utf8'}))?.[1] ?? ''
 				: '',
 		};
@@ -198,7 +199,7 @@ export class PrjSetting implements Disposable {
 	#wp	: WebviewPanel | undefined = undefined;
 	#pathIcon	: string;
 	open() {
-		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
+		if (! ActivityBar.getReady('NPM')) return;
 		const column = window.activeTextEditor?.viewColumn;
 		if (this.#wp) {
 			this.#wp.reveal(column);
@@ -434,7 +435,7 @@ export class PrjSetting implements Disposable {
 		case 'cnv.font.subset':
 			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			if (! ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS]) break;
+			if (! ActivityBar.getReady('PY_FONTTOOLS')) break;
 
 			if (chkBoolean(val)) await this.optFont.enable();
 			else await this.optFont.disable();

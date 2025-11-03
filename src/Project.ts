@@ -9,7 +9,7 @@ import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo} from './CmnLib';
 import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
-import {ActivityBar, eTreeEnv} from './ActivityBar';
+import {ActivityBar} from './ActivityBar';
 import {EncryptorTransform} from './EncryptorTransform';
 import type {TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
@@ -57,6 +57,13 @@ const	mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
 	[SEARCH_PATH_ARG_EXT.FONT,		['script']],
 	[SEARCH_PATH_ARG_EXT.SCRIPT,	['script']],
 ]);
+
+
+export type T_LocalSNVer = {
+	ver_sn		: string;
+	is_new_tmp	: boolean;
+	ver_temp	: string;
+}
 
 
 export class Project {
@@ -228,10 +235,10 @@ export class Project {
 		const tiSnUpd = aTi[eDevTreeView.SnUpd]!;
 		this.getLocalSNVer = ()=> {
 			const o = this.#ps.getLocalSNVer();
-			tiSnUpd.description = o.verSN
-				? o.verSN.startsWith('ile:') || o.verSN.startsWith('./')
+			tiSnUpd.description = o.ver_sn
+				? o.ver_sn.startsWith('ile:') || o.ver_sn.startsWith('./')
 				? '（相対パス参照中）'
-				: `-- ${o.verSN}${o.verTemp ?` - ${o.verTemp}` :''}`
+				: `-- ${o.ver_sn}${o.ver_temp ?` - ${o.ver_temp}` :''}`
 				: '取得できません';
 			emPrjTD.fire(tiSnUpd);
 			return o;
@@ -313,7 +320,8 @@ export class Project {
 				const firstInit = ! existsSync(this.#pc.PATH_WS +'/node_modules');
 				await this.#updPlugin(firstInit);	// updPlugin で goAll() が走る
 				if (firstInit) {
-					 if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+					 if (ActivityBar.getReady('NPM')) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
+					//  if (ActivityBar.aReady[eTreeEnv.NPM]) window.showInformationMessage('初期化中です。ターミナルの処理が終わって止まるまでしばらくお待ち下さい。', {modal: true});
 				}
 				else await actBar.chkLastSNVer([this.getLocalSNVer()]);
 			},
@@ -376,7 +384,7 @@ export class Project {
 		});
 	}
 
-	readonly	getLocalSNVer	: ()=> {verSN: string, verTemp: string};
+	readonly	getLocalSNVer	: ()=> T_LocalSNVer;
 				#aDbgSS			: DebugSession[]	= [];
 	#onDidTermDbgSS = ()=> { /* empty */ }
 
@@ -584,7 +592,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 		['TaskAppDbgStop', ['','','','','','','','','','','','']],
 	]);
 	async #onBtn(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG) {
-		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
+		if (! ActivityBar.getReady('NPM')) return;
 
 		// 値を壊してボタン消去など
 		const aBtnEnable = this.#hPush2BtnEnable.get(btn_nm)
@@ -1154,7 +1162,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 		}
 	}
 	#build = ()=> {
-		if (! ActivityBar.aReady[eTreeEnv.NPM]) return;
+		if (! ActivityBar.getReady('NPM')) return;
 
 		this.#build = ()=> { /* empty */ };	// onceにする
 		// 起動時にビルドが走るのはこれ

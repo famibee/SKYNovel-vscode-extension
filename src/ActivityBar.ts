@@ -8,6 +8,7 @@
 import type {T_TMPWIZ} from './types';
 import {is_win, replaceRegsFile, repWvUri} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
+import type {T_LocalSNVer} from './Project';
 import type {T_CFG} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
@@ -18,16 +19,7 @@ import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remo
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
 const AdmZip = require('adm-zip');
 
-const nNodeReqVer = 22_020_000;
-
-
-export const enum eTreeEnv {
-	NODE = 0,
-	NPM,
-	SKYNOVEL_VER,
-	TEMP_VER,
-	PY_FONTTOOLS,
-}
+const nNodeReqVer = 24_011_000;
 
 export function getNonce() {
 	let text = '';
@@ -45,10 +37,53 @@ export function oIcon(name: string) {return {
 }}
 
 
+type T_ENV_SRC = {
+	nm		: string;
+	icon	: string;
+	label	: string;
+}
+
+type T_ENV = {
+	ti		: TreeItem;
+	ready	: boolean;
+}
+type T_H_ENV = {
+	NODE			: T_ENV;
+	NPM				: T_ENV;
+	SN_ESM_VER		: T_ENV;
+	SN_CJS_VER		: T_ENV;
+	TEMP_VER		: T_ENV;
+	PY_FONTTOOLS	: T_ENV;
+}
+
+
 export class ActivityBar implements TreeDataProvider<TreeItem> {
 	//MARK: 処理冒頭
 	static start(ctx: ExtensionContext) {
 		extPath = ctx.extensionPath;
+
+		ActivityBar.#hEnv = <T_H_ENV>Object.fromEntries(
+			(<T_ENV_SRC[]>[
+				{nm: 'NODE',
+					icon: 'node-js-brands',	label: 'Node.js'},
+				{nm: 'NPM',
+					icon: 'npm-brands',		label: 'npm'},
+				{nm: 'SN_ESM_VER',
+					icon: 'skynovel',		label: 'SKYNovel esm'},
+				{nm: 'SN_CJS_VER',
+					icon: 'skynovel',		label: 'SKYNovel（online）'},
+				{nm: 'TEMP_VER',
+					icon: 'skynovel',		label: 'テンプレ（online）'},
+				{nm: 'PY_FONTTOOLS',
+					icon: 'python-brands',	label: 'fonttools'},
+			])
+			.map(({nm, icon, label})=> {
+				const ti = new TreeItem(label);
+				ti.iconPath = oIcon(icon);
+				ti.contextValue = label;
+				return [nm, <T_ENV>{ti, ready: false}]
+			})
+		);
 
 		this.#actBar = new ActivityBar(ctx);
 	}
@@ -57,6 +92,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	#workSps: WorkSpaces;
+	static #hEnv: T_H_ENV;
+	static getReady(nm: keyof T_H_ENV): boolean {return this.#hEnv[nm].ready}
 
 
 	//MARK: コンストラクタ
@@ -91,28 +128,16 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		.catch((e: unknown)=> console.error('fn:ActivityBar.ts constructor %o', e))
 	}
 
-	#dispose() {
-		if (this.#wp) this.#wp.dispose();
-	}
+	#dispose() {if (this.#wp) this.#wp.dispose()}
 
 	//MARK: 環境確認
 	async #chkEnv(finish: (ok: boolean)=> Promise<void>) {
-		this.#aTiEnv = this.#aEnv.map(v=> {
-			const ti = new TreeItem(v.label);
-			if (v.label) ti.iconPath = oIcon(v.icon);
-			ti.contextValue = v.label;
-			return ti;
-		});
-
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const tiNode = this.#aTiEnv[eTreeEnv.NODE]!;
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const tiNpm = this.#aTiEnv[eTreeEnv.NPM]!;
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const tiPFT = this.#aTiEnv[eTreeEnv.PY_FONTTOOLS]!;
-		ActivityBar.aReady[eTreeEnv.NODE] = false;
-		ActivityBar.aReady[eTreeEnv.NPM] = false;
-		ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = false;
+		const tiNode = ActivityBar.#hEnv.NODE.ti;
+		const tiNpm = ActivityBar.#hEnv.NPM.ti;
+		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
+		ActivityBar.#hEnv.NODE.ready = false;
+		ActivityBar.#hEnv.NPM.ready = false;
+		ActivityBar.#hEnv.PY_FONTTOOLS.ready = false;
 
 		await Promise.allSettled([
 			new Promise<void>(re=> exec('pip list', (e, stdout)=> {
@@ -125,7 +150,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				}
 
 				const fnc = ()=> {
-					ActivityBar.aReady[eTreeEnv.PY_FONTTOOLS] = true;
+					ActivityBar.#hEnv.PY_FONTTOOLS.ready = true;
 					tiPFT.description = '-- ready';
 					tiPFT.iconPath = oIcon('python-brands');
 					this.#onDidChangeTreeData.fire(tiPFT);
@@ -179,7 +204,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					re();
 					return;
 				}
-				ActivityBar.aReady[eTreeEnv.NODE] = true;
+				ActivityBar.#hEnv.NODE.ready = true;
 				tiNode.description = `-- ${vNode}`;
 				tiNode.iconPath = oIcon('node-js-brands');
 				this.#onDidChangeTreeData.fire(tiNode);
@@ -193,7 +218,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					re();
 					return;
 				}
-				ActivityBar.aReady[eTreeEnv.NPM] = true;
+				ActivityBar.#hEnv.NPM.ready = true;
 				tiNpm.description = `-- ${stdout.trimEnd()}`;
 				tiNpm.iconPath = oIcon('npm-brands');
 				this.#onDidChangeTreeData.fire(tiNpm);
@@ -203,15 +228,6 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		.then(()=> finish(true))
 		.catch(()=> finish(false));
 	}
-	readonly #aEnv: {label: string, icon: string}[]	= [
-		{icon: 'node-js-brands',label: 'Node.js',},
-		{icon: 'npm-brands',	label: 'npm',},
-		{icon: 'skynovel',		label: 'SKYNovel（最新）',},
-		{icon: 'skynovel',		label: 'テンプレ（最新）',},
-		{icon: 'python-brands',	label: 'fonttools',},
-	];
-	#aTiEnv: TreeItem[] = [];
-	static aReady	= [false, false, false, false, false];
 
 
 	// refreshEnvボタン
@@ -230,49 +246,62 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	// 起動時？ と refreshボタンで呼ばれる
 	getChildren(t?: TreeItem): Promise<TreeItem[]> {
-		if (! t) return Promise.resolve(this.#aTiEnv);
+		if (! t) return Promise.resolve(Object.values(ActivityBar.#hEnv).map(v=> v.ti));
 
 		const ret: TreeItem[] = [];
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (t.label === 'Node.js') this.#aTiEnv[eTreeEnv.NODE]!.iconPath = oIcon(ActivityBar.aReady[eTreeEnv.NODE] ?'node-js-brands' :'error');
+		if (t.label === 'Node.js') ActivityBar.#hEnv.NODE.ti.iconPath = oIcon(ActivityBar.#hEnv.NODE.ready ?'node-js-brands' :'error');
 		return Promise.resolve(ret);
 	}
 
 	//MARK: ネットの更新確認
-	async chkLastSNVer(aLocalSNVer: {verSN: string, verTemp: string}[]) {
-		let newVerSN = '';
+	async chkLastSNVer(aLocalSNVer: T_LocalSNVer[]) {
+		let newVerEsmSN = '';
+		let newVerCjsSN = '';
 		let newVerTemp = '';
 		await Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/skynovel_esm/main/package.json')
 			.then(async res=> {
 				const json = <{version: string}>await res.json();
-				if (! ('version' in json)) throw 'ネット上の package.json が異常です';
-				newVerSN = json.version;
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				const tiSV = this.#aTiEnv[eTreeEnv.SKYNOVEL_VER]!;
-				tiSV.description = '-- ' + newVerSN;
+				if (! ('version' in json)) throw 'ネット上の package.json が異常です(esm)';
+				newVerEsmSN = json.version;
+				const tiSV = ActivityBar.#hEnv.SN_ESM_VER.ti;
+				tiSV.description = '-- ' + newVerEsmSN;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			})
-			.catch((e: unknown)=> console.error('fn:ActivityBar.ts line:260 %o', e))
+			.catch((e: unknown)=> console.error('fn:ActivityBar.ts esm %o', e))
+			,
+			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
+			.then(async res=> {
+				const json = <{version: string}>await res.json();
+				if (! ('version' in json)) throw 'ネット上の package.json が異常です(cjs)';
+				newVerCjsSN = json.version;
+				const tiSV = ActivityBar.#hEnv.SN_CJS_VER.ti;
+				tiSV.description = '-- ' + newVerCjsSN;
+				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
+			})
+			.catch((e: unknown)=> console.error('fn:ActivityBar.ts cjs %o', e))
 			,
 			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
 			.then(async res=> {
 				const txt = await res.text();
 				newVerTemp = /## v(.+)\s/.exec(txt)?.[1] ?? '';
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				const tiSV = this.#aTiEnv[eTreeEnv.TEMP_VER]!;
+				const tiSV = ActivityBar.#hEnv.TEMP_VER.ti;
 				tiSV.description = '-- ' + newVerTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 		]);
 		for (const o of aLocalSNVer) {
-			if (o.verTemp && newVerTemp !== o.verTemp) {
-				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ ${o.verTemp}->${newVerTemp}）`);
+			if (o.ver_temp && newVerTemp !== o.ver_temp) {
+				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ ${o.ver_temp}->${newVerTemp}）`);
 				return;
 			}
+			if (o.ver_sn === '' || o.ver_sn.startsWith('ile:') || o.ver_sn.startsWith('./')) return;
 
-			if (o.verSN === '' || o.verSN.startsWith('ile:') || o.verSN.startsWith('./')) return;
-			if (newVerSN !== o.verSN) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.verSN}->${newVerSN}）`);
+			if (o.is_new_tmp) {
+				if (newVerEsmSN !== o.ver_sn) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.ver_sn}->${newVerEsmSN}）`);
+				return;
+			}
+			if (newVerCjsSN !== o.ver_sn) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.ver_sn}->${newVerCjsSN}）`);
 		}
 	}
 
