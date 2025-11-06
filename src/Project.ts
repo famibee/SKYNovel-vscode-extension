@@ -985,6 +985,10 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 				/publicDir: 'doc'/,
 				`publicDir: '${FLD_CRYPT_DOC}'`,
 			);
+			await copy(
+				this.#pc.PATH_WS +'/doc/icon.png',
+				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/icon.png`
+			);
 		}
 		else {
 			replaceFile(
@@ -1002,18 +1006,24 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 				/'\/doc/g,
 				`'/${FLD_CRYPT_DOC}`,
 			);
-			await copy(
-				this.#pc.PATH_WS +'/doc/web.htm',
-				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/web.htm`
-			);
-			await copy(
-				this.#pc.PATH_WS +'/doc/app.js',
-				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app.js`
-			);
-			await copy(
-				this.#pc.PATH_WS +'/doc/app/index.htm',
-				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app/index.htm`
-			);
+			await Promise.allSettled([
+				copy(
+					this.#pc.PATH_WS +'/doc/web.htm',
+					this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/web.htm`
+				),
+				copy(
+					this.#pc.PATH_WS +'/doc/app.js',
+					this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app.js`
+				),
+				copy(
+					this.#pc.PATH_WS +'/doc/app/icon.png',
+					this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app/icon.png`
+				),
+				copy(
+					this.#pc.PATH_WS +'/doc/app/index.htm',
+					this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app/index.htm`
+				),
+			]);
 		}
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
