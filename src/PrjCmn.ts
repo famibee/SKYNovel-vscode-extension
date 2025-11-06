@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from './CmnLib';
+import type {FULL_PATH, PROJECT_PATH, T_PKG_JSON, WORKSPACE_PATH} from './CmnLib';
 import {vsc2fp} from './CmnLib';
 import {PRE_TASK_TYPE} from './WorkSpaces';
 import type {HDiff} from './HDiff';
@@ -139,12 +139,10 @@ export class PrjCmn {
 			title		: inf.title,
 			cancellable	: false,
 		}, prg=> new Promise(donePrg=> {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-			const oPkg = readJsonSync(this.PATH_WS +'/package.json', {encoding: 'utf8'});
+			const oPkg = <T_PKG_JSON>readJsonSync(this.PATH_WS +'/package.json', {encoding: 'utf8'});
 			const sNeedInst = inf.aNeedLib
 			// .filter(nm=> ! oPkg.devDependencies[nm])
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			.filter(nm=> ! (oPkg.devDependencies ??= {})[nm]).join(' ');
+			.filter(nm=> ! oPkg.devDependencies[nm]).join(' ');
 
 			const pathJs = this.PATH_WS +`/${this.FLD_SRC}/batch/${nm}.js`;
 			copySync(this.ctx.extensionPath +`/dist/${nm}.js`, pathJs);

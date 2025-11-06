@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo} from './CmnLib';
+import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
 import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
@@ -770,8 +770,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 				this.hOnEndTask.set(task_type, ()=> {
 				Promise.resolve(async ()=> {
 					// アップデート用ファイル作成
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-					const oPkg = await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
+					const oPkg = <T_PKG_JSON>await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
 
 					const pathPkg = this.#pc.PATH_WS +'/build/package';
 					const pathUpd = pathPkg +'/update';
@@ -799,9 +798,9 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 						await remove(pathUpd);
 						await mkdirs(pathUpd);
 					}
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					oUc.version = oPkg.version;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					oUc.name = oPkg.name;
 
 					const mp = /path: (.+)/.exec(sYml);

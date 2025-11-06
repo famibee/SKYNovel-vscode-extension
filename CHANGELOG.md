@@ -1,3 +1,5 @@
+## v4.27.2
+- fix: テンプレ package.json に publisher 項目追加対応
 ## v4.27.1
 - fix: 【cjsテンプレ】暗号化時に doc_crypto/app.js, app/index.htm の準備をしていなかったのを修正
 ## v4.27.0

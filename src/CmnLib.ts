@@ -18,6 +18,34 @@ export	const	REG_SCRIPT	= /\.ss?n$/;
 export	const docsel = {scheme: 'file', language: 'skynovel'};
 
 
+export	type T_PKG_JSON = {
+	name		: string
+	version		: string
+	productName	: string
+	description	: string
+	appId		: string
+	appBundleId	: string
+	appCopyright: string
+	author		: string
+	publisher	: string
+	homepage	: string
+	dependencies: {
+		[pkg_nm: string]: string
+	}
+	devDependencies: {
+		[pkg_nm: string]: string
+	}
+	scripts: {
+		[scr_nm: string]: string
+	}
+	build: {
+		appId		: string
+		productName	: string
+		artifactName: string
+	}
+}
+
+
 // =============== WebView
 import type {Uri, Webview} from 'vscode';
 export function repWvUri(inp: string, wv: Webview, uriDoc: Uri): string {

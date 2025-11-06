@@ -7,7 +7,7 @@
 
 import type {T_V2E_CFG, T_E2V_CFG, T_E2V, T_V2E, T_E2V_INIT, T_E2V_NOTICE_COMPONENT, TK_WSS} from './types';
 import {DEF_WSS} from './types';
-import {chkBoolean, replaceRegsFile, repWvUri} from './CmnLib';
+import {chkBoolean, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
 import {ActivityBar, getNonce} from './ActivityBar';
 import type {Config} from './Config';
 import {openURL} from './WorkSpaces';
@@ -280,34 +280,22 @@ export class PrjSetting implements Disposable {
 
 			// package.json
 			const CopyrightYear = new Date().getFullYear();
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-			const p = await readJson(this.#PATH_PKG_JSON, {encoding: 'utf8'});
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+			const p = <T_PKG_JSON>await readJson(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 			p.name = c.save_ns;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			p.appBundleId = p.appId = `com.fc2.blog.famibee.skynovel.${c.save_ns}`;
-
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			p.version = c.book.version;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			p.productName = c.book.title;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			p.author = c.book.creator;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			p.appCopyright = `(c)${c.book.creator}`;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			p.homepage = c.book.pub_url;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			p.description = c.book.detail;
+			p.appBundleId = p.appId = `com.fc2.blog.famibee.skynovel.${c.save_ns}`;
+			p.appCopyright = `(c)${c.book.creator}`;
+			p.author = c.book.creator;
+			p.publisher = c.book.publisher;
+			p.homepage = c.book.pub_url;
 
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 			p.build.appId = p.appId;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			p.build.productName = c.book.title.normalize('NFD');
 			// p.build.productName = c.book.title;
 				// electron-builder 不具合対策
 				// macOS app crashes when build.productName contains NFC characters · Issue #9264 · electron-userland/electron-builder https://github.com/electron-userland/electron-builder/issues/9264
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			p.build.artifactName = '${name}-${version}-${arch}.${ext}';
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 

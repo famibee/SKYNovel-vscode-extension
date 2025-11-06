@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_TMPWIZ} from './types';
-import {is_win, replaceRegsFile, repWvUri} from './CmnLib';
+import {is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
@@ -550,22 +550,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				]);
 
 				// package.json
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-				const oNewPkgJS = await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
+				const oNewPkgJS = <T_PKG_JSON>await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
 				const lib_name = `@famibee/skynovel${is_new_tmp ?'_esm': ''}`
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 				const v = <string>oOldPkgJS.dependencies[lib_name];
 				if (v.startsWith('ile:') || v.startsWith('./')) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 					oNewPkgJS.dependencies[lib_name] = v;
 				}
 				await outputJson(fnTo +'/package.json', {
 					...oOldPkgJS,
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					dependencies	: oNewPkgJS.dependencies,
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					devDependencies	: oNewPkgJS.devDependencies,
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 					scripts			: oNewPkgJS.scripts,
 				}, {spaces: '\t'});
 					// TODO: プラグインはまた別個にライブラリを考慮し更新
