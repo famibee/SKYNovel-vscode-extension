@@ -9,7 +9,7 @@ import type {T_TMPWIZ} from './types';
 import {is_win, replaceRegsFile, repWvUri} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
-import type {T_CFG} from './ConfigBase';
+import type {T_CFG_RAW} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
 import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation} from 'vscode';
@@ -443,7 +443,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				// prj.json の置換
 				const pathUnZip = td +`${nm}-main/`;
 				const fnPrjJs = pathUnZip +'doc/prj/prj.json';
-				const oPrj = <T_CFG>await readJson(fnPrjJs, {encoding: 'utf8'});
+				const oPrj = <T_CFG_RAW>await readJson(fnPrjJs, {encoding: 'utf8'});
 				oPrj.save_ns = this.#save_ns;
 				oPrj.debuger_token = '';
 				await outputJson(fnPrjJs, oPrj, {spaces: '\t'});

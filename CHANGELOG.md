@@ -1,3 +1,5 @@
+## v4.27.1
+- fix: 【cjsテンプレ】暗号化時に doc_crypto/app.js, app/index.htm の準備をしていなかったのを修正
 ## v4.27.0
 - feat: エンジンバージョンを cjs と esm の別々に表示・管理するように
 - fix(src/ActivityBar.ts): Node.js v24 アクティブ LTS 開始 につき、環境チェック値も更新【v24.11.0 以上必須】

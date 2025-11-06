@@ -7,7 +7,7 @@
 
 import {chkBoolean, type HArg, repWvUri} from './CmnLib';
 import {AnalyzeTagArg, type HPRM} from './AnalyzeTagArg';
-import type {IFn2Path} from './ConfigBase';
+import type {T_Fn2Path} from './ConfigBase';
 import {getNonce} from './ActivityBar';
 
 import type {CancellationToken, ExtensionContext, TextDocument, WebviewPanel, Webview} from 'vscode';
@@ -394,8 +394,8 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 		}
 	}
 
-	#hPrj2hPath	: IFn2Path	= {};
-	updPath(hPath: IFn2Path) {
+	#hPrj2hPath	: T_Fn2Path	= {};
+	updPath(hPath: T_Fn2Path) {
 		this.#hPrj2hPath = hPath;
 		for (const path_doc of Object.keys(this.#hPath2Tokens)) {
 			if (path_doc in this.#hPath2Wv) this.#updWv_db(path_doc);

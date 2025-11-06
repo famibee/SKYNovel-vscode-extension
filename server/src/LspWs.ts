@@ -18,8 +18,8 @@ import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
 const hMd = <{[tag_nm: string]: MD_STRUCT}>require('./md.json');
 // import hMd from './md.json' with {type: 'json'};
 // import hMd from './md.json' assert {type: 'json'};
-import type {IExts, IFn2Path, T_CFG} from '../../src/ConfigBase';
-import {creCfg, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
+import type {T_Exts, T_Fn2Path, T_CFG} from '../../src/ConfigBase';
+import {creCFG, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
 import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
 import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, PublishDiagnosticsParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
@@ -1371,7 +1371,7 @@ WorkspaceEdit
 
 
 	// =======================================
-	#oCfg = creCfg();
+	#oCfg = creCFG();
 	#scanAll({pp2s, hDefPlg, haDiag}: T_L2S_go_res) {
 		this.#oCfg = <T_CFG>JSON.parse(pp2s['prj.json'] ?? '{}');
 		this.#grm.setEscape(this.#oCfg?.init?.escape ?? '');
@@ -1401,7 +1401,7 @@ WorkspaceEdit
 	}
 		#updPath(sJson: string) {
 			this.#hPathFn2Exts = {};
-			const oJs = <IFn2Path>JSON.parse(sJson);
+			const oJs = <T_Fn2Path>JSON.parse(sJson);
 			for (const [nm, v] of Object.entries(oJs)) {
 				const h = this.#hPathFn2Exts[nm] = v;
 				for (const [ext, w] of Object.entries(h)) {
@@ -2657,17 +2657,17 @@ WorkspaceEdit
 		return ret;
 	}
 	#userFnTail		= '';
-	#hPathFn2Exts	: IFn2Path	= {};
+	#hPathFn2Exts	: T_Fn2Path	= {};
 
-	#matchPath(fnptn: string, extptn: string = SEARCH_PATH_ARG_EXT.DEFAULT): readonly IExts[] {
-		const aRet :IExts[] = [];
+	#matchPath(fnptn: string, extptn: string = SEARCH_PATH_ARG_EXT.DEFAULT): readonly T_Exts[] {
+		const aRet :T_Exts[] = [];
 		const regPtn = new RegExp(fnptn);
 		const regExt = new RegExp(extptn);
 		for (const [fn, h_exts] of Object.entries(this.#hPathFn2Exts)) {
 			if (fn.search(regPtn) === -1) continue;
 			if (extptn === '') {aRet.push(h_exts); continue;}
 
-			const o :IExts = {};
+			const o :T_Exts = {};
 			let isa = false;
 			for (const ext of Object.keys(h_exts)) {
 				if (ext.search(regExt) === -1) continue;

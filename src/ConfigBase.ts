@@ -25,7 +25,7 @@ export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数�
 }
 
 
-export type T_CFG = {
+export type T_CFG_RAW = {
 	book	: {
 		title		: string,	// 作品タイトル
 		creator		: string,	// 著作者
@@ -35,12 +35,12 @@ export type T_CFG = {
 		detail		: string,	// 内容紹介
 		version		: string,	// version
 	},
-	save_ns		: string,
-	window	: {		// アプリケーションウインドウサイズ
+	save_ns?	: string,
+	window?	: {		// アプリケーションウインドウサイズ
 		width	: number,
 		height	: number,
 	},
-	log		: {max_len: number},	// プレイヤーが読んだ文章を読み返せる履歴の長さ
+	log?	: {max_len: number},	// プレイヤーが読んだ文章を読み返せる履歴の長さ
 	init	: {
 		bg_color			: string | number,	// 背景色
 		tagch_msecwait		: number,	// 通常文字表示待ち時間（未読／既読）
@@ -61,8 +61,16 @@ export type T_CFG = {
 	code	: {[fold_nm: string]: boolean,},	// 暗号化しないフォルダ
 	debuger_token	: string,	// デバッガとの接続トークン
 }
+export type T_CFG = T_CFG_RAW & {
+	save_ns		: string,
+	window	: {		// アプリケーションウインドウサイズ
+		width	: number,
+		height	: number,
+	},
+	log		: {max_len: number},	// プレイヤーが読んだ文章を読み返せる履歴の長さ
+}
 
-export function creCfg(): T_CFG {return {
+export function creCFG(): T_CFG {return {
 	save_ns		: '',		// 扱うセーブデータを一意に識別するキーワード文字列
 	window	: {		// アプリケーションウインドウサイズ
 		width	: 300,
@@ -80,9 +88,9 @@ export function creCfg(): T_CFG {return {
 	log		: {max_len: 64},	// プレイヤーが読んだ文章を読み返せる履歴のページ数
 	init	: {
 		bg_color			: '#000000',	// 背景色
-		tagch_msecwait		: 10,		// 通常文字表示待ち時間（未読／既読）
-		auto_msecpagewait	: 3500,		// 自動文字表示、行クリック待ち時間（未読／既読）
-		escape				: '',		// エスケープ文字
+		tagch_msecwait		: 10,	// 通常文字表示待ち時間（未読／既読）
+		auto_msecpagewait	: 3500,	// 自動文字表示、行クリック待ち時間（未読／既読）
+		escape				: '',	// エスケープ文字
 	},
 	debug	: {
 		devtool		: false,
@@ -100,56 +108,57 @@ export function creCfg(): T_CFG {return {
 }}
 
 
-export type IExts = {
+export type T_Exts = {
 	':cnt'?			: number;
 } & {
 	[ext: string]	: string;	// pp
 };
-export type IFn2Path = { [fn: string]: IExts; };
+export type T_Fn2Path = { [fn: string]: T_Exts; };
 
 export type T_SEARCHPATH = (fn: string, extptn?: SEARCH_PATH_ARG_EXT)=> string;
-export type IConfig = {
-	oCfg	: T_CFG;
-	getNs()	: string;
-	searchPath: T_SEARCHPATH;
-	matchPath(fnptn: string, extptn?: SEARCH_PATH_ARG_EXT): readonly IExts[];
-	addPath(fn: string, h_exts: IExts): void;
+export type T_Config = {
+	oCfg		: T_CFG;
+	headNs		: string;
+	searchPath	: T_SEARCHPATH;
+	matchPath	: (fnptn: string, extptn?: SEARCH_PATH_ARG_EXT)=> readonly T_Exts[];
+	addPath		: (fn: string, h_exts: T_Exts)=> void;
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-export interface ISysRoots {
-	loadPath(hPathFn2Exts: IFn2Path, cfg: IConfig): Promise<void>;
+export type T_SysRoots = {
 	dec(ext: string, tx: string): Promise<string>;
 	decAB(ab: ArrayBuffer): Promise<HTMLImageElement | HTMLVideoElement | ArrayBuffer>;
 
-	arg: HSysBaseArg;
+	arg: T_HSysBaseArg;
 	fetch(url: string): Promise<Response>;	// ハッシュ値作成ロード用
 	hash(str: string): string;
 }
-export type HSysBaseArg = {
+export type T_HSysBaseArg = {
 	cur		: string;
 	crypto	: boolean;
 	dip?	: string;
 }
 
 
-export class ConfigBase implements IConfig {
-	oCfg	= creCfg();
+export class ConfigBase implements T_Config {
+	oCfg	= creCFG();
 
-	userFnTail		= '';	// 4tst public
-	protected	hPathFn2Exts	: IFn2Path	= {};
+				userFnTail		= '';	// 4tst public
+	protected	hPathFn2Exts	: T_Fn2Path	= {};
 
-	protected	constructor(readonly sys: ISysRoots) {}
-	async load(oCfg: T_CFG) {
+	protected	constructor(readonly sys: T_SysRoots) {}
+
+	//	Main.generate() -> Config.generate() -> Config.load() ->
+	protected	async load(oCfg: T_CFG_RAW) {
 		// this.oCfg = {...this.oCfg, ...oCfg};	// 一階層目でコピーしてしまう
-		this.oCfg.save_ns = oCfg.save_ns || this.oCfg.save_ns;
+		this.oCfg.save_ns = oCfg.save_ns ?? this.oCfg.save_ns;
 
-		this.oCfg.window.width = oCfg.window.width || this.oCfg.window.width;
-		this.oCfg.window.height = oCfg.window.height || this.oCfg.window.height;
+		oCfg.window ??= {width: 300, height: 300};
+		this.oCfg.window.width = oCfg.window.width;
+		this.oCfg.window.height = oCfg.window.height;
 
 		this.oCfg.book = {...this.oCfg.book, ...oCfg.book};
 
-		this.oCfg.log.max_len = oCfg.log.max_len || this.oCfg.log.max_len;
+		this.oCfg.log.max_len = oCfg.log?.max_len ?? this.oCfg.log.max_len;
 
 		this.oCfg.init = {...this.oCfg.init, ...oCfg.init};
 
@@ -157,31 +166,32 @@ export class ConfigBase implements IConfig {
 
 		this.oCfg.debuger_token = oCfg.debuger_token;
 
-		// これが同期（App）非同期（Web、path.json）混在してるので、
-		// （Mainのメンバ変数に入れる→他のクラスに渡す都合により）
-		// 当クラスのコンストラクタとload()は分ける
-		await this.sys.loadPath(this.hPathFn2Exts, this);
+
+		// path.json ロード
+		const fn = this.sys.arg.cur +'path.json';
+		const res = await this.sys.fetch(fn);
+		if (! res.ok) throw Error(res.statusText);
+
+		const src = await res.text();
+		const oJs = <T_Fn2Path>JSON.parse(await this.sys.dec(fn, src));
+		for (const [nm, v] of Object.entries(oJs)) {
+			const h = this.hPathFn2Exts[nm] = v;
+			for (const [ext, w] of Object.entries(h)) {
+				if (ext !== ':cnt') h[ext] = this.sys.arg.cur + <string>w;
+			}
+		}
 
 		this.#existsBreakline = this.matchPath('^breakline$', SEARCH_PATH_ARG_EXT.SP_GSM).length > 0;
 		this.#existsBreakpage = this.matchPath('^breakpage$', SEARCH_PATH_ARG_EXT.SP_GSM).length > 0;
 
+		// ファイル改竄チェック
 		const hFn2Ext: {[fn: string]: string}	= {};
-		if (! this.sys.arg.crypto) {
-			for (const [fn0, hExts] of Object.entries(this.hPathFn2Exts)) {
-				for (const ext of Object.keys(hExts)) {
-					if (ext.startsWith(':')) continue;
-					hFn2Ext[fn0] = ext;
-				}
-			}
-		}
-		else
+		if (this.sys.arg.crypto)
 		for (const [fn0, hExts] of Object.entries(this.hPathFn2Exts)) {
 			for (const [ext, pp] of Object.entries(hExts)) {
-				if (! ext.startsWith(':')) {
-					hFn2Ext[fn0] = ext;
-					continue;
-				}
+				if (! ext.startsWith(':')) {hFn2Ext[fn0] = ext; continue}
 				if (! ext.endsWith(':id')) continue;
+
 				const hp = (<string>pp).slice((<string>pp).lastIndexOf('/') +1);
 				const fn = hExts[ext.slice(0, -10)] ?? '';
 				const res = await this.sys.fetch(fn);
@@ -190,13 +200,19 @@ export class ConfigBase implements IConfig {
 				if (hp !== hf) throw `ファイル改竄エラーです fn:${fn}`;
 			}
 		}
+		// 出力・副作用なしなのでコメントアウト
+		// else for (const [fn0, hExts] of Object.entries(this.hPathFn2Exts)) {
+		// 	for (const ext of Object.keys(hExts)) {
+		// 		if (! ext.startsWith(':')) hFn2Ext[fn0] = ext;
+		// 	}
+		// }
 	}
 	#existsBreakline = false;
 	get existsBreakline(): boolean {return this.#existsBreakline}
 	#existsBreakpage = false;
 	get existsBreakpage(): boolean {return this.#existsBreakpage}
 
-	getNs() {return `skynovel.${this.oCfg.save_ns} - `}
+	get headNs() {return `skynovel.${this.oCfg.save_ns} - `}
 
 	readonly	#REG_PATH = /([^/\s]+)\.([^\d]\w+)/;
 		// 4 match 498 step(~1ms)  https://regex101.com/r/tpVgmI/1
@@ -212,10 +228,7 @@ export class ConfigBase implements IConfig {
 			if (utn in this.hPathFn2Exts) {
 				if (extptn === SEARCH_PATH_ARG_EXT.DEFAULT) fn0 = utn;
 				else for (const e3 of Object.keys(this.hPathFn2Exts[utn] ?? {})) {
-					if (! `|${extptn}|`.includes(`|${e3}|`)) continue;
-
-					fn0 = utn;
-					break;
+					if (`|${extptn}|`.includes(`|${e3}|`)) {fn0 = utn; break}
 				}
 			}
 		}
@@ -257,15 +270,15 @@ export class ConfigBase implements IConfig {
 		return ret;
 	}
 
-	matchPath(fnptn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): readonly IExts[] {
-		const aRet :IExts[] = [];
+	matchPath(fnptn: string, extptn: SEARCH_PATH_ARG_EXT = SEARCH_PATH_ARG_EXT.DEFAULT): readonly T_Exts[] {
+		const aRet :T_Exts[] = [];
 		const regPtn = new RegExp(fnptn);
 		const regExt = new RegExp(extptn);
 		for (const [fn, h_exts] of Object.entries(this.hPathFn2Exts)) {
 			if (fn.search(regPtn) === -1) continue;
 			if (extptn === SEARCH_PATH_ARG_EXT.DEFAULT) {aRet.push(h_exts); continue}
 
-			const o :IExts = {};
+			const o :T_Exts = {};
 			let isa = false;
 			for (const ext of Object.keys(h_exts)) {
 				if (ext.search(regExt) === -1) continue;
@@ -278,8 +291,8 @@ export class ConfigBase implements IConfig {
 		return aRet;
 	}
 
-	addPath(fn: string, h_exts: IExts) {
-		const o: IExts = {};
+	addPath(fn: string, h_exts: T_Exts) {
+		const o: T_Exts = {};
 		for (const [ext, v] of Object.entries(h_exts)) {
 			o[ext] = (ext.startsWith(':') ?'' :this.sys.arg.cur) + String(v);
 		}

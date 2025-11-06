@@ -16,7 +16,7 @@ import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
 import type {QuickPickItemEx} from './WorkSpaces';
 import {aPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
 import {Config, SysExtension} from './Config';
-import {SEARCH_PATH_ARG_EXT, type IFn2Path} from './ConfigBase';
+import {SEARCH_PATH_ARG_EXT, type T_Fn2Path} from './ConfigBase';
 import type {T_PP2SNSTR, T_ALL_L2S, T_H_PLGDEF, T_H_ADIAG_L2S, T_S2L_hover_res, T_ALL_S2L} from '../server/src/LspWs';
 import {FLD_PRJ_BASE, PrjCmn} from './PrjCmn';
 import {WfbOptPic} from './batch/WfbOptPic';
@@ -1007,6 +1007,14 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 				this.#pc.PATH_WS +'/doc/web.htm',
 				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/web.htm`
 			);
+			await copy(
+				this.#pc.PATH_WS +'/doc/app.js',
+				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app.js`
+			);
+			await copy(
+				this.#pc.PATH_WS +'/doc/app/index.htm',
+				this.#pc.PATH_WS +`/${FLD_CRYPT_DOC}/app/index.htm`
+			);
 		}
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
@@ -1074,7 +1082,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 		}
 	}
 		async #encFile_pathjson(fsp: FULL_SCH_PATH, fsp_enc: FULL_SCH_PATH) {
-			const hPath = <IFn2Path>await readJson(fsp, {encoding: 'utf8'});
+			const hPath = <T_Fn2Path>await readJson(fsp, {encoding: 'utf8'});
 			for (const hExt2N of Object.values(hPath)) {
 				for (const [ext, pp] of Object.entries(hExt2N)) {
 					if (ext === ':cnt') continue;

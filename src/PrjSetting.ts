@@ -313,10 +313,6 @@ export class PrjSetting implements Disposable {
 
 			// src/main/main.ts, doc/app.js
 			if (this.pc.IS_NEW_TMP) replaceRegsFile(this.pc.PATH_WS +'/src/main/main.ts', [
-			[
-				/(companyName\s*:\s*)(['"]).*\2/,
-				`$1"${c.book.publisher}"`
-			],
 			[	// ついでに発表年を
 				/(pkg.appCopyright \+' )\d+/,
 				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -327,7 +323,7 @@ export class PrjSetting implements Disposable {
 			[
 				/(companyName\s*:\s*)(['"]).*\2/,
 				`$1"${c.book.publisher}"`
-			],
+			],		// https://regex101.com/r/JydRMl/1
 			[	// ついでに発表年を
 				/(pkg.appCopyright \+' )\d+/,
 				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions

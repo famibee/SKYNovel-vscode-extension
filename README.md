@@ -6,7 +6,7 @@
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/famibee/SKYNovel-vscode-extension?color=brightgreen)
 ![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
 
-<img src="res/img/icon.png" width="256" loading="lazy">
+<img src="res/img/icon.png" width="100" loading="lazy">
 
 > [SKYNovel - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=famibee2.skynovel2)
 > 

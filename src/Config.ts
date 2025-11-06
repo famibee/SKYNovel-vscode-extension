@@ -7,8 +7,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {foldProc, hDiagL2s, uint} from './CmnLib';
-import {ConfigBase, creCfg} from './ConfigBase';
-import type {HSysBaseArg, IConfig, IFn2Path, ISysRoots, T_CFG} from './ConfigBase';
+import {ConfigBase, creCFG} from './ConfigBase';
+import type {T_HSysBaseArg, T_Fn2Path, T_SysRoots, T_CFG_RAW} from './ConfigBase';
 import type {Encryptor} from './Encryptor';
 import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../server/src/LspWs';
 
@@ -20,25 +20,15 @@ import {readFile} from 'node:fs/promises';
 import {readJson, existsSync, outputJson, writeJson} from 'fs-extra';
 
 
-export class SysExtension implements ISysRoots {
-	constructor(readonly arg: HSysBaseArg) {}
-	async loadPath(hPathFn2Exts: IFn2Path, _cfg: IConfig) {
-		const fn = this.arg.cur +'path.json';
-		const oJs = <IFn2Path>await readJson(fn, {encoding: 'utf8'});
-		for (const [nm, v] of Object.entries(oJs)) {
-			const h = hPathFn2Exts[nm] = v;
-			for (const [ext, w] of Object.entries(h)) {
-				if (ext !== ':cnt') h[ext] = this.arg.cur + <string>w;
-			}
-		}
-	}
+export class SysExtension implements T_SysRoots {
+	constructor(readonly arg: T_HSysBaseArg) {}
+
 	readonly	dec	= (_ext: string, d: string)=> Promise.resolve(d);
 	readonly	decAB = (ab: ArrayBuffer)=> Promise.resolve(ab);
 
 	set crypto(v: boolean) {this.arg.crypto = v;}
 	readonly	fetch = async (url: string)=> new Response(
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-		await readJson(url, {encoding: 'utf8'})
+		await readFile(url, {encoding: 'utf8'})
 	);
 	readonly	hash: (_data: string)=> '';
 
@@ -51,15 +41,16 @@ export class SysExtension implements ISysRoots {
 
 export class Config extends ConfigBase {
 	constructor(override readonly sys: SysExtension, private encry: Encryptor) {super(sys)}
-	setCryptoMode(v: boolean) {this.sys.crypto = v;}
+
+	setCryptoMode(v: boolean) {this.sys.crypto = v}
 
 	async loadEx(encFile: (uri: Uri)=> Promise<void>, haDiagFn: T_H_ADIAG_L2S) {
 		const fpPrj = this.sys.arg.cur +'prj.json';
 		const fpPath= this.sys.arg.cur +'path.json';
 		try {
-			const o = <T_CFG>await readJson(fpPrj, {encoding: 'utf8'});
-			const d = creCfg();
-			await super.load(<T_CFG>{
+			const o = <T_CFG_RAW>await readJson(fpPrj, {encoding: 'utf8'});
+			const d = creCFG();
+			await super.load(<T_CFG_RAW>{
 				...d,
 				...o,
 				book	: {...d.book, ...o.book},
@@ -84,8 +75,8 @@ export class Config extends ConfigBase {
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
-	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG_L2S): Promise<IFn2Path> {
-		const hFn2Path: IFn2Path = {};
+	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG_L2S): Promise<T_Fn2Path> {
+		const hFn2Path: T_Fn2Path = {};
 		const aDo: Promise<void>[] = [];
 
 	//	const REG_FN_RATE_SPRIT	= /(.+?)(?:%40(\d)x)?(\.\w+)/;
@@ -177,7 +168,7 @@ export class Config extends ConfigBase {
 
 		return hFn2Path;
 	}
-	#addPath(hFn2Path: IFn2Path, dir: string, nm: string, aD: T_H_ADIAG[]) {
+	#addPath(hFn2Path: T_Fn2Path, dir: string, nm: string, aD: T_H_ADIAG[]) {
 		const {name: fn, base, ext} = parse(nm);
 		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
