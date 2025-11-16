@@ -113,30 +113,34 @@ export class BatPsdFace {
 
 		// tmp に出力 -> キャンバス拡大してprj下へ
 		const fp_tmp = `${this.#PATH_TMP}/${fn}.png`;
+		const right = cvsW -left -width;
+		const bottom= cvsH -top -height;
+		if (left < 0 || right < 0 || top < 0 || bottom < 0) {
+			const err1 = `PSD が異常です。レイヤ（${fn}）がキャンバスからはみ出ています。レイヤを動かすかトリミングしてください`;
+			const err2 = ` extend(left:${String(left)}, right:${String(right)}, top:${String(top)}, bottom:${String(bottom)})`;
+			oLog.err += err1 +'\n';
+			oLog.err += err2 +'\n';
+			console.error(err1 + err2);
+			return ret;
+		}
 		aP.push((async ()=> {
 			try {
-				// console.log(`fn:cnv_psd_face.ts b canvas(${cvsW},${cvsH}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`);
+				// console.log(`fn:cnv_psd_face.ts b canvas(${String(cvsW)},${String(cvsH)}) layer(${String(left).padStart(4)}, ${String(top).padStart(4)}, ${String(width).padStart(4)}, ${String(height).padStart(4)}) name:${fn}:`);
 				await layer.image.saveAsPng(fp_tmp);
 
 				oLog.aOrder.push({
 					fp_tmp,	// sharp が fnTmp を掴むため temp を使う
 					extend: {
-						left,
-						right	: cvsW -left -width,
-						top,
-						bottom	: cvsH -top -height,
-						background	: {r: 0, g: 0, b: 0, alpha: 0},
+						left, right, top, bottom,
+						background: {r: 0, g: 0, b: 0, alpha: 0},
 					},
 					pp_out,
 				})
 			}
 			catch (e) {
-				// console.log(`  extend(left:${left}, right:${cvsW -left -width}, top:${top}, bottom:${cvsH -top -height})`);
-				console.error('  PSD が異常です'+ String(
-					left < 0 || cvsW -left -width < 0 ||
-					top < 0 || cvsH -top -height < 0
-				) ?'。レイヤがキャンバスからはみ出ています。レイヤを動かすかトリミングしてください' :'');
-				console.error(`  [ERR] ${String(e)}`);
+				const err1 = `  [ERR] PSD が異常です ${String(e)}`;
+				oLog.err += err1 +'\n';
+				console.error(err1);
 			}
 		})());
 

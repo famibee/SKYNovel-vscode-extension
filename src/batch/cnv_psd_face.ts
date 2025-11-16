@@ -29,6 +29,8 @@ function exit(mes: string, exit_code = 0) {
 
 readJson(fnBJ, {encoding: 'utf8'})
 .then(async (oBJ: T_BJ_Psd2Layer)=> {try {
+	if (oBJ.err) {exit(oBJ.err, 5); return}
+
 	function log_exit(mes: string, exit_code = 0) {
 		writeJsonSync(fnBJ, oBJ, {encoding: 'utf8'});
 		exit(mes, exit_code);
