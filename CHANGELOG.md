@@ -1,3 +1,6 @@
+## v4.28.0
+- feat: テンプレバージョンを cjs と esm の別々に表示・管理するように
+- fix(src/img/activity_bar.png): README.md の表示イメージを最新に
 ## v4.27.5
 - fix: CHANGELOG.md を読み込んでのテンプレバージョン判定で、/\n## v(.+)\s/ にて判定するように
 	- src/ActivityBar.ts

@@ -52,7 +52,8 @@ type T_H_ENV = {
 	NPM				: T_ENV;
 	SN_ESM_VER		: T_ENV;
 	SN_CJS_VER		: T_ENV;
-	TEMP_VER		: T_ENV;
+	TEMP_ESM_VER	: T_ENV;
+	TEMP_CJS_VER	: T_ENV;
 	PY_FONTTOOLS	: T_ENV;
 }
 
@@ -69,11 +70,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				{nm: 'NPM',
 					icon: 'npm-brands',		label: 'npm'},
 				{nm: 'SN_ESM_VER',
-					icon: 'skynovel',		label: 'SKYNovel esm'},
+					icon: 'skynovel',		label: '(web) SKYNovel esm'},
+				{nm: 'TEMP_ESM_VER',
+					icon: 'skynovel',		label: '(web) テンプレ esm'},
 				{nm: 'SN_CJS_VER',
-					icon: 'skynovel',		label: 'SKYNovel（online）'},
-				{nm: 'TEMP_VER',
-					icon: 'skynovel',		label: 'テンプレ（online）'},
+					icon: 'skynovel',		label: '(web) SKYNovel'},
+				{nm: 'TEMP_CJS_VER',
+					icon: 'skynovel',		label: '(web) テンプレ'},
 				{nm: 'PY_FONTTOOLS',
 					icon: 'python-brands',	label: 'fonttools'},
 			])
@@ -257,7 +260,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	async chkLastSNVer(aLocalSNVer: T_LocalSNVer[]) {
 		let newVerEsmSN = '';
 		let newVerCjsSN = '';
-		let newVerTemp = '';
+		let newVerEsmTemp = '';
+		let newVerCjsTemp = '';
 		await Promise.allSettled([
 			fetch('https://raw.githubusercontent.com/famibee/skynovel_esm/main/package.json')
 			.then(async res=> {
@@ -270,6 +274,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			})
 			.catch((e: unknown)=> console.error('fn:ActivityBar.ts esm %o', e))
 			,
+			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
+			.then(async res=> {
+				const txt = await res.text();
+				newVerEsmTemp = /\n## v(.+)\s/.exec(txt)?.[1] ?? '';
+				const tiSV = ActivityBar.#hEnv.TEMP_ESM_VER.ti;
+				tiSV.description = '-- ' + newVerEsmTemp;
+				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
+			}),
+
 			fetch('https://raw.githubusercontent.com/famibee/SKYNovel/master/package.json')
 			.then(async res=> {
 				const json = <{version: string}>await res.json();
@@ -281,27 +294,27 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			})
 			.catch((e: unknown)=> console.error('fn:ActivityBar.ts cjs %o', e))
 			,
-			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
+			fetch('https://raw.githubusercontent.com/famibee/tmp_cjs_uc/main/CHANGELOG.md')
 			.then(async res=> {
 				const txt = await res.text();
-				newVerTemp = /\n## v(.+)\s/.exec(txt)?.[1] ?? '';
-				const tiSV = ActivityBar.#hEnv.TEMP_VER.ti;
-				tiSV.description = '-- ' + newVerTemp;
+				newVerCjsTemp = /\n## v(.+)\s/.exec(txt)?.[1] ?? '';
+				const tiSV = ActivityBar.#hEnv.TEMP_CJS_VER.ti;
+				tiSV.description = '-- ' + newVerCjsTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);
 			}),
 		]);
+
 		for (const o of aLocalSNVer) {
+			const newVerSN = o.is_new_tmp ?newVerEsmSN :newVerCjsSN;
+			const newVerTemp = o.is_new_tmp ?newVerEsmTemp :newVerCjsTemp;
+
 			if (o.ver_temp && newVerTemp !== o.ver_temp) {
 				window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（テンプレ ${o.ver_temp}->${newVerTemp}）`);
 				return;
 			}
 			if (o.ver_sn === '' || o.ver_sn.startsWith('ile:') || o.ver_sn.startsWith('./')) return;
 
-			if (o.is_new_tmp) {
-				if (newVerEsmSN !== o.ver_sn) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.ver_sn}->${newVerEsmSN}）`);
-				return;
-			}
-			if (newVerCjsSN !== o.ver_sn) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.ver_sn}->${newVerCjsSN}）`);
+			if (newVerSN !== o.ver_sn) window.showInformationMessage(`更新があります。【ベース更新】ボタンを押してください（エンジン ${o.ver_sn}->${newVerSN}）`);
 		}
 	}
 
