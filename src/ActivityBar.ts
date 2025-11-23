@@ -284,7 +284,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			fetch('https://raw.githubusercontent.com/famibee/tmp_esm_uc/main/CHANGELOG.md')
 			.then(async res=> {
 				const txt = await res.text();
-				newVerTemp = /## v(.+)\s/.exec(txt)?.[1] ?? '';
+				newVerTemp = /\n## v(.+)\s/.exec(txt)?.[1] ?? '';
 				const tiSV = ActivityBar.#hEnv.TEMP_VER.ti;
 				tiSV.description = '-- ' + newVerTemp;
 				ActivityBar.#actBar.#onDidChangeTreeData.fire(tiSV);

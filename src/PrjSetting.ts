@@ -155,13 +155,16 @@ export class PrjSetting implements Disposable {
 		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
 		const fnCngLog = this.pc.PATH_WS +'/CHANGELOG.md';
 		const lib_name = `@famibee/skynovel${this.pc.IS_NEW_TMP ?'_esm': ''}`;
+		const ver_temp = existsSync(fnCngLog)
+			? /\n## v(.+)\s/.exec(
+				readFileSync(fnCngLog, {encoding: 'utf8'})
+			)?.[1] ?? ''
+			: '';
 		return {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 			ver_sn	: oPkg.dependencies?.[lib_name]?.slice(1) ?? '',
 			is_new_tmp	: this.pc.IS_NEW_TMP,
-			ver_temp	: existsSync(fnCngLog)
-				? /## v(.+)\s/.exec(readFileSync(fnCngLog, {encoding: 'utf8'}))?.[1] ?? ''
-				: '',
+			ver_temp,
 		};
 	}
 

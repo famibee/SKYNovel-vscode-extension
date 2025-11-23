@@ -1,3 +1,10 @@
+## v4.27.5
+- fix: CHANGELOG.md を読み込んでのテンプレバージョン判定で、/\n## v(.+)\s/ にて判定するように
+	- src/ActivityBar.ts
+	- src/PrjSetting.ts
+- doc: タグ情報修正
+	- src/md/playbgm.md
+	- src/md/playse.md
 ## v4.27.4
 - fix: PSD ファイル処理でのエラー時、エラーメッセージが表示されない件
 ## v4.27.3
