@@ -7,7 +7,7 @@
 
 import type {T_E2V_TEMP, T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
-import {replaceRegsFile} from '../CmnLib';
+import {replaceFile, replaceRegsFile} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
 import type {PrjCmn} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
@@ -113,10 +113,23 @@ export class WfbSettingSn extends WatchFile {
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
 		this.#tiDelay = setTimeout(()=> {
 			const a: [r: RegExp, rep: string][] = [];
-			for (const {nm, val} of e.aRes) a.push([
-				new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
-				`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
-			]);	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
+			for (const {nm, val} of e.aRes) {
+				a.push([
+					new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
+					`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
+				]);	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
+
+				// 値変化時に処理
+				switch (nm) {
+					case 'const.体験版':
+						replaceFile(
+							this.pc.PATH_WS +'/package.json',
+							/\${arch}(_ex)?\.\${ext}/,
+							'${arch}'+ (val === 'true' ?'_ex' :'') +'.${ext}',
+						);	// https://regex101.com/r/u3l1Co/1
+						break;
+				}
+			}
 			if (replaceRegsFile(this.#fnSetting, a, false)) {
 				const fp = this.#fnSetting;
 				const pp = this.pc.diff.fp2pp(fp);

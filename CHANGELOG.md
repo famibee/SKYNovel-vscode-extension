@@ -1,3 +1,5 @@
+## v4.29.0
+- feat(src/batch/WfbSettingSn.ts): 【設定画面】-【テンプレ】で「体験版か」チェックを入れた状態では、アプリインストーラー生成時のファイル名末尾に「_ex」を付けるように
 ## v4.28.0
 - feat: テンプレバージョンを cjs と esm の別々に表示・管理するように
 - fix(src/img/activity_bar.png): README.md の表示イメージを最新に
