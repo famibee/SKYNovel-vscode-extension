@@ -7,11 +7,12 @@
 
 import type {T_E2V_TEMP, T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
-import {replaceFile, replaceRegsFile} from '../CmnLib';
+import {replaceRegsFile} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
 import type {PrjCmn} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
 import type {T_PP2SNSTR} from '../../server/src/LspWs';
+import type {Config} from '../Config';
 
 import {workspace} from 'vscode';
 import {readFileSync} from 'fs-extra';
@@ -22,6 +23,7 @@ export class WfbSettingSn extends WatchFile {
 	constructor(
 							pc			: PrjCmn,
 		private readonly	reqPrj2LSP	: T_reqPrj2LSP,
+		private readonly	cfg			: Config,
 	) {super(pc)}
 
 	//MARK: 初期化
@@ -122,11 +124,18 @@ export class WfbSettingSn extends WatchFile {
 				// 値変化時に処理
 				switch (nm) {
 					case 'const.体験版':
-						replaceFile(
+						replaceRegsFile(
 							this.pc.PATH_WS +'/package.json',
-							/\${arch}(_ex)?\.\${ext}/,
-							'${arch}'+ (val === 'true' ?'_ex' :'') +'.${ext}',
-						);	// https://regex101.com/r/u3l1Co/1
+							[[
+								/("productName": ").*"/,	// 最初のだけ
+	// 二つ目（build内）のはインストール exe 名になり、
+	// 製品版インストール時に別扱いになり、上書き置き換えできないので
+								'$1'+ this.cfg.oCfg.book.title + (val === 'true' ?' 体験版' :'') +'"',
+							], [
+								/(\${arch})(_ex)?(\.\${ext})/,
+								'$1'+ (val === 'true' ?'_ex' :'') +'$3',
+							]],	// https://regex101.com/r/EClPCg/1
+						);
 						break;
 				}
 			}

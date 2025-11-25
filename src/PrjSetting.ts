@@ -79,7 +79,7 @@ export class PrjSetting implements Disposable {
 		this.#PATH_PKG_JSON = this.pc.PATH_WS +'/package.json';
 
 		this.#pnlWVFolder = new WPFolder(this.pc);
-		this.#stgSn = new WfbSettingSn(this.pc, reqPrj2LSP);
+		this.#stgSn = new WfbSettingSn(this.pc, reqPrj2LSP, cfg);
 
 		this.#PATH_README4FREEM = this.pc.PATH_WS +'/build/include/readme.txt';
 		this.#PATH_INS_NSH = this.pc.PATH_WS +'/build/installer.nsh';
