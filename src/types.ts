@@ -381,12 +381,7 @@ export const DEF_TEMP4TST: T_TEMP[] = [
 
 // --------------------------------------------------------------------
 //MARK: Ex2Vue
-export type T_Ex2VueBase = {
-	cmd		: unknown;
-}
-export type T_Ex2Vue_cmd = T_E2V['cmd'];
-
-export type T_E2V_INIT = T_Ex2VueBase & {
+export type T_E2V_INIT = {
 	cmd		: '!';
 	oCfg	: T_CFG;
 	oWss	: T_WSS;
@@ -395,36 +390,36 @@ export type T_E2V_INIT = T_Ex2VueBase & {
 	oTemp	: T_E2V_TEMP_SUB;
 }
 
-export type T_E2V_CFG = T_Ex2VueBase & {
+export type T_E2V_CFG = {
 	cmd		: 'update.oCfg';
 	oCfg	: T_CFG;
 }
 
-export type T_E2V_INITVUE = T_Ex2VueBase & {	// stVSCode.ts -> 他の Vue へ
+type T_E2V_INITVUE = {	// stVSCode.ts -> 他の Vue へ
 	cmd		: 'init.Vue';
 }
 
-export type T_E2V_CNVFONT = T_Ex2VueBase & {
+export type T_E2V_CNVFONT = {
 	cmd			: 'update.cnvFont';
 	aCnvFont	: T_A_CNVFONT;
 }
-export type T_E2V_OPTPIC = T_Ex2VueBase & {
+export type T_E2V_OPTPIC = {
 	cmd			: 'update.optPic';
 	oOptPic		: T_BJ_OPTPIC;
 }
-export type T_E2V_OPTSND = T_Ex2VueBase & {
+export type T_E2V_OPTSND = {
 	cmd			: 'update.optSnd';
 	oOptSnd		: T_OPTSND;
 }
 
-export type T_E2V_NOTICE_COMPONENT = T_Ex2VueBase & {
+export type T_E2V_NOTICE_COMPONENT = {
 	cmd		: 'notice.Component';
 	id		: 'cnv.font.subset'|'cnv.mat.pic'
 			|'cnv.mat.snd'|'cnv.mat.snd.codec';
 	mode	: 'wait'|'comp'|'cancel';
 }
 
-export type T_E2V_TEMP = T_Ex2VueBase & T_E2V_TEMP_SUB & {
+export type T_E2V_TEMP = T_E2V_TEMP_SUB & {
 	cmd		: 'update.aTemp';
 }
 	export type T_E2V_TEMP_SUB = {
@@ -432,7 +427,7 @@ export type T_E2V_TEMP = T_Ex2VueBase & T_E2V_TEMP_SUB & {
 		err		: string;
 	};
 
-export type T_E2V_SELECT_ICON_INFO = T_Vue2ExBase & {
+export type T_E2V_SELECT_ICON_INFO = {
 	cmd			: 'updpic';
 	pathIcon	: string;
 	err_mes		: string;
@@ -449,42 +444,38 @@ export type T_E2V
 	| T_E2V_TEMP
 	| T_E2V_SELECT_ICON_INFO
 ;
+export type T_Ex2Vue_cmd = T_E2V['cmd'];
 
 
 // --------------------------------------------------------------------
 //MARK: Vue2Ex
-export type T_Vue2ExBase = {
-	cmd		: unknown;
-}
-export type T_Vue2Ex_cmd = T_V2E['cmd'];
-
-export type T_V2E_Q = T_Vue2ExBase & {
+export type T_V2E_Q = {
 	cmd		: '?';
 }
 
-export type T_V2E_CFG = T_Vue2ExBase & {
+export type T_V2E_CFG = {
 	cmd		: 'update.oCfg';
 	oCfg	: T_CFG;
 }
 
-export type T_V2E_CHG_RANGE_WEBP_Q_DEF = T_Vue2ExBase & {
+export type T_V2E_CHG_RANGE_WEBP_Q_DEF = {
 	cmd		: 'change.range.webp_q_def';
 	webp_q	: number;
 }
 
-export type T_V2E_CHG_RANGE_WEBP_Q = T_Vue2ExBase & {
+export type T_V2E_CHG_RANGE_WEBP_Q = {
 	cmd		: 'change.range.webp_q';
 	nm		: string;
 	no_def	: boolean;
 	webp_q	: number;
 }
 
-export type T_V2E_oWss = T_Vue2ExBase & {
+export type T_V2E_oWss = {
 	cmd		: 'update.oWss';
 	oWss	: T_WSS;
 }
 
-export type T_V2E_aTemp = T_Vue2ExBase & {
+export type T_V2E_aTemp = {
 	cmd		: 'update.aTemp';
 	aRes	: {
 		nm		: string;
@@ -492,27 +483,27 @@ export type T_V2E_aTemp = T_Vue2ExBase & {
 	}[]
 }
 
-export type T_V2E_info = T_Vue2ExBase & {
+type T_V2E_info = {
 	cmd		: 'info';
 	mes		: string;
 }
 
-export type T_V2E_warn = T_Vue2ExBase & {
+type T_V2E_warn = {
 	cmd		: 'warn';
 	mes		: string;
 }
 
-export type T_V2E_openURL = T_Vue2ExBase & {
+type T_V2E_openURL = {
 	cmd		: 'openURL';
 	url		: string;
 }
 
-export type T_V2E_copyTxt = T_Vue2ExBase & {
+type T_V2E_copyTxt = {
 	cmd		: 'copyTxt';
 	id		: string;
 }
 
-export type T_V2E_selectFile = T_Vue2ExBase & {
+export type T_V2E_selectFile = {
 	cmd			: 'selectFile';
 	title		: string;
 	openlabel	: string;
@@ -532,6 +523,7 @@ export type T_V2E
 	| T_V2E_copyTxt
 	| T_V2E_selectFile
 
+export type T_Vue2Ex_cmd = T_V2E['cmd'];
 
 // --------------------------------------------------------------------
 //MARK: テンプレ選択パネル

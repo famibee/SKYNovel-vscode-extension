@@ -36,13 +36,10 @@ export type T_QuickPickItemEx = {label: string, description: string, uri: string
 
 
 //MARK: Lsp local 2 srv
-export type T_L2S = {
-	cmd		: unknown;
-};
-export type T_L2S_ready = T_L2S & {
+type T_L2S_ready = {
 	cmd		: 'ready';
 };
-export type T_L2S_go_res = T_L2S & {
+export type T_L2S_go_res = {
 	cmd		: 'go.res';
 	pp2s	: T_PP2SNSTR;
 	hDefPlg	: {[def_nm: string]: PluginDef};	// 'file:///'なし
@@ -54,24 +51,24 @@ export type T_L2S_go_res = T_L2S & {
 	};
 	export type T_H_ADIAG_L2S = {[FULL_PATH: string]: T_H_ADIAG[]};
 
-export type T_L2S_def_plg_upd = T_L2S & {
+export type T_L2S_def_plg_upd = {
 	cmd		: 'def_plg.upd';
 	hDefPlugin	: T_H_PLGDEF;
 };
 	export type T_H_PLGDEF = {[def_nm: string]: PluginDef};
-export type T_L2S_need_go = T_L2S & {
+type T_L2S_need_go = {
 	cmd		: 'need_go';
 };
-export type T_L2S_onchg_scr = T_L2S & {
+export type T_L2S_onchg_scr = {
 	cmd		: 'onchg_scr';
 	pp2s	: T_PP2SNSTR;
 };
-export type T_L2S_hover = T_L2S & {
+export type T_L2S_hover = {
 	cmd		: 'hover';
 	fp		: FULL_PATH;
 	pos		: Position;
 };
-export type T_L2S_upd_diag = T_L2S & {
+export type T_L2S_upd_diag = {
 	cmd		: 'upd_diag';
 	haDiag	: T_H_ADIAG_L2S;
 };
@@ -88,26 +85,23 @@ export type T_ALL_L2S
 
 
 //MARK: Lsp srv 2 local
-export type T_S2L = {
-	cmd		: unknown;
-};
-export type T_S2L_LOG = T_S2L & {
+type T_S2L_LOG = {
 	cmd		: 'log';
 	txt		: string;
 };
-export type T_S2L_ERR = T_S2L & {
+type T_S2L_ERR = {
 	cmd		: 'error';
 	txt		: string;
 };
 
-export type T_S2L_WS = T_S2L & {
+type T_S2L_WS = {
 	pathWs	: string;
 };
-export type T_S2L_go = T_S2L_WS & {
+type T_S2L_go = T_S2L_WS & {
 	cmd		: 'go';
 	InfFont: T_INF_INTFONT;
 };
-export type T_S2L_analyze_inf = T_S2L_WS & {
+type T_S2L_analyze_inf = T_S2L_WS & {
 	cmd		: 'analyze_inf';
 	aQuickPickMac	: T_QuickPickItemEx[];
 	aQuickPickPlg	: T_QuickPickItemEx[];
@@ -1916,7 +1910,7 @@ WorkspaceEdit
 					const kw = name.trim();
 					this.#hT2Pp2Kw.代入変数名[pp].add(kw);
 
-					// doc/prj/script/setting.sn の デフォルトフォント
+					// doc/prj/*/setting.sn の デフォルトフォント
 					if (kw === 'def_fonts') {
 						this.#InfFont.defaultFontName = this.#getFonts2ANm(text, fp, rng);
 						return;
@@ -2036,8 +2030,7 @@ WorkspaceEdit
 				this.#procToken(p, token);
 			});
 		} catch (e: unknown) {
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			console.error(`#scanScript Err ${pp}(${p.line},${p.character}) e:${e}`);
+			console.error(`#scanScript Err ${pp}(${String(p.line)},${String(p.character)}) e:${String(e)}`);
 		}
 
 		if (this.#hPp2JoinLabel[pp] !== sJoinLabel) {

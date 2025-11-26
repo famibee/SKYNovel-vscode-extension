@@ -835,7 +835,7 @@ The call stack view will also show [main.sn 1:1]
 ### Specify and use fonts in your project / プロジェクトでフォントを指定し、使用する
 - プロジェクトでフォント名を指定する。以下のパターンがある
 	- [設定]画面：[テンプレ]-[デフォルトフォント] でデフォルトとなるフォント名
-		- 実体は doc/prj/script/setting.sn の変数 def_fonts
+		- 実体は doc/prj/*/setting.sn の変数 def_fonts
 		- カンマ区切りで複数指定できる（このへんは CSS 同様）
 
 > ![](src/img/doc_fontopt30.png)

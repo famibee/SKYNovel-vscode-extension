@@ -306,8 +306,7 @@ export class PrjSetting implements Disposable {
 			if (this.pc.IS_NEW_TMP) replaceRegsFile(this.pc.PATH_WS +'/src/main/main.ts', [
 			[	// ついでに発表年を
 				/(pkg.appCopyright \+' )\d+/,
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				`$1${CopyrightYear}`
+				`$1${String(CopyrightYear)}`
 			],
 			], false);
 			else replaceRegsFile(this.#PATH_APP_JS, [
@@ -317,8 +316,7 @@ export class PrjSetting implements Disposable {
 			],		// https://regex101.com/r/JydRMl/1
 			[	// ついでに発表年を
 				/(pkg.appCopyright \+' )\d+/,
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				`$1${CopyrightYear}`
+				`$1${String(CopyrightYear)}`
 			],
 			], false);
 
@@ -330,8 +328,7 @@ export class PrjSetting implements Disposable {
 			[/(【連 絡 先】メール： )[^\n]+/, `$1${c.book.cre_url}`],
 			[	// ついでに発表年を
 				/(Copyright \(C\) )\d+ "([^"]+)"/g,
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				`$1${CopyrightYear} "${c.book.publisher}"`
+				`$1${String(CopyrightYear)} "${c.book.publisher}"`
 			],
 			// eslint-disable-next-line no-irregular-whitespace
 			[/(　　　　　　ＷＥＢ： )[^\n]+/g, `$1${c.book.pub_url}`],

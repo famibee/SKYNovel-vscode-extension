@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/unbound-method */
@@ -141,7 +140,7 @@ export class Debugger extends EventEmitter {
 			let token = di[':token'];
 			for (const [k, v] of Object.entries(o2)) token = token.replace(
 				new RegExp(`(\\s${k}=)(['"#]*)(?:\\S+)\\2([\\s\\]])`),
-				`$1${v}$3`
+				`$1${String(v)}$3`
 			)	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 			di[':token'] = token;
 
@@ -190,10 +189,10 @@ export class Debugger extends EventEmitter {
 				// app old_url:（略）sn_uc_score/doc/prj/other/MnuUp_btnPage1.png
 				const parent = basename(dirname(old_url));
 					// 変更前画像のフォルダ
-				urlWrite = this.#pathWs +`/doc/prj/${parent}/${fn}.${ext}`;
+				urlWrite = this.#pathWs +`/doc/prj/${parent}/${String(fn)}.${String(ext)}`;
 
 				const oAP: {[nm: string]: string | number} = {':cnt': 1};
-				oAP[ext] = `${parent}/${fn}.${ext}`;
+				oAP[ext] = `${parent}/${String(fn)}.${String(ext)}`;
 				this.send2SN('_addPath', {fn, o: oAP});
 			}
 

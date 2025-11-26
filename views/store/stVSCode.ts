@@ -75,6 +75,5 @@ export const useVSCode = ()=> {
 export const getLeftRangeBadge = (value=0, max=0, min=0)=> {
 	const val = (value - min) *100 /(max - min);
 	const pos = 10 -val *0.2;
-	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-	return `calc(${val}% + (${pos}px))`;
+	return `calc(${String(val)}% + (${String(pos)}px))`;
 };

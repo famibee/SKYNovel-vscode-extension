@@ -38,59 +38,54 @@ type HTDS = {
 
 
 //MARK: Vue2Ex
-export type T_Vue2ExBase = {
-	cmd		: unknown;
-}
-export type T_Vue2Ex_cmd = T_V2EScore['cmd'];
-
-export type T_V2E_info = T_Vue2ExBase & {
+type T_V2E_info = {
 	cmd		: 'info';
 	text	: string;
 };
-export type T_V2E_warn = T_Vue2ExBase & {
+type T_V2E_warn = {
 	cmd		: 'warn';
 	text	: string;
 };
-export type T_V2E_err = T_Vue2ExBase & {
+type T_V2E_err = {
 	cmd		: 'err';
 	text	: string;
 };
 
-export type T_V2E_loaded = T_Vue2ExBase & {
+type T_V2E_loaded = {
 	cmd		: 'loaded';
 };
 
-export type T_V2E_save_tbody = T_Vue2ExBase & {
+type T_V2E_save_tbody = {
 	cmd		: 'save_tbody';
 	tbody	: string;
 };
 
-export type T_V2E_move = T_Vue2ExBase & {
+type T_V2E_move = {
 	cmd		: 'move';
 	from	: number;
 	to		: number;
 };
 
-export type T_V2E_tool_put = T_Vue2ExBase & {
+type T_V2E_tool_put = {
 	cmd		: 'tool_put';
 	scr		: string;
 	row		: number;
 	to		: number;
 };
 
-export type T_V2E_del = T_Vue2ExBase & {
+type T_V2E_del = {
 	cmd		: 'del';
 	lnum	: number;
 };
 
-export type T_V2E_input = T_Vue2ExBase & {
+type T_V2E_input = {
 	cmd		: 'input';
 	ln		: number;
 	nm		: string;
 	val		: string;
 };
 
-export type T_V2E_req_wds = T_Vue2ExBase & {
+type T_V2E_req_wds = {
 	cmd		: 'req_wds';
 	key		: string;
 };
@@ -107,6 +102,7 @@ type T_V2EScore
 	| T_V2E_input
 	| T_V2E_req_wds
 ;
+export type T_Vue2Ex_cmd = T_V2EScore['cmd'];
 
 
 export class CteScore {
@@ -275,8 +271,7 @@ export class CteScore {
 					for (const i of this.#hBufWords[p1]!) {ret = `#${i}#`; break;}
 					return ret;
 				});
-// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-/**/console.log(`fn:CteScore.ts line:176 tool_put row:${o.row} to:${o.to} scr=${scr}=`);
+console.log(`fn:CteScore.ts line:176 tool_put row:${String(o.row)} to:${String(o.to)} scr=${scr}=`);
 				wv.postMessage({
 					cmd	: 'tool_res',
 					row	: o.row,
@@ -298,8 +293,7 @@ export class CteScore {
 				break;
 
 			case 'input':{
-// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-/**/console.log(`fn:CteScore.ts line:184 input ln:${o.ln} nm=${o.nm}= val=${o.val}=`);
+console.log(`fn:CteScore.ts line:184 input ln:${String(o.ln)} nm=${o.nm}= val=${o.val}=`);
 				t.skipupd = true;
 				const ed = new WorkspaceEdit;
 				const rng = new Range(o.ln, 0, o.ln +1, 0);
@@ -524,8 +518,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 			oTds.args ?oTds.args.map((v, i)=> {
 				let ret = '';
 				let fo = 'form-outline px-2';
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				const id = `sn-${row}:${i}`;
+				const id = `sn-${String(row)}:${String(i)}`;
 				switch (v.type) {
 					case 'bool':
 						fo = 'p-0';	// form-outlineを使うとエラー

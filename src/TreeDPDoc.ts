@@ -50,8 +50,7 @@ export class TreeDPDoc implements TreeDataProvider<TreeItem> {
 
 	#generate(parent: string, aTi: TTmpTI[]): TreeItem[] {
 		return aTi.map((o, idx)=> {
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			const id = (parent === 'doc' ?'skynovel.' :'') +`${parent}/${idx}`;
+			const id = (parent === 'doc' ?'skynovel.' :'') +`${parent}/${String(idx)}`;
 			const t = new TreeItem(o.label);
 			t.contextValue = id;
 			if (o.children) {

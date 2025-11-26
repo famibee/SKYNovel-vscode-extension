@@ -96,8 +96,7 @@ export class BatPsdFace {
 		const bm = layer.blendingMode();
 		const ret = `${
 			is_canvas_size ?';' :''
-		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-		}\t[add_face name=${fn} dx=${left} dy=${top}${
+		}\t[add_face name=${fn} dx=${String(left)} dy=${String(top)}${
 			bm === 'normal' ?'' :` blendmode=${bm}`
 		}]\n`;
 

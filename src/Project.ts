@@ -530,8 +530,7 @@ const exImg = encodeURIComponent(JSON.stringify([Uri.file(vfpImg)]));
 	// visual studio code - How to open a file externally using built-in commands? - Stack Overflow https://stackoverflow.com/questions/72194573/how-to-open-a-file-externally-using-built-in-commands
 	// Opening folders in Visual Studio Code from an extension | Elio Struyf https://www.eliostruyf.com/opening-folders-visual-studio-code-extension/
 
-// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg} "ファイルを見る") [サイドバーに表示](${
+return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを見る](${vfpImg} "ファイルを見る") [サイドバーに表示](${
 	String(Uri.parse(`command:revealInExplorer?${exImg}`))
 } "サイドバーに表示")
 [フォルダを開く](${
@@ -767,90 +766,90 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 			case 'PackMac':
 			case 'PackMacArm64':
 			case 'PackLinux':
-				this.hOnEndTask.set(task_type, ()=> {
-				Promise.resolve(async ()=> {
-					// アップデート用ファイル作成
-					const oPkg = <T_PKG_JSON>await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
+				this.hOnEndTask.set(task_type, ()=> void (async ()=> {
+	try {
+		// アップデート用ファイル作成
+		const oPkg = <T_PKG_JSON>await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
 
-					const pathPkg = this.#pc.PATH_WS +'/build/package';
-					const pathUpd = pathPkg +'/update';
-					const fnUcJs = pathUpd +'/_index.json';
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-					let oUc = existsSync(fnUcJs)
-						? await readJson(fnUcJs, {encoding: 'utf8'})
-						: {};
+		const pathPkg = this.#pc.PATH_WS +'/build/package';
+		const pathUpd = pathPkg +'/update';
+		const fnUcJs = pathUpd +'/_index.json';
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		let oUc = existsSync(fnUcJs)
+			? await readJson(fnUcJs, {encoding: 'utf8'})
+			: {};
 
-	//console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
-					const isMacBld = btn_nm.slice(4, 7) === 'Mac';
-					const isLinBld = btn_nm.slice(4, 7) === 'Lin';
-					const fnYml = pathPkg +`/latest${
-						isMacBld ?'-mac' :isLinBld ?'-linux' :''
-					}.yml`;
-					if (! existsSync(fnYml)) throw '必要なファイルが生成されませんでした';
-					const sYml = await readFile(fnYml, {encoding: 'utf8'});
-					const mv = /version: (.+)/.exec(sYml);
-					if (! mv) throw '[Pack...] .yml に version が見つかりません';
-					const ver = mv[1];
-	//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					if (oUc.version !== ver || oUc.name !== oPkg.name) {
-						oUc = {};
-						await remove(pathUpd);
-						await mkdirs(pathUpd);
-					}
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					oUc.version = oPkg.version;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					oUc.name = oPkg.name;
+//console.log(`fn:Project.ts line:492 pkg ver:${oPkg.version}: @${btn_nm.slice(4, 7)}@`);
+		const isMacBld = btn_nm.slice(4, 7) === 'Mac';
+		const isLinBld = btn_nm.slice(4, 7) === 'Lin';
+		const fnYml = pathPkg +`/latest${
+			isMacBld ?'-mac' :isLinBld ?'-linux' :''
+		}.yml`;
+		if (! existsSync(fnYml)) throw '必要なファイルが生成されませんでした';
+		const sYml = await readFile(fnYml, {encoding: 'utf8'});
+		const mv = /version: (.+)/.exec(sYml);
+		if (! mv) throw '[Pack...] .yml に version が見つかりません';
+		const ver = mv[1];
+//console.log(`fn:Project.ts line:499 ver=${ver}= eq=${oPkg.version == ver}`);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		if (oUc.version !== ver || oUc.name !== oPkg.name) {
+			oUc = {};
+			await remove(pathUpd);
+			await mkdirs(pathUpd);
+		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		oUc.version = oPkg.version;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		oUc.name = oPkg.name;
 
-					const mp = /path: (.+)/.exec(sYml);
-					if (! mp) throw '[Pack...] .yml に path が見つかりません';
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					const path = mp[1]!;
+		const mp = /path: (.+)/.exec(sYml);
+		if (! mp) throw '[Pack...] .yml に path が見つかりません';
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const path = mp[1]!;
 
-					const ms = /size: (.+)/.exec(sYml);
-					if (! ms) throw '[Pack...] .yml に size が見つかりません';
-					const size = Number(ms[1] ?? NaN);
+		const ms = /size: (.+)/.exec(sYml);
+		if (! ms) throw '[Pack...] .yml に size が見つかりません';
+		const size = Number(ms[1] ?? NaN);
 
-					const mc = /sha512: (.+)/.exec(sYml);
-					if (! mc) throw '[Pack...] .yml に sha512 が見つかりません';
-					const sha512 = mc[1] ?? '';
-					const cn = encStrBase64(this.#encry.uuidv5(sha512));
+		const mc = /sha512: (.+)/.exec(sYml);
+		if (! mc) throw '[Pack...] .yml に sha512 が見つかりません';
+		const sha512 = mc[1] ?? '';
+		const cn = encStrBase64(this.#encry.uuidv5(sha512));
 
-					const ma = /-(\w+)\.\D/.exec(path);
-						// https://regex101.com/r/yH7nLk/1	13 steps, 0.0ms
-					if (! ma) throw 'path に arch が見つかりません';
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					const arch = ma[1]!;
+		const ma = /-(\w+)\.\D/.exec(path);
+			// https://regex101.com/r/yH7nLk/1	13 steps, 0.0ms
+		if (! ma) throw 'path に arch が見つかりません';
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const arch = ma[1]!;
 
-					const key = (isMacBld ?'darwin' :isLinBld ?'linux' :'win32') +'_'+ arch;
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-					oUc[key] = {path, size, sha512, cn,};
-					await outputJson(fnUcJs, oUc, {spaces: '\t'});
+		const key = (isMacBld ?'darwin' :isLinBld ?'linux' :'win32') +'_'+ arch;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+		oUc[key] = {path, size, sha512, cn,};
+		await outputJson(fnUcJs, oUc, {spaces: '\t'});
 
-					// 古い（暗号化ファイル名）更新ファイルを削除
-					const REG_OLD_SAMEKEY = new RegExp('^'+ key +'-');
-					foldProc(pathUpd, (fp, nm)=> {
-						if (REG_OLD_SAMEKEY.test(nm)) void remove(fp);
-					}, ()=> { /* empty */ });
+		// 古い（暗号化ファイル名）更新ファイルを削除
+		const REG_OLD_SAMEKEY = new RegExp('^'+ key +'-');
+		foldProc(pathUpd, (fp, nm)=> {
+			if (REG_OLD_SAMEKEY.test(nm)) void remove(fp);
+		}, ()=> { /* empty */ });
 
-					// （暗号化ファイル名）更新ファイルをコピー
-					await copy(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
-						// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
-						// という相反する要望を充たすような
-						// 既存ファイル削除にも便利
+		// （暗号化ファイル名）更新ファイルをコピー
+		await copy(pathPkg +'/'+ path, pathUpd +'/'+ key +'-'+ cn);
+			// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
+			// という相反する要望を充たすような
+			// 既存ファイル削除にも便利
 
-					const a = await window.showInformationMessage(
-						`${cfg.label} パッケージを生成しました`,
-						'出力フォルダを開く',
-					);
-					if (a) await env.openExternal(Uri.file(pathPkg));
-				})
-				.catch((e: unknown)=> {
-					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-					void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${e}`);
-				})
-				.finally(()=> done())})
+		const a = await window.showInformationMessage(
+			`${cfg.label} パッケージを生成しました`,
+			'出力フォルダを開く',
+		);
+		if (a) await env.openExternal(Uri.file(pathPkg));
+	} catch (e: unknown) {
+		console.error(e);
+		void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${String(e)}`);
+	}
+	done();
+				})());
 				break;
 
 			case 'PackFreem':	this.hOnEndTask.set(task_type, ()=> {
@@ -882,8 +881,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 		await tasks.executeTask(t)
 		.then(
 			re=> this.#pc.hTaskExe.set(btn_nm, re),
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			(e: unknown)=> console.error(`fn:Project onBtn_sub() rj:${e}`)
+			(e: unknown)=> console.error(`fn:Project onBtn_sub() rj:${String(e)}`)
 		);
 	}
 
@@ -1164,8 +1162,7 @@ return `- ${name} = ${val} (${width}x${height}) [ファイルを見る](${vfpImg
 		await outputJson(sPlgIdx +'.json', h4json);
 		if (build) try {
 			this.#build();
-		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-		} catch (e) {console.error(`Project updPlugin ${e}`)}
+		} catch (e: unknown) {console.error(`Project updPlugin ${String(e)}`)}
 
 		// 旧式プラグインインデックスを更新
 		if (existsSync(sPlgIdx +'.js')) {

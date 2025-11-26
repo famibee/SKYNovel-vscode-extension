@@ -66,10 +66,9 @@ export class Config extends ConfigBase {
 
 			if (this.sys.crypto) await encFile(Uri.file(fpPath));
 
-//			this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
+			// this.#codSpt.updPath(this.#hPathFn2Exts);	// NOTE: Score
 		}
-		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-		catch (e) {console.error(`Project loadPrjJs ${e} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
+		catch (e: unknown) {console.error(`Project loadPrjJs ${String(e)} fpPrj=${fpPrj}= fpPath=${fpPath}=`);}
 	}
 
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象

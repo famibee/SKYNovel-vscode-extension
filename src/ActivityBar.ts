@@ -248,12 +248,12 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	readonly getTreeItem = (t: TreeItem)=> t;
 
 	// 起動時？ と refreshボタンで呼ばれる
-	getChildren(t?: TreeItem): Promise<TreeItem[]> {
-		if (! t) return Promise.resolve(Object.values(ActivityBar.#hEnv).map(v=> v.ti));
+	getChildren(t?: TreeItem): TreeItem[] {
+		if (! t) return Object.values(ActivityBar.#hEnv).map(v=> v.ti);
 
 		const ret: TreeItem[] = [];
 		if (t.label === 'Node.js') ActivityBar.#hEnv.NODE.ti.iconPath = oIcon(ActivityBar.#hEnv.NODE.ready ?'node-js-brands' :'error');
-		return Promise.resolve(ret);
+		return ret;
 	}
 
 	//MARK: ネットの更新確認
@@ -490,8 +490,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					re();
 				}, 4000);
 			})
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${e}`));
+			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${String(e)}`));
 		});
 	});
 	#save_ns	= '';
@@ -581,8 +580,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				prg.report({increment: 30, message: 'ファイル準備完了',});
 				setTimeout(re, 4000);
 			})
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${e}`));
+			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${String(e)}`));
 		});
 	});
 

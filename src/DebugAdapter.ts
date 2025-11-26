@@ -501,11 +501,9 @@ class DebugAdapter extends LoggingDebugSession {
 			for (let i=0; i<100; ++i) {
 				// await timeout(1000);		//NOTE: これなに？？
 				aVar.push({
-					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-					name	: `i_${i}`,
+					name	: `i_${String(i)}`,
 					type	: 'integer',
-					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-					value	: `${i}`,
+					value	: String(i),
 					variablesReference	: 0,
 				});
 				if (req && this.#mapCancelationTokens.get(req.seq)) break;

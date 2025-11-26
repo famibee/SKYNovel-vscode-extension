@@ -44,8 +44,7 @@ readJson(fnBJ, {encoding: 'utf8'})
 
 	const wh = 1024;
 	if (width < wh || height < wh) {
-		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-		throw `元画像のサイズは ${wh} x ${wh} 以上にして下さい。（width:${width} height:${height}）`;
+		throw `元画像のサイズは ${String(wh)} x ${String(wh)} 以上にして下さい。（width:${String(width)} height:${String(height)}）`;
 	}
 	const s = sh.png().resize({
 		width	: wh,
@@ -57,16 +56,14 @@ readJson(fnBJ, {encoding: 'utf8'})
 	switch (Number(order.shape)) {	// JSON がうまく number にできないので
 		case 1:		// 丸
 			s.composite([{
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				input	: Buffer.from(`<svg><circle cx="${wh /2}" cy="${wh /2}" r="${wh /2}"/></svg>`),
+				input	: Buffer.from(`<svg><circle cx="${String(wh /2)}" cy="${String(wh /2)}" r="${String(wh /2)}"/></svg>`),
 				blend	: 'dest-in',
 			}]);
 			break;
 
 		case 2:		// 角丸
 			s.composite([{
-				// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-				input	: Buffer.from(`<svg><rect width="${wh}" height="${wh}" rx="${wh/4.5}" ry="${wh/4.5}"/></svg>`),
+				input	: Buffer.from(`<svg><rect width="${String(wh)}" height="${String(wh)}" rx="${String(wh/4.5)}" ry="${String(wh/4.5)}"/></svg>`),
 				blend	: 'dest-in',
 			}]);
 			break;

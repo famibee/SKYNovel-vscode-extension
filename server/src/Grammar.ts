@@ -477,7 +477,7 @@ export class Grammar {
 
 
 	resolveScript(txt: string): Script {
-		const a = <string[]>txt
+		const a: string[] = txt
 		.replaceAll(/\r\n?/g, '\n')
 		.match(this.#REG_TOKEN)
 		?.flatMap(tkn=> {

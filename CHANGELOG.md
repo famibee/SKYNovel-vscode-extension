@@ -1,3 +1,8 @@
+## v4.30.1
+- fix: インストーラービルドで _index.json などを生成しなくなっていた件
+- fix: @typescript-eslint/restrict-template-expressions 無効化を使わないように
+- fix(server/src/LspWs.ts): 型宣言修正
+- fix(src/CteScore.ts): 型宣言修正
 ## v4.30.0
 - feat(src/batch/WfbSettingSn.ts): 「体験版か」チェックを入れた状態で、【このアプリについて】画面などで【タイトル + ' 体験版'】表示になるように
 ## v4.29.0
