@@ -1,3 +1,5 @@
+## v4.30.2
+- fix: ベース更新・暗号化処理でエラーが発生した場合、モーダルダイアログで通知するように
 ## v4.30.1
 - fix: インストーラービルドで _index.json などを生成しなくなっていた件
 - fix: @typescript-eslint/restrict-template-expressions 無効化を使わないように

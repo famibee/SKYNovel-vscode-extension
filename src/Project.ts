@@ -657,7 +657,10 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					this.getLocalSNVer();
 					await this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
 				} catch (e) {
-					console.error('fn:Project.ts onBtn_sub SnUpd e:%o', e);
+					const mes = 'fn:Project.ts onBtn_sub SnUpd ';
+					console.error(`${mes}e:%o`, e);
+					window.showErrorMessage('ベース更新処理でエラーが発生しました', {detail: mes+ String(e), modal: true});
+
 					done(0);
 				}
 				return;
@@ -675,7 +678,11 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					await this.#tglCryptoMode();
 					await this.#onBtn_sub(ti, 'Crypto_waited', cfg, done);
 				} catch (e) {
-					console.error('fn:Project.ts onBtn_sub Crypto e:%o', e);
+					const mes = 'fn:Project.ts onBtn_sub Crypto ';
+					console.error(`${mes}e:%o`, e);
+					window.showErrorMessage('暗号化処理でエラーが発生しました', {detail: mes+ String(e), modal: true});
+
+					done(0);
 				}
 				return;
 			case 'Crypto_waited':	break;	// Promise待ち後
