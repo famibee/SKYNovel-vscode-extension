@@ -15,7 +15,7 @@ import type {T_PP2SNSTR} from '../../server/src/LspWs';
 import type {Config} from '../Config';
 
 import {workspace} from 'vscode';
-import {readFileSync} from 'fs-extra';
+import {existsSync, readFile, readFileSync} from 'fs-extra';
 
 
 export class WfbSettingSn extends WatchFile {
@@ -31,12 +31,18 @@ export class WfbSettingSn extends WatchFile {
 		// 設定スクリプトの更新
 		await this.watchFld(
 			'doc/prj/*/setting.sn', '',
-			async ({path})=> Promise.try(()=> {
+			async ({path})=> {
 				this.#fnSetting = path;	// 存在しない場合も
 				this.chkMultiMatch = ()=> this.#chkMultiMatch_proc();
 				this.chkMultiMatch();
 				this.update = e=> this.#update_proc(e);
-			}),
+
+				if (! existsSync(path)) return;
+				const s = await readFile(path, {encoding: 'utf-8'});
+				const m = this.#regValnm2Val('const.体験版').exec(s);
+				if (m) this.#is体験版 = m[2] === 'true';
+				// &const.体験版 = false	; 体験版か
+			},
 			async (_uri, cre)=> Promise.try(()=> {
 				if (cre) this.chkMultiMatch();
 				// else this.onChgSettingSn(uri);	// ここでやると変更が戻るループ
@@ -47,6 +53,9 @@ export class WfbSettingSn extends WatchFile {
 			if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
 		}, null, this.pc.ctx.subscriptions);
 	}
+
+	#is体験版 = false;
+	get is体験版() {return this.#is体験版}
 
 
 	#preventUpdHowl = true;	// 更新ハウリングを防ぐ
@@ -117,13 +126,14 @@ export class WfbSettingSn extends WatchFile {
 			const a: [r: RegExp, rep: string][] = [];
 			for (const {nm, val} of e.aRes) {
 				a.push([
-					new RegExp(`(&${nm}\\s*=\\s*)((["'#]).+?\\3|[^;\\s]+)`),
+					this.#regValnm2Val(nm),
 					`$1$3${val}$3`,		// https://regex101.com/r/jD2znK/1
 				]);	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 
 				// 値変化時に処理
 				switch (nm) {
 					case 'const.体験版':
+						this.#is体験版 = val === 'true';
 						replaceRegsFile(
 							this.pc.PATH_WS +'/package.json',
 							[[
@@ -133,7 +143,7 @@ export class WfbSettingSn extends WatchFile {
 								'$1'+ this.cfg.oCfg.book.title + (val === 'true' ?' 体験版' :'') +'"',
 							], [
 								/(\${arch})(_ex)?(\.\${ext})/,
-								'$1'+ (val === 'true' ?'_ex' :'') +'$3',
+								'$1'+ (this.#is体験版 ?'_ex' :'') +'$3',
 							]],	// https://regex101.com/r/EClPCg/1
 						);
 						break;
@@ -150,5 +160,6 @@ export class WfbSettingSn extends WatchFile {
 		}, 500);
 	}
 		#tiDelay: NodeJS.Timeout | undefined = undefined;
+		readonly	#regValnm2Val = (nm: string)=> new RegExp(`(&${nm}\\s*=\\s*)((["'#])(.+?)\\3|[^;\\s]+)`);
 
 }

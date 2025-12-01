@@ -773,6 +773,8 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			case 'PackMac':
 			case 'PackMacArm64':
 			case 'PackLinux':
+				if (this.#ps.is体験版) {done(); break}
+
 				this.hOnEndTask.set(task_type, ()=> void (async ()=> {
 	try {
 		// アップデート用ファイル作成

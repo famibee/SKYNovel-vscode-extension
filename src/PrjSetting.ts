@@ -150,6 +150,8 @@ export class PrjSetting implements Disposable {
 	dispose() {for (const d of this.#ds) d.dispose()}
 
 
+	get is体験版() {return this.#stgSn.is体験版}
+
 	getLocalSNVer(): T_LocalSNVer {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const oPkg = readJsonSync(this.#PATH_PKG_JSON, {encoding: 'utf8'});
