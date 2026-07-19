@@ -4,6 +4,7 @@
 		"target": "esnext",
 		"lib": ["esnext","DOM"],
 		"module": "esnext",
+		"types": ["bun"],
 
 		/* Bundler mode */
 		// "moduleResolution": "node",

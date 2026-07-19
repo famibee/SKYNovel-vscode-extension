@@ -29,7 +29,6 @@ import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つ�
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as archiver from 'archiver';
 import {execSync} from 'child_process';
-import ncu from 'npm-check-updates'
 import AsyncReplace from 'str-async-replace';
 import Encoding from 'encoding-japanese';
 
@@ -646,7 +645,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				try {
 					await this.#termDbgSS();
 					await this.actBar.updPrjFromTmp(this.#pc.PATH_WS);
-					await ncu({	// ncu -u --target minor
+					await this.actBar.ncu({	// ncu -u --target minor
 						packageFile: this.#pc.PATH_WS +'/package.json',
 						// Defaults:
 						// jsonUpgraded: true,
@@ -865,7 +864,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				const cwd = `${this.#pc.PATH_WS}/${
 					this.#isCryptoMode ?FLD_CRYPT_DOC :'doc'
 				}/`;
-				const arc = archiver.create('zip', {zlib: {level: 9},})
+				const arc = new archiver.ZipArchive({zlib: {level: 9}})
 				.append(createReadStream(cwd +'web.htm'), {name: 'index.html'})
 				.append(createReadStream(this.#pc.PATH_WS +'/build/include/readme.txt'), {name: 'readme.txt'})
 				.glob('web.js', {cwd})

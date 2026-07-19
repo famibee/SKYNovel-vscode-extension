@@ -15,7 +15,7 @@
 import {uint} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
-import {Server, type Socket} from 'socket.io';
+import {WebSocketServer, type WebSocket, type RawData} from 'ws';
 import {imageSizeFromFile} from 'image-size/fromFile';
 
 import type {DebugConfiguration, TextDocumentChangeEvent, WorkspaceFolder} from 'vscode';
@@ -70,18 +70,25 @@ export class Debugger extends EventEmitter {
 			return false;
 		};
 
-		new Server(args.port, {cors: {origin: <string>args.weburi}})
-		.on('connection', (sk: Socket)=> {
-			sk.on('data', (type: string, o: any)=> {
-//console.log(`fn:Debugger.ts 新RSV sn -> dbgs id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
+		// socket.io から ws に置き換え
+		// (使用機能は単一ソケットでの (type, o) メッセージングのみで、
+		// room/namespace/ack/自動再接続などの高度機能は未使用なので代替可)
+		new WebSocketServer({
+			port		: args.port,
+			verifyClient: (info, cb)=> {cb(info.origin === args.weburi)},
+		})
+		.on('connection', (sk: WebSocket)=> {
+			sk.on('message', (data: RawData)=> {
+				const [type, o] = <[string, any]>JSON.parse(data.toString());
+//console.log(`fn:Debugger.ts 新RSV sn -> dbgs type:${type} o:${JSON.stringify(o)}`);
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				if (! this.#hProcSnRes[type]!(type, o)) return;
 				this.#hProcSnRes[type] = ()=> false;
 			});
 
 			this.send2SN = (type: string, o: any = {})=> {
-//console.log(`fn:Debugger.ts 新SND dbg -> sns id:${sk.id} id:${id} id2:${id2} type:${type} o:${JSON.stringify(o)}`);
-				sk.emit('data', type, o);
+//console.log(`fn:Debugger.ts 新SND dbg -> sns type:${type} o:${JSON.stringify(o)}`);
+				if (sk.readyState === sk.OPEN) sk.send(JSON.stringify([type, o]));
 			};
 			const fncEnd = this.end;
 			this.end = ()=> {
@@ -89,7 +96,7 @@ export class Debugger extends EventEmitter {
 				this.end();
 				this.send2SN('disconnect', {});
 				this.send2SN = ()=> { /* empty */ };
-				sk.disconnect();
+				sk.close();
 			};
 		});
 	}

@@ -10,5 +10,6 @@
 		"declaration": true,
 		"removeComments": true,
 		"emitDeclarationOnly": true,
+		"ignoreDeprecations": "6.0",
 	}
 }

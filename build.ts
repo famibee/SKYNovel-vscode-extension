@@ -32,6 +32,13 @@ const oBuild: BuildOptions = {
 		sourcemap	: true,
 		format		: 'cjs',	// Node.js の仕様
 		logLevel	: 'info',	// default log level when using the CLI.
+
+		// npm-check-updates(ESM専用)が内部で createRequire(import.meta.url) を使うが、
+		// esbuildはcjs出力時に import.meta を空オブジェクトにしてしまい undefined エラーになる。
+		// → import.meta.url を実ファイルURLに差し替える
+		// (用途はNode組み込みモジュールのrequireのみと確認済みなので、バンドル全体で単一URLで足りる)
+		define		: {'import.meta.url': 'import_meta_url'},
+		inject		: ['./src/import-meta-url-shim.js'],
 	});
 	if (watch) await ctx.watch(); else {
 		await ctx.rebuild();

@@ -4,7 +4,7 @@ module.exports = {
 	resolve: {extensions: ['.ts', '...'],},
 	module: {
 		rules: [
-			{test: /\.ts$/, loader: 'ts-loader'},
+			{test: /\.ts$/, loader: 'ts-loader', options: {compiler: '@typescript/old'}},	// typescript@7 は Compiler API(sys 等)やlib.*.d.tsを持たないため、フルセットのクラシックAPI(typescript@6系)である @typescript/old を使う
 			{test: /\.cs$/, loader: 'file-loader'},
 		],
 		exprContextCritical: false,

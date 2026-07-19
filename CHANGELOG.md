@@ -1,3 +1,14 @@
+## v4.30.4
+- fix(debug): DEP0169警告解消のためDebuggerのsocket.ioをwsに置き換え
+	- Debugger.ts: socket.io(サーバ)を ws の WebSocketServer に置き換え
+	(src/Debugger.ts:18,76) 単一ソケットでの (type, o) メッセージングのみ
+	使用しており、room/namespace/ack等の高度機能は未使用のため代替可能と判断
+	- package.json: socket.io を削除し ws, @types/ws を追加
+	- 静的解析・--trace-deprecationによる動的確認の両方で
+	url.parse() 呼び出しが解消されたことを確認
+- docs: タグリファレンス・コードヒントの変更
+	- [stopfadese] 音声フェードの停止 を廃止、不要に
+	- [playbgm] 手直し
 ## v4.30.3
 - fix: 体験版はビルド時 update 下に更新用ファイルを生成しないように
 	- 体験版かどうかは setting.sn での変数 const.体験版 の設定による
