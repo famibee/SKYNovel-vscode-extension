@@ -1,3 +1,25 @@
+## v4.31.0
+- fix(marketplace): 無断の `pip install` を廃止し、同意を得てから導入するように
+	- src/ActivityBar.ts: `#chkEnv()` は**検出のみ**に変更。fonttools / brotli が
+	無い場合はアクティビティバーに「未導入」と表示するだけで、インストールしない
+	- src/ActivityBar.ts: `prepPyFontTools()` を追加。フォント最適化を有効にする
+	時だけ、実行するコマンドを明示したモーダルで同意を取ってから
+	`pip install fonttools brotli` を実行する。【手動で入れる】も選べる
+	- src/PrjSetting.ts: フォント最適化 ON の時に上記を経由。断られた場合は
+	false を返して設定スイッチを元に戻す（OFF は従来どおり常に可能）
+	- src/batch/WfbOptFont.ts: 設定が ON のまま fonttools が無い状態でも
+	pyftsubset が不明なエラーを出さないよう、実処理の直前でも同じ確認を通す
+	- Windows での PATH 追加（environmentVariableCollection）は fonttools が
+	揃っている場合のみ。同意ダイアログと README にも明記
+	- 従来はプロジェクトを開いた時点（activate 時）に確認なしで実行していた
+- feat: bun がある環境では、生成するタスクを bun / bunx で実行するように
+	- src/CmnLib.ts: `cnvPM()` を追加。`npm i` → `bun i`、`npm i -D` → `bun add -d`、
+	`npm update|run` → `bun update|run`、`npx` → `bunx` に置換
+	- src/WorkSpaces.ts: タスク生成前（`#refresh()` 直前）に `bun -v` で検出
+	- src/Project.ts, src/PrjCmn.ts: ShellExecution へ渡す直前に `cnvPM()` を通す
+	- src/ActivityBar.ts: アクティビティバー【開発環境】に bun の項目を追加
+- docs: 拡張機能がユーザー環境で実行するものを README 冒頭と package.json の
+description に明記（npm/bun タスク、pip、テンプレートのダウンロード）
 ## v4.30.5
 - fix(marketplace): npm-check-updates を拡張機能本体のバンドルから外し、npx 実行に変更
 	- src/ActivityBar.ts: 動的 import と ncu プロパティを削除

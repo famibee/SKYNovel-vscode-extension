@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -751,7 +751,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			this.wsFld,
 			cfg.label,		// UIに表示
 			'SKYNovel',		// source
-			new ShellExecution(cmd),
+			new ShellExecution(cnvPM(cmd)),
 		);
 		this.hOnEndTask.set(task_type, ()=> done());
 		switch (btn_nm) {	// タスク後処理
@@ -1198,7 +1198,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			this.wsFld,
 			name,			// UIに表示
 			'SKYNovel',		// source
-			new ShellExecution(cmd),
+			new ShellExecution(cnvPM(cmd)),
 		);
 
 		this.enableBtn(false);

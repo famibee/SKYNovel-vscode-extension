@@ -15,6 +15,20 @@ export function uint(o: unknown): number {
 
 export	const	REG_SCRIPT	= /\.ss?n$/;
 
+export let useBun = false;		// bun が使える環境か
+export function updUseBun(b: boolean) {useBun = b}
+
+/**
+ * bun がある環境では npm / npx を bun / bunx に置き換える。
+ * タスクのコマンド文字列は npm 前提で組み立て、ShellExecution へ渡す直前にここを通す
+ */
+export function cnvPM(cmd: string) {return ! useBun ? cmd : cmd
+	.replaceAll(/(?<=^|\s)npm i -D (?=\S)/g, 'bun add -d ')	// bun は -D ではなく -d
+	.replaceAll(/(?<=^|\s)npm (?:i|install)(?=\s|$)/g, 'bun i')
+	.replaceAll(/(?<=^|\s)npm (update|run)(?=\s)/g, 'bun $1')
+	.replaceAll(/(?<=^|\s)npx (?:--yes )?(?=\S)/g, 'bunx ')	// bunx は確認なしで取得する
+}
+
 export	const docsel = {scheme: 'file', language: 'skynovel'};
 
 

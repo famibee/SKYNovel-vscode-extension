@@ -10,6 +10,7 @@ import {type T_H_FONTJSON, type T_H_BJ_subset_font, type T_E2V_CNVFONT, type T_E
 import type {FULL_PATH} from '../CmnLib';
 import {foldProc, getFn, is_win} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
+import {ActivityBar} from '../ActivityBar';
 import {WatchFile} from './WatchFile';
 
 import {extname} from 'node:path';
@@ -178,6 +179,9 @@ export class WfbOptFont extends WatchFile {
 
 	//MARK: 実処理
 	async #proc(minify: boolean, hFont?: T_H_FONTJSON) {
+		// pyftsubset を使うのは minify 時のみ。未導入なら同意を得て導入する
+		if (minify && ! await ActivityBar.prepPyFontTools()) return;
+
 		const oFont = hFont ?? <T_H_FONTJSON>await readJson(this.#PATH_FONT_JSON, {encoding: 'utf8'});
 
 		const aP: Promise<void>[] = [];

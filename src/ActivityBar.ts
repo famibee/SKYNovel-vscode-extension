@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_TMPWIZ} from './types';
-import {is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {is_win, replaceRegsFile, repWvUri, updUseBun, type T_PKG_JSON} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
@@ -50,6 +50,7 @@ type T_ENV = {
 type T_H_ENV = {
 	NODE			: T_ENV;
 	NPM				: T_ENV;
+	BUN				: T_ENV;
 	SN_ESM_VER		: T_ENV;
 	SN_CJS_VER		: T_ENV;
 	TEMP_ESM_VER	: T_ENV;
@@ -69,6 +70,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					icon: 'node-js-brands',	label: 'Node.js'},
 				{nm: 'NPM',
 					icon: 'npm-brands',		label: 'npm'},
+				{nm: 'BUN',
+					icon: 'npm-brands',		label: 'bun'},
 				{nm: 'SN_ESM_VER',
 					icon: 'skynovel',		label: '(web) SKYNovel esm'},
 				{nm: 'TEMP_ESM_VER',
@@ -133,12 +136,15 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	#dispose() {if (this.#wp) this.#wp.dispose()}
 
 	//MARK: 環境確認
+	// ここでは「検出」のみ行う。ユーザー環境へのインストールはしない
 	async #chkEnv(finish: (ok: boolean)=> Promise<void>) {
 		const tiNode = ActivityBar.#hEnv.NODE.ti;
 		const tiNpm = ActivityBar.#hEnv.NPM.ti;
+		const tiBun = ActivityBar.#hEnv.BUN.ti;
 		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
 		ActivityBar.#hEnv.NODE.ready = false;
 		ActivityBar.#hEnv.NPM.ready = false;
+		ActivityBar.#hEnv.BUN.ready = false;
 		ActivityBar.#hEnv.PY_FONTTOOLS.ready = false;
 
 		await Promise.allSettled([
@@ -151,31 +157,17 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					return;
 				}
 
-				const fnc = ()=> {
-					ActivityBar.#hEnv.PY_FONTTOOLS.ready = true;
-					tiPFT.description = '-- ready';
-					tiPFT.iconPath = oIcon('python-brands');
-					this.#onDidChangeTreeData.fire(tiPFT);
-
-					// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
-					if (! is_win) re();
-					exec('python -m site --user-site', (e, stdout)=> {
-						if (e) {re(); return}	// ありえないが
-						const path = stdout.slice(0, -15) +'Scripts\\;';
-						this.ctx.environmentVariableCollection.prepend('PATH', path);
-					});
-				};
-
 				if (! /^fonttools\s/gm.test(stdout)
-				|| ! /^brotli\s/gm.test(stdout)) exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
-					if (e) {
-						tiPFT.description = '-- install失敗';
-						tiPFT.iconPath = oIcon('error');
-						this.#onDidChangeTreeData.fire(tiPFT);
-					}
-					else fnc();
+				|| ! /^brotli\s/gm.test(stdout)) {
+					tiPFT.description = '-- 未導入（フォント最適化を使う時に確認します）';
+					tiPFT.iconPath = oIcon('warn');
+					this.#onDidChangeTreeData.fire(tiPFT);
 					re();
-				});
+					return;
+				}
+
+				this.#onReadyPyFontTools();
+				re();
 			})),
 			new Promise<void>(re=> exec('node -v', (e, stdout)=> {
 				if (e) {
@@ -226,9 +218,75 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.#onDidChangeTreeData.fire(tiNpm);
 				re();
 			})),
+			new Promise<void>(re=> exec('bun -v', (e, stdout)=> {
+				updUseBun(! e);		// あればタスクを bun / bunx で実行する
+				if (e) {
+					tiBun.description = '-- 見つかりません（npm を使います）';
+					tiBun.iconPath = oIcon('warn');
+					this.#onDidChangeTreeData.fire(tiBun);
+					re();
+					return;
+				}
+				ActivityBar.#hEnv.BUN.ready = true;
+				tiBun.description = `-- ${stdout.trimEnd()}（優先）`;
+				tiBun.iconPath = oIcon('npm-brands');
+				this.#onDidChangeTreeData.fire(tiBun);
+				re();
+			})),
 		])
 		.then(()=> finish(true))
 		.catch(()=> finish(false));
+	}
+
+	// fonttools / brotli が揃っている場合の処理
+	#onReadyPyFontTools() {
+		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
+		ActivityBar.#hEnv.PY_FONTTOOLS.ready = true;
+		tiPFT.description = '-- ready';
+		tiPFT.iconPath = oIcon('python-brands');
+		this.#onDidChangeTreeData.fire(tiPFT);
+
+		// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
+		if (! is_win) return;
+		exec('python -m site --user-site', (e, stdout)=> {
+			if (e) return;	// ありえないが
+			const path = stdout.slice(0, -15) +'Scripts\\;';
+			this.ctx.environmentVariableCollection.prepend('PATH', path);
+		});
+	}
+
+	//MARK: フォント最適化に必要な Python パッケージの導入
+	// 未導入なら、同意を得てから pip install する。断られたら false
+	static prepPyFontTools() {return this.#actBar.#prepPyFontTools()}
+	async #prepPyFontTools(): Promise<boolean> {
+		if (ActivityBar.getReady('PY_FONTTOOLS')) return true;
+
+		const CMD = `pip install ${is_win ?'--user ' :''}fonttools brotli`;
+		const a = await window.showInformationMessage(
+			'フォント最適化には Python パッケージ fonttools と brotli が必要です',
+			{modal: true, detail: `この拡張機能から次のコマンドを実行してもよろしいですか？
+
+    ${CMD}
+${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミナルの PATH に Python の Scripts フォルダを追加します。\n' :''}
+【手動で入れる】を選んだ場合、コマンドは実行しません。ご自分で導入したあと、アクティビティバー【開発環境】の更新ボタンを押して下さい。`},
+			'実行する', '手動で入れる',
+		);
+		if (a !== '実行する') return false;
+
+		return window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: CMD,
+			cancellable	: false,
+		}, ()=> new Promise<boolean>(re=> exec(CMD, e=> {
+			if (! e) {this.#onReadyPyFontTools(); re(true); return}
+
+			const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
+			tiPFT.description = '-- install失敗';
+			tiPFT.iconPath = oIcon('error');
+			this.#onDidChangeTreeData.fire(tiPFT);
+			void window.showErrorMessage(`${CMD} に失敗しました`, {modal: true, detail: e.message});
+			re(false);
+		})));
 	}
 
 

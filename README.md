@@ -26,6 +26,21 @@ We are fixing the issues that led to the takedown, and a corrected build will be
 - 詳しい経緯：[お知らせ記事](https://famibee.blog.fc2.com/blog-entry-980.html)
 
 ---
+## What this extension runs on your machine / この拡張機能がユーザー環境で実行するもの
+
+This extension drives your project's toolchain. Everything below runs as a **visible VSCode task or terminal**, and nothing is installed silently.
+
+- **Node.js package manager** — `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` on **your project folder**, from the buttons in the SKYNovel activity bar. If `bun` is available, `bun` / `bunx` is used instead
+- **Python packages (opt-in)** — when you turn **font optimization** on in the project settings, the extension asks first, then runs `pip install fonttools brotli`. Decline and the rest of the extension keeps working; you can also install them yourself. On Windows it also prepends Python's `Scripts` folder to the PATH of VSCode terminals so that `pyftsubset` is found
+- **Template download** — the project template is fetched from `https://github.com/famibee/...` as a zip and unpacked into the folder you choose
+
+この拡張機能は、あなたのプロジェクトのツールチェインを操作します。以下はすべて**目に見える VSCode タスク／ターミナル**で実行され、黙ってインストールされるものはありません。
+
+- **Node.js のパッケージマネージャ** — アクティビティバーのボタンから、**あなたのプロジェクトフォルダ**に対して `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` を実行します。`bun` が使える環境では `bun` / `bunx` を使います
+- **Python パッケージ（同意制）** — プロジェクト設定で**フォント最適化**を有効にした時、確認ダイアログで同意を得てから `pip install fonttools brotli` を実行します。断っても拡張機能の他の機能はそのまま使えます（ご自分で導入することもできます）。Windows では `pyftsubset` を見つけられるよう、VSCode ターミナルの PATH に Python の `Scripts` フォルダを追加します
+- **テンプレートのダウンロード** — プロジェクトテンプレートを `https://github.com/famibee/...` から zip で取得し、選んだフォルダに展開します
+
+---
 ## After installing this extension ... / この拡張機能をインストールしたら……。
  Next, let's download and unzip the sample project, and open the folder with VSCode!
 

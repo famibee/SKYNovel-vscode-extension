@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, PROJECT_PATH, T_PKG_JSON, WORKSPACE_PATH} from './CmnLib';
-import {vsc2fp} from './CmnLib';
+import {cnvPM, vsc2fp} from './CmnLib';
 import {PRE_TASK_TYPE} from './WorkSpaces';
 import type {HDiff} from './HDiff';
 import type {PrjSetting} from './PrjSetting';
@@ -153,13 +153,13 @@ export class PrjCmn {
 					this.wsFld,
 					inf.title,		// UIに表示
 					'SKYNovel',		// source
-					new ShellExecution(
+					new ShellExecution(cnvPM(
 						`cd "${this.PATH_WS}" ${statBreak} ${
 							sNeedInst
 							? `npm i -D ${sNeedInst} ${statBreak}`
 							: ''
 						} node ./${this.FLD_SRC}/batch/${nm}.js ${arg}`
-					),
+					)),
 				))
 				.then(r=> this.hTaskExe.set('Batch', r));
 			} catch (e) {console.error('Project exeTask() e:%o', e)}

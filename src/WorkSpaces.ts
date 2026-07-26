@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp} from './CmnLib';
+import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp, updUseBun} from './CmnLib';
 import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -18,6 +18,7 @@ import hMd from './md.json';
 
 import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win, ThemeIcon} from 'vscode';
 import {existsSync} from 'fs-extra';
+import {exec} from 'child_process';
 import {
 	LanguageClient,
 	type LanguageClientOptions,
@@ -299,6 +300,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows'));
 			updStatBreak(chkShell.endsWith('cmd.exe') ?'&' :';');
 		}
+		// タスク生成前に済ませたいので（アクティビティバーの表示は ActivityBar #chkEnv で）
+		await new Promise<void>(re=> exec('bun -v', e=> {updUseBun(! e); re()}));
 		this.#refresh();
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照

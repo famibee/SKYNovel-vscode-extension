@@ -421,9 +421,11 @@ export class PrjSetting implements Disposable {
 		case 'cnv.font.subset':
 			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			if (! ActivityBar.getReady('PY_FONTTOOLS')) break;
-
-			if (chkBoolean(val)) await this.optFont.enable();
+			if (chkBoolean(val)) {
+				// 未導入なら、ここで同意を得てから fonttools / brotli を導入する
+				if (! await ActivityBar.prepPyFontTools()) return false;
+				await this.optFont.enable();
+			}
 			else await this.optFont.disable();
 			break;
 
