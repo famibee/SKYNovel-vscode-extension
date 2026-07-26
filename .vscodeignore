@@ -12,6 +12,12 @@ views/test/
 **/*.ts
 **/*.vue
 
+.claude/
 .eslintrc.json
+eslint.config.mts
 skynovel-Mac2Win
 tsconfig.json
+tsconfig.eslint.json
+bun.lock
+dist/*.tsbuildinfo
+TODO.md

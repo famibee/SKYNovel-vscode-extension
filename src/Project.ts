@@ -633,6 +633,11 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 	}
 	async #onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		let cmd = `cd "${this.#pc.PATH_WS}" ${statBreak} `;
+		if (btn_nm === 'SnUpd_waited') {
+			// package.json の依存を minor まで更新。拡張機能内に npm-check-updates を
+			// バンドルせず、ユーザーに見えるタスクターミナルで npx 実行する
+			cmd += `npx --yes npm-check-updates@22 -u --target minor ${statBreak} `;
+		}
 		if (! existsSync(this.#pc.PATH_WS +'/node_modules')) {
 			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
 			await remove(this.#pc.PATH_WS +'/package-lock.json');
@@ -645,15 +650,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				try {
 					await this.#termDbgSS();
 					await this.actBar.updPrjFromTmp(this.#pc.PATH_WS);
-					await this.actBar.ncu({	// ncu -u --target minor
-						packageFile: this.#pc.PATH_WS +'/package.json',
-						// Defaults:
-						// jsonUpgraded: true,
-						// silent: true,
-						upgrade: true,
-						target: 'minor',
-					});
-					this.getLocalSNVer();
+					// package.json の更新（ncu 相当）は SnUpd_waited のタスク内で行う
 					await this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
 				} catch (e) {
 					const mes = 'fn:Project.ts onBtn_sub SnUpd ';

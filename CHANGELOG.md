@@ -1,3 +1,28 @@
+## v4.30.5
+- fix(marketplace): npm-check-updates を拡張機能本体のバンドルから外し、npx 実行に変更
+	- src/ActivityBar.ts: 動的 import と ncu プロパティを削除
+	- src/Project.ts: 「ベース更新」のタスク内で
+	`npx --yes npm-check-updates@22 -u --target minor` を実行するように
+	(cmd.exe で `^` がエスケープ文字になるため `^22` ではなく `@22` 指定)
+	- package.json: dependencies から削除。update スクリプトの `ncu -g` も
+	`npx --yes npm-check-updates -g` に
+	- build.ts, src/import-meta-url-shim.js: ncu(ESM専用)のための
+	import.meta.url シムが不要になったので削除
+	- 目的: `~/.npmrc` 読み取り・`process.env` 走査・外部レジストリ通信を含む
+	2.5MB の minify 済みチャンクが vsix に同梱されていたため
+- fix(build): typescript を 7.0 系から 6.0 系に戻す
+	- @typescript/typescript6 と webpack の `compiler: '@typescript/old'` 指定を廃止
+	- typescript-eslint が TS7 非対応で eslint が起動しなかった件も解消
+- fix(build): webpack の ts-loader が拡張機能と無関係なファイルまで型検査していた件
+	- onlyCompileBundledFiles / reportFiles で src/ のみを対象に
+	- server/src(緩い server/tsconfig.json で開発)・views/(vite でビルド)の
+	エラー105件で production ビルドが停止していた
+	(webpack のキャッシュがあるとエラーが出ず、cold ビルドでのみ再現)
+- fix(build): vscode:prepublish の先頭で dist を消すように
+	- 古いチャンクが残り続け、不要な 2.5MB が vsix に同梱されていた
+- chore: .vscodeignore の追加除外
+	- bun.lock / dist/*.tsbuildinfo / TODO.md
+	- .claude/(settings.local.json が同梱されていた) / eslint.config.mts / tsconfig.eslint.json
 ## v4.30.4
 - fix(debug): DEP0169警告解消のためDebuggerのsocket.ioをwsに置き換え
 	- Debugger.ts: socket.io(サーバ)を ws の WebSocketServer に置き換え

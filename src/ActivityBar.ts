@@ -16,7 +16,6 @@ import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocat
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
-import type {RunOptions} from 'npm-check-updates';
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
 const AdmZip = require('adm-zip');
 
@@ -101,16 +100,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	//MARK: コンストラクタ
-	ncu: (runOptions?: RunOptions, { cli }?: {
-		cli?: boolean;
-	})=> Promise<any>;
 	private constructor(private readonly ctx: ExtensionContext) {
-		Promise.all([
-			import('npm-check-updates'),
-			import('./WorkSpaces'),
-		]).then(async ([{default: ncu}, {WorkSpaces}])=> {
-			this.ncu = ncu;
-
+		import('./WorkSpaces')
+		.then(async ({WorkSpaces})=> {
 			ctx.subscriptions.push(this.#workSps = new WorkSpaces(ctx, this));
 			this.#canTempWizard = true;
 			await this.#workSps.start();
