@@ -75,8 +75,13 @@ export class WfbOptFont extends WatchFile {
 	) {
 		// フォントファイルやテキスト系ファイルの監視
 		return this.watchFld(
+			// この glob が広いのは**暗号化の網**だから（フォント最適化のためではない）。
+			// watchFld は `doc/prj/*/` 始まりのパターンに暗号化を仕込むので、
+			// 拡張子を削ると**その拡張子の暗号化が黙って漏れる**。狭めないこと
 			'doc/prj/*/*.{sn,json,woff2,woff,otf,ttf,htm,html,css,js}', '',
-			async ()=> { /* empty */ },	// 処理はないが処理を動かしたい
+			async ()=> { /* empty */ },
+				// 中身は空。**findFiles(pat) 全件への初回の暗号化を走らせるため**に
+				// 渡している（watchFld 内で init の有無が分岐条件になっている）
 			async ({path}, cre)=> {
 				if (cre && /\.ss?n$/.test(path)) await sendNeedGo();
 				return noticeChgTxt(path);

@@ -29,7 +29,29 @@ import {
 export type QuickPickItemEx = QuickPickItem & {
 	uri?	: Uri;
 }
+/** SKYNovel プロジェクト用のタグ一覧。プロジェクトを開いていない時に使う */
 export const aPickItems	: QuickPickItemEx[] = [];
+
+/** md.json から取り出した [タグ名, 概要]。#start() で一度だけ埋める */
+let aTagSum: [string, string][] = [];
+
+/**
+ * タグリファレンス検索パレットの項目を作る。
+ * リンク先はエンジンごとに別サイトなので、プロジェクト種別で切り替える。
+ * 【どのタグを載せるかは変えない】。リファレンスは「調べられること」が役目なので、
+ * 相手側エンジンで未実装・未整備のタグも隠さない（実装状況は各サイトの記載に従う）
+ */
+export function mkTagPickItems(is_blues: boolean): QuickPickItemEx[] {
+	const url = is_blues
+		? 'https://famibee.github.io/bluesnovel/tag.html#'
+		: 'https://famibee.github.io/SKYNovel/tag.html#';
+	return aTagSum.map(([tag_nm, sum])=> ({
+		label		: tag_nm,
+		description	: sum,
+		//detail,	// 別の行になる
+		uri			: Uri.parse(url + tag_nm),
+	}));
+}
 
 
 export	function openURL(url: Uri, pathWs: string) {
@@ -227,16 +249,19 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#removeStatusItem('init');
 
 		// md.json は 150KB ほどあり、バンドルに含めると起動時のパース対象になる。
-		// dist/md.json は LSP 用に元から同梱しているので、そちらを実行時に読む
-		const hMd = <{[tag_nm: string]: MD_STRUCT}>readJsonSync(
-			`${this.ctx.extensionPath}/dist/md.json`
-		);
-		for (const [tag_nm, {sum}] of Object.entries(hMd)) aPickItems.push({
-			label		: tag_nm,
-			description	: sum,
-			//detail,	// 別の行になる
-			uri			: Uri.parse('https://famibee.github.io/SKYNovel/tag.html#'+ tag_nm),
-		});
+		// src/md2json.ts が dist/md.json へ出すので、そちらを実行時に読む。
+		// ここはコンストラクタなので、投げると拡張機能が丸ごと起動しない
+		// （ツリーもコマンドも登録されない）。リファレンス検索だけ諦める
+		const fpMd = `${this.ctx.extensionPath}/dist/md.json`;
+		try {
+			const hMd = <{[tag_nm: string]: MD_STRUCT}>readJsonSync(fpMd);
+			aTagSum = Object.entries(hMd).map(([tag_nm, {sum}])=> [tag_nm, sum]);
+		}
+		catch (e: unknown) {
+			aTagSum = [];
+			console.error(`fn:WorkSpaces.ts タグ辞書が読めません（リファレンス検索が空になります）${fpMd} %o`, e);
+		}
+		aPickItems.push(...mkTagPickItems(false));
 	}
 	#tiLayers	: TreeItem[]	= [];
 
@@ -291,6 +316,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		this.ctx.subscriptions.push(
 			commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()),
+			// コマンドパレットの見出し（category）は package.json の静的な値なので
+			// 実行時に変えられない。同じ処理のコマンドを2つ置き、コンテキストキー
+			// skynovel.isBlues で package.json の when 句が出し分ける
+			commands.registerCommand('bluesnovel.openReferencePallet', ()=> this.#openReferencePallet()),
+			window.onDidChangeActiveTextEditor(()=> void this.#updCtxBlues()),
 			commands.registerCommand('skynovel.opView', (uri: Uri)=> {
 				const {path} = uri;
 				for (const [vfpWs, prj] of this.#mPrj.entries()) {
@@ -311,6 +341,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		// ActivityBar #chkEnv と同じ Promise を待つ。二重に exec しない
 		await chkBun();
 		this.#refresh();
+		await this.#updCtxBlues();	// 起動直後に開いているファイルの分
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
@@ -322,23 +353,44 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	//MARK: LSP サーバーへメッセージ送信
 	#req2LSP: (uriWs: Uri, o: T_ALL_L2S)=> Promise<void>	= async ()=> { /* empty */ };
 
-	#openReferencePallet() {
-		const aWsFld = workspace.workspaceFolders;
-		const at = window.activeTextEditor;
-		if (! aWsFld || ! at) {		// undefinedだった場合はファイルを開いている
-			window.showQuickPick<QuickPickItemEx>(aPickItems, {
-				placeHolder			: 'どのリファレンスを開きますか?',
-				matchOnDescription	: true,
-			})
-			.then(q=> {if (q?.uri) openURL(q.uri, '');});
-			return;
+	/**
+	 * いま対象とみなすプロジェクトを返す。開いているファイルの属するもの。
+	 * ファイルを開いていない（または属するものが無い）場合、プロジェクトが
+	 * 1つだけならそれを使う。複数あれば決められないので undefined
+	 */
+	#prjOfActiveEditor(): Project | undefined {
+		const vfp = window.activeTextEditor?.document.uri.path;	// /c:/
+		if (vfp) {
+			for (const [vfpWs, prj] of this.#mPrj.entries()) {
+				if (vfp.startsWith(vfpWs)) return prj;
+			}
 		}
+		return this.#mPrj.size === 1
+			? this.#mPrj.values().next().value
+			: undefined;
+	}
 
-		const vfp = at.document.uri.path;	// /c:/
-		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			if (! vfp.startsWith(vfpWs)) continue;
-			prj.openReferencePallet();
-		}
+	/**
+	 * コマンドパレットの見出しを SKYNovel / BlueSNovel で出し分けるための
+	 * コンテキストキー更新。開いているファイルの属するプロジェクトで決める
+	 * （特定できなければ SKYNovel 扱い＝従来の挙動）
+	 */
+	async #updCtxBlues() {
+		await commands.executeCommand('setContext',
+			'skynovel.isBlues', this.#prjOfActiveEditor()?.is_blues ?? false);
+	}
+
+	#openReferencePallet() {
+		// 対象プロジェクトが決まればそちらへ（マクロ・プラグインも一覧に入る）
+		const prj = this.#prjOfActiveEditor();
+		if (prj) {prj.openReferencePallet(); return}
+
+		// 決まらない場合はタグのみ。コマンドパレットの見出しと同じ既定＝SKYNovel
+		window.showQuickPick<QuickPickItemEx>(aPickItems, {
+			placeHolder			: 'どのリファレンスを開きますか?',
+			matchOnDescription	: true,
+		})
+		.then(q=> {if (q?.uri) openURL(q.uri, '');});
 	}
 
 

@@ -1,3 +1,202 @@
+## v4.31.2
+- perf(lsp): **path.json が変わらない変更では LSP の全再パースをしないように**
+	- `updPathJson()` は path.json を書き直すので、**書く前と後で内容が同じなら
+	`#sendNeedGo()` を呼ばない**ようにした。LSP が全走査を要るのは
+	「ファイル名キーワードが変わったから」なので、同一内容なら全再パースは無駄
+	- スクリプトの追加削除は WfbOptFont が別途 `sendNeedGo()` を直接呼ぶので、
+	ここを抑えても取りこぼさない
+	- 読めない場合は「変わった」扱いにして従来どおり走らせる（安全側）
+	- 統合テストで実証：**追加してすぐ削除**すると `watch.cre` 1 / `watch.del` 1 /
+	`path.json.同一` 1 / **全走査 0**。従来はここで全再パースが走っていた
+- feat(test): **VSCode の画面を外から操作する UI テスト基盤**を追加（`bun run test:ui`）
+	- `playwright-core` の `_electron` で実際の VSCode を起動して操作する。
+	**1パッケージ 13MB・ブラウザのダウンロードなし**（Electron 自体が被検体なので
+	Chromium/Firefox/WebKit は不要。`playwright` を入れると数百MB落とす）
+	- ⚠️ **bun では動かない。** Playwright の Electron 起動が 45秒でタイムアウトする
+	（node なら約2.8秒）。そのため esbuild で `.mjs` に出して **node で走らせる**。
+	このリポジトリで唯一 bun を使わない経路
+	- 検証できたこと：**コマンドパレットの見出しがエンジンで切り替わる**
+	（SKYNovel プロジェクト → `SKYNovel:` / BlueSNovel プロジェクト → `BlueSNovel:`）、
+	アクティビティバー【開発環境】に環境の行が並び「-- 確認中…」が残っていないこと
+	- 失敗時は画面を PNG で保存する
+	- ⚠️ セレクタは VSCode の内部 DOM に依存するので、VSCode の更新で壊れうる。
+	専用ヘルパーを持つ vscode-extension-tester なら少ないが、独自 VSCode ＋
+	chromedriver を落とす。まず Playwright で始め、保守が重くなったら移す方針
+	- タイトルは `package.nls` で多言語化されており、新規 user-data-dir では
+	**英語で起動する**。見出し（category）は多言語化されないのでそこで判定している
+- feat(test): **実際の VSCode を起動する統合テスト基盤**を追加（`bun run test:int`）
+	- `@vscode/test-electron` は元から devDependencies にあったが未使用だった。
+	テストは**拡張機能ホストの内側**で走り、`vscode` API がそのまま使える
+	- **ローカルの VSCode を使う**（`vscodeExecutablePath`）。指定しないと
+	VSCode 本体（約150MB）を毎回ダウンロードしようとする
+	- test/int/mkFixture.ts: 一時フォルダに SKYNovel プロジェクトを作る。
+	**無害であること（ターミナルでビルドが走らないこと）が最重要**で、
+	`node_modules/`・`<FLD_SRC>/plugin/`・`src/batch/` の3つが必要
+	（欠けると `#build()` が【自動ビルド】タスクを起動して `npm i` が走る、
+	または `writeJson` が ENOENT）。利用者の実プロジェクトには触らない
+	- src/Trace.ts: 軽量トレース。**計数は常に行い**（統合テストから assert する）、
+	ログ出力は設定 `skynovel.trace` が true のときだけ。
+	一時的な `console.error` を毎回書き足すのをやめるため
+	- `activate()` が `{getTraceCnt, clearTrace}` を返すように（テストの観測口）
+	- ⚠️ macOS には xvfb が無いので**ウィンドウが出る**（ヘッドレス不可）
+- fix(test): 統合テストの VSCode ユーザーデータが vsix に同梱されていた
+	- リポジトリ内に `--user-data-dir` を置いていたため、**140 ファイルが混入**して
+	同梱数が 229 → 369 になっていた。一時フォルダへ移し、`.vscodeignore` と
+	`release_chk.ts` の除外リストにも `.vscode-test*` を追加
+	（この検査が拾えていなかったので、同種の再発は今後落ちる）
+- fix: `dist/md.json` が無いと**拡張機能が丸ごと起動しなくなる**のを修正
+	- v4.31.1 でタグ辞書を実行時読み込みにした際の作り込み。読み込みが
+	WorkSpaces の**コンストラクタ内**なので、投げると
+	`new WorkSpaces()` が失敗し、ActivityBar 側の catch に落ちて
+	ツリーもコマンドも登録されない状態になっていた
+	- 読めない場合はリファレンス検索だけ空にして、他は動くように
+	（パスと対処を添えて console へ）
+	- vsix に同梱されていることは `bun run release` の(4)が検査しているので、
+	これが起きるのは開発中に `dist/md.json` を作り忘れた場合
+- feat: リファレンス検索パレットのリンク先を、プロジェクトのエンジンで切り替えるように
+	- BlueSNovel のプロジェクトを開いていても SKYNovel 側のドキュメントへ飛んでいた。
+	`https://famibee.github.io/bluesnovel/tag.html#<タグ名>` へ振り分ける
+	- src/CmnLib.ts: `isBluesPrj()` を追加。**`<FLD_SRC>/web.ts` の SysWeb の
+	import 先**で見分ける（`@famibee/skynovel_esm/web` か
+	`@famibee/bluesnovel/web` か）。ここは「利用者は触らない」運用のファイルなので
+	判定に使える。依存が `file:../bluesnovel` のようなローカル参照でも import 先の
+	文字列は変わらないので、パスに `bluesnovel` を含むかだけを見る
+	- 読めない・見つからない場合は SKYNovel 扱い（従来の挙動）。
+	旧テンプレ（`core`）に web.ts が無い場合もこれで従来どおり
+	- src/WorkSpaces.ts: md.json から取り出した [タグ名, 概要] を保持し、
+	`mkTagPickItems(is_blues)` でリンク先だけ差し替えて項目を作る形に。
+	プロジェクトを開いていない時は従来どおり SKYNovel
+	- src/Project.ts: `analyze_inf` で自プロジェクトの種別を見て項目を組む
+	- 実在の tmp_esm_uc / tmp_blues と、相対参照・引用符違い・改行入り・
+	SysWeb 無しの各パターンで判定を検証済み
+	- **コマンドパレットの見出しも「BlueSNovel: 」に切り替わるように。**
+	`category` は package.json の静的な値なので実行時に変えられないため、
+	同じ処理のコマンド `bluesnovel.openReferencePallet` を追加し、
+	`contributes.menus.commandPalette` の `when` 句とコンテキストキー
+	`skynovel.isBlues` で出し分ける。キーは**開いているファイルが属する
+	プロジェクト**で決める（`onDidChangeActiveTextEditor` で追従。
+	特定できなければ SKYNovel 扱い）
+	- **載せるタグは変えない**（リンク先だけ切り替える）。リファレンスは
+	「調べられること」が役目なので、相手側エンジンで未実装・未整備のタグも隠さない。
+	実装状況は各サイトの記載（BlueSNovel 側は 🟢🟡🔴）に従う
+	- **ホバー・補完・引数説明のリンク先も切り替わるように（LSP 側）**
+	- server/src/LspWs.ts: ワークスペースごとに `isBluesPrj()` で判定し、
+	BlueSNovel なら**タグ辞書ごと差し替えた複製**を使う（`md2blues()`）。
+	描画箇所ごとに置換すると漏れるため。SKYNovel は module スコープの
+	辞書をそのまま使うので費用ゼロ
+	- 置換は `famibee.github.io/SKYNovel/` → `famibee.github.io/bluesnovel/`。
+	**末尾の `/` が要点**で、`SKYNovel_gallery/` は「_」で続くため掛からない
+	（BlueSNovel 版のギャラリーが無いのでそのままにしておく）。
+	createjs / MDN 等の外部リンクも無変更
+	- 補完候補（`#aCITag`）は `static` で全ワークスペース共有なので、
+	BlueSNovel のときだけ**元を書き換えず複製して**差し替える
+	- 直書き URL を定数 `URL_SKY_DOC` 経由に統一。置換が探す文字列と
+	生成する文字列がずれて黙って効かなくなるのを防ぐ
+	- 実測：SKYNovel 辞書 117 → BlueSNovel 辞書で `/SKYNovel/` 0 件・
+	`/bluesnovel/` 117 件、ギャラリー 38 件と外部リンクは不変、タグ数 114 も不変
+	- `isBluesPrj()` は**ワークスペースパスだけで判定する形に変更**
+	（`src/` → `core/` の順に web.ts を探す）
+	- **判定は拡張機能側だけで行い、結果を `ready` メッセージで LSP へ渡す。**
+	LSP 側で判定すると `existsSync`/`readFileSync` を持ち込むことになり、
+	**ブラウザ版（web worker 拡張ホストは fs / path / process が使えず、
+	ファイルは `workspace.fs` 経由のみ）への移植を塞ぐ**。この LSP は
+	解析専用で I/O を持たない方針（`server/src/*.ts` に fs 呼び出しは0件）
+	- 参考：BlueSNovel の tag.html（タグ見出し 117 件）と md.json（114 件）の差は
+	**SKYNovel のみ `endlet_ml` / BlueSNovel のみ `grplay` `set_cancel_skip`
+	`stopfadese` `txtlay`** の計5件。`endlet_ml` は BlueSNovel にも存在し、
+	`let_ml` の節で説明されている（独自の見出しを持たないだけ）。
+	後者4件は `src/md/` に元ファイルが無く、元からパレットに出ていない
+- refactor(lsp): 初期化の往復を減らし、走査要求をまとめるように
+	- `#scanSrc()` として走査元の作成を共通化
+	- ⚠️ **「初期化の3往復を1回に」は撤回した。** `ready` に走査元を同梱して
+	`go` を挟まない実装にしたところ、**ホバーが出なくなった**（コード補完と
+	未定義マクロ診断は利く）。原因未特定。省けるのは IPC 1往復（約1ms）だけなので、
+	原因が分かるまで従来の `ready` → `go` → `go.res` 経路を維持する
+	- **`go` から `InfFont` を外した。** 拡張機能は `go` と `analyze_inf` の両方で
+	`#optFont.updDiag()` を呼んでいたが、`go` 側は初回が初期値（空）、
+	以降は前回の `analyze_inf` で処理済みの値の重複だった。
+	副産物として `WfbOptFont` が持つ `#InfFont`（フォント最適化が使う）が
+	**常に最新の走査結果になった**（従来は走査前の古い値で上書きされていた）
+	- **`need_go` を 300ms でまとめるように**（src/Project.ts `#sendNeedGo()`）
+	- 統合テストで実測（3ケース）：
+		- 画像3枚を同時 → `need_go.req` 1 / `send` 1 / 全走査 1。
+		これは `lasyPathJson()` の 500ms デバウンスが効いている分
+		- **画像＋音声を同時 → `req` 2 / `send` 1 / 全走査 1。**
+		`#tiLasyPathJson` は監視インスタンスのフィールドなので
+		WfbOptPic と WfbOptSnd で別々に 500ms が走り、`updPathJson()` が
+		**2回**呼ばれる。**それを 300ms がまとめている**
+		- 対照（1枚ずつ 2.5s 間隔）→ `req` 2 / `send` 2 / 全走査 2。
+		「監視が動いていないから 1 回」ではないことの裏取り
+	- ⚠️ **まとめる場所は拡張機能側にした。** LSP 側で「応答待ちなら送らない」と
+	状態を持つ実装も書いたが、`go.res` が返らなかったときに
+	**再走査が二度と起きなくなる**失敗の仕方になるため撤去した
+	（実際 `#chkChrCd` は try/catch が無く、走査中に消えたファイルで例外が出る）
+- fix: 走査中に読めないファイルが1つあると、走査全体が中断していた
+	- src/Project.ts `#scanSrc()`: ファイル単位で try/catch。従来は
+	`readFileSync` の例外が `treeProc` を貫通して `go.res` 自体が送られず、
+	次の契機まで LSP の解析結果が更新されなかった
+- refactor: LSP が `CmnLib.ts` を import しないように（`src/CmnShare.ts` を新設）
+	- LSP は解析専用で I/O を持たない方針だが、`CmnLib.ts` 経由で
+	**fs-extra 一式（graceful-fs / jsonfile 込み）がモジュールグラフに入っていた**。
+	境界が甘いと I/O が紛れ込む（実際にこの版で web.ts を読む判定処理が
+	LSP に入りかけ、`ready` で渡す形に差し戻した）
+	- src/CmnShare.ts: 本体と LSP が共有する**入出力を持たない**部分を集約
+	（パス型と変換、`int`/`uint`、`is_win`/`is_mac`、`REQ_ID`、`REG_SCRIPT`、`getFn`）。
+	`fs` / `fs-extra` / `node:path` / `child_process` / `vscode` の import 禁止を明記
+	- `CmnLib.ts` は `export *` で再 export するので、**本体側の import は従来どおり**
+	- `src/types.ts` と `src/ConfigBase.ts`（LSP バンドルに入る）も CmnShare 参照に変更
+	- `getFn()` は `basename`/`extname` を使わない実装に。node の win32 版と
+	同じ結果になることを16パターンで確認済み。**副産物として、mac 上で
+	`C:\...\main.sn` のような区切りを渡した場合も正しく名前を取れるようになった**
+	（従来は posix 判定でパス全体が返っていた）
+	- 結果：LSP バンドルの入力が **114 → 78 ファイル**、`require("node:path")` と
+	`require("node:child_process")` が消えた（残る `fs`/`path`/`child_process` は
+	`vscode-languageserver/node` 由来で、ブラウザ版では `/browser` に差し替える前提のもの）
+	- ⚠️ **出力バイト数は 462,516 のまま変わらない。** esbuild が tree-shaking で
+	fs-extra を既に 0 バイトにしていたため。**「約40KB の死荷重」という当初の見積りは
+	誤り**（metafile の入力一覧から読み取ったもので、出力を見ていなかった）。
+	この変更の価値は容量ではなく境界の明示
+- chore(build): md.json の生成タイミングを整理
+	- **`bun run build` / `watch` が md2json を走らせていなかった。** そのため
+	`src/md/*.md` を編集しても開発ビルドに反映されず、手で `bun md2json` を
+	思い出す必要があった（v4.31.1 で dist/md.json を実行時読み込みにしたので、
+	古さがそのままパレットに出る状態だった）
+	- `build` の先頭に `md2json` を追加。`watch` は
+	`bun src/md2json.ts --watch` で **`src/md/` を監視して再生成**するように
+	（拡張機能は dist/md.json を実行時に読むので、リロードだけで反映される）
+	- **中間ファイル `src/md.json` を廃止。** どのコードも読まないのに git 追跡
+	ファイルが増えるだけだった（同じ 147KB が3本＝1変更で 441KB の差分）。
+	`dist/md.json` と `server/src/md.json` へ直接出力する（`outputFileSync` なので
+	`rimraf dist` 後でもフォルダを作る）
+	- **`server/src/LspWs.ts` の型 import を生成物からソースへ。**
+	`'../../dist/md2json'`（.d.ts）を見ていたため「md2json → chk:types」という
+	暗黙の順序制約があった。`'../../src/md2json'` に変更し、
+	**`build:types` スクリプトと `src/tsconfig.types.json` を削除**
+	（`import type` のままにすること。値 import すると生成スクリプトが走る）
+- fix: リファレンス検索パレットで、ファイルを開いていなくてもプロジェクトが
+1つだけならそのエンジンの一覧を出すように（従来は SKYNovel 固定だった）
+- feat: 拡張機能自身の新版を通知するように（**通知のみ。取得もインストールもしない**）
+	- 背景：本家 VSCode は vsix で入れた拡張機能を自動更新しない
+	（公式ドキュメント「When you install an extension via VSIX, auto update for
+	that extension is disabled by default.」）。Marketplace 配布が止まっている間、
+	利用者には新版が出たことを知る手段が無かった
+	- src/ActivityBar.ts: `#chkLastExtVer()` を追加。GitHub Releases の latest から
+	`tag_name` を取り、`ctx.extension.packageJSON.version` と比べて新しければ通知
+	- **master の package.json ではなく Releases を見る。** リリース手順では版を
+	上げてコミットした後に Releases を作るので、master を見ると「まだ
+	ダウンロードできない版」を告知してしまう
+	- ボタンは【リリースページを開く】（ブラウザで開くだけ）と【今後知らせない】。
+	**`.vsix` の取得・インストールは行わない**（README・TODO §5 の方針）
+	- **ボタンを押さずに閉じた場合は記録せず、次回も知らせる。** 見逃した人に
+	二度と届かなくなるのを避けた（これが唯一の告知手段なので）。
+	うるさい場合は【今後知らせない】で止められる
+	- 版比較は手作り（compare-versions は Windows10 で不具合が出たため）。
+	`4.9.0` < `4.10.0` のように文字列比較では誤る例も含めて検証済み
+	- 設定 `skynovel.chkExtUpdate`（既定 true）で無効化できる
+	- 通知はボタンを押すまで解決しないので、起動の待ち合わせ
+	（`Promise.allSettled`）には入れない
+	- API のレート制限（未認証は60回/時）等で失敗したときは黙って諦める
+
 ## v4.31.1
 - perf(startup): アクティビティバーとコマンドが**環境確認の完了を待たずに使える**ように
 	- これまでは `#chkEnv`（`pip list` / `node -v` / `npm -v` / `bun -v`）が
@@ -112,20 +311,20 @@
 	ネットワークアクセス先の限定を明記。Publisher Agreement / Terms of Use /
 	Security and trust のリンクも併記
 - chore(build): 公開前チェックを自動化（`bun run release` = release_chk.ts）
-	- ① ソース走査：exec/spawn 系でパッケージマネージャを叩く箇所が許可リスト
+	- (1) ソース走査：exec/spawn 系でパッケージマネージャを叩く箇所が許可リスト
 	（`H_ALLOW_EXEC`、理由付き）に無ければ落とす
-	- ② dependencies 検査：バンドルに混ぜてはいけない依存（npm-check-updates）
-	- ③ ビルド＆パッケージ：`vsce package`（vscode:prepublish 経由で型検査も通る）
-	- ④ vsix 同梱物：秘密・設定・ビルド生成物が入っていないか、必要なものが
+	- (2) dependencies 検査：バンドルに混ぜてはいけない依存（npm-check-updates）
+	- (3) ビルド＆パッケージ：`vsce package`（vscode:prepublish 経由で型検査も通る）
+	- (4) vsix 同梱物：秘密・設定・ビルド生成物が入っていないか、必要なものが
 	揃っているか。依存パッケージ内の同種ファイルは対象外（向こうの都合で増減する）
-	- ⑤ dist 検査：2MB を超えるチャンク、`.npmrc` を読むコードの混入
-	- ⑥ vsix の SHA256 を出力（リリースノート用）
+	- (5) dist 検査：2MB を超えるチャンク、`.npmrc` を読むコードの混入
+	- (6) vsix の SHA256 を出力（リリースノート用）
 	- 公開（vsce publish）はしない。PAT を CI に置かない方針は維持
-	- わざと違反を入れて①②が検出することを確認済み
-	- .vscodeignore: ④の指摘に従い `.gitignore` / `**/bun.lock` /
+	- わざと違反を入れて (1)(2) が検出することを確認済み
+	- .vscodeignore: (4)の指摘に従い `.gitignore` / `**/bun.lock` /
 	`**/*.tsbuildinfo` / `**/eslint.config.*` を除外（同梱する
 	server/node_modules/ 内のゴミ7件が消え、243 → 236 ファイルに）
-	- ⑤に既知のサプライチェーン攻撃指標6種の走査を追加（`webhook.site` 等の
+	- (5)に既知のサプライチェーン攻撃指標6種の走査を追加（`webhook.site` 等の
 	中継サービス、`eval(atob(`、難読化ツールの `_0x****(`、資格情報ファイル、
 	`process.env` の総なめ、既知ワームのツール名）。従来 vsix に対して
 	手作業で走査していたものを取り込んだ。既知の悪性パターンを検出し、

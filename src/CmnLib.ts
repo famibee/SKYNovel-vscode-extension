@@ -6,14 +6,13 @@
 ** ***** END LICENSE BLOCK ***** */
 
 
-// =============== Global
-export function int(o: unknown): number {return parseInt(String(o), 10)}
-export function uint(o: unknown): number {
-	const v = parseInt(String(o), 10);
-	return v < 0 ? -v : v;
-}
+// 入出力を持たない共有部分は CmnShare.ts に。本体側の import を従来どおりに
+// 保つため、ここから再 export する（LSP は CmnShare.ts を直接 import すること）
+export * from './CmnShare';
+import type {FULL_PATH, FULL_SCH_PATH, WORKSPACE_PATH} from './CmnShare';
 
-export	const	REG_SCRIPT	= /\.ss?n$/;
+
+// =============== Global
 
 export let useBun = false;		// bun が使える環境か
 
@@ -41,6 +40,35 @@ export function cnvPM(cmd: string) {return ! useBun ? cmd : cmd
 	.replaceAll(/(?<=^|\s)npm (?:i|install)(?=\s|$)/g, 'bun i')
 	.replaceAll(/(?<=^|\s)npm (update|run)(?=\s)/g, 'bun $1')
 	.replaceAll(/(?<=^|\s)npx (?:--yes )?(?=\S)/g, 'bunx ')	// bunx は確認なしで取得する
+}
+
+/**
+ * プロジェクトが BlueSNovel か（false なら SKYNovel）。
+ *
+ * `<src|core>/web.ts` の SysWeb の import 先で見分ける。ここは
+ * 「利用者（ゲーム開発者）は触らない」運用のファイルなので判定に使える。
+ * - SKYNovel   … `await import('@famibee/skynovel_esm/web')`
+ * - BlueSNovel … `await import('@famibee/bluesnovel/web')`
+ *
+ * 依存が `file:../bluesnovel` のようなローカル参照でも import 先の文字列は
+ * 変わらないので、パスに bluesnovel を含むかどうかだけを見る。
+ * 読めない・見つからない場合は SKYNovel 扱い（従来の挙動）。
+ *
+ * 拡張機能（src/Project.ts）と LSP（server/src/LspWs.ts）の両方から使う。
+ * LSP 側は FLD_SRC を知らないので、ワークスペースパスだけで判定できる形にしてある
+ */
+export function isBluesPrj(pathWs: WORKSPACE_PATH): boolean {
+	for (const fld of ['src', 'core']) {	// 新テンプレは src、旧テンプレは core
+		const fp = `${pathWs}/${fld}/web.ts`;
+		try {
+			if (! existsSync(fp)) continue;
+			const txt = readFileSync(fp, {encoding: 'utf8'});
+			const path = /\bSysWeb\b[\s\S]*?\bimport\s*\(\s*['"`]([^'"`]+)/.exec(txt)?.[1];
+			return path?.includes('bluesnovel') ?? false;
+		}
+		catch (e: unknown) {console.error('fn:CmnLib.ts isBluesPrj %o', e)}
+	}
+	return false;
 }
 
 export	const docsel = {scheme: 'file', language: 'skynovel'};
@@ -84,30 +112,17 @@ export function repWvUri(inp: string, wv: Webview, uriDoc: Uri): string {
 
 
 // =============== Project
-export const is_win = process.platform === 'win32';
-export const is_mac = process.platform === 'darwin';
-//const is_linux = process.platform === 'linux';
 
 
-// =============== LSP
-export const REQ_ID = ':SKYNovel:';	// これは server/src/LangSrv.ts に置くの禁止
 
 
-export type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
-export type PROJECT_PATH	= string;	// script/main.sn
-export type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
 export type VSC_FULL_PATH	= string;	// c:\[user]\...\[prj]\doc\prj\script\main.sn
-export type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
 										// scheme つき
 
 export function vsc2fp(p: VSC_FULL_PATH): FULL_PATH {return p.replace(/(?:\/\w:)?/, '');}
 	// FULL_SCH_PATH は uri.path など
 	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
 
-export function fullSchPath2fp(fsp: FULL_SCH_PATH): FULL_PATH {
-	return decodeURIComponent(fsp.replace(/file:\/\/(\/\w%3A)?/, ''));
-}	// 似たような名前のメソッドになるので目立たせる
-	// 逆方向は難しそう、変換前の値は保存必要か
 
 /**
  * OS（エクスプローラーや Finder）にパスを渡す直前に通す。
@@ -120,13 +135,8 @@ export function fp2osp(fp: FULL_PATH): string {return resolve(fp)}
 
 //	docs.get(fsp) などにはこれが必要
 //NOTE: 雑コード
-export const fp2fullSchPath: (fp: FULL_PATH)=> FULL_SCH_PATH = is_win
-	? fp=> 'file://c:'+ encodeURI(fp)
-	: fp=> 'file://'+ encodeURI(fp);
 
 
-export function uri2path(p: string): string {return p.slice(7)}
-	// 'file://' を取る
 
 
 /*
@@ -167,7 +177,7 @@ export const hDiagL2s	:{[code_name: string]: T_H_ADIAG} = {
 
 // 階層フォルダ逐次処理
 import {exec} from 'node:child_process';
-import {basename, extname, resolve} from 'node:path';
+import {resolve} from 'node:path';
 import {readdirSync, existsSync, readFileSync, ensureFileSync, statSync, writeFileSync} from 'fs-extra';
 
 const REG_SYS_FN = /^(_notes|Icon\r|\.[^/]+|[^/]+\.(db|ini|git))$/;
@@ -262,7 +272,6 @@ export	function chkBoolean(v: unknown): boolean {
 	return v2 === 'false'? false : Boolean(v2);
 }
 
-export	function getFn(path: string) {return basename(path, extname(path))}
 
 
 // =============== EncryptorTransform

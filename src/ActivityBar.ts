@@ -12,7 +12,7 @@ import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
-import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation} from 'vscode';
+import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, workspace, env, ConfigurationTarget} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
@@ -23,6 +23,22 @@ const nNodeReqVer = 24_011_000;
 
 // テンプレートの取得元。進捗表示でユーザーに見せる
 const URL_TMP_ZIP = (nm: string)=> `https://github.com/famibee/${nm}/archive/main.zip`;
+
+// 拡張機能自身の更新確認。【通知のみ】で、取得もインストールもしない
+const REPO_EXT = 'famibee/SKYNovel-vscode-extension';
+const URL_EXT_LATEST = `https://api.github.com/repos/${REPO_EXT}/releases/latest`;
+	// master の package.json ではなく Releases を見る。リリース手順では
+	// 版を上げてコミットした後に Releases を作るので、master を見ると
+	// 「まだダウンロードできない版」を告知してしまう
+const URL_EXT_RELEASES = `https://github.com/${REPO_EXT}/releases`;
+const KEY_SKIP_EXT_VER = 'skynovel.notifiedExtVer';	// 同じ版で繰り返し通知しない
+const CFG_CHK_EXT_VER = 'skynovel.chkExtUpdate';
+
+/** 「4.31.1」を比較可能な数値に。compare-versions は Windows10 で不具合が出たので手作り */
+function verNum(ver: string): number {
+	const [a=0, b=0, c=0] = ver.replace(/^v/, '').split('.').map(Number);
+	return a *1_000_000 + b *1_000 + c;
+}
 
 export function getNonce() {
 	let text = '';
@@ -134,6 +150,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				));
 			const pTb = import('./ToolBox')
 				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx)));
+			// 拡張機能自身の更新確認（通知のみ）。通知はボタンを押すまで
+			// 解決しないので、起動の待ち合わせには入れない
+			void this.#chkLastExtVer();
 
 			await this.#workSps.start();
 			await Promise.allSettled([pEnv, pDoc, pTb]);
@@ -333,6 +352,51 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 		const ret: TreeItem[] = [];
 		if (t.label === 'Node.js') ActivityBar.#hEnv.NODE.ti.iconPath = oIcon(ActivityBar.#hEnv.NODE.ready ?'node-js-brands' :'error');
 		return ret;
+	}
+
+	//MARK: 拡張機能自身の更新確認
+	/**
+	 * 拡張機能の新版が出ていたら通知する。**通知のみで、取得もインストールもしない**
+	 * （README・TODO §5 の方針）。
+	 * Marketplace 配布が止まっている間、vsix で入れた拡張機能は VSCode が
+	 * 自動更新しないため、これが唯一の告知手段になる
+	 */
+	async #chkLastExtVer() {
+		if (! workspace.getConfiguration().get<boolean>(CFG_CHK_EXT_VER, true)) return;
+
+		const verNow = (<T_PKG_JSON>this.ctx.extension.packageJSON).version;
+		try {
+			const res = await fetch(URL_EXT_LATEST, {
+				headers: {accept: 'application/vnd.github+json'},
+			});
+			if (! res.ok) return;	// レート制限（未認証は60回/時）等。黙って諦める
+
+			const {tag_name} = <{tag_name?: string}>await res.json();
+			if (! tag_name) return;
+
+			const verNew = tag_name.replace(/^v/, '');
+			if (verNum(verNew) <= verNum(verNow)) return;
+
+			// 一度応答した版は繰り返し知らせない
+			if (this.ctx.globalState.get<string>(KEY_SKIP_EXT_VER) === verNew) return;
+
+			const OPEN = 'リリースページを開く';
+			const STOP = '今後知らせない';
+			const a = await window.showInformationMessage(
+				`SKYNovel 拡張機能の新版 v${verNew} があります（お使いのものは v${verNow}）。`
+				+ 'Marketplace が利用できないため、自動では更新されません。',
+				OPEN, STOP,
+			);
+			// ボタンを押さずに閉じた場合は記録しない。見逃した人に次回も知らせる
+			// （これが唯一の告知手段なので）。うるさい場合は STOP で止められる
+			if (! a) return;
+			await this.ctx.globalState.update(KEY_SKIP_EXT_VER, verNew);
+
+			if (a === OPEN) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
+			else await workspace.getConfiguration()
+				.update(CFG_CHK_EXT_VER, false, ConfigurationTarget.Global);
+		}
+		catch (e: unknown) {console.error('fn:ActivityBar.ts #chkLastExtVer %o', e)}
 	}
 
 	//MARK: ネットの更新確認

@@ -4,5 +4,5 @@
 	// views/ を含めないのは、vite の型と bun-types の ImportMeta 宣言が衝突して
 	// node_modules 内のエラーが出るため（自前のコードには影響しない）
 	"extends": "./tsconfig.json",
-	"include": ["src/**/*", "server/src/**/*", "build.ts", "release_chk.ts"]
+	"include": ["src/**/*", "server/src/**/*", "test/**/*", "build.ts", "release_chk.ts"]
 }

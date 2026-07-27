@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from './CmnLib';
+import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from './CmnShare';
 
 //MARK: 設定パネル
 export type T_WSS = {

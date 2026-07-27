@@ -21,6 +21,8 @@ export default defineConfig([
 		'views/tmpwiz.js',
 		'views/toolbox.js',
 		'views/score.js',
+		'test/int/suite.js',	// build.ts が test/int/suite.ts から生成する
+		'test/ui/runUI.mjs',	// 同上（UI テストは node で走らせる）
 	]),
 	js.configs.recommended,
 	configs.recommendedTypeChecked,

@@ -8,14 +8,39 @@
 
 import type {T_H_FONT2STR, T_INF_INTFONT} from '../../src/types';
 import {H_FONTJSON_nm_DEF_FONT} from '../../src/types';
-import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from '../../src/CmnLib';
-import {fp2fullSchPath, fullSchPath2fp, getFn, int, is_win, REG_SCRIPT, REQ_ID} from '../../src/CmnLib';
+import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from '../../src/CmnShare';
+import {fp2fullSchPath, fullSchPath2fp, getFn, int, is_win, REG_SCRIPT, REQ_ID} from '../../src/CmnShare';
+	// ⚠️ CmnLib.ts を import してはいけない（fs-extra 一式が LSP に混入する）
 import {Grammar, type Script} from './Grammar';
 import type {HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
 import {AnalyzeTagArg, idx2LnCol} from '../../src/AnalyzeTagArg';
-import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../dist/md2json';
+import type {MD_PARAM_DETAILS, MD_STRUCT} from '../../src/md2json';
+	// 【import type】のまま維持すること。md2json.ts は実行すると md.json を
+	// 生成するスクリプトなので、値として import すると LSP 起動時に走ってしまう
+	// （型は消えるので実行時には何も残らない）
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const hMd = <{[tag_nm: string]: MD_STRUCT}>require('./md.json');
+
+/**
+ * md.json に焼き込まれているドキュメント URL を BlueSNovel 側へ向け直す。
+ *
+ * md2json.ts がビルド時に `[[タグ名]](.../SKYNovel/tag.html#タグ名)` を展開して
+ * 本文へ埋め込んでいるので、ホバーや補完の説明文も差し替えないと
+ * BlueSNovel のプロジェクトから SKYNovel のドキュメントへ飛んでしまう。
+ *
+ * 描画箇所ごとに置換すると漏れるので、**辞書ごと一度だけ**作り替える。
+ * SKYNovel のプロジェクトは module スコープのものをそのまま使う（費用ゼロ）
+ *
+ * 末尾の「/」が要点。`SKYNovel_gallery/` は「_」で続くのでこの置換に掛からない
+ * （BlueSNovel 版のギャラリーが無いため、そのままにしておく）
+ */
+const URL_SKY_DOC	= 'famibee.github.io/SKYNovel/';
+const URL_BLUES_DOC	= 'famibee.github.io/bluesnovel/';
+function md2blues(h: {[tag_nm: string]: MD_STRUCT}) {
+	return <{[tag_nm: string]: MD_STRUCT}>JSON.parse(
+		JSON.stringify(h).replaceAll(URL_SKY_DOC, URL_BLUES_DOC)
+	);
+}
 // import hMd from './md.json' with {type: 'json'};
 // import hMd from './md.json' assert {type: 'json'};
 import type {T_Exts, T_Fn2Path, T_CFG} from '../../src/ConfigBase';
@@ -36,14 +61,24 @@ export type T_QuickPickItemEx = {label: string, description: string, uri: string
 
 
 //MARK: Lsp local 2 srv
-type T_L2S_ready = {
-	cmd		: 'ready';
-};
-export type T_L2S_go_res = {
-	cmd		: 'go.res';
+/** LSP が走査するための元データ。`ready`（初回）と `go.res`（以降）で共有 */
+type T_SCAN_SRC = {
 	pp2s	: T_PP2SNSTR;
 	hDefPlg	: {[def_nm: string]: PluginDef};	// 'file:///'なし
 	haDiag	: T_H_ADIAG_L2S;
+};
+type T_L2S_ready = {
+	cmd		: 'ready';
+	/**
+	 * BlueSNovel のプロジェクトか。**LSP 側で判定しない**（拡張機能が知っている）。
+	 * 判定は web.ts を読む＝ファイル I/O で、LSP に持ち込むと
+	 * ブラウザ版（web worker 拡張ホストは fs / path / process が使えない）への
+	 * 移植を塞いでしまう。この LSP は解析専用で I/O を持たない方針
+	 */
+	is_blues: boolean;
+};
+export type T_L2S_go_res = T_SCAN_SRC & {
+	cmd		: 'go.res';
 };
 	export type T_H_ADIAG = {
 		mes: string,
@@ -104,7 +139,8 @@ type T_S2L_WS = {
 };
 type T_S2L_go = T_S2L_WS & {
 	cmd		: 'go';
-	InfFont: T_INF_INTFONT;
+	// InfFont は載せない。拡張機能は走査完了時の analyze_inf で受け取るので、
+	// ここで渡しても初回は初期値（空）、以降は前回分の重複だった
 };
 type T_S2L_analyze_inf = T_S2L_WS & {
 	cmd		: 'analyze_inf';
@@ -565,6 +601,12 @@ sys:TextLayer.Back.Alpha`.split('\n');
 	static	readonly	#aCITag	: CompletionItem[]			= [];
 
 	readonly	#PATH_WS		: WORKSPACE_PATH;
+	// 以下3つは 'ready' で確定する。既定は SKYNovel（従来の挙動）
+	/** このワークスペースのタグ辞書。BlueSNovel ならリンク先を差し替えたもの */
+	#hMd			= hMd;
+	/** タグリファレンスの基底 URL（末尾は #）。エンジンごとに別サイト */
+	#urlTagDoc		= `https://${URL_SKY_DOC}tag.html#`;
+	#is_blues		= false;
 	readonly	#LEN_PATH_WS;
 	readonly	#PATH_PRJ		: string;	// 'file://'付き
 	readonly	#LEN_PATH_PRJ	: number;
@@ -654,7 +696,9 @@ sys:TextLayer.Back.Alpha`.split('\n');
 
 			const documentation: string | MarkupContent = sum
 			? {
-				kind: 'markdown', value: `$(book)[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${tag_nm})
+				// URL_SKY_DOC を使うこと。BlueSNovel 用の差し替えがこの文字列を
+				// 探すので、直書きすると置換が黙って効かなくなる
+				kind: 'markdown', value: `$(book)[タグリファレンス](https://${URL_SKY_DOC}tag.html#${tag_nm})
 
 ---
 ${sum}`,
@@ -695,9 +739,18 @@ ${sum}`,
 		void this.conn.sendRequest(REQ_ID, {...o, pathWs: this.#PATH_WS});
 	}
 	#hCmd2ReqProc: T_H_CMD2PROC	= {
-		'ready'		: ()=> {	// src/Project.ts 準備完了
+		'ready'		: (o: T_L2S_ready)=> {	// src/Project.ts 準備完了
+			if (o.is_blues) {	// リンク先が別サイトなので辞書ごと差し替える
+				this.#is_blues = true;
+				this.#hMd = md2blues(hMd);
+				this.#urlTagDoc = `https://${URL_BLUES_DOC}tag.html#`;
+			}
 			this.#hCmd2ReqProc = this.#hCmd2ReqProc_Inited;
 			this.#noticeGo();
+			// ⚠️ ここで #scanAll(o) を直接呼ぶ実装（ready に走査元を同梱して
+			// go/go.res の往復を省く）にすると、**ホバーが出なくなる**。
+			// 原因未特定。省けるのは IPC 1往復（約1ms）だけなので、
+			// 原因が分かるまで従来の go/go.res 経路を維持する。TODO §0(1)
 		},
 		// これ以上ここに追加してはいけない
 	};
@@ -717,9 +770,15 @@ ${sum}`,
 			this.#updDiag();
 		},
 	};
-	#noticeGo() {this.#sendRequest({
-		cmd: 'go', pathWs: '', InfFont: this.#InfFont,
-	});}	// 必ず go.res が返ってくる
+	/**
+	 * 全走査を要求する。必ず go.res が返ってくる。
+	 *
+	 * 1周が「拡張機能が doc/prj 下の全 sn/json を読み直す ＋ 全文を IPC で送る ＋
+	 * LSP が全再パース」なので重い。**まとめるのは拡張機能側**
+	 * （Project.ts #sendNeedGo）。ここで「応答待ちなら送らない」と状態を持つと、
+	 * go.res が返らなかったときに再走査が二度と起きなくなる
+	 */
+	#noticeGo() {this.#sendRequest({cmd: 'go', pathWs: ''})}
 
 
 	// === ファイル開きイベント ===
@@ -911,7 +970,7 @@ ${
 		}
 
 		// タグ
-		const td = hMd[u.nm];
+		const td = this.#hMd[u.nm];
 		if (td) {
 			const {param, sum} = td;
 			const onePrmMd = this.#p_prm2md(p, hRng, param, hVal);
@@ -924,7 +983,7 @@ ${
 ~~~`}
 ---
 ${
-	sum.replace('\n', `[タグリファレンス](https://famibee.github.io/SKYNovel/tag.html#${u.nm})${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
+	sum.replace('\n', `[タグリファレンス](${this.#urlTagDoc}${u.nm})${ onePrmMd ?'' :'\n\n---\n'+ this.#prmMat2md(param, hVal) }  \n`)	// --- の前に空行がないとフォントサイズが大きくなる
 }`
 			};
 		}
@@ -1002,7 +1061,7 @@ ${
 		if (! aUse) return undefined;
 		const u = aUse.find(o=> this.#contains(o.rng, p));
 		if (! u) return undefined;
-		const md = this.#hDefMacro[u.nm] ?? hMd[u.nm];
+		const md = this.#hDefMacro[u.nm] ?? this.#hMd[u.nm];
 		if (! md) return undefined;
 
 		// 属性候補を表示
@@ -1107,7 +1166,14 @@ ${
 		if (eq) return;	// 以降の不要処理を防ぐが、オーバースペックかも
 
 		this.#aCITagMacro = [
-			...LspWs.#aCITag,
+			// static なので全ワークスペース共有。BlueSNovel はリンク先が違うので
+			// 元の要素を書き換えず、複製して差し替える
+			...this.#is_blues ?LspWs.#aCITag.map(ci=> ({...ci,
+				documentation: typeof ci.documentation === 'object'
+				? {...ci.documentation, value: ci.documentation.value
+					.replaceAll(URL_SKY_DOC, URL_BLUES_DOC)}
+				: ci.documentation,
+			})) :LspWs.#aCITag,
 
 			...Object.entries(this.#hDefMacro).map(([nm, {sum}])=> ({
 				label	: nm,
@@ -1178,7 +1244,7 @@ ${
 		const {position: p, context} = prm;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
 		if (! u) return undefined;
-		const md = this.#hDefMacro[u.nm] ?? hMd[u.nm];
+		const md = this.#hDefMacro[u.nm] ?? this.#hMd[u.nm];
 		if (! md) return undefined;
 
 		const retSh: SignatureHelp = {signatures: []};
@@ -1443,7 +1509,7 @@ WorkspaceEdit
 
 	// =======================================
 	#oCfg = creCFG();
-	#scanAll({pp2s, hDefPlg, haDiag}: T_L2S_go_res) {
+	#scanAll({pp2s, hDefPlg, haDiag}: T_SCAN_SRC) {
 		this.#oCfg = <T_CFG>JSON.parse(pp2s['prj.json'] ?? '{}');
 		this.#grm.setEscape(this.#oCfg?.init?.escape ?? '');
 
@@ -2056,7 +2122,7 @@ WorkspaceEdit
 //		if (isUpdScore && path.endsWith('.ssn')) this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
 		#chkTagMacArg(fp: string, aDi: Diagnostic[], setUri2Links: Set<string>, use_nm: string, sJumpFn: Set<string>, hArg: HPRM, hRng: {[key: string]: PRM_RANGE;}) {
-			const param = this.#hDefMacro[use_nm]?.param ?? hMd[use_nm]?.param;
+			const param = this.#hDefMacro[use_nm]?.param ?? this.#hMd[use_nm]?.param;
 			if (! param) return;
 
 			for (const {name, rangetype} of param) {

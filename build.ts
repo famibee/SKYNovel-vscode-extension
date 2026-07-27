@@ -134,6 +134,44 @@ const oBuild: BuildOptions = {
 	}
 }
 
+{	// === 統合テスト本体（VSCode の拡張機能ホスト内で走る） ===
+	// test/int/runTests.ts が extensionTestsPath として suite.js を指すので、
+	// 同じ場所に cjs で出す。vscode は実行時に注入されるので external
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: ['./test/int/suite'],
+		outdir		: 'test/int',
+		external	: ['vscode'],
+		platform	: 'node',
+		format		: 'cjs',
+		minify		: false,	// 失敗時に読むので
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+{	// === UI テスト（Playwright で VSCode を外から操作する） ===
+	// ⚠️ **bun では動かない**（Playwright の Electron 起動が 45秒でタイムアウトする。
+	// node なら約2.8秒で起動する）。そのため esbuild で .mjs に出して node で走らせる。
+	// import.meta.dirname を使うので format は esm
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: ['./test/ui/runUI'],
+		outdir		: 'test/ui',
+		outExtension: {'.js': '.mjs'},
+		external	: ['playwright-core'],
+		platform	: 'node',
+		format		: 'esm',
+		minify		: false,	// 失敗時に読むので
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
 {	// === lsp-skynovel-server ===
 	const ctx = await context({
 		...oBuild,

@@ -16,3 +16,9 @@ dist/*.tsbuildinfo
 
 *.LICENSE.txt
 skynovel-Mac2Win
+
+# 統合テストの生成物
+/test/int/suite.js
+/.vscode-test-user/
+/test/ui/runUI.mjs
+/.vscode-test/

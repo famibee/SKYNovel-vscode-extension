@@ -19,6 +19,8 @@ eslint.config.mts
 skynovel-Mac2Win
 tsconfig*.json
 TODO.md
+.vscode-test*
+	# 統合テスト実行時の VSCode ユーザーデータ
 
 **/bun.lock
 **/*.tsbuildinfo

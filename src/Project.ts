@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, fp2osp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, fp2osp, REG_SCRIPT, hDiagL2s, uri2path, isBluesPrj} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -14,7 +14,8 @@ import {EncryptorTransform} from './EncryptorTransform';
 import type {TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
 import type {QuickPickItemEx} from './WorkSpaces';
-import {aPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
+import {mkTagPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
+import {trace} from './Trace';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, type T_Fn2Path} from './ConfigBase';
 import type {T_PP2SNSTR, T_ALL_L2S, T_H_PLGDEF, T_H_ADIAG_L2S, T_S2L_hover_res, T_ALL_S2L} from '../server/src/LspWs';
@@ -217,9 +218,26 @@ export class Project {
 			this.#encry,
 		);
 
+		/**
+		 * ⚠️ **3つの仕事を兼ねている**（path.json 更新＋暗号化／ドロップ先候補の
+		 * 再計算／LSP の全再走査）。画像を1枚追加するだけで前2つは必ず走る
+		 * （TODO.md「ファイル監視の設計」(C)）。
+		 *
+		 * ただし3つめ（全再走査）は **path.json が実際に変わったときだけ**にした。
+		 * LSP が全走査を要るのは「ファイル名キーワードが変わったから」なので、
+		 * path.json が同一内容なら全再パースは無駄（同 (F)）。
+		 * スクリプトの追加削除は WfbOptFont が別途 `sendNeedGo()` を直接呼ぶので、
+		 * ここを抑えても取りこぼさない
+		 */
+		const fpPathJson = `${this.#pc.PATH_WS}/doc/prj/path.json`;
+		const readPathJson = ()=> {
+			try {return existsSync(fpPathJson) ?readFileSync(fpPathJson, 'utf8') :''}
+			catch {return ''}	// 読めないなら「変わった」扱いにして従来どおり走らせる
+		};
 		const updPathJson = async ()=> {
 			// path.json 更新（暗号化もここ「のみ」で）
 // console.log(`fn:Project.ts #basePathJson`);
+			const before = readPathJson();
 			this.#haDiagFn = {};
 			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
 
@@ -229,8 +247,12 @@ export class Project {
 				aFld.filter(fld_nm=> existsSync(this.#pc.PATH_WS +`/doc/prj/${fld_nm}/`)),
 			);
 
-			// スクリプト判定起動
-			await this.reqPrj2LSP({cmd: 'need_go'});
+			// スクリプト判定起動。中身が同じなら LSP に全再パースさせない
+			const after = readPathJson();
+			if (after !== '' && after === before) {trace('path.json.同一'); return}
+
+			trace('path.json.変化');
+			this.#sendNeedGo();
 		};
 		this.#pc.init(
 			updPathJson,
@@ -366,7 +388,7 @@ export class Project {
 
 					return true;
 				},
-				()=> this.reqPrj2LSP({cmd: 'need_go'}),
+				()=> Promise.try(()=> this.#sendNeedGo()),
 			),
 
 			()=> this.#diff.init(),
@@ -396,7 +418,7 @@ export class Project {
 			await this.#optPic.init2th();
 
 // console.log('Seq_ 3 fn:Project.ts constructor.ready');
-			await this.reqPrj2LSP({cmd: 'ready'});	// src/Project.ts 準備完了
+			await this.reqPrj2LSP({cmd: 'ready', is_blues: this.is_blues});	// 準備完了
 		});
 	}
 
@@ -427,32 +449,59 @@ export class Project {
 	}
 
 
+	#tmNeedGo	: ReturnType<typeof setTimeout> | undefined;
+	/**
+	 * 全走査を要求する。1周が重い（全ファイル読み直し＋全文送信＋全再パース）ので、
+	 * 短時間に連続した要求はまとめて1回にする。
+	 *
+	 * まとめる価値がある理由（統合テストで実測）：
+	 * - 画像＋音声を同時に置くと、監視インスタンスが別で 500ms デバウンスが
+	 *   2本走るため `updPathJson()` が2回 → ここで1回にまとまる
+	 * - `.sn` の追加は経路が2つある（WfbOptFont の crechg が直接呼ぶ／
+	 *   同じ監視が updPathJson=true なので path.json 経由でも来る）
+	 */
+	#sendNeedGo() {
+		clearTimeout(this.#tmNeedGo);
+		trace('need_go.req');
+		this.#tmNeedGo = setTimeout(()=> {
+			trace('need_go.send');
+			void this.reqPrj2LSP({cmd: 'need_go'});
+		}, 300);
+	}
+
+	/**
+	 * LSP へ渡す走査元データを作る。`ready`（初回）と `go.res`（以降）で共有する。
+	 * LSP は解析専用で fs を持たないので、本文はここで読んで渡す
+	 */
+	#scanSrc() {
+		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+		const pp2s: T_PP2SNSTR = {};
+		this.#haDiagChrCd = {};
+		treeProc(this.#pc.PATH_PRJ, fp=> {
+			if (! /\.(ss?n|json)$/.test(fp)) return;
+			try {this.#chkChrCd(fp, pp2s)}
+			catch (e: unknown) {	// 走査中に消えた・読めないファイルで全体を止めない
+				console.error(`fn:Project.ts #scanSrc ${fp} %o`, e);
+			}
+		});
+		trace('scanSrc', `${String(Object.keys(pp2s).length)} ファイル`);
+		return {pp2s, hDefPlg: this.#hDefPlg, haDiag: this.#haDiag};
+	}
+
 	//MARK: LSPから受信
 	onRequest(o: T_ALL_S2L) {
 // console.log(`Seq_21 ⬇受 cmd:${o.cmd} fn:Project.ts onRequest o:%o`, o);	//NOTE: S2L通信要点
 		switch (o.cmd) {
-			case 'go':{	// #noticeGo() から。何度も来る
-				//NOTE: #haDiagFont はここで毎回更新すべきか、フォント最適化スイッチをさわったときか、本文にフォントファイルに含まれない文字が増えたときか、減ったときは、など議論がある
-				// ひとまず処理がさほど重くなさそうなので毎回やる
-				this.#haDiagFont = this.#optFont.updDiag(o.InfFont);
-
-				// sn,json は ASCII と UTF8 以外の文字コードをエラーに
-				const pp2s: T_PP2SNSTR = {};
-				this.#haDiagChrCd = {};
-				treeProc(this.#pc.PATH_PRJ, fp=> {
-					if (/\.(ss?n|json)$/.test(fp)) this.#chkChrCd(fp, pp2s);
-				});
-
-				void this.reqPrj2LSP({cmd: 'go.res',
-					pp2s,
-					hDefPlg	: this.#hDefPlg,
-					haDiag	: this.#haDiag,
-				});
-			}	break;
+			case 'go':	// #noticeGo() から。何度も来る
+				trace('go');
+				void this.reqPrj2LSP({cmd: 'go.res', ...this.#scanSrc()});
+				break;
 
 			case 'analyze_inf':{	// #scanEnd() から
 				this.#aPickItems = [
-					...aPickItems,
+					// タグリファレンスのリンク先はエンジンごとに別サイトなので、
+					// このプロジェクトの種別で切り替える
+					...mkTagPickItems(this.is_blues),
 
 					{kind: QuickPickItemKind.Separator, label: ''},
 
@@ -576,6 +625,16 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 	}
 		readonly	#whThumbnail = 200;
 
+
+	#is_blues	: boolean | undefined;
+	/**
+	 * BlueSNovel のプロジェクトか（false なら SKYNovel）。
+	 * web.ts の import 先が途中で変わることは普通ないので、一度調べて覚える
+	 */
+	get is_blues(): boolean {
+		this.#is_blues ??= isBluesPrj(this.#pc.PATH_WS);
+		return this.#is_blues;
+	}
 
 	#aPickItems	: QuickPickItemEx[] = [];
 	openReferencePallet() {

@@ -72,7 +72,7 @@
 		/* Other */
 		"incremental": true			// 差分ビルド
 	},
-	"include": ["src/**/*", "views/**/*", "test/*", "build.ts", "release_chk.ts", "eslint.config.mts"],
+	"include": ["src/**/*", "views/**/*", "test/**/*", "build.ts", "release_chk.ts", "eslint.config.mts"],
 		// eslint.config.mts をどのプロジェクトにも入れないと import.meta.dirname が
 		// 未定義扱いになる（bun-types が ImportMeta.dirname を宣言している）
 	"exclude": ["node_modules",".vscode-test","views/lib"]

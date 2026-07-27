@@ -7,7 +7,7 @@
 
 import type {T_ALL_L2S} from './LspWs';
 import {LspWs} from './LspWs';
-import {FULL_PATH, fullSchPath2fp, REQ_ID} from '../../src/CmnLib';
+import {FULL_PATH, fullSchPath2fp, REQ_ID} from '../../src/CmnShare';
 
 import {
 	CodeActionKind,

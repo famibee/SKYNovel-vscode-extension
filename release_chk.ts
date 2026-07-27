@@ -115,6 +115,9 @@ const A_REJECT_OWN = [
 	/(?:^|\/)tsconfig[^/]*\.json$/,
 	/(?:^|\/)TODO\.md$/,
 	/(?:^|\/)release_chk\.ts$/,	/(?:^|\/)build\.ts$/,
+	/(?:^|\/)\.vscode-test/,
+		// 統合テスト（bun run test:int）が作る VSCode のユーザーデータ。
+		// 一度これを 140 ファイルまるごと vsix に混入させたので検査に加えた
 ];
 const A_NEED_FILE = [
 	'package.json', 'README.md', 'CHANGELOG.md', 'LICENSE',
