@@ -90,7 +90,7 @@ type T_V2E_req_wds = {
 	key		: string;
 };
 
-type T_V2EScore
+export type T_V2EScore	// views/score.ts でも使う
 	= T_V2E_info
 	| T_V2E_warn
 	| T_V2E_err
@@ -398,7 +398,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 
 
 	#token2html(stt: {line: number}, token: string, idx: number): string {
-		let tds = '';
+		let tds: string;
 		switch (token.charCodeAt(0)) {	// TokenTopUnicode
 			case 9: return '';	// \t タブ
 			case 10:{	// \n 改行
@@ -516,7 +516,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 			oTds.icon, oTds.btn_face,
 			oTds.tooltip ?? g.args,
 			oTds.args ?oTds.args.map((v, i)=> {
-				let ret = '';
+				let ret: string;
 				let fo = 'form-outline px-2';
 				const id = `sn-${String(row)}:${String(i)}`;
 				switch (v.type) {

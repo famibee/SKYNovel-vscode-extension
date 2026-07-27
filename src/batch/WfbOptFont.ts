@@ -8,16 +8,16 @@
 import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../../server/src/LspWs';
 import {type T_H_FONTJSON, type T_H_BJ_subset_font, type T_E2V_CNVFONT, type T_E2V_NOTICE_COMPONENT, type T_BJ_subset_font, type T_INF_INTFONT, H_FONTJSON_nm_DEF_FONT} from '../types';
 import type {FULL_PATH} from '../CmnLib';
-import {foldProc, getFn, is_win} from '../CmnLib';
+import {foldProc, fp2osp, getFn, is_win} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
 import {ActivityBar} from '../ActivityBar';
 import {WatchFile} from './WatchFile';
 
-import {extname} from 'node:path';
+import {basename, extname} from 'node:path';
 import {userInfo} from 'node:os';
 import {stat} from 'node:fs/promises';
 import {exec} from 'node:child_process';
-import {copy, existsSync, outputFile, outputFileSync, outputJson, readJson, removeSync} from 'fs-extra';
+import {copy, existsSync, outputFile, outputFileSync, outputJson, readFileSync, readJson, removeSync} from 'fs-extra';
 import {window, ProgressLocation, type Progress, CancellationToken} from 'vscode';
 
 const PROC_ID = 'cnv.font.subset';
@@ -95,28 +95,31 @@ export class WfbOptFont extends WatchFile {
 	//MARK: 変換無効化
 	disable() {return this.#procOnOff(false)}
 
-	async	#procOnOff(minify: boolean) {
+	// 成否を返す。false ならフォント変換は行っていないので、呼び出し元は設定を戻すこと
+	async	#procOnOff(minify: boolean): Promise<boolean> {
+		// pyftsubset を使うのは minify 時のみ。未導入なら同意を得て導入する。
+		// 旧フォントを削除する前に確認する（断られてもフォントは消えない）
+		if (minify && ! await ActivityBar.prepPyFontTools()) return false;
+
 		this.pc.watchFile = false;
 
 		const o: T_E2V_NOTICE_COMPONENT = {cmd: 'notice.Component', id: PROC_ID, mode: 'wait'};
 		await this.pc.ps.cmd2Vue(o);	// 処理中はトグルスイッチを無効にする
 
-		// 旧フォントファイルはすべて一度削除
-		foldProc(
-			this.pc.PATH_PRJ +'script/',
-			(fp, nm)=> {if (this.#REG_EXT_FONT.test(nm)) removeSync(fp)},
-			()=> { /* empty */ },
-		);
-
-		if (! minify) {
-			// 実処理
-			await this.#proc(false);
-
+		const fin = async (ret: boolean)=> {
 			o.mode = 'comp';
 			await this.pc.ps.cmd2Vue(o);
 
 			this.pc.watchFile = true;
-			return;
+			return ret;
+		};
+
+		if (! minify) {
+			const oFont = existsSync(this.#PATH_FONT_JSON)
+				? <T_H_FONTJSON>await readJson(this.#PATH_FONT_JSON, {encoding: 'utf8'})
+				: {};
+			await this.#proc(false, oFont);	// 実処理
+			return fin(true);
 		}
 
 		// フォント出現箇所から生成すべき最小限のフォント情報についてまとめる
@@ -131,11 +134,27 @@ export class WfbOptFont extends WatchFile {
 				hFont[font_nm]!.txt += str;	// ensureFont2Str により !
 			}
 		}
-		this.#ensureFont2Str(this.#InfFont.defaultFontName, hFont);
-			// デフォルトフォントと同じ値を直接値指定する[span]がない場合
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		hFont[this.#InfFont.defaultFontName]!.txt += hFont[H_FONTJSON_nm_DEF_FONT].txt;
-			// ensureFont2Str により !
+		const aNm = this.#getDefFontNms();
+		const aDefFontNm = aNm.filter(nm=> this.#getFontNm2path(nm));
+			// serif など総称フォント名（ファイルが無いもの）は最適化しようがないので除く
+		if (aDefFontNm.length === 0) {	// フォント情報が未取得のまま進むと、名前なしの
+			// 変換（.woff2 という出力）に失敗した上でフォントを失うので、ここで中断
+			void window.showErrorMessage('フォント最適化を有効にできません', {modal: true, detail: `${
+				aNm.length === 0
+				? 'デフォルトフォントを特定できませんでした。setting.sn の &def_fonts を確認して下さい。'
+				: `デフォルトフォント【${aNm.join(', ')}】のフォントファイルが見つかりませんでした。`
+			}
+（フォントファイルは削除していません）`});
+			return fin(false);
+		}
+		for (const nm of aDefFontNm) {
+			this.#ensureFont2Str(nm, hFont);
+				// デフォルトフォントと同じ値を直接値指定する[span]がない場合
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			hFont[nm]!.txt += hFont[H_FONTJSON_nm_DEF_FONT].txt;
+				// ensureFont2Str により !
+		}	// &def_fonts の二つめ以降は実行時のフォールバック（一つめに無い字を
+			// 二つめで表示する、など）なので、同じ本文で全部サブセット化する
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete hFont[H_FONTJSON_nm_DEF_FONT];
 
@@ -149,14 +168,57 @@ export class WfbOptFont extends WatchFile {
 		await outputJson(this.#PATH_FONT_JSON, hFont);
 			// 非バッチ・内蔵化で不要になったが、処理ログとoff時に元通りにするため
 
-		// 実処理
-		await this.#proc(true, hFont);
-
-		o.mode = 'comp';
-		await this.pc.ps.cmd2Vue(o);
-
-		this.pc.watchFile = true;
+		await this.#proc(true, hFont);	// 実処理（旧ファイルの削除は変換成功後）
+		return fin(true);
 	}
+	/**
+	 * デフォルトフォント名（&def_fonts に並べた全部）。
+	 * LSP のスクリプト走査結果（#InfFont）が持つのは一つめだけで、走査タイミングに
+	 * よっては空のこともあるので、doc/prj/ * /setting.sn の &def_fonts も直接読む
+	 */
+	#getDefFontNms(): string[] {
+		const aNm: string[] = [];
+		const add = (nm: string)=> {if (nm && ! aNm.includes(nm)) aNm.push(nm)};
+
+		add(this.#InfFont.defaultFontName);	// setting.sn 以外での指定にも対応
+
+		foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
+			const fp = `${this.pc.PATH_PRJ}${dir}/setting.sn`;
+			if (! existsSync(fp)) return;
+
+			// &def_fonts = 'ipamjm, "Source Han Sans CN"'	; デフォルトフォント
+			const m = /(?<!;.*)&def_fonts\s*=\s*((["'#])(.+?)\2|[^;\s]+)/.exec(
+				readFileSync(fp, {encoding: 'utf8'})
+			);
+			if (! m) return;
+
+			for (const s of (m[3] ?? m[1] ?? '').split(',')) {
+				add(/^["'\s]*([^,;"']+)/.exec(s)?.[1]?.trim() ?? '');
+					// 引用符と前後の空白を落とす。LspWs #getFonts2ANm と同じ扱い
+			}
+		});
+		return aNm;
+	}
+
+	/**
+	 * 変換に成功したフォントについてだけ、拡張子違いの旧ファイルを削除する。
+	 * - 変換対象でないフォント（&def_fonts の二つめ以降など、実行時に
+	 *   フォールバックとして使われるもの）は作り直せないので消さない
+	 * - 変換に失敗したフォントも、消すと元に戻せないので残す
+	 */
+	#delOldFont(oBJ: T_H_BJ_subset_font) {foldProc(
+		this.pc.PATH_PRJ +'script/',
+		(fp, nm)=> {
+			if (! this.#REG_EXT_FONT.test(nm)) return;
+
+			const ssf = oBJ[getFn(nm)];
+			if (! ssf || ssf.err) return;
+			if (nm === basename(ssf.out)) return;	// 今回作ったファイル
+
+			removeSync(fp);
+		},
+		()=> { /* empty */ },
+	)}
 	readonly	#REG_EXT_FONT	= /\.(woff2?|otf|ttf)$/i;
 				#InfFont	: T_INF_INTFONT	= {	// フォントと使用文字情報
 		defaultFontName	: '',
@@ -179,9 +241,6 @@ export class WfbOptFont extends WatchFile {
 
 	//MARK: 実処理
 	async #proc(minify: boolean, hFont?: T_H_FONTJSON) {
-		// pyftsubset を使うのは minify 時のみ。未導入なら同意を得て導入する
-		if (minify && ! await ActivityBar.prepPyFontTools()) return;
-
 		const oFont = hFont ?? <T_H_FONTJSON>await readJson(this.#PATH_FONT_JSON, {encoding: 'utf8'});
 
 		const aP: Promise<void>[] = [];
@@ -199,12 +258,18 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 			await outputFile(fnTmp, str, {encoding: 'utf8'});
 				// views/vue/StgPkg.vue のボタンから開けるログ
 
-			await new Promise<void>((re, rj)=> exec(`pyftsubset "${ssf.inp}" --text-file="${fnTmp}" --layout-features='*' --flavor=woff2 --output-file="${ssf.out}" --verbose`, (e, _stdout, stderr)=> {
+			await new Promise<void>((re, rj)=> exec(`${ActivityBar.cmdPyftsubset} "${fp2osp(ssf.inp)}" --text-file="${fp2osp(fnTmp)}" --layout-features="*" --flavor=woff2 --output-file="${fp2osp(ssf.out)}" --verbose`, (e, _stdout, stderr)=> {
+				// --layout-features は "*" と二重引用符で囲む。'*' だと Windows の
+				// cmd.exe は引用符を外さず、pyftsubset に 【'*'】 が渡ってエラーになる
+				// （パスも fp2osp() でドライブ名を補完してから渡す）
 				if (e) {
-					const m = `${nm} 出力エラー：`+ e.message.replace(/--text-file=[^\n]+/, '...');
+					const m = `${nm} 出力エラー：`+ e.message.replace(/--text-file=[^\n]+/, '...')
+					+ (e.code === 127 || e.code === 9009
+						? '\npyftsubset が見つかりません。Python の Scripts フォルダに PATH が通っているか確認して下さい'
+						: '');
 					console.error(m);
-					ssf.err += m +'\n';
 					rj(new Error(m));	// 必須。ないとログエラーが出ない
+						// ssf.err への追加は catch 側で行う（二重に出さない）
 					return;
 				}
 
@@ -254,8 +319,10 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 					out: `${this.pc.PATH_WS}/doc/prj/script/${nm}${minify ?'.woff2' :extname(inp)}`,
 					iSize: 1, oSize: 1, err: '',
 				};
-				if (! existsSync(inp2)) {
-					ssf.err = `変換失敗です。入力ファイル ${getFn(inp) + extname(inp)} が存在するか確認してください`;
+				if (! inp2 || ! existsSync(inp2)) {
+					ssf.err = `変換失敗です。フォント【${nm}】の入力ファイル ${
+						inp ?getFn(inp) + extname(inp) :'（未検出）'
+					} が存在するか確認してください`;
 					continue;
 				}
 
@@ -265,6 +332,7 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 		});
 
 		for (const [nm, ssf] of Object.entries(oBJ)) {
+			if (ssf.err) continue;	// 既に失敗しているので二重にメッセージを出さない
 			if (! existsSync(ssf.out)) {
 				ssf.err += `変換失敗です。出力ファイル ${ssf.out} が存在しません`;
 				continue;
@@ -274,6 +342,10 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			ssf.inp = oFont[nm]!.inp;	// プライベートな環境値を塗りつぶす
 		}
+
+		// 成功したものだけ、拡張子違いの旧ファイルを削除する（disp() が
+		// ssf.out を書き換えるので、その前に）
+		this.#delOldFont(oBJ);
 
 		// フォント情報更新
 		await this.disp(oBJ);
@@ -316,7 +388,7 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 		}
 		else {
 			if (! existsSync(this.#PATH_BATOUT_JSON)) {
-				await this.pc.ps.cmd2Vue(<T_E2V_CNVFONT>{cmd: 'update.cnvFont', aCnvFont: []});
+				await this.pc.ps.cmd2Vue({cmd: 'update.cnvFont', aCnvFont: []});
 				return;
 			}
 

@@ -16,7 +16,21 @@ export function uint(o: unknown): number {
 export	const	REG_SCRIPT	= /\.ss?n$/;
 
 export let useBun = false;		// bun が使える環境か
-export function updUseBun(b: boolean) {useBun = b}
+
+/**
+ * bun の有無を調べる。ActivityBar の環境確認と WorkSpaces.start（タスク生成前）が
+ * どちらも必要とするので、結果を共有して二重に exec しない。
+ * @param again refresh ボタンからの再確認では調べ直す
+ */
+export function chkBun(again = false): Promise<{ok: boolean, ver: string}> {
+	if (again) pChkBun = undefined;
+	pChkBun ??= new Promise(re=> exec('bun -v', (e, stdout)=> {
+		useBun = ! e;	// あればタスクを bun / bunx で実行する
+		re({ok: ! e, ver: stdout.trimEnd()});
+	}));
+	return pChkBun;
+}
+let pChkBun: Promise<{ok: boolean, ver: string}> | undefined;
 
 /**
  * bun がある環境では npm / npx を bun / bunx に置き換える。
@@ -95,6 +109,15 @@ export function fullSchPath2fp(fsp: FULL_SCH_PATH): FULL_PATH {
 }	// 似たような名前のメソッドになるので目立たせる
 	// 逆方向は難しそう、変換前の値は保存必要か
 
+/**
+ * OS（エクスプローラーや Finder）にパスを渡す直前に通す。
+ * vsc2fp() が Windows でドライブ名を落としているため、そのまま Uri.file() すると
+ * 【指定されたファイルが見つかりません。(0x2)】になったり、無反応になったりする。
+ * Node.js の fs はカレントドライブで解決していて動くので、それに揃える
+ * （macOS では絶対パスをそのまま返す）
+ */
+export function fp2osp(fp: FULL_PATH): string {return resolve(fp)}
+
 //	docs.get(fsp) などにはこれが必要
 //NOTE: 雑コード
 export const fp2fullSchPath: (fp: FULL_PATH)=> FULL_SCH_PATH = is_win
@@ -143,6 +166,7 @@ export const hDiagL2s	:{[code_name: string]: T_H_ADIAG} = {
 
 
 // 階層フォルダ逐次処理
+import {exec} from 'node:child_process';
 import {basename, extname, resolve} from 'node:path';
 import {readdirSync, existsSync, readFileSync, ensureFileSync, statSync, writeFileSync} from 'fs-extra';
 

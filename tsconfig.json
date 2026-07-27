@@ -4,13 +4,16 @@
 		"target": "esnext",
 		"lib": ["esnext","DOM"],
 		"module": "esnext",
-		"types": ["bun"],
+		"types": ["bun", "vscode-webview"],
+			// vscode-webview は views/ の acquireVsCodeApi() の型。types を明示すると
+			// @types/* の自動取り込みが止まるので、必要なものはここに並べる
 
 		/* Bundler mode */
 		// "moduleResolution": "node",
 		"moduleResolution": "bundler",
 		"esModuleInterop": true,	// CommonJS/AMD/UMD モジュールを ES6 モジュールと同様に扱う
-		"resolveJsonModule": true,	// JSON ファイルの型検証、json をインポートできるように
+		"resolveJsonModule": true,
+			// JSON ファイルの型検証、json をインポートできるように
 
 		/* Output */
 		"sourceMap": true,
@@ -61,10 +64,16 @@
 		//"extendedDiagnostics": true,	// コンパイル時に TypeScript が時間を費やしている場所を検出
 		"noUncheckedSideEffectImports": true,
 		"libReplacement": false,
+		"skipLibCheck": true,
+			// 依存パッケージの .d.ts は検査しない。bun-types と vite の ImportMeta
+			// 宣言衝突や、@vscode/debugprotocol の古い module 構文（TS1540）など、
+			// こちらでは直せないものが出るため
 
 		/* Other */
 		"incremental": true			// 差分ビルド
 	},
-	"include": ["src/**/*", "views/**/*", "test/*", "build.ts"],
-	"exclude": ["node_modules",".vscode-test"]
+	"include": ["src/**/*", "views/**/*", "test/*", "build.ts", "release_chk.ts", "eslint.config.mts"],
+		// eslint.config.mts をどのプロジェクトにも入れないと import.meta.dirname が
+		// 未定義扱いになる（bun-types が ImportMeta.dirname を宣言している）
+	"exclude": ["node_modules",".vscode-test","views/lib"]
 }

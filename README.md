@@ -32,13 +32,35 @@ This extension drives your project's toolchain. Everything below runs as a **vis
 
 - **Node.js package manager** — `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` on **your project folder**, from the buttons in the SKYNovel activity bar. If `bun` is available, `bun` / `bunx` is used instead
 - **Python packages (opt-in)** — when you turn **font optimization** on in the project settings, the extension asks first, then runs `pip install fonttools brotli`. Decline and the rest of the extension keeps working; you can also install them yourself. On Windows it also prepends Python's `Scripts` folder to the PATH of VSCode terminals so that `pyftsubset` is found
-- **Template download** — the project template is fetched from `https://github.com/famibee/...` as a zip and unpacked into the folder you choose
+- **Template download** — the project template is fetched from `https://github.com/famibee/...` as a zip and unpacked into the folder you choose (the URL is shown while downloading)
+- **Encryption of your own game data (opt-in)** — when you turn on encryption in the project settings, your scripts and assets are encrypted into `doc_crypto/` so that they are not trivially extractable from a released game. Your originals under `doc/` are left as they are, and the switch is reversible. Nothing outside your project folder is ever touched
 
 この拡張機能は、あなたのプロジェクトのツールチェインを操作します。以下はすべて**目に見える VSCode タスク／ターミナル**で実行され、黙ってインストールされるものはありません。
 
 - **Node.js のパッケージマネージャ** — アクティビティバーのボタンから、**あなたのプロジェクトフォルダ**に対して `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` を実行します。`bun` が使える環境では `bun` / `bunx` を使います
 - **Python パッケージ（同意制）** — プロジェクト設定で**フォント最適化**を有効にした時、確認ダイアログで同意を得てから `pip install fonttools brotli` を実行します。断っても拡張機能の他の機能はそのまま使えます（ご自分で導入することもできます）。Windows では `pyftsubset` を見つけられるよう、VSCode ターミナルの PATH に Python の `Scripts` フォルダを追加します
-- **テンプレートのダウンロード** — プロジェクトテンプレートを `https://github.com/famibee/...` から zip で取得し、選んだフォルダに展開します
+- **テンプレートのダウンロード** — プロジェクトテンプレートを `https://github.com/famibee/...` から zip で取得し、選んだフォルダに展開します（取得元 URL はダウンロード中の進捗表示に出ます）
+- **作品データの暗号化（任意）** — プロジェクト設定で暗号化を有効にすると、スクリプトや素材を `doc_crypto/` へ暗号化して出力します。公開した作品から素材を容易に取り出せないようにするための機能です。`doc/` 下の原本はそのまま残り、設定を戻せば元に戻せます。プロジェクトフォルダの外には一切触れません
+
+### What this extension never does / この拡張機能がしないこと
+
+- **No telemetry.** Nothing about you or your project is collected or sent anywhere
+- **No credential access.** It never reads `~/.npmrc`, `.netrc`, SSH keys, cloud credentials, or enumerates environment variables
+- **No hidden execution.** It never downloads or runs an executable outside the visible tasks above. In particular it never downloads or installs a `.vsix` by itself — update checks only show a notification
+- **No obfuscation.** The published bundle is minified but not obfuscated, and the source is on GitHub
+
+Network access is limited to `github.com` (project template zip and version check), plus the npm registry and PyPI **through the tasks above**, which run in your own project folder.
+
+Development follows these documents: [Marketplace Publisher Agreement](https://cdn.vsassets.io/v/M261_20250904.11/_content/Visual-Studio-Marketplace-Publisher-Agreement.pdf) / [Marketplace Terms of Use](https://cdn.vsassets.io/v/M264_20251020.18/_content/Microsoft-Visual-Studio-Marketplace-Terms-of-Use.pdf) / [Security and trust in Visual Studio Marketplace](https://developer.microsoft.com/blog/security-and-trust-in-visual-studio-marketplace/). Every release is checked before publishing (bundled files, dependency contamination, and known supply-chain indicators).
+
+- **テレメトリ（利用状況の収集）はありません。** あなたや作品についての情報を集めたり送信したりしません
+- **資格情報を読みません。** `~/.npmrc`・`.netrc`・SSH 鍵・クラウドの資格情報を読んだり、環境変数を列挙したりしません
+- **隠れた実行はありません。** 上に挙げた「目に見えるタスク」以外で実行ファイルを取得・実行しません。とくに **`.vsix` を自動でダウンロード・インストールすることはありません**（更新確認は通知のみ）
+- **難読化していません。** 配布物は minify していますが難読化はしておらず、ソースは GitHub にあります
+
+ネットワークアクセスは `github.com`（プロジェクトテンプレートの zip、バージョン確認）と、上記タスク経由での npm レジストリ・PyPI に限られます。後者はあなたのプロジェクトフォルダに対する操作です。
+
+開発は次の文書に沿って行っています：[Publisher Agreement](https://cdn.vsassets.io/v/M261_20250904.11/_content/Visual-Studio-Marketplace-Publisher-Agreement.pdf) / [Terms of Use](https://cdn.vsassets.io/v/M264_20251020.18/_content/Microsoft-Visual-Studio-Marketplace-Terms-of-Use.pdf) / [Security and trust in Visual Studio Marketplace](https://developer.microsoft.com/blog/security-and-trust-in-visual-studio-marketplace/)。リリースのたびに、同梱物・依存の混入・既知のサプライチェーン攻撃指標を機械的に検査しています。
 
 ---
 ## After installing this extension ... / この拡張機能をインストールしたら……。

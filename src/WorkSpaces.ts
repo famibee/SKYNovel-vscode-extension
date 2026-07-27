@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp, updUseBun} from './CmnLib';
+import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp, fp2osp, chkBun} from './CmnLib';
 import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -14,11 +14,10 @@ import {CteScore} from './CteScore';
 import {type PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
 import type {T_MES_L2S} from '../server/src/LangSrv';
 import type {T_ALL_L2S, T_ALL_S2L, T_ALL_S2L_WS} from '../server/src/LspWs';
-import hMd from './md.json';
+import type {MD_STRUCT} from './md2json';
 
 import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win, ThemeIcon} from 'vscode';
-import {existsSync} from 'fs-extra';
-import {exec} from 'child_process';
+import {existsSync, readJsonSync} from 'fs-extra';
 import {
 	LanguageClient,
 	type LanguageClientOptions,
@@ -41,7 +40,8 @@ export	function openURL(url: Uri, pathWs: string) {
 			break;
 
 		case 'ws-folder':
-			env.openExternal(Uri.file(pathWs + url.path));
+			env.openExternal(Uri.file(fp2osp(pathWs + url.path)));
+				// fp2osp() は Windows でドライブ名を補完する（無いと 0x2 エラー）
 			break;
 
 		default:	env.openExternal(url);
@@ -226,6 +226,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		this.#removeStatusItem('init');
 
+		// md.json は 150KB ほどあり、バンドルに含めると起動時のパース対象になる。
+		// dist/md.json は LSP 用に元から同梱しているので、そちらを実行時に読む
+		const hMd = <{[tag_nm: string]: MD_STRUCT}>readJsonSync(
+			`${this.ctx.extensionPath}/dist/md.json`
+		);
 		for (const [tag_nm, {sum}] of Object.entries(hMd)) aPickItems.push({
 			label		: tag_nm,
 			description	: sum,
@@ -279,6 +284,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#req2LSP = (uriWs, o)=> {
 			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
 // console.log(`Seq_11 ⬆送 cmd:${o.cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${vsc2fp(uriWs.path)}=`);
+			// sendRequest の引数は any なので、この型注入だけが型チェックになる
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 			return this.#lsp.sendRequest(REQ_ID, <T_MES_L2S>{...o, pathWs: fullSchPath2fp(uriWs.path)});
 		};
 
@@ -301,7 +308,8 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			updStatBreak(chkShell.endsWith('cmd.exe') ?'&' :';');
 		}
 		// タスク生成前に済ませたいので（アクティビティバーの表示は ActivityBar #chkEnv で）
-		await new Promise<void>(re=> exec('bun -v', e=> {updUseBun(! e); re()}));
+		// ActivityBar #chkEnv と同じ Promise を待つ。二重に exec しない
+		await chkBun();
 		this.#refresh();
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照

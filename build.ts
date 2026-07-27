@@ -7,8 +7,6 @@
 
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch') ?{} :null;
-// const prod = aCmd.includes('--production');
-// const node_env = prod ?'production' :'development';
 
 // import {build, type BuildEnvironmentOptions} from 'vite';
 // import vue from '@vitejs/plugin-vue';
@@ -84,6 +82,31 @@ const oBuild: BuildOptions = {
 		...oBuild,
 		entryPoints	: ['./src/snsys_pre'],
 		format		: 'esm',
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+{	// === webview の素のスクリプト ===
+	// views/*.ts を同名の views/*.js に出力する。html は
+	// 【<script defer src="./folder.js">】と相対参照していて、views/ 自体が
+	// webview の localResourceRoots なので、出力先を変えると html も直す必要がある。
+	// bundle+iife にしているのは、グローバルスコープを汚さないため（ファイル間で
+	// const vscode が衝突する）と、型定義を src/types.ts と共有するため
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: [
+			'./views/folder.ts',
+			'./views/tmpwiz.ts',
+			'./views/toolbox.ts',
+			'./views/score.ts',
+		],
+		outdir		: 'views',
+		platform	: 'browser',
+		format		: 'iife',
+		sourcemap	: false,	// webview で配信するので付けない
 	});
 	if (watch) await ctx.watch(); else {
 		await ctx.rebuild();

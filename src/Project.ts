@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, fp2osp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -28,13 +28,13 @@ import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as archiver from 'archiver';
-import {execSync} from 'child_process';
+import {execFileSync} from 'child_process';
 import AsyncReplace from 'str-async-replace';
 import Encoding from 'encoding-japanese';
 
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, window, workspace, WorkspaceEdit} from 'vscode';
-import {basename, dirname, extname} from 'node:path';
+import {basename, extname} from 'node:path';
 import {glob, readFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs, moveSync} from 'fs-extra';
@@ -49,6 +49,23 @@ export	const	REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
 
 
 export type T_reqPrj2LSP = (o: T_ALL_L2S)=> Promise<void>;
+
+/**
+ * 生成物を OS のファイルマネージャで開く（そのファイルを選択した状態になる）。
+ * env.openExternal(Uri.file(フォルダ)) は Windows で
+ * 【Failed to open：指定されたファイルが見つかりません。(0x2)】になる
+ */
+async function revealInOS(fp: FULL_PATH) {
+	const osp = fp2osp(fp);		// Windows はドライブ名の補完が要る
+	if (! existsSync(osp)) {
+		void window.showErrorMessage('ファイルが見つかりません', {modal: true, detail: osp});
+		return;
+	}
+	try {await commands.executeCommand('revealFileInOS', Uri.file(osp))}
+	catch (e) {
+		void window.showErrorMessage('フォルダを開けませんでした', {modal: true, detail: `${osp}\n${String(e)}`});
+	}
+}
 
 const	mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
 	[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
@@ -719,7 +736,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					)
 					.then(async ans=> {switch (ans) {
 						case 'フォルダを開く':
-							await env.openExternal(Uri.file(dirname(fp)));	break;
+							await revealInOS(fp);	break;
 						case 'Online Converter':
 							await env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
 							break;
@@ -736,8 +753,10 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			case 'PackWin32':
 				if (! is_win) break;
 				if (! /(Restricted|AllSigned)/.test(
-					execSync('PowerShell Get-ExecutionPolicy').toString()
+					execFileSync('powershell', ['-NoProfile', '-Command', 'Get-ExecutionPolicy'])
+					.toString()
 				)) break;
+					// シェルを介さず、読み取り専用のコマンドだけを直接実行する
 
 				done();
 				await window.showErrorMessage('管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned', {modal: true}, '参考サイトを開く')
@@ -848,7 +867,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			`${cfg.label} パッケージを生成しました`,
 			'出力フォルダを開く',
 		);
-		if (a) await env.openExternal(Uri.file(pathPkg));
+		if (a) await revealInOS(pathPkg +'/'+ path);
 	} catch (e: unknown) {
 		console.error(e);
 		void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${String(e)}`);
@@ -876,7 +895,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					window.showInformationMessage(
 						`ふりーむ！形式で出力（${fn_out}）しました`,
 						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(this.#pc.PATH_WS +'/build/package/'))})
+					).then(a=> {if (a) void revealInOS(`${this.#pc.PATH_WS}/build/package/${fn_out}`)})
 				});
 				arc.pipe(ws);
 				void arc.finalize();	// zip圧縮実行
@@ -1307,7 +1326,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					return null;
 				}
 
-				let ppNew = '';
+				let ppNew: string;
 				switch (aコピー先候補.length) {
 					case 0:		// 候補もなし
 						return null;	// サポートしないものとする

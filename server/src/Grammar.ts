@@ -338,7 +338,7 @@ export function	tagToken2Name_Args(token: string): [name: string, args: string] 
 	const g = e?.groups;
 	if (! g) throw `タグ記述【${token}】異常です(タグ解析)`;
 
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-non-null-assertion
+	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 	const nm = g.name!;
 	return [nm, token.slice(1 +nm.length, -1)];
 }
@@ -347,7 +347,7 @@ export function	tagToken2Name(token: string): string {
 	const g = e?.groups;
 	if (! g) throw `タグ記述【${token}】異常です(タグ解析)`;
 
-	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unnecessary-type-assertion
+	// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 	return g.name!;
 }
 
@@ -485,7 +485,7 @@ export class Grammar {
 
 			const r = /^([^\]]+?])(.*)$/s.exec(tkn);
 			if (! r) return tkn;
-			const [, a, b] = r;
+			const [, a = '', b = ''] = r;
 			return [a, b];
 		}) ?? [];
 

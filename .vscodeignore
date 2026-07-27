@@ -14,10 +14,13 @@ views/test/
 
 .claude/
 .eslintrc.json
+.gitignore
 eslint.config.mts
 skynovel-Mac2Win
-tsconfig.json
-tsconfig.eslint.json
-bun.lock
-dist/*.tsbuildinfo
+tsconfig*.json
 TODO.md
+
+**/bun.lock
+**/*.tsbuildinfo
+**/eslint.config.*
+	# 同梱する server/node_modules/ の中にも入っているので ** で

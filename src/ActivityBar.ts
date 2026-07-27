@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_TMPWIZ} from './types';
-import {is_win, replaceRegsFile, repWvUri, updUseBun, type T_PKG_JSON} from './CmnLib';
+import {chkBun, is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
@@ -20,6 +20,9 @@ import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remo
 const AdmZip = require('adm-zip');
 
 const nNodeReqVer = 24_011_000;
+
+// テンプレートの取得元。進捗表示でユーザーに見せる
+const URL_TMP_ZIP = (nm: string)=> `https://github.com/famibee/${nm}/archive/main.zip`;
 
 export function getNonce() {
 	let text = '';
@@ -46,6 +49,7 @@ type T_ENV_SRC = {
 type T_ENV = {
 	ti		: TreeItem;
 	ready	: boolean;
+	icon	: string;	// 確認中の表示に戻す時に使う
 }
 type T_H_ENV = {
 	NODE			: T_ENV;
@@ -87,7 +91,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				const ti = new TreeItem(label);
 				ti.iconPath = oIcon(icon);
 				ti.contextValue = label;
-				return [nm, <T_ENV>{ti, ready: false}]
+				return [nm, {ti, ready: false, icon}]
 			})
 		);
 
@@ -108,27 +112,31 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		.then(async ({WorkSpaces})=> {
 			ctx.subscriptions.push(this.#workSps = new WorkSpaces(ctx, this));
 			this.#canTempWizard = true;
-			await this.#workSps.start();
 
-			// other
-			await Promise.allSettled([
-				this.#chkEnv(ok=> Promise.try(()=> {
-					if (! ok) return;
+			// ツリーとコマンドの登録は、環境確認（#chkEnv）や LSP 起動
+			// （#workSps.start）を待たずに済ませる。待つと pip / npm の
+			// 呼び出しが終わるまでアクティビティバーが空になり、コマンドも
+			// 「見つかりません」になってしまう。各項目の表示は #chkEnv が
+			// 項目ごとに onDidChangeTreeData を fire して埋めていく
+			ctx.subscriptions.push(
+				window.registerTreeDataProvider('skynovel-dev', this),
+				commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
+				commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
+				commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+			);
 
-					ctx.subscriptions.push(
-						window.registerTreeDataProvider('skynovel-dev', this),
-						commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
-						commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
-						commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
-					);
-				})),
-				import('./TreeDPDoc')
+			// 環境確認は start() と並行に。start() は中で bun の有無を待つが、
+			// これは chkBun() で結果を共有するので二重に exec しない
+			const pEnv = this.#chkEnv();
+			const pDoc = import('./TreeDPDoc')
 				.then(({TreeDPDoc})=> ctx.subscriptions.push(
 					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
-				)),
-				import('./ToolBox')
-				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx))),
-			]);
+				));
+			const pTb = import('./ToolBox')
+				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx)));
+
+			await this.#workSps.start();
+			await Promise.allSettled([pEnv, pDoc, pTb]);
 		})
 		.catch((e: unknown)=> console.error('fn:ActivityBar.ts constructor %o', e))
 	}
@@ -137,15 +145,19 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 	//MARK: 環境確認
 	// ここでは「検出」のみ行う。ユーザー環境へのインストールはしない
-	async #chkEnv(finish: (ok: boolean)=> Promise<void>) {
+	async #chkEnv(again = false): Promise<boolean> {
 		const tiNode = ActivityBar.#hEnv.NODE.ti;
 		const tiNpm = ActivityBar.#hEnv.NPM.ti;
 		const tiBun = ActivityBar.#hEnv.BUN.ti;
 		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
-		ActivityBar.#hEnv.NODE.ready = false;
-		ActivityBar.#hEnv.NPM.ready = false;
-		ActivityBar.#hEnv.BUN.ready = false;
-		ActivityBar.#hEnv.PY_FONTTOOLS.ready = false;
+		// 再確認（refresh ボタン）で前回の error / warn アイコンが残らないよう戻す
+		for (const nm of <const>['NODE', 'NPM', 'BUN', 'PY_FONTTOOLS']) {
+			const e = ActivityBar.#hEnv[nm];
+			e.ready = false;
+			e.ti.description = '-- 確認中…';
+			e.ti.iconPath = oIcon(e.icon);
+			this.#onDidChangeTreeData.fire(e.ti);
+		}
 
 		await Promise.allSettled([
 			new Promise<void>(re=> exec('pip list', (e, stdout)=> {
@@ -157,8 +169,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					return;
 				}
 
-				if (! /^fonttools\s/gm.test(stdout)
-				|| ! /^brotli\s/gm.test(stdout)) {
+				// pip list は「Brotli」と大文字始まりで出るので i フラグ必須
+				if (! /^fonttools\s/gim.test(stdout)
+				|| ! /^brotli\s/gim.test(stdout)) {
 					tiPFT.description = '-- 未導入（フォント最適化を使う時に確認します）';
 					tiPFT.iconPath = oIcon('warn');
 					this.#onDidChangeTreeData.fire(tiPFT);
@@ -218,24 +231,22 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.#onDidChangeTreeData.fire(tiNpm);
 				re();
 			})),
-			new Promise<void>(re=> exec('bun -v', (e, stdout)=> {
-				updUseBun(! e);		// あればタスクを bun / bunx で実行する
-				if (e) {
+			// bun の有無は WorkSpaces.start() も待つので、結果を共有して二重に
+			// exec しない（again=true で再確認）
+			chkBun(again).then(({ok, ver})=> {
+				if (! ok) {
 					tiBun.description = '-- 見つかりません（npm を使います）';
 					tiBun.iconPath = oIcon('warn');
 					this.#onDidChangeTreeData.fire(tiBun);
-					re();
 					return;
 				}
 				ActivityBar.#hEnv.BUN.ready = true;
-				tiBun.description = `-- ${stdout.trimEnd()}（優先）`;
+				tiBun.description = `-- ${ver}（優先）`;
 				tiBun.iconPath = oIcon('npm-brands');
 				this.#onDidChangeTreeData.fire(tiBun);
-				re();
-			})),
-		])
-		.then(()=> finish(true))
-		.catch(()=> finish(false));
+			}),
+		]);
+		return true;
 	}
 
 	// fonttools / brotli が揃っている場合の処理
@@ -250,10 +261,22 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		if (! is_win) return;
 		exec('python -m site --user-site', (e, stdout)=> {
 			if (e) return;	// ありえないが
-			const path = stdout.slice(0, -15) +'Scripts\\;';
-			this.ctx.environmentVariableCollection.prepend('PATH', path);
+			const path = stdout.trimEnd().replace(/site-packages$/, 'Scripts');
+			ActivityBar.#pathPyScripts = path;
+			this.ctx.environmentVariableCollection.prepend('PATH', path +';');
 		});
 	}
+	static #pathPyScripts = '';
+	/**
+	 * pyftsubset の実行コマンド。
+	 * pip install --user のスクリプトは %APPDATA%\Python\PythonXX\Scripts に入るが、
+	 * ここは PATH に無いことが多い。environmentVariableCollection での PATH 追加は
+	 * VSCode のターミナルにしか効かず、拡張機能からの exec() には効かないので、
+	 * 場所が分かっている場合はフルパスで実行する
+	 */
+	static get cmdPyftsubset() {return this.#pathPyScripts
+		? `"${this.#pathPyScripts}\\pyftsubset"`
+		: 'pyftsubset'}
 
 	//MARK: フォント最適化に必要な Python パッケージの導入
 	// 未導入なら、同意を得てから pip install する。断られたら false
@@ -293,11 +316,10 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 	// refreshEnvボタン
 	async #refreshEnv() {
 		this.#workSps.enableBtn(false);
-		await this.#chkEnv(async ok=> {
-			this.#workSps.enableBtn(ok);
-			if (ok) await this.chkLastSNVer(this.#workSps.aLocalSNVer);
-			else this.#openEnvInfo();
-		});
+		const ok = await this.#chkEnv(true);	// 再確認なので bun も調べ直す
+		this.#workSps.enableBtn(ok);
+		if (ok) await this.chkLastSNVer(this.#workSps.aLocalSNVer);
+		else this.#openEnvInfo();
 	}
 	readonly #onDidChangeTreeData = new EventEmitter<TreeItem | undefined>;
 	readonly onDidChangeTreeData = this.#onDidChangeTreeData.event;
@@ -491,9 +513,10 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
-			prg.report({increment: 10, message: 'ダウンロード中',});
+			const url = URL_TMP_ZIP(nm);
+			prg.report({increment: 10, message: `ダウンロード中 ${url}`,});	// 取得元を明示
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
+			fetch(url, {signal})
 			.then(async res=> {
 				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});
@@ -578,9 +601,10 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
-			prg.report({increment: 10, message: 'ダウンロード中',});
+			const url = URL_TMP_ZIP(nm);
+			prg.report({increment: 10, message: `ダウンロード中 ${url}`,});	// 取得元を明示
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
+			fetch(url, {signal})
 			.then(async res=> {
 				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});

@@ -3,6 +3,12 @@
 
 dist/*.tsbuildinfo
 
+# build.ts が views/*.ts から生成する
+/views/folder.js
+/views/tmpwiz.js
+/views/toolbox.js
+/views/score.js
+
 /node_modules/
 *.cs
 

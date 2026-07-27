@@ -15,7 +15,12 @@ export default defineConfig([
 // ]);const a = ([	// 一時的 OFF 用
 	globalIgnores([
 		'eslint.config.mts',	// このファイル自身はチェックせず
-		'src/webpack.config.js',
+		'dist/',			// ビルド生成物
+		'views/lib/',		// 外部ライブラリ（bootstrap, fontawesome）
+		'views/folder.js',	// ここから3つは build.ts が views/*.ts から生成する
+		'views/tmpwiz.js',
+		'views/toolbox.js',
+		'views/score.js',
 	]),
 	js.configs.recommended,
 	configs.recommendedTypeChecked,
@@ -139,6 +144,18 @@ export default defineConfig([
 			globals: {
 				window	: true
 			},
+		},
+	},
+	{
+		name: 'webview のスクリプト（ブラウザ環境）',
+		files: ['views/*.ts'],
+		languageOptions: {
+			globals: {...globals.browser},
+		},
+		rules: {
+			// ループ内で張るイベントハンドラが、外側の可変変数（aTr, lenTr,
+			// skipDummyChkEv など）の最新値を意図的に参照するため
+			'no-loop-func': 'off',
 		},
 	},
 ]);

@@ -380,10 +380,10 @@ class DebugAdapter extends LoggingDebugSession {
 			breakpoints: this.#dbg.setBreakPoints(
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				args.source.path!,
-				a.map(o=> <DebugProtocol.SourceBreakpoint>{
+				a.map(o=> ({
 					...o,
 					line: this.convertClientLineToDebugger(o.line),
-				}),
+				})),
 			)
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			.map((o, i)=> new Breakpoint(o.verified, a[i]!.line, o.col,))

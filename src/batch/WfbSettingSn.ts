@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_E2V_TEMP, T_TEMP, T_V2E_aTemp} from '../types';
+import type {T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
 import {replaceRegsFile} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
@@ -105,7 +105,7 @@ export class WfbSettingSn extends WatchFile {
 			}
 			aTemp.push(o);
 		}
-		void this.pc.ps.cmd2Vue(<T_E2V_TEMP>{
+		void this.pc.ps.cmd2Vue({
 			cmd		: 'update.aTemp',
 			err		: '',
 			aTemp,

@@ -1,9 +1,1 @@
-document.addEventListener('DOMContentLoaded', ()=> {
-	// ドラッグ出来るアイテムの設定
-	Array.from(document.querySelectorAll('button[draggable="true"]'))
-	.forEach(elm=> elm.addEventListener('dragstart', e=> {
-		e.dataTransfer.setData('from', 'toolbox');
-		e.dataTransfer.setData('id', e.target.id);
-		e.dataTransfer.setData('scr', decodeURIComponent(e.target.dataset.scr));
-	}));
-});
+"use strict";(()=>{document.addEventListener("DOMContentLoaded",()=>{for(let a of document.querySelectorAll('button[draggable="true"]'))a.addEventListener("dragstart",n=>{let{dataTransfer:t,target:e}=n;!t||!(e instanceof HTMLElement)||(t.setData("from","toolbox"),t.setData("id",e.id),t.setData("scr",decodeURIComponent(e.dataset.scr??"")))})});})();

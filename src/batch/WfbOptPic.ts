@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_E2V_SELECT_ICON_INFO, T_BJ_cut_round, T_V2E_CHG_RANGE_WEBP_Q, T_V2E_CHG_RANGE_WEBP_Q_DEF, T_V2E_selectFile} from '../types';
+import type {T_BJ_cut_round, T_V2E_CHG_RANGE_WEBP_Q, T_V2E_CHG_RANGE_WEBP_Q_DEF, T_V2E_selectFile} from '../types';
 import {getFn, vsc2fp, WORKSPACE_PATH} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
@@ -167,7 +167,7 @@ export class WfbOptPic extends WatchFile {
 		const src = fileUri?.[0]?.fsPath;
 		if (! src) return;	// キャンセル
 
-		const cmd2Vue = (err_mes: string)=> {void this.pc.ps.cmd2Vue(<T_E2V_SELECT_ICON_INFO>{
+		const cmd2Vue = (err_mes: string)=> {void this.pc.ps.cmd2Vue({
 			cmd		: 'updpic',
 			pathIcon,
 			err_mes,

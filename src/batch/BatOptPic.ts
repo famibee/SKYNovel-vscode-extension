@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_E2V_NOTICE_COMPONENT, T_E2V_OPTPIC, T_BJ_OPTPIC} from '../types';
+import type {T_E2V_NOTICE_COMPONENT, T_BJ_OPTPIC} from '../types';
 import {creBJ_OPTPIC} from '../types';
 import {chkUpdate, foldProc, getFn, replaceFile} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
@@ -83,7 +83,7 @@ export class BatOptPic {
 
 	//MARK: 情報出力・表示更新
 	disp() {
-		return this.pc.ps.cmd2Vue(<T_E2V_OPTPIC>{
+		return this.pc.ps.cmd2Vue({
 			cmd: 'update.optPic',
 			oOptPic: <T_BJ_OPTPIC>{...this.oBJ, sum: {
 				...this.oBJ.sum,
@@ -225,7 +225,7 @@ export class BatOptPic {
 							const {name} = parse(nm);
 							const size = this.oBJ.hSize[name];
 							if (size) {
-								const {baseSize=0, webpSize=0} = size;
+								const {baseSize, webpSize} = size;
 								this.oBJ.sum.baseSize -= baseSize;
 								this.oBJ.sum.webpSize -= webpSize;
 							}
@@ -273,7 +273,7 @@ export class BatOptPic {
 						const {name} = parse(nm);
 						const size = this.oBJ.hSize[name];
 						if (size) {
-							const {baseSize=0, webpSize=0} = size;
+							const {baseSize, webpSize} = size;
 							this.oBJ.sum.baseSize -= baseSize;
 							this.oBJ.sum.webpSize -= webpSize;
 						}

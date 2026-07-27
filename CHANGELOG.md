@@ -1,3 +1,219 @@
+## v4.31.1
+- perf(startup): アクティビティバーとコマンドが**環境確認の完了を待たずに使える**ように
+	- これまでは `#chkEnv`（`pip list` / `node -v` / `npm -v` / `bun -v`）が
+	すべて終わってから `registerTreeDataProvider` と `registerCommand` をしていた。
+	そのため起動直後の数百ms〜数秒、SKYNovel のパネルが空のままで、
+	【テンプレウィザード】などのコマンドも「見つかりません」になっていた
+	（この mac での実測は `pip list` 0.33s、`npm -v` 0.20s。
+	Windows はプロセス生成が重く、さらに待たされる）
+	- src/ActivityBar.ts: ツリーとコマンドの登録を `WorkSpaces` 生成直後に前倒し。
+	各項目の表示は `#chkEnv` が項目ごとに `onDidChangeTreeData` を fire して
+	埋めていくので、登録を待たせる必要がなかった
+	- 環境確認は LSP 起動（`#workSps.start()`）と**並行**に実行するよう変更
+	- 確認が終わるまでは `-- 確認中…` と表示。再確認（refresh ボタン）では
+	前回の error / warn アイコンが残らないよう、項目本来のアイコンに戻す
+	（そのため `T_ENV` にアイコン名を持たせた）
+	- `#chkEnv(finish)` のコールバック引数をやめて `Promise<boolean>` を返す形に。
+	`Promise.allSettled` は reject しないので `finish(false)` は死んだ経路だった
+- perf(startup): `bun -v` を起動のたびに2回実行していたのをやめた
+	- src/CmnLib.ts: 結果を共有する `chkBun()` を追加（`again` で再確認）。
+	`ActivityBar #chkEnv` と `WorkSpaces.start()` が同じ Promise を待つ。
+	`start()` は `#refresh()` の前にこれを await するので、直列に1回分縮む
+- perf(startup): `md.json`（約150KB）をバンドルから外し、実行時に読むように
+	- src/WorkSpaces.ts: `import hMd from './md.json'` をやめ、LSP 用に元から
+	同梱していた `dist/md.json` を `readJsonSync` で読む（型は `MD_STRUCT` を流用）
+	- `dist/extension.js` が **1,603,531 → 1,387,650 バイト**に。
+	同じ内容を vsix に二重に入れていたのも解消
+	- ただし esbuild は大きな JSON を `JSON.parse()` に変換していて元から速く、
+	require の実測は 66ms → 63ms と**わずか**。効いたのは同梱サイズの方
+- fix(win): 【出力フォルダを開く】ボタンが Windows で
+【Failed to open：指定されたファイルが見つかりません。(0x2)】になる／無反応になる件
+	- 原因は `vsc2fp()` が Windows で先頭のドライブ名を落としていること。
+	Node.js の fs はカレントドライブで解決するので動くが、OS（エクスプローラー）に
+	そのまま渡すとパスが存在しない扱いになる
+	- src/CmnLib.ts: OS へ渡す直前にドライブ名を補完する `fp2osp()` を追加
+	- src/Project.ts: `env.openExternal(Uri.file(フォルダ))` をやめ、生成物を
+	選択状態で開く `revealFileInOS` に変更（インストーラー生成・ふりーむ！形式・
+	svg 検出時の3箇所）。開けない場合はパスを添えてエラー表示する
+	- src/WorkSpaces.ts: ドキュメントの ws-folder リンクにも `fp2osp()` を適用
+- fix: fonttools / brotli を導入してもフォルダを開き直すと「未導入」に戻る件
+	- src/ActivityBar.ts: `pip list` は「Brotli」と大文字始まりで出力するため、
+	検出の正規表現に i フラグを追加
+- fix: フォント最適化で、デフォルトフォントを特定できない時に名前なし
+（`.woff2`）の変換に失敗した上、既存フォントファイルを削除してしまう件
+	- src/batch/WfbOptFont.ts: LSP の走査結果が未着でデフォルトフォント名が
+	空の場合、doc/prj/ * /setting.sn の `&def_fonts` から直接読むように
+	- src/batch/WfbOptFont.ts: それでも特定できない場合は、旧フォントを
+	削除する前にモーダルで通知して中断する
+	- src/batch/WfbOptFont.ts: 旧フォントの削除を、変換内容が確定した後に移動。
+	fonttools 導入の同意を断った場合もフォントは消えない
+	- src/batch/WfbOptFont.ts: 入力ファイル不明時のメッセージにフォント名を入れ、
+	「入力ファイルが〜」と「出力ファイルが〜」が二重に出ないように
+	- src/batch/WfbOptFont.ts: pyftsubset の出力エラーが二重に出ていたのを修正
+- fix(win): フォント最適化が Windows で失敗する件
+	- pyftsubset の `--layout-features='*'` を `"*"` に。cmd.exe は単引用符を
+	外さないため、`'*'` という文字列がそのまま渡ってエラーになっていた
+	- pyftsubset へ渡すパスに `fp2osp()` を適用（ドライブ名の補完）
+	- src/ActivityBar.ts: `pip install --user` のスクリプトが入る
+	`%APPDATA%\Python\PythonXX\Scripts` は PATH に無いことが多く、
+	environmentVariableCollection での PATH 追加は VSCode のターミナルにしか
+	効かない（拡張機能の exec() には効かない）ため、場所が分かっている場合は
+	pyftsubset をフルパスで実行するように
+	- コマンドが見つからない場合（exit 127 / 9009）はその旨をメッセージに追記
+- fix: フォント最適化で `&def_fonts` の一つめしか最適化されていなかった件
+	- 二つめ以降は実行時のフォールバック（一つめに無い字を二つめで表示する）として
+	使われるので、本文と同じ文字でまとめてサブセット化するように
+	- LSP のスクリプト走査結果が持つのは一つめだけなので、setting.sn の
+	`&def_fonts` から全部の名前を読むように（src/batch/WfbOptFont.ts
+	`#getDefFontNms()`）
+	- `serif` などフォントファイルが無い総称名は対象外。全部が見つからない場合は
+	その旨をモーダルで通知して中断する
+- fix: フォント最適化の切り替えでフォントファイルを失う件
+	- 旧フォントファイルの削除を、**変換に成功したフォントだけ・変換の後**に変更。
+	変換に失敗しても、変換対象でないフォント（`&def_fonts` の二つめ以降など、
+	実行時のフォールバック用）でも、ファイルが消えないように
+	- 副作用として、使わなくなったフォントファイルは自動では消えなくなる
+	- src/PrjSetting.ts: 中断・失敗時は設定スイッチを元に戻す
+- fix(marketplace): テンプレート取得の進捗表示に取得元 URL を出すように
+	- src/ActivityBar.ts: 作成・更新の両方。「リモートコードのダウンロード」が
+	何をしているのか分かるようにする
+- fix(marketplace): PowerShell の実行ポリシー確認をシェル経由でなくすように
+	- src/Project.ts: `execSync('PowerShell Get-ExecutionPolicy')` を
+	`execFileSync('powershell', ['-NoProfile', '-Command', 'Get-ExecutionPolicy'])` に
+- chore(eslint): src/ の指摘25件を解消（src/ は0件に）
+	- 不要な型注入・不要なデフォルト値・使わない初期値の削除が大半
+	- ただし `Config.ts` の `<never>`（string 索引型に number を入れている箇所）と
+	`WorkSpaces.ts` の `sendRequest`（引数が any なので型注入だけが型チェック）は
+	no-unnecessary-type-assertion の誤検知なので、理由コメント付きで disable
+	- src/Debugger.ts: `RawData`（Buffer | ArrayBuffer | Buffer[]）の文字列化を明示
+	（no-base-to-string）
+	- eslint.config.mts: ビルド生成物 `dist/` と外部ライブラリ `views/lib/` を
+	チェック対象外に
+- chore(build): リリースビルドを webpack から esbuild に一本化（**14.0s → 5.8s**）
+	- 開発用ビルドは元から esbuild で、同じバンドルを毎回デバッグ実行していたので、
+	リリースも同じ経路にした（dev と release の差が無くなる）
+	- 型検査は webpack の ts-loader が担っていたので、`chk:types`
+	（`tsc -p tsconfig.chk.json --noEmit`、src + server 対象）を
+	`vscode:prepublish` に明示的に入れた。型エラーで vsce が止まることを確認済み
+	- webpack / webpack-cli / ts-loader を devDependencies から削除、
+	src/webpack.config.js を削除
+	- **トレードオフ**：webpack のコード分割が無くなり、`dist/extension.js` は
+	単一 1.6MB（従来は 82KB ＋ 遅延チャンク 1.3MB）。Node で require した実測は
+	約67ms。動的 import 先の実行は esbuild でも遅延されるので、増えるのは
+	パース時間のみ
+	- tsconfig.json: `skipLibCheck` を追加（依存パッケージの .d.ts に、こちらでは
+	直せないエラーがあるため。TODO にあった node_modules 内9件もこれで消えた）
+	- release_chk.ts: webpack キャッシュ削除が不要になり、チャンクサイズの
+	しきい値を 2MB に（単一バンドル 1.6MB ＋ 重い依存の混入を検出できる値）
+- chore(build): スクリプト名 `publish` を `release` に変更
+	- `bun publish` は bun 組み込みの「npm レジストリへ公開」なので、打ち間違いが怖い
+- docs(README): 「この拡張機能がしないこと」を追記
+	- テレメトリなし・資格情報を読まない・隠れた実行なし・難読化なし、および
+	ネットワークアクセス先の限定を明記。Publisher Agreement / Terms of Use /
+	Security and trust のリンクも併記
+- chore(build): 公開前チェックを自動化（`bun run release` = release_chk.ts）
+	- ① ソース走査：exec/spawn 系でパッケージマネージャを叩く箇所が許可リスト
+	（`H_ALLOW_EXEC`、理由付き）に無ければ落とす
+	- ② dependencies 検査：バンドルに混ぜてはいけない依存（npm-check-updates）
+	- ③ ビルド＆パッケージ：`vsce package`（vscode:prepublish 経由で型検査も通る）
+	- ④ vsix 同梱物：秘密・設定・ビルド生成物が入っていないか、必要なものが
+	揃っているか。依存パッケージ内の同種ファイルは対象外（向こうの都合で増減する）
+	- ⑤ dist 検査：2MB を超えるチャンク、`.npmrc` を読むコードの混入
+	- ⑥ vsix の SHA256 を出力（リリースノート用）
+	- 公開（vsce publish）はしない。PAT を CI に置かない方針は維持
+	- わざと違反を入れて①②が検出することを確認済み
+	- .vscodeignore: ④の指摘に従い `.gitignore` / `**/bun.lock` /
+	`**/*.tsbuildinfo` / `**/eslint.config.*` を除外（同梱する
+	server/node_modules/ 内のゴミ7件が消え、243 → 236 ファイルに）
+	- ⑤に既知のサプライチェーン攻撃指標6種の走査を追加（`webhook.site` 等の
+	中継サービス、`eval(atob(`、難読化ツールの `_0x****(`、資格情報ファイル、
+	`process.env` の総なめ、既知ワームのツール名）。従来 vsix に対して
+	手作業で走査していたものを取り込んだ。既知の悪性パターンを検出し、
+	紛らわしい正常コードを誤検知しないことを確認済み
+- chore: webview の素のスクリプトを TS 化（score.js 以外）
+	- views/folder.ts, tmpwiz.ts, toolbox.ts を新規（旧 .js は削除）。build.ts が
+	esbuild で **同名の views/*.js に出力**する。html は `./folder.js` と相対参照して
+	いて views/ 自体が webview の localResourceRoots なので、出力先を変えなければ
+	html も拡張機能側も無改造で済む
+	- bundle + iife 形式。グローバルスコープを汚さない（ファイル間で `const vscode` が
+	衝突する）ことと、`src/types.ts` と型を共有できることが理由
+	- tmpwiz.ts は送受信メッセージを `T_TMPWIZ`（src/types.ts）ベースで型付け。
+	folder.ts / toolbox.ts も送受信の型を明示
+	- 型検査で見つかった不具合（下記 fix 参照）を解消
+	- tsconfig.json: `allowJs` を追加（残る views/score.js のため）
+	- .gitignore: 生成物 `/views/{folder,tmpwiz,toolbox}.js` を無視
+	- eslint.config.mts: 生成物3つを検査対象外に、`views/*.ts` にブラウザ環境の
+	グローバルを設定、`views/*.js` の設定は score.js 専用に
+	- release_chk.ts: 生成物3つを vsix の必須ファイルに追加（ビルド忘れの検出）
+	- views/score.ts も TS 化（型エラー83件を解消）。凍結中の機能だが、挙動を変えない
+	方針で型を付けた。src/CteScore.ts の `T_V2EScore` を export して送信メッセージの
+	型を共有し、受信メッセージ（10種）も型を定義
+	- **views/*.js の手書きソースは無くなった**（tsconfig の `allowJs` も削除）
+- fix(views/score.ts): 型検査で見つかった箇所の修正
+	- `delete td.rowSpan` は継承アクセサへの delete で元から no-op だったのでコメント化
+	- `separation()` が使っていない `hCmbCol` を作っていたのをやめ、`combining()` と
+	共通の `getCmbCol()` に
+	- `getElementById()` / `children[i]` / `parentElement` の null 未チェック、
+	`dataTransfer` の null 未チェックをガード
+	- `dataset.row` への数値代入を `String()` に（暗黙の型変換をやめた）
+	- src/CteScore.ts の型と食い違っていた2点をコメントで明示（checkbox の val が
+	boolean、tool_put に id を足して送っている）
+- fix(views/*.js): 落ちうる箇所の修正（型検査で発見）
+	- folder.js: isTrusted が false のとき `vscode` が null で落ちる（`?.` に）。
+	メッセージ文が `(tmpwiz.js)` のままだったのも修正
+	- tmpwiz.js: 同じく `vscode.postMessage` 3箇所が null で落ちる
+	- tmpwiz.js: `getElementById(o.id)` が見つからない時に落ちる
+- chore(build): リリースビルドでの二重ビルドを解消
+	- `vscode:prepublish` では esbuild が作った `dist/extension.js`（1.6MB）を
+	直後に webpack が上書きしていた。build.ts を `--production` 時は
+	`./src/extension` を作らないように（開発時のデバッグ実行は従来どおり
+	esbuild の出力を使う）
+	- 副産物として、webpack が失敗したときに「型検査を通っていない esbuild の
+	extension.js」が dist に残る状態も無くなった
+- chore(eslint): server/ の指摘664件を解消（server/ は0件に）
+	- 原因は型の問題ではなく**モジュール解決の失敗**。`vscode-languageserver` は
+	`main`/`types` を持たず `exports` マップのみで公開しているため、
+	server/tsconfig.json の `moduleResolution: node`（node10）では解決できず、
+	import した値が全て error 型になって no-unsafe-* が629件連鎖していた
+	- server/tsconfig.json: `moduleResolution` を `bundler` に（TS7 で廃止予定の
+	node10 だった件も解消）、`lib` に `DOM` を追加（src/ConfigBase.ts の型が
+	HTMLImageElement 等を参照しているため）
+	- server/src/LspWs.ts: `#hCmd2ReqProc` を `cmd` ごとに専用ペイロード型を
+	受け取るマップ型に（`T_H_CMD2PROC`）。型注入は振り分けの一箇所のみに集約
+	- server/src/LspWs.ts: 診断メッセージの重複判定で、LSP 3.18 の
+	`message: string | MarkupContent` を正しく文字列化するように
+	- これにより `tsc -p server --noEmit` も0件に（従来は解決失敗で検査が
+	骨抜きになっていた）
+- **fix(views/score.js): テキストエリアのイベントが一切登録されていなかった件**
+	- `for (const ta of ...) ta=> {...}` と、呼ばれない矢印関数を作って捨てていた。
+	そのため mdb.Input の初期化・高さ自動調整・input 通知が動いていなかった
+- chore: server/src をルートと同じ厳しさ（strict + noUncheckedIndexedAccess）で
+検査するようにし、型エラー99件を解消
+	- server/tsconfig.json: 独自設定をやめて `../tsconfig.json` を extends。
+	webpack の ts-loader は server/src もルート設定で検査するため、設定が違うと
+	「片方では必要・片方では不要」な記述になってしまう
+	- src/webpack.config.js: 報告を src/ に絞る `reportFiles` の回避策を削除
+	- server/src/LspWs.ts: 診断メッセージ表を `H_DIAG_MES`（module スコープ・
+	`satisfies`）に切り出し、キーを型 `T_DIAG_KEY` として使えるように。
+	index signature をやめたことで28件が解消し、`#chkDupDiag()` のキー指定も
+	型で守られるようになった
+	- 連想配列への push/add は `(this.#x[k] ??= [])` 形に統一。存在しないキーでの
+	実行時エラーの可能性も同時に消えた
+	- 配列の分割代入・`match()` 結果・`split()` 結果の undefined を明示的に処理
+- chore(eslint): views/ の指摘20件を解消（プロジェクト全体で0件に）
+	- tsconfig.json: `types` に `vscode-webview` を追加（`acquireVsCodeApi()` の型。
+	`types` を明示していると @types/* の自動取り込みが止まるため）
+	- views/store/stVSCode.ts: `cmd2Ex` の引数を `unknown` から `T_V2E` に。
+	呼び出し側の型注入が不要になり、かつ型チェックが効くように
+	- eslint.config.mts: tsconfig 外の `views/*.js`（素の webview スクリプト）を
+	「型情報なし・ブラウザ環境」として検査する設定を追加（従来はパースエラーで
+	検査されていなかった）
+	- views/*.js: 引数への再代入・case 内の宣言・不要なエスケープなどを修正。
+	ループ内ハンドラが外側の可変変数を意図的に参照する `no-loop-func` と、
+	素の連想配列に対する `no-dynamic-delete` は views/*.js のみ無効化
+	- tsconfig.json: `eslint.config.mts` を include に追加（`import.meta.dirname` が
+	未定義扱いになるため。bun-types が ImportMeta.dirname を宣言している）
+- docs: README の「拡張機能がユーザー環境で実行するもの」に暗号化機能の用途を追記
 ## v4.31.0
 - fix(marketplace): 無断の `pip install` を廃止し、同意を得てから導入するように
 	- src/ActivityBar.ts: `#chkEnv()` は**検出のみ**に変更。fonttools / brotli が
