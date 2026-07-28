@@ -24,3 +24,4 @@ tools/skynovel-Mac2Win
 /test/ui/runUI.mjs
 /test/prep.mjs
 /.vscode-test/
+.claude/
