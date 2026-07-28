@@ -89,13 +89,18 @@ input.form-control:focus, textarea.form-control:focus {
 .sn_select {
 	position: relative;
 }
-.sn_select_v {
-	position: absolute;
-	right: 9px;
-	top: 30%;
-}
+/* ⚠️ かつては FontAwesome の <i> を position:absolute で重ねていた（.sn_select_v）。
+	しかし top:30% はツールボックス（ラベル無し）に合わせた値で、**ラベルのある
+	設定画面では枠の上端にはみ出す**。しかも設定画面は FontAwesome を読んで
+	いなかったので描画されず、ずれに誰も気づけなかった。
+	⇒ **Bootstrap 標準と同じ「select の背景画像」方式**に変更。
+	`background-position: center` で**縦中央が自動**になり、版面に依存しない */
 select.form-select {
-	background-image: none;
+	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'><path fill='%23ccc' d='M143 352.3L7 216.3c-9.4-9.4-9.4-24.6 0-33.9l22.6-22.6c9.4-9.4 24.6-9.4 33.9 0l96.4 96.4 96.4-96.4c9.4-9.4 24.6-9.4 33.9 0l22.6 22.6c9.4 9.4 9.4 24.6 0 33.9l-136 136c-9.2 9.4-24.4 9.4-33.8 0z'/></svg>");
+	background-repeat: no-repeat;
+	background-position: right .7rem center;
+	background-size: .7em;
+	padding-right: 2rem;
 	color: var(--vscode-dropdown-foreground, #ccc);
 	background-color: var(--vscode-dropdown-background, #3c3c3c);
 	border: thin solid var(--vscode-input-border, #fff);

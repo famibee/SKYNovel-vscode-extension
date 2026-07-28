@@ -25,6 +25,7 @@ export default defineConfig([
 		'test/int/multi.js',
 		'test/ui/runUI.mjs',	// 同上（UI テストは node で走らせる）
 		'test/prep.mjs',		// 同上（.vscode-test.mjs から読む準備処理）
+		'test/icon-check/fa_old.min.js',	// 旧同梱の FontAwesome（照合ページが読む外部物）
 	]),
 	js.configs.recommended,
 	configs.recommendedTypeChecked,

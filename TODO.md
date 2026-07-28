@@ -40,17 +40,32 @@
 
 **現在なし**（2026-07-28 に「同梱物の軽量化」「起動時間の実測」「(A) 再現テスト」を消化）。
 
-### 👁 alpha（v4.33.0）で目視確認してほしいこと
+### ✅ 目視確認（2026-07-28・全件完了）
 
-**私が動作確認できず、まだ誰も見ていない変更。** alpha を出す目的そのもの。
-
-| # | 変更 | 見てほしいこと |
+| # | 変更 | 結果 |
 |---|---|---|
-| 1 | **アイコン53箇所を SVG 化** | `.ssn` エディタ（46箇所）と ToolBox（7箇所）の**見た目**。字形は同じ 5.15.4 だが、寸法・位置は `views/lib/bootstrap2vscode.css` の `.fa-i` 頼み。**46箇所は自動テストが無い凍結領域** |
-| 2 | 音声最適化タブのシェブロン | **今まで出ていなかったものが出る**。位置がおかしくないか |
-| 3 | `views/envinfo/node_win9.jpg` を 1978→1000px | 説明ページで**文字が読めるか** |
-| 4 | `set_cancel_skip` をリファレンスパレットから除外 | 意図どおりか（ホバー・補完には残る） |
-| 5 | 旧版同居の警告（`#chkOldExt`） | 実際に旧版と同居させたときの**文言と出方** |
+| 1 | アイコン53箇所を SVG 化 | **見た目ほぼ変化なし**。照合ページ `test/icon-check/` で42種を新旧比較 |
+| 2 | 音声最適化タブの「∨」 | 🐛 **ずれを発見・修正**（重ねる方式 → select の背景画像方式へ） |
+| 3 | `node_win9.jpg` の縮小 | 作者が加工 |
+| 4 | `set_cancel_skip` をパレットから除外 | 出ないことを確認 |
+| 5 | 旧版同居の警告 | **実機で確認**（下記） |
+
+**5 は統合テストでは踏めない。** テストは `--disable-extensions` で他の拡張機能を
+無効化するため、`extensions.getExtension('famibee2.skynovel2')` が取れない。
+実際に両方インストールされた環境でしか確認できない：
+
+```
+⚠️ 旧版の拡張機能（famibee2.skynovel2）が入ったままです。
+   コマンドとビューが衝突して誤動作するので、旧版をアンインストールしてください。
+Source: BlueSNovel / SKYNovel          [拡張機能ビューを開く]
+```
+
+💡 **画面は私からも撮れる**（2026-07-28 に確立）。Playwright で VSCode を起動し
+**CDP の `Page.captureScreenshot`** で撮る（Playwright の `screenshot()` は
+webview で「フォント読み込み待ち」から返らないことがある）。
+実機の拡張機能を使いたいときは `--disable-extensions` を付けず、
+`--extensions-dir` に `~/.vscode/extensions` を指し、`--user-data-dir` だけ
+一時フォルダにする（利用者の設定を汚さない）。
 
 ### 手を動かす必要がある／別環境が要る
 
@@ -74,7 +89,42 @@
 
 （受付箱はカラ。2026-07-27 の9件は処理済み）
 
-（こちらからの確認事項も 2026-07-28 にすべて回答済み）
+### ❓ 判断待ち（こちらから確認したいこと）
+
+| # | 内容 | 影響 |
+|---|---|---|
+| 1 | **UI に残る「SKYNovel」表示をどうするか**（下記） | 改名版の見た目。alpha 中に決めたい |
+| 2 | `.claude/settings.json` を追跡から外すか（マシン固有の絶対パスが入る） | 既に `018b714` でコミット済み |
+
+#### 1 の詳細：表示文字列 14 件
+
+**識別子（`skynovel.*` コマンドID・言語ID `skynovel`・文法スコープ `source.skynovel`・
+デバッガ型・`SKYNovel.score`）は変えてはいけない。**
+利用者のキーバインド・設定・`launch.json`・ファイル関連付けが壊れる。
+
+変えられるのは**表示文字列だけ**：
+
+| 場所 | 現在 |
+|---|---|
+| **アクティビティバーのツールチップ**（`viewsContainers.activitybar[0].title`） | `SKYNovel` |
+| VSCode 設定の見出し（`configuration.title`） | `SKYNovel` |
+| コマンドの見出し（`category`。`traceMark` 等） | `SKYNovel` |
+| デバッガ名（`debuggers[0].label`） | `SKYNovel Debug` |
+| コマンド名 | `Update SKYNovel` / `SKYNovel GUIで開く` |
+| `.ssn` エディタ名（`customEditors.displayName`） | `SKYNovel スコア Editer` |
+| ようこそ画面の文言（`viewsWelcome.contents`） | フォルダ未オープン時の案内 |
+| `package.nls.json` / `.ja.json` | 各3件 |
+
+⚠️ **エンジンで切り替えられない。** v4.31.2 でコマンドパレットの見出しを
+切り替えられたのは**コマンドを2つ登録できたから**（`skynovel.openReferencePallet` と
+`bluesnovel.openReferencePallet`）。
+`viewsContainers.title` などは**静的な文字列**で、VSCode 起動時に1つに決まる。
+
+| 案 | 例 | 評価 |
+|---|---|---|
+| **(a)** 両方名乗る | `BlueSNovel / SKYNovel` | 正確だが**ツールチップとしては長い** |
+| (b) BlueSNovel に寄せる | `BlueSNovel` | 短いが**SKYNovel 利用者が自分の道具と分からない** |
+| (c) 現状維持 | `SKYNovel` | 拡張機能名と食い違う |
 
 ---
 
@@ -1107,6 +1157,11 @@ try/catch で握り潰すと「対象なし」に見えるので注意（一度�
 ## 7. リリース手順（このファイルは vsix に入らない）
 
 ### スクリプト早見表
+
+⚠️ **直接叩かず `bun run …` を使う。** `build.ts` / `release_chk.ts` は
+`tools/` へ移動したので、`bun release_chk.ts` は
+**`Module not found` になる**（2026-07-28 に実際に踏んだ）。
+スクリプト名を経由していれば、また移動しても呼び出し側は変わらない。
 
 | コマンド | 用途 |
 |---|---|

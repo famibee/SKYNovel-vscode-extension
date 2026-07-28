@@ -59,7 +59,7 @@
 		],
 		"configuration": {
 			"type": "object",
-			"title": "SKYNovel",
+			"title": "BlueSNovel",
 			"properties": {
 				"skynovel.chkExtUpdate": {
 					"scope": "window",
@@ -100,7 +100,7 @@
 		"debuggers": [
 			{
 				"type": "skynovel",
-				"label": "SKYNovel Debug",
+				"label": "BlueSNovel Debug",
 				"languages": [
 					"skynovel"
 				],
@@ -171,11 +171,11 @@
 			{
 				"command": "skynovel.traceMark",
 				"title": "トレースの区切りを入れる（開発者向け）",
-				"category": "SKYNovel"
+				"category": "BlueSNovel"
 			},
 			{
 				"command": "skynovel.devSnUpd",
-				"title": "Update SKYNovel",
+				"title": "Update engine and template",
 				"icon": {
 					"light": "res/light/download.svg",
 					"dark": "res/dark/download.svg"
@@ -423,7 +423,7 @@
 			},
 			{
 				"command": "skynovel.opView",
-				"title": "SKYNovel GUIで開く"
+				"title": "GUIで開く"
 			},
 			{
 				"command": "skynovel.TempWizard",
@@ -434,7 +434,7 @@
 			"activitybar": [
 				{
 					"id": "skynovel",
-					"title": "SKYNovel",
+					"title": "BlueSNovel",
 					"icon": "res/img/icon-activity-bar.svg"
 				}
 			]
@@ -715,7 +715,7 @@
 		"customEditors": [
 			{
 				"viewType": "SKYNovel.score",
-				"displayName": "SKYNovel スコア Editer",
+				"displayName": "BlueSNovel スコア Editor",
 				"selector": [
 					{
 						"filenamePattern": "*.ssn"

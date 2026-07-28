@@ -25,3 +25,7 @@ tools/skynovel-Mac2Win
 /test/prep.mjs
 /.vscode-test/
 .claude/
+
+# 確認用ページが使う旧 FontAwesome（1.17MB）。git には入れない。
+# 消えたら: git show 741389e:views/lib/fontawesome/all.min.js > test/icon-check/fa_old.min.js
+/test/icon-check/fa_old.min.js

@@ -56,7 +56,10 @@ async function openSnView(win: Page) {
 	const pane = win.locator('.pane', {has: win.locator('text=開発環境')}).first();
 	if (await pane.isVisible().catch(()=> false)) return pane;
 
-	await win.locator('.activitybar [aria-label*="SKYNovel"]').first().click();
+	// ⚠️ ビューコンテナの `title`（package.json）が aria-label になる。
+	// v4.33.0 で `SKYNovel` → `BlueSNovel` に変えたので、
+	// `*="SKYNovel"` では**一致しない**（部分文字列として含まれない）
+	await win.locator('.activitybar [aria-label*="BlueSNovel"]').first().click();
 	await pane.waitFor({state: 'visible', timeout: 20_000});
 	return pane;
 }
