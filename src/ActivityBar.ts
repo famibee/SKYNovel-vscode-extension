@@ -387,20 +387,25 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 	 *
 	 * ⚠️ **アンインストールはこちらから行わない。** 拡張機能の導入・削除を
 	 * 自動で行わないのがこのプロジェクトの方針（TODO §5）。
-	 * 拡張機能ビューを開くところまでで、押すのは利用者
+	 * 拡張機能ビューを開くところまでで、押すのは利用者。
+	 *
+	 * 手順そのものは **GitHub Releases のリリースノートが担う**（専用ページは作らない）。
+	 * この警告を見た人がまさに手順を知りたい相手なので、そこへの導線も出す
 	 */
 	async #chkOldExt() {
 		if (! extensions.getExtension(ID_OLD_EXT)) return;
 
 		const OPEN = '拡張機能ビューを開く';
+		const DOC = '移行手順を見る';
 		const a = await window.showWarningMessage(
 			`旧版の拡張機能（${ID_OLD_EXT}）が入ったままです。`
 			+ 'コマンドとビューが衝突して誤動作するので、旧版をアンインストールしてください。',
-			OPEN,
+			OPEN, DOC,
 		);
 		if (a === OPEN) await commands.executeCommand(
 			'workbench.extensions.search', '@installed skynovel',
 		);
+		else if (a === DOC) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
 	}
 
 	//MARK: 拡張機能自身の更新確認

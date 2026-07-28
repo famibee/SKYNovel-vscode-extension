@@ -1,6 +1,6 @@
 {
 	"name": "bluesnovel",
-	"version": "4.33.0",
+	"version": "4.33.1",
 	"publisher": "famibee2",
 	"displayName": "BlueSNovel / SKYNovel",
 	"description": "Supports SKYNovel development. It runs npm/bun build tasks in the terminal, and — only with your consent — installs the Python packages fonttools/brotli via pip when you turn on font optimization. VSCodeでSKYNovelの開発をサポートする拡張機能。npm/bun のビルドタスクをターミナルで実行し、フォント最適化を有効にする時のみ、同意を得た上で pip で fonttools/brotli を導入します",
