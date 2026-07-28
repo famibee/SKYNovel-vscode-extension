@@ -91,3 +91,23 @@ export function mkFixture(nm: string, blues = false): T_FIXTURE {
 
 	return {ws, prj: `${ws}/doc/prj`};
 }
+
+/**
+ * **マルチルート**のフィクスチャ（§3.8 (A) の再現用）。
+ *
+ * `Project` はワークスペースフォルダごとに作られるが、
+ * `WatchFile.#updPathJson` / `encIfNeeded` が **static** なので後勝ちになる。
+ * それを実地で示すため、プロジェクトを2つ持つ `.code-workspace` を作る。
+ *
+ * @vscode/test-cli の `workspaceFolder` はフォルダでもワークスペースファイルでもよい
+ */
+export function mkMultiFixture(): {file: string, a: T_FIXTURE, b: T_FIXTURE} {
+	const a = mkFixture('multi/A');
+	const b = mkFixture('multi/B');
+	const file = `${tmpdir()}/sn_ext_test/multi/two.code-workspace`;
+	writeFileSync(file, JSON.stringify({
+		folders	: [{path: a.ws}, {path: b.ws}],
+		settings: {'skynovel.chkExtUpdate': false},
+	}, null, '\t'));
+	return {file, a, b};
+}

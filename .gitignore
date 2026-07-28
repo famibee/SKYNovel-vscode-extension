@@ -15,10 +15,12 @@ dist/*.tsbuildinfo
 /server/node_modules/
 
 *.LICENSE.txt
-skynovel-Mac2Win
+tools/skynovel-Mac2Win
 
 # 統合テストの生成物
 /test/int/suite.js
+/test/int/multi.js
 /.vscode-test-user/
 /test/ui/runUI.mjs
+/test/prep.mjs
 /.vscode-test/

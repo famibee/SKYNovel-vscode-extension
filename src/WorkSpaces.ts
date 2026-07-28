@@ -36,10 +36,24 @@ export const aPickItems	: QuickPickItemEx[] = [];
 let aTagSum: [string, string][] = [];
 
 /**
+ * 廃止タグ。**リファレンス検索パレットには出さない**（調べに行く意味がないので）。
+ *
+ * ⚠️ **`src/md/` の md ファイルは消さないこと。** LSP のタグ表
+ * （`LspWs.#hTag`）は md.json から作られるので、md を消すとタグとして
+ * 認識されなくなり、既存シナリオの `[set_cancel_skip]` に
+ * **「未定義マクロを使用、あるいはスペルミスです」の誤診断**が出る。
+ * md は残したまま、概要文で廃止であることを伝え、ここで一覧から外す
+ */
+const SET_HAISHI_TAG = new Set(['set_cancel_skip']);
+
+/**
  * タグリファレンス検索パレットの項目を作る。
  * リンク先はエンジンごとに別サイトなので、プロジェクト種別で切り替える。
- * 【どのタグを載せるかは変えない】。リファレンスは「調べられること」が役目なので、
- * 相手側エンジンで未実装・未整備のタグも隠さない（実装状況は各サイトの記載に従う）
+ * 【エンジンによって載せるタグを変えない】。リファレンスは「調べられること」が
+ * 役目なので、相手側エンジンで未実装・未整備のタグも隠さない
+ * （実装状況は各サイトの記載に従う）。
+ * ⚠️ 廃止タグ（`SET_HAISHI_TAG`）だけは別で、**両エンジンとも載せない**。
+ * エンジン差ではなく「もう使わないもの」なので、調べに行く先が無い
  */
 export function mkTagPickItems(is_blues: boolean): QuickPickItemEx[] {
 	const url = is_blues
@@ -255,7 +269,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		const fpMd = `${this.ctx.extensionPath}/dist/md.json`;
 		try {
 			const hMd = <{[tag_nm: string]: MD_STRUCT}>readJsonSync(fpMd);
-			aTagSum = Object.entries(hMd).map(([tag_nm, {sum}])=> [tag_nm, sum]);
+			aTagSum = Object.entries(hMd)
+				.filter(([tag_nm])=> ! SET_HAISHI_TAG.has(tag_nm))
+				.map(([tag_nm, {sum}])=> [tag_nm, sum]);
 		}
 		catch (e: unknown) {
 			aTagSum = [];

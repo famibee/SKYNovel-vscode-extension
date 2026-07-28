@@ -267,3 +267,15 @@ input[type="range"]::-webkit-slider-runnable-track {
 thead {
 	background-color: var(--vscode-list-dropBackground, #383b3d);
 }
+
+/* アイコン。FontAwesome 5.15.4 の SVG を htm へ直接埋めている
+	（以前は all.min.js 1.17MB を同梱して実行時に <i> を <svg> へ置換させていた。
+	使うのは14種だけなので割に合わなかった）。
+	寸法・位置は FontAwesome の .svg-inline--fa と同じ扱い */
+.fa-i {
+	display			: inline-block;
+	height			: 1em;
+	overflow		: visible;
+	vertical-align	: -.125em;
+	fill			: currentColor;
+}

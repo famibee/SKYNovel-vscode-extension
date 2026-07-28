@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {ActivityBar} from './ActivityBar';
-import {clearTrace, getTraceCnt, markTrace, updTrace} from './Trace';
+import {clearTrace, getTraceCnt, getTraceMs, markTrace, updTrace} from './Trace';
 
 import {commands, window, workspace, type ExtensionContext} from 'vscode';
 
@@ -34,7 +34,7 @@ export function activate(ctx: ExtensionContext) {
 
 	// 統合テスト（test/int/）から観測するための入口。
 	// extensions.getExtension(id).exports で受け取れる
-	return {getTraceCnt, clearTrace};
+	return {getTraceCnt, getTraceMs, clearTrace};
 }
 
 // 拡張機能が非アクティブ化されたときに、実行

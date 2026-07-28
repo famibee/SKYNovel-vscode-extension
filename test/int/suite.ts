@@ -5,13 +5,15 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+/// <reference types="mocha" />
 /**
  * VSCode の拡張機能ホストの**内側**で走るテスト本体。
  * `vscode` API がそのまま使えるので、「人が操作したときに何が起きるか」を
  * 直接確かめられる。
  *
- * test/int/runTests.ts が VSCode を起動し、このファイルの run() を呼ぶ。
- * 依存を増やさないため mocha は使わず、最小の it() を自前で持つ
+ * 起動役は @vscode/test-cli（設定は リポジトリ直下の .vscode-test.mjs）。
+ * **`it()` は Mocha のもの**。以前は自前の最小 it() を持っていたが、
+ * 公式ランナーへ移行した（TODO §4.5）
  */
 
 import {copyFileSync, readFileSync, renameSync, unlinkSync, writeFileSync} from 'node:fs';
@@ -19,14 +21,21 @@ import {extensions, Uri, workspace, WorkspaceEdit} from 'vscode';
 
 type T_EXT_API = {
 	getTraceCnt	: ()=> {[key: string]: number};
+	getTraceMs	: ()=> {[key: string]: number[]};
 	clearTrace	: ()=> void;
 };
 
-const EXT_ID = 'famibee2.skynovel2';
+const EXT_ID = 'famibee2.bluesnovel';	// 旧 skynovel2。ID は復活しないので改名（TODO §3.5）
 const sleep = (ms: number)=> new Promise(re=> setTimeout(re, ms));
 
-const aCase: {nm: string, fnc: ()=> Promise<void>}[] = [];
-const it = (nm: string, fnc: ()=> Promise<void>)=> {aCase.push({nm, fnc})};
+/**
+ * 「LSP に再走査を頼んだ回数」。経路が2つあるので足して見る（§3.7(d)-2）。
+ * - `need_go.send` … 本文ごと送る重い経路（スクリプトの追加削除など）
+ * - `upd_path.send` … path.json だけ送る軽い経路（画像・音声の追加削除）
+ */
+const nReq = (h: {[key: string]: number})=>
+	(h['need_go.send'] ?? 0) + (h['upd_path.send'] ?? 0);
+
 function ge(got: number, want: number, mes: string) {
 	if (got < want) throw new Error(`${mes}: ${String(want)} 以上を期待 / 実際 ${String(got)}`);
 }
@@ -46,6 +55,24 @@ it('拡張機能が起動し、テスト用の入口を公開している', asyn
 	api = <T_EXT_API>await ext.activate();
 	if (typeof api.getTraceCnt !== 'function') {
 		throw new Error('activate() が getTraceCnt を返していない');
+	}
+});
+
+// ⚠️ **他のケースより先に置くこと。** 後続が api.clearTrace() を呼ぶので、
+// 起動時の記録はそれまでにしか読めない
+it('【調査】起動にかかる時間', async ()=> {
+	await sleep(6000);		// 環境確認（pip/node/npm/bun）と LSP の初回走査を待つ
+	const h = api.getTraceMs();
+	const one = (k: string)=> {
+		const a = h[k] ?? [];
+		return a.length === 0 ?'(記録なし)' :`${String(a[0])} ms`;
+	};
+	console.log('  ── 起動（拡張機能のロード開始からの経過）──');
+	console.log(`    操作可能まで（ツリー・コマンド登録）  ${one('起動.操作可能まで.ms')}`);
+	console.log(`    LSP 準備まで（ホバー・補完が効く）    ${one('起動.LSP準備まで.ms')}`);
+	console.log(`    環境確認まで（pip/node/npm/bun）      ${one('起動.環境確認まで.ms')}`);
+	if ((h['起動.操作可能まで.ms'] ?? []).length === 0) {
+		throw new Error('起動の計測が記録されていない');
 	}
 });
 
@@ -69,8 +96,8 @@ it('画像を数枚まとめて追加しても、全走査は1回にまとまる
 
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
-	eq(h['need_go.send'] ?? 0, 1, 'need_go の送信回数');
-	eq(h.go ?? 0, 1, '全走査（go）の回数');
+	eq(nReq(h), 1, '再走査を頼んだ回数');
+	eq(h['upd_path.send'] ?? 0, 1, 'うち軽い経路（本文を送らない）');
 });
 
 
@@ -93,7 +120,7 @@ it('画像と音声を同時に追加すると updPathJson は2回・全走査�
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
 	ge(h['need_go.req'] ?? 0, 2, 'updPathJson 由来の要求回数（監視ごとに別デバウンス）');
-	eq(h['need_go.send'] ?? 0, 1, 'need_go の送信回数（300ms がまとめる）');
+	eq(nReq(h), 1, '再走査を頼んだ回数（300ms がまとめる）');
 });
 
 // 上のテストが「監視が動いていないから1回」ではないことを示す対照実験。
@@ -114,7 +141,7 @@ it('【対照】1枚ずつ間隔をあけて追加すると、走査は複数回
 
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
-	ge(h['need_go.send'] ?? 0, 2, 'need_go の送信回数（まとまらないはず）');
+	ge(nReq(h), 2, '再走査を頼んだ回数（まとまらないはず）');
 });
 
 
@@ -174,7 +201,7 @@ it('【調査】操作方法ごとの発火イベント一覧', async ()=> {
 		const w = Object.entries(h)
 			.filter(([k])=> k.startsWith('watch.'))
 			.map(([k, v])=> `${k.slice(6)}:${String(v)}`).join(' ') || '(なし)';
-		aRow.push([nm, `${w}  → go:${String(h.go ?? 0)}`]);
+		aRow.push([nm, `${w}  → 再走査:${String(nReq(h))}`]);
 	}
 
 	await sleep(3000);
@@ -241,7 +268,7 @@ it('path.json が変わらない変更では全走査しない', async ()=> {
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
 	// 内容変更なので CRE/DEL は飛ばない＝そもそも updPathJson が走らない想定
-	eq(h.go ?? 0, 0, '内容だけの変更での全走査');
+	eq(nReq(h), 0, '内容だけの変更での再走査');
 });
 
 // (F) の短絡が実際に効く例：追加してすぐ消すと、500ms のデバウンスで
@@ -263,21 +290,83 @@ it('追加してすぐ消すと path.json は同一で、全走査しない', as
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
 	eq(h['path.json.同一'] ?? 0, 1, 'path.json が同一と判定された回数');
-	eq(h.go ?? 0, 0, '全走査の回数（短絡が効いていれば0）');
+	eq(nReq(h), 0, '再走査の回数（短絡が効いていれば0）');
 });
 
+// §3.7 の「支配的なのは LSP 側の全再パース」という見立てを実測で確かめる。
+// 全走査.ms = 走査依頼から analyze_inf まで（本体の読み取り＋往復＋LSP の再パース）
+// scanSrc.ms = そのうち本体がファイルを読んで文字コードを見るまで
+// ⚠️ 落とさない（数字を記録するのが目的）。マシン・VSCode の版で変わる
+it('【調査】全走査は何 ms か（本体の読み取り vs LSP の再パース）', async ()=> {
+	const ws = workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (! ws) throw new Error('ワークスペースが開かれていない');
+	const ext = `${extensions.getExtension(EXT_ID)?.extensionPath ?? ''}/test/mat`;
 
-// === 実行 ===
-
-export async function run(): Promise<void> {
-	let ng = 0;
-	for (const {nm, fnc} of aCase) {
-		try {await fnc(); console.log(`  ok  ${nm}`)}
-		catch (e: unknown) {
-			++ng;
-			console.error(`  NG  ${nm}\n      ${e instanceof Error ? e.message : String(e)}`);
+	// ⚠️ フィクスチャは 4ファイル / 674バイトしかない。実プロジェクトは
+	// 18〜26ファイル / 220〜260KB（手元の全作品を計測）なので、そのままでは
+	// 桁が違って判断に使えない。**実規模のスクリプトを一時的に置いてから測る**
+	// ⚠️ ラベル・マクロ名は**ファイル内で重複させない**。同名を繰り返すと
+	// ラベル重複／マクロ重複の診断が大量に出て、実プロジェクトではありえない
+	// 負荷を測ることになる（一度それで 248ms という数字を出しかけた）
+	const aFpTmp: string[] = [];
+	for (let i = 0; i < 25; ++i) {
+		const a = [
+			`[macro name=m_perf${String(i)} nowarn_unused=true]`,
+			'[ws buf=VOICE canskip=true stop=false][wq][l]',
+			'[endmacro]',
+		];
+		for (let j = 0; j < 100; ++j) {		// 1ファイル約 9KB
+			a.push(
+				`*sec${String(j)}`,
+				'[grp bg=white time=2000 sys_menu=false b_alpha=0]',
+				'　テスト本文です。ここは実プロジェクトと同じくらいの分量にしています。[l][r]',
+				'　二行目の本文。タグと地の文が混ざる実際の書かれ方に寄せています。[l][r]',
+				`[if exp="const.sn.isDebugger"][jump label=*sec${String(j)}][endif]`,
+				'',
+			);
 		}
+		const fp = `${ws}/doc/prj/script/perf${String(i)}.sn`;
+		writeFileSync(fp, a.join('\n'));
+		aFpTmp.push(fp);
 	}
-	console.log(`\n${String(aCase.length -ng)} / ${String(aCase.length)} 件成功`);
-	if (ng > 0) throw new Error(`${String(ng)} 件失敗`);
-}
+	await sleep(6000);		// 追加ぶんの走査が落ち着くまで
+	api.clearTrace();
+
+	// 画像の追加・削除で path.json を実際に変えて、全走査を起こす
+	for (let i = 0; i < 4; ++i) {
+		const fp = `${ws}/doc/prj/pic/perf${String(i)}.png`;
+		copyFileSync(`${ext}/_yesno.png`, fp);
+		await sleep(2500);
+		unlinkSync(fp);
+		await sleep(2500);
+	}
+	for (const fp of aFpTmp) {try {unlinkSync(fp)} catch { /* 消えていてもよい */ }}
+
+	const hMs = api.getTraceMs();
+	const stat = (a: number[] = [])=> a.length === 0
+		? '(記録なし)'
+		: `${String(a.length)}回  中央値 ${String(a.slice().sort((x, y)=> x -y)[a.length >>1])
+			} ms  最小 ${String(Math.min(...a))} / 最大 ${String(Math.max(...a))}`;
+
+	console.log('  ── 全走査の所要時間 ──');
+	console.log(`    全走査.ms   ${stat(hMs['全走査.ms'])}`);
+	console.log(`    scanSrc.ms  ${stat(hMs['scanSrc.ms'])}`);
+	console.log('  ── うち LSP 側の内訳（§3.7(d)-1）──');
+	for (const [k, nm] of [
+		['S.init.ms',  '状態の作り直し(scanInitAll+updPath)'],
+		['S.parse.ms', 'パース(resolveScript)             '],
+		['S.scan.ms',  '検証(scanScript)                  '],
+		['S.nfd.ms',   'scanNFD                           '],
+		['S.diag.ms',  'addDiag                           '],
+		['S.job.ms',   '遅延検証(scanEnd 内 aEndingJob)   '],
+		['S.end.ms',   'scanEnd の残り(集約・一覧・スニペット)'],
+	]) console.log(`    ${nm ?? ''} ${stat(hMs[k ?? ''])}`);
+
+	const a全 = hMs['全走査.ms'] ?? [];
+	const aScan = hMs['scanSrc.ms'] ?? [];
+	if (a全.length === 0) throw new Error('全走査が一度も起きていない（測れていない）');
+	const m全 = a全.reduce((s, v)=> s +v, 0) /a全.length;
+	const mScan = aScan.reduce((s, v)=> s +v, 0) /(aScan.length || 1);
+	console.log(`    ⇒ 本体の読み取りは全体の ${(mScan /m全 *100).toFixed(1)}%`
+		+ `（残り ${(m全 -mScan).toFixed(1)} ms が往復＋LSP の再パース）`);
+});

@@ -6,7 +6,6 @@
 <meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
 <link rel="stylesheet" href="./lib/bootstrap.min.css">
 <link rel="stylesheet" href="./lib/bootstrap2vscode.css">
-<link rel="stylesheet" href="./lib/fontawesome/all.min.css">
 <style>
 .btn {text-transform: none; font-size: 14px;}
 .btn-outline-primary {color: white;}
@@ -24,7 +23,6 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 }
 </style>
 <script defer nonce="${nonce}" src="./lib/bootstrap.bundle.min.js"></script>
-<script defer nonce="${nonce}" src="./lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="./score.js"></script>
 </head>
 <body class="p-0 bg-dark bg-gradient black-text">
@@ -43,7 +41,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<th class="p-1">詳細</th>
 	<th class="p-1">
 		<button id="tglEdit" type="button" class="btn btn-secondary btn-sm py-0">
-			<i class="fas fa-bars"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M16 132h416c8.837 0 16-7.163 16-16V76c0-8.837-7.163-16-16-16H16C7.163 60 0 67.163 0 76v40c0 8.837 7.163 16 16 16zm0 160h416c8.837 0 16-7.163 16-16v-40c0-8.837-7.163-16-16-16H16c-8.837 0-16 7.163-16 16v40c0 8.837 7.163 16 16 16zm0 160h416c8.837 0 16-7.163 16-16v-40c0-8.837-7.163-16-16-16H16c-8.837 0-16 7.163-16 16v40c0 8.837 7.163 16 16 16z"/></svg>
 		</button>
 	</th>
 </tr></thead><tbody>
@@ -51,7 +49,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <tr data-row="0">
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark" draggable="true">
-			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M0 168v-16c0-13.255 10.745-24 24-24h360V80c0-21.367 25.899-32.042 40.971-16.971l80 80c9.372 9.373 9.372 24.569 0 33.941l-80 80C409.956 271.982 384 261.456 384 240v-48H24c-13.255 0-24-10.745-24-24zm488 152H128v-48c0-21.314-25.862-32.08-40.971-16.971l-80 80c-9.372 9.373-9.372 24.569 0 33.941l80 80C102.057 463.997 128 453.437 128 432v-48h360c13.255 0 24-10.745 24-24v-16c0-13.255-10.745-24-24-24z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -63,13 +61,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" id="btn0" draggable="true">
-			<i class="fas fa-exchange-alt" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M0 168v-16c0-13.255 10.745-24 24-24h360V80c0-21.367 25.899-32.042 40.971-16.971l80 80c9.372 9.373 9.372 24.569 0 33.941l-80 80C409.956 271.982 384 261.456 384 240v-48H24c-13.255 0-24-10.745-24-24zm488 152H128v-48c0-21.314-25.862-32.08-40.971-16.971l-80 80c-9.372 9.373-9.372 24.569 0 33.941l80 80C102.057 463.997 128 453.437 128 432v-48h360c13.255 0 24-10.745 24-24v-16c0-13.255-10.745-24-24-24z"/></svg>
 			コール *init
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -77,7 +75,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <tr data-row="1">
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark" draggable="true">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -89,13 +87,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 			初期化設定
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -104,7 +102,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="../envinfo/node_win8.jpg">
 		<button type="button" class="btn btn-success btn-block btn-sm" data-ripple-color="dark">
-			<i class="fas fa-image"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M464 448H48c-26.51 0-48-21.49-48-48V112c0-26.51 21.49-48 48-48h416c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48zM112 120c-30.928 0-56 25.072-56 56s25.072 56 56 56 56-25.072 56-56-25.072-56-56-56zM64 384h384V272l-87.515-87.515c-4.686-4.686-12.284-4.686-16.971 0L208 320l-55.515-55.515c-4.686-4.686-12.284-4.686-16.971 0L64 336v48z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -115,13 +113,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-success btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="modal" data-mdb-target="#sn-grpModal" data-title="背景選択" data-fld="bg">
-			<i class="fas fa-image"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M464 448H48c-26.51 0-48-21.49-48-48V112c0-26.51 21.49-48 48-48h416c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48zM112 120c-30.928 0-56 25.072-56 56s25.072 56 56 56 56-25.072 56-56-25.072-56-56-56zM64 384h384V272l-87.515-87.515c-4.686-4.686-12.284-4.686-16.971 0L208 320l-55.515-55.515c-4.686-4.686-12.284-4.686-16.971 0L64 336v48z"/></svg>
 			石段_昼
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -135,13 +133,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="free04">
 		<button type="button" class="btn btn-info btn-block btn-sm" data-ripple-color="dark" data-mdb-toggle="tooltip" title="fn=free04">
-			<i class="fa fa-play" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M424.4 214.7L72.4 6.6C43.8-10.3 0 6.1 0 47.9V464c0 37.5 40.7 60.1 72.4 41.3l352-208c31.4-18.5 31.5-64.1 0-82.6z"/></svg>
 		</button>
 	</td>
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-info btn-block btn-sm dropdown-toggle px-2 text-start" data-ripple-color="dark" data-mdb-toggle="dropdown" aria-expanded="false">
-			<i class="fa fa-play" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M424.4 214.7L72.4 6.6C43.8-10.3 0 6.1 0 47.9V464c0 37.5 40.7 60.1 72.4 41.3l352-208c31.4-18.5 31.5-64.1 0-82.6z"/></svg>
 			free04
 		</button>
 		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
@@ -220,7 +218,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -230,7 +228,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-start" data-fn="../test/breakpage_b.png">
 		<button type="button" class="btn btn-secondary btn-block btn-sm">
-			<i class="fas fa-user"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -240,7 +238,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-secondary btn-block btn-sm px-2 text-start dropdown-toggle" data-mdb-toggle="dropdown" aria-expanded="false">
-			<i class="fas fa-user"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>
 			諸戸_通常
 		</button>
 		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
@@ -256,7 +254,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -269,7 +267,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm">
-			<i class="fas fa-align-left"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M12.83 352h262.34A12.82 12.82 0 0 0 288 339.17v-38.34A12.82 12.82 0 0 0 275.17 288H12.83A12.82 12.82 0 0 0 0 300.83v38.34A12.82 12.82 0 0 0 12.83 352zm0-256h262.34A12.82 12.82 0 0 0 288 83.17V44.83A12.82 12.82 0 0 0 275.17 32H12.83A12.82 12.82 0 0 0 0 44.83v38.34A12.82 12.82 0 0 0 12.83 96zM432 160H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16zm0 256H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -279,7 +277,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -292,14 +290,14 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm">
-			<i class="fas fa-align-left"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M12.83 352h262.34A12.82 12.82 0 0 0 288 339.17v-38.34A12.82 12.82 0 0 0 275.17 288H12.83A12.82 12.82 0 0 0 0 300.83v38.34A12.82 12.82 0 0 0 12.83 352zm0-256h262.34A12.82 12.82 0 0 0 288 83.17V44.83A12.82 12.82 0 0 0 275.17 32H12.83A12.82 12.82 0 0 0 0 44.83v38.34A12.82 12.82 0 0 0 12.83 96zM432 160H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16zm0 256H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16z"/></svg>
 		</button>
 	</td>
 	<td></td>
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-mdb-toggle="dropdown" aria-expanded="false">
-			<i class="fas fa-align-left"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M12.83 352h262.34A12.82 12.82 0 0 0 288 339.17v-38.34A12.82 12.82 0 0 0 275.17 288H12.83A12.82 12.82 0 0 0 0 300.83v38.34A12.82 12.82 0 0 0 12.83 352zm0-256h262.34A12.82 12.82 0 0 0 288 83.17V44.83A12.82 12.82 0 0 0 275.17 32H12.83A12.82 12.82 0 0 0 0 44.83v38.34A12.82 12.82 0 0 0 12.83 96zM432 160H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16zm0 256H16a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16z"/></svg>
 			改ページ待ち
 		</button>
 		<div class="dropdown-menu col-xxl-4 col-sm-6 col-12">
@@ -325,7 +323,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -333,7 +331,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 <tr data-row="7">
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm" data-ripple-color="dark">
-			<i class="fas fa-hourglass-start" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 384 512" aria-hidden="true"><path d="M360 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24 0 90.965 51.016 167.734 120.842 192C75.016 280.266 24 357.035 24 448c-13.255 0-24 10.745-24 24v16c0 13.255 10.745 24 24 24h336c13.255 0 24-10.745 24-24v-16c0-13.255-10.745-24-24-24 0-90.965-51.016-167.734-120.842-192C308.984 231.734 360 154.965 360 64c13.255 0 24-10.745 24-24V24c0-13.255-10.745-24-24-24zm-64 448H88c0-77.458 46.204-144 104-144 57.786 0 104 66.517 104 144z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -345,13 +343,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-primary btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-mdb-toggle="tooltip" title="時間待ち　time=2000　canskip=true">
-			<i class="fas fa-hourglass-start" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 384 512" aria-hidden="true"><path d="M360 0H24C10.745 0 0 10.745 0 24v16c0 13.255 10.745 24 24 24 0 90.965 51.016 167.734 120.842 192C75.016 280.266 24 357.035 24 448c-13.255 0-24 10.745-24 24v16c0 13.255 10.745 24 24 24h336c13.255 0 24-10.745 24-24v-16c0-13.255-10.745-24-24-24 0-90.965-51.016-167.734-120.842-192C308.984 231.734 360 154.965 360 64c13.255 0 24-10.745 24-24V24c0-13.255-10.745-24-24-24zm-64 448H88c0-77.458 46.204-144 104-144 57.786 0 104 66.517 104 144z"/></svg>
 			2000ms
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -366,18 +364,18 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-warning btn-block btn-sm" data-ripple-color="dark">
-			<i class="fas fa-bell"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 512c35.32 0 63.97-28.65 63.97-64H160.03c0 35.35 28.65 64 63.97 64zm215.39-149.71c-19.32-20.76-55.47-51.99-55.47-154.29 0-77.7-54.48-139.9-127.94-155.16V32c0-17.67-14.32-32-31.98-32s-31.98 14.33-31.98 32v20.84C118.56 68.1 64.08 130.3 64.08 208c0 102.3-36.15 133.53-55.47 154.29-6 6.45-8.66 14.16-8.61 21.71.11 16.4 12.98 32 32.1 32h383.8c19.12 0 32-15.6 32.1-32 .05-7.55-2.61-15.27-8.61-21.71z"/></svg>
 		</button>
 	</td>
 	<td class="p-0">
 		<button type="button" class="btn btn-warning btn-block btn-sm px-2 text-start" data-ripple-color="dark" data-toggle="modal" data-target="#sn-rid5_h1Modal">
-			<i class="fas fa-bell"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 512c35.32 0 63.97-28.65 63.97-64H160.03c0 35.35 28.65 64 63.97 64zm215.39-149.71c-19.32-20.76-55.47-51.99-55.47-154.29 0-77.7-54.48-139.9-127.94-155.16V32c0-17.67-14.32-32-31.98-32s-31.98 14.33-31.98 32v20.84C118.56 68.1 64.08 130.3 64.08 208c0 102.3-36.15 133.53-55.47 154.29-6 6.45-8.66 14.16-8.61 21.71.11 16.4 12.98 32 32.1 32h383.8c19.12 0 32-15.6 32.1-32 .05-7.55-2.61-15.27-8.61-21.71z"/></svg>
 			退場音
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -387,7 +385,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-end">
 		<button type="button" class="btn btn-outline-secondary btn-block btn-sm" data-ripple-color="dark">
-			<i class="fas fa-user"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -397,13 +395,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-outline-secondary btn-block btn-sm px-2 text-start" data-ripple-color="dark">
-			<i class="fas fa-user"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>
 			(退場)
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -412,7 +410,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-end">
 		<button type="button" class="btn btn-outline-success btn-block btn-sm" data-ripple-color="dark">
-			<i class="fas fa-image"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M464 448H48c-26.51 0-48-21.49-48-48V112c0-26.51 21.49-48 48-48h416c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48zM112 120c-30.928 0-56 25.072-56 56s25.072 56 56 56 56-25.072 56-56-25.072-56-56-56zM64 384h384V272l-87.515-87.515c-4.686-4.686-12.284-4.686-16.971 0L208 320l-55.515-55.515c-4.686-4.686-12.284-4.686-16.971 0L64 336v48z"/></svg>
 		</button>
 	</td>
 	<td></td>
@@ -423,13 +421,13 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-outline-success btn-block btn-sm px-2 text-start" data-ripple-color="dark">
-			<i class="fas fa-image"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M464 448H48c-26.51 0-48-21.49-48-48V112c0-26.51 21.49-48 48-48h416c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48zM112 120c-30.928 0-56 25.072-56 56s25.072 56 56 56 56-25.072 56-56-25.072-56-56-56zM64 384h384V272l-87.515-87.515c-4.686-4.686-12.284-4.686-16.971 0L208 320l-55.515-55.515c-4.686-4.686-12.284-4.686-16.971 0L64 336v48z"/></svg>
 			(消去)
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -443,18 +441,18 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0 sn-cmb-end">
 		<button type="button" class="btn btn-outline-info btn-block btn-sm" data-ripple-color="dark">
-			<i class="fa fa-chevron-down" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M207.029 381.476L12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z"/></svg>
 		</button>
 	</td>
 	<td></td>
 	<td class="p-0">
 		<button type="button" class="btn btn-outline-info btn-block btn-sm px-2 text-start" data-ripple-color="dark">
-			<i class="fa fa-chevron-down" aria-hidden="true"></i> 1000ms
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M207.029 381.476L12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z"/></svg> 1000ms
 		</button>
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -475,7 +473,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	</td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -492,7 +490,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -509,7 +507,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -526,7 +524,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -543,7 +541,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -560,7 +558,7 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<td></td>
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			<svg class="fa-i" viewBox="0 0 352 512" aria-hidden="true"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></svg>
 		</button>
 	</div></td>
 </tr>
@@ -614,19 +612,19 @@ th {	/* 縦スクロール時にヘッダー行を固定 */
 	<div class="modal-body">
 		
 		<button type="button" class="btn btn-secondary">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 			時間待ち
 		</button>
 		<button type="button" class="btn btn-secondary">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 			ＡＡＡＡ
 		</button>
 		<button type="button" class="btn btn-secondary">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 			ＢＢＢＢ
 		</button>
 		<button type="button" class="btn btn-secondary">
-			<i class="fa fa-cog" aria-hidden="true"></i>
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M487.4 315.7l-42.6-24.6c4.3-23.2 4.3-47 0-70.2l42.6-24.6c4.9-2.8 7.1-8.6 5.5-14-11.1-35.6-30-67.8-54.7-94.6-3.8-4.1-10-5.1-14.8-2.3L380.8 110c-17.9-15.4-38.5-27.3-60.8-35.1V25.8c0-5.6-3.9-10.5-9.4-11.7-36.7-8.2-74.3-7.8-109.2 0-5.5 1.2-9.4 6.1-9.4 11.7V75c-22.2 7.9-42.8 19.8-60.8 35.1L88.7 85.5c-4.9-2.8-11-1.9-14.8 2.3-24.7 26.7-43.6 58.9-54.7 94.6-1.7 5.4.6 11.2 5.5 14L67.3 221c-4.3 23.2-4.3 47 0 70.2l-42.6 24.6c-4.9 2.8-7.1 8.6-5.5 14 11.1 35.6 30 67.8 54.7 94.6 3.8 4.1 10 5.1 14.8 2.3l42.6-24.6c17.9 15.4 38.5 27.3 60.8 35.1v49.2c0 5.6 3.9 10.5 9.4 11.7 36.7 8.2 74.3 7.8 109.2 0 5.5-1.2 9.4-6.1 9.4-11.7v-49.2c22.2-7.9 42.8-19.8 60.8-35.1l42.6 24.6c4.9 2.8 11 1.9 14.8-2.3 24.7-26.7 43.6-58.9 54.7-94.6 1.5-5.5-.7-11.3-5.6-14.1zM256 336c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80z"/></svg>
 			ＣＣＣＣ
 		</button>
 		

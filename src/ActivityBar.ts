@@ -7,12 +7,13 @@
 
 import type {T_TMPWIZ} from './types';
 import {chkBun, is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {T_BOOT, traceMs} from './Trace';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
-import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, workspace, env, ConfigurationTarget} from 'vscode';
+import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, workspace, env, ConfigurationTarget, extensions} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
@@ -34,9 +35,22 @@ const URL_EXT_RELEASES = `https://github.com/${REPO_EXT}/releases`;
 const KEY_SKIP_EXT_VER = 'skynovel.notifiedExtVer';	// 同じ版で繰り返し通知しない
 const CFG_CHK_EXT_VER = 'skynovel.chkExtUpdate';
 
-/** 「4.31.1」を比較可能な数値に。compare-versions は Windows10 で不具合が出たので手作り */
+// Marketplace 削除により、再公開は新しい extension name になった（TODO §3.5）。
+// 旧 ID は復活しないので、この2つは**別の拡張機能として共存できてしまう**
+const ID_OLD_EXT = 'famibee2.skynovel2';
+
+/**
+ * 「4.31.1」を比較可能な数値に。`v` 接頭辞にも対応。
+ * compare-versions は Windows10 で不具合が出たので手作り。
+ *
+ * ⚠️ **数字以外は落とす。** `v5.0.0-rc1` のような綴りだと `Number('0-rc1')` が
+ * NaN になり、`NaN <= x` が false なので**全利用者に「新版あり」と誤通知**する。
+ * Marketplace は `major.minor.patch` しか許さないので本来そうならないが、
+ * タグの打ち間違い1回で起きるため、ここで吸収する
+ */
 function verNum(ver: string): number {
-	const [a=0, b=0, c=0] = ver.replace(/^v/, '').split('.').map(Number);
+	const [a=0, b=0, c=0] = ver.replace(/^v/, '').split('.')
+		.map(s=> Number(/^\d+/.exec(s)?.[0] ?? 0));
 	return a *1_000_000 + b *1_000 + c;
 }
 
@@ -140,6 +154,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
 				commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
 			);
+			// ここまでで利用者はツリーもコマンドも使える（§4.5 起動時間の実測）
+			traceMs('起動.操作可能まで.ms', performance.now() - T_BOOT);
 
 			// 環境確認は start() と並行に。start() は中で bun の有無を待つが、
 			// これは chkBun() で結果を共有するので二重に exec しない
@@ -153,9 +169,11 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 			// 拡張機能自身の更新確認（通知のみ）。通知はボタンを押すまで
 			// 解決しないので、起動の待ち合わせには入れない
 			void this.#chkLastExtVer();
+			void this.#chkOldExt();
 
 			await this.#workSps.start();
 			await Promise.allSettled([pEnv, pDoc, pTb]);
+			traceMs('起動.環境確認まで.ms', performance.now() - T_BOOT);
 		})
 		.catch((e: unknown)=> console.error('fn:ActivityBar.ts constructor %o', e))
 	}
@@ -352,6 +370,37 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 		const ret: TreeItem[] = [];
 		if (t.label === 'Node.js') ActivityBar.#hEnv.NODE.ti.iconPath = oIcon(ActivityBar.#hEnv.NODE.ready ?'node-js-brands' :'error');
 		return ret;
+	}
+
+	//MARK: 旧版の同居検出
+	/**
+	 * 旧版（`famibee2.skynovel2`）が入ったままなら警告する。
+	 *
+	 * Marketplace から削除された拡張機能の ID は復活しないため、再公開は
+	 * **新しい extension name** になった（TODO §3.5）。結果、旧版と新版は
+	 * VSCode から見て別の拡張機能で、**両方インストールできてしまう**。
+	 * どちらも同じコマンド ID・ビュー ID を登録するので衝突する。
+	 *
+	 * 移行案内に書くだけでは読まれないので、実際に同居していたら知らせる。
+	 * **記録して黙らせることはしない**（衝突は続いているのだから、
+	 * 解消されるまで毎回出てよい）。
+	 *
+	 * ⚠️ **アンインストールはこちらから行わない。** 拡張機能の導入・削除を
+	 * 自動で行わないのがこのプロジェクトの方針（TODO §5）。
+	 * 拡張機能ビューを開くところまでで、押すのは利用者
+	 */
+	async #chkOldExt() {
+		if (! extensions.getExtension(ID_OLD_EXT)) return;
+
+		const OPEN = '拡張機能ビューを開く';
+		const a = await window.showWarningMessage(
+			`旧版の拡張機能（${ID_OLD_EXT}）が入ったままです。`
+			+ 'コマンドとビューが衝突して誤動作するので、旧版をアンインストールしてください。',
+			OPEN,
+		);
+		if (a === OPEN) await commands.executeCommand(
+			'workbench.extensions.search', '@installed skynovel',
+		);
 	}
 
 	//MARK: 拡張機能自身の更新確認

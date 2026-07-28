@@ -6,9 +6,7 @@
 <meta_autooff http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};"/>
 <link rel="stylesheet" href="./lib/bootstrap.min.css">
 <link rel="stylesheet" href="./lib/bootstrap2vscode.css">
-<link rel="stylesheet" href="./lib/fontawesome/all.min.css">
 <script defer nonce="${nonce}" src="./lib/bootstrap.bundle.min.js"></script>
-<script defer nonce="${nonce}" src="./lib/fontawesome/all.min.js"></script>
 <script defer nonce="${nonce}" src="./toolbox.js"></script>
 <style>
 
@@ -34,22 +32,22 @@
 	<!-- レイヤツリー -->
 	<div class="list-group" role="tablist">
 		<a class="list-group-item list-group-item-action active" id="list-base-list" data-bs-toggle="list" href="#list-base" role="tab" aria-controls="base">
-			<i class="fas fa-image"></i> base
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M464 448H48c-26.51 0-48-21.49-48-48V112c0-26.51 21.49-48 48-48h416c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48zM112 120c-30.928 0-56 25.072-56 56s25.072 56 56 56 56-25.072 56-56-25.072-56-56-56zM64 384h384V272l-87.515-87.515c-4.686-4.686-12.284-4.686-16.971 0L208 320l-55.515-55.515c-4.686-4.686-12.284-4.686-16.971 0L64 336v48z"/></svg> base
 		</a>
 		<a class="list-group-item list-group-item-action" id="list-0-list" data-bs-toggle="list" href="#list-0" role="tab" aria-controls="0">
-			<i class="fas fa-user"></i> 0
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg> 0
 		</a>
 		<a class="list-group-item list-group-item-action" id="list-1-list" data-bs-toggle="list" href="#list-1" role="tab" aria-controls="1">
-			<i class="fas fa-user"></i> 1
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg> 1
 		</a>
 		<a class="list-group-item list-group-item-action" id="list-2-list" data-bs-toggle="list" href="#list-2" role="tab" aria-controls="2">
-			<i class="fas fa-user"></i> 2
+			<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg> 2
 		</a>
 		<a class="list-group-item list-group-item-action" id="list-mes-list" data-bs-toggle="list" href="#list-mes" role="tab" aria-controls="mes">
-			<i class="far fa-comment"></i> mes
+			<svg class="fa-i" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 32C114.6 32 0 125.1 0 240c0 47.6 19.9 91.2 52.9 126.3C38 405.7 7 439.1 6.5 439.5c-6.6 7-8.4 17.2-4.6 26S14.4 480 24 480c61.5 0 110-25.7 139.1-46.3C192 442.8 223.2 448 256 448c141.4 0 256-93.1 256-208S397.4 32 256 32zm0 368c-26.7 0-53.1-4.1-78.4-12.1l-22.7-7.2-19.5 13.8c-14.3 10.1-33.9 21.4-57.5 29 7.3-12.1 14.4-25.7 19.9-40.2l10.6-28.1-20.6-21.8C69.7 314.1 48 282.2 48 240c0-88.2 93.3-160 208-160s208 71.8 208 160-93.3 160-208 160z"/></svg> mes
 		</a>
 			<a class="list-group-item list-group-item-action" id="list-mes_btn-list" data-bs-toggle="list" href="#list-mes_btn" role="tab" aria-controls="mes_btn">
-				　<i class="far fa-hand-point-down"></i> ボタン
+				　<svg class="fa-i" viewBox="0 0 448 512" aria-hidden="true"><path d="M188.8 512c45.616 0 83.2-37.765 83.2-83.2v-35.647a93.148 93.148 0 0 0 22.064-7.929c22.006 2.507 44.978-3.503 62.791-15.985C409.342 368.1 448 331.841 448 269.299V248c0-60.063-40-98.512-40-127.2v-2.679c4.952-5.747 8-13.536 8-22.12V32c0-17.673-12.894-32-28.8-32H156.8C140.894 0 128 14.327 128 32v64c0 8.584 3.048 16.373 8 22.12v2.679c0 6.964-6.193 14.862-23.668 30.183l-.148.129-.146.131c-9.937 8.856-20.841 18.116-33.253 25.851C48.537 195.798 0 207.486 0 252.8c0 56.928 35.286 92 83.2 92 8.026 0 15.489-.814 22.4-2.176V428.8c0 45.099 38.101 83.2 83.2 83.2zm0-48c-18.7 0-35.2-16.775-35.2-35.2V270.4c-17.325 0-35.2 26.4-70.4 26.4-26.4 0-35.2-20.625-35.2-44 0-8.794 32.712-20.445 56.1-34.926 14.575-9.074 27.225-19.524 39.875-30.799 18.374-16.109 36.633-33.836 39.596-59.075h176.752C364.087 170.79 400 202.509 400 248v21.299c0 40.524-22.197 57.124-61.325 50.601-8.001 14.612-33.979 24.151-53.625 12.925-18.225 19.365-46.381 17.787-61.05 4.95V428.8c0 18.975-16.225 35.2-35.2 35.2zM328 64c0-13.255 10.745-24 24-24s24 10.745 24 24-10.745 24-24 24-24-10.745-24-24z"/></svg> ボタン
 			</a>
 	</div>
 	</div><div class="col-12 col-sm-8 col-lg-9 col-xl-10">
@@ -103,7 +101,7 @@
 </div>
 <div class="col-12 col-sm-6 col-lg-3 col-xl-2 mb-2">
 	<div class="sn_select">
-	<i class="fas fa-angle-down sn_select_v"></i>
+	<svg class="fa-i sn_select_v" viewBox="0 0 320 512" aria-hidden="true"><path d="M143 352.3L7 216.3c-9.4-9.4-9.4-24.6 0-33.9l22.6-22.6c9.4-9.4 24.6-9.4 33.9 0l96.4 96.4 96.4-96.4c9.4-9.4 24.6-9.4 33.9 0l22.6 22.6c9.4 9.4 9.4 24.6 0 33.9l-136 136c-9.2 9.4-24.4 9.4-33.8 0z"/></svg>
 	<select class="form-select form-select-sm mb-3" aria-label=".form-select-sm example">
 		<option selected>Open this select menu</option>
 		<option value="1">One</option>

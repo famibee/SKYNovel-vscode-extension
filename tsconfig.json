@@ -5,6 +5,8 @@
 		"lib": ["esnext","DOM"],
 		"module": "esnext",
 		"types": ["bun", "vscode-webview"],
+			// mocha は全体に効かせない（it/describe が全ソースで生えてしまう）。
+			// 要るのは統合テストだけなので test/int/suite.ts が自分で参照する
 			// vscode-webview は views/ の acquireVsCodeApi() の型。types を明示すると
 			// @types/* の自動取り込みが止まるので、必要なものはここに並べる
 
@@ -72,7 +74,7 @@
 		/* Other */
 		"incremental": true			// 差分ビルド
 	},
-	"include": ["src/**/*", "views/**/*", "test/**/*", "build.ts", "release_chk.ts", "eslint.config.mts"],
+	"include": ["src/**/*", "views/**/*", "test/**/*", "tools/**/*.ts", "eslint.config.mts"],
 		// eslint.config.mts をどのプロジェクトにも入れないと import.meta.dirname が
 		// 未定義扱いになる（bun-types が ImportMeta.dirname を宣言している）
 	"exclude": ["node_modules",".vscode-test","views/lib"]

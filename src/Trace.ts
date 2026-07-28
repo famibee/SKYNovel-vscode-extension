@@ -19,6 +19,12 @@
 import {writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 
+/**
+ * 拡張機能が読み込まれた時刻。**このモジュールの評価＝バンドルのロード開始**なので、
+ * ここを起点にすれば「利用者が待たされている時間」に近いものが測れる
+ */
+export const T_BOOT = performance.now();
+
 const mCnt = new Map<string, number>();
 let on = false;
 
@@ -32,7 +38,7 @@ let tm: ReturnType<typeof setTimeout> | undefined;
 function dump() {		// 連続するので少しまとめる
 	clearTimeout(tm);
 	tm = setTimeout(()=> {
-		try {writeFileSync(FP_TRACE, JSON.stringify(getTraceCnt()))}
+		try {writeFileSync(FP_TRACE, JSON.stringify({...getTraceCnt(), ...getTraceMs()}))}
 		catch { /* 書けなくても本体の動作には関係ない */ }
 	}, 300);
 }
@@ -53,13 +59,34 @@ export function trace(key: string, mes = '') {
 	dump();
 }
 
+/**
+ * 所要時間を記録する。**回数（`trace()`）と違い、値そのものに意味がある**もの用。
+ * 「LSP の全再パースが何 ms か」のような、推定ではなく実測が要る判断に使う。
+ * 同じ key で何度も呼べる（全部残す。ばらつきを見るため）
+ */
+const mMs = new Map<string, number[]>();
+export function traceMs(key: string, ms: number) {
+	const a = mMs.get(key) ?? [];
+	a.push(Math.round(ms *10) /10);
+	mMs.set(key, a);
+	if (! on) return;
+
+	console.error(`[trace] ${key} ${ms.toFixed(1)}ms`);
+	dump();
+}
+
 /** 統合テストから読む用。activate() の戻り値経由で公開している */
 export function getTraceCnt(): {[key: string]: number} {
 	return Object.fromEntries(mCnt);
 }
 
+/** 所要時間の記録を読む用。key ごとに実測値の配列 */
+export function getTraceMs(): {[key: string]: number[]} {
+	return Object.fromEntries(mMs);
+}
+
 /** 統合テストのケース間で 0 に戻す用 */
-export function clearTrace() {mCnt.clear(); if (on) dump()}
+export function clearTrace() {mCnt.clear(); mMs.clear(); if (on) dump()}
 
 /**
  * 手動確認用。ログに区切りを入れて計数を 0 に戻す。

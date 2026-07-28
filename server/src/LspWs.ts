@@ -80,6 +80,24 @@ type T_L2S_ready = {
 export type T_L2S_go_res = T_SCAN_SRC & {
 	cmd		: 'go.res';
 };
+/**
+ * **path.json だけが変わったときの軽い再走査**（§3.7(d)-2）。
+ *
+ * スクリプト本文（実測で送信物の 97.8%・約177KB）を送らない。S は保持済みの
+ * `#hPp2Scr`（本文＋パース結果）を使い、**パースを飛ばして検証だけやり直す**。
+ *
+ * 実測（25ファイル）：全走査 125.9ms のうち
+ * C の読み取り 9.8ms ＋ IPC 約34ms ＋ パース 4.3ms が消える見込み。
+ *
+ * ⚠️ **スクリプトの追加削除では使えない**（S が本文を持っていないため）。
+ * C 側は 300ms のまとめの中に本文の変化が1件でも混ざったら `need_go` に落とす
+ */
+export type T_L2S_upd_path = {
+	cmd			: 'upd_path';
+	sPathJson	: string;
+	hDefPlg		: {[def_nm: string]: PluginDef};
+	haDiag		: T_H_ADIAG_L2S;
+};
 	export type T_H_ADIAG = {
 		mes: string,
 		sev: 'E'|'W'|'I'|'H',
@@ -111,6 +129,7 @@ export type T_L2S_upd_diag = {
 export type T_ALL_L2S
 	= T_L2S_ready
 	| T_L2S_go_res
+	| T_L2S_upd_path
 	| T_L2S_def_plg_upd
 	| T_L2S_need_go
 	| T_L2S_onchg_scr
@@ -142,8 +161,26 @@ type T_S2L_go = T_S2L_WS & {
 	// InfFont は載せない。拡張機能は走査完了時の analyze_inf で受け取るので、
 	// ここで渡しても初回は初期値（空）、以降は前回分の重複だった
 };
+/**
+ * `#scanAll()` の所要時間の内訳（ms）。§3.7(d)-1 の測定用。
+ *
+ * S に fs を持たせない方針は保ったまま計時だけ足している（`performance` のみ）。
+ * C 側で `traceMs` に載せ、統合テストから読めるようにする。
+ * **「パースが支配的か、検証が支配的か」で改修の可否が変わる**ため、
+ * 推定ではなく実測が要る
+ */
+export type T_MS_SCAN = {
+	init	: number;	// #scanBegin + #scanInitAll + #updPath（状態の作り直し）
+	parse	: number;	// #grm.resolveScript（パース）
+	scan	: number;	// #scanScript（検証・診断・シンボル）
+	nfd		: number;	// #scanNFD
+	diag	: number;	// #addDiag
+	job		: number;	// #scanEnd 内の #aEndingJob（**遅延された検証の本体**）
+	end		: number;	// #scanEnd の残り（キーワード集約・マクロ一覧・スニペット）
+};
 type T_S2L_analyze_inf = T_S2L_WS & {
 	cmd		: 'analyze_inf';
+	msScan	: T_MS_SCAN;
 	aQuickPickMac	: T_QuickPickItemEx[];
 	aQuickPickPlg	: T_QuickPickItemEx[];
 	aExt2Snip		: T_aExt2Snip;
@@ -758,6 +795,7 @@ ${sum}`,
 		'go.res'		: (o: T_L2S_go_res)=> this.#scanAll(o),	// 終了時に 'analyze_inf'
 		'def_plg.upd'	: (o: T_L2S_def_plg_upd)=> {this.#hDefPlugin = o.hDefPlugin},
 		'need_go'		: ()=> this.#noticeGo(),
+		'upd_path'		: (o: T_L2S_upd_path)=> this.#reScanPath(o),	// 終了時に 'analyze_inf'
 
 		// 開いてないのに変更する、主に setting.sn 用
 		'onchg_scr'	: ({pp2s}: T_L2S_onchg_scr)=> this.#onChgScripts(pp2s),
@@ -791,8 +829,12 @@ ${sum}`,
 		this.#scanNFD(pp, document.getText());
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
+		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
+		// つまり「検証」の実体の一部はこのループにある（§3.7(d)-3 の測定用に分ける）
+		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];
+		this.#msScan.job = performance.now() - tJob;
 
 		const aOld = this.#fp2Diag[fp];
 		if (aOld) {
@@ -852,7 +894,7 @@ ${sum}`,
 		for (const [pp, s] of Object.entries(pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
 
-			this.#hScript[pp] = this.#grm.resolveScript(s);
+			this.#hPp2Scr[pp] = {s, scr: this.#grm.resolveScript(s)};
 			const fp = this.#pp2fp(pp);
 			this.#scanScript(fp);
 
@@ -1509,32 +1551,96 @@ WorkspaceEdit
 
 	// =======================================
 	#oCfg = creCFG();
+	/** 直近の `#scanAll()` の内訳（ms）。`analyze_inf` で C へ送る */
+	#msScan: T_MS_SCAN = {init: 0, parse: 0, scan: 0, nfd: 0, diag: 0, job: 0, end: 0};
+	/** `#scanEnd()` に入った時刻。送る直前に `end` を埋めるため */
+	#tScanEnd = 0;
+
 	#scanAll({pp2s, hDefPlg, haDiag}: T_SCAN_SRC) {
 		this.#oCfg = <T_CFG>JSON.parse(pp2s['prj.json'] ?? '{}');
 		this.#grm.setEscape(this.#oCfg?.init?.escape ?? '');
 
 		this.#hDefPlugin = hDefPlg;
 
-		//console.log(`fn:LspWs.ts #scanAll() 1: #scanBegin()`);
+		const ms: T_MS_SCAN = {init: 0, parse: 0, scan: 0, nfd: 0, diag: 0, job: 0, end: 0};
+		const now = ()=> performance.now();
+		let t = now();
+
 		this.#scanBegin();
-		//console.log(`fn:LspWs.ts #scanAll() 2: #scanInitAll()`);
 		this.#scanInitAll();
-		//console.log(`fn:LspWs.ts #scanAll() 3: #updPath()`);
 		this.#updPath(pp2s['path.json'] ?? '{}');	// 必ず #scanInitAll() 後
-		//console.log(`fn:LspWs.ts #scanAll() 4: #scanScript()`);
+		ms.init = now() - t;
+
+		// 消えたスクリプトの残骸を持ち越さないよう、毎回作り直す
+		// （本文とパース結果が同じ Map なので、片方だけ残ることがない）
+		this.#hPp2Scr = {};
 		for (const [pp, s] of Object.entries(pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
 
-			this.#hScript[pp] = this.#grm.resolveScript(s);
+			t = now();
+			this.#hPp2Scr[pp] = {s, scr: this.#grm.resolveScript(s)};
+			ms.parse += now() - t;
+
+			t = now();
 			const fp = this.#pp2fp(pp);
 			this.#scanScript(fp);
+			ms.scan += now() - t;
 
+			t = now();
 			this.#scanNFD(pp, s);
+			ms.nfd += now() - t;
 		}
+
+		t = now();
 		this.#addDiag(haDiag);
-		//console.log(`fn:LspWs.ts #scanAll() 8: #scanEnd()`);
+		ms.diag = now() - t;
+
+		// ⚠️ `#scanEnd()` の**中で** analyze_inf を送るので、先に代入しておく。
+		// `end`（#scanEnd 自身の時間）だけは送る直前に埋める
+		this.#msScan = ms;
+		this.#tScanEnd = now();
 		this.#scanEnd();
-		//console.log(`fn:LspWs.ts #scanAll() 9:`);
+	}
+
+	/**
+	 * path.json だけが変わったときの再走査。**本文を受け取らない**。
+	 *
+	 * `#scanAll()` との違いは **`#grm.resolveScript()` を呼ばない**ことだけ。
+	 * 保持済みの `#hPp2Scr` をそのまま使う（`#scanInitAll()` は `#hPp2Scr` を
+	 * 消さないので安全。確認済み）。
+	 *
+	 * 検証（`#scanScript`）はやり直す。path.json のファイル名キーワードに
+	 * 依存しているので飛ばせない
+	 */
+	#reScanPath({sPathJson, hDefPlg, haDiag}: T_L2S_upd_path) {
+		this.#hDefPlugin = hDefPlg;
+
+		const ms: T_MS_SCAN = {init: 0, parse: 0, scan: 0, nfd: 0, diag: 0, job: 0, end: 0};
+		const now = ()=> performance.now();
+		let t = now();
+
+		this.#scanBegin();
+		this.#scanInitAll();
+		this.#updPath(sPathJson);		// 必ず #scanInitAll() 後
+		ms.init = now() - t;
+
+		for (const [pp, {s}] of Object.entries(this.#hPp2Scr)) {
+			t = now();
+			this.#scanScript(this.#pp2fp(pp));
+			ms.scan += now() - t;
+
+			t = now();
+			this.#scanNFD(pp, s);
+			ms.nfd += now() - t;
+		}
+
+		t = now();
+		this.#addDiag(haDiag);
+		ms.diag = now() - t;
+
+		this.#msScan = ms;
+		this.#tScanEnd = now();
+		this.#scanEnd();
 	}
 		#updPath(sJson: string) {
 			this.#hPathFn2Exts = {};
@@ -1628,8 +1734,12 @@ WorkspaceEdit
 
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
+		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
+		// つまり「検証」の実体の一部はこのループにある（§3.7(d)-3 の測定用に分ける）
+		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];
+		this.#msScan.job = performance.now() - tJob;
 
 
 		// == 情報集積ここまで、結果からDB作成系
@@ -1638,7 +1748,7 @@ WorkspaceEdit
 		// @@@引用
 		for (const [ppBase, setPp] of Object.entries(this.#pp2SetQuotePp)) {
 			setPp.forEach(pp=> {
-				const scr = this.#hScript[ppBase];
+				const scr = this.#hPp2Scr[ppBase]?.scr;
 				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 				if (! scr) {delete this.#pp2AQuoteInlayHint[pp]; return;}
 
@@ -1760,6 +1870,13 @@ WorkspaceEdit
 		this.#sendRequest({
 			cmd: 'analyze_inf', pathWs: '',
 
+			// `end` は #scanEnd 全体から `job`（遅延検証）を引いた残り。
+			// そうしないと二重に数えて合計が全走査を超える
+			msScan	: {
+				...this.#msScan,
+				end: performance.now() - this.#tScanEnd - this.#msScan.job,
+			},
+
 			aQuickPickMac	: Object.entries(this.#hDefMacro)
 			.map(([nm, {sum, loc: {uri}}])=> ({
 		//	.map(([nm, {sum, loc: {uri, range}}])=> (<T_QuickPickItemEx>{
@@ -1801,7 +1918,22 @@ WorkspaceEdit
 	readonly	#hDiagMes = H_DIAG_MES;
 
 
-	#hScript		: {[pp: PROJECT_PATH]: Script}	= {};
+	/**
+	 * スクリプトの**スナップショット**。本文とパース結果を**必ず対で**持つ。
+	 *
+	 * - `s`   … 本文。`upd_path`（本文を送らない再走査）の `#scanNFD()` に要る
+	 * - `scr` … `s` をパースした結果
+	 *
+	 * ⚠️ **別々の Map にしない。** 以前は `#hScript` と `#hPp2S` に分かれており、
+	 * 全走査で片方（本文）だけ作り直していたため、**削除されたスクリプトの
+	 * パース結果が `#hScript` に残り続けていた**。
+	 *
+	 * ⚠️ **`TextDocuments`（開いているファイル）で代用しない。** あちらは
+	 * 編集中の最新テキストなので、`scr` をパースした時点のスナップショットと
+	 * ずれる。位置情報が食い違い、診断が別の場所を指す。
+	 * 二重に持つのは**同じ瞬間の内容であることを保証するため**（実測 25ファイルで約177KB）
+	 */
+	#hPp2Scr		: {[pp: PROJECT_PATH]: {s: string, scr: Script}}	= {};
 
 	#hDefPlugin		: {[nm: string]: PluginDef}		= {};
 	#hDefMacro		: {[nm: string]: MacroDef}		= {};
@@ -2104,7 +2236,7 @@ WorkspaceEdit
 
 		const p = {line: 0, character: 0};
 		try {
-			const {aLNum, aToken} = this.#hScript[pp] ?? {aLNum: [], aToken: []};
+			const {aLNum, aToken} = this.#hPp2Scr[pp]?.scr ?? {aLNum: [], aToken: []};
 			aToken.forEach((token, i)=> {
 				aLNum[i] = p.line;
 				if (token === '') return;

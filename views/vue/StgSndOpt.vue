@@ -9,7 +9,7 @@
 
 <div class="col-6 col-sm-3 px-1 sn_select">
 	<label for="cnv.mat.snd.codec" class="form-label">音声コーデック</label>
-	<i class="fas fa-angle-down sn_select_v"></i>
+	<svg class="fa-i sn_select_v" viewBox="0 0 320 512" aria-hidden="true"><path d="M143 352.3L7 216.3c-9.4-9.4-9.4-24.6 0-33.9l22.6-22.6c9.4-9.4 24.6-9.4 33.9 0l96.4 96.4 96.4-96.4c9.4-9.4 24.6-9.4 33.9 0l22.6 22.6c9.4 9.4 9.4 24.6 0 33.9l-136 136c-9.2 9.4-24.4 9.4-33.8 0z"/></svg>
 	<select id="cnv.mat.snd.codec" class="form-select form-select-sm mb-3" aria-label=".form-select-sm example" v-model="oWss['cnv.mat.snd.codec']">
 		<option value="opus" selected>(.m4a) Opus</option>
 		<option value="aac">(.aac) Advanced Audio Coding</option>

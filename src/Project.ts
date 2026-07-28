@@ -15,7 +15,7 @@ import type {TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
 import type {QuickPickItemEx} from './WorkSpaces';
 import {mkTagPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
-import {trace} from './Trace';
+import {T_BOOT, trace, traceMs} from './Trace';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, type T_Fn2Path} from './ConfigBase';
 import type {T_PP2SNSTR, T_ALL_L2S, T_H_PLGDEF, T_H_ADIAG_L2S, T_S2L_hover_res, T_ALL_S2L} from '../server/src/LspWs';
@@ -252,7 +252,9 @@ export class Project {
 			if (after !== '' && after === before) {trace('path.json.同一'); return}
 
 			trace('path.json.変化');
-			this.#sendNeedGo();
+			// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7(d)-2）。
+			// `after` は上で読んだものをそのまま渡す＝追加の I/O は無い
+			this.#sendNeedGo(after);
 		};
 		this.#pc.init(
 			updPathJson,
@@ -460,20 +462,59 @@ export class Project {
 	 * - `.sn` の追加は経路が2つある（WfbOptFont の crechg が直接呼ぶ／
 	 *   同じ監視が updPathJson=true なので path.json 経由でも来る）
 	 */
-	#sendNeedGo() {
+	/**
+	 * LSP へ再走査を頼む。300ms まとめる。
+	 *
+	 * @param sPathJson **path.json の変化だけ**が理由なら、その本文を渡す。
+	 * その場合は全文（実測 約177KB）を送らない軽い経路（`upd_path`）を使う。
+	 * スクリプトの追加削除など**本文の変化が理由なら省略**して全走査に落とす。
+	 *
+	 * ⚠️ まとめの窓（300ms）に**1件でも本文の変化が混ざったら全走査**にする。
+	 * 混ざった時に軽い方を選ぶと、S が知らない本文で検証してしまう
+	 */
+	#sendNeedGo(sPathJson = '') {
 		clearTimeout(this.#tmNeedGo);
 		trace('need_go.req');
+		if (sPathJson === '') this.#mixNeedGo = true; else this.#sPathJson = sPathJson;
+
 		this.#tmNeedGo = setTimeout(()=> {
-			trace('need_go.send');
-			void this.reqPrj2LSP({cmd: 'need_go'});
+			const s = this.#mixNeedGo ?'' :this.#sPathJson;
+			this.#mixNeedGo = false;
+			this.#sPathJson = '';
+			if (s === '') {
+				trace('need_go.send');
+				void this.reqPrj2LSP({cmd: 'need_go'});
+				return;
+			}
+
+			trace('upd_path.send');
+			this.#tScanReq = performance.now();
+			void this.reqPrj2LSP({
+				cmd: 'upd_path', sPathJson: s,
+				hDefPlg: this.#hDefPlg, haDiag: this.#haDiag,
+			});
 		}, 300);
 	}
+		#mixNeedGo	= false;	// 本文の変化が混ざったか
+		#sPathJson	= '';
 
 	/**
 	 * LSP へ渡す走査元データを作る。`ready`（初回）と `go.res`（以降）で共有する。
 	 * LSP は解析専用で fs を持たないので、本文はここで読んで渡す
 	 */
+	/**
+	 * 走査を依頼した時刻。`analyze_inf`（LSP の走査完了通知）を受けた時に引いて、
+	 * **LSP 側の全再パースに何 ms かかっているか**を実測する。
+	 *
+	 * LSP に計時を入れないのは、`server/src/` を fs フリーに保つ方針
+	 * （§3.7）と、往復ぶんも込みで「体感される待ち時間」を測りたいため
+	 */
+	#tScanReq = 0;
+	/** 最初の走査完了を1度だけ記録するため（プロジェクトが複数でも1回） */
+	static #doneBoot = false;
+
 	#scanSrc() {
+		this.#tScanReq = performance.now();
 		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
 		const pp2s: T_PP2SNSTR = {};
 		this.#haDiagChrCd = {};
@@ -485,6 +526,7 @@ export class Project {
 			}
 		});
 		trace('scanSrc', `${String(Object.keys(pp2s).length)} ファイル`);
+		traceMs('scanSrc.ms', performance.now() - this.#tScanReq);
 		return {pp2s, hDefPlg: this.#hDefPlg, haDiag: this.#haDiag};
 	}
 
@@ -498,6 +540,18 @@ export class Project {
 				break;
 
 			case 'analyze_inf':{	// #scanEnd() から
+				// 走査依頼から完了まで＝本体の読み取り＋往復＋LSP の全再パース。
+				// 「支配的なのは LSP 側」という見立てを実測で確かめるため（§3.7）
+				traceMs('全走査.ms', performance.now() - this.#tScanReq);
+				// 最初の1回だけ＝ホバーや補完が効くようになるまで（§4.5）
+				if (! Project.#doneBoot) {
+					Project.#doneBoot = true;
+					traceMs('起動.LSP準備まで.ms', performance.now() - T_BOOT);
+				}
+				// LSP 側の内訳。パースと検証のどちらが支配的かで、
+				// 「全文を送り直さない」改修が効くかどうかが決まる（§3.7(d)-1）
+				for (const [k, v] of Object.entries(o.msScan)) traceMs(`S.${k}.ms`, v);
+
 				this.#aPickItems = [
 					// タグリファレンスのリンク先はエンジンごとに別サイトなので、
 					// このプロジェクトの種別で切り替える

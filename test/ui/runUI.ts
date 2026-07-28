@@ -28,6 +28,7 @@ import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {mkFixture} from '../int/mkFixture';
+import {hideSoon} from '../hideWin';
 
 const A_VSC = [
 	'/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
@@ -40,7 +41,10 @@ const isMac = process.platform === 'darwin';
 
 type T_ARG = {win: Page, blues: boolean};
 const aCase: {nm: string, fnc: (o: T_ARG)=> Promise<void>}[] = [];
-const it = (nm: string, fnc: (o: T_ARG)=> Promise<void>)=> {aCase.push({nm, fnc})};
+// ⚠️ **`it` という名前にしない。** このリポジトリには `it` が
+// すでに2つある（`bun:test` の import、統合テストの Mocha グローバル）。
+// ここは Playwright を node で回す独自の枠組みなので、別名にして混同を避ける
+const uiCase = (nm: string, fnc: (o: T_ARG)=> Promise<void>)=> {aCase.push({nm, fnc})};
 
 
 /**
@@ -58,9 +62,49 @@ async function openSnView(win: Page) {
 }
 
 
+/**
+ * 設定画面（webview）を開いて、その中身のフレームを返す。
+ *
+ * VSCode の webview は iframe の二段重ね（外: `iframe.webview` / 内: `#active-frame`）。
+ * しかも CHAT パネル等も webview なので `iframe.webview` は複数ある。
+ * `frameLocator` では1つ目を掴むため、**全フレームから `#app` を探す**。
+ *
+ * 既に開いていれば開き直さない（ケース間でウィンドウを共有しているため）
+ */
+async function openStgFrame(win: Page): Promise<Frame> {
+	const find = async ()=> {
+		for (const f of win.frames()) {
+			if (await f.locator('#app').count().catch(()=> 0)) return f;
+		}
+		return undefined;
+	};
+	const got = await find();
+	if (got) return got;
+
+	// skynovel.devPrjSet はツリー項目から引数付きで呼ばれるコマンドなので、
+	// コマンドパレットから引数なしで実行しても開かない。人と同じくツリーを押す
+	await openSnView(win);
+	const paneWs = win.locator('.pane', {has: win.locator('text=ワークスペース')}).first();
+	await paneWs.waitFor({state: 'visible', timeout: 20_000});
+	// 行のクリックは選択だけ。動作は右端のインラインボタン（hover で出る）
+	const row = paneWs.locator('.monaco-list-row').filter({hasText: /^設定$/}).first();
+	await row.waitFor({state: 'visible', timeout: 20_000});
+	await row.hover();
+	await row.locator('.actions .action-label').first().click();
+
+	await win.locator('.tab', {hasText: '設定'}).first()
+		.waitFor({state: 'visible', timeout: 20_000});
+	await win.waitForTimeout(4000);
+
+	const fr = await find();
+	if (! fr) throw new Error('#app を持つフレームが見つからない（到達できていない）');
+	return fr;
+}
+
+
 // === ここからテスト ===
 
-it('コマンドパレットの見出しがプロジェクトのエンジンで切り替わる', async ({win, blues})=> {
+uiCase('コマンドパレットの見出しがプロジェクトのエンジンで切り替わる', async ({win, blues})=> {
 	await win.keyboard.press(isMac ?'Meta+Shift+P' :'Control+Shift+P');
 	await win.locator('.quick-input-widget').waitFor({state: 'visible'});
 	// タイトルは package.nls で多言語化されており、新規 user-data-dir では
@@ -80,7 +124,7 @@ it('コマンドパレットの見出しがプロジェクトのエンジンで�
 	if (s.includes(ng)) throw new Error(`出てはいけない見出し ${ng} が出ている`);
 });
 
-it('アクティビティバーの【開発環境】に環境の行が並ぶ', async ({win})=> {
+uiCase('アクティビティバーの【開発環境】に環境の行が並ぶ', async ({win})=> {
 	const pane = await openSnView(win);
 	await win.waitForTimeout(1500);
 
@@ -100,39 +144,65 @@ it('アクティビティバーの【開発環境】に環境の行が並ぶ', a
 
 // (7) の「Vue の設定画面を自動テストできるか」の判断材料。
 // ここでは**到達できること**だけを確かめる（Vue の内部構造には触らない）
-it('設定画面（webview）の中身に到達できる', async ({win})=> {
-	// skynovel.devPrjSet はツリー項目から引数付きで呼ばれるコマンドなので、
-	// コマンドパレットから引数なしで実行しても開かない。人と同じくツリーを押す
-	await openSnView(win);
-	const paneWs = win.locator('.pane', {has: win.locator('text=ワークスペース')}).first();
-	await paneWs.waitFor({state: 'visible', timeout: 20_000});
-	// 行のクリックは選択だけ。動作は右端のインラインボタン（hover で出る）
-	const row = paneWs.locator('.monaco-list-row').filter({hasText: /^設定$/}).first();
-	await row.waitFor({state: 'visible', timeout: 20_000});
-	await row.hover();
-	await row.locator('.actions .action-label').first().click();
-
-	// タブが開いたことの確認
-	await win.locator('.tab', {hasText: '設定'}).first()
-		.waitFor({state: 'visible', timeout: 20_000});
-	await win.waitForTimeout(4000);
-
-	// VSCode の webview は iframe の二段重ね（外: iframe.webview / 内: #active-frame）。
-	// しかも CHAT パネル等も webview なので iframe.webview は複数ある。
-	// frameLocator では1つ目を掴んでしまうため、全フレームから #app を探す
-	let fr: Frame | undefined;
-	for (const f of win.frames()) {
-		if (await f.locator('#app').count().catch(()=> 0)) {fr = f; break}
-	}
-	console.log(`      フレーム総数:${String(win.frames().length)} #app を持つフレーム:${fr ?'あり' :'なし'}`);
-	if (! fr) throw new Error('#app を持つフレームが見つからない（到達できていない）');
-
+uiCase('設定画面（webview）の中身に到達できる', async ({win})=> {
+	const fr = await openStgFrame(win);
 	const body = (await fr.locator('#app').innerText().catch(()=> '(取得不可)'))
 		.replaceAll(/\s+/g, ' ').trim();
-	console.log(`      設定画面の文字: ${body.slice(0, 140) || '(空)'}`);
+	console.log(`      設定画面の文字: ${body.slice(0, 100) || '(空)'}`);
 	if (body === '' || body === '(取得不可)') {
 		throw new Error('到達はできたが中身が空（Vue が描画していない）');
 	}
+});
+
+
+// §3.5「設定画面の Vue はオーバースペックか」の判断材料。
+// **どこまで自動テストできるか**を実地で確かめる。ここが薄いと
+// 「テストできないから作り直す」という誤った理由づけが生まれる
+uiCase('設定画面：7つのタブが出て、切り替わる', async ({win})=> {
+	const fr = await openStgFrame(win);
+	const A_TAB = [
+		['basic', '基本情報'], ['app', 'アプリ'], ['temp', 'テンプレ'],
+		['debug', 'デバッグ'], ['PicOpt', '画像最適化'],
+		['sndopt', '音声最適化'], ['pkg', 'パッケージ'],
+	];
+	for (const [id, nm] of A_TAB) {
+		const tab = fr.locator(`#nav-${id ?? ''}-tab`);
+		if (await tab.count() === 0) throw new Error(`タブ【${nm ?? ''}】が無い`);
+	}
+
+	// 既定は「基本情報」。押して「画像最適化」に移ることを確かめる
+	await fr.locator('#nav-PicOpt-tab').click();
+	await win.waitForTimeout(600);
+	const cls = await fr.locator('#nav-PicOpt').getAttribute('class') ?? '';
+	console.log(`      画像最適化タブの class: ${cls}`);
+	if (! cls.includes('active')) throw new Error('タブを押しても切り替わらない');
+});
+
+// スライダーは「VSCode 標準の設定画面ではできない」ことの代表例（§3.5）。
+// 実在と操作可能を確かめておけば、代替案を検討するときの要件になる
+uiCase('設定画面：スライダーを操作できる', async ({win})=> {
+	const fr = await openStgFrame(win);
+	await fr.locator('#nav-PicOpt-tab').click();
+	await win.waitForTimeout(600);
+
+	// id に「.」が入るので属性セレクタで取る
+	const sl = fr.locator('[id="cnv.mat.webp_quality"]');
+	if (await sl.count() === 0) throw new Error('変換画質のスライダーが無い');
+
+	const before = await sl.inputValue();
+	await sl.fill('45');
+	await sl.dispatchEvent('change');
+	await win.waitForTimeout(400);
+	const after = await sl.inputValue();
+	console.log(`      スライダー: ${before} → ${after}`);
+	if (after !== '45') throw new Error(`値が反映されない（${after}）`);
+});
+
+uiCase('設定画面：必須項目が空なら検証メッセージが出る', async ({win})=> {
+	const fr = await openStgFrame(win);
+	const n = await fr.locator('text=必須入力項目です').count();
+	console.log(`      「必須入力項目です」の表示数: ${String(n)}`);
+	if (n === 0) throw new Error('フィクスチャは著作者などが空なので、出るはず');
 });
 
 
@@ -142,6 +212,11 @@ it('設定画面（webview）の中身に到達できる', async ({win})=> {
 // 要点は `explorer.confirmDragAndDrop: false`（既定 true だと**黙って何も起きない**）
 
 // === 実行 ===
+
+// ⚠️ 拡張機能ホストの中から起動されると `ELECTRON_RUN_AS_NODE=1` を受け継ぐ。
+// VSCode が素の Node として起動してしまう（test/prep.ts に詳しく書いた）
+// eslint-disable-next-line no-process-env
+delete process.env.ELECTRON_RUN_AS_NODE;
 
 const executablePath = A_VSC.find(fp=> existsSync(fp));
 if (! executablePath) {
@@ -170,6 +245,10 @@ async function run(blues: boolean) {
 
 	let app: ElectronApplication | undefined;
 	try {
+		// Playwright は CDP で入力を注入するので OS のフォーカスは要らない。
+		// **隠したままでも 6/6 通ることを実測済み**（コマンドパレット・
+		// アクティビティバーのクリック・webview の読み取りまで全部動く）
+		hideSoon(9000);
 		app = await electron.launch({
 			executablePath,
 			args: [

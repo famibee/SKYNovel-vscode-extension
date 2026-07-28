@@ -13,10 +13,11 @@ views/test/
 **/*.vue
 
 .claude/
+CLAUDE.md
 .eslintrc.json
 .gitignore
 eslint.config.mts
-skynovel-Mac2Win
+tools/
 tsconfig*.json
 TODO.md
 .vscode-test*

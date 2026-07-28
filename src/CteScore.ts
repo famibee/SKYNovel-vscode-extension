@@ -6,6 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {chkBoolean, type HArg, repWvUri} from './CmnLib';
+import {faSvg} from './faIcon';
 import {AnalyzeTagArg, type HPRM} from './AnalyzeTagArg';
 import type {T_Fn2Path} from './ConfigBase';
 import {getNonce} from './ActivityBar';
@@ -327,7 +328,7 @@ console.log(`fn:CteScore.ts line:184 input ln:${String(o.ln)} nm=${o.nm}= val=${
 				CteScore.#alzTagArg.parse(g.args!);
 				const oTds = t2t(CteScore.#alzTagArg.hPrm);
 				wv.postMessage({cmd: 'upd_btn_face', ln: o.ln, htm: `
-<i class="fas ${oTds.icon}" aria-hidden="true"></i>
+${faSvg(oTds.icon)}
 ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val: o.val});
 			}	break;
 
@@ -481,7 +482,7 @@ ${oTds.btn_face}`, td: `<td class="p-0 ${oTds.td_style ?? ''}">`, nm: o.nm, val:
 	${tds}
 	<td class="p-0"><div class="d-flex justify-content-center">
 		<button type="button" class="btn btn-danger btn-sm btn-floating tglEdit d-none">
-			<i class="fas fa-times"></i>
+			${faSvg('fa-times')}
 		</button>
 	</div></td>
 </tr>`;
@@ -893,7 +894,7 @@ v.type === 'bool' ?' pt-2' :''
 			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
 			:''
 		}>
-			<i class="fas ${icon}" aria-hidden="true"></i>
+			${faSvg(icon)}
 		</button>
 		${aft ?`<div class="dropdown-menu col-xxl-4 col-sm-6 col-12"><form class="p-1 d-flex flex-wrap">${aft}</form></div>` :''}
 	</td>`.replace(' dropdown-toggle', '')+
@@ -905,7 +906,7 @@ v.type === 'bool' ?' pt-2' :''
 			?` data-mdb-toggle="tooltip" data-placement="right" title="${tooltip}"`
 			:''
 		}>
-			<i class="fas ${icon}" aria-hidden="true"></i>
+			${faSvg(icon)}
 			${btn_face}
 		</button>`
 	}	${aft ?`<div class="dropdown-menu col-xxl-4 col-sm-6 col-12"><form class="p-1 d-flex flex-wrap">${aft}</form></div>` :''}

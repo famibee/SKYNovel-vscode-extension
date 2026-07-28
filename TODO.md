@@ -1,13 +1,74 @@
 # BlueSNovel / SKYNovel拡張機能 TODO
 
-最終更新：2026-07-27（完了分は CHANGELOG.md へ移動。最終的にカラを目指す）
+最終更新：2026-07-28（完了分は CHANGELOG.md へ移動。最終的にカラを目指す）
+
+**このファイルの使い方**：下の「残件一覧」だけ見れば、いま何ができるか分かる。
+各節の本文は**根拠と経緯**（測定値・踏んだ罠・やらないと決めた理由）で、
+同じ検討を二度しないための記録。**完了した項目は1行に畳んで節へ残す**
+（消すと「なぜそうなっているか」が失われるため）。
+
+---
+
+## 残件一覧
+
+**決着した項目はこの一覧から行ごと消す**（経緯は各節に残す）。
+残っているものが「いま何ができるか」と一致していない一覧は、読む価値が無くなる。
+
+### 期日あり
+
+| 内容 | 時期 | 節 |
+|---|---|---|
+| **Marketplace 再申請**（新 ID `famibee2.bluesnovel`） | **8/23 以降**。それまでメールを送らない | §1 |
+| **v4.33.0 を GitHub に alpha 公開**（**pre-release フラグ必須**） | 動作が落ち着くまで | §7 |
+| **v5.0.0 正式版**＋**移行案内の公開** | **8/23 以降・再申請と同時** | §8.5 |
+| コミット | 随時 | §7 |
+
+### 再申請後にやる（暗号化・診断の正しさに触る）
+
+| 内容 | なぜ後か | 節 |
+|---|---|---|
+| **(A) マルチルートで static が後勝ち** | **最重**。別プロジェクトの設定で暗号化しかねない。単独の版で | §3.8 |
+| (B) 500ms デバウンスが監視ごと | (A) と逆行するので (A) が先 | §3.8 |
+| (C) `updPathJson()` が3役 | 分割 | §3.8 |
+| **(4) 再検証するファイルを絞る**（73.6ms・75%。天井は 1/8〜1/10） | 絞り込みを誤ると**誤診断が残る／消えない** | §3.7(d)-4 |
+
+### いつでも安全に着手できる
+
+**現在なし**（2026-07-28 に「同梱物の軽量化」「起動時間の実測」「(A) 再現テスト」を消化）。
+
+### 手を動かす必要がある／別環境が要る
+
+| 内容 | 節 |
+|---|---|
+| **D&D 12ケースの計測**。mac 6 件は今すぐ可能。§3.8 の設計判断がここで止まっている | §3.8 |
+| (H) エディタ主導の変名で二重呼び出し。**Windows の挙動が未確認**なので直す前に検証 | §3.8 |
+| Windows 環境の自動テスト | §4.5 |
+
+### 前提が揃うまで着手できない
+
+| 内容 | 何を待っているか | 節 |
+|---|---|---|
+| ギャラリーのリンクをエンジンで切り替える | **BlueSNovel 版ギャラリーの頁が存在しない**（作者が作れば着手可） | §3.5 |
+
+---
 
 ## 0. 受付箱
 
 質問・要望・不具合を受けたらまずここに書き、処理したら下の該当節へ移す。**常にカラを目指す。**
 
-（2026-07-27 に受けた9件はすべて処理し、§3.5 / §3.7 / §3.8 / §4.5 と
-CHANGELOG v4.31.2 へ振り分け済み）
+（受付箱はカラ。2026-07-27 の9件は処理済み）
+
+### ❓ こちらから聞いて、まだ返事をもらっていないもの
+
+作業を進める上で判断が要るのに、流れの中で答えが出ていないもの。
+**急がないが、忘れると同じことをまた聞くことになる。**
+
+| # | 質問 | 出た文脈 | 保留中の影響 |
+|---|---|---|---|
+| 3 | **移行案内の3本（README / ブログ / テンプレ README）の文面はこれでよいか** | §8.5 | v5.0.0 まで公開しないので急がない |
+
+**2026-07-28 に決着したもの**：`displayName` は現状のまま／`verNum()` を頑丈に（実装済み）／
+テンプレ2本の CLAUDE.md は作者が対応／`test:ui` は当面自作のまま（§4.5）／起動時間は実測済み（§4.5）
 
 ---
 
@@ -138,36 +199,92 @@ From（`k.s-24.9_1-4@leto.eonet.ne.jp`）と署名（`famibee@gmail.com`）も�
 	- ⚠️ **旧版と新版は別の拡張機能として共存できてしまう。**
 	同じコマンド ID・ビュー ID を登録するので、両方入っている利用者では衝突する。
 	移行案内には **「旧版をアンインストールしてから新版を入れる」を必ず明記**
+		- ✅ **検出は実装済み**（`ActivityBar.#chkOldExt()`）。
+		`extensions.getExtension('famibee2.skynovel2')` が取れたら警告し、
+		拡張機能ビューを開くところまで。**アンインストールはしない**（§5 の方針）。
+		案内文は読まれないので、コードでも気づけるようにした
 	- ✅ **publisher `famibee2` の復帰は道が残っている**（§666 原文で確認）。
 	「a mandatory cooldown period of 30 days is required **before any
 	reinstatement**, **and extensions are not reinstated after removal**」と
 	2節が書き分けられており、**復帰不可なのは拡張機能だけ**。
 	新規アカウントも新規 publisher も要らない（ToU 4(x) との衝突も起きない）
-	- 📌 **新しい extension name を決める必要がある**（`package.json` の `name`）。
-	`skynovel2` は使えないので `skynovel3` 等。publisher は famibee2 のままなので
-	新 ID は `famibee2.skynovel3` になる。**URL・インストール数・レビューは 0 から**
+	- ✅ **新しい extension name を決定・適用済み（2026-07-28）**
+		- `name`: `skynovel2` → **`bluesnovel`**。新 ID は **`famibee2.bluesnovel`**
+		- `displayName`: `SKYNovel` → **`BlueSNovel / SKYNovel`**。
+		両エンジンを見る拡張機能なので両方を名乗る（SKYNovel 利用者の検索に当てるため）。
+		Marketplace では全部が拡張機能なので名前に "Extension" は入れない
+		- エンジン（npm `@famibee/bluesnovel`）とは配布経路が別なので衝突しない
+		- **URL・インストール数・レビューは 0 から**
+		- 変更箇所は 2 つだけ：`package.json` の name/displayName と
+		`test/int/suite.ts` の `EXT_ID`。vsix 名は `bluesnovel-X.Y.Z.vsix` になる
 
 - ~~**リファレンス検索パレットのリンク先を、プロジェクト種別で切り替える**~~
 	→ **実装済み（CHANGELOG v4.31.2）**。判定は `isBluesPrj()`
 	（[src/CmnLib.ts](src/CmnLib.ts)）＝ `<src|core>/web.ts` の SysWeb の import 先。
 	**判定は本体側だけで行い、結果を `ready` で LSP へ渡す**（LSP に I/O を入れない）
 
-- **設定画面の Vue はオーバースペックか【判断待ち・急がない】**
-	- ✅ **自動テストはできる**と判明（`bun run test:ui` で webview の中身を読めている）。
-	「テストできないから」という理由で外す必要はない
-	- 同等機能をより標準・簡易な手段で実現でき、かつ自動テストできるならその方が良い
-	- 他の拡張機能はどうしているか。最も簡易な json 設定＋VSCode 標準設定画面だと
-スライダーやアイコン表示ができない
-	- 歴史的経緯：元は .ssn 関連の高度な編集機能の技術的実験・習得の産物。
-高度な入力 UI もそれなりに役立っている
-	- .ssn 関連の機能制作時に Vue、あるいは BlueSNovel（React 製）に倣って React を
-使用予定。**今すぐの改修や機能削除は求めない**
+- ~~**設定画面の Vue はオーバースペックか**~~ → **調査済み・2026-07-28。Vue のままでよい**
+	- ❌ **`contributes.configuration`（VSCode 標準の設定画面）は選択肢に入らない。**
+	この画面が編集しているのは VSCode の設定ではなく、**ゲームプロジェクトの
+	`prj.json` と `package.json`**（[src/PrjSetting.ts](src/PrjSetting.ts) の
+	`#PATH_PRJ_JSON` / `#PATH_PKG_JSON`）。標準設定画面では扱えない
+	- ❌ **公式の代替部品はもう無い。** `@vscode/webview-ui-toolkit` は
+	**2025-01-06 にアーカイブ済み**（FAST Foundation 廃止に伴い、書き直しの
+	リソースが確保されなかった）。残っているのはコミュニティの Lit 製など
+	- ✅ **自動 UI テストは十分に効く**（`bun run test:ui` で **12/12**）。
+	タブ7つの存在と切り替え、**スライダーの値変更（90→45）**、
+	必須項目の検証メッセージまで確認できる。
+	⇒「テストできないから作り直す」という理由づけは**成り立たない**
+	- 💡 **重いのは Vue ではない。** 内訳は
+	FontAwesome 1.17MB ／ Bootstrap CSS 236KB ／ Vue+Pinia+8コンポーネント 276KB。
+	⇒ 重い分は下記「同梱物の軽量化」で削除済み（2026-07-28）
+	- 方針は従来どおり：.ssn 制作時に Vue あるいは React へ寄せる。**今すぐ改修しない**
 
+- ✅ **同梱物の軽量化【完了・2026-07-28】vsix 4983KB → 4383KB（-600KB）**
+	- **FontAwesome 1.17MB を削除**し、使う字形だけ SVG で持つ（[src/faIcon.ts](src/faIcon.ts)、パス計約18KB）。
+	`views/lib/fontawesome/` と `views/lib/webfonts/` ごと削除
+	- **`views/envinfo/node_win9.jpg` を 1978px → 1000px**（693→327KB）。
+	同じページの兄弟画像の最大が 1008px なので、それに揃えただけ
+	- 🐛 **見つけた不具合**：`views/vue/StgSndOpt.vue` のシェブロンは、
+	`setting.html` が FontAwesome を読んでいないため**ずっと描画されていなかった**。
+	SVG 化で出るようになった
 
-- **BlueSNovel のみのタグ4件をパレットに出す【要・概要文】**
-	- `grplay` / `set_cancel_skip` / `stopfadese` / `txtlay` は
-	`src/md/` に元ファイルが無いので出ていない。出すには **md ファイル
-	（概要・引数・スニペット・詳細）が必要**
+	**⚠️ 見立てを2つ外していたので記録する：**
+	1. **「使うのは14アイコン」は誤り。実際は42種。** `.htm` しか grep しておらず、
+	`src/CteScore.ts` / `src/ToolBox.ts` が
+	`<i class="fas ${icon}">` と**動的に組み立てている分**を見落としていた。
+	⇒ 静的置換では足りず、TS 側にマップ（`faSvg()`）が要った
+	2. **「画像 3.9MB が無駄」は誤り。** `views/tmpwiz/*.jpg`（計2.8MB）は
+	**再圧縮してもほぼ縮まない**（434→424KB／品質80）。既に適正で、
+	サイズは内容の複雑さ由来。**異常だったのは `node_win9.jpg` 1枚だけ**
+	- 💡 字形は **fontawesome.com / jsDelivr から同梱と同じ 5.15.4 を取得**したので
+	見た目は変わらない。縮小化された束から索引位置で solid/regular を推測する
+	必要は無かった（作者の指摘で判明）
+
+- ~~**BlueSNovel のみのタグ4件をパレットに出す**~~ → **完了（2026-07-28）。ただし前提が2つ誤っていた**
+	- ❌ **4件ではなく2件だった。** `grplay` / `txtlay` は**タグではない**。
+	`bluesnovel/docs/tag.html` の `<h2 id="grplay">[lay]レイヤ設定(画像レイヤ)</h2>`
+	`<h2 id="txtlay">[lay]レイヤ設定(文字レイヤ)</h2>` ＝ **`[lay]` の説明セクションの
+	アンカー ID**。タグ本体の `lay.md` は既にあるので、対応不要
+	- ❌ **BlueSNovel のみでもなかった。** `set_cancel_skip` / `stopfadese` は
+	**SKYNovel の docs にも載っている**（`SKYNovel/docs/tag.html`）。
+	単に `src/md/` に元ファイルが無かっただけで、**両エンジンで出ていなかった**
+	- ✅ `src/md/stopfadese.md` と `src/md/set_cancel_skip.md` を追加。
+	**114 → 116 タグ**。引数なしのタグは `***` を書かない慣例に従った
+	（`stop_allse.md` / `waitclick.md` と同じ）
+	- `set_cancel_skip` は両エンジンとも**廃止済みで何もしない**
+	（本家も 2023/05/27 に中身を空に）。概要文を `【廃止】スキップ中断予約` にして、
+	補完・ホバー・引数説明のどこでも廃止と分かるようにした
+	- ✅ **廃止タグはリファレンス検索パレットから外す**（`SET_HAISHI_TAG`、
+	[src/WorkSpaces.ts](src/WorkSpaces.ts)）。調べに行く意味が無いため。
+	エンジン差で隠さない方針とは別扱い（あちらは「実装されているかは各サイトを見る」話）
+	- 🐛 **md を消してはいけない理由が判明。** LSP のタグ表 `LspWs.#hTag` は
+	**md.json から作られる**（[server/src/LspWs.ts:688](server/src/LspWs.ts:688)）。
+	md に無い名前はタグと認識されず**マクロ扱い**になり
+	（[LspWs.ts:2102](server/src/LspWs.ts:2102)）、
+	「未定義マクロ[$]を使用、あるいはスペルミスです」の診断が出る
+	（[LspWs.ts:1722](server/src/LspWs.ts:1722)）。
+	⇒ **この2件の md を足すまで、既存シナリオに誤診断が出ていた**（今回の副産物）
 	- 逆方向（相手側に無いタグを隠す）は**やらない方針**。リファレンスは
 	「調べられること」が役目なので隠さない。実装状況は各サイトの記載に従う
 
@@ -186,7 +303,7 @@ From（`k.s-24.9_1-4@leto.eonet.ne.jp`）と署名（`famibee@gmail.com`）も�
 
 ---
 
-## 3.7. LSP 設計の見直し【調査済み・着手待ち】
+## 3.7. LSP 設計の見直し【(a)(b)(c) 完了・(d) 進行中】
 
 ### 前提：LSP に fs を持たせない方針は維持する
 
@@ -214,43 +331,299 @@ LSP 自体は **3.16.0 から `vscode-languageserver/browser` でブラウザ動
 
 `server/src/*.ts` の fs 呼び出しは **0件**（維持すること）。
 
-### (a) CmnLib の分割【完了・CHANGELOG v4.31.2】
+### (d) C/S の役割分担【設計方針・2026-07-28】
+
+**方針：C は全文を持たない。S が持ち続ける。C は結果だけもらう。**
+
+#### 先に確定した事実（調査済み。ここは作業不要）
+
+| # | 事実 | 根拠 |
+|---|---|---|
+| 1 | **C は既に全文を保持していない** | `pp2s` は `#scanSrc()` のローカル定数。読む→送る→捨てる |
+| 2 | **1ファイル単位の差分送信の口は既にある** | `onchg_scr` → `#onChgScripts()`。`WfbSettingSn` と S の `TextDocuments` が使用 |
+| 3 | **path.json は C が持つべき**（S では作れない） | ①ゲーム本体が実行時に `fetch` する**製品ファイル** ②生成にはファイル列挙＝fs が要る（S は fs フリー方針） ③`loadEx()` が暗号化と**同じ走査**で作っている |
+| 4 | **重いのはスクリプト。path.json ではない** | 送信物の内訳：スクリプト 176,924B（**97.8%**）／path.json 3,329B（1.8%）／prj.json 769B |
+| 5 | **遅いのは S。C ではない** | 全走査 123.3ms のうち `#scanSrc()` 9.8ms（7.8%）、**S 側 113.7ms（92.2%）** |
+
+⇒ **足りないのは S 側であって、C 側ではなかった。**
+「C が全文を持たない」は既に達成済み。直すべきは次の2つで、**片方は済んだ**：
+
+| # | 直すべきこと | 状態 |
+|---|---|---|
+| **(i)** | 変わってもいない **177KB を毎回送り直している** | ✅ **済**（下記 2 の `upd_path`。125.9→96.1ms） |
+| **(ii)** | **S がそれを捨てて全ファイル検証し直している** | ⬜ **未**（下記 **4**。ここが最後の大物） |
+
+#### ✅ 1. 内訳の測定【完了・2026-07-28。**計画がひっくり返った**】
+
+`analyze_inf` に `msScan`（[server/src/LspWs.ts](server/src/LspWs.ts) の `T_MS_SCAN`）を
+載せ、C 側で `traceMs` に流して統合テストから読めるようにした。
+S に fs は足していない（`performance` のみ）。実測（25ファイル・約225KB、8回の中央値）：
+
+| 段階 | ms | 全体比 |
+|---|---|---|
+| C: `#scanSrc`（読み取り＋文字コード判定） | 9.8 | 7.8% |
+| **IPC 往復＋直列化**（全体と内訳の差から算出） | **約 34** | **27%** |
+| S: 状態の作り直し（`#scanInitAll`＋`#updPath`） | 0.1 | 0.1% |
+| S: **パース**（`#grm.resolveScript`） | **4.3** | **3.4%** |
+| S: **検証**（`#scanScript`） | **51.1** | **41%** |
+| S: `#scanEnd`（マクロ一覧・スニペットの組み立て） | 26.5 | 21% |
+| S: `#scanNFD` / `#addDiag` | 0 / 0 | — |
+| **合計** | **125.9** | 100% |
+
+**分かったこと：**
+
+- 🔴 **パースは 4.3ms しかない。** 「パース結果を再利用して状態リセットを分ける」
+（旧宿題3）で得られるのは **全体の 3.4%**。**割に合わない。やらない**
+- 🔴 **状態の作り直し（`#scanInitAll`）は 0.1ms。** ここを避ける改修は無意味だった
+- 🟢 **IPC が約 34ms（27%）。** 177KB の JSON 直列化・往復。
+**`upd_path` で 177KB を送らなくすれば、C の 9.8ms と合わせて約 44ms（35%）が消える**
+- 🟡 **検証 `#scanScript` が 51.1ms（41%）で最大。** ただし検証は path.json に
+依存する（ファイル名キーワード）ので、**path.json が変わったなら避けられない**
+- 🟡 **`#scanEnd` が 26.5ms（21%）。** マクロ一覧・スニペットの組み立て。
+スクリプトが変わっていなければマクロも変わらないので、
+**path.json 変更時は作り直し不要なはず**（ただしファイル名スニペットは path.json 依存。要調査）
+	- → **測ったら違った。** 27ms の内訳は遅延検証 23.3ms ／ リスト作り 4.6ms（下記 3）
+
+⚠️ **測り直すときの落とし穴（2回踏んだ）**
+
+1. **フィクスチャ素のままだと 4ファイル・674バイトで 2.4ms**。実プロジェクトは
+18〜26ファイル・220〜260KB なので**桁が違い、判断に使えない**。
+統合テストは実規模のスクリプトを一時的に置いてから測っている
+2. **合成スクリプトでラベル名・マクロ名をファイル内で重複させると 248ms に膨らむ**
+（重複診断が大量に出る）。実プロジェクトに寄せた**一意な名前**で測ること
+
+（どちらも [test/int/suite.ts](test/int/suite.ts) の該当ケースにコメント済み）
+
+#### 宿題（測定を受けて改訂）
+
+| # | 内容 | 効果の実測見込み |
+|---|---|---|
+| ~~**2**~~ | ✅ **`upd_path` 実装済み（2026-07-28）** → **125.9ms → 96.1ms（-30ms・24%短縮）** | 下記 |
+| ~~**3**~~ | ❌ **`#scanEnd` を条件付きに → やらない（2026-07-28 測定で否定）** | 下記 |
+| **4** | **再検証するファイルを絞る**（上記 (ii)）。いまは path.json が変わると**全25ファイルを検証し直す**。検証 50.3ms ＋ 遅延検証 23.3ms ＝ **73.6ms（75%）** | **最後の大物。天井は 1/8〜1/10**（下記の実測）。ただし**診断の正しさに触る** |
+| ~~**5**~~ | ❌ **`WfbOptFont` を S に聞かせる → やらない**（下記） | 前提が誤っていた |
+| ~~**6**~~ | ✅ **本文とパース結果を1つの Map に統合（2026-07-28）**（下記） | 潜在バグが1件直った |
+| — | `#chkChrCd` は **C に残す**。fs とバイト列が要る C 固有の仕事 | 変更不要 |
+
+**残るのは 4 だけ。** 2 は実装済み、3・5 は測定／前提誤りで否定、6 は統合して決着。
+旧計画の「状態リセット分割が本丸」も**測定で否定された**（パースは 4.3ms しかなかった）。
+**4 は再申請後に、単独の版で。**
+
+#### ✅ 2. `upd_path` の実装結果【2026-07-28】
+
+| | 実装前 | 実装後 |
+|---|---|---|
+| **全走査（画像1枚の追加）** | **125.9 ms** | **96.1 ms**（**-30ms / -24%**） |
+| C: `#scanSrc`（読み取り） | 9.8 | **0**（呼ばれない） |
+| S: パース（`resolveScript`） | 4.3 | **0**（`#hScript` を再利用） |
+| IPC 往復＋直列化 | 約 34 | 約 19 |
+| S: 検証（`#scanScript`） | 51.1 | 49.7（変わらず） |
+| S: `#scanEnd` | 26.5 | 27.0（変わらず） |
+
+- 送信物は **177KB → 3.3KB**（path.json のみ）
+- S に `#hPp2S`（本文の保持）を追加。`#scanNFD()` が本文を要るため。
+**「S が全文を持ち続ける」という設計の実体**
+- `#scanInitAll()` は `#hScript` を消さないので再利用は安全（確認済み）
+- ⚠️ **本文の変化が混ざったら全走査に落とす。** `#sendNeedGo(sPathJson)` の
+300ms の窓に1件でも本文由来の要求が来たら `need_go`。混ざった時に軽い方を
+選ぶと、S が知らない本文で検証してしまう
+- 統合テストの「全走査の回数」は `need_go.send + upd_path.send` で数える
+（経路が2つになったため。`nReq()`）
+- 予測は「-44ms」だったが実測 -30ms。**IPC が 34→19ms までしか減らなかった**
+（3.3KB でも往復と `haDiag`・`hDefPlg` の直列化が残る）
+
+#### ❌ 3. `#scanEnd` を条件付きに → **やらない（測定で否定）**
+
+`#scanEnd` の 27ms を分解したら、**リスト作りではなかった**：
+
+| `#scanEnd` の内訳 | ms |
+|---|---|
+| **`#aEndingJob` の実行（遅延された検証）** | **23.3** |
+| 残り（キーワード集約・マクロ一覧・スニペット） | **4.6** |
+
+`#scanNFD()` も `#chkTagMacArg()` も**その場では実行せず `#aEndingJob` に積む**ので、
+「検証」の実体の一部が `#scanEnd` の中にあった。
+⇒ **飛ばせるのは 4.6ms（全体の 4.7%）だけ。割に合わない。**
+
+#### 現在地（`upd_path` 実装後・25ファイル）
+
+| 段階 | ms | 割合 |
+|---|---|---|
+| IPC 往復＋直列化 | 約 19 | 19% |
+| **検証 `#scanScript`** | **50.3** | **51%** |
+| **遅延検証（`#aEndingJob`）** | **23.3** | **24%** |
+| `#scanEnd` の残り | 4.6 | 5% |
+| `#scanInitAll`＋`#updPath` / パース / NFD / addDiag | ≒0.1 | 0% |
+| **合計** | **97.9** | 100% |
+
+**構造的な取り分は取り切った。** 残る 75% は解析そのもの。
+
+#### ❌ 5. `WfbOptFont` を S に聞かせる → **やらない（前提が誤っていた）**
+
+「C が全文を素材に仕事をしたくなったら S に依頼」の実例として挙げたが、
+**[WfbOptFont.ts](src/batch/WfbOptFont.ts) の `#getDefFontNms()` に既に理由が書いてあった**：
+
+1. **S が持つのは一つめのフォント名だけ。** `#getFonts2ANm()` は文字列を1つ返す。
+フォント最適化には `&def_fonts` に並んだ**全部**が要る
+2. **走査タイミングによっては空。** フォント最適化が最初の走査完了より先に
+走りうる。S に聞くと**フォントを取りこぼす／競合する**
+
+⇒ 現状の「S の結果も使い、`setting.sn` も直接読む」は**意図的な二重化**。
+S 側を全名対応にしても 2 は残るので、直接読むのはやめられない。
+
+#### ✅ 6. 本文の二重保持【2026-07-28。ただし「解消」ではなく「統合」】
+
+「`TextDocuments` と重複しているので消す」つもりだったが、**消してはいけない**と分かった：
+
+- `TextDocuments` は**編集中の最新テキスト**。`#hPp2Scr.scr` をパースした時点の
+スナップショットと**ずれる**。位置情報が食い違い、**診断が別の場所を指す**
+- ⇒ 二重に持つのは**同じ瞬間の内容であることを保証するため**（約177KB）
+
+代わりに **`#hScript`（パース結果）と `#hPp2S`（本文）を1つの Map
+`#hPp2Scr: {s, scr}` に統合**した。これで**潜在バグが1件直った**：
+
+- 🐛 全走査は `#hPp2S` だけ作り直し、**`#hScript` は作り直していなかった**。
+⇒ **削除されたスクリプトのパース結果が残り続けていた**
+（`#scanEnd` の @@@引用処理などが古い `scr` を見うる）
+
+#### 📊 表示用の作り置きを遅延させると効くか【調査済み・2026-07-28 → **効果小**】
+
+**着想**：`onDocumentSymbol` / `onDocumentLinks` は**作り置きを返すだけ**で、
+全走査で 25 ファイル分すべて作っている。VS Code が聞いてくるのは
+**開いている 1〜3 ファイルだけ**。LSP は元々プル型なので、
+**先回りをやめてリクエスト時に1ファイル分だけ作る**ほうが素直では、という案。
+
+**実測**（表示用の蓄積を一時的に止めて計測。計測後は完全に戻した）：
+
+| | 通常 | 表示用なし | 差 |
+|---|---|---|---|
+| 全走査 | 96.1 ms | 93.4 ms | -2.7 |
+| 検証 `#scanScript` | 49.0 ms | 44.4 ms | **-4.6** |
+| 遅延検証 `#aEndingJob` | 23.3 ms | 21.9 ms | **-1.4** |
+
+⇒ **表示用の作り置きは合計 6ms 前後（全体の約6%）。**
+しかも開いているファイル分は結局要るので、**実際に減るのは 6ms 弱**。
+
+⚠️ 測定の限界：止めたのは**蓄積（push）だけ**。`InlayHint.create()` の生成や
+リンク先の解決は動いたままなので、**やや過小評価**。それでも桁は変わらない。
+
+**判断：構造を変える価値はない。** 走査は1回のトークン歩きで全部を埋めており、
+分けるにはモード切り替えか二度歩きが要る。しかも `#chkTagMacArg`（リンク生成）は
+`#aEndingJob` で**全ファイルの走査後**に動くので、1ファイル分だけ再現するには
+後段処理を単体で呼べる形にする必要がある。**6ms のために払う代償ではない。**
+
+（切り分け自体は正しかった：**診断とマクロ・ラベル表は全文が要る／
+アウトライン・リンク・インレイヒントは開いている時だけ要る**。
+ただし後者は**そもそも軽い**、というのが結論）
+
+#### 📊 4 の天井【調査済み・2026-07-28 → **効果は非常に大きい**】
+
+「絞り込み再検証が完璧に効いたら何 ms か」を、`#reScanPath` を
+**1ファイルだけ**に限定して実測（計測後は完全に戻した）：
+
+| | 通常（25ファイル） | 1ファイルだけ |
+|---|---|---|
+| **全走査** | **96〜100 ms** | **1.2 ms** |
+| 検証 `#scanScript` | 49 ms | 0.1 ms |
+| 遅延検証 `#aEndingJob` | 23 ms | 0 ms |
+| `#scanEnd` の残り | 4.6 ms | 0.2 ms |
+| 状態の作り直し | 0.1 ms | 0.1 ms |
+
+⇒ **固定費（IPC ＋ 状態の作り直し）は約 1ms しかない。残りは全部ファイル数に比例する。**
+
+**費用のモデル**（実測から）：
+
+```
+所要 ≒ 固定費 1ms ＋ #scanEnd の集約 4.6ms ＋ 2.9ms × 再検証したファイル数
+```
+
+25ファイル → 約96ms。**1〜2ファイルに絞れれば約 9〜12ms（1/8〜1/10）。**
+表示用の遅延（6ms）とは桁が違う。**残る改善余地はここに集中している。**
+
+⚠️ ただし**難しさは速度ではなく正しさ**。path.json が変わったとき、
+再検証が要るのは「その素材名を参照しているファイル」だけのはずだが、
+診断には**消えた素材を参照している**ものも含むので**参照の向きが両方向**。
+絞り込みを誤ると**誤診断が残る／消えない**。**再申請後に、単独の版で。**
+
+#### ⬜ 4. 再検証するファイルを絞る【唯一の未着手・再申請後】
+
+**やること**：path.json が変わったとき、**その素材名を参照しているスクリプトだけ**
+検証し直す。いまは全ファイルを検証し直している。
+`#hT2Pp2Kw`（pp ごとのキーワード）で絞れる可能性がある。
+
+**効果**（上の天井の実測より）：`1ms ＋ 4.6ms ＋ 2.9ms × 対象ファイル数`。
+1〜2ファイルに絞れれば **96ms → 9〜12ms**。
+
+**難しさは速度ではなく正しさ：**
+
+- ⚠️ 診断は「**消えた素材を参照している**」も含むので、**参照の向きが両方向**。
+絞り込みを誤ると**誤診断が残る／消えない**。(F) の短絡と違い、純粋な短絡ではない
+- ⚠️ **再申請前に触らない。** 壊れ方が利用者に見える
+- ✅ 測定基盤（統合テストの `S.*.ms`）は揃っているので、着手すれば効果はすぐ分かる
+
+---
+
+### ✅ 完了の記録（(a)(b)(c)）
+
+#### (a) CmnLib の分割【完了・CHANGELOG v4.31.2】
 
 `src/CmnShare.ts` を新設し、LSP は CmnLib を import しない形にした。
 
-### (c) treeProc の並列版は有効か【未着手・まず測ること】
-- `src/Project.ts` の `#scanSrc()` などで `Promise.allSettled()` 版にできるか
-- `(async ()=> {})[]` を吐いて `allSettled()` に渡す形はどうか
-- try/catch もそこで面倒を見られるか
-- `src/batch/BatOptPic.ts` など大量バッチでは手作りで並列化した前例がある
-- **効果があるかは測ってから**（#scanSrc の read+detect は 25ファイルで 7.0ms 実測。
-支配的なのは LSP 側の全再パースなので、ここを速くしても効かない可能性が高い）
+#### (c) treeProc の並列版は有効か【測定済み・2026-07-28 → **やらない**】
 
-### (b) プロトコルのムダ取り【完了・CHANGELOG v4.31.2】
+`#scanSrc()` を `Promise.allSettled()` 版にした場合の実測（node 24 / macOS、
+20回平均。ページキャッシュは温めた状態）：
+
+| 規模 | 直列（現状） | 並列 | 差 |
+|---|---|---|---|
+| **実プロジェクト（26ファイル）** | **5.73 ms** | 4.53 ms | **-1.20 ms** |
+| 合成 500 ファイル | 96.44 ms | 59.37 ms | -37.07 ms |
+| 合成 2000 ファイル | 303.36 ms | 189.48 ms | -113.89 ms |
+
+直列 5.73ms の内訳（26ファイル）：
+`walk` 1.43 / `readFileSync` 2.18 / `toString` 0.36 / **`Encoding.detect` 1.74**
+
+**判断：やらない。**
+
+- **実プロジェクトの規模では 1.2ms しか縮まない。** SKYNovel の作品は
+`doc/prj` 配下で 18〜26 ファイル・250KB 程度（手元の全プロジェクトで確認）
+- 縮む分は **read の I/O が detect の CPU と重なる分だけ**。
+`Encoding.detect` と `toString` は**単一スレッドの CPU 処理なので
+`allSettled` では減らない**（500ファイルで detect 34ms・toString 6.6ms は残る）
+- 代償は `#scanSrc()` → `#chkChrCd()` → `onRequest('go')` の async 伝播。
+1.2ms のために呼び出し連鎖を書き換えることになる
+
+**再検討の目安：`doc/prj` 配下が 300 ファイルを超えたら。**
+そこから並列化の効きが 20ms 以上になる。それまでは触らない。
+
+**追測（2026-07-28）：全体の中での位置づけがはっきりした。**
+全走査 123.3ms のうち `#scanSrc()` は **9.8ms（7.8%）**。
+並列化で縮むのはそのうち約1ms なので、**全体の 1% 未満**。
+残り 92% は LSP の全再パース（下記 (b) の見送り項目）。
+
+（`src/batch/BatOptPic.ts` の手作り並列化は、1ファイルあたりの処理が
+桁違いに重い画像最適化なので、こちらとは前提が違う）
+
+#### (b) プロトコルのムダ取り【完了・CHANGELOG v4.31.2】
 
 初期化 3往復→1回、`go` の `InfFont` 削除、`need_go` の 300ms まとめ、
 走査のファイル単位 try/catch を実施。
 
-**見送った項目：**
+**見送ったまま（理由付き）：**
 
-- **文字コード判定の mtime キャッシュ** — 実測で
-**25ファイル / 220KB の read+detect+toString が 7.0ms**（statSync のみなら 0.11ms）。
-節約は 7ms 程度で、キャッシュ無効化を誤ったときの被害（古い本文で解析）に
-釣り合わない。支配的なのは LSP 側の全再パース
-- **走査元の差分送信** — `#scanAll()` は `#scanBegin()` / `#scanInitAll()` で
-状態を作り直す全再構築なので、差分を渡すには構造から変える必要がある。
-スクリプト本文が二重に存在する（LSP の `TextDocuments` ＋ `pp2s`）のも同根
-- **path.json 変更時に全再パースを避ける** — 画像・音声の監視は
-`updPathJson = true` を渡すので、追加削除が `lasyPathJson()`（500ms）→
-`updPathJson()` → `need_go` に至る。path.json だけ渡して
-LSP が保持済みの `#hScript` から再検証すれば全再パースは不要になるが、
-`#scanBegin`/`#scanInitAll` の状態リセットとの兼ね合いを詰める必要がある。
-**次にやるならここ**（効果最大）
-	- なお font/text 監視の `sendNeedGo` は既に `.sn`/`.ssn` に絞られている
+- **文字コード判定の mtime キャッシュ** — 25ファイル/220KB の
+read+detect+toString が 7.0ms（statSync のみなら 0.11ms）。
+節約 7ms に対し、キャッシュ無効化を誤ると**古い本文で解析**する。割に合わない
+- **走査元の完全な差分送信** — `#scanAll()` は状態を作り直す全再構築。
+path.json 由来の分は (d)-2 の `upd_path` で解決済み。**残るのは
+スクリプト本文が変わったときの差分送信**で、これは構造から変える話
+
+（「path.json 変更時に全再パースを避ける」は **(d)-2 で実装済み**。
+このセクションにあった旧い計測値は (d) に集約した）
 
 ---
 
-## 3.8. ファイル監視の設計【理想モデルと現状の差分】
+## 3.8. ファイル監視の設計【(A)(B)(C)(H) 未着手・計測待ち】
 
 ### 先に「要求」を並べる（何がファイル変化を必要としているか）
 
@@ -294,7 +667,7 @@ boolean フラグと static で外付けされていること。
 | 1 | 状態はプロジェクトごと | `#updPathJson` / `encIfNeeded` が **static で後勝ち** | **(A)** |
 | 2 | まとめはプロジェクト単位 | 500ms が**監視インスタンスごと**。`loadEx` が二重に走る | **(B)** |
 | 3 | 要求は独立 | `updPathJson` が3役を兼ね、boolean で監視に紐づく | **(C)** |
-| 4 | need_go は path.json が**実際に変わったときだけ** | 存在変化のたび必ず全走査 | **(F)** |
+| 4 | need_go は path.json が**実際に変わったときだけ** | **既にそう**（書く前後を比較して短絡） | ✅ (F) |
 | 5 | 監視は1本＋振り分け | パターンごとに `createFileSystemWatcher`（9本） | (G) 効果小 |
 | 6 | 内容変化で path.json を作り直さない | **既にそう**（CRE/DEL のみ。CHG では呼ばない） | ✅ |
 | 7 | フォルダ・リネームも同じ口 | **既にそう**（合成イベントをレジストリへ replay） | ✅ |
@@ -322,12 +695,29 @@ keywords の `multi-root ready` と実装が合っていない。
 
 path.json 更新＋暗号化／ドロップ先候補／need_go。画像1枚で全部走る。
 
-#### 💡 (F) need_go は path.json が実際に変わったときだけ【新規・費用対効果が良い】
+#### 🐛 (H) エディタ主導の**変名だけ**で購読者が二重に呼ばれる【実測済み】
 
-`updPathJson()` は path.json を書き直すのだから、**書く前と後で内容が同じなら
-`#sendNeedGo()` を呼ばない**だけでよい。LSP が全走査を要るのはファイル名キーワードが
-変わったときなので、path.json が同一なら全再パースは無駄。**純粋な短絡なので低リスク。**
-実装したら統合テストで走査回数を assert する。
+変名の扱い自体は良い設計。**del + cre に分解**し、判定を「対（旧,新）」ではなく
+**辺ごと**に独立させているので、4通りが2つの if で尽きる（組み合わせが増えない）。
+
+しかし実測すると、**経路が2つあって重なる**：
+
+| 経路 | `watch.rename` | 監視の `cre` | 監視の `del` |
+|---|---|---|---|
+| `workspace.fs.rename` | **0** | 1 | 1 |
+| `WorkspaceEdit.renameFile`（エディタ主導） | **1** | 1 | 1 |
+
+⇒ エディタ主導の変名では `#onDidRenameFiles` と FS 監視の**両方**が
+`w.crechg` / `w.del` を呼ぶ。**画像最適化と暗号化が2回走る。**
+`need_go` はデバウンスで1回に見えるので**外からは気づけない**。
+
+対処は2案：
+1. `#onDidRenameFiles` で処理した uri を短時間だけ覚え、監視側で無視する
+2. **FS 監視だけで足りるなら `#onDidRenameFiles` を消す**
+
+macOS / VSCode 1.130 では 2 で足りそうだが、**Windows の監視が変名を
+del+cre で報告するか未確認**（§4.5 の Windows テストが要る理由の一つ）。
+実測は統合テスト「【調査】ファイル変名で…」が記録している。
 
 #### 📊 操作方法ごとの発火イベント【実測・macOS / VSCode 1.130】
 
@@ -341,7 +731,7 @@ VSCode の版で変わったら気づける。
 | 外部 **変更**（上書き） | – | **1** | – | – | **0** |
 | 外部 変名（`renameSync`） | 1 | – | 1 | – | 1 |
 | 外部 削除（`unlinkSync`） | – | – | 1 | – | 1 |
-| VSCode 追加（`workspace.fs.writeFile`） | 1 | – | – | – | 1 |
+| VSCode 追加（`workspace.fs.writeFile`） | 1 | **1** | – | – | 1 |
 | VSCode 変名（`workspace.fs.rename`） | 1 | – | 1 | – | 1 |
 | VSCode 削除（`workspace.fs.delete`） | – | – | 1 | – | 1 |
 | **エディタ 変名**（`WorkspaceEdit.renameFile`） | 1 | – | 1 | **1** | 1 |
@@ -420,29 +810,16 @@ VSCode は単一の子しか持たないフォルダを**1行に圧縮**する�
 
 **値が揃ってから設計の議論に入る**（この節の (A)〜(H) の優先順位が変わりうる）。
 
-#### 🐛 (H) エディタ主導の**変名だけ**で購読者が二重に呼ばれる【実測済み】
+---
 
-変名の扱い自体は良い設計。**del + cre に分解**し、判定を「対（旧,新）」ではなく
-**辺ごと**に独立させているので、4通りが2つの if で尽きる（組み合わせが増えない）。
+### ✅ 完了・変更しないと決めた分（3.8）
 
-しかし実測すると、**経路が2つあって重なる**：
+#### ✅ (F) need_go は path.json が実際に変わったときだけ【実装済み・CHANGELOG v4.31.2】
 
-| 経路 | `watch.rename` | 監視の `cre` | 監視の `del` |
-|---|---|---|---|
-| `workspace.fs.rename` | **0** | 1 | 1 |
-| `WorkspaceEdit.renameFile`（エディタ主導） | **1** | 1 | 1 |
-
-⇒ エディタ主導の変名では `#onDidRenameFiles` と FS 監視の**両方**が
-`w.crechg` / `w.del` を呼ぶ。**画像最適化と暗号化が2回走る。**
-`need_go` はデバウンスで1回に見えるので**外からは気づけない**。
-
-対処は2案：
-1. `#onDidRenameFiles` で処理した uri を短時間だけ覚え、監視側で無視する
-2. **FS 監視だけで足りるなら `#onDidRenameFiles` を消す**
-
-macOS / VSCode 1.130 では 2 で足りそうだが、**Windows の監視が変名を
-del+cre で報告するか未確認**（§4.5 の Windows テストが要る理由の一つ）。
-実測は統合テスト「【調査】ファイル変名で…」が記録している。
+`updPathJson()` は path.json を書き直すのだから、**書く前と後で内容が同じなら
+`#sendNeedGo()` を呼ばない**（[src/Project.ts](src/Project.ts) の `readPathJson()`）。
+読めない場合は「変わった」扱いで従来どおり走らせる（安全側）。
+統合テストで実証済み：追加してすぐ削除すると `path.json.同一` 1 / **全走査 0**。
 
 #### ✅ (D) `doc/prj/*/` が1階層だけなのは意図的【変更しない】
 
@@ -456,6 +833,8 @@ del+cre で報告するか未確認**（§4.5 の Windows テストが要る理�
 `watchFld` は `doc/prj/*/` 始まりのパターンに暗号化を仕込み、`init` を渡すと
 `findFiles(pat)` 全件へ初回の暗号化を回す。WfbOptFont の `init` が空なのは
 **それを走らせるため**。狭めると該当拡張子の暗号化が黙って漏れる。両ファイルにコメント済み。
+
+---
 
 ---
 
@@ -504,7 +883,7 @@ VSCodium / Theia 等からの不具合報告を引き受けることになり、
 
 ## 4. 公開前チェック【自動化済み】
 
-`bun run release`（[release_chk.ts](release_chk.ts)）で、ビルドと以下のチェックまで自動。
+`bun run release`（[tools/release_chk.ts](tools/release_chk.ts)）で、ビルドと以下のチェックまで自動。
 **公開（vsce publish）は手動のまま**（PAT を CI に置かない方針）。
 
 1. exec/spawn 系でパッケージマネージャを叩く箇所が許可リストに無ければ落とす
@@ -525,25 +904,74 @@ VSCodium / Theia 等からの不具合報告を引き受けることになり、
 
 ## 4.5. テスト基盤
 
+### 📊 起動にかかる時間【実測・2026-07-28】
+
+拡張機能のロード開始からの経過（フィクスチャ4ファイル・macOS）：
+
+| 段階 | 時間 |
+|---|---|
+| **操作可能まで**（ツリー・コマンド登録） | **100.8 ms** |
+| 環境確認まで（pip / node / npm / bun） | 645.1 ms |
+| LSP 準備まで（ホバー・補完が効く） | 814.3 ms |
+
+⇒ **v4.31.2 の「登録を環境確認より先に」が効いている。**
+待っていたら操作可能まで 645ms かかっていた計算になる。
+統合テスト「【調査】起動にかかる時間」が毎回記録するので、遅くなれば気づける。
+
+⚠️ **他のケースより先に置くこと。** 後続が `clearTrace()` を呼ぶので、
+起動時の記録はそれまでにしか読めない。
+
+
 | コマンド | 層 | 中身 |
 |---|---|---|
 | `bun test` | 単体 | bun の test runner（test/*.test.ts） |
 | `bun run test:int` | API | 実 VSCode を起動し、**拡張機能ホストの内側**から `vscode` API を叩く |
 | `bun run test:ui` | UI | Playwright で VSCode の**画面を外から**操作する |
 
-### ⚠️ 先に調べるべきだった：既存のものを手で作り直していた
+### 残件：Windows 環境の自動テスト【要望・後回し】
 
-2026-07-27 に自作したが、**検索したら既にあった**：
+- mac 主導で Windows 環境のテストを実行したい。検証用の使い捨て試作も範疇
+- 接続手段：ローカルネットワーク、または Windows 側にも Claude Code を入れて
+アプリ間通信など
+- **Windows PC は電源が入っていないことがある。**最初に確認し、以降は省略
+- ⚠️ **基本的なテストは mac のみで完結させる。** Windows が落ちていても走ること。
+または状況を見てスキップする仕組み
+- 実装済みの `test:int` / `test:ui` はどちらも VSCode の実行パスを配列から
+探しているので（`C:/Program Files/Microsoft VS Code/Code.exe` を含む）、
+Windows 側でそのまま動く見込み。**未検証**
 
-| 既存 | 自作した相当物 | 評価 |
+### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
+
+**エディタに出て CLI に出ないものは、2種類ある。混同しないこと。**
+
+| 症状 | 正体 | 対処 |
 |---|---|---|
-| **`@vscode/test-cli`**（公式が新規拡張機能に推奨） | `test/int/runTests.ts` ＋ 自前 `it()` | 設定駆動（`.vscode-test.js`）で VSCode の DL・user-data-dir・ワークスペース・Mocha を面倒見る。**専用 VSCode 拡張機能でUI実行・デバッグも可**。乗り換える価値あり |
-| `@mshanemc/vscode-test-playwright` | `test/ui/runUI.ts` | test-electron ＋ Playwright の組み合わせ。ただし個人パッケージで保守状況は未確認。自作は約150行なので即断は不要 |
-| VSCode の **MCP サーバー**群 | （検討もしていなかった） | 「Ctrl+Shift+P でできることは全部エージェントから」。**AI が VSCode を操作する話は Playwright ではなく MCP が本線**。ただし今回の目的（拡張機能自身の自動テスト）とは用途が違う |
+| エディタだけがエラーを出す | **エディタの ESLint サーバが古い TypeScript プロジェクトを掴んでいる**（`tsconfig.json` を編集した直後に起きる）。**偽陽性で、CLI が正しい** | ウィンドウ再読み込み |
+| CLI だけが見逃す | **lint スクリプトの対象が設定の守備範囲より狭い** | 対象を広げる（下記） |
 
-**次の一手の候補：`test:int` を `@vscode/test-cli` へ移す。**
-自前コードが減り、Extension Test Runner でUIから流せるようになる。
-`test:ui` は当面自作のままでよい（依存が playwright-core だけで済んでいる）。
+確かめ方は簡単で、**わざと `const zz: any = 1; zz();` を混ぜて CLI が捕まえるか**見る。
+捕まえるなら CLI は型付きで見えている（＝エディタ側の問題）。
+
+実際に見つかった穴：**`views/` が lint スクリプトの対象外**だった。
+設定には `views/**` のルールが3つあるのに、CLI は
+`src server/src test build.ts release_chk.ts` しか渡していなかった
+（その後 `tools/` へ移動）。
+⇒ `views` と `.vscode-test.mjs` を追加。**注入テストで実際に捕まることを確認済み。**
+
+- `.vscode-test.mjs` は `allowJs` していないので tsconfig に入らず、素の
+`projectService` では**「プロジェクトに無い」で解析されず素通り**していた。
+`projectService: {allowDefaultProject: ['.vscode-test.mjs']}` で拾う
+
+**三つの実行系が併存していることの整理**（`it` の意味が混ざらないように）：
+
+| 実行系 | 対象 | テスト関数 |
+|---|---|---|
+| `bun test` | `test/Encryptor.test.ts` | `import {it} from 'bun:test'`（**明示 import**） |
+| `vscode-test`（Mocha） | `test/int/suite.ts` | **グローバルの `it`**。`/// <reference types="mocha" />` で宣言 |
+| `node`（Playwright） | `test/ui/runUI.ts` | 自前の **`uiCase()`**（`it` と名乗らせない） |
+
+⚠️ `tsconfig.json` の `types` に `"mocha"` を足すと **`it`/`describe` が全ソースに生える**。
+必要なのは統合テストだけなので、そのファイルの三連スラッシュ参照で足りる。
 
 ### 踏んだ罠（同じ所で止まらないように）
 
@@ -563,17 +991,93 @@ VSCodium / Theia 等からの不具合報告を引き受けることになり、
 - **新規 user-data-dir では VSCode が英語で起動する。** `package.nls` のタイトルは
 英語になるが、見出し（category）は多言語化されないのでそこで判定する
 
-### 残件：Windows 環境の自動テスト【要望・後回し】
+---
 
-- mac 主導で Windows 環境のテストを実行したい。検証用の使い捨て試作も範疇
-- 接続手段：ローカルネットワーク、または Windows 側にも Claude Code を入れて
-アプリ間通信など
-- **Windows PC は電源が入っていないことがある。**最初に確認し、以降は省略
-- ⚠️ **基本的なテストは mac のみで完結させる。** Windows が落ちていても走ること。
-または状況を見てスキップする仕組み
-- 実装済みの `test:int` / `test:ui` はどちらも VSCode の実行パスを配列から
-探しているので（`C:/Program Files/Microsoft VS Code/Code.exe` を含む）、
-Windows 側でそのまま動く見込み。**未検証**
+### ✅ 完了の記録（4.5）
+
+#### ✅ `@vscode/test-cli` へ移行【完了・2026-07-28】
+
+`test:int` を公式ランナーに載せ替えた。**9 件そのまま通る。**
+
+| | 移行前 | 移行後 |
+|---|---|---|
+| 起動役 | `test/int/runTests.ts`（自作・約75行） | **削除**。`.vscode-test.mjs`（設定・約30行） |
+| テスト形式 | 自前の最小 `it()` ＋ `export run()` | **Mocha の `it()`**（`@types/mocha`） |
+| 実行 | `bun test/int/runTests.ts` | `vscode-test` |
+| 準備処理 | runTests.ts の中 | `test/prep.ts` → esbuild で `test/prep.mjs` |
+
+**自作で補い続ける必要があった分は `test/prep.ts` に寄せた**（公式ランナー本体には手を入れない）：
+
+- フィクスチャ生成（`mkFixture`）
+- 実 VSCode の指定 → `useInstallation.fromPath`（無いと 150MB を毎回落とす）
+- `--user-data-dir` / `--extensions-dir` を**一時フォルダへ** → `launchArgs`
+（既定は `.vscode-test/` が**リポジトリ内**。一度 140 ファイルを vsix に混入させた）
+- `ELECTRON_RUN_AS_NODE` の打ち消し
+- `hideSoon()`（フォーカス対策）。**設定を読んでから起動するので立つまでが遅く、
+数回リトライするようにした**（一度きりだと空振りする）
+
+##### 踏んだ罠（移行時）
+
+- ⚠️ **`@vscode/test-cli` の Mocha 既定 UI は `tdd`**（`suite`/`test`）。
+そのまま `it()` を使うと **`it is not defined`** で落ちる。`mocha.ui: 'bdd'` を明示する
+- ⚠️ **Mocha の既定タイムアウトは 2 秒**。このスイートは監視のデバウンス
+（500ms＋300ms）を跨いで待つので全滅する。`timeout: 180_000` にした
+（実規模の計測ケースは 1 本 26〜37 秒）
+- ⚠️ `it()` が**グローバル**になったので `eslint-plugin-jest` が反応し、
+`jest/expect-expect` の警告が 9 件出た。**【調査】系は assert しないのが意図**
+（VSCode の仕様を記録するのが目的で、落とすと版が変わるたびに赤くなる）
+なので `test/int/suite.ts` だけ該当ルールを off に
+- ⚠️ ビルド生成物 `test/prep.mjs` を lint と git の除外に足す必要がある
+- 🐛 **`release_chk.ts` が本当の失敗理由を隠していた。** `vsce package` が失敗
+（型検査や lint の失敗）しても処理を続け、**SHA256 の段で ENOENT で落ちる**ため
+画面から真因が流れてしまう。エラーがあれば SHA256 の前で止めるようにした
+
+### `test:ui` の寄せ先【調査済み・2026-07-28 → 当面は自作のまま】
+
+| 候補 | 状態 | 判断 |
+|---|---|---|
+| 自作（`playwright-core` のみ・約150行） | **12/12 通る** | **当面これ** |
+| `@mshanemc/vscode-test-playwright` | `0.0.1-beta14` / 2025-06-02。**1年以上更新なし** | ❌ 寄せない |
+| **`vscode-extension-tester`（ExTester）** | **8.23.0 / 2026-03-12。全128リリースで活発** | ⬜ **将来の本命** |
+
+自作の代償は「**セレクタが VSCode の内部 DOM に依存し、更新で壊れうる**」こと。
+ExTester は**ページオブジェクト**を持つのでそこが薄くなる。ただし
+**Selenium/WebDriver ベースで Playwright とは別物**なので、12ケースの書き直しになる。
+
+⇒ **セレクタ崩れが実際に起きてから**移る。いまは動いているものを壊す理由がない。
+
+#### ✅ フォーカスを奪われない【解決・2026-07-28】
+
+**VSCode に「起動しても前面に出ない」フラグは無い。** GUI アプリを spawn すれば
+macOS は必ずそれをアクティブにする。そこで **`test/hideWin.ts` で起動直後に隠す**。
+
+| | 隠して動くか | 実測 |
+|---|---|---|
+| `test:int` | ✅ | **9/9**。所要時間も変わらず（122.4ms、隠す前 123.3ms） |
+| `test:ui` | ✅ | **6/6**。コマンドパレット・ツリーのクリック・webview の読み取りまで動く |
+
+- **拡張機能ホストは Node プロセス**なので、レンダラのバックグラウンド抑制
+（タイマー間引き）を受けない
+- **Playwright は CDP で入力を注入する**ので OS のフォーカスが要らない。
+「フォーカスがないと操作できない」は成り立たない
+- 対象の見分けは**起動前後の PID 差分**（`pgrep -f '…/MacOS/Electron'`）。
+開発機の VSCode 本体は `…/MacOS/Code` なので巻き込まない
+- ⚠️ **ウィンドウタイトルでは見分けられない。** フィクスチャのフォルダ名は
+`main` で、`sn_ext_test` はその親なのでタイトルに出ない（一度これで外した）
+- ⚠️ **AppleScript の `whose name is in {…}` は -1700 エラー**になる。
+try/catch で握り潰すと「対象なし」に見えるので注意（一度これで外した）
+
+#### ⚠️ 先に調べるべきだった：既存のものを手で作り直していた
+
+2026-07-27 に自作したが、**検索したら既にあった**：
+
+| 既存 | 自作した相当物 | 評価 |
+|---|---|---|
+| **`@vscode/test-cli`**（公式が新規拡張機能に推奨） | `test/int/runTests.ts` ＋ 自前 `it()` | 設定駆動（`.vscode-test.js`）で VSCode の DL・user-data-dir・ワークスペース・Mocha を面倒見る。**専用 VSCode 拡張機能でUI実行・デバッグも可**。乗り換える価値あり |
+| ~~`@mshanemc/vscode-test-playwright`~~ | `test/ui/runUI.ts` | ❌ **寄せない（2026-07-28 調査）。`0.0.1-beta14`／2025-06-02 公開で1年以上更新なし・beta のまま**（全13リリース）。いまより保守状況の悪い依存を抱えることになる |
+| VSCode の **MCP サーバー**群 | （検討もしていなかった） | 「Ctrl+Shift+P でできることは全部エージェントから」。**AI が VSCode を操作する話は Playwright ではなく MCP が本線**。ただし今回の目的（拡張機能自身の自動テスト）とは用途が違う |
+
+---
 
 ## 5. やってはいけないこと
 
@@ -603,9 +1107,10 @@ Windows 側でそのまま動く見込み。**未検証**
 | `bun run watch` | 開発。デバッグ実行（F5）の preLaunchTask が自動で呼ぶ。vite と esbuild の watch |
 | `bun run build` | 一回だけの開発ビルド（vue + esbuild + views/*.ts） |
 | `bun run chk:types` | 型検査のみ（`tsc -p tsconfig.chk.json --noEmit`、src + server）。リリース経路ではこれが唯一の型検査 |
+| `bun run lint` | ESLint を**全ファイルへ**（約10秒）。**ESLint 拡張機能は開いているファイルしか見ない**ので、これが無いと閉じたファイルの lint エラーに気づけなかった。`vscode:prepublish` からも呼ぶ |
 | `bun test` | テスト |
 | `bun run version:patch` | package.json のバージョンだけ上げる（`:minor` / `:major` も同様）。git タグ・コミットは作らない（`-no-git-tag-version` はダッシュ1個だが npm が解釈してくれることを実測確認済み） |
-| **`bun run release`** | **公開前チェック6項目 ＋ vsix 生成**（[release_chk.ts](release_chk.ts)）。リリース時はこれを使う |
+| **`bun run release`** | **公開前チェック6項目 ＋ vsix 生成**（[tools/release_chk.ts](tools/release_chk.ts)）。リリース時はこれを使う |
 | `bun run pack_only` | チェックなしで vsix だけ作る。切り分け・急ぎのとき用 |
 | `bun run update` | 依存の一括更新（本体 + server + グローバルの ncu） |
 | `bun run rebuild` | node_modules 作り直し |
@@ -615,12 +1120,15 @@ Windows 側でそのまま動く見込み。**未検証**
 
 - スクリプト名は `release`。**`publish` という名前にすると `bun publish`（bun 組み込みの npm レジストリ公開）と打ち間違えたときに事故る**ので避けている
 - `vsce publish` は使わない。PAT を置かない方針（公開は Web UI から手動）
-- `bun run release` が1件でも ✗ を出したら公開しない。✗ の内容は [release_chk.ts](release_chk.ts) の該当箇所にコメントで理由が書いてある
+- `bun run release` が1件でも ✗ を出したら公開しない。✗ の内容は [tools/release_chk.ts](tools/release_chk.ts) の該当箇所にコメントで理由が書いてある
 - **ビルドは esbuild なので型を見ない。** 型検査は `vscode:prepublish` の `chk:types`（tsc）が担う。`pack_only` も prepublish 経由なので同じく通る
 - `dist/` と `views/*.js` は生成物。前者は git 管理下、後者は .gitignore 済み
 
 ### 手順
 
+0. **版番号を決める。** Marketplace は `major.minor.patch` のみで
+	`5.0.0-alpha.1` のような semver の pre-release タグは**使えない**。
+	公式の慣習に倣い **奇数マイナー＝先行版（alpha/beta）／偶数マイナー＝正式版**
 1. `CHANGELOG.md` の先頭に `## vX.Y.Z` を追記（ユーザー向けの文言で。内部的な chore も残す）
 2. `bun run version:patch`（CHANGELOG の見出しと package.json を一致させる）
 3. `bun run release` → **6項目すべて ✓** と、末尾の SHA256 を確認
@@ -633,8 +1141,12 @@ Windows 側でそのまま動く見込み。**未検証**
 	（vsix は作業ツリーから作られるので、ツリー＝コミット内容なら vsix も一致する）
 5. GitHub Releases で新規リリース
 	- タグ：`vX.Y.Z`（コミット後の master に付ける）
-	- 添付：`skynovel2-X.Y.Z.vsix`
-	- 本文：§8 の原稿を貼り、SHA256 を差し替える
+	- 添付：`bluesnovel-X.Y.Z.vsix`（旧 `skynovel2-…`。改名済み）
+	- 本文：SHA256 を差し替える（未公開の原稿は §8.5）
+	- ⚠️ **先行版なら「Set as a pre-release」に必ずチェック。**
+	`/releases/latest` は pre-release を除外するので、これで
+	**既存利用者に更新通知が飛ばない**（更新通知は latest しか見ない）。
+	チェックを忘れると、落ち着いていない版へ全員を誘導してしまう
 6. **アップロード後、GitHub が表示する digest と手元の SHA256 が一致するか確認**（下記）
 7. ブログで告知（[前回の記事](https://famibee.blog.fc2.com/blog-entry-980.html)の続報として）
 
@@ -666,65 +1178,86 @@ Windows は `certutil -hashfile skynovel2-4.31.1.vsix SHA256`。
 
 ---
 
-## 8. Releases リリースノート原稿（v4.31.1）
+## 8. Releases リリースノート原稿
 
-そのまま貼れる形。**SHA256 は毎回差し替えること**（`bun run release` の出力を使う）。
+⚠️ **版ごとの原稿はここに残さない。** 公開したら実物が GitHub Releases にあるので、
+草稿は用途を終える（v4.31.1 の原稿は 2026-07-28 に削除）。
+**書き方の型**だけ §7「手順」に置いてある。
 
-````markdown
-## インストール / Installation
+未公開の原稿だけを置く場所 → §8.5
 
-Marketplace が利用できないため、この .vsix を手動でインストールして下さい。
+---
 
-1. 下の `skynovel2-4.31.1.vsix` をダウンロード
-2. VSCode の【拡張機能】ビュー右上の `...` →【VSIX からのインストール】
-3. または `code --install-extension skynovel2-4.31.1.vsix`
+## 8.5. 移行案内の原稿【改名版のリリース時に使う】
 
-改ざん検知用のハッシュ値（ダウンロード後に照合して下さい）：
+⚠️ **まだ公開しない。** **v5.0.0 正式版**まで出さない（alpha 段階で出すと、
+落ち着いていないものへ全員を移行させてしまう）。
+README の「⚠️ Important Notice」ブロック（現在は Marketplace 停止のお知らせ）を
+**差し替える**形で使う。
 
+### (1) README 差し替え（bilingual）
+
+```markdown
+## ⚠️ Important Notice / 重要なお知らせ
+
+### The extension has been renamed / 拡張機能の名前が変わりました
+
+| | |
+|---|---|
+| Old / 旧 | `famibee2.skynovel2` (SKYNovel) |
+| **New / 新** | **`famibee2.bluesnovel`** (BlueSNovel / SKYNovel) |
+
+Microsoft confirmed that a removed extension is **never reinstated**, so the old
+listing — its ID, install count and reviews — is gone for good. The corrected
+build is published under a new name. It is the same extension, and it still
+supports both engines.
+
+**⚠️ Uninstall the old extension before installing the new one.** Both can be
+installed at the same time, and they register the same command IDs and view IDs,
+so they conflict.
+
+1. Extensions view → find **SKYNovel** (`famibee2.skynovel2`) → **Uninstall**
+2. Install **BlueSNovel / SKYNovel** (`famibee2.bluesnovel`)
+3. Reload the window
+
+Your projects are not affected. Nothing under `doc/prj/` is touched by this.
+
+---
+
+削除された拡張機能の ID は**復活しません**（Microsoft から回答済み）。
+旧ページ・インストール数・レビューは戻らないため、修正版は**新しい名前**で公開します。
+中身は同じ拡張機能で、両エンジン対応も変わりません。
+
+**⚠️ 新版を入れる前に、旧版をアンインストールしてください。** 両方同時に入って
+しまい、同じコマンド ID・ビュー ID を登録するため衝突します。
+
+1. 拡張機能ビューで **SKYNovel**（`famibee2.skynovel2`）を探し、**アンインストール**
+2. **BlueSNovel / SKYNovel**（`famibee2.bluesnovel`）を入れる
+3. ウィンドウを再読み込み
+
+作品プロジェクトには影響しません。`doc/prj/` 以下は一切触りません。
+
+新版には**更新のお知らせ機能**が入っています（v4.31.2〜）。
+以後は新版が出たときに通知されます（通知のみ。ダウンロードもインストールもしません）。
 ```
-SHA256: ここに bun run release の出力を貼る
+
+### (2) ブログ記事（貼り付け用 HTML）
+
+本文は上の日本語版と同内容。見出しは `<h2>`、手順は `<ol>`。
+過去の記事（blog-entry-980）からの続きなので、冒頭で経緯に触れる。
+
+### (3) テンプレリポジトリの README 追記（tmp_esm_uc / tmp_blues）
+
+**【ベース更新】を押した人には main.zip 経由で届く**ので、v4.30.4 で止まっている
+利用者に触れる数少ない経路（§3.5）。短く、リンクだけ：
+
+```markdown
+### VSCode 拡張機能をお使いの方へ（2026/08）
+
+拡張機能は **`famibee2.bluesnovel`（BlueSNovel / SKYNovel）** に名前が変わりました。
+**旧版（SKYNovel / `famibee2.skynovel2`）は先にアンインストールしてください。**
+→ [詳細](https://github.com/famibee/SKYNovel-vscode-extension#readme)
 ```
-
-- macOS / Linux: `shasum -a 256 skynovel2-4.31.1.vsix`
-- Windows: `certutil -hashfile skynovel2-4.31.1.vsix SHA256`
-
-この値は GitHub がアセットの隣に表示する digest とも一致します。
-どちらもビルド時のものと照合済みです。
-
-## この版の変更 / Changes
-
-**Python パッケージの導入が同意制になりました**
-
-これまではプロジェクトを開いた時点で、確認なしに `pip install fonttools brotli` を実行していました。これを廃止し、**フォント最適化を有効にする時だけ**、実行するコマンドを表示したダイアログで同意を求める形にしました。【手動で入れる】を選んでも他の機能はそのまま使えます。
-
-**bun があれば bun を使います**
-
-`bun` が入っている環境では、拡張機能が発行するタスク（`npm i` / `npm run` など）を `bun` / `bunx` で実行します。無ければ従来どおり npm です。
-
-**フォント最適化の改善・不具合修正**
-
-- `&def_fonts` に並べた**すべてのフォント**をサブセット化するようになりました（従来は一つめのみ）
-- 変換に失敗したときにフォントファイルが消えてしまう問題を修正
-- Windows でフォント最適化が失敗する問題を修正
-- fonttools を導入してもフォルダを開き直すと「未導入」に戻る問題を修正
-
-**Windows の不具合修正**
-
-- パッケージ生成後の【出力フォルダを開く】が反応しない／エラーになる問題を修正
-- スコアエディタ（.ssn）でテキスト入力のイベントが登録されていなかった問題を修正
-
-**内部**
-
-- `npm-check-updates` を拡張機能本体のバンドルから外し、「ベース更新」時に `npx` で実行するように（バンドルが 2.5MB 削減）
-- 拡張機能がユーザー環境で実行するものを README 冒頭と拡張機能の説明文に明記
-- 公開前チェックを自動化（同梱物・バンドル混入・既知の攻撃指標の走査）
-
-詳細は [CHANGELOG.md](https://github.com/famibee/SKYNovel-vscode-extension/blob/master/CHANGELOG.md) を参照して下さい。
-
-## Marketplace について
-
-2026年7月下旬に Visual Studio Marketplace から配布が停止されました。指摘された箇所を修正し、当面はこの GitHub Releases で配布します。経緯は[お知らせ記事](https://famibee.blog.fc2.com/blog-entry-980.html)にあります。
-````
 
 ---
 
@@ -808,4 +1341,4 @@ Primary support team business hours are 9AM - 5PM, weekdays Indian Standard Time
 Regards,
 VS Marketplace Support Team
 
-________________________________________ From: k.s-24.9_1-4@leto.eonet.ne.jp Sent: Friday, 24 July 2026 04:46:18 To: Visual Studio Marketplace Support Subject: [EXTERNAL] URGENT: Publisher Account Inaccessible, Marketplace Returning 429, and Extension Page Returning 404 (famibee2) [You don't often get email from k.s-24.9_1-4@leto.eonet.ne.jp. Learn why this is important at https://aka.ms/LearnAboutSenderIdentification ] Hello Visual Studio Marketplace Support Team, I am the owner of the Visual Studio Marketplace publisher "famibee2" and am requesting urgent investigation and assistance. My publisher account appears to be experiencing a serious Marketplace-side issue that is preventing me from managing or publishing my extension. Publisher: famibee2 Extension ID: famibee2.skynovel2 Affected Extension URL: https://nam06.safelinks.protection.outlook.com/?url=https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dfamibee2.skynovel2&data=05%7C02%7Cvsmagent%40microsoft.com%7C23fd966847da4d39e32708dee93e881f%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639204652152603864%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C60000%7C%7C%7C&sdata=BYaTnMvKO3AUAznM2Jusuvqiz92NO%2Fqy0R%2BbFVM1nwg%3D&reserved=0 Current issues: - I can sign in to my Microsoft account successfully. - However, I cannot access the Visual Studio Marketplace Publisher portal. - The Marketplace /manage page consistently returns: "429 - Woah, that's a lot of requests" - Marketplace search pages are also returning HTTP 429 errors. - The extension page for famibee2.skynovel2 now returns 404 Not Found. - VS Code reports that the extension is no longer available in the Marketplace. - Because of this, I am unable to manage, update, or publish my extension. What concerns me most is that the extension itself appears to have disappeared from the Marketplace. The extension URL that was previously available now returns 404, while the publisher portal is simultaneously inaccessible due to repeated 429 responses. Since my Microsoft account authentication is functioning normally, this appears to be a Marketplace or publisher-account-specific issue rather than a sign-in problem. This situation is preventing all maintenance and release activities for my project and may impact existing users who rely on the extension. Could you please urgently investigate: - The current status of publisher "famibee2" - Whether the publisher account has been restricted, suspended, disabled, or flagged in error - Why Marketplace management and search pages are returning HTTP 429 - Why the extension famibee2.skynovel2 is returning 404 - What actions are required to restore publisher access and extension availability If necessary, please escalate this case to the appropriate Visual Studio Marketplace engineering team for investigation. I would greatly appreciate an urgent review, as I currently have no ability to access the publisher portal or manage the extension. Thank you for your time and assistance. I look forward to your response. Best regards, [Your Name] Owner of Visual Studio Marketplace Publisher "famibee2" Microsoft Account: [your Microsoft account email] Timezone: Japan Standard Time (JST) ; --------------------------------------------------- ; ふぁみべぇ《famibee@gmail.com》 ;　電子演劇部 ;　https://nam06.safelinks.protection.outlook.com/?url=http%3A%2F%2Ffamibee.blog38.fc2.com%2F&data=05%7C02%7Cvsmagent%40microsoft.com%7C23fd966847da4d39e32708dee93e881f%7C72f988bf86f141af91ab2d7cd011db47%7C1%7C0%7C639204652152632574%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C60000%7C%7C%7C&sdata=58OpxDXH4ixpaWAepmQLvs%2B8BRvfdwAXH0zKKfNPz1w%3D&reserved=0 ; ---------------------------------------------------
+________________________________________ From: k.s-24.9_1-4@leto.eonet.ne.jp Sent: Friday, 24 July 2026 04:46:18 To: Visual Studio Marketplace Support Subject: [EXTERNAL] URGENT: Publisher Account Inaccessible, Marketplace Returning 429, and Extension Page Returning 404 (famibee2) [You don't often get email from k.s-24.9_1-4@leto.eonet.ne.jp. Learn why this is important at https://aka.ms/LearnAboutSenderIdentification ] Hello Visual Studio Marketplace Support Team, I am the owner of the Visual Studio Marketplace publisher "famibee2" and am requesting urgent investigation and assistance. My publisher account appears to be experiencing a serious Marketplace-side issue that is preventing me from managing or publishing my extension. Publisher: famibee2 Extension ID: famibee2.skynovel2 Affected Extension URL: ［safelinks の長い URL は削除］ Current issues: - I can sign in to my Microsoft account successfully. - However, I cannot access the Visual Studio Marketplace Publisher portal. - The Marketplace /manage page consistently returns: "429 - Woah, that's a lot of requests" - Marketplace search pages are also returning HTTP 429 errors. - The extension page for famibee2.skynovel2 now returns 404 Not Found. - VS Code reports that the extension is no longer available in the Marketplace. - Because of this, I am unable to manage, update, or publish my extension. What concerns me most is that the extension itself appears to have disappeared from the Marketplace. The extension URL that was previously available now returns 404, while the publisher portal is simultaneously inaccessible due to repeated 429 responses. Since my Microsoft account authentication is functioning normally, this appears to be a Marketplace or publisher-account-specific issue rather than a sign-in problem. This situation is preventing all maintenance and release activities for my project and may impact existing users who rely on the extension. Could you please urgently investigate: - The current status of publisher "famibee2" - Whether the publisher account has been restricted, suspended, disabled, or flagged in error - Why Marketplace management and search pages are returning HTTP 429 - Why the extension famibee2.skynovel2 is returning 404 - What actions are required to restore publisher access and extension availability If necessary, please escalate this case to the appropriate Visual Studio Marketplace engineering team for investigation. I would greatly appreciate an urgent review, as I currently have no ability to access the publisher portal or manage the extension. Thank you for your time and assistance. I look forward to your response. Best regards, [Your Name] Owner of Visual Studio Marketplace Publisher "famibee2" Microsoft Account: [your Microsoft account email] Timezone: Japan Standard Time (JST) ; --------------------------------------------------- ; ふぁみべぇ《famibee@gmail.com》 ;　電子演劇部 ;　［safelinks の長い URL は削除］ ; ---------------------------------------------------

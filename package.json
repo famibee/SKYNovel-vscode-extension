@@ -1,8 +1,8 @@
 {
-	"name": "skynovel2",
-	"version": "4.31.2",
+	"name": "bluesnovel",
+	"version": "4.33.0",
 	"publisher": "famibee2",
-	"displayName": "SKYNovel",
+	"displayName": "BlueSNovel / SKYNovel",
 	"description": "Supports SKYNovel development. It runs npm/bun build tasks in the terminal, and — only with your consent — installs the Python packages fonttools/brotli via pip when you turn on font optimization. VSCodeでSKYNovelの開発をサポートする拡張機能。npm/bun のビルドタスクをターミナルで実行し、フォント最適化を有効にする時のみ、同意を得た上で pip で fonttools/brotli を導入します",
 	"author": "miyazawa famibee",
 	"icon": "res/img/icon_skynovel.png",
@@ -759,6 +759,7 @@
 		"@types/fluent-ffmpeg": "^2.1.28",
 		"@types/fs-extra": "^11.0.4",
 		"@types/minimatch": "^6.0.0",
+		"@types/mocha": "^10.0.10",
 		"@types/node": "^26.1.1",
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
@@ -767,6 +768,7 @@
 		"@types/vscode-webview": "^1.57.5",
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-vue": "^6.0.8",
+		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"electron": "^43.2.0",
 		"esbuild": "^0.28.1",
@@ -784,8 +786,8 @@
 		"vscode-languageserver-types": "^3.18.0"
 	},
 	"scripts": {
-		"build": "bun md2json && bun vue_bld && bun build.ts",
-		"watch": "bun vue_bw & bun src/md2json.ts --watch & bun --watch build.ts --watch",
+		"build": "bun md2json && bun vue_bld && bun tools/build.ts",
+		"watch": "bun vue_bw & bun src/md2json.ts --watch & bun --watch tools/build.ts --watch",
 		"md2json": "bun src/md2json.ts",
 		"vue_bld": "vite build -c ./views/vite.config.mts",
 		"vue_bw": "vite build -w -c ./views/vite.config.mts",
@@ -796,13 +798,14 @@
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
-		"release": "bun release_chk.ts",
+		"release": "bun tools/release_chk.ts",
 		"pack_only": "vsce package --no-dependencies",
-		"vscode:prepublish": "rimraf dist && bun vue_bld && bun md2json && bun run chk:types && bun build.ts",
+		"vscode:prepublish": "rimraf dist && bun vue_bld && bun md2json && bun run chk:types && bun run lint && bun tools/build.ts",
 		"chk:types": "tsc -p tsconfig.chk.json --noEmit",
+		"lint": "eslint src server/src test views tools .vscode-test.mjs",
 		"test": "bun test --only-failures",
-		"test:int": "bun build.ts && bun test/int/runTests.ts",
-		"test:ui": "bun build.ts && node test/ui/runUI.mjs"
+		"test:int": "bun tools/build.ts && vscode-test",
+		"test:ui": "bun tools/build.ts && node test/ui/runUI.mjs"
 	},
 	"repository": {
 		"type": "git",
