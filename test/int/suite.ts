@@ -29,7 +29,7 @@ const EXT_ID = 'famibee2.bluesnovel';	// 旧 skynovel2。ID は復活しない�
 const sleep = (ms: number)=> new Promise(re=> setTimeout(re, ms));
 
 /**
- * 「LSP に再走査を頼んだ回数」。経路が2つあるので足して見る（§3.7(d)-2）。
+ * 「LSP に再走査を頼んだ回数」。経路が2つあるので足して見る（§3.7 の宿題「upd_path」）。
  * - `need_go.send` … 本文ごと送る重い経路（スクリプトの追加削除など）
  * - `upd_path.send` … path.json だけ送る軽い経路（画像・音声の追加削除）
  */
@@ -351,7 +351,7 @@ it('【調査】全走査は何 ms か（本体の読み取り vs LSP の再パ�
 	console.log('  ── 全走査の所要時間 ──');
 	console.log(`    全走査.ms   ${stat(hMs['全走査.ms'])}`);
 	console.log(`    scanSrc.ms  ${stat(hMs['scanSrc.ms'])}`);
-	console.log('  ── うち LSP 側の内訳（§3.7(d)-1）──');
+	console.log('  ── うち LSP 側の内訳（§3.7 の「内訳の測定」）──');
 	for (const [k, nm] of [
 		['S.init.ms',  '状態の作り直し(scanInitAll+updPath)'],
 		['S.parse.ms', 'パース(resolveScript)             '],

@@ -81,7 +81,7 @@ export type T_L2S_go_res = T_SCAN_SRC & {
 	cmd		: 'go.res';
 };
 /**
- * **path.json だけが変わったときの軽い再走査**（§3.7(d)-2）。
+ * **path.json だけが変わったときの軽い再走査**（§3.7 の宿題「upd_path」）。
  *
  * スクリプト本文（実測で送信物の 97.8%・約177KB）を送らない。S は保持済みの
  * `#hPp2Scr`（本文＋パース結果）を使い、**パースを飛ばして検証だけやり直す**。
@@ -162,7 +162,7 @@ type T_S2L_go = T_S2L_WS & {
 	// ここで渡しても初回は初期値（空）、以降は前回分の重複だった
 };
 /**
- * `#scanAll()` の所要時間の内訳（ms）。§3.7(d)-1 の測定用。
+ * `#scanAll()` の所要時間の内訳（ms）。§3.7 の「内訳の測定」用。
  *
  * S に fs を持たせない方針は保ったまま計時だけ足している（`performance` のみ）。
  * C 側で `traceMs` に載せ、統合テストから読めるようにする。
@@ -830,7 +830,7 @@ ${sum}`,
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
-		// つまり「検証」の実体の一部はこのループにある（§3.7(d)-3 の測定用に分ける）
+		// つまり「検証」の実体の一部はこのループにある（§3.7 の「#scanEnd の内訳」測定用に分ける）
 		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];
@@ -1612,6 +1612,10 @@ WorkspaceEdit
 	 * 検証（`#scanScript`）はやり直す。path.json のファイル名キーワードに
 	 * 依存しているので飛ばせない
 	 */
+	// TODO: [perf] path.json が変わると全ファイルを検証し直している。
+	// その素材名を参照するファイルだけに絞れれば 96ms → 9〜12ms（実測の天井）。
+	// ⚠️ 難しさは速度でなく正しさ。診断は「消えた素材を参照している」も含むので
+	// 参照の向きが両方向。絞り込みを誤ると誤診断が残る／消える（TODO.md §3.7 宿題3）
 	#reScanPath({sPathJson, hDefPlg, haDiag}: T_L2S_upd_path) {
 		this.#hDefPlugin = hDefPlg;
 
@@ -1735,7 +1739,7 @@ WorkspaceEdit
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
-		// つまり「検証」の実体の一部はこのループにある（§3.7(d)-3 の測定用に分ける）
+		// つまり「検証」の実体の一部はこのループにある（§3.7 の「#scanEnd の内訳」測定用に分ける）
 		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];

@@ -23,8 +23,7 @@
 		"skynovel",
 		"vscode-extension",
 		"game engine",
-		"typescript",
-		"multi-root ready"
+		"typescript"
 	],
 	"activationEvents": [
 		"workspaceContains:doc/prj/prj.json"
@@ -760,7 +759,7 @@
 		"@types/fs-extra": "^11.0.4",
 		"@types/minimatch": "^6.0.0",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^26.1.1",
+		"@types/node": "^26.1.2",
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
 		"@types/sharp": "^0.32.0",

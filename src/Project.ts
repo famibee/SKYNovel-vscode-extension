@@ -252,7 +252,7 @@ export class Project {
 			if (after !== '' && after === before) {trace('path.json.同一'); return}
 
 			trace('path.json.変化');
-			// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7(d)-2）。
+			// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7 の宿題「upd_path」）。
 			// `after` は上で読んだものをそのまま渡す＝追加の I/O は無い
 			this.#sendNeedGo(after);
 		};
@@ -431,6 +431,8 @@ export class Project {
 	//MARK: デストラクタ
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
+	// TODO: [解放5] #tmNeedGo（300ms）を clearTimeout していない。閉じる直前に
+	// ファイルを触ると破棄済みの自分に対して発火する（TODO.md §3.6 リソースの解放5）
 	dispose() {
 		for (const d of this.#ds) d.dispose();
 		void this.#termDbgSS();
@@ -549,7 +551,7 @@ export class Project {
 					traceMs('起動.LSP準備まで.ms', performance.now() - T_BOOT);
 				}
 				// LSP 側の内訳。パースと検証のどちらが支配的かで、
-				// 「全文を送り直さない」改修が効くかどうかが決まる（§3.7(d)-1）
+				// 「全文を送り直さない」改修が効くかどうかが決まる（§3.7 の「内訳の測定」）
 				for (const [k, v] of Object.entries(o.msScan)) traceMs(`S.${k}.ms`, v);
 
 				this.#aPickItems = [

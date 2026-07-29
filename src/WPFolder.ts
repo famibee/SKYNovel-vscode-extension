@@ -56,6 +56,8 @@ export class WPFolder {
 				],
 			});
 			const wv = wp.webview;
+			// TODO: [解放2] ctx.subscriptions は拡張機能の寿命。プロジェクト単位の
+			// 購読は Project.#ds へ（TODO.md §3.6 リソースの解放2）
 			this.pc.ctx.subscriptions.push(
 				wp.onDidDispose(()=> {this.#wp = undefined}, undefined, this.pc.ctx.subscriptions),	// 閉じられたとき
 
@@ -139,6 +141,7 @@ export class WPFolder {
 		const fpOF = vsc2fp(uri.path);	// /C:/
 		if (! fp.startsWith(fpOF)) return;
 
+		// TODO: [解放5] 破棄時に止めていない（TODO.md §3.6 リソースの解放5）
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
 		this.#tiDelay = setTimeout(()=> {
 			this.#tiDelay = undefined;

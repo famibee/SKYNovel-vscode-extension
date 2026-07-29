@@ -36,6 +36,8 @@ export class WatchFile {
 		WatchFile.encIfNeeded = encIfNeeded;
 
 		// ファイル名変更イベントを処理
+		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
+		// 下の fwFld の2つも同じ。Project.#ds へ入れる（TODO.md §3.6 リソースの解放4）
 		workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));
 
 		// フォルダ追加・削除イベント検知。
@@ -45,10 +47,14 @@ export class WatchFile {
 		// という判断。その他のフォルダはエンジン自身の素材変更なので鋭敏に反応させる。
 		// 「入れ子が拾えていない＝バグ」と誤認して直さないこと
 		const ptnFld = 'doc/prj/*';
+		// TODO: [解放1] fwFld 自身を誰も dispose しない。購読を外しても OS の
+		// ファイル監視は生き続ける（TODO.md §3.6 リソースの解放1）
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(this.pc.wsFld, ptnFld));
 		fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
 		fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
 	}
+	// TODO: [multi-root] static が後勝ち。別プロジェクトの設定で暗号化しかねない
+	// （最重・単独の版で。TODO.md §3.8(A) ／ §3.6 不具合1）
 	/**
 	 * ⚠️ **この2つが static なのはマルチルートで壊れる。**
 	 *
@@ -64,6 +70,8 @@ export class WatchFile {
 				static	#updPathJson	: ()=> Promise<void>;
 	protected	static	encIfNeeded		: (uri: Uri)=> Promise<void>;
 
+	// TODO: [multi-root] エディタ主導の変名で購読者が二重に呼ばれる。
+	// Windows の挙動を確認してから直す（TODO.md §3.8(D)）
 	/**
 	 * 変名は **del + cre に分解**して購読者へ流す。判定を「対（旧,新）」ではなく
 	 * **辺ごと**に独立させているので、4通り（内→内／内→外／外→内／外→外）が
@@ -81,7 +89,7 @@ export class WatchFile {
 	 * **画像最適化と暗号化が2回走る**（need_go はデバウンスで1回に見えるので
 	 * 外からは気づけない）。macOS / VSCode 1.130 での実測。
 	 * FS 監視だけで足りるなら不要になるが、**Windows で同じ挙動か未確認**なので
-	 * 消す前に確認すること（TODO.md「ファイル監視の設計」(H)）
+	 * 消す前に確認すること（TODO.md「ファイル監視の設計」(D)）
 	 */
 	async #onDidRenameFiles({files}: FileRenameEvent) {
 // console.log(`fn:WatchFile.ts onDidRenameFiles files:%o`, files);
@@ -163,6 +171,8 @@ export class WatchFile {
 	 * `loadEx` の二重実行は残っている（TODO.md「ファイル監視の設計」(B)）
 	 */
 	protected	lasyPathJson() {
+		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
+		// （TODO.md §3.6 リソースの解放5）
 		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
 		this.#tiLasyPathJson = setTimeout(()=> {void WatchFile.#updPathJson()}, 500);
 	}
@@ -196,6 +206,10 @@ export class WatchFile {
 				return encIfNeeded(uri);
 			})
 		);
+		// TODO: [解放1] fw 自身を dispose していない（プロジェクトあたり9本）
+		// TODO: [解放2] 以下 push 先の ctx.subscriptions は「拡張機能の寿命」。
+		// プロジェクト単位のものは Project.#ds へ。いまはフォルダを開き直すと
+		// 購読が二重になり、古い方も発火する（TODO.md §3.6 リソースの解放1・2）
 		const fw = workspace.createFileSystemWatcher(
 			new RelativePattern(this.pc.wsFld, pat),
 			! crechg,	// ignore なので無効にするときに true

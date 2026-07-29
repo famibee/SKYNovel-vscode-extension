@@ -184,6 +184,7 @@ export class PrjCmn {
 			// const isEmpty = this.#aQ.length === 0;
 			// this.#aQSeq.push(fnc);	// 末尾に追加 - push
 			// if (! isEmpty) return;
+		// TODO: [解放5] 破棄時に止めていない（TODO.md §3.6 リソースの解放5）
 		if (this.#tiLasyQ) clearTimeout(this.#tiLasyQ);	// 遅延
 		this.#tiLasyQ = setTimeout(()=> {void this.doSeq()}, 100);
 			// 実行する段でキューが空でも構わない
