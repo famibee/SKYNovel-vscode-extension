@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* ***** BEGIN LICENSE BLOCK *****
-	Copyright (c) 2021-2025 Famibee (famibee.blog38.fc2.com)
+	Copyright (c) 2021-2026 Famibee (famibee.blog38.fc2.com)
 
 	This software is released under the MIT License.
 	http://opensource.org/licenses/mit-license.php

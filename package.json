@@ -9,8 +9,8 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.125.0",
-		"node": ">=24.11"
+		"vscode": "^1.134.0",
+		"node": ">=24.19"
 	},
 	"categories": [
 		"Programming Languages",
@@ -764,7 +764,7 @@
 		"@types/power-assert": "^1.5.12",
 		"@types/psd": "^3.4.3",
 		"@types/sharp": "^0.32.0",
-		"@types/vscode": "^1.125.0",
+		"@types/vscode": "^1.134.0",
 		"@types/vscode-webview": "^1.57.5",
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-vue": "^6.0.8",
@@ -791,7 +791,7 @@
 		"md2json": "bun src/md2json.ts",
 		"vue_bld": "vite build -c ./views/vite.config.mts",
 		"vue_bw": "vite build -w -c ./views/vite.config.mts",
-		"update": "bun update --latest && bun run build && bun ncu_lsp && npx --yes npm-check-updates -g",
+		"update": "bun update --latest && bun run build && bun ncu_lsp && sudo bun update -g --latest",
 		"ncu_lsp": "cd server && bun update --latest && bun outdated && cd ..",
 		"postinstall": "cd server && bun i && cd ..",
 		"rebuild": "rimraf package-lock.json && rimraf node_modules && bun pm cache rm && bun i",
@@ -804,6 +804,7 @@
 		"chk:types": "tsc -p tsconfig.chk.json --noEmit",
 		"lint": "eslint src server/src test views tools .vscode-test.mjs",
 		"test": "bun test --only-failures",
+		"testw": "bun test --only-failures --watch",
 		"test:int": "bun tools/build.ts && vscode-test",
 		"test:ui": "bun tools/build.ts && node test/ui/runUI.mjs"
 	},
