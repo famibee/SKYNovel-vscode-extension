@@ -1,4 +1,4 @@
-# SKYNovel Extension for VSCode
+# BlueSNovel / SKYNovel Extension for VSCode
 [![MIT](https://img.shields.io/badge/MIT-green?style=for-the-badge)](https://github.com/famibee/skynovel_esm/blob/master/LICENSE)
 ![VSCode](https://img.shields.io/badge/VSCode-0078D4?style=for-the-badge&logo=visual%20studio%20code&logoColor=white)
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
@@ -7,6 +7,10 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
 
 <img src="res/img/icon.png" width="100" loading="lazy">
+
+A VSCode extension for developing visual novel games with the **BlueSNovel** / **SKYNovel** game engines — syntax highlight, diagnostics, coding assistance, and a step debugger for `.sn` / `.ssn` scripts.
+
+BlueSNovel / SKYNovel（ノベルゲームエンジン）向けの VSCode 拡張機能です。`.sn` / `.ssn` スクリプトのシンタックスハイライト・診断・コーディング補助・ステップデバッガーを提供します。
 
 [CHANGELOG.md](CHANGELOG.md)
 
@@ -24,6 +28,43 @@ We are fixing the issues that led to the takedown, and a corrected build will be
 指摘された箇所を修正中で、修正版は **[GitHub Releases](https://github.com/famibee/SKYNovel-vscode-extension/releases)** から配布します。開発は継続します。
 
 - 詳しい経緯：[お知らせ記事](https://famibee.blog.fc2.com/blog-entry-980.html)
+
+---
+## What this extension runs on your machine / この拡張機能がユーザー環境で実行するもの
+
+This extension drives your project's toolchain. Everything below runs as a **visible VSCode task or terminal**, and nothing is installed silently.
+
+- **Node.js package manager** — `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` on **your project folder**, from the buttons in the BlueSNovel activity bar. If `bun` is available, `bun` / `bunx` is used instead
+- **Python packages (opt-in)** — when you turn **font optimization** on in the project settings, the extension asks first, then runs `pip install fonttools brotli`. Decline and the rest of the extension keeps working; you can also install them yourself. On Windows it also prepends Python's `Scripts` folder to the PATH of VSCode terminals so that `pyftsubset` is found
+- **Template download** — the project template is fetched from `https://github.com/famibee/...` as a zip and unpacked into the folder you choose (the URL is shown while downloading)
+- **Encryption of your own game data (opt-in)** — when you turn on encryption in the project settings, your scripts and assets are encrypted into `doc_crypto/` so that they are not trivially extractable from a released game. Your originals under `doc/` are left as they are, and the switch is reversible. Nothing outside your project folder is ever touched
+
+この拡張機能は、あなたのプロジェクトのツールチェインを操作します。以下はすべて**目に見える VSCode タスク／ターミナル**で実行され、黙ってインストールされるものはありません。
+
+- **Node.js のパッケージマネージャ** — アクティビティバーのボタンから、**あなたのプロジェクトフォルダ**に対して `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` を実行します。`bun` が使える環境では `bun` / `bunx` を使います
+- **Python パッケージ（同意制）** — プロジェクト設定で**フォント最適化**を有効にした時、確認ダイアログで同意を得てから `pip install fonttools brotli` を実行します。断っても拡張機能の他の機能はそのまま使えます（ご自分で導入することもできます）。Windows では `pyftsubset` を見つけられるよう、VSCode ターミナルの PATH に Python の `Scripts` フォルダを追加します
+- **テンプレートのダウンロード** — プロジェクトテンプレートを `https://github.com/famibee/...` から zip で取得し、選んだフォルダに展開します（取得元 URL はダウンロード中の進捗表示に出ます）
+- **作品データの暗号化（任意）** — プロジェクト設定で暗号化を有効にすると、スクリプトや素材を `doc_crypto/` へ暗号化して出力します。公開した作品から素材を容易に取り出せないようにするための機能です。`doc/` 下の原本はそのまま残り、設定を戻せば元に戻せます。プロジェクトフォルダの外には一切触れません
+
+### What this extension never does / この拡張機能がしないこと
+
+- **No telemetry.** Nothing about you or your project is collected or sent anywhere
+- **No credential access.** It never reads `~/.npmrc`, `.netrc`, SSH keys, cloud credentials, or enumerates environment variables
+- **No hidden execution.** It never downloads or runs an executable outside the visible tasks above. In particular it never downloads or installs a `.vsix` by itself — update checks only show a notification
+- **No obfuscation.** The published bundle is minified but not obfuscated, and the source is on GitHub
+
+Network access is limited to `github.com` (project template zip and version check), plus the npm registry and PyPI **through the tasks above**, which run in your own project folder.
+
+Development follows these documents: [Marketplace Publisher Agreement](https://cdn.vsassets.io/v/M261_20250904.11/_content/Visual-Studio-Marketplace-Publisher-Agreement.pdf) / [Marketplace Terms of Use](https://cdn.vsassets.io/v/M264_20251020.18/_content/Microsoft-Visual-Studio-Marketplace-Terms-of-Use.pdf) / [Security and trust in Visual Studio Marketplace](https://developer.microsoft.com/blog/security-and-trust-in-visual-studio-marketplace/). Every release is checked before publishing (bundled files, dependency contamination, and known supply-chain indicators).
+
+- **テレメトリ（利用状況の収集）はありません。** あなたや作品についての情報を集めたり送信したりしません
+- **資格情報を読みません。** `~/.npmrc`・`.netrc`・SSH 鍵・クラウドの資格情報を読んだり、環境変数を列挙したりしません
+- **隠れた実行はありません。** 上に挙げた「目に見えるタスク」以外で実行ファイルを取得・実行しません。とくに **`.vsix` を自動でダウンロード・インストールすることはありません**（更新確認は通知のみ）
+- **難読化していません。** 配布物は minify していますが難読化はしておらず、ソースは GitHub にあります
+
+ネットワークアクセスは `github.com`（プロジェクトテンプレートの zip、バージョン確認）と、上記タスク経由での npm レジストリ・PyPI に限られます。後者はあなたのプロジェクトフォルダに対する操作です。
+
+開発は次の文書に沿って行っています：[Publisher Agreement](https://cdn.vsassets.io/v/M261_20250904.11/_content/Visual-Studio-Marketplace-Publisher-Agreement.pdf) / [Terms of Use](https://cdn.vsassets.io/v/M264_20251020.18/_content/Microsoft-Visual-Studio-Marketplace-Terms-of-Use.pdf) / [Security and trust in Visual Studio Marketplace](https://developer.microsoft.com/blog/security-and-trust-in-visual-studio-marketplace/)。リリースのたびに、同梱物・依存の混入・既知のサプライチェーン攻撃指標を機械的に検査しています。
 
 ---
 ## After installing this extension ... / この拡張機能をインストールしたら……。
@@ -366,8 +407,8 @@ We are fixing the issues that led to the takedown, and a corrected build will be
 
 > ![](src/img/ref_search0.jpg)
 
-2. Execute the command "SKYNovel: Open reference search palette".
-	2. SKYNovel: Open reference search palette」というコマンドを実行します。
+2. Execute the command "SKYNovel: Open reference search palette" (shown as "BlueSNovel: ..." in BlueSNovel projects).
+	2. 「SKYNovel: Open reference search palette」というコマンドを実行します（BlueSNovel プロジェクトでは「BlueSNovel: ...」と表示されます）。
 
 > ![](src/img/ref_search1.jpg)
 
@@ -572,7 +613,7 @@ The call stack view will also show [main.sn 1:1]
 
 ### (A) line breakpoint
 	If you click on the left side of the line number, the mark with a red circle will appear.
-	The execution process of SKYNovel stops when it passes through there.
+	The execution process of the game engine stops when it passes through there.
 
 	It also appears in the breakpoint view.
 	Breakpoints can be deleted, but you can also uncheck the checkbox to temporarily disable the breakpoint.
@@ -631,7 +672,7 @@ The call stack view will also show [main.sn 1:1]
 
 2. It is possible to change the value of a variable by inputting it manually while the program is stopped.
 	- However, a variable name that begins with "const.〜" cannot be changed.
-	- In addition, some variables whose variable names begin with "sn.˜" can be changed by SKYNovel. If you change it, it will be fixed at the input value.
+	- In addition, some variables whose variable names begin with "sn.˜" can be changed by the game engine. If you change it, it will be fixed at the input value.
 
 		> ![](src/img/dbg_varview1.png)
 		> ![](src/img/dbg_varview2.png)
@@ -708,7 +749,7 @@ The call stack view will also show [main.sn 1:1]
 
 ### (A) 行ブレークポイント
 	行番号の左をクリックすると赤丸マークの目印が付きます。
-	SKYNovelの実行処理がそこを通ると停止します。
+	ゲームエンジンの実行処理がそこを通ると停止します。
 
 	ブレークポイントビューにも表示されます。
 	ブレークポイントは削除もできますが、チェックボックスを外すと一時的にブレークしないようにできます。
@@ -767,7 +808,7 @@ The call stack view will also show [main.sn 1:1]
 
 2. 【値の設定】停止中、手入力で変数値変更が可能です。
 	- ただし変数名が「const.〜」で始まる変数は変更不可です。
-	- また変数名が「sn.〜」で始まる変数は SKYNovelが変化させるものがあり、それを変更すると入力値で固定されてしまいます。
+	- また変数名が「sn.〜」で始まる変数はゲームエンジンが変化させるものがあり、それを変更すると入力値で固定されてしまいます。
 
 		> ![](src/img/dbg_varview1.png)
 		> ![](src/img/dbg_varview2.png)

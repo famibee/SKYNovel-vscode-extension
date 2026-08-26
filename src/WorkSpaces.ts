@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp} from './CmnLib';
+import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp, fp2osp, chkBun} from './CmnLib';
 import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -14,10 +14,10 @@ import {CteScore} from './CteScore';
 import {type PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
 import type {T_MES_L2S} from '../server/src/LangSrv';
 import type {T_ALL_L2S, T_ALL_S2L, T_ALL_S2L_WS} from '../server/src/LspWs';
-import hMd from './md.json';
+import type {MD_STRUCT} from './md2json';
 
 import {commands, EventEmitter, ExtensionContext, TaskProcessEndEvent, tasks, TreeDataProvider, TreeItem, TreeItemCollapsibleState, window, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent, languages, LanguageStatusItem, QuickPickItem, Uri, Hover, Position, ProviderResult, TextDocument, HoverProvider, DocumentDropEditProvider, CancellationToken, DataTransfer, DocumentDropEdit, env, window as vsc_win, ThemeIcon} from 'vscode';
-import {existsSync} from 'fs-extra';
+import {existsSync, readJsonSync} from 'fs-extra';
 import {
 	LanguageClient,
 	type LanguageClientOptions,
@@ -29,7 +29,43 @@ import {
 export type QuickPickItemEx = QuickPickItem & {
 	uri?	: Uri;
 }
+/** SKYNovel プロジェクト用のタグ一覧。プロジェクトを開いていない時に使う */
 export const aPickItems	: QuickPickItemEx[] = [];
+
+/** md.json から取り出した [タグ名, 概要]。#start() で一度だけ埋める */
+let aTagSum: [string, string][] = [];
+
+/**
+ * 廃止タグ。**リファレンス検索パレットには出さない**（調べに行く意味がないので）。
+ *
+ * ⚠️ **`src/md/` の md ファイルは消さないこと。** LSP のタグ表
+ * （`LspWs.#hTag`）は md.json から作られるので、md を消すとタグとして
+ * 認識されなくなり、既存シナリオの `[set_cancel_skip]` に
+ * **「未定義マクロを使用、あるいはスペルミスです」の誤診断**が出る。
+ * md は残したまま、概要文で廃止であることを伝え、ここで一覧から外す
+ */
+const SET_HAISHI_TAG = new Set(['set_cancel_skip']);
+
+/**
+ * タグリファレンス検索パレットの項目を作る。
+ * リンク先はエンジンごとに別サイトなので、プロジェクト種別で切り替える。
+ * 【エンジンによって載せるタグを変えない】。リファレンスは「調べられること」が
+ * 役目なので、相手側エンジンで未実装・未整備のタグも隠さない
+ * （実装状況は各サイトの記載に従う）。
+ * ⚠️ 廃止タグ（`SET_HAISHI_TAG`）だけは別で、**両エンジンとも載せない**。
+ * エンジン差ではなく「もう使わないもの」なので、調べに行く先が無い
+ */
+export function mkTagPickItems(is_blues: boolean): QuickPickItemEx[] {
+	const url = is_blues
+		? 'https://famibee.github.io/bluesnovel/tag.html#'
+		: 'https://famibee.github.io/SKYNovel/tag.html#';
+	return aTagSum.map(([tag_nm, sum])=> ({
+		label		: tag_nm,
+		description	: sum,
+		//detail,	// 別の行になる
+		uri			: Uri.parse(url + tag_nm),
+	}));
+}
 
 
 export	function openURL(url: Uri, pathWs: string) {
@@ -40,7 +76,8 @@ export	function openURL(url: Uri, pathWs: string) {
 			break;
 
 		case 'ws-folder':
-			env.openExternal(Uri.file(pathWs + url.path));
+			env.openExternal(Uri.file(fp2osp(pathWs + url.path)));
+				// fp2osp() は Windows でドライブ名を補完する（無いと 0x2 エラー）
 			break;
 
 		default:	env.openExternal(url);
@@ -225,12 +262,22 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		this.#removeStatusItem('init');
 
-		for (const [tag_nm, {sum}] of Object.entries(hMd)) aPickItems.push({
-			label		: tag_nm,
-			description	: sum,
-			//detail,	// 別の行になる
-			uri			: Uri.parse('https://famibee.github.io/SKYNovel/tag.html#'+ tag_nm),
-		});
+		// md.json は 150KB ほどあり、バンドルに含めると起動時のパース対象になる。
+		// src/md2json.ts が dist/md.json へ出すので、そちらを実行時に読む。
+		// ここはコンストラクタなので、投げると拡張機能が丸ごと起動しない
+		// （ツリーもコマンドも登録されない）。リファレンス検索だけ諦める
+		const fpMd = `${this.ctx.extensionPath}/dist/md.json`;
+		try {
+			const hMd = <{[tag_nm: string]: MD_STRUCT}>readJsonSync(fpMd);
+			aTagSum = Object.entries(hMd)
+				.filter(([tag_nm])=> ! SET_HAISHI_TAG.has(tag_nm))
+				.map(([tag_nm, {sum}])=> [tag_nm, sum]);
+		}
+		catch (e: unknown) {
+			aTagSum = [];
+			console.error(`fn:WorkSpaces.ts タグ辞書が読めません（リファレンス検索が空になります）${fpMd} %o`, e);
+		}
+		aPickItems.push(...mkTagPickItems(false));
 	}
 	#tiLayers	: TreeItem[]	= [];
 
@@ -278,11 +325,18 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		this.#req2LSP = (uriWs, o)=> {
 			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
 // console.log(`Seq_11 ⬆送 cmd:${o.cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${vsc2fp(uriWs.path)}=`);
+			// sendRequest の引数は any なので、この型注入だけが型チェックになる
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 			return this.#lsp.sendRequest(REQ_ID, <T_MES_L2S>{...o, pathWs: fullSchPath2fp(uriWs.path)});
 		};
 
 		this.ctx.subscriptions.push(
 			commands.registerCommand('skynovel.openReferencePallet', ()=> this.#openReferencePallet()),
+			// コマンドパレットの見出し（category）は package.json の静的な値なので
+			// 実行時に変えられない。同じ処理のコマンドを2つ置き、コンテキストキー
+			// skynovel.isBlues で package.json の when 句が出し分ける
+			commands.registerCommand('bluesnovel.openReferencePallet', ()=> this.#openReferencePallet()),
+			window.onDidChangeActiveTextEditor(()=> void this.#updCtxBlues()),
 			commands.registerCommand('skynovel.opView', (uri: Uri)=> {
 				const {path} = uri;
 				for (const [vfpWs, prj] of this.#mPrj.entries()) {
@@ -299,7 +353,11 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			const chkShell = String(workspace.getConfiguration('terminal.integrated.shell').get('windows'));
 			updStatBreak(chkShell.endsWith('cmd.exe') ?'&' :';');
 		}
+		// タスク生成前に済ませたいので（アクティビティバーの表示は ActivityBar #chkEnv で）
+		// ActivityBar #chkEnv と同じ Promise を待つ。二重に exec しない
+		await chkBun();
 		this.#refresh();
+		await this.#updCtxBlues();	// 起動直後に開いているファイルの分
 
 /*		// server/src/LspWs.ts constructor 冒頭を参照
 		// コード補完機能から「スクリプト再捜査」「引数の説明」を呼ぶ、内部コマンド
@@ -311,23 +369,46 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	//MARK: LSP サーバーへメッセージ送信
 	#req2LSP: (uriWs: Uri, o: T_ALL_L2S)=> Promise<void>	= async ()=> { /* empty */ };
 
-	#openReferencePallet() {
-		const aWsFld = workspace.workspaceFolders;
-		const at = window.activeTextEditor;
-		if (! aWsFld || ! at) {		// undefinedだった場合はファイルを開いている
-			window.showQuickPick<QuickPickItemEx>(aPickItems, {
-				placeHolder			: 'どのリファレンスを開きますか?',
-				matchOnDescription	: true,
-			})
-			.then(q=> {if (q?.uri) openURL(q.uri, '');});
-			return;
+	/**
+	 * いま対象とみなすプロジェクトを返す。開いているファイルの属するもの。
+	 * ファイルを開いていない（または属するものが無い）場合、プロジェクトが
+	 * 1つだけならそれを使う。複数あれば決められないので undefined
+	 */
+	#prjOfActiveEditor(): Project | undefined {
+		const vfp = window.activeTextEditor?.document.uri.path;	// /c:/
+		if (vfp) {
+			for (const [vfpWs, prj] of this.#mPrj.entries()) {
+				// TODO: [multi-root] 区切りを見ていない前方一致。LangSrv.ts と同じ
+				// 問題で、隣のプロジェクトが返りうる（TODO.md §3.6 不具合6）
+				if (vfp.startsWith(vfpWs)) return prj;
+			}
 		}
+		return this.#mPrj.size === 1
+			? this.#mPrj.values().next().value
+			: undefined;
+	}
 
-		const vfp = at.document.uri.path;	// /c:/
-		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			if (! vfp.startsWith(vfpWs)) continue;
-			prj.openReferencePallet();
-		}
+	/**
+	 * コマンドパレットの見出しを SKYNovel / BlueSNovel で出し分けるための
+	 * コンテキストキー更新。開いているファイルの属するプロジェクトで決める
+	 * （特定できなければ SKYNovel 扱い＝従来の挙動）
+	 */
+	async #updCtxBlues() {
+		await commands.executeCommand('setContext',
+			'skynovel.isBlues', this.#prjOfActiveEditor()?.is_blues ?? false);
+	}
+
+	#openReferencePallet() {
+		// 対象プロジェクトが決まればそちらへ（マクロ・プラグインも一覧に入る）
+		const prj = this.#prjOfActiveEditor();
+		if (prj) {prj.openReferencePallet(); return}
+
+		// 決まらない場合はタグのみ。コマンドパレットの見出しと同じ既定＝SKYNovel
+		window.showQuickPick<QuickPickItemEx>(aPickItems, {
+			placeHolder			: 'どのリファレンスを開きますか?',
+			matchOnDescription	: true,
+		})
+		.then(q=> {if (q?.uri) openURL(q.uri, '');});
 	}
 
 
@@ -375,6 +456,10 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 		}
 
 		// フォルダ増減時
+		// TODO: [multi-root] e.added / e.removed を素直に全部回すこと。いまは
+		// ①追加は「最後の1つ」決め打ち（updateWorkspaceFolders は挿入位置を
+		// 指定できるので末尾とは限らない）②複数追加で1つしか作られない
+		// ③else なので追加と削除が同時だと削除が無視される（TODO.md §3.6 不具合5）
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);
 			// 最後の一つと思われる
@@ -382,9 +467,16 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const removed = e.removed[0]!;
 			const nm = removed.name;	// 一つだけ対応
+			// TODO: [multi-root] ルート行の label は空文字でフォルダ名は description。
+			// よって findIndex は必ず -1 を返し、splice(-1,1) が**末尾を消す**。
+			// ⇒ どのフォルダを閉じても最後のプロジェクトの行が消える。
+			// findIndex の -1 を splice にそのまま渡さないこと（TODO.md §3.6 不具合4）
 			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
 			this.#aTiRoot.splice(del, 1);
 
+			// TODO: [multi-root] dispose するだけで #mPrj から delete していない。
+			// 破棄済み Project が Map に残り、対象判定などで選ばれうる
+			// （TODO.md §3.6 不具合3。LangSrv.ts の mLspWs と対で直す）
 			this.#mPrj.get(removed.uri.path)?.dispose();
 		}
 		this.#emPrjTD.fire(undefined);

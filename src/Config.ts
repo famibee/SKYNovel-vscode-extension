@@ -50,7 +50,7 @@ export class Config extends ConfigBase {
 		try {
 			const o = <T_CFG_RAW>await readJson(fpPrj, {encoding: 'utf8'});
 			const d = creCFG();
-			await super.load(<T_CFG_RAW>{
+			await super.load({
 				...d,
 				...o,
 				book	: {...d.book, ...o.book},
@@ -171,6 +171,9 @@ export class Config extends ConfigBase {
 		const {name: fn, base, ext} = parse(nm);
 		const ext2 = ext.slice(1);
 		let hExts = hFn2Path[fn];
+		// T_Exts は「拡張子: パス」の string 索引型で、':cnt' だけ number を入れて
+		// いるため <never> が必要（eslint の no-unnecessary-type-assertion は誤検知）
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 		if (! hExts) hExts = hFn2Path[fn] = {':cnt': <never>0};
 		else if (ext2 in hExts) {
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -179,6 +182,7 @@ export class Config extends ConfigBase {
 			return;
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 		hExts[':cnt'] = <never>(uint(hExts[':cnt']) +1);
 		hExts[ext2] = dir +'/'+ nm;
 	}

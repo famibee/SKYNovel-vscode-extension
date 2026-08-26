@@ -12,6 +12,19 @@ views/test/
 **/*.ts
 **/*.vue
 
+.claude/
+CLAUDE.md
 .eslintrc.json
-skynovel-Mac2Win
-tsconfig.json
+.gitignore
+eslint.config.mts
+tools/
+tsconfig*.json
+TODO.md
+TODO.private.md
+.vscode-test*
+	# 統合テスト実行時の VSCode ユーザーデータ
+
+**/bun.lock
+**/*.tsbuildinfo
+**/eslint.config.*
+	# 同梱する server/node_modules/ の中にも入っているので ** で

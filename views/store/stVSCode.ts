@@ -8,11 +8,12 @@
 import {defineStore} from 'pinia';
 import {useCfg} from '../store/stCfg';
 import {useWss} from '../store/stWSS';
-import type {T_E2V_INIT, T_E2V, T_Ex2Vue_cmd, T_V2E_Q} from '../../src/types';
+import type {T_E2V_INIT, T_E2V, T_Ex2Vue_cmd, T_V2E} from '../../src/types';
 const vscode = 'acquireVsCodeApi' in window ?acquireVsCodeApi() :undefined;
 export const isVSCode = vscode !== undefined;
 
-export const cmd2Ex: (o: unknown)=> void = vscode
+// unknown ではなく T_V2E にすることで、呼び出し側で型注入しなくても検査される
+export const cmd2Ex: (o: T_V2E)=> void = vscode
 	? o=> vscode.postMessage(o)
 	: o=> console.log('cmd2Ex:%o', o);
 export const info = (mes: string)=> cmd2Ex({cmd: 'info', mes});
@@ -31,7 +32,7 @@ window.addEventListener('message', e=> {
 	go(<T_E2V>e.data);
 });
 function go(d: T_E2V) { for (const f of hHook[d.cmd] ?? []) f(d); }
-cmd2Ex(<T_V2E_Q>{cmd: '?'});	// 拡張機能メインへ準備完了通知
+cmd2Ex({cmd: '?'});	// 拡張機能メインへ準備完了通知
 
 
 type T_STATE = {

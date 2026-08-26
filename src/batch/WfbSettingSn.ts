@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {T_E2V_TEMP, T_TEMP, T_V2E_aTemp} from '../types';
+import type {T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
 import {replaceRegsFile} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
@@ -49,6 +49,8 @@ export class WfbSettingSn extends WatchFile {
 			}), async ()=> Promise.resolve(true),
 		);
 
+		// TODO: [解放2] ctx.subscriptions は拡張機能の寿命。プロジェクト単位の
+		// 購読は Project.#ds へ（TODO.md §3.6 リソースの解放2）
 		workspace.onDidSaveTextDocument(e=> {
 			if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
 		}, null, this.pc.ctx.subscriptions);
@@ -105,7 +107,7 @@ export class WfbSettingSn extends WatchFile {
 			}
 			aTemp.push(o);
 		}
-		void this.pc.ps.cmd2Vue(<T_E2V_TEMP>{
+		void this.pc.ps.cmd2Vue({
 			cmd		: 'update.aTemp',
 			err		: '',
 			aTemp,
@@ -121,6 +123,7 @@ export class WfbSettingSn extends WatchFile {
 			return;
 		}
 
+		// TODO: [解放5] 破棄時に止めていない（TODO.md §3.6 リソースの解放5）
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
 		this.#tiDelay = setTimeout(()=> {
 			const a: [r: RegExp, rep: string][] = [];

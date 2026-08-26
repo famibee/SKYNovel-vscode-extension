@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, REG_SCRIPT, hDiagL2s, uri2path} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, fp2osp, REG_SCRIPT, hDiagL2s, uri2path, isBluesPrj} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -14,7 +14,8 @@ import {EncryptorTransform} from './EncryptorTransform';
 import type {TREEITEM_CFG, PrjBtnName, TASK_TYPE} from './PrjTreeItem';
 import {PrjTreeItem, statBreak, eDevTreeView} from './PrjTreeItem';
 import type {QuickPickItemEx} from './WorkSpaces';
-import {aPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
+import {mkTagPickItems, openURL, PRE_TASK_TYPE} from './WorkSpaces';
+import {T_BOOT, trace, traceMs} from './Trace';
 import {Config, SysExtension} from './Config';
 import {SEARCH_PATH_ARG_EXT, type T_Fn2Path} from './ConfigBase';
 import type {T_PP2SNSTR, T_ALL_L2S, T_H_PLGDEF, T_H_ADIAG_L2S, T_S2L_hover_res, T_ALL_S2L} from '../server/src/LspWs';
@@ -28,13 +29,13 @@ import {imageSizeFromFile} from 'image-size/fromFile';
 import {webcrypto, randomUUID, getRandomValues} from 'crypto';	// 後ろ二つはここでないとerr
 const {subtle} = webcrypto;	// https://github.com/nodejs/node/blob/dae283d96fd31ad0f30840a7e55ac97294f505ac/doc/api/webcrypto.md
 import * as archiver from 'archiver';
-import {execSync} from 'child_process';
+import {execFileSync} from 'child_process';
 import AsyncReplace from 'str-async-replace';
 import Encoding from 'encoding-japanese';
 
 import type {DebugSession, Disposable, DocumentDropEdit, EventEmitter, ExtensionContext, Position, ProviderResult, TaskProcessEndEvent,  TextDocument, TreeItem, WorkspaceFolder} from 'vscode';
 import {commands, debug, env, EvaluatableExpression, Hover, languages, MarkdownString, ProgressLocation, QuickPickItemKind, Range, RelativePattern, ShellExecution, SnippetString, Task, tasks, ThemeIcon, Uri, window, workspace, WorkspaceEdit} from 'vscode';
-import {basename, dirname, extname} from 'node:path';
+import {basename, extname} from 'node:path';
 import {glob, readFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {createReadStream, createWriteStream, existsSync, outputFile, outputJson, readJsonSync, remove, removeSync, copy, readJson, ensureFile, copyFile, statSync, writeFile, unlink, move, mkdirs, moveSync} from 'fs-extra';
@@ -49,6 +50,23 @@ export	const	REG_FULLCRYPTO		= /\.(ss?n|json|html?)$/;
 
 
 export type T_reqPrj2LSP = (o: T_ALL_L2S)=> Promise<void>;
+
+/**
+ * 生成物を OS のファイルマネージャで開く（そのファイルを選択した状態になる）。
+ * env.openExternal(Uri.file(フォルダ)) は Windows で
+ * 【Failed to open：指定されたファイルが見つかりません。(0x2)】になる
+ */
+async function revealInOS(fp: FULL_PATH) {
+	const osp = fp2osp(fp);		// Windows はドライブ名の補完が要る
+	if (! existsSync(osp)) {
+		void window.showErrorMessage('ファイルが見つかりません', {modal: true, detail: osp});
+		return;
+	}
+	try {await commands.executeCommand('revealFileInOS', Uri.file(osp))}
+	catch (e) {
+		void window.showErrorMessage('フォルダを開けませんでした', {modal: true, detail: `${osp}\n${String(e)}`});
+	}
+}
 
 const	mExt2aFld = new Map<SEARCH_PATH_ARG_EXT, string[]>([
 	[SEARCH_PATH_ARG_EXT.SP_GSM,	['bg','image']],
@@ -200,9 +218,26 @@ export class Project {
 			this.#encry,
 		);
 
+		/**
+		 * ⚠️ **3つの仕事を兼ねている**（path.json 更新＋暗号化／ドロップ先候補の
+		 * 再計算／LSP の全再走査）。画像を1枚追加するだけで前2つは必ず走る
+		 * （TODO.md「ファイル監視の設計」(C)）。
+		 *
+		 * ただし3つめ（全再走査）は **path.json が実際に変わったときだけ**にした。
+		 * LSP が全走査を要るのは「ファイル名キーワードが変わったから」なので、
+		 * path.json が同一内容なら全再パースは無駄（同 (F)）。
+		 * スクリプトの追加削除は WfbOptFont が別途 `sendNeedGo()` を直接呼ぶので、
+		 * ここを抑えても取りこぼさない
+		 */
+		const fpPathJson = `${this.#pc.PATH_WS}/doc/prj/path.json`;
+		const readPathJson = ()=> {
+			try {return existsSync(fpPathJson) ?readFileSync(fpPathJson, 'utf8') :''}
+			catch {return ''}	// 読めないなら「変わった」扱いにして従来どおり走らせる
+		};
 		const updPathJson = async ()=> {
 			// path.json 更新（暗号化もここ「のみ」で）
 // console.log(`fn:Project.ts #basePathJson`);
+			const before = readPathJson();
 			this.#haDiagFn = {};
 			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
 
@@ -212,8 +247,14 @@ export class Project {
 				aFld.filter(fld_nm=> existsSync(this.#pc.PATH_WS +`/doc/prj/${fld_nm}/`)),
 			);
 
-			// スクリプト判定起動
-			await this.reqPrj2LSP({cmd: 'need_go'});
+			// スクリプト判定起動。中身が同じなら LSP に全再パースさせない
+			const after = readPathJson();
+			if (after !== '' && after === before) {trace('path.json.同一'); return}
+
+			trace('path.json.変化');
+			// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7 の宿題「upd_path」）。
+			// `after` は上で読んだものをそのまま渡す＝追加の I/O は無い
+			this.#sendNeedGo(after);
 		};
 		this.#pc.init(
 			updPathJson,
@@ -349,7 +390,7 @@ export class Project {
 
 					return true;
 				},
-				()=> this.reqPrj2LSP({cmd: 'need_go'}),
+				()=> Promise.try(()=> this.#sendNeedGo()),
 			),
 
 			()=> this.#diff.init(),
@@ -379,7 +420,7 @@ export class Project {
 			await this.#optPic.init2th();
 
 // console.log('Seq_ 3 fn:Project.ts constructor.ready');
-			await this.reqPrj2LSP({cmd: 'ready'});	// src/Project.ts 準備完了
+			await this.reqPrj2LSP({cmd: 'ready', is_blues: this.is_blues});	// 準備完了
 		});
 	}
 
@@ -390,6 +431,8 @@ export class Project {
 	//MARK: デストラクタ
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
+	// TODO: [解放5] #tmNeedGo（300ms）を clearTimeout していない。閉じる直前に
+	// ファイルを触ると破棄済みの自分に対して発火する（TODO.md §3.6 リソースの解放5）
 	dispose() {
 		for (const d of this.#ds) d.dispose();
 		void this.#termDbgSS();
@@ -410,32 +453,111 @@ export class Project {
 	}
 
 
+	#tmNeedGo	: ReturnType<typeof setTimeout> | undefined;
+	/**
+	 * 全走査を要求する。1周が重い（全ファイル読み直し＋全文送信＋全再パース）ので、
+	 * 短時間に連続した要求はまとめて1回にする。
+	 *
+	 * まとめる価値がある理由（統合テストで実測）：
+	 * - 画像＋音声を同時に置くと、監視インスタンスが別で 500ms デバウンスが
+	 *   2本走るため `updPathJson()` が2回 → ここで1回にまとまる
+	 * - `.sn` の追加は経路が2つある（WfbOptFont の crechg が直接呼ぶ／
+	 *   同じ監視が updPathJson=true なので path.json 経由でも来る）
+	 */
+	/**
+	 * LSP へ再走査を頼む。300ms まとめる。
+	 *
+	 * @param sPathJson **path.json の変化だけ**が理由なら、その本文を渡す。
+	 * その場合は全文（実測 約177KB）を送らない軽い経路（`upd_path`）を使う。
+	 * スクリプトの追加削除など**本文の変化が理由なら省略**して全走査に落とす。
+	 *
+	 * ⚠️ まとめの窓（300ms）に**1件でも本文の変化が混ざったら全走査**にする。
+	 * 混ざった時に軽い方を選ぶと、S が知らない本文で検証してしまう
+	 */
+	#sendNeedGo(sPathJson = '') {
+		clearTimeout(this.#tmNeedGo);
+		trace('need_go.req');
+		if (sPathJson === '') this.#mixNeedGo = true; else this.#sPathJson = sPathJson;
+
+		this.#tmNeedGo = setTimeout(()=> {
+			const s = this.#mixNeedGo ?'' :this.#sPathJson;
+			this.#mixNeedGo = false;
+			this.#sPathJson = '';
+			if (s === '') {
+				trace('need_go.send');
+				void this.reqPrj2LSP({cmd: 'need_go'});
+				return;
+			}
+
+			trace('upd_path.send');
+			this.#tScanReq = performance.now();
+			void this.reqPrj2LSP({
+				cmd: 'upd_path', sPathJson: s,
+				hDefPlg: this.#hDefPlg, haDiag: this.#haDiag,
+			});
+		}, 300);
+	}
+		#mixNeedGo	= false;	// 本文の変化が混ざったか
+		#sPathJson	= '';
+
+	/**
+	 * LSP へ渡す走査元データを作る。`ready`（初回）と `go.res`（以降）で共有する。
+	 * LSP は解析専用で fs を持たないので、本文はここで読んで渡す
+	 */
+	/**
+	 * 走査を依頼した時刻。`analyze_inf`（LSP の走査完了通知）を受けた時に引いて、
+	 * **LSP 側の全再パースに何 ms かかっているか**を実測する。
+	 *
+	 * LSP に計時を入れないのは、`server/src/` を fs フリーに保つ方針
+	 * （§3.7）と、往復ぶんも込みで「体感される待ち時間」を測りたいため
+	 */
+	#tScanReq = 0;
+	/** 最初の走査完了を1度だけ記録するため（プロジェクトが複数でも1回） */
+	static #doneBoot = false;
+
+	#scanSrc() {
+		this.#tScanReq = performance.now();
+		// sn,json は ASCII と UTF8 以外の文字コードをエラーに
+		const pp2s: T_PP2SNSTR = {};
+		this.#haDiagChrCd = {};
+		treeProc(this.#pc.PATH_PRJ, fp=> {
+			if (! /\.(ss?n|json)$/.test(fp)) return;
+			try {this.#chkChrCd(fp, pp2s)}
+			catch (e: unknown) {	// 走査中に消えた・読めないファイルで全体を止めない
+				console.error(`fn:Project.ts #scanSrc ${fp} %o`, e);
+			}
+		});
+		trace('scanSrc', `${String(Object.keys(pp2s).length)} ファイル`);
+		traceMs('scanSrc.ms', performance.now() - this.#tScanReq);
+		return {pp2s, hDefPlg: this.#hDefPlg, haDiag: this.#haDiag};
+	}
+
 	//MARK: LSPから受信
 	onRequest(o: T_ALL_S2L) {
 // console.log(`Seq_21 ⬇受 cmd:${o.cmd} fn:Project.ts onRequest o:%o`, o);	//NOTE: S2L通信要点
 		switch (o.cmd) {
-			case 'go':{	// #noticeGo() から。何度も来る
-				//NOTE: #haDiagFont はここで毎回更新すべきか、フォント最適化スイッチをさわったときか、本文にフォントファイルに含まれない文字が増えたときか、減ったときは、など議論がある
-				// ひとまず処理がさほど重くなさそうなので毎回やる
-				this.#haDiagFont = this.#optFont.updDiag(o.InfFont);
-
-				// sn,json は ASCII と UTF8 以外の文字コードをエラーに
-				const pp2s: T_PP2SNSTR = {};
-				this.#haDiagChrCd = {};
-				treeProc(this.#pc.PATH_PRJ, fp=> {
-					if (/\.(ss?n|json)$/.test(fp)) this.#chkChrCd(fp, pp2s);
-				});
-
-				void this.reqPrj2LSP({cmd: 'go.res',
-					pp2s,
-					hDefPlg	: this.#hDefPlg,
-					haDiag	: this.#haDiag,
-				});
-			}	break;
+			case 'go':	// #noticeGo() から。何度も来る
+				trace('go');
+				void this.reqPrj2LSP({cmd: 'go.res', ...this.#scanSrc()});
+				break;
 
 			case 'analyze_inf':{	// #scanEnd() から
+				// 走査依頼から完了まで＝本体の読み取り＋往復＋LSP の全再パース。
+				// 「支配的なのは LSP 側」という見立てを実測で確かめるため（§3.7）
+				traceMs('全走査.ms', performance.now() - this.#tScanReq);
+				// 最初の1回だけ＝ホバーや補完が効くようになるまで（§4.5）
+				if (! Project.#doneBoot) {
+					Project.#doneBoot = true;
+					traceMs('起動.LSP準備まで.ms', performance.now() - T_BOOT);
+				}
+				// LSP 側の内訳。パースと検証のどちらが支配的かで、
+				// 「全文を送り直さない」改修が効くかどうかが決まる（§3.7 の「内訳の測定」）
+				for (const [k, v] of Object.entries(o.msScan)) traceMs(`S.${k}.ms`, v);
+
 				this.#aPickItems = [
-					...aPickItems,
+					// タグリファレンスのリンク先はエンジンごとに別サイトなので、
+					// このプロジェクトの種別で切り替える
+					...mkTagPickItems(this.is_blues),
 
 					{kind: QuickPickItemKind.Separator, label: ''},
 
@@ -560,6 +682,16 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		readonly	#whThumbnail = 200;
 
 
+	#is_blues	: boolean | undefined;
+	/**
+	 * BlueSNovel のプロジェクトか（false なら SKYNovel）。
+	 * web.ts の import 先が途中で変わることは普通ないので、一度調べて覚える
+	 */
+	get is_blues(): boolean {
+		this.#is_blues ??= isBluesPrj(this.#pc.PATH_WS);
+		return this.#is_blues;
+	}
+
 	#aPickItems	: QuickPickItemEx[] = [];
 	openReferencePallet() {
 		window.showQuickPick<QuickPickItemEx>(this.#aPickItems, {
@@ -633,6 +765,11 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 	}
 	async #onBtn_sub(ti: TreeItem, btn_nm: PrjBtnName, cfg: TREEITEM_CFG, done: (timeout?: number)=> void) {
 		let cmd = `cd "${this.#pc.PATH_WS}" ${statBreak} `;
+		if (btn_nm === 'SnUpd_waited') {
+			// package.json の依存を minor まで更新。拡張機能内に npm-check-updates を
+			// バンドルせず、ユーザーに見えるタスクターミナルで npx 実行する
+			cmd += `npx --yes npm-check-updates@22 -u --target minor ${statBreak} `;
+		}
 		if (! existsSync(this.#pc.PATH_WS +'/node_modules')) {
 			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
 			await remove(this.#pc.PATH_WS +'/package-lock.json');
@@ -645,15 +782,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				try {
 					await this.#termDbgSS();
 					await this.actBar.updPrjFromTmp(this.#pc.PATH_WS);
-					await this.actBar.ncu({	// ncu -u --target minor
-						packageFile: this.#pc.PATH_WS +'/package.json',
-						// Defaults:
-						// jsonUpgraded: true,
-						// silent: true,
-						upgrade: true,
-						target: 'minor',
-					});
-					this.getLocalSNVer();
+					// package.json の更新（ncu 相当）は SnUpd_waited のタスク内で行う
 					await this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
 				} catch (e) {
 					const mes = 'fn:Project.ts onBtn_sub SnUpd ';
@@ -722,7 +851,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					)
 					.then(async ans=> {switch (ans) {
 						case 'フォルダを開く':
-							await env.openExternal(Uri.file(dirname(fp)));	break;
+							await revealInOS(fp);	break;
 						case 'Online Converter':
 							await env.openExternal(Uri.parse('https://cancerberosgx.github.io/demos/svg-png-converter/playground/'));
 							break;
@@ -739,8 +868,10 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			case 'PackWin32':
 				if (! is_win) break;
 				if (! /(Restricted|AllSigned)/.test(
-					execSync('PowerShell Get-ExecutionPolicy').toString()
+					execFileSync('powershell', ['-NoProfile', '-Command', 'Get-ExecutionPolicy'])
+					.toString()
 				)) break;
+					// シェルを介さず、読み取り専用のコマンドだけを直接実行する
 
 				done();
 				await window.showErrorMessage('管理者として開いたPowerShell で実行ポリシーを RemoteSigned などに変更して下さい。\n例）Set-ExecutionPolicy RemoteSigned', {modal: true}, '参考サイトを開く')
@@ -754,7 +885,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			this.wsFld,
 			cfg.label,		// UIに表示
 			'SKYNovel',		// source
-			new ShellExecution(cmd),
+			new ShellExecution(cnvPM(cmd)),
 		);
 		this.hOnEndTask.set(task_type, ()=> done());
 		switch (btn_nm) {	// タスク後処理
@@ -851,7 +982,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			`${cfg.label} パッケージを生成しました`,
 			'出力フォルダを開く',
 		);
-		if (a) await env.openExternal(Uri.file(pathPkg));
+		if (a) await revealInOS(pathPkg +'/'+ path);
 	} catch (e: unknown) {
 		console.error(e);
 		void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${String(e)}`);
@@ -879,7 +1010,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					window.showInformationMessage(
 						`ふりーむ！形式で出力（${fn_out}）しました`,
 						'出力フォルダを開く',
-					).then(a=> {if (a) env.openExternal(Uri.file(this.#pc.PATH_WS +'/build/package/'))})
+					).then(a=> {if (a) void revealInOS(`${this.#pc.PATH_WS}/build/package/${fn_out}`)})
 				});
 				arc.pipe(ws);
 				void arc.finalize();	// zip圧縮実行
@@ -1201,7 +1332,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			this.wsFld,
 			name,			// UIに表示
 			'SKYNovel',		// source
-			new ShellExecution(cmd),
+			new ShellExecution(cnvPM(cmd)),
 		);
 
 		this.enableBtn(false);
@@ -1310,7 +1441,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					return null;
 				}
 
-				let ppNew = '';
+				let ppNew: string;
 				switch (aコピー先候補.length) {
 					case 0:		// 候補もなし
 						return null;	// サポートしないものとする

@@ -6,6 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import {getNonce} from './ActivityBar';
+import {faSvg} from './faIcon';
 
 import type {WebviewViewProvider, ExtensionContext, WebviewView, WebviewViewResolveContext, CancellationToken} from 'vscode';
 import {Uri, window} from 'vscode';
@@ -116,7 +117,7 @@ export class ToolBox implements WebviewViewProvider {
 <div class="d-flex flex-wrap">`
 	+ v.要素.map(vv=> `
 	<button id="${vv.name}" type="button" class="btn ${vv.style ?? 'btn-secondary'} btn-sm text-start p-2 mt-1 mr-1" data-ripple-color="dark" draggable="true" data-scr="${encodeURIComponent(vv.scr)}">
-		<i class="fas ${vv.icon}"></i>
+		${faSvg(vv.icon)}
 		${vv.name}
 	</button>`).join('')+ `
 </div>`;

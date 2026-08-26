@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {int} from './CmnLib';
+import {int} from './CmnShare';
 
 export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	DEFAULT	= '',

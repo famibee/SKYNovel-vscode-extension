@@ -15,7 +15,17 @@ export default defineConfig([
 // ]);const a = ([	// 一時的 OFF 用
 	globalIgnores([
 		'eslint.config.mts',	// このファイル自身はチェックせず
-		'src/webpack.config.js',
+		'dist/',			// ビルド生成物
+		'views/lib/',		// 外部ライブラリ（bootstrap, fontawesome）
+		'views/folder.js',	// ここから3つは build.ts が views/*.ts から生成する
+		'views/tmpwiz.js',
+		'views/toolbox.js',
+		'views/score.js',
+		'test/int/suite.js',	// ここから3つは build.ts が .ts から生成する
+		'test/int/multi.js',
+		'test/ui/runUI.mjs',	// 同上（UI テストは node で走らせる）
+		'test/prep.mjs',		// 同上（.vscode-test.mjs から読む準備処理）
+		'test/icon-check/fa_old.min.js',	// 旧同梱の FontAwesome（照合ページが読む外部物）
 	]),
 	js.configs.recommended,
 	configs.recommendedTypeChecked,
@@ -24,7 +34,10 @@ export default defineConfig([
 		languageOptions: {
 			parser,
 			parserOptions: {
-				projectService: true,
+				// `.vscode-test.mjs` は tsconfig に入らない（allowJs していない .mjs）。
+				// 素の projectService だと「プロジェクトに無い」で**解析されず素通り**するので、
+				// 既定プロジェクト送りにして検査対象に含める
+				projectService: {allowDefaultProject: ['.vscode-test.mjs']},
 				// project: './tsconfig.eslint.json',	// なくてもいい？
 				tsconfigRootDir: import.meta.dirname,
 			},
@@ -133,12 +146,35 @@ export default defineConfig([
 		files: ['{server/src,src,test,views}/**/*.ts'],
 	},
 	{
+		name: '統合テスト（@vscode/test-cli ＋ Mocha）',
+		files: ['test/int/suite.ts', 'test/int/multi.ts'],
+		rules: {
+			// eslint-plugin-jest が Mocha の it() も「テスト」と見なすが、
+			// このスイートには**assert しないケースが意図的にある**。
+			// 【調査】…系は「VSCode の仕様を記録する」のが目的で、
+			// 落とすと VSCode の版が変わるたびにテストが赤くなってしまう
+			'jest/expect-expect': 'off',
+		},
+	},
+	{
 		name: 'vue の store のみ',
 		files: ['views/store/*.ts'],
 		languageOptions: {
 			globals: {
 				window	: true
 			},
+		},
+	},
+	{
+		name: 'webview のスクリプト（ブラウザ環境）',
+		files: ['views/*.ts'],
+		languageOptions: {
+			globals: {...globals.browser},
+		},
+		rules: {
+			// ループ内で張るイベントハンドラが、外側の可変変数（aTr, lenTr,
+			// skipDummyChkEv など）の最新値を意図的に参照するため
+			'no-loop-func': 'off',
 		},
 	},
 ]);

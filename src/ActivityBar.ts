@@ -6,21 +6,53 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_TMPWIZ} from './types';
-import {is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {chkBun, is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {T_BOOT, traceMs} from './Trace';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
 import type {T_CFG_RAW} from './ConfigBase';
 
 import type {TreeDataProvider, ExtensionContext, WebviewPanel} from 'vscode';
-import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation} from 'vscode';
+import {TreeItem, window, commands, Uri, EventEmitter, ViewColumn, ProgressLocation, workspace, env, ConfigurationTarget, extensions} from 'vscode';
 import {exec} from 'child_process';
 import {tmpdir} from 'os';
 import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remove, writeFile} from 'fs-extra';
-import type {RunOptions} from 'npm-check-updates';
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
 const AdmZip = require('adm-zip');
 
-const nNodeReqVer = 24_011_000;
+const nNodeReqVer = 24_019_000;
+
+// テンプレートの取得元。進捗表示でユーザーに見せる
+const URL_TMP_ZIP = (nm: string)=> `https://github.com/famibee/${nm}/archive/main.zip`;
+
+// 拡張機能自身の更新確認。【通知のみ】で、取得もインストールもしない
+const REPO_EXT = 'famibee/SKYNovel-vscode-extension';
+const URL_EXT_LATEST = `https://api.github.com/repos/${REPO_EXT}/releases/latest`;
+	// master の package.json ではなく Releases を見る。リリース手順では
+	// 版を上げてコミットした後に Releases を作るので、master を見ると
+	// 「まだダウンロードできない版」を告知してしまう
+const URL_EXT_RELEASES = `https://github.com/${REPO_EXT}/releases`;
+const KEY_SKIP_EXT_VER = 'skynovel.notifiedExtVer';	// 同じ版で繰り返し通知しない
+const CFG_CHK_EXT_VER = 'skynovel.chkExtUpdate';
+
+// Marketplace 削除により、再公開は新しい extension name になった（TODO §3.5）。
+// 旧 ID は復活しないので、この2つは**別の拡張機能として共存できてしまう**
+const ID_OLD_EXT = 'famibee2.skynovel2';
+
+/**
+ * 「4.31.1」を比較可能な数値に。`v` 接頭辞にも対応。
+ * compare-versions は Windows10 で不具合が出たので手作り。
+ *
+ * ⚠️ **数字以外は落とす。** `v5.0.0-rc1` のような綴りだと `Number('0-rc1')` が
+ * NaN になり、`NaN <= x` が false なので**全利用者に「新版あり」と誤通知**する。
+ * Marketplace は `major.minor.patch` しか許さないので本来そうならないが、
+ * タグの打ち間違い1回で起きるため、ここで吸収する
+ */
+function verNum(ver: string): number {
+	const [a=0, b=0, c=0] = ver.replace(/^v/, '').split('.')
+		.map(s=> Number(/^\d+/.exec(s)?.[0] ?? 0));
+	return a *1_000_000 + b *1_000 + c;
+}
 
 export function getNonce() {
 	let text = '';
@@ -47,10 +79,12 @@ type T_ENV_SRC = {
 type T_ENV = {
 	ti		: TreeItem;
 	ready	: boolean;
+	icon	: string;	// 確認中の表示に戻す時に使う
 }
 type T_H_ENV = {
 	NODE			: T_ENV;
 	NPM				: T_ENV;
+	BUN				: T_ENV;
 	SN_ESM_VER		: T_ENV;
 	SN_CJS_VER		: T_ENV;
 	TEMP_ESM_VER	: T_ENV;
@@ -70,6 +104,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					icon: 'node-js-brands',	label: 'Node.js'},
 				{nm: 'NPM',
 					icon: 'npm-brands',		label: 'npm'},
+				{nm: 'BUN',
+					icon: 'npm-brands',		label: 'bun'},
 				{nm: 'SN_ESM_VER',
 					icon: 'skynovel',		label: '(web) SKYNovel esm'},
 				{nm: 'TEMP_ESM_VER',
@@ -85,7 +121,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				const ti = new TreeItem(label);
 				ti.iconPath = oIcon(icon);
 				ti.contextValue = label;
-				return [nm, <T_ENV>{ti, ready: false}]
+				return [nm, {ti, ready: false, icon}]
 			})
 		);
 
@@ -101,39 +137,43 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 
 	//MARK: コンストラクタ
-	ncu: (runOptions?: RunOptions, { cli }?: {
-		cli?: boolean;
-	})=> Promise<any>;
 	private constructor(private readonly ctx: ExtensionContext) {
-		Promise.all([
-			import('npm-check-updates'),
-			import('./WorkSpaces'),
-		]).then(async ([{default: ncu}, {WorkSpaces}])=> {
-			this.ncu = ncu;
-
+		import('./WorkSpaces')
+		.then(async ({WorkSpaces})=> {
 			ctx.subscriptions.push(this.#workSps = new WorkSpaces(ctx, this));
 			this.#canTempWizard = true;
-			await this.#workSps.start();
 
-			// other
-			await Promise.allSettled([
-				this.#chkEnv(ok=> Promise.try(()=> {
-					if (! ok) return;
+			// ツリーとコマンドの登録は、環境確認（#chkEnv）や LSP 起動
+			// （#workSps.start）を待たずに済ませる。待つと pip / npm の
+			// 呼び出しが終わるまでアクティビティバーが空になり、コマンドも
+			// 「見つかりません」になってしまう。各項目の表示は #chkEnv が
+			// 項目ごとに onDidChangeTreeData を fire して埋めていく
+			ctx.subscriptions.push(
+				window.registerTreeDataProvider('skynovel-dev', this),
+				commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
+				commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
+				commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+			);
+			// ここまでで利用者はツリーもコマンドも使える（§4.5 起動時間の実測）
+			traceMs('起動.操作可能まで.ms', performance.now() - T_BOOT);
 
-					ctx.subscriptions.push(
-						window.registerTreeDataProvider('skynovel-dev', this),
-						commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
-						commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
-						commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
-					);
-				})),
-				import('./TreeDPDoc')
+			// 環境確認は start() と並行に。start() は中で bun の有無を待つが、
+			// これは chkBun() で結果を共有するので二重に exec しない
+			const pEnv = this.#chkEnv();
+			const pDoc = import('./TreeDPDoc')
 				.then(({TreeDPDoc})=> ctx.subscriptions.push(
 					window.registerTreeDataProvider('skynovel-doc', new TreeDPDoc(ctx)),
-				)),
-				import('./ToolBox')
-				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx))),
-			]);
+				));
+			const pTb = import('./ToolBox')
+				.then(({ToolBox})=> ctx.subscriptions.push(ToolBox.init(ctx)));
+			// 拡張機能自身の更新確認（通知のみ）。通知はボタンを押すまで
+			// 解決しないので、起動の待ち合わせには入れない
+			void this.#chkLastExtVer();
+			void this.#chkOldExt();
+
+			await this.#workSps.start();
+			await Promise.allSettled([pEnv, pDoc, pTb]);
+			traceMs('起動.環境確認まで.ms', performance.now() - T_BOOT);
 		})
 		.catch((e: unknown)=> console.error('fn:ActivityBar.ts constructor %o', e))
 	}
@@ -141,13 +181,20 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	#dispose() {if (this.#wp) this.#wp.dispose()}
 
 	//MARK: 環境確認
-	async #chkEnv(finish: (ok: boolean)=> Promise<void>) {
+	// ここでは「検出」のみ行う。ユーザー環境へのインストールはしない
+	async #chkEnv(again = false): Promise<boolean> {
 		const tiNode = ActivityBar.#hEnv.NODE.ti;
 		const tiNpm = ActivityBar.#hEnv.NPM.ti;
+		const tiBun = ActivityBar.#hEnv.BUN.ti;
 		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
-		ActivityBar.#hEnv.NODE.ready = false;
-		ActivityBar.#hEnv.NPM.ready = false;
-		ActivityBar.#hEnv.PY_FONTTOOLS.ready = false;
+		// 再確認（refresh ボタン）で前回の error / warn アイコンが残らないよう戻す
+		for (const nm of <const>['NODE', 'NPM', 'BUN', 'PY_FONTTOOLS']) {
+			const e = ActivityBar.#hEnv[nm];
+			e.ready = false;
+			e.ti.description = '-- 確認中…';
+			e.ti.iconPath = oIcon(e.icon);
+			this.#onDidChangeTreeData.fire(e.ti);
+		}
 
 		await Promise.allSettled([
 			new Promise<void>(re=> exec('pip list', (e, stdout)=> {
@@ -159,31 +206,18 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 					return;
 				}
 
-				const fnc = ()=> {
-					ActivityBar.#hEnv.PY_FONTTOOLS.ready = true;
-					tiPFT.description = '-- ready';
-					tiPFT.iconPath = oIcon('python-brands');
+				// pip list は「Brotli」と大文字始まりで出るので i フラグ必須
+				if (! /^fonttools\s/gim.test(stdout)
+				|| ! /^brotli\s/gim.test(stdout)) {
+					tiPFT.description = '-- 未導入（フォント最適化を使う時に確認します）';
+					tiPFT.iconPath = oIcon('warn');
 					this.#onDidChangeTreeData.fire(tiPFT);
-
-					// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
-					if (! is_win) re();
-					exec('python -m site --user-site', (e, stdout)=> {
-						if (e) {re(); return}	// ありえないが
-						const path = stdout.slice(0, -15) +'Scripts\\;';
-						this.ctx.environmentVariableCollection.prepend('PATH', path);
-					});
-				};
-
-				if (! /^fonttools\s/gm.test(stdout)
-				|| ! /^brotli\s/gm.test(stdout)) exec(`pip install ${is_win ?'--user ' :''}fonttools brotli`, e=> {
-					if (e) {
-						tiPFT.description = '-- install失敗';
-						tiPFT.iconPath = oIcon('error');
-						this.#onDidChangeTreeData.fire(tiPFT);
-					}
-					else fnc();
 					re();
-				});
+					return;
+				}
+
+				this.#onReadyPyFontTools();
+				re();
 			})),
 			new Promise<void>(re=> exec('node -v', (e, stdout)=> {
 				if (e) {
@@ -234,20 +268,95 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				this.#onDidChangeTreeData.fire(tiNpm);
 				re();
 			})),
-		])
-		.then(()=> finish(true))
-		.catch(()=> finish(false));
+			// bun の有無は WorkSpaces.start() も待つので、結果を共有して二重に
+			// exec しない（again=true で再確認）
+			chkBun(again).then(({ok, ver})=> {
+				if (! ok) {
+					tiBun.description = '-- 見つかりません（npm を使います）';
+					tiBun.iconPath = oIcon('warn');
+					this.#onDidChangeTreeData.fire(tiBun);
+					return;
+				}
+				ActivityBar.#hEnv.BUN.ready = true;
+				tiBun.description = `-- ${ver}（優先）`;
+				tiBun.iconPath = oIcon('npm-brands');
+				this.#onDidChangeTreeData.fire(tiBun);
+			}),
+		]);
+		return true;
+	}
+
+	// fonttools / brotli が揃っている場合の処理
+	#onReadyPyFontTools() {
+		const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
+		ActivityBar.#hEnv.PY_FONTTOOLS.ready = true;
+		tiPFT.description = '-- ready';
+		tiPFT.iconPath = oIcon('python-brands');
+		this.#onDidChangeTreeData.fire(tiPFT);
+
+		// fonttools用、環境変数PATHに pyftsubset.exe があるパスを追加
+		if (! is_win) return;
+		exec('python -m site --user-site', (e, stdout)=> {
+			if (e) return;	// ありえないが
+			const path = stdout.trimEnd().replace(/site-packages$/, 'Scripts');
+			ActivityBar.#pathPyScripts = path;
+			this.ctx.environmentVariableCollection.prepend('PATH', path +';');
+		});
+	}
+	static #pathPyScripts = '';
+	/**
+	 * pyftsubset の実行コマンド。
+	 * pip install --user のスクリプトは %APPDATA%\Python\PythonXX\Scripts に入るが、
+	 * ここは PATH に無いことが多い。environmentVariableCollection での PATH 追加は
+	 * VSCode のターミナルにしか効かず、拡張機能からの exec() には効かないので、
+	 * 場所が分かっている場合はフルパスで実行する
+	 */
+	static get cmdPyftsubset() {return this.#pathPyScripts
+		? `"${this.#pathPyScripts}\\pyftsubset"`
+		: 'pyftsubset'}
+
+	//MARK: フォント最適化に必要な Python パッケージの導入
+	// 未導入なら、同意を得てから pip install する。断られたら false
+	static prepPyFontTools() {return this.#actBar.#prepPyFontTools()}
+	async #prepPyFontTools(): Promise<boolean> {
+		if (ActivityBar.getReady('PY_FONTTOOLS')) return true;
+
+		const CMD = `pip install ${is_win ?'--user ' :''}fonttools brotli`;
+		const a = await window.showInformationMessage(
+			'フォント最適化には Python パッケージ fonttools と brotli が必要です',
+			{modal: true, detail: `この拡張機能から次のコマンドを実行してもよろしいですか？
+
+    ${CMD}
+${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミナルの PATH に Python の Scripts フォルダを追加します。\n' :''}
+【手動で入れる】を選んだ場合、コマンドは実行しません。ご自分で導入したあと、アクティビティバー【開発環境】の更新ボタンを押して下さい。`},
+			'実行する', '手動で入れる',
+		);
+		if (a !== '実行する') return false;
+
+		return window.withProgress({
+			location	: ProgressLocation.Notification,
+			title		: CMD,
+			cancellable	: false,
+		}, ()=> new Promise<boolean>(re=> exec(CMD, e=> {
+			if (! e) {this.#onReadyPyFontTools(); re(true); return}
+
+			const tiPFT = ActivityBar.#hEnv.PY_FONTTOOLS.ti;
+			tiPFT.description = '-- install失敗';
+			tiPFT.iconPath = oIcon('error');
+			this.#onDidChangeTreeData.fire(tiPFT);
+			void window.showErrorMessage(`${CMD} に失敗しました`, {modal: true, detail: e.message});
+			re(false);
+		})));
 	}
 
 
 	// refreshEnvボタン
 	async #refreshEnv() {
 		this.#workSps.enableBtn(false);
-		await this.#chkEnv(async ok=> {
-			this.#workSps.enableBtn(ok);
-			if (ok) await this.chkLastSNVer(this.#workSps.aLocalSNVer);
-			else this.#openEnvInfo();
-		});
+		const ok = await this.#chkEnv(true);	// 再確認なので bun も調べ直す
+		this.#workSps.enableBtn(ok);
+		if (ok) await this.chkLastSNVer(this.#workSps.aLocalSNVer);
+		else this.#openEnvInfo();
 	}
 	readonly #onDidChangeTreeData = new EventEmitter<TreeItem | undefined>;
 	readonly onDidChangeTreeData = this.#onDidChangeTreeData.event;
@@ -261,6 +370,87 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 		const ret: TreeItem[] = [];
 		if (t.label === 'Node.js') ActivityBar.#hEnv.NODE.ti.iconPath = oIcon(ActivityBar.#hEnv.NODE.ready ?'node-js-brands' :'error');
 		return ret;
+	}
+
+	//MARK: 旧版の同居検出
+	/**
+	 * 旧版（`famibee2.skynovel2`）が入ったままなら警告する。
+	 *
+	 * Marketplace から削除された拡張機能の ID は復活しないため、再公開は
+	 * **新しい extension name** になった（TODO §3.5）。結果、旧版と新版は
+	 * VSCode から見て別の拡張機能で、**両方インストールできてしまう**。
+	 * どちらも同じコマンド ID・ビュー ID を登録するので衝突する。
+	 *
+	 * 移行案内に書くだけでは読まれないので、実際に同居していたら知らせる。
+	 * **記録して黙らせることはしない**（衝突は続いているのだから、
+	 * 解消されるまで毎回出てよい）。
+	 *
+	 * ⚠️ **アンインストールはこちらから行わない。** 拡張機能の導入・削除を
+	 * 自動で行わないのがこのプロジェクトの方針（TODO §5）。
+	 * 拡張機能ビューを開くところまでで、押すのは利用者。
+	 *
+	 * 手順そのものは **GitHub Releases のリリースノートが担う**（専用ページは作らない）。
+	 * この警告を見た人がまさに手順を知りたい相手なので、そこへの導線も出す
+	 */
+	async #chkOldExt() {
+		if (! extensions.getExtension(ID_OLD_EXT)) return;
+
+		const OPEN = '拡張機能ビューを開く';
+		const DOC = '移行手順を見る';
+		const a = await window.showWarningMessage(
+			`旧版の拡張機能（${ID_OLD_EXT}）が入ったままです。`
+			+ 'コマンドとビューが衝突して誤動作するので、旧版をアンインストールしてください。',
+			OPEN, DOC,
+		);
+		if (a === OPEN) await commands.executeCommand(
+			'workbench.extensions.search', '@installed skynovel',
+		);
+		else if (a === DOC) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
+	}
+
+	//MARK: 拡張機能自身の更新確認
+	/**
+	 * 拡張機能の新版が出ていたら通知する。**通知のみで、取得もインストールもしない**
+	 * （README・TODO §5 の方針）。
+	 * Marketplace 配布が止まっている間、vsix で入れた拡張機能は VSCode が
+	 * 自動更新しないため、これが唯一の告知手段になる
+	 */
+	async #chkLastExtVer() {
+		if (! workspace.getConfiguration().get<boolean>(CFG_CHK_EXT_VER, true)) return;
+
+		const verNow = (<T_PKG_JSON>this.ctx.extension.packageJSON).version;
+		try {
+			const res = await fetch(URL_EXT_LATEST, {
+				headers: {accept: 'application/vnd.github+json'},
+			});
+			if (! res.ok) return;	// レート制限（未認証は60回/時）等。黙って諦める
+
+			const {tag_name} = <{tag_name?: string}>await res.json();
+			if (! tag_name) return;
+
+			const verNew = tag_name.replace(/^v/, '');
+			if (verNum(verNew) <= verNum(verNow)) return;
+
+			// 一度応答した版は繰り返し知らせない
+			if (this.ctx.globalState.get<string>(KEY_SKIP_EXT_VER) === verNew) return;
+
+			const OPEN = 'リリースページを開く';
+			const STOP = '今後知らせない';
+			const a = await window.showInformationMessage(
+				`SKYNovel 拡張機能の新版 v${verNew} があります（お使いのものは v${verNow}）。`
+				+ 'Marketplace が利用できないため、自動では更新されません。',
+				OPEN, STOP,
+			);
+			// ボタンを押さずに閉じた場合は記録しない。見逃した人に次回も知らせる
+			// （これが唯一の告知手段なので）。うるさい場合は STOP で止められる
+			if (! a) return;
+			await this.ctx.globalState.update(KEY_SKIP_EXT_VER, verNew);
+
+			if (a === OPEN) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
+			else await workspace.getConfiguration()
+				.update(CFG_CHK_EXT_VER, false, ConfigurationTarget.Global);
+		}
+		catch (e: unknown) {console.error('fn:ActivityBar.ts #chkLastExtVer %o', e)}
 	}
 
 	//MARK: ネットの更新確認
@@ -441,9 +631,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
-			prg.report({increment: 10, message: 'ダウンロード中',});
+			const url = URL_TMP_ZIP(nm);
+			prg.report({increment: 10, message: `ダウンロード中 ${url}`,});	// 取得元を明示
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
+			fetch(url, {signal})
 			.then(async res=> {
 				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});
@@ -528,9 +719,10 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
-			prg.report({increment: 10, message: 'ダウンロード中',});
+			const url = URL_TMP_ZIP(nm);
+			prg.report({increment: 10, message: `ダウンロード中 ${url}`,});	// 取得元を明示
 			const {signal} = ac;
-			fetch(`https://github.com/famibee/${nm}/archive/main.zip`, {signal})
+			fetch(url, {signal})
 			.then(async res=> {
 				fncAbort = ()=> { /* empty */ };
 				prg.report({increment: 40, message: 'ZIP生成中',});

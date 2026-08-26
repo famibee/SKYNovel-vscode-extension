@@ -110,7 +110,7 @@ export class HDiff {
 // console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
 		if (pathCn && ! existsSync(pathCn)) return true;
 
-		let hash = 0;
+		let hash: number;
 		if (REG_FULLCRYPTO.test(fp)) {
 			hash = crc32.buf(Buffer.from(readFileSync(fp, {encoding: 'utf8'}), 'binary'), 0);
 		//	hash = crc32.str(readFileSync(fp, {encoding: 'utf8'}));

@@ -7,8 +7,6 @@
 
 const [, , ...aCmd] = process.argv;
 const watch = aCmd.includes('--watch') ?{} :null;
-// const prod = aCmd.includes('--production');
-// const node_env = prod ?'production' :'development';
 
 // import {build, type BuildEnvironmentOptions} from 'vite';
 // import vue from '@vitejs/plugin-vue';
@@ -32,13 +30,6 @@ const oBuild: BuildOptions = {
 		sourcemap	: true,
 		format		: 'cjs',	// Node.js の仕様
 		logLevel	: 'info',	// default log level when using the CLI.
-
-		// npm-check-updates(ESM専用)が内部で createRequire(import.meta.url) を使うが、
-		// esbuildはcjs出力時に import.meta を空オブジェクトにしてしまい undefined エラーになる。
-		// → import.meta.url を実ファイルURLに差し替える
-		// (用途はNode組み込みモジュールのrequireのみと確認済みなので、バンドル全体で単一URLで足りる)
-		define		: {'import.meta.url': 'import_meta_url'},
-		inject		: ['./src/import-meta-url-shim.js'],
 	});
 	if (watch) await ctx.watch(); else {
 		await ctx.rebuild();
@@ -98,6 +89,31 @@ const oBuild: BuildOptions = {
 	}
 }
 
+{	// === webview の素のスクリプト ===
+	// views/*.ts を同名の views/*.js に出力する。html は
+	// 【<script defer src="./folder.js">】と相対参照していて、views/ 自体が
+	// webview の localResourceRoots なので、出力先を変えると html も直す必要がある。
+	// bundle+iife にしているのは、グローバルスコープを汚さないため（ファイル間で
+	// const vscode が衝突する）と、型定義を src/types.ts と共有するため
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: [
+			'./views/folder.ts',
+			'./views/tmpwiz.ts',
+			'./views/toolbox.ts',
+			'./views/score.ts',
+		],
+		outdir		: 'views',
+		platform	: 'browser',
+		format		: 'iife',
+		sourcemap	: false,	// webview で配信するので付けない
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
 {	// === batch ===
 	const ctx = await context({
 		...oBuild,
@@ -111,6 +127,61 @@ const oBuild: BuildOptions = {
 			// 実行時に Error: Dynamic require of "os" is not supported
 			// 【import _os from 'node:os';】をするもたぶん TreeShaking で脱落
 		format		: 'esm',
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+{	// === @vscode/test-cli の設定（.vscode-test.mjs）から呼ぶ準備処理 ===
+	// 設定ファイルは素の JS なので、TS 側の処理をここから .mjs で提供する
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: ['./test/prep'],
+		outdir		: 'test',
+		outExtension: {'.js': '.mjs'},
+		platform	: 'node',
+		format		: 'esm',
+		minify		: false,
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+{	// === 統合テスト本体（VSCode の拡張機能ホスト内で走る） ===
+	// @vscode/test-cli が Mocha で読み込むので cjs で出す。
+	// vscode は実行時に注入されるので external
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: ['./test/int/suite', './test/int/multi'],
+		outdir		: 'test/int',
+		external	: ['vscode'],
+		platform	: 'node',
+		format		: 'cjs',
+		minify		: false,	// 失敗時に読むので
+	});
+	if (watch) await ctx.watch(); else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+{	// === UI テスト（Playwright で VSCode を外から操作する） ===
+	// ⚠️ **bun では動かない**（Playwright の Electron 起動が 45秒でタイムアウトする。
+	// node なら約2.8秒で起動する）。そのため esbuild で .mjs に出して node で走らせる。
+	// import.meta.dirname を使うので format は esm
+	const ctx = await context({
+		...oBuild,
+		entryPoints	: ['./test/ui/runUI'],
+		outdir		: 'test/ui',
+		outExtension: {'.js': '.mjs'},
+		external	: ['playwright-core'],
+		platform	: 'node',
+		format		: 'esm',
+		minify		: false,	// 失敗時に読むので
 	});
 	if (watch) await ctx.watch(); else {
 		await ctx.rebuild();

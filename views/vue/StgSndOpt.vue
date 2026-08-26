@@ -9,7 +9,6 @@
 
 <div class="col-6 col-sm-3 px-1 sn_select">
 	<label for="cnv.mat.snd.codec" class="form-label">音声コーデック</label>
-	<i class="fas fa-angle-down sn_select_v"></i>
 	<select id="cnv.mat.snd.codec" class="form-select form-select-sm mb-3" aria-label=".form-select-sm example" v-model="oWss['cnv.mat.snd.codec']">
 		<option value="opus" selected>(.m4a) Opus</option>
 		<option value="aac">(.aac) Advanced Audio Coding</option>

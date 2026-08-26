@@ -79,14 +79,18 @@ export class Debugger extends EventEmitter {
 		})
 		.on('connection', (sk: WebSocket)=> {
 			sk.on('message', (data: RawData)=> {
-				const [type, o] = <[string, any]>JSON.parse(data.toString());
+				// RawData は Buffer | ArrayBuffer | Buffer[] なので文字列化を明示する
+				const buf = Array.isArray(data) ?Buffer.concat(data)
+					: Buffer.isBuffer(data) ?data
+					: Buffer.from(data);
+				const [type, o] = <[string, any]>JSON.parse(buf.toString('utf8'));
 //console.log(`fn:Debugger.ts 新RSV sn -> dbgs type:${type} o:${JSON.stringify(o)}`);
 				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				if (! this.#hProcSnRes[type]!(type, o)) return;
 				this.#hProcSnRes[type] = ()=> false;
 			});
 
-			this.send2SN = (type: string, o: any = {})=> {
+			this.send2SN = (type: string, o: any)=> {
 //console.log(`fn:Debugger.ts 新SND dbg -> sns type:${type} o:${JSON.stringify(o)}`);
 				if (sk.readyState === sk.OPEN) sk.send(JSON.stringify([type, o]));
 			};

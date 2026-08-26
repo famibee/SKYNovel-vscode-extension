@@ -147,6 +147,9 @@ export class PrjSetting implements Disposable {
 	]);
 
 	//MARK: デストラクタ
+	// TODO: [解放3] #ds へ push している箇所が1つも無いので、これは空回り。
+	// 設定 webview（#wp）とフォルダ webview がプロジェクトを閉じても残る
+	// （TODO.md §3.6 リソースの解放3）
 	dispose() {for (const d of this.#ds) d.dispose()}
 
 
@@ -221,6 +224,8 @@ export class PrjSetting implements Disposable {
 				Uri.file(this.pc.PATH_WS),
 			],
 		});
+		// TODO: [解放2] 以下2つの購読先 ctx.subscriptions は拡張機能の寿命。
+		// この webview はプロジェクト単位なので #ds へ（TODO.md §3.6 リソースの解放2・3）
 		p.onDidDispose(()=> {
 			this.#wp = undefined;
 			this.cmd2Vue = _=> Promise.resolve(false);
@@ -421,9 +426,9 @@ export class PrjSetting implements Disposable {
 		case 'cnv.font.subset':
 			if (await window.showInformationMessage('フォントサイズ最適化（する / しない）を切り替えますか？', {modal: true}, 'はい') !== 'はい') return false;
 
-			if (! ActivityBar.getReady('PY_FONTTOOLS')) break;
-
-			if (chkBoolean(val)) await this.optFont.enable();
+			// enable() の中で fonttools / brotli の導入同意を取る。
+			// 断られた場合・失敗した場合は false でスイッチを元に戻す
+			if (chkBoolean(val)) {if (! await this.optFont.enable()) return false}
 			else await this.optFont.disable();
 			break;
 
