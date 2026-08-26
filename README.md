@@ -1,4 +1,4 @@
-# SKYNovel Extension for VSCode
+# BlueSNovel / SKYNovel Extension for VSCode
 [![MIT](https://img.shields.io/badge/MIT-green?style=for-the-badge)](https://github.com/famibee/skynovel_esm/blob/master/LICENSE)
 ![VSCode](https://img.shields.io/badge/VSCode-0078D4?style=for-the-badge&logo=visual%20studio%20code&logoColor=white)
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
@@ -7,6 +7,10 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
 
 <img src="res/img/icon.png" width="100" loading="lazy">
+
+A VSCode extension for developing visual novel games with the **BlueSNovel** / **SKYNovel** game engines — syntax highlight, diagnostics, coding assistance, and a step debugger for `.sn` / `.ssn` scripts.
+
+BlueSNovel / SKYNovel（ノベルゲームエンジン）向けの VSCode 拡張機能です。`.sn` / `.ssn` スクリプトのシンタックスハイライト・診断・コーディング補助・ステップデバッガーを提供します。
 
 [CHANGELOG.md](CHANGELOG.md)
 
@@ -30,7 +34,7 @@ We are fixing the issues that led to the takedown, and a corrected build will be
 
 This extension drives your project's toolchain. Everything below runs as a **visible VSCode task or terminal**, and nothing is installed silently.
 
-- **Node.js package manager** — `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` on **your project folder**, from the buttons in the SKYNovel activity bar. If `bun` is available, `bun` / `bunx` is used instead
+- **Node.js package manager** — `npm i` / `npm update` / `npm run ...` / `npx npm-check-updates` / `npx electron-builder` on **your project folder**, from the buttons in the BlueSNovel activity bar. If `bun` is available, `bun` / `bunx` is used instead
 - **Python packages (opt-in)** — when you turn **font optimization** on in the project settings, the extension asks first, then runs `pip install fonttools brotli`. Decline and the rest of the extension keeps working; you can also install them yourself. On Windows it also prepends Python's `Scripts` folder to the PATH of VSCode terminals so that `pyftsubset` is found
 - **Template download** — the project template is fetched from `https://github.com/famibee/...` as a zip and unpacked into the folder you choose (the URL is shown while downloading)
 - **Encryption of your own game data (opt-in)** — when you turn on encryption in the project settings, your scripts and assets are encrypted into `doc_crypto/` so that they are not trivially extractable from a released game. Your originals under `doc/` are left as they are, and the switch is reversible. Nothing outside your project folder is ever touched
@@ -403,8 +407,8 @@ Development follows these documents: [Marketplace Publisher Agreement](https://c
 
 > ![](src/img/ref_search0.jpg)
 
-2. Execute the command "SKYNovel: Open reference search palette".
-	2. SKYNovel: Open reference search palette」というコマンドを実行します。
+2. Execute the command "SKYNovel: Open reference search palette" (shown as "BlueSNovel: ..." in BlueSNovel projects).
+	2. 「SKYNovel: Open reference search palette」というコマンドを実行します（BlueSNovel プロジェクトでは「BlueSNovel: ...」と表示されます）。
 
 > ![](src/img/ref_search1.jpg)
 
@@ -609,7 +613,7 @@ The call stack view will also show [main.sn 1:1]
 
 ### (A) line breakpoint
 	If you click on the left side of the line number, the mark with a red circle will appear.
-	The execution process of SKYNovel stops when it passes through there.
+	The execution process of the game engine stops when it passes through there.
 
 	It also appears in the breakpoint view.
 	Breakpoints can be deleted, but you can also uncheck the checkbox to temporarily disable the breakpoint.
@@ -668,7 +672,7 @@ The call stack view will also show [main.sn 1:1]
 
 2. It is possible to change the value of a variable by inputting it manually while the program is stopped.
 	- However, a variable name that begins with "const.〜" cannot be changed.
-	- In addition, some variables whose variable names begin with "sn.˜" can be changed by SKYNovel. If you change it, it will be fixed at the input value.
+	- In addition, some variables whose variable names begin with "sn.˜" can be changed by the game engine. If you change it, it will be fixed at the input value.
 
 		> ![](src/img/dbg_varview1.png)
 		> ![](src/img/dbg_varview2.png)
@@ -745,7 +749,7 @@ The call stack view will also show [main.sn 1:1]
 
 ### (A) 行ブレークポイント
 	行番号の左をクリックすると赤丸マークの目印が付きます。
-	SKYNovelの実行処理がそこを通ると停止します。
+	ゲームエンジンの実行処理がそこを通ると停止します。
 
 	ブレークポイントビューにも表示されます。
 	ブレークポイントは削除もできますが、チェックボックスを外すと一時的にブレークしないようにできます。
@@ -804,7 +808,7 @@ The call stack view will also show [main.sn 1:1]
 
 2. 【値の設定】停止中、手入力で変数値変更が可能です。
 	- ただし変数名が「const.〜」で始まる変数は変更不可です。
-	- また変数名が「sn.〜」で始まる変数は SKYNovelが変化させるものがあり、それを変更すると入力値で固定されてしまいます。
+	- また変数名が「sn.〜」で始まる変数はゲームエンジンが変化させるものがあり、それを変更すると入力値で固定されてしまいます。
 
 		> ![](src/img/dbg_varview1.png)
 		> ![](src/img/dbg_varview2.png)

@@ -20,7 +20,7 @@ import {copyFile, mkdirs, existsSync, move, outputJson, readFile, readJson, remo
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
 const AdmZip = require('adm-zip');
 
-const nNodeReqVer = 24_011_000;
+const nNodeReqVer = 24_019_000;
 
 // テンプレートの取得元。進捗表示でユーザーに見せる
 const URL_TMP_ZIP = (nm: string)=> `https://github.com/famibee/${nm}/archive/main.zip`;

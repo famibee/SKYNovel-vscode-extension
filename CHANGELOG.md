@@ -1,3 +1,18 @@
+## v4.33.2（alpha）
+
+Marketplace 4通目の返信（2026-08-26）を受けた是正版。metadata（description・keywords・
+icon）と README（overview 本体）を BlueSNovel 色に統一した。
+
+- fix(meta): **`description` を BlueSNovel / SKYNovel 両対応の文言に**
+- fix(meta): **`keywords` に `bluesnovel` を追加**
+- fix(meta): **`icon` を `res/img/icon_bluesnovel.png` に変更**（画像自体は同じ紙飛行機アイコン、ファイル名のみ変更）
+- fix(doc): **README.md（＝Marketplace の overview 本体）の拡張機能自身を指す箇所を BlueSNovel 化**
+	- H1タイトル・冒頭説明・「SKYNovel activity bar」・リファレンス検索パレットのコマンド例・
+	ブレークポイント/変数ビューの「実行処理の主語」4箇所
+	- ⚠️ エンジン名としての言及（診断メッセージの仕様、`github.com/famibee/SKYNovel` 等の実リンク）は維持
+- chore: 依存パッケージを更新（Vue 3.5.41、Electron 44、esbuild 0.28.2、Vite 8.2.2 ほか）
+- chore: Node バージョンチェックの閾値を更新
+
 ## v4.33.1（alpha）
 
 v4.33.0 の直後に出す差し替え版。**中身は同じ alpha** で、
