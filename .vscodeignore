@@ -19,8 +19,6 @@ CLAUDE.md
 eslint.config.mts
 tools/
 tsconfig*.json
-TODO.md
-TODO.private.md
 .vscode-test*
 	# 統合テスト実行時の VSCode ユーザーデータ
 

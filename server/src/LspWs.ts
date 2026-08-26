@@ -81,13 +81,14 @@ export type T_L2S_go_res = T_SCAN_SRC & {
 	cmd		: 'go.res';
 };
 /**
- * **path.json だけが変わったときの軽い再走査**（§3.7 の宿題「upd_path」）。
+ * **path.json だけが変わったときの軽い再走査**（実装済み・2026-07-28）。
  *
  * スクリプト本文（実測で送信物の 97.8%・約177KB）を送らない。S は保持済みの
  * `#hPp2Scr`（本文＋パース結果）を使い、**パースを飛ばして検証だけやり直す**。
  *
- * 実測（25ファイル）：全走査 125.9ms のうち
- * C の読み取り 9.8ms ＋ IPC 約34ms ＋ パース 4.3ms が消える見込み。
+ * 実測（25ファイル）：全走査 125.9ms → 96.1ms（-30ms・24%短縮）。
+ * 予測は -44ms だったが、IPC は 34→19ms までしか縮まなかった
+ * （3.3KB でも往復と `haDiag`・`hDefPlg` の直列化コストは残る）。
  *
  * ⚠️ **スクリプトの追加削除では使えない**（S が本文を持っていないため）。
  * C 側は 300ms のまとめの中に本文の変化が1件でも混ざったら `need_go` に落とす
@@ -400,6 +401,15 @@ const H_DIAG_MES = {
 } satisfies {[code_name: string]: T_DIAG};
 type T_DIAG_KEY = keyof typeof H_DIAG_MES;
 
+/**
+ * ⚠️ **fs を持たせない方針を維持すること。** `server/src/*.ts` の fs 呼び出しは
+ * 0件が前提（web worker 拡張ホストでは fs / path / process が使えないため。
+ * vscode.dev 対応は要求仕様ではないが、緩い縛りとして維持している）。
+ *
+ * **C/S の役割分担：C は全文を持たない。S（このクラス）が持ち続け、
+ * C は結果だけもらう。** 送信物の 97.8% はスクリプト本文（実測 25ファイル）
+ * なので、path.json だけが変わったときはそれを送らない（`T_L2S_upd_path` 参照）。
+ */
 export class LspWs {
 	// === キーワードスニペット（#prepareSnippet() でkey追加・更新。既存はノータッチ）
 	readonly	#hK2Snp	: {[key: string]: string}	= {
@@ -830,7 +840,9 @@ ${sum}`,
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
-		// つまり「検証」の実体の一部はこのループにある（§3.7 の「#scanEnd の内訳」測定用に分ける）
+		// つまり「検証」の実体の一部はこのループにある。ここを条件付きにする案は
+		// **やらない**（2026-07-28 測定）：内訳は #aEndingJob 実行 23.3ms／残り 4.6ms で、
+		// 飛ばせるのは残り 4.6ms（全体の 4.7%）だけ。割に合わない
 		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];
@@ -1615,7 +1627,7 @@ WorkspaceEdit
 	// TODO: [perf] path.json が変わると全ファイルを検証し直している。
 	// その素材名を参照するファイルだけに絞れれば 96ms → 9〜12ms（実測の天井）。
 	// ⚠️ 難しさは速度でなく正しさ。診断は「消えた素材を参照している」も含むので
-	// 参照の向きが両方向。絞り込みを誤ると誤診断が残る／消える（TODO.md §3.7 宿題3）
+	// 参照の向きが両方向。絞り込みを誤ると誤診断が残る／消える（src/docs/lsp-design.md 宿題3）
 	#reScanPath({sPathJson, hDefPlg, haDiag}: T_L2S_upd_path) {
 		this.#hDefPlugin = hDefPlg;
 
@@ -1739,7 +1751,9 @@ WorkspaceEdit
 
 		// == 情報集積仕上げ（ここまでの情報を必要とする）
 		// ⚠️ `#scanNFD()` も `#chkTagMacArg()` も**ここに遅延して溜まる**。
-		// つまり「検証」の実体の一部はこのループにある（§3.7 の「#scanEnd の内訳」測定用に分ける）
+		// つまり「検証」の実体の一部はこのループにある。ここを条件付きにする案は
+		// **やらない**（2026-07-28 測定）：内訳は #aEndingJob 実行 23.3ms／残り 4.6ms で、
+		// 飛ばせるのは残り 4.6ms（全体の 4.7%）だけ。割に合わない
 		const tJob = performance.now();
 		for (const j of this.#aEndingJob) j();
 		this.#aEndingJob = [];

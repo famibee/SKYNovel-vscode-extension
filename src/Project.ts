@@ -221,7 +221,7 @@ export class Project {
 		/**
 		 * ⚠️ **3つの仕事を兼ねている**（path.json 更新＋暗号化／ドロップ先候補の
 		 * 再計算／LSP の全再走査）。画像を1枚追加するだけで前2つは必ず走る
-		 * （TODO.md「ファイル監視の設計」(C)）。
+		 * （src/docs/file-watch.md(C)）。
 		 *
 		 * ただし3つめ（全再走査）は **path.json が実際に変わったときだけ**にした。
 		 * LSP が全走査を要るのは「ファイル名キーワードが変わったから」なので、
@@ -234,6 +234,7 @@ export class Project {
 			try {return existsSync(fpPathJson) ?readFileSync(fpPathJson, 'utf8') :''}
 			catch {return ''}	// 読めないなら「変わった」扱いにして従来どおり走らせる
 		};
+		// 実証済み：追加してすぐ削除すると path.json.同一 1 / 全走査 0（統合テスト）
 		const updPathJson = async ()=> {
 			// path.json 更新（暗号化もここ「のみ」で）
 // console.log(`fn:Project.ts #basePathJson`);
@@ -432,7 +433,7 @@ export class Project {
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
 	// TODO: [解放5] #tmNeedGo（300ms）を clearTimeout していない。閉じる直前に
-	// ファイルを触ると破棄済みの自分に対して発火する（TODO.md §3.6 リソースの解放5）
+	// ファイルを触ると破棄済みの自分に対して発火する（src/docs/multiroot.md リソースの解放5）
 	dispose() {
 		for (const d of this.#ds) d.dispose();
 		void this.#termDbgSS();

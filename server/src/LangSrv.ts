@@ -27,7 +27,7 @@ export type T_MES_L2S = T_ALL_L2S & {
 function getLspWs(tdi: TextDocumentIdentifier): LspWs | undefined {
 	const fp = fullSchPath2fp(tdi.uri);		// 'file://'外し
 	// TODO: [multi-root] 区切りを見ていないので /work/novel が /work/novel2 の
-	// ファイルにも一致する。'/' を足し、最長一致を採る（TODO.md §3.6 不具合6）
+	// ファイルにも一致する。'/' を足し、最長一致を採る（src/docs/multiroot.md 不具合6）
 	const pathWs = [...mLspWs.keys()].find(wsFld=> fp.startsWith(wsFld));
 	if (! pathWs) return undefined;
 
@@ -95,7 +95,7 @@ conn.onInitialize(prm=> {
 		if (hasWsFldCap) conn.workspace.onDidChangeWorkspaceFolders(e=> {
 			// TODO: [multi-root] 鍵は fullSchPath2fp() を通した値なのに、生の uri で
 			// 消しているため**永久に一致しない**。閉じたフォルダの LspWs（全文＋
-			// パース結果）が残り続ける（TODO.md §3.6 不具合2）
+			// パース結果）が残り続ける（src/docs/multiroot.md 不具合2）
 			for (const {uri} of e.removed) mLspWs.delete(uri);
 			for (const wf of e.added) mLspWs.set(
 				fullSchPath2fp(wf.uri),

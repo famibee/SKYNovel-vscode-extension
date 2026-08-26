@@ -8,7 +8,7 @@
 // 統合テストの設定（@vscode/test-cli）。`bun run test:int` から使う。
 //
 // 公式が新規拡張機能に推奨するランナー。VSCode の入手・起動・Mocha の面倒を見る。
-// 以前は test/int/runTests.ts で同じことを自作していた（TODO §4.5）。
+// 以前は test/int/runTests.ts で同じことを自作していた（src/docs/testing.md）。
 //
 // TS 側の準備（フィクスチャ生成・実 VSCode の指定・リポジトリ外の user-data-dir・
 // フォーカス対策）は test/prep.ts が持つ。ここはそれを配置するだけ
@@ -38,7 +38,7 @@ export default defineConfig([
 		useInstallation	: fromPath ?{fromPath} :undefined,
 	},
 	{
-		// §3.8 (A)：プロジェクト2つ。`workspaceFolder` は
+		// src/docs/file-watch.md (A)：プロジェクト2つ。`workspaceFolder` は
 		// **フォルダでも .code-workspace でもよい**
 		label		: 'multi',
 		files		: 'test/int/multi.js',

@@ -3,6 +3,12 @@
 ノベルゲームエンジン SKYNovel / BlueSNovel の VSCode 拡張機能。
 本体（`src/`）と言語サーバー（`server/src/`）の2プロセス構成。
 
+## TODO・開発者ドキュメントの置き場
+
+- **[src/docs/TODO.md](src/docs/TODO.md)** … 行動項目だけを持つ TODO。まずここを見る
+- **src/docs/** … 設計判断の経緯・調査結果・実測値・宿題の詳細（[索引](src/docs/README.md)）
+- **src/docs/TODO.private.md**（git 管理外） … 非公開にすべき交渉経緯・個人情報を含む記録
+
 
 ## 機械可読なデータ（grep する前にここを読む）
 

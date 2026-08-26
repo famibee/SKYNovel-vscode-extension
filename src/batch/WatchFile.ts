@@ -37,7 +37,7 @@ export class WatchFile {
 
 		// ファイル名変更イベントを処理
 		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
-		// 下の fwFld の2つも同じ。Project.#ds へ入れる（TODO.md §3.6 リソースの解放4）
+		// 下の fwFld の2つも同じ。Project.#ds へ入れる（src/docs/multiroot.md リソースの解放4）
 		workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));
 
 		// フォルダ追加・削除イベント検知。
@@ -48,13 +48,13 @@ export class WatchFile {
 		// 「入れ子が拾えていない＝バグ」と誤認して直さないこと
 		const ptnFld = 'doc/prj/*';
 		// TODO: [解放1] fwFld 自身を誰も dispose しない。購読を外しても OS の
-		// ファイル監視は生き続ける（TODO.md §3.6 リソースの解放1）
+		// ファイル監視は生き続ける（src/docs/multiroot.md リソースの解放1）
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(this.pc.wsFld, ptnFld));
 		fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
 		fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
 	}
 	// TODO: [multi-root] static が後勝ち。別プロジェクトの設定で暗号化しかねない
-	// （最重・単独の版で。TODO.md §3.8(A) ／ §3.6 不具合1）
+	// （最重・単独の版で。src/docs/file-watch.md(A) ／ src/docs/multiroot.md 不具合1）
 	/**
 	 * ⚠️ **この2つが static なのはマルチルートで壊れる。**
 	 *
@@ -65,13 +65,13 @@ export class WatchFile {
 	 * - `encIfNeeded` も後勝ち＝**別プロジェクトの暗号化設定で暗号化しかねない**
 	 *
 	 * package.json の keywords に `multi-root ready` と書いてあるので看板と実装が
-	 * 合っていない。直すならインスタンスフィールドにする（TODO.md「ファイル監視の設計」(A)）
+	 * 合っていない。直すならインスタンスフィールドにする（src/docs/file-watch.md(A)）
 	 */
 				static	#updPathJson	: ()=> Promise<void>;
 	protected	static	encIfNeeded		: (uri: Uri)=> Promise<void>;
 
 	// TODO: [multi-root] エディタ主導の変名で購読者が二重に呼ばれる。
-	// Windows の挙動を確認してから直す（TODO.md §3.8(D)）
+	// Windows の挙動を確認してから直す（src/docs/file-watch.md(D)）
 	/**
 	 * 変名は **del + cre に分解**して購読者へ流す。判定を「対（旧,新）」ではなく
 	 * **辺ごと**に独立させているので、4通り（内→内／内→外／外→内／外→外）が
@@ -82,14 +82,14 @@ export class WatchFile {
 	 * - `WorkspaceEdit.renameFile` … `watch.rename` 1 **かつ** 監視の cre・del も各1
 	 *
 	 * なお外部操作（fs / fs-extra）と VSCode API 操作は追加・変更・変名・削除の
-	 * どれも**同一のイベント**になる（実測表は TODO.md §3.8）。
+	 * どれも**同一のイベント**になる（実測表は src/docs/file-watch.md）。
 	 * **差が出るのはこの「エディタ主導の変名」だけ**
 	 *
 	 * つまり後者では、ここと FS 監視の両方が `w.crechg` / `w.del` を呼び、
 	 * **画像最適化と暗号化が2回走る**（need_go はデバウンスで1回に見えるので
 	 * 外からは気づけない）。macOS / VSCode 1.130 での実測。
 	 * FS 監視だけで足りるなら不要になるが、**Windows で同じ挙動か未確認**なので
-	 * 消す前に確認すること（TODO.md「ファイル監視の設計」(D)）
+	 * 消す前に確認すること（src/docs/file-watch.md(D)）
 	 */
 	async #onDidRenameFiles({files}: FileRenameEvent) {
 // console.log(`fn:WatchFile.ts onDidRenameFiles files:%o`, files);
@@ -168,11 +168,11 @@ export class WatchFile {
 	 * **画像と音声を同時に置くと `#updPathJson()` が2回走る**（統合テストで実測）。
 	 * `updPathJson()` は `#cfg.loadEx()`（全走査＋暗号化）を含むので重い処理の二重実行。
 	 * 後段の全走査は Project の `#sendNeedGo()`（300ms）がまとめるが、
-	 * `loadEx` の二重実行は残っている（TODO.md「ファイル監視の設計」(B)）
+	 * `loadEx` の二重実行は残っている（src/docs/file-watch.md(B)）
 	 */
 	protected	lasyPathJson() {
 		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
-		// （TODO.md §3.6 リソースの解放5）
+		// （src/docs/multiroot.md リソースの解放5）
 		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
 		this.#tiLasyPathJson = setTimeout(()=> {void WatchFile.#updPathJson()}, 500);
 	}
@@ -209,7 +209,7 @@ export class WatchFile {
 		// TODO: [解放1] fw 自身を dispose していない（プロジェクトあたり9本）
 		// TODO: [解放2] 以下 push 先の ctx.subscriptions は「拡張機能の寿命」。
 		// プロジェクト単位のものは Project.#ds へ。いまはフォルダを開き直すと
-		// 購読が二重になり、古い方も発火する（TODO.md §3.6 リソースの解放1・2）
+		// 購読が二重になり、古い方も発火する（src/docs/multiroot.md リソースの解放1・2）
 		const fw = workspace.createFileSystemWatcher(
 			new RelativePattern(this.pc.wsFld, pat),
 			! crechg,	// ignore なので無効にするときに true

@@ -149,7 +149,7 @@ export class PrjSetting implements Disposable {
 	//MARK: デストラクタ
 	// TODO: [解放3] #ds へ push している箇所が1つも無いので、これは空回り。
 	// 設定 webview（#wp）とフォルダ webview がプロジェクトを閉じても残る
-	// （TODO.md §3.6 リソースの解放3）
+	// （src/docs/multiroot.md リソースの解放3）
 	dispose() {for (const d of this.#ds) d.dispose()}
 
 
@@ -225,7 +225,7 @@ export class PrjSetting implements Disposable {
 			],
 		});
 		// TODO: [解放2] 以下2つの購読先 ctx.subscriptions は拡張機能の寿命。
-		// この webview はプロジェクト単位なので #ds へ（TODO.md §3.6 リソースの解放2・3）
+		// この webview はプロジェクト単位なので #ds へ（src/docs/multiroot.md リソースの解放2・3）
 		p.onDidDispose(()=> {
 			this.#wp = undefined;
 			this.cmd2Vue = _=> Promise.resolve(false);

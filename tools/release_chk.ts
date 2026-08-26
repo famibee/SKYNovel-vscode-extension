@@ -13,7 +13,7 @@
 //	5. SHA256 …… リリースノート用に出力
 //
 // 公開（vsce publish）はしない。PAT を CI に置きたくないので手動のまま。
-//	詳細は TODO.md「公開前チェックの自動化」を参照
+//	詳細は src/docs/release.md「公開前チェック」を参照
 
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
@@ -146,7 +146,7 @@ const MAX_CHUNK = 2_000_000;
 	// これに 1.1MB 上乗せされていたので、2MB を超えたら重い依存の混入を疑う
 
 // 既知のサプライチェーン攻撃・資格情報窃取の指標。
-//	公開済み vsix を手作業で走査していたもの（TODO.md §6）をここに取り込んだ。
+//	公開済み vsix を手作業で走査していたもの（src/docs/release.md §6）をここに取り込んだ。
 //	シグネチャベースの簡易チェックなので、無汚染の証明にはならない
 const A_IOC: {reg: RegExp, why: string}[] = [
 	{reg: /webhook\.site|requestbin|pipedream\.net|ngrok\.io/i,

@@ -1,0 +1,189 @@
+# 機能の宿題・完了記録
+
+利用者向け機能の宿題と、実装済み機能の判断根拠・目視確認記録。TODO.md から分離（2026-08-26）。
+
+⚠️ **決着・凍結した判断は対応コードのコメントへ移す**（重複を避けるため）。
+ここに残すのは①対応コードが無い判断、②未着手・低優先度の宿題、③今後の
+再検討を避けるための実測値・調査記録。数字を書く基準は
+[TODO.md](TODO.md) 冒頭を参照。
+
+---
+
+## 3.5. 機能の宿題
+
+- ~~**拡張機能自身の更新を通知する**~~ → **実装済み（CHANGELOG v4.31.2）**
+	- ⚠️ ただし **v4.31.2 以降を入れた人にしか効かない。**
+	v4.30.4 で止まっている利用者には届かない（下記）
+
+- **v4.30.4 で止まっている利用者に告知する手段【調査済み・使わない結論】**
+	- v4.30.4 が外部から取るのは**自分の4リポジトリの版番号だけ**
+	（`skynovel_esm` / `SKYNovel` の package.json `version`、
+	`tmp_esm_uc` / `tmp_cjs_uc` の CHANGELOG.md 先頭の `## v(.+)`）。
+	自由書式のメッセージを受ける経路は無い（他の fetch は利用者操作時の main.zip のみ）
+	- 版番号にメッセージを混ぜれば画面には出るが、**❌ やらない**：
+	その文字列がテンプレ版番号として比較に使われ、全利用者に恒久的に偽の
+	「テンプレ更新あり」通知が出る。しかもその通知は【ベース更新】を押させ、
+	main.zip で**利用者の作品プロジェクトを書き換える**。告知のために実害のある
+	操作を誘発することになる。版比較そのものも壊れる
+	- **全員に届きうる経路は Marketplace の復活だけ。ただし確実ではない**（下記）
+	- 当面の実害のない手段：ブログ、GitHub の README、
+	**テンプレリポジトリの README / doc**（ベース更新を押した人には main.zip 経由で届く）
+
+- **❌ `famibee2.skynovel2` の ID は復活しない【MS 回答で確定】**
+	- MS サポート回答（詳細は `TODO.private.md` 参照、2026-07-24 受信）に
+	**「extensions are not reinstated after removal」**と明記されている。
+	item ID・インストール数・レビュー・URL は戻らず、
+	**再公開は新しい extension name になる**
+	- ⇒ **旧版（v4.30.4）利用者に自動更新で届く道は無い。** 恒久的に取り残される。
+	接点はブログ / GitHub / テンプレリポジトリ経由の告知だけ
+	- ⇒ 自己更新通知（上記）の重要度が上がる。今の旧版利用者は救えないが、
+	**新 ID で入れ直してもらった後**は同じ事故を防げる
+	- ⚠️ **旧版と新版は別の拡張機能として共存できてしまう。**
+	同じコマンド ID・ビュー ID を登録するので、両方入っている利用者では衝突する。
+	移行案内には **「旧版をアンインストールしてから新版を入れる」を必ず明記**
+		- ✅ **検出は実装済み**（`ActivityBar.#chkOldExt()`）。
+		`extensions.getExtension('famibee2.skynovel2')` が取れたら警告し、
+		拡張機能ビューを開くところまで。**アンインストールはしない**（[build.md](build.md) の方針）。
+		案内文は読まれないので、コードでも気づけるようにした
+	- ✅ **publisher `famibee2` の復帰は道が残っている**（`TODO.private.md` 旧§666 原文で確認）。
+	「a mandatory cooldown period of 30 days is required **before any
+	reinstatement**, **and extensions are not reinstated after removal**」と
+	2節が書き分けられており、**復帰不可なのは拡張機能だけ**。
+	新規アカウントも新規 publisher も要らない（ToU 4(x) との衝突も起きない）
+	- ✅ **新しい extension name を決定・適用済み（2026-07-28）**
+		- `name`: `skynovel2` → **`bluesnovel`**。新 ID は **`famibee2.bluesnovel`**
+		- `displayName`: `SKYNovel` → **`BlueSNovel / SKYNovel`**。
+		両エンジンを見る拡張機能なので両方を名乗る（SKYNovel 利用者の検索に当てるため）。
+		Marketplace では全部が拡張機能なので名前に "Extension" は入れない
+		- エンジン（npm `@famibee/bluesnovel`）とは配布経路が別なので衝突しない
+		- **URL・インストール数・レビューは 0 から**
+		- 変更箇所は 2 つだけ：`package.json` の name/displayName と
+		`test/int/suite.ts` の `EXT_ID`。vsix 名は `bluesnovel-X.Y.Z.vsix` になる
+
+- ~~**リファレンス検索パレットのリンク先を、プロジェクト種別で切り替える**~~
+	→ **実装済み（CHANGELOG v4.31.2）**。判定は `isBluesPrj()`
+	（[src/CmnLib.ts](../CmnLib.ts)）＝ `<src|core>/web.ts` の SysWeb の import 先。
+	**判定は本体側だけで行い、結果を `ready` で LSP へ渡す**（LSP に I/O を入れない）
+
+- ~~**設定画面の Vue はオーバースペックか**~~ → **調査済み・2026-07-28。Vue のままでよい**
+	- ❌ **`contributes.configuration`（VSCode 標準の設定画面）は選択肢に入らない。**
+	この画面が編集しているのは VSCode の設定ではなく、**ゲームプロジェクトの
+	`prj.json` と `package.json`**（[src/PrjSetting.ts](../PrjSetting.ts) の
+	`#PATH_PRJ_JSON` / `#PATH_PKG_JSON`）。標準設定画面では扱えない
+	- ❌ **公式の代替部品はもう無い。** `@vscode/webview-ui-toolkit` は
+	**2025-01-06 にアーカイブ済み**（FAST Foundation 廃止に伴い、書き直しの
+	リソースが確保されなかった）。残っているのはコミュニティの Lit 製など
+	- ✅ **自動 UI テストは十分に効く**（`bun run test:ui` で **12/12**）。
+	タブ7つの存在と切り替え、**スライダーの値変更（90→45）**、
+	必須項目の検証メッセージまで確認できる。
+	⇒「テストできないから作り直す」という理由づけは**成り立たない**
+	- 💡 **重いのは Vue ではない。** 内訳は
+	FontAwesome 1.17MB ／ Bootstrap CSS 236KB ／ Vue+Pinia+8コンポーネント 276KB。
+	⇒ 重い分は下記「同梱物の軽量化」で削除済み（2026-07-28）
+	- 方針は従来どおり：.ssn 制作時に Vue あるいは React へ寄せる。**今すぐ改修しない**
+
+- ✅ **同梱物の軽量化【完了・2026-07-28〜29】vsix を約4割減らした**
+
+	削ったのは**次の3つだけ**（現在のサイズは `bun run release` が出す）：
+
+	- **FontAwesome 1.17MB を削除**し、使う字形だけ SVG で持つ（[src/faIcon.ts](../faIcon.ts)、パス計約18KB）。
+	`views/lib/fontawesome/` と `views/lib/webfonts/` ごと削除
+	- **`views/envinfo/node_win9.jpg` を 1978px → 1000px**（693→327KB）。
+	同じページの兄弟画像の最大が 1008px なので、それに揃えただけ
+	- **`views/tmpwiz/*.jpg` 9枚を 1207px → 1000px**（2801→1598KB）。
+	表示は `col-12`＝パネル幅いっぱいなので Retina では理屈の上で甘くなるが、
+	**実機で並べて見て遜色ないことを確認**してから縮小した（作者判断）
+	- 🐛 **見つけた不具合**：`views/vue/StgSndOpt.vue` のシェブロンは、
+	`setting.html` が FontAwesome を読んでいないため**ずっと描画されていなかった**。
+	SVG 化で出るようになった
+
+	⚠️ **tmpwiz の画面そのものは外に出せない**（画像のリモート化案は見送り）。
+	`enableScripts: true` の webview がプロジェクト名を `postMessage` で受けて
+	検証・作成まで走らせる。画像だけ外に出す案も、**オフラインで選べる価値**と
+	`img-src https:` を再申請前に増やす説明コストが見合わなかった。
+
+	**⚠️ 見立てを2つ外していたので記録する：**
+	1. **「使うのは14アイコン」は誤り。実際は42種。** `.htm` しか grep しておらず、
+	`src/CteScore.ts` / `src/ToolBox.ts` が
+	`<i class="fas ${icon}">` と**動的に組み立てている分**を見落としていた。
+	⇒ 静的置換では足りず、TS 側にマップ（`faSvg()`）が要った
+	2. **「画像 3.9MB が無駄」は誤り。** `views/tmpwiz/*.jpg` は
+	**再圧縮してもほぼ縮まない**（434→424KB／品質80）。既に適正で、
+	サイズは内容の複雑さ由来。**縮めるなら再圧縮ではなく寸法**（上記の 1000px 化）
+	- 💡 字形は **fontawesome.com / jsDelivr から同梱と同じ 5.15.4 を取得**したので
+	見た目は変わらない。縮小化された束から索引位置で solid/regular を推測する
+	必要は無かった（作者の指摘で判明）
+
+- ✅ **旧版同居の警告に「移行手順を見る」を追加【完了・2026-07-28】**
+	- `env.openExternal(URL_EXT_RELEASES)` で GitHub Releases を開く
+	（[src/ActivityBar.ts](../ActivityBar.ts) の `#chkOldExt()`）
+	- ⚠️ **更新手順の専用ページは作らない。** 更新通知の「リリースページを開く」が
+	既に同じ URL を開いており、**リリースノートが手順書そのもの**になっている。
+	ページを増やすと二重管理になる
+	- 導線を足した理由：**この警告を見た人が、まさに手順を知りたい相手**だった。
+	それまでは「拡張機能ビューを開く」しか無く、アンインストールの先が示せていなかった
+
+- 💡 **tmpwiz を `contributes.walkthroughs` に載せる【v5.0.0 と一緒に。alpha 中は出さない】**
+	- walkthrough は**インストール時に自動で開く**のが利点。新規の利用者に
+	「まずテンプレートを選ぶ」を最初に見せられる
+	- ⚠️ **だから alpha 中に入れてはいけない。** 落ち着いていない画面を
+	全員に自動で見せることになる。**移行案内（[release.md](release.md)）と同じ v5.0.0 のタイミングで**
+	- 起動時に WebView を自前で開く案は**採らない**。VSCode に用意された枠
+	（walkthrough）があるのに独自に前へ出るのは行儀が悪く、
+	再申請前の拡張機能として印象も悪い
+
+- ~~**BlueSNovel のみのタグ4件をパレットに出す**~~ → **完了（2026-07-28）。ただし前提が2つ誤っていた**
+	- ❌ **4件ではなく2件だった。** `grplay` / `txtlay` は**タグではない**。
+	`bluesnovel/docs/tag.html` の `<h2 id="grplay">[lay]レイヤ設定(画像レイヤ)</h2>`
+	`<h2 id="txtlay">[lay]レイヤ設定(文字レイヤ)</h2>` ＝ **`[lay]` の説明セクションの
+	アンカー ID**。タグ本体の `lay.md` は既にあるので、対応不要
+	- ❌ **BlueSNovel のみでもなかった。** `set_cancel_skip` / `stopfadese` は
+	**SKYNovel の docs にも載っている**（`SKYNovel/docs/tag.html`）。
+	単に `src/md/` に元ファイルが無かっただけで、**両エンジンで出ていなかった**
+	- ✅ `src/md/stopfadese.md` と `src/md/set_cancel_skip.md` を追加。
+	**114 → 116 タグ**。引数なしのタグは `***` を書かない慣例に従った
+	（`stop_allse.md` / `waitclick.md` と同じ）
+	- `set_cancel_skip` は両エンジンとも**廃止済みで何もしない**
+	（本家も 2023/05/27 に中身を空に）。概要文を `【廃止】スキップ中断予約` にして、
+	補完・ホバー・引数説明のどこでも廃止と分かるようにした
+	- ✅ **廃止タグはリファレンス検索パレットから外す**（`SET_HAISHI_TAG`、
+	[src/WorkSpaces.ts](../WorkSpaces.ts)）。調べに行く意味が無いため。
+	エンジン差で隠さない方針とは別扱い（あちらは「実装されているかは各サイトを見る」話）
+	- 🐛 **md を消してはいけない理由が判明。** LSP のタグ表 `LspWs.#hTag` は
+	**md.json から作られる**（[server/src/LspWs.ts:688](../../server/src/LspWs.ts:688)）。
+	md に無い名前はタグと認識されず**マクロ扱い**になり
+	（[LspWs.ts:2102](../../server/src/LspWs.ts:2102)）、
+	「未定義マクロ[$]を使用、あるいはスペルミスです」の診断が出る
+	（[LspWs.ts:1722](../../server/src/LspWs.ts:1722)）。
+	⇒ **この2件の md を足すまで、既存シナリオに誤診断が出ていた**（今回の副産物）
+	- 逆方向（相手側に無いタグを隠す）は**やらない方針**。リファレンスは
+	「調べられること」が役目なので隠さない。実装状況は各サイトの記載に従う
+
+- ~~**ホバー・補完の説明文に埋まっている SKYNovel URL**~~
+	→ **実装済み（CHANGELOG v4.31.2）**。ワークスペースごとにタグ辞書を差し替える
+
+- **ギャラリーのリンクは SKYNovel 固定のまま【BlueSNovel 版が無い】**
+	- `famibee.github.io/SKYNovel_gallery/` への 38 箇所。BlueSNovel の docs には
+	ギャラリー頁が無いので、意図的に置換対象から外している
+	（`URL_SKY_DOC` の末尾 `/` で `SKYNovel_gallery/` を除外している）
+	- BlueSNovel 版ギャラリーを作ったら、[server/src/LspWs.ts](../../server/src/LspWs.ts)
+	の `md2blues()` に置換を足す
+	- [src/TreeDPDoc.ts:25](../TreeDPDoc.ts:25) の【ドキュメント・連絡先】ツリーも
+	SKYNovel 固定。ただしこのツリーは**プロジェクト単位ではない**（複数開いていると
+	どちらを指すか決まらない）ので、切り替えるなら別の考え方が必要
+
+### ❄️ 凍結した企画（受付箱から・2026-08-26）
+
+- **Figmaでデザイン【凍結・Figma 習得コストが高いため】**
+	- Figma でデザインし、その公開 URL から Figma Import(json) → 中間形式
+	（Game UI Schema v1）→ ゲームのデザインに取り込む、というデザイン機能
+	- Figma MCP はその設定自体が手間で、AI を使わない利用者もいるので不採用
+	- **bluesnovel 専用機能。** React ベースのアプリとしてノベルゲームエンジン
+	（文字画像レイヤ・音・イベント・文法解析）と組み合わせるイメージ。
+	SKYNovel(AIRNovel) 側にタグでこれを実現する機能は提供しない
+	- 試作は tmp_blues テンプレ同様のデザインを Figma で製作し（エンジン開発者
+	レベルの話なので Figma MCP を使用予定）、Figma での変更が URL 経由で
+	手元のプロジェクトに反映されるのがゴール
+	- 着手するならこの Figma 製作が最初（開発者自身の Figma 習得も兼ねる）。
+	**その習得コストが見合わないと判断し、着手は凍結**
+
