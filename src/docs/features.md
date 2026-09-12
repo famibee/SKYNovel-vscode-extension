@@ -162,17 +162,18 @@
 - ~~**ホバー・補完の説明文に埋まっている SKYNovel URL**~~
 	→ **実装済み（CHANGELOG v4.31.2）**。ワークスペースごとにタグ辞書を差し替える
 
-- **ギャラリーのリンクは SKYNovel 固定のまま【BlueSNovel 版が無い】**
-	- `famibee.github.io/SKYNovel_gallery/` への 38 箇所。BlueSNovel の docs には
-	ギャラリー頁が無いので、意図的に置換対象から外している
-	（`URL_SKY_DOC` の末尾 `/` で `SKYNovel_gallery/` を除外している）
-	- BlueSNovel 版ギャラリーを作ったら、[server/src/LspWs.ts](../../server/src/LspWs.ts)
-	の `md2blues()` に置換を足す
-	- [src/TreeDPDoc.ts:25](../TreeDPDoc.ts:25) の【ドキュメント・連絡先】ツリーも
-	SKYNovel 固定。ただしこのツリーは**プロジェクト単位ではない**（複数開いていると
-	どちらを指すか決まらない）ので、切り替えるなら別の考え方が必要
+- ~~**ギャラリーのリンクは SKYNovel 固定のまま【BlueSNovel 版が無い】**~~
+	→ **無用化（2026-09-12）。ギャラリーが分家（BlueSNovel）でも動くようになったため、
+	エンジン別にリンクを切り替える必要自体が無くなった**
+	- `famibee.github.io/SKYNovel_gallery/` への 38 箇所、
+	[src/TreeDPDoc.ts:25](../TreeDPDoc.ts:25) の【ドキュメント・連絡先】ツリーとも
+	SKYNovel 固定のまま据え置いてよい
 
-- **`upd_url.json` 生成 CLI/コマンド（`update_check` URL上書き機構）【engine側実装済み・拡張機能側は再申請決着待ち】**
+- ~~**`upd_url.json` 生成 CLI/コマンド（`update_check` URL上書き機構）**~~
+	→ **実装済み（2026-09-12）。[src/genUpdUrl.ts](../genUpdUrl.ts)**（`bun src/genUpdUrl.ts <pass.jsonのパス> <URL> [出力先]`）
+	- ⚠️ **拡張機能には組み込んでいない**（`package.json` の `contributes` に触れない
+	独立スタンドアロンスクリプト）。新機能の追加ではなく既存ロジック（`Encryptor`）の
+	CLI化なので、Marketplace 再申請の審査対象に含まれず、返信待ち中でも着手できた
 	- 背景：`update_check` タグに渡すパッチサーバーURLが恒久的に死んだ場合、
 	配布済みアプリ側には変更手段が一切無い（sn_kowloonで実際に発生：
 	レンタルサーバー解約でドメイン失効し、既定のパッチサーバーURLが永久に無効化）
@@ -180,8 +181,7 @@
 	`userData` 直下の `upd_url.json` の有無を確認し、あれば `dec('json', tx)` で
 	復号してそのURLを優先使用、無ければ従来通りスクリプト内蔵の既定URLへ
 	フォールバック（`src/sn/SysApp.ts` の `#resolveUpdUrl()`）
-	- **拡張機能側の残作業**：`upd_url.json` の生成を CLI/コマンドとして追加。
-	プロジェクトごとの `pass.json` の鍵で `Encryptor.enc()` した結果を
+	- CLI はプロジェクトごとの `pass.json` の鍵で `Encryptor.enc()` した結果を
 	`upd_url.json`（拡張子は `.sn`/`.json`/`.html` でないと `dec()` が
 	復号処理をスキップするため必須）として出力する
 	- 配布は作者のブログ等、既存の告知手段を想定
@@ -199,8 +199,6 @@
 	判断（作者確認済み）。安全性は鍵（`pass.json`）の非公開性に依存し、
 	フォーマット（`userData/upd_url.json`、JSON構造、対象拡張子）自体を
 	隠す必要は無いため。README等での仕様公開はこの前提で進めてよい
-	- ⚠️ **Marketplace 再申請の返信待ち中は着手しない**（TODO.md §1）。
-	新機能の追加は再申請の審査に影響しうるため、決着後に着手する
 
 - **過去アプリ向けパッチ配布（購入者チェック付きパッチアプリ生成）【設計検討中・拡張機能側は再申請決着待ち】**
 	- 背景：`upd_url.json`（上記）は**これから配布するアプリ**しか救えない。既に配布済みで

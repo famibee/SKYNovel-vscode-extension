@@ -68,10 +68,8 @@
 
 | # | 内容 | 何を待っているか | 節 |
 |---|---|---|---|
-| 1 | ギャラリーのリンクをエンジンで切り替える | **BlueSNovel 版ギャラリーの頁が存在しない**（作者が作れば着手可） | [features.md](features.md) |
-| 2 | tmpwiz を `contributes.walkthroughs` に載せる | **v5.0.0 の移行案内と一緒に出す話**（walkthrough はインストール時に自動で開くので、alpha 中に出すと落ち着いていない画面を全員に見せる） | [features.md](features.md) |
-| 3 | `upd_url.json` 生成 CLI/コマンドの追加（`update_check` URL上書き機構、engine側は実装済み） | **Marketplace 再申請の返信待ち中**につき新機能追加は着手しない（§1）。再申請の決着後に着手 | [features.md](features.md) |
-| 4 | 過去アプリ向けパッチ配布（購入者チェック付きのパッチアプリを生成する新機能） | 同上（§1）。加えて購入者チェック方式・パッチアプリの実装基盤が未確定（設計メモは [legacy-app-patch.md](legacy-app-patch.md)） | [features.md](features.md) |
+| 1 | tmpwiz を `contributes.walkthroughs` に載せる | **v5.0.0 の移行案内と一緒に出す話**（walkthrough はインストール時に自動で開くので、alpha 中に出すと落ち着いていない画面を全員に見せる） | [features.md](features.md) |
+| 2 | 過去アプリ向けパッチ配布（購入者チェック付きのパッチアプリを生成する新機能） | **Marketplace 再申請の返信待ち中**につき新機能追加は着手しない（§1）。加えて購入者チェック方式・パッチアプリの実装基盤が未確定（設計メモは [legacy-app-patch.md](legacy-app-patch.md)） | [features.md](features.md) |
 
 ### ❓ 判断待ち（こちらから確認したいこと）
 

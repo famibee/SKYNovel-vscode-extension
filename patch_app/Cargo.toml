@@ -1,0 +1,27 @@
+[package]
+name = "sn_legacy_patch"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "過去アプリ向けパッチ配布（購入者チェック付き）の判定ロジック。詳細は sn_extension の src/docs/legacy-app-patch.md 参照"
+publish = false
+
+[[bin]]
+name = "sn_legacy_patch"
+path = "src/main.rs"
+
+[dependencies]
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# GUI フレームワークは使わない方針（legacy-app-patch.md の実装基盤の設計参照）。
+# ダイアログ表示・ブラウザ起動は OS 標準コマンドの呼び出しで足りる見込みで、
+# 専用クレートは現時点では追加していない（雛形の段階のため未実装）
+
+[profile.release]
+opt-level = "z"	# サイズ優先（同梱前提のため）
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

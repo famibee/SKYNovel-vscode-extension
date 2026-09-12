@@ -1,0 +1,191 @@
+/* ***** BEGIN LICENSE BLOCK *****
+	Copyright (c) 2026-2026 Famibee (famibee.blog38.fc2.com)
+
+	This software is released under the MIT License.
+	http://opensource.org/licenses/mit-license.php
+** ***** END LICENSE BLOCK ***** */
+
+import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, appendPatchFooter} from '../src/LegacyAppCheck';
+import {Encryptor} from '../src/Encryptor';
+import type {IDecryptInfo} from '../src/CmnLib';
+
+import {expect, beforeEach, it} from 'bun:test';
+import {mkdtempSync, mkdirsSync, removeSync} from 'fs-extra';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+
+const {subtle} = (await import('crypto')).webcrypto;
+
+let encry: Encryptor;
+const infDecrypt: IDecryptInfo = {
+	pass	: 'd0a3c6e5-ddc1-48ee-bf38-471e2e2e018a',
+	salt	: '70a7c0b81cc31a8849cacdab8ed90163',
+	iv		: '493f19a60e5f03f55576a98bfc892a13',
+	keySize	: 16,
+	ite		: 513,
+	stk		: '3d01197ce022b188696791cf903cd197',
+};
+
+beforeEach(async ()=> {
+	encry = new Encryptor(infDecrypt, subtle);
+	await encry.init();
+});
+
+
+//MARK: チェックサム比較
+
+it('checksumHex は決定的', ()=> {
+	const a = checksumHex('hello');
+	const b = checksumHex('hello');
+	expect(a).toBe(b);
+	expect(a).not.toBe(checksumHex('hello2'));
+});
+
+
+it('matchesKnownChecksum は大小文字を無視して一致判定', ()=> {
+	const hex = checksumHex('体験版 = false');
+	expect(matchesKnownChecksum('体験版 = false', hex)).toBe(true);
+	expect(matchesKnownChecksum('体験版 = false', hex.toUpperCase())).toBe(true);
+	expect(matchesKnownChecksum('体験版 = true', hex)).toBe(false);
+});
+
+
+it('matchesAnyKnownChecksum: 配列のどれか1つと一致すればtrue', ()=> {
+	const hexV1 = checksumHex('v1-bytes');
+	const hexV2 = checksumHex('v2-bytes');
+	expect(matchesAnyKnownChecksum('v2-bytes', [hexV1, hexV2])).toBe(true);
+	expect(matchesAnyKnownChecksum('v3-bytes', [hexV1, hexV2])).toBe(false);
+	expect(matchesAnyKnownChecksum('anything', [])).toBe(false);
+});
+
+
+it('encryptedChecksum は同じ平文なら常に同じ値（AES-GCM の決定性を利用）', async ()=> {
+	const plaintext = '&const.体験版 = false';
+	const c1 = await encryptedChecksum(encry, plaintext);
+	const c2 = await encryptedChecksum(encry, plaintext);
+	expect(c1).toBe(c2);
+
+	const cOther = await encryptedChecksum(encry, '&const.体験版 = true');
+	expect(c1).not.toBe(cOther);
+
+	// 事前計算した既知の値と一致すること（暗号化結果自体は Encryptor.test.ts と同じ鍵で決定的）
+	const enc = await encry.enc(plaintext);
+	expect(c1).toBe(checksumHex(enc));
+});
+
+
+//MARK: パッチ生成時のみのエラーチェック（const.体験版 の存在確認）
+
+it('hasExperienceConst: &const.体験版 = … を含む平文は true', ()=> {
+	expect(hasExperienceConst('&const.体験版 = false')).toBe(true);
+	expect(hasExperienceConst('前置き\n&const.体験版 = true\n後続')).toBe(true);
+	expect(hasExperienceConst('&const.体験版   =   false')).toBe(true);	// 空白の揺れ
+});
+
+
+it('hasExperienceConst: 変数名が無い・改名されている平文は false', ()=> {
+	expect(hasExperienceConst('&const.taiken_ban = false')).toBe(false);
+	expect(hasExperienceConst('体験版という語があるだけの地の文')).toBe(false);
+	expect(hasExperienceConst('')).toBe(false);
+});
+
+
+it('assertHasExperienceConst: 存在すれば何もしない、無ければ MissingExperienceConstError', ()=> {
+	expect(()=> assertHasExperienceConst('&const.体験版 = false')).not.toThrow();
+	expect(()=> assertHasExperienceConst('&const.taiken_ban = false')).toThrow(MissingExperienceConstError);
+});
+
+
+//MARK: 案A：インストール済みアプリの検出
+
+it('candidateInstallPaths: mac は /Applications/<name>.app の1本', ()=> {
+	const paths = candidateInstallPaths('MyGame', {platform: 'darwin', macApplicationsDir: '/Applications'});
+	expect(paths).toEqual(['/Applications/MyGame.app']);
+});
+
+
+it('candidateInstallPaths: win は指定した候補ディレクトリの数だけ返す', ()=> {
+	// セパレータの整形は実行ホストの path モジュールに委ねているので、期待値も
+	// join() で組み立てる（このテストが検証するのは「各ベースディレクトリ配下に
+	// appName を1つずつ結合する」という組み立てロジックそのもの）
+	const bases = [join('C:', 'Program Files'), join('C:', 'Users', 'u', 'AppData', 'Local', 'Programs')];
+	const paths = candidateInstallPaths('MyGame', {platform: 'win32', winInstallBaseDirs: bases});
+	expect(paths).toEqual(bases.map(b=> join(b, 'MyGame')));
+});
+
+
+it('candidateInstallPaths: 対象外プラットフォームは空配列', ()=> {
+	expect(candidateInstallPaths('MyGame', {platform: 'linux'})).toEqual([]);
+});
+
+
+it('detectInstalledApp: mac相当・実在するフォルダは検出できる', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_'));
+	try {
+		mkdirsSync(join(dTmp, 'MyGame.app'));
+		expect(detectInstalledApp('MyGame', {platform: 'darwin', macApplicationsDir: dTmp})).toBe(true);
+		expect(detectInstalledApp('NoSuchGame', {platform: 'darwin', macApplicationsDir: dTmp})).toBe(false);
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('detectInstalledApp: win相当・複数候補のどれかにあれば検出できる', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_'));
+	const dProgFiles = join(dTmp, 'Program Files');
+	const dLocalPrograms = join(dTmp, 'Local', 'Programs');
+	try {
+		mkdirsSync(join(dLocalPrograms, 'MyGame'));	// Program Files 側には置かない
+		const env = {platform: <const>'win32', winInstallBaseDirs: [dProgFiles, dLocalPrograms]};
+		expect(detectInstalledApp('MyGame', env)).toBe(true);
+		expect(detectInstalledApp('NoSuchGame', env)).toBe(false);
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+//MARK: settingSnFileName（asar 内で探す basename の算出）
+
+it('settingSnFileName: crypto:true なら uuidv5(relPath) ＋元の拡張子', ()=> {
+	const fn = settingSnFileName(encry, 'theme/setting.sn', true);
+	expect(fn).toBe(`${encry.uuidv5('theme/setting.sn')}.sn`);
+	expect(fn.endsWith('.sn')).toBe(true);
+	expect(fn).not.toContain('setting');	// 元の名前は残らない
+});
+
+
+it('settingSnFileName: crypto:false なら basename そのまま', ()=> {
+	expect(settingSnFileName(encry, 'theme/setting.sn', false)).toBe('setting.sn');
+});
+
+
+it('settingSnFileName: crypto:true でも relPath が違えば別の名前になる（決定的だが一意）', ()=> {
+	const a = settingSnFileName(encry, 'theme/setting.sn', true);
+	const b = settingSnFileName(encry, 'other/setting.sn', true);
+	expect(a).not.toBe(b);
+});
+
+
+//MARK: appendPatchFooter（パッチアプリ本体・footer.rs との往復整合性）
+
+it('appendPatchFooter: stub＋JSON＋長さ(u32 LE)＋マジックの順で連結される', ()=> {
+	const stub = new Uint8Array([1, 2, 3]);
+	const cfg = {
+		appName				: 'MyGame',
+		checksumSetting		: ['abc123', 'def456'],
+		settingSnFileName	: '3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn',
+		downloadUrl			: 'https://example.com/patch',
+	};
+	const out = appendPatchFooter(stub, cfg);
+
+	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');
+	const magic = Buffer.from('SNLPATCH', 'ascii');
+
+	expect(out.subarray(0, 3)).toEqual(stub);
+	expect(out.subarray(3, 3 + jsonBytes.length)).toEqual(new Uint8Array(jsonBytes));
+	expect(Buffer.from(out.subarray(out.length - 4 - magic.length, out.length - magic.length)).readUInt32LE(0))
+		.toBe(jsonBytes.length);
+	expect(out.subarray(out.length - magic.length)).toEqual(new Uint8Array(magic));
+});

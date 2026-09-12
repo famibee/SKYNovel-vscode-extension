@@ -789,6 +789,7 @@
 		"build": "bun md2json && bun vue_bld && bun tools/build.ts",
 		"watch": "bun vue_bw & bun src/md2json.ts --watch & bun --watch tools/build.ts --watch",
 		"md2json": "bun src/md2json.ts",
+		"gen:updurl": "bun src/genUpdUrl.ts",
 		"vue_bld": "vite build -c ./views/vite.config.mts",
 		"vue_bw": "vite build -w -c ./views/vite.config.mts",
 		"update": "bun update --latest && bun run build && bun ncu_lsp && sudo bun update -g --latest",

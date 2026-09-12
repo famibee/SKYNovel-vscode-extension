@@ -14,6 +14,10 @@ dist/*.tsbuildinfo
 
 /server/node_modules/
 
+# Rust（過去アプリ向けパッチ配布アプリの雛形。src/docs/legacy-app-patch.md 参照）
+# Cargo.lock はバイナリ crate なのでコミットする（再現ビルドのため。ライブラリとは逆の慣習）
+/patch_app/target/
+
 *.LICENSE.txt
 tools/skynovel-Mac2Win
 
