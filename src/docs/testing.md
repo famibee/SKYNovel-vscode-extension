@@ -134,18 +134,38 @@ rejected promise not handled within 1 second: Error: ENOENT: no such file or dir
 open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setting.sn'
 ```
 
-ドライブレターが `C:\c:\...` と二重になっている。`extension.js:59` 付近
-（`#O` 関数、`WatchFile.ts` 由来）でファイル URI と Windows 絶対パスの結合を
-誤っている可能性が高い（mac ではドライブレターが無いため顕在化しない）。
+ドライブレターが `C:\c:\...` と二重になっている。
 
-このエラーの影響で、後続の2件が失敗：
+**【原因特定・修正済み・2026-09-13】** `WfbSettingSn.ts`（`setting.sn` の監視）が
+`watchFld()` の `init` コールバックで `uri.path` を**そのまま**使っていたのが原因。
+`uri.path` は Windows では先頭に **`/`＋ドライブ名（小文字）`** が付く形式
+（例：`/c:/Users/…/setting.sn`）で、これを素通しで `fs-extra` の
+`existsSync`/`readFile` に渡すと、Node の Windows 側パス解決
+（`path.resolve` 相当。絶対パスにする際に「ドライブ無しの root-relative パス」と
+誤認識される）が「カレントドライブ（`C:`）＋この文字列をそのまま連結」してしまい
+`C:\c:\Users\…` と二重になる。
 
-- 「追加してすぐ消すと path.json は同一で、全走査しない」…
-  期待1回のところ0回（`setting.sn` 読み取り失敗で状態が乱れた可能性）
-- 「【調査】全走査は何 ms か」… 全走査が一度も起きていない（測れていない）
+この codebase では既に `WfbOptPic.ts`/`WfbOptSnd.ts` が
+`const path = vsc2fp(uri.path);`（`CmnLib.ts`）でこの `/c:` プレフィックスを
+剥がしてから使う、という正しい書き方をしていた。`WfbSettingSn.ts` と
+`WfbOptFont.ts`（同じ `async ({path})=>` の分解代入パターンで `uri.path` を
+直接使っていた）だけがこれを踏襲しておらず、**mac では `uri.path` にドライブ
+レターが無く問題が起きないため長らく見落とされていた**、Windows 固有のバグ。
 
-**未着手**：`#O` 関数（`WatchFile.ts` 経由）でのパス結合箇所の特定と修正。
-mac では発生しないため見落とされていた Windows 固有バグの可能性が高い。
+**修正**：両ファイルで `uri` をそのまま受け取り `vsc2fp(uri.path)` を通す形に変更
+（[WfbSettingSn.ts](../batch/WfbSettingSn.ts) / [WfbOptFont.ts](../batch/WfbOptFont.ts)）。
+
+修正後に `bun run test:int` を再実行し、ENOENT と「追加してすぐ消すと path.json は
+同一で、全走査しない」の失敗が解消したことを確認済み（`main` スイート
+8→9 passing、2→1 failing）。
+
+**残る1件「【調査】全走査は何 ms か」は別件**：全走査が一度も起きていない
+（測れていない）。上記のパス二重化バグとは無関係（ENOENT は出ていない）で、
+25本の `.sn`（各100ラベル）を書いた後 `sleep(6000)` で落ち着かせてから計測に
+入る設計（`test/int/suite.js`）。**Windows のディスク I/O・アンチウイルスの
+リアルタイムスキャン等でこの待ち時間内に初期スキャンが収まらず、計測ウィンドウ
+自体を逃している可能性がある**（mac向けに調整された sleep 値が Windows では
+足りない、という仮説）。未検証・未着手。
 
 test:ui はまだ着手していない。
 

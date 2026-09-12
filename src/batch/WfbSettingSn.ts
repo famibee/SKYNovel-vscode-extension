@@ -7,7 +7,7 @@
 
 import type {T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
-import {replaceRegsFile} from '../CmnLib';
+import {replaceRegsFile, vsc2fp} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
 import type {PrjCmn} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
@@ -31,7 +31,13 @@ export class WfbSettingSn extends WatchFile {
 		// 設定スクリプトの更新
 		await this.watchFld(
 			'doc/prj/*/setting.sn', '',
-			async ({path})=> {
+			async uri=> {
+				// ⚠️ uri.path をそのまま使わない。Windows では先頭に
+				// 【'/'+ ドライブ名（小文字）】が付き（例：/c:/Users/…）、
+				// これをそのまま fs へ渡すと Node の path 解決で
+				// 【C:\c:\Users\…】とドライブ名が二重になり ENOENT になる
+				// （2026-09-13 発見。src/docs/testing.md 参照）
+				const path = vsc2fp(uri.path);
 				this.#fnSetting = path;	// 存在しない場合も
 				this.chkMultiMatch = ()=> this.#chkMultiMatch_proc();
 				this.chkMultiMatch();

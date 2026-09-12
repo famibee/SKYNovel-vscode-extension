@@ -8,7 +8,7 @@
 import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../../server/src/LspWs';
 import {type T_H_FONTJSON, type T_H_BJ_subset_font, type T_E2V_CNVFONT, type T_E2V_NOTICE_COMPONENT, type T_BJ_subset_font, type T_INF_INTFONT, H_FONTJSON_nm_DEF_FONT} from '../types';
 import type {FULL_PATH} from '../CmnLib';
-import {foldProc, fp2osp, getFn, is_win} from '../CmnLib';
+import {foldProc, fp2osp, getFn, is_win, vsc2fp} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
 import {ActivityBar} from '../ActivityBar';
 import {WatchFile} from './WatchFile';
@@ -82,11 +82,15 @@ export class WfbOptFont extends WatchFile {
 			async ()=> { /* empty */ },
 				// 中身は空。**findFiles(pat) 全件への初回の暗号化を走らせるため**に
 				// 渡している（watchFld 内で init の有無が分岐条件になっている）
-			async ({path}, cre)=> {
+			async (uri, cre)=> {
+				// ⚠️ uri.path を素通しにしない（WfbSettingSn.ts と同じ理由。
+				// Windows で【C:\c:\…】の二重ドライブ名になる。testing.md参照）
+				const path = vsc2fp(uri.path);
 				if (cre && /\.ss?n$/.test(path)) await sendNeedGo();
 				return noticeChgTxt(path);
 			},
-			async ({path})=> {
+			async uri=> {
+				const path = vsc2fp(uri.path);
 				if (/\.ss?n$/.test(path)) await sendNeedGo();
 				return noticeDelTxt(path);
 			},
