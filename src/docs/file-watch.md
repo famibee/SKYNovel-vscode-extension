@@ -202,7 +202,8 @@ VSCode の版で変わったら気づける。
 | 経路 | 自動化 | 備考 |
 |---|---|---|
 | (VE)→(VE) | ✅ **実装済み・2026-09-13** | `explorer.confirmDragAndDrop: false` が必須。[test/ui/runUI.ts](../../test/ui/runUI.ts) |
-| Explorer/Finder →(VE) | ❌ | 別アプリからの OS レベル操作。Playwright は Explorer/Finder を操作できない |
+| Explorer→(VE) | ✅ **実装済み・Windows限定・2026-09-13** | `SendInput`ベース。Explorer側はPython([test/ui/win_explorer_drag.py](../../test/ui/win_explorer_drag.py))、VSCode側は[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragFromExplorer()`。**macは対象外**（Finder版は別途手動、Pythonスクリプトも実行しない） |
+| Finder→(VE) | ❌ | mac は対象外（手動のまま） |
 | (VE)→ Explorer/Finder | ❌ | ドロップ先が Explorer/Finder |
 
 ##### 実装済み手順【2026-09-13・Windows で実装・検証】
@@ -321,6 +322,50 @@ VSCode側のPlaywright制御は別プロセス（Node側がPythonをchild_proces
 Explorer/Finderが絡む8ケースの自動化は、この方式なら理論上到達可能。ただし
 マルチモニタ・複数DPI混在環境は未検証のままで、本格導入前には要確認。
 
+##### 実装・組み込み【2026-09-13・Windowsで実装・`bun run test:ui`に組み込み済み】
+
+PoCの実装をそのまま`bun run test:ui`の正式なテストケースとして組み込んだ
+（20/20件成功）。構成：
+
+- **Explorer側**：[test/ui/win_explorer_drag.py](../../test/ui/win_explorer_drag.py)
+  （`ctypes.SendInput`自前実装 + `Desktop(backend="uia")`）。依存パッケージは
+  [test/ui/win_explorer_drag.txt](../../test/ui/win_explorer_drag.txt)
+  （`pip install -r test/ui/win_explorer_drag.txt`）
+- **VSCode側**：[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragFromExplorer()`が
+  ドロップ先座標を計算（`BrowserWindow#setBounds()`でウィンドウ位置を固定→
+  `boundingBox()` + `window.screenX/screenY` + `devicePixelRatio`変換）した上で、
+  `execFileSync`でPythonスクリプトを呼ぶ（Node→Python呼び出し）
+- **Windows限定**：`process.platform === 'win32'`でない場合はケース自体を
+  スキップする（mac側はFinderの仕組みが異なり別途手動のまま。Pythonは
+  windows以外では起動されない）
+- ソースファイルはプロジェクト外（`%TEMP%`配下）に用意し、「実際に外部由来
+  である」ことを担保。ドロップ先は既存の`(VE)→(VE)`ケースと同じ`sound`フォルダ行
+
+**ハマった点：**
+
+- `explorer.exe`はパス中に`/`が混ざっていると解釈に失敗し、既定のフォルダー
+  （検証機では「ドキュメント」）を開いてしまう（実測済み・原因調査に時間を要した）。
+  Node側で組み立てたパスに`/`が混入していたため、Python側で`os.path.normpath()`を
+  通して`\`区切りに揃えてから渡すよう修正して解決した
+- 上記の不具合により、失敗した試行のたびに「ドキュメント」フォルダのExplorer
+  ウィンドウが1つ残る（閉じる対象を見つけられないまま終了するため）。
+  実装確認中に13個溜まったので後片付けが必要だった（今回は解消済み）
+
+**実行結果：**
+
+| ケース | `watch.cre` | `watch.del` | 送り元ファイル |
+|---|---|---|---|
+| Explorer→(VE) 移動（無修飾ドラッグ） | +1 | +0 | **残存**（削除されない） |
+| Explorer→(VE) コピー（Ctrl+ドラッグ） | +1 | +0 | 残存（削除されない） |
+
+**発見：move/copyの区別が実質ない。** 無修飾でもCtrl+ドラッグでも、外部の
+送り元ファイルは**どちらも削除されず残存**し、`watch.cre`も同じく+1だった。
+これはVSCode（Electron）が外部ファイルのドロップを「パスを受け取ってコピーする」
+という自前実装で処理しており、OSの`DoDragDrop`が返す move/copy エフェクトを
+見ていない（＝常にコピー相当の挙動になる）ためと考えられる。Explorer→Explorer
+のケース（本節前半のPoC）では実際に move が成立していたので、**この非対称性は
+VSCode側のドロップハンドラの実装に起因**するとみられる。
+
 ##### 手順
 
 1. 設定 `skynovel.trace` を true に
@@ -330,8 +375,8 @@ Explorer/Finderが絡む8ケースの自動化は、この方式なら理論上�
 
 ##### 記録表（mac / win で各6行。⚠️ 経路名は Finder（mac）/ Explorer（win）と読み替え）
 
-**(VE)→(VE) の win 2行（#9・#10）は `bun run test:ui` が自動計測**（上記参照）。
-残り10行（mac 全部 + Explorer/Finder が絡む win 分）は未計測・手動が必要
+**win の4行（#7・#8・#9・#10）は `bun run test:ui` が自動計測**（上記参照）。
+残り8行（mac 全部 + (VE)→Explorer の win 分）は未計測・手動が必要
 
 | # | 経路 | 種別 | OS | cre | chg | del | rename | 全走査 |
 |---|---|---|---|---|---|---|---|---|
@@ -341,8 +386,8 @@ Explorer/Finderが絡む8ケースの自動化は、この方式なら理論上�
 | 4 | (VE)→(VE) | コピー | mac | | | | | |
 | 5 | (VE)→Finder | 移動 | mac | | | | | |
 | 6 | (VE)→Finder | コピー | mac | | | | | |
-| 7 | Explorer→(VE) | 移動 | win | | | | | |
-| 8 | Explorer→(VE) | コピー | win | | | | | |
+| 7 | Explorer→(VE) | 移動 | win | **1** | – | **0** | – | (未確認) |
+| 8 | Explorer→(VE) | コピー | win | **1** | – | **0** | – | (未確認) |
 | 9 | (VE)→(VE) | 移動 | win | **1** | – | **1** | – | (未確認) |
 | 10 | (VE)→(VE) | コピー | win | **1** | – | **0** | – | (未確認) |
 | 11 | (VE)→Explorer | 移動 | win | | | | | |

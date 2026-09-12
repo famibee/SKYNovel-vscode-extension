@@ -25,6 +25,7 @@
 import {_electron as electron} from 'playwright-core';
 import type {ElectronApplication, Frame, Locator, Page} from 'playwright-core';
 import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {mkFixture} from '../int/mkFixture';
@@ -47,8 +48,9 @@ const A_VSC = [
 const REPO = resolve(import.meta.dirname, '../..');
 const TMP = `${tmpdir()}/sn_ext_ui`;
 const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
 
-type T_ARG = {win: Page, blues: boolean, prj: string};
+type T_ARG = {win: Page, blues: boolean, prj: string, app: ElectronApplication};
 const aCase: {nm: string, fnc: (o: T_ARG)=> Promise<void>}[] = [];
 // ⚠️ **`it` という名前にしない。** このリポジトリには `it` が
 // すでに2つある（`bun:test` の import、統合テストの Mocha グローバル）。
@@ -323,6 +325,114 @@ uiCase('D&D (VE)→(VE)：Ctrl+ドラッグでコピーできる', async ({win})
 	}
 });
 
+// ⚠️ **Explorer→(VE) は Windows 限定**（src/docs/file-watch.md の
+// 「Explorer↔VSCode 自動化の可能性」節で実機PoC済み）。
+// Explorer 自身は別プロセスの OS ウィンドウなので Playwright からは触れず、
+// `ctypes.SendInput` ベースの `win_explorer_drag.py` へ実際のドラッグ操作を委譲する。
+// VSCode 側はドロップ先行の座標（boundingBox + window.screenX/Y）を求めるだけでよい。
+//
+// PoC で踏んだ地雷：`window.screenX/screenY` と `boundingBox()` は論理(DIP)ピクセル、
+// `SendInput` は物理ピクセル基準。`window.devicePixelRatio` を掛けて変換しないと
+// DPIスケーリング環境（150%等）でドロップ座標が大きくズレて不成立になる。
+
+/**
+ * Explorer(実OSのウィンドウ)から VSCode へファイルをドラッグする。
+ * 実際のマウス操作は Python(`win_explorer_drag.py`)の SendInput 実装に委譲し、
+ * ここでは「VSCode 側のドロップ座標を求める」「VSCode ウィンドウを既知の位置に
+ * 置く（Explorer 側と重ならないように）」だけを担当する。
+ *
+ * @returns ドラッグ後も送り元ファイルが実在するか（move/copy の実態確認用）
+ */
+async function dragFromExplorer(
+	o: {win: Page, app: ElectronApplication},
+	destRow: Locator,
+	srcFile: string,
+	opt: {ctrl?: boolean} = {},
+): Promise<{srcExists: boolean}> {
+	const {win, app} = o;
+
+	// VSCode ウィンドウをプライマリモニタの右半分へ（Explorer 側は
+	// win_explorer_drag.py が左半分に置く。座標計算後に動かすと
+	// screenX/Y が古くなるので、計算の**前に**確定させる）
+	const {workAreaSize} = await app.evaluate(({screen})=> screen.getPrimaryDisplay());
+	const bw = await app.browserWindow(win);
+	await bw.evaluate((w, size: {width: number, height: number})=> {
+		w.setBounds({
+			x: Math.floor(size.width /2), y: 0,
+			width: Math.floor(size.width /2), height: size.height,
+		});
+	}, workAreaSize);
+	await win.waitForTimeout(500);
+
+	const box = await destRow.boundingBox();
+	if (! box) throw new Error('ドロップ先(destRow)のboundingBoxが取得できません');
+	const [winX, winY, dpr] = await win.evaluate(()=>
+		[window.screenX, window.screenY, window.devicePixelRatio]) as [number, number, number];
+	// DIP → 物理ピクセル変換（PoCで踏んだ地雷。上のコメント参照）
+	const dropX = Math.round((winX + box.x + box.width /2) * dpr);
+	const dropY = Math.round((winY + box.y + box.height /2) * dpr);
+
+	const py = resolve(import.meta.dirname, 'win_explorer_drag.py');
+	const args = [py, srcFile, String(dropX), String(dropY)];
+	if (opt.ctrl) args.push('ctrl');
+	const out = execFileSync('python', args, {encoding: 'utf8'});
+	console.log(`      [win_explorer_drag.py]\n${out.split('\n').map(l=> `        ${l}`).join('\n')}`);
+	const m = /RESULT:(\{.*\})/.exec(out);
+	if (! m?.[1]) throw new Error(`win_explorer_drag.py の出力から結果を読めない: ${out}`);
+	return JSON.parse(m[1]) as {srcExists: boolean};
+}
+
+/** Explorer→(VE) のテスト用に、プロジェクト外（OS上の適当な場所）へ
+ * ソースファイルを1つ用意する。プロジェクト内に置くと「そもそも外部由来
+ * ではない」ことになり検証の意味が薄れるため、必ず `%TEMP%` 配下に置く */
+function mkExtSrc(nm: string) {
+	const dir = `${tmpdir()}/sn_ext_dnd_ext`;
+	mkdirSync(dir, {recursive: true});
+	const fp = `${dir}/${nm}`;
+	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), fp);
+	return fp;
+}
+
+uiCase('D&D Explorer→(VE)：移動できる【win限定・実機PoC済み】', async ({win, app})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const srcFile = mkExtSrc('dnd_ext_move.png');
+	const before = readTrace();
+	const {srcExists} = await dragFromExplorer({win, app}, dest, srcFile);
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      Explorer→(VE)移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / 送り元ファイル残存:${String(srcExists)}`);
+	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
+});
+
+uiCase('D&D Explorer→(VE)：コピーできる（Ctrl+ドラッグ）【win限定・実機PoC済み】', async ({win, app})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const srcFile = mkExtSrc('dnd_ext_copy.png');
+	const before = readTrace();
+	const {srcExists} = await dragFromExplorer({win, app}, dest, srcFile, {ctrl: true});
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      Explorer→(VE)コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / 送り元ファイル残存:${String(srcExists)}`);
+	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
+});
+
 // === 実行 ===
 
 // ⚠️ 拡張機能ホストの中から起動されると `ELECTRON_RUN_AS_NODE=1` を受け継ぐ。
@@ -390,7 +500,7 @@ async function run(blues: boolean) {
 		}
 
 		for (const {nm, fnc} of aCase) {
-			try {await fnc({win, blues, prj: fx.prj}); console.log(`  ok  ${nm}`)}
+			try {await fnc({win, blues, prj: fx.prj, app}); console.log(`  ok  ${nm}`)}
 			catch (e: unknown) {
 				++ng;
 				console.error(`  NG  ${nm}\n      ${e instanceof Error ? e.message : String(e)}`);
