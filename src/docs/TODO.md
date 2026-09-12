@@ -60,8 +60,7 @@
 
 | # | 内容 | 節 | 誰が |
 |---|---|---|---|
-| 1 | **D&D 12ケースの計測**。(VE)→(VE) の win 2件は`bun run test:ui`で自動計測済み（2026-09-13）。残り10件（mac 6件＋Explorer/Finderが絡むwin 4件）は手動が必要。設計判断はまだ | [file-watch.md](file-watch.md) | **mac**／残り**win** |
-| 2 | Windows 環境の自動テスト | [testing.md](testing.md) | **win** |
+| 1 | Windows 環境の自動テスト | [testing.md](testing.md) | **win** |
 
 ### 前提が揃うまで着手できない
 
@@ -75,6 +74,7 @@
 | # | 内容 | 節 |
 |---|---|---|
 | 1 | エディタ主導の変名で二重呼び出し。**Windows実測完了（macと同一挙動）**で検証待ちは解消。対処2案（①短時間だけ覚えて監視側で無視／②`#onDidRenameFiles`を消す）のどちらで進めるか | [file-watch.md](file-watch.md)(D) |
+| 2 | **D&D 12ケースの計測が完了**（2026-09-13・win/macとも`bun run test:ui`に自動化・組み込み済み。未計測は(VE)→Finderのコピー版1件のみで、修飾キーで挙動が変わらないとの知見から移動版と同一と推定）。値が揃ったので (A)〜(D) の優先順位の設計議論に入ってよいか | [file-watch.md](file-watch.md) |
 
 ⚠️ **判断を仰いだことは、その場で言うだけでなく必ずここへ書く。**
 `.claude/settings.json` の件は口頭で指摘しただけで一覧に入れず、

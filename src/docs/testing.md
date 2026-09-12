@@ -184,6 +184,32 @@ open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setti
 （[file-watch.md](file-watch.md) の「ドラッグ＆ドロップ12ケース」参照）。
 計14ケースで再計測し全て成功（安定して2回連続成功を確認）。
 
+**🐛 mac 版で2件バグを発見・修正済み【2026-09-13】**：Finder↔VSCode 間の
+D&D 自動化を検討する過程で、Claude Code（VSCode 上で動く）自身のセッションから
+`bun run test:ui` を試したところ VSCode が起動できず、原因調査でmac固有の
+2件が見つかった。
+
+1. **`A_VSC` の mac パスが古い実行体名のまま**：`test/ui/runUI.ts` は
+mac 実行体を `Contents/MacOS/Electron` 固定で探していたが、現在の VSCode は
+`Contents/MacOS/Code`（Windows/Linux と同じ命名）。旧名の版がインストール
+されていないと丸ごと「VSCode が見つかりません」で失敗する。両対応に修正済み
+2. **Ctrl+ドラッグのコピーテストが mac で失敗**：`dragWithModifier()`
+の呼び出しが `'Control'` 固定だった。**mac は Ctrl+クリックが副ボタン
+クリック（右クリック）に化ける**ため、ドラッグの代わりにコンテキスト
+メニューが開いてしまいコピーが成立しない。mac は `Option`(`Alt`) を
+使うよう分岐して修正済み（コピーの修飾キーが Windows/Linux と mac で
+違うこと自体は本節冒頭の「実装済み手順」に既に書かれていたが、コードには
+未反映だった）
+
+⚠️ **これらは「VSCode 上で動く Claude Code のセッションからは `_electron.launch()`
+で別インスタンスを起動できない」（シングルインスタンス制御に吸収される）**
+という制約の副産物として見つかった。プレーンなターミナルから実行すれば
+両方の問題を踏まずに済んだはずだが、結果的に踏んでいない環境（mac の
+plain terminal）での実行機会が今まで無かったことを示している。
+
+修正後、`bun run test:ui` は SKYNovel/BlueSNovel 両プロジェクト
+計16ケースが全て成功（16/16）。
+
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
 **エディタに出て CLI に出ないものは、2種類ある。混同しないこと。**

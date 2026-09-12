@@ -26,13 +26,15 @@ import {execFile, execFileSync} from 'node:child_process';
  *
  * ⚠️ AppleScript の `whose name is in {…}` は -1700 エラーになるので使わない
  * （一度これで「対象なし」と誤判定した）。`pgrep` で素直に見る。
- * 開発機の VSCode 本体は `…/MacOS/Code`、
- * `--extensionDevelopmentPath` で起動したテスト用は `…/MacOS/Electron`
+ *
+ * ⚠️ 開発機・テスト用とも実行体は同じ `…/MacOS/Code`（区別できない）。
+ * ここは**呼ばれた時点との PID 差分**で新規プロセスだけを拾う設計なので、
+ * 名前が同じでも実害はない（開発機の分は `before` に入っていて `add` から除外される）
  */
 function pids(): Set<string> {
 	try {
 		return new Set(execFileSync('pgrep',
-			['-f', 'Visual Studio Code.app/Contents/MacOS/Electron'], {encoding: 'utf8'})
+			['-f', 'Visual Studio Code.app/Contents/MacOS/Code'], {encoding: 'utf8'})
 			.split('\n').map(v=> v.trim()).filter(v=> v !== ''));
 	}
 	catch {return new Set}		// 1件も無いと pgrep は終了コード1

@@ -178,7 +178,10 @@ const oBuild: BuildOptions = {
 		entryPoints	: ['./test/ui/runUI'],
 		outdir		: 'test/ui',
 		outExtension: {'.js': '.mjs'},
-		external	: ['playwright-core'],
+		// @nut-tree-fork/nut-js は内部でネイティブバインディングを動的 require
+		// する（mac限定のFinderドラッグPoCで導入）。esbuildでバンドルすると
+		// 「Dynamic require of "fs" is not supported」で実行時に落ちるため external に
+		external	: ['playwright-core', '@nut-tree-fork/nut-js'],
 		platform	: 'node',
 		format		: 'esm',
 		minify		: false,	// 失敗時に読むので

@@ -750,6 +750,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",
+		"@nut-tree-fork/nut-js": "^4.2.6",
 		"@types/adm-zip": "^0.5.8",
 		"@types/archiver": "^8.0.0",
 		"@types/bootstrap": "^5.2.11",
