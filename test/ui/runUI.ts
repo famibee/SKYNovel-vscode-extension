@@ -433,6 +433,102 @@ uiCase('D&D Explorer→(VE)：コピーできる（Ctrl+ドラッグ）【win限
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
+// ⚠️ (VE)→Explorer は逆方向。VSCode自身が既に「ファイルをOSへドラッグアウトする」
+// 機能を持っている（`webContents.startDrag()`はVSCode本体のメインプロセスが呼ぶ。
+// 拡張機能からそのAPIを叩く必要はない）。こちらが用意するのは
+// 「本物のOS入力でVSCode側の行からドラッグを開始させる」ことだけで、
+// Explorer→(VE)側と対称な`SendInput`実装がそのまま使える
+// （src/docs/file-watch.mdの「(VE)→Explorer方向のPoC結果」参照）。
+
+/**
+ * VSCode(Explorerツリー行)から実Explorerウィンドウへファイルをドラッグする。
+ * 送り先のExplorerウィンドウを開く・SendInputでドラッグする実処理は
+ * Python(`win_explorer_drop.py`)に委譲し、ここではVSCode側の
+ * ドラッグ元座標を求める（dragFromExplorer()と対称）。
+ *
+ * @returns 送り先フォルダーにファイルが実際に現れたか
+ */
+async function dragToExplorer(
+	o: {win: Page, app: ElectronApplication},
+	srcRow: Locator,
+	destDir: string,
+	filename: string,
+	opt: {ctrl?: boolean} = {},
+): Promise<{dropped: boolean}> {
+	const {win, app} = o;
+
+	const {workAreaSize} = await app.evaluate(({screen})=> screen.getPrimaryDisplay());
+	const bw = await app.browserWindow(win);
+	await bw.evaluate((w, size: {width: number, height: number})=> {
+		w.setBounds({x: 0, y: 0, width: Math.floor(size.width /2), height: size.height});
+	}, workAreaSize);
+	await win.waitForTimeout(500);
+
+	const box = await srcRow.boundingBox();
+	if (! box) throw new Error('ドラッグ元(srcRow)のboundingBoxが取得できません');
+	const [winX, winY, dpr] = await win.evaluate(()=>
+		[window.screenX, window.screenY, window.devicePixelRatio]) as [number, number, number];
+	const startX = Math.round((winX + box.x + box.width /2) * dpr);
+	const startY = Math.round((winY + box.y + box.height /2) * dpr);
+
+	const py = resolve(import.meta.dirname, 'win_explorer_drop.py');
+	const args = [py, String(startX), String(startY), destDir, filename];
+	if (opt.ctrl) args.push('ctrl');
+	const out = execFileSync('python', args, {encoding: 'utf8'});
+	console.log(`      [win_explorer_drop.py]\n${out.split('\n').map(l=> `        ${l}`).join('\n')}`);
+	const m = /RESULT:(\{.*\})/.exec(out);
+	if (! m?.[1]) throw new Error(`win_explorer_drop.py の出力から結果を読めない: ${out}`);
+	return JSON.parse(m[1]) as {dropped: boolean};
+}
+
+uiCase('D&D (VE)→Explorer：ドラッグできる【win限定・実機PoC済み】', async ({win, app, prj})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+
+	const nm = 'dnd_out_move.png';
+	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), `${prj}/pic/${nm}`);
+	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
+	await srcRow.waitFor({state: 'visible', timeout: 20_000});
+
+	const destDir = `${tmpdir()}/sn_ext_dnd_out_move`;
+	mkdirSync(destDir, {recursive: true});
+
+	const before = readTrace();
+	const {dropped} = await dragToExplorer({win, app}, srcRow, destDir, nm);
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      (VE)→Explorer後の差分: watch.del +${String(dDel)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
+});
+
+uiCase('D&D (VE)→Explorer：Ctrl+ドラッグでもドラッグできる【win限定・実機PoC済み】', async ({win, app, prj})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+
+	const nm = 'dnd_out_copy.png';
+	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), `${prj}/pic/${nm}`);
+	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
+	await srcRow.waitFor({state: 'visible', timeout: 20_000});
+
+	const destDir = `${tmpdir()}/sn_ext_dnd_out_copy`;
+	mkdirSync(destDir, {recursive: true});
+
+	const before = readTrace();
+	const {dropped} = await dragToExplorer({win, app}, srcRow, destDir, nm, {ctrl: true});
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      (VE)→Explorer(Ctrl)後の差分: watch.del +${String(dDel)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
+});
+
 // === 実行 ===
 
 // ⚠️ 拡張機能ホストの中から起動されると `ELECTRON_RUN_AS_NODE=1` を受け継ぐ。

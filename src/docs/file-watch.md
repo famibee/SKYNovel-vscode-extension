@@ -204,7 +204,7 @@ VSCode の版で変わったら気づける。
 | (VE)→(VE) | ✅ **実装済み・2026-09-13** | `explorer.confirmDragAndDrop: false` が必須。[test/ui/runUI.ts](../../test/ui/runUI.ts) |
 | Explorer→(VE) | ✅ **実装済み・Windows限定・2026-09-13** | `SendInput`ベース。Explorer側はPython([test/ui/win_explorer_drag.py](../../test/ui/win_explorer_drag.py))、VSCode側は[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragFromExplorer()`。**macは対象外**（Finder版は別途手動、Pythonスクリプトも実行しない） |
 | Finder→(VE) | ❌ | mac は対象外（手動のまま） |
-| (VE)→Explorer | 🔶 **PoC成立・Windows限定・2026-09-13・未組み込み** | SendInputで実機成立を確認（下記参照）。`test/ui/runUI.ts`への組み込み・記録表#11/#12の計測はまだ |
+| (VE)→Explorer | ✅ **実装済み・Windows限定・2026-09-13** | `SendInput`ベース。VSCode側は[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragToExplorer()`、Explorer側は[test/ui/win_explorer_drop.py](../../test/ui/win_explorer_drop.py)。**macは対象外** |
 | (VE)→Finder | ❌ | mac は対象外（手動のまま） |
 
 ##### 実装済み手順【2026-09-13・Windows で実装・検証】
@@ -367,7 +367,7 @@ PoCの実装をそのまま`bun run test:ui`の正式なテストケースとし
 のケース（本節前半のPoC）では実際に move が成立していたので、**この非対称性は
 VSCode側のドロップハンドラの実装に起因**するとみられる。
 
-##### （VE）→Explorer方向のPoC結果【2026-09-13・Windows実機・未組み込み】
+##### （VE）→Explorer方向の実装【2026-09-13・Windowsで実装・`bun run test:ui`に組み込み済み】
 
 逆方向（VSCodeのExplorerツリー上のファイルを外部のExplorerウィンドウへ
 ドラッグする）も検証した。当初の懸念は「VSCode拡張機能のコンテキストから
@@ -392,8 +392,34 @@ VSCode側の座標から実Explorerウィンドウの座標へ`SendInput`でド�
   ドロップした瞬間にファイルが実際に作成された
 - Explorer→(VE)側で確立した座標変換（DIP→物理ピクセル、`devicePixelRatio`）が
   そのまま通用した。新たなハマりどころはなかった
-- **未実施：** `test/ui/runUI.ts`への組み込み、move/copy（Ctrl+ドラッグ）双方の
-  計測、記録表#11・#12への実測値の記入。今回はPoCとして成立を確認したのみ
+
+その後、PoCをそのまま`bun run test:ui`の正式なケースとして組み込んだ
+（24/24件成功）。構成はExplorer→(VE)側と対称：
+
+- **VSCode側**：[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragToExplorer()`が
+  ドラッグ元座標を計算（`BrowserWindow#setBounds()` + `boundingBox()` +
+  `window.screenX/screenY` + `devicePixelRatio`変換）
+- **Explorer側**：[test/ui/win_explorer_drop.py](../../test/ui/win_explorer_drop.py)
+  （送り先ウィンドウを開いて`SendInput`でドラッグを受ける。Ctrl修飾も対応）
+- 送り元ファイルはプロジェクト内（`pic`フォルダ）に専用ファイル
+  （`dnd_out_move.png`・`dnd_out_copy.png`）を用意し、送り先は`%TEMP%`配下の
+  プロジェクト外フォルダ
+
+**実行結果：**
+
+| ケース | `watch.del` | 送り元ファイル（`pic`フォルダの行） |
+|---|---|---|
+| (VE)→Explorer 移動（無修飾ドラッグ） | +0 | **残存**（削除されない） |
+| (VE)→Explorer コピー（Ctrl+ドラッグ） | +0 | 残存（削除されない） |
+
+**Explorer→(VE)側と完全に対称な非対称性を確認。** こちらも無修飾・Ctrl+ドラッグの
+どちらでも送り元ファイルは削除されず、`watch.del`も+0で変わらなかった。
+VSCode（Electron）の`webContents.startDrag()`は、ドロップ先が実際に move
+だったか copy だったかの結果（OSの`DoDragDrop`が返すエフェクト）を
+受け取ってソースを削除する、という処理をしていない（＝ドラッグアウトは
+常にコピー相当）と考えられる。Explorer↔VSCode間のD&Dは**双方向とも
+「move操作の見た目はあるが、実体は常にコピー」**という、VSCode側の実装に
+起因する一貫した挙動だと分かった。
 
 ##### 手順
 
@@ -404,8 +430,8 @@ VSCode側の座標から実Explorerウィンドウの座標へ`SendInput`でド�
 
 ##### 記録表（mac / win で各6行。⚠️ 経路名は Finder（mac）/ Explorer（win）と読み替え）
 
-**win の4行（#7・#8・#9・#10）は `bun run test:ui` が自動計測**（上記参照）。
-残り8行（mac 全部 + (VE)→Explorer の win 分）は未計測・手動が必要
+**win の6行（#7〜#12）は `bun run test:ui` が自動計測**（上記参照）。
+残り6行（mac 全部）は未計測・手動が必要
 
 | # | 経路 | 種別 | OS | cre | chg | del | rename | 全走査 |
 |---|---|---|---|---|---|---|---|---|
@@ -419,8 +445,8 @@ VSCode側の座標から実Explorerウィンドウの座標へ`SendInput`でド�
 | 8 | Explorer→(VE) | コピー | win | **1** | – | **0** | – | (未確認) |
 | 9 | (VE)→(VE) | 移動 | win | **1** | – | **1** | – | (未確認) |
 | 10 | (VE)→(VE) | コピー | win | **1** | – | **0** | – | (未確認) |
-| 11 | (VE)→Explorer | 移動 | win | | | | | |
-| 12 | (VE)→Explorer | コピー | win | | | | | |
+| 11 | (VE)→Explorer | 移動 | win | – | – | **0** | – | (未確認) |
+| 12 | (VE)→Explorer | コピー | win | – | – | **0** | – | (未確認) |
 
 **値が揃ってから設計の議論に入る**（この節の (A)〜(D) の優先順位が変わりうる）。
 
