@@ -91,6 +91,35 @@ find "$(node -e 'console.log(require("os").tmpdir())')" -maxdepth 1 -name 'sn_ex
 探しているので（`C:/Program Files/Microsoft VS Code/Code.exe` を含む）、
 Windows 側でそのまま動く見込み。**未検証**
 
+#### 🐛 Windows：他に VSCode ウィンドウが開いていると `test:int` が不安定【2026-09-13】
+
+clone → `bun install`（`postinstall` で `server/` 側も）→ `bun run build` は
+Windows でも無改変で通った。しかし `bun run test:int` は Mocha 側の assertion が
+全て✔でも `Exit code: 1` になり、しかも実行のたびに完走するテスト数が違う
+（ある回は6件消化、別の回は2件目で打ち切り）という不安定な挙動になった。
+
+毎回ログ冒頭に `Error: Error mutex already exists`
+（`installMutex`、VSCode 本体の `main.js` 内）が出る。同じ Windows 機で
+**別の VSCode ウィンドウ（この統合テストを動かしている Claude Code 自身が
+拡張機能として動くホストを含む）を開いたまま** `test:int` を実行したところ、
+検証用に起動したはずの Electron の起動引数 `--disable-extensions`
+（`test/prep.ts` の `launchArgs`）が、**分離されているはずのその実ウィンドウ側に
+漏れて適用され**、「All installed extensions are temporarily disabled」の
+バナーが実際の作業中ウィンドウに出た。`--user-data-dir` / `--extensions-dir` で
+プロファイルを分けていても、Windows では単一インストールに対する
+シングルインスタンス制御が優先され、新規起動が独立プロセスにならず
+既存ウィンドウへ引数を横流ししている模様。
+
+⇒ **Windows で `test:int` / `test:ui` を実走させるときは、同じ VSCode
+インストールに属するウィンドウを他に一つも開かない状態で実行する必要がありそう**
+（本家 mac 側では起きない、Windows 固有の制約）。この Claude Code セッション
+自体が VSCode 拡張機能として動いている環境では、そのホストごと閉じることになり
+検証コストが高いため、**実際に全ウィンドウを閉じた状態での再現／解消確認は未実施**。
+根本原因の特定（VSCode 側のシングルインスタンス実装か、`@vscode/test-electron` /
+`@vscode/test-cli` 側の Windows 対応漏れか）も未着手。
+
+test:ui は上記の不安定さを確認した時点で未着手。
+
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
 **エディタに出て CLI に出ないものは、2種類ある。混同しないこと。**
