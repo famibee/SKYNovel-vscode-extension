@@ -201,24 +201,43 @@ VSCode の版で変わったら気づける。
 
 | 経路 | 自動化 | 備考 |
 |---|---|---|
-| (VE)→(VE) | ✅ **可能** | `explorer.confirmDragAndDrop: false` が必須 |
-| Finder →(VE) | ❌ | 別アプリからの OS レベル操作。Playwright は Finder を操作できない |
-| (VE)→ Finder | ❌ | ドロップ先が Finder |
+| (VE)→(VE) | ✅ **実装済み・2026-09-13** | `explorer.confirmDragAndDrop: false` が必須。[test/ui/runUI.ts](../../test/ui/runUI.ts) |
+| Explorer/Finder →(VE) | ❌ | 別アプリからの OS レベル操作。Playwright は Explorer/Finder を操作できない |
+| (VE)→ Explorer/Finder | ❌ | ドロップ先が Explorer/Finder |
 
-##### 動く手順（実証済み・スイートへの組み込みは未完）
+##### 実装済み手順【2026-09-13・Windows で実装・検証】
 
 ```ts
 // user-data-dir に settings.json を置いてから起動する
 {'explorer.confirmDragAndDrop': false}
 // あとは素直に
 await src.dragTo(dst);
+// コピーは Ctrl（Windows/Linux。mac は Option）を押したまま手動でドラッグ
+// （dragTo() に modifier 指定が無いため mouse.down/move/up を自前で組む）
 ```
 
-⚠️ 組み込みが未完なのは**エクスプローラーの行セレクタが安定しないため**。
-VSCode は単一の子しか持たないフォルダを**1行に圧縮**する（`doc / prj`）ので
-`/^doc$/` では一致しない。ここを解けば (VE)→(VE) の4ケースは自動化できる。
+エクスプローラーの行セレクタが安定しない問題（VSCode は単一の子しか持たない
+フォルダを**1行に圧縮**する。例：`doc/prj` が1行になり `/^doc$/` では一致しない）
+は、**厳密一致をやめ部分一致（`hasText`）で探す**ことで解消した
+（`test/ui/runUI.ts` の `expandRow()`）。
 
-**Finder が絡む8ケースは手動。** 手順を確実にするため
+また **アクティビティバーのアイコンクリックはトグル**で、既にエクスプローラーが
+開いていると逆に閉じてしまう罠があった。コマンドパレットから
+「View: Show Explorer」を実行する形（`openExplorer()`）にして回避。
+
+これで (VE)→(VE) の移動・コピー2ケース（mac/win 共通で残り2ケースは
+`explorer.compactFolders` 由来の見た目の違いのみで挙動は変わらない見込み）が
+`bun run test:ui` に組み込まれ、Windows で以下を確認：
+
+| ケース | `watch.cre` | `watch.del` |
+|---|---|---|
+| (VE)→(VE) 移動（無修飾ドラッグ） | +1 | +1 |
+| (VE)→(VE) コピー（Ctrl+ドラッグ） | +1 | +0 |
+
+移動は cre+del が対（＝内部的に del→cre）、コピーは cre のみで del が
+起きないことを確認。**mac 側は未計測**（Windows 専用セッションで実施したため）。
+
+**Explorer/Finder が絡む8ケースは手動。** 手順を確実にするため
 コマンド **「SKYNovel: トレースの区切りを入れる」**（`skynovel.trace` が true の時だけ
 コマンドパレットに出る）を用意した。
 
@@ -229,7 +248,10 @@ VSCode は単一の子しか持たないフォルダを**1行に圧縮**する�
 3. 1ケースごとに：**コマンドで区切りを入れる**（ケース名を入力）→ 操作する → ログを見る
 4. 下表に `watch.*` の値を書く
 
-##### 記録表（mac / win で各6行）
+##### 記録表（mac / win で各6行。⚠️ 経路名は Finder（mac）/ Explorer（win）と読み替え）
+
+**(VE)→(VE) の win 2行（#9・#10）は `bun run test:ui` が自動計測**（上記参照）。
+残り10行（mac 全部 + Explorer/Finder が絡む win 分）は未計測・手動が必要
 
 | # | 経路 | 種別 | OS | cre | chg | del | rename | 全走査 |
 |---|---|---|---|---|---|---|---|---|
@@ -239,7 +261,12 @@ VSCode は単一の子しか持たないフォルダを**1行に圧縮**する�
 | 4 | (VE)→(VE) | コピー | mac | | | | | |
 | 5 | (VE)→Finder | 移動 | mac | | | | | |
 | 6 | (VE)→Finder | コピー | mac | | | | | |
-| 7〜12 | 同上 | | win | | | | | |
+| 7 | Explorer→(VE) | 移動 | win | | | | | |
+| 8 | Explorer→(VE) | コピー | win | | | | | |
+| 9 | (VE)→(VE) | 移動 | win | **1** | – | **1** | – | (未確認) |
+| 10 | (VE)→(VE) | コピー | win | **1** | – | **0** | – | (未確認) |
+| 11 | (VE)→Explorer | 移動 | win | | | | | |
+| 12 | (VE)→Explorer | コピー | win | | | | | |
 
 **値が揃ってから設計の議論に入る**（この節の (A)〜(D) の優先順位が変わりうる）。
 

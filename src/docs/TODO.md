@@ -60,7 +60,7 @@
 
 | # | 内容 | 節 |
 |---|---|---|
-| 1 | **D&D 12ケースの計測**。mac 6 件は今すぐ可能。設計判断がここで止まっている | [file-watch.md](file-watch.md) |
+| 1 | **D&D 12ケースの計測**。(VE)→(VE) の win 2件は`bun run test:ui`で自動計測済み（2026-09-13）。残り10件（mac 6件＋Explorer/Finderが絡むwin 4件）は手動が必要。設計判断はまだ | [file-watch.md](file-watch.md) |
 | 2 | Windows 環境の自動テスト | [testing.md](testing.md) |
 
 ### 前提が揃うまで着手できない

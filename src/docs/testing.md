@@ -171,6 +171,10 @@ open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setti
 （`bun run test:ui`）を実行し、SKYNovel/BlueSNovel 両プロジェクトの計12ケースが
 全て成功（12/12）。mutex 絡みの不安定さは再現しなかった。
 
+その後、同スイートへ **D&D (VE)→(VE) の移動・コピー2ケースを追加実装**
+（[file-watch.md](file-watch.md) の「ドラッグ＆ドロップ12ケース」参照）。
+計14ケースで再計測し全て成功（安定して2回連続成功を確認）。
+
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
 **エディタに出て CLI に出ないものは、2種類ある。混同しないこと。**
