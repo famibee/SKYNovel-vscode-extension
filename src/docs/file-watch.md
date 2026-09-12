@@ -292,10 +292,34 @@ COM (`win32com.client.Dispatch("Shell.Application")`) の `Windows()` から
 - ウィンドウ位置の取得・配置は `Shell.Application` COM + `win32gui.MoveWindow` で安定して
   行えた（今回は2ウィンドウをプライマリモニタ内で左右に並べて重なりを回避）
 
-**次の一手：** VSCode（Electron）を相手にした場合の成立可否を見る。VSCode 側は
-Playwright の `bounding_box()` ＋ `page.evaluate(() => [window.screenX, window.screenY])`
-で画面絶対座標に変換する案を上に書いたが未検証。マルチモニタでの座標ズレも
-別途確認が必要。
+**Windows実機PoCの結果（2026-09-13・続編＝Explorer→VSCode(Electron)）：**
+
+Explorer側は上記のSendInput自前実装＋UIAをそのまま流用。VSCode側はPlaywright
+(`playwright-core`の`_electron`)で素の`Code.exe`を起動し（`--extensionDevelopmentPath`
+なし・空フォルダをワークスペースに開くだけ）、`.monaco-workbench .part.editor`の
+`boundingBox()` ＋ `window.screenX/screenY`で画面座標を求め、ドロップ後は
+`.tab`にファイル名のタブが現れたかで成立を判定した。Explorer側の実プロセス起動と
+VSCode側のPlaywright制御は別プロセス（Node側がPythonをchild_processで起動）に分けた。
+
+- ❌→✅ **1回目は失敗、原因を修正して2回目で成立。** 失敗の原因は
+  **座標系の単位の違い**：`window.screenX/screenY`・`boundingBox()`は
+  論理(DIP/CSS)ピクセルを返すのに対し、`SendInput`は物理ピクセル基準。
+  今回の検証環境（DPIスケーリング150%）では未変換のままだと実際の
+  ドロップ先から大きくズレ（論理値をそのまま使うと物理位置は約1.5倍ズレる）、
+  ドロップが編集領域に届かず不成立だった
+- **対策：`window.devicePixelRatio`を掛けて物理ピクセルに変換すれば解決する。**
+  （`dropX = (winX + box.x + box.width/2) * dpr`）これを入れた2回目の試行で
+  即成立（VSCodeにファイルタブが開き、本物のOS D&Dとして認識された）
+- Electron側のウィンドウ配置は`Shell.Application`ではなく、Playwrightの
+  `electronApp.browserWindow(page)`経由で`BrowserWindow#setBounds()`を呼ぶのが
+  素直（こちらはDIP基準でよく、実測とも整合した）
+- マルチモニタでの座標ズレ・DPI差（モニタごとにスケーリング率が異なるケース）は
+  今回も未検証（PoC機がシングルモニタのため）
+
+**まとめ：** Explorer↔VSCode間のOSレベルD&Dは、座標系の単位（DIP vs 物理ピクセル）
+にさえ気をつければ、SendInput経由で成立することを実機で確認できた。
+Explorer/Finderが絡む8ケースの自動化は、この方式なら理論上到達可能。ただし
+マルチモニタ・複数DPI混在環境は未検証のままで、本格導入前には要確認。
 
 ##### 手順
 
