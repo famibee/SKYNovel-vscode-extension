@@ -204,7 +204,8 @@ VSCode の版で変わったら気づける。
 | (VE)→(VE) | ✅ **実装済み・2026-09-13** | `explorer.confirmDragAndDrop: false` が必須。[test/ui/runUI.ts](../../test/ui/runUI.ts) |
 | Explorer→(VE) | ✅ **実装済み・Windows限定・2026-09-13** | `SendInput`ベース。Explorer側はPython([test/ui/win_explorer_drag.py](../../test/ui/win_explorer_drag.py))、VSCode側は[test/ui/runUI.ts](../../test/ui/runUI.ts)の`dragFromExplorer()`。**macは対象外**（Finder版は別途手動、Pythonスクリプトも実行しない） |
 | Finder→(VE) | ❌ | mac は対象外（手動のまま） |
-| (VE)→ Explorer/Finder | ❌ | ドロップ先が Explorer/Finder |
+| (VE)→Explorer | 🔶 **PoC成立・Windows限定・2026-09-13・未組み込み** | SendInputで実機成立を確認（下記参照）。`test/ui/runUI.ts`への組み込み・記録表#11/#12の計測はまだ |
+| (VE)→Finder | ❌ | mac は対象外（手動のまま） |
 
 ##### 実装済み手順【2026-09-13・Windows で実装・検証】
 
@@ -365,6 +366,34 @@ PoCの実装をそのまま`bun run test:ui`の正式なテストケースとし
 見ていない（＝常にコピー相当の挙動になる）ためと考えられる。Explorer→Explorer
 のケース（本節前半のPoC）では実際に move が成立していたので、**この非対称性は
 VSCode側のドロップハンドラの実装に起因**するとみられる。
+
+##### （VE）→Explorer方向のPoC結果【2026-09-13・Windows実機・未組み込み】
+
+逆方向（VSCodeのExplorerツリー上のファイルを外部のExplorerウィンドウへ
+ドラッグする）も検証した。当初の懸念は「VSCode拡張機能のコンテキストから
+`webContents.startDrag()`（Electronのメインプロセス専用API）を直接呼べるのか」
+だったが、**その検討自体が不要だった**：VSCode自身が既にファイルをOSへ
+ドラッグアウトする機能を内部に持っており（`webContents.startDrag()`は
+VSCode本体のメインプロセスコードが呼んでいる。拡張機能側は関与しない）、
+こちらが用意する必要があるのは「本物のOS入力でVSCodeの行の上からドラッグを
+開始させる」ことだけ。これはExplorer→(VE)方向と全く同じ`SendInput`方式が
+そのまま使えた（方向が変わるだけで実装は対称）。
+
+手順：VSCode（Playwrightで起動、`--extensionDevelopmentPath`なし）に
+1ファイルだけのワークスペースを開き、Explorerツリーの行から`boundingBox()` +
+`window.screenX/screenY` + `devicePixelRatio`で物理ピクセル座標を求める
+（Explorer→(VE)側で確立した変換式をそのまま使用）。送り先は別途開いた
+実Explorerウィンドウ（`Shell.Application`で検出）。送り元(VSCode)を
+プライマリモニタ左半分、送り先(Explorer)を右半分に配置して重なりを回避し、
+VSCode側の座標から実Explorerウィンドウの座標へ`SendInput`でドラッグした。
+
+- ✅ **成立した（1回目の試行で成功）。** VSCodeの行からの本物のマウスダウン→
+  移動を、VSCode自身が実際のOLEドラッグとして開始し、外部のExplorerウィンドウへ
+  ドロップした瞬間にファイルが実際に作成された
+- Explorer→(VE)側で確立した座標変換（DIP→物理ピクセル、`devicePixelRatio`）が
+  そのまま通用した。新たなハマりどころはなかった
+- **未実施：** `test/ui/runUI.ts`への組み込み、move/copy（Ctrl+ドラッグ）双方の
+  計測、記録表#11・#12への実測値の記入。今回はPoCとして成立を確認したのみ
 
 ##### 手順
 
