@@ -241,6 +241,32 @@ await src.dragTo(dst);
 コマンド **「SKYNovel: トレースの区切りを入れる」**（`skynovel.trace` が true の時だけ
 コマンドパレットに出る）を用意した。
 
+##### 💡 Explorer↔VSCode 自動化の可能性【調査のみ・2026-09-13・未検証】
+
+Playwright は自分が起動した Electron しか操作できないため 8 ケースは自動化不可、
+という結論は変わらない。ただし **OS 層の入力シミュレーション**（`pywinauto` の
+`drag_mouse_input` 等・`SendInput` ベース）を使えば、理論上は届く：
+
+- Explorer 側は `Desktop(backend="uia")` で要素・座標を取得（Explorer の
+  UI Automation ツリーは充実しており掴みやすい）
+- VSCode 側は pywinauto を使わず、既存の Playwright が掴んでいる要素の
+  `bounding_box()` ＋ `page.evaluate(() => [window.screenX, window.screenY])`
+  を足して画面絶対座標に変換すれば済む（Electron 側の対応は不要）
+- ドラッグは特定ウィンドウの API ではなく **OS 層のマウス入力**なので、
+  マウスダウンした瞬間に Explorer 自身が本物の OLE ドラッグ
+  （`IDataObject`/`DoDragDrop`）を開始し、以降の移動・ドロップは
+  Windows のメッセージングが相手ウィンドウへ届ける（VSCode 側の特別対応は不要、
+  標準でドロップターゲット登録済みのため）
+
+**未検証（要 Windows 実機）：**
+- Explorer が「マウスダウン→閾値超えの移動」で本当に OLE ドラッグを開始するか
+- DPI スケーリング・マルチモニタでの座標ズレ
+- 双方のウィンドウ位置を安定して取得できるか
+
+**次の一手：** まず単純な相手（メモ帳など）への Explorer→他ウィンドウの
+ドラッグが OS 層で成立するかだけを確かめる最小 PoC から。VSCode と組み合わせる
+のはその後。
+
 ##### 手順
 
 1. 設定 `skynovel.trace` を true に
