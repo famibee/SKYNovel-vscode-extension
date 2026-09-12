@@ -24,7 +24,7 @@
 
 import {_electron as electron} from 'playwright-core';
 import type {ElectronApplication, Frame, Locator, Page} from 'playwright-core';
-import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
@@ -492,7 +492,12 @@ uiCase('D&D (VE)→Explorer：ドラッグできる【win限定・実機PoC済�
 	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
 	await srcRow.waitFor({state: 'visible', timeout: 20_000});
 
+	// ⚠️ SKYNovel/BlueSNovelの2プロジェクトが同じdestDirを使い回すため、
+	// 前回の残留ファイルがあると「同名ファイルが存在します」という
+	// Explorerの本物のOS確認ダイアログが出て**SendInputのドラッグが
+	// 応答不能のまま止まる**(実機で発生済み)。毎回空にしてから使う
 	const destDir = `${tmpdir()}/sn_ext_dnd_out_move`;
+	rmSync(destDir, {recursive: true, force: true});
 	mkdirSync(destDir, {recursive: true});
 
 	const before = readTrace();
@@ -516,7 +521,10 @@ uiCase('D&D (VE)→Explorer：Ctrl+ドラッグでもドラッグできる【win
 	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
 	await srcRow.waitFor({state: 'visible', timeout: 20_000});
 
+	// ⚠️ 上のケースと同じ理由(SKYNovel/BlueSNovelでdestDirを使い回すため)で
+	// 毎回空にしてから使う
 	const destDir = `${tmpdir()}/sn_ext_dnd_out_copy`;
+	rmSync(destDir, {recursive: true, force: true});
 	mkdirSync(destDir, {recursive: true});
 
 	const before = readTrace();

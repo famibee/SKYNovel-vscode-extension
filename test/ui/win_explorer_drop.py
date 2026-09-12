@@ -145,6 +145,12 @@ def main():
     use_ctrl = len(sys.argv) == 6 and sys.argv[5].lower() == "ctrl"
 
     os.makedirs(dest_dir, exist_ok=True)
+    # ⚠️ 同名ファイルが既にあると、ドロップ時にExplorerの本物の
+    # 「置き換えますか」確認ダイアログが出て、応答がないSendInputの
+    # ドラッグが宙に浮いたまま止まる(実機で発生済み)。事前に消しておく
+    existing = os.path.join(dest_dir, filename)
+    if os.path.exists(existing):
+        os.remove(existing)
     subprocess.Popen(["explorer.exe", dest_dir])
 
     hwnd_dst = None
