@@ -241,7 +241,7 @@ await src.dragTo(dst);
 コマンド **「SKYNovel: トレースの区切りを入れる」**（`skynovel.trace` が true の時だけ
 コマンドパレットに出る）を用意した。
 
-##### 💡 Explorer↔VSCode 自動化の可能性【調査のみ・2026-09-13・未検証】
+##### 💡 Explorer↔VSCode 自動化の可能性【Windows実機PoCで一部検証・2026-09-13】
 
 Playwright は自分が起動した Electron しか操作できないため 8 ケースは自動化不可、
 という結論は変わらない。ただし **OS 層の入力シミュレーション**（`pywinauto` の
@@ -258,14 +258,44 @@ Playwright は自分が起動した Electron しか操作できないため 8 �
   Windows のメッセージングが相手ウィンドウへ届ける（VSCode 側の特別対応は不要、
   標準でドロップターゲット登録済みのため）
 
-**未検証（要 Windows 実機）：**
-- Explorer が「マウスダウン→閾値超えの移動」で本当に OLE ドラッグを開始するか
-- DPI スケーリング・マルチモニタでの座標ズレ
-- 双方のウィンドウ位置を安定して取得できるか
+**Windows実機PoCの結果（2026-09-13・最小PoC＝Explorer→別Explorerウィンドウ）：**
 
-**次の一手：** まず単純な相手（メモ帳など）への Explorer→他ウィンドウの
-ドラッグが OS 層で成立するかだけを確かめる最小 PoC から。VSCode と組み合わせる
-のはその後。
+pywinauto は `mouse.py` に `drag_mouse_input` があるものの、マウスの絶対座標正規化が
+`GetSystemMetrics(SM_CXSCREEN)`（プライマリモニタのみ）基準で、マルチモニタ環境では
+ズレる作りだったため採用せず、`ctypes.SendInput` を直接叩く自前実装
+（`SM_CXVIRTUALSCREEN` 等・仮想デスクトップ全体基準で正規化）で検証した。
+`Desktop(backend="uia")` によるExplorer側の要素取得はpywinautoのまま利用。
+
+手順：一時フォルダに src/dst の2フォルダを作り、src にテストファイルを1個置いて
+`explorer.exe <path>` を個別プロセスで2つ起動（`os.startfile` だと「同じウィンドウで
+開く」設定の影響で1ウィンドウに寄せられる可能性があるため回避）。`Shell.Application`
+COM (`win32com.client.Dispatch("Shell.Application")`) の `Windows()` から
+`Document.Folder.Self.Path` でフォルダパスと HWND を突き合わせて2ウィンドウを判別。
+送り元アイテムの座標は UIA の `ListItem`（フォルダ内はテストファイル1件のみなので
+拡張子非表示設定に関係なく1件取得すれば済む）から取得し、送り先はウィンドウの
+クライアント領域中央やや下（コマンドバー分を避ける）をヒューリスティックに使用。
+マウスダウン→小刻み移動（しきい値超え用）→送り先まで連続移動→マウスアップ、を
+`SendInput` で実施。
+
+- ✅ **成立した。** Explorer は「マウスダウン→閾値超えの移動」を検知して本物の
+  OLE ドラッグ（`DoDragDrop`）を開始し、送り先ウィンドウへのドロップでファイルが
+  実際に移動した（1回目の試行で成功、リトライ不要）
+- 検証環境はシングルモニタ・4K（仮想デスクトップ `3840x2160`）・DPIスケーリングあり。
+  **プロセス起動時に `SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)` を
+  明示しないと、スケーリング環境では `GetWindowRect` 等の座標が物理ピクセルと
+  ズレる**（既定は DPI Unaware 相当）。これを呼んでおけば単一モニタでは座標のズレは
+  発生しなかった
+- pywinauto の `mouse` モジュールは前述のとおりマルチモニタで座標がズレる実装なので、
+  自前 SendInput 側で `SM_XVIRTUALSCREEN`/`SM_CXVIRTUALSCREEN` 系を使って正規化した。
+  **マルチモニタ環境（セカンダリモニタにウィンドウがある場合）は今回未検証**（PoC機が
+  シングルモニタのため）で、要追加確認
+- ウィンドウ位置の取得・配置は `Shell.Application` COM + `win32gui.MoveWindow` で安定して
+  行えた（今回は2ウィンドウをプライマリモニタ内で左右に並べて重なりを回避）
+
+**次の一手：** VSCode（Electron）を相手にした場合の成立可否を見る。VSCode 側は
+Playwright の `bounding_box()` ＋ `page.evaluate(() => [window.screenX, window.screenY])`
+で画面絶対座標に変換する案を上に書いたが未検証。マルチモニタでの座標ズレも
+別途確認が必要。
 
 ##### 手順
 
