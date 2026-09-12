@@ -112,13 +112,42 @@ Windows でも無改変で通った。しかし `bun run test:int` は Mocha 側
 
 ⇒ **Windows で `test:int` / `test:ui` を実走させるときは、同じ VSCode
 インストールに属するウィンドウを他に一つも開かない状態で実行する必要がありそう**
-（本家 mac 側では起きない、Windows 固有の制約）。この Claude Code セッション
-自体が VSCode 拡張機能として動いている環境では、そのホストごと閉じることになり
-検証コストが高いため、**実際に全ウィンドウを閉じた状態での再現／解消確認は未実施**。
-根本原因の特定（VSCode 側のシングルインスタンス実装か、`@vscode/test-electron` /
-`@vscode/test-cli` 側の Windows 対応漏れか）も未着手。
+（本家 mac 側では起きない、Windows 固有の制約）。
 
-test:ui は上記の不安定さを確認した時点で未着手。
+**【解消確認済み・2026-09-13】** この Claude Code セッション自身のホストを含め
+全 `Code.exe` を終了 → ユーザーが VSCode を単独ウィンドウで再起動 → その状態で
+`bun run test:int` を再実行したところ、`main` スイート（8 passing/2 failing）・
+`multi` スイート（3 passing）とも**完走**し、以前のような「実行のたびに完走数が
+変わる／早期打ち切り」は再現しなかった。`Error: Error mutex already exists` の
+ログ自体は今回も出るため**無害な警告**（同一インストールへ2本目の Electron を
+向けたときの定型メッセージ）と見てよく、実害は「他ウィンドウへの `--disable-extensions`
+漏れ」の方だったとみられる。根本原因（VSCode 側のシングルインスタンス実装か
+`@vscode/test-electron`/`@vscode/test-cli` の Windows 対応漏れか）の特定は
+引き続き未着手だが、**運用上の回避策（他ウィンドウを開かずに実行する）で足りる**。
+
+**🐛 新規発見：Windows でパスが `C:\c:\...` と二重になり ENOENT【2026-09-13】**
+
+上記の完走した実行で、`main` スイート中に未処理の rejected promise が発生：
+
+```
+rejected promise not handled within 1 second: Error: ENOENT: no such file or directory,
+open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setting.sn'
+```
+
+ドライブレターが `C:\c:\...` と二重になっている。`extension.js:59` 付近
+（`#O` 関数、`WatchFile.ts` 由来）でファイル URI と Windows 絶対パスの結合を
+誤っている可能性が高い（mac ではドライブレターが無いため顕在化しない）。
+
+このエラーの影響で、後続の2件が失敗：
+
+- 「追加してすぐ消すと path.json は同一で、全走査しない」…
+  期待1回のところ0回（`setting.sn` 読み取り失敗で状態が乱れた可能性）
+- 「【調査】全走査は何 ms か」… 全走査が一度も起きていない（測れていない）
+
+**未着手**：`#O` 関数（`WatchFile.ts` 経由）でのパス結合箇所の特定と修正。
+mac では発生しないため見落とされていた Windows 固有バグの可能性が高い。
+
+test:ui はまだ着手していない。
 
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
