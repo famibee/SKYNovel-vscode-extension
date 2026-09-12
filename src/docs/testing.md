@@ -167,7 +167,9 @@ open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setti
 自体を逃している可能性がある**（mac向けに調整された sleep 値が Windows では
 足りない、という仮説）。未検証・未着手。
 
-test:ui はまだ着手していない。
+**test:ui【実施済み・2026-09-13】**：単独ウィンドウの状態で `node test/ui/runUI.mjs`
+（`bun run test:ui`）を実行し、SKYNovel/BlueSNovel 両プロジェクトの計12ケースが
+全て成功（12/12）。mutex 絡みの不安定さは再現しなかった。
 
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
