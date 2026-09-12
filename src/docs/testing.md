@@ -91,6 +91,99 @@ find "$(node -e 'console.log(require("os").tmpdir())')" -maxdepth 1 -name 'sn_ex
 探しているので（`C:/Program Files/Microsoft VS Code/Code.exe` を含む）、
 Windows 側でそのまま動く見込み。**未検証**
 
+⚠️ **CI（GitHub Actions の `windows-latest` ランナー）は保留（2026-09-13 検討）。**
+Windows PC の電源問題は解消できるが、実機固有の挙動（アイコン生成の Python 依存など）
+は CI では検証できず、GUI を伴う `test:ui`（Playwright/Electron）が Windows CI
+ランナーで安定して動くかも未検証のまま。1ケースだけ試すところから。
+
+⇒ **本命は Windows 実機で手動運用。** Windows 側で `test:int` / `test:ui` を実行し、
+気づいた修正は Windows 側で直して `blues-sync` へ push（許可不要）。
+そこから本流（`origin`）への反映は、これまで通り都度ユーザーの明示指示を待つ。
+
+#### 🐛 Windows：他に VSCode ウィンドウが開いていると `test:int` が不安定【2026-09-13】
+
+clone → `bun install`（`postinstall` で `server/` 側も）→ `bun run build` は
+Windows でも無改変で通った。しかし `bun run test:int` は Mocha 側の assertion が
+全て✔でも `Exit code: 1` になり、しかも実行のたびに完走するテスト数が違う
+（ある回は6件消化、別の回は2件目で打ち切り）という不安定な挙動になった。
+
+毎回ログ冒頭に `Error: Error mutex already exists`
+（`installMutex`、VSCode 本体の `main.js` 内）が出る。同じ Windows 機で
+**別の VSCode ウィンドウ（この統合テストを動かしている Claude Code 自身が
+拡張機能として動くホストを含む）を開いたまま** `test:int` を実行したところ、
+検証用に起動したはずの Electron の起動引数 `--disable-extensions`
+（`test/prep.ts` の `launchArgs`）が、**分離されているはずのその実ウィンドウ側に
+漏れて適用され**、「All installed extensions are temporarily disabled」の
+バナーが実際の作業中ウィンドウに出た。`--user-data-dir` / `--extensions-dir` で
+プロファイルを分けていても、Windows では単一インストールに対する
+シングルインスタンス制御が優先され、新規起動が独立プロセスにならず
+既存ウィンドウへ引数を横流ししている模様。
+
+⇒ **Windows で `test:int` / `test:ui` を実走させるときは、同じ VSCode
+インストールに属するウィンドウを他に一つも開かない状態で実行する必要がありそう**
+（本家 mac 側では起きない、Windows 固有の制約）。
+
+**【解消確認済み・2026-09-13】** この Claude Code セッション自身のホストを含め
+全 `Code.exe` を終了 → ユーザーが VSCode を単独ウィンドウで再起動 → その状態で
+`bun run test:int` を再実行したところ、`main` スイート（8 passing/2 failing）・
+`multi` スイート（3 passing）とも**完走**し、以前のような「実行のたびに完走数が
+変わる／早期打ち切り」は再現しなかった。`Error: Error mutex already exists` の
+ログ自体は今回も出るため**無害な警告**（同一インストールへ2本目の Electron を
+向けたときの定型メッセージ）と見てよく、実害は「他ウィンドウへの `--disable-extensions`
+漏れ」の方だったとみられる。根本原因（VSCode 側のシングルインスタンス実装か
+`@vscode/test-electron`/`@vscode/test-cli` の Windows 対応漏れか）の特定は
+引き続き未着手だが、**運用上の回避策（他ウィンドウを開かずに実行する）で足りる**。
+
+**🐛 新規発見：Windows でパスが `C:\c:\...` と二重になり ENOENT【2026-09-13】**
+
+上記の完走した実行で、`main` スイート中に未処理の rejected promise が発生：
+
+```
+rejected promise not handled within 1 second: Error: ENOENT: no such file or directory,
+open 'C:\c:\Users\ks-24\AppData\Local\Temp\sn_ext_test\main\doc\prj\script\setting.sn'
+```
+
+ドライブレターが `C:\c:\...` と二重になっている。
+
+**【原因特定・修正済み・2026-09-13】** `WfbSettingSn.ts`（`setting.sn` の監視）が
+`watchFld()` の `init` コールバックで `uri.path` を**そのまま**使っていたのが原因。
+`uri.path` は Windows では先頭に **`/`＋ドライブ名（小文字）`** が付く形式
+（例：`/c:/Users/…/setting.sn`）で、これを素通しで `fs-extra` の
+`existsSync`/`readFile` に渡すと、Node の Windows 側パス解決
+（`path.resolve` 相当。絶対パスにする際に「ドライブ無しの root-relative パス」と
+誤認識される）が「カレントドライブ（`C:`）＋この文字列をそのまま連結」してしまい
+`C:\c:\Users\…` と二重になる。
+
+この codebase では既に `WfbOptPic.ts`/`WfbOptSnd.ts` が
+`const path = vsc2fp(uri.path);`（`CmnLib.ts`）でこの `/c:` プレフィックスを
+剥がしてから使う、という正しい書き方をしていた。`WfbSettingSn.ts` と
+`WfbOptFont.ts`（同じ `async ({path})=>` の分解代入パターンで `uri.path` を
+直接使っていた）だけがこれを踏襲しておらず、**mac では `uri.path` にドライブ
+レターが無く問題が起きないため長らく見落とされていた**、Windows 固有のバグ。
+
+**修正**：両ファイルで `uri` をそのまま受け取り `vsc2fp(uri.path)` を通す形に変更
+（[WfbSettingSn.ts](../batch/WfbSettingSn.ts) / [WfbOptFont.ts](../batch/WfbOptFont.ts)）。
+
+修正後に `bun run test:int` を再実行し、ENOENT と「追加してすぐ消すと path.json は
+同一で、全走査しない」の失敗が解消したことを確認済み（`main` スイート
+8→9 passing、2→1 failing）。
+
+**残る1件「【調査】全走査は何 ms か」は別件**：全走査が一度も起きていない
+（測れていない）。上記のパス二重化バグとは無関係（ENOENT は出ていない）で、
+25本の `.sn`（各100ラベル）を書いた後 `sleep(6000)` で落ち着かせてから計測に
+入る設計（`test/int/suite.js`）。**Windows のディスク I/O・アンチウイルスの
+リアルタイムスキャン等でこの待ち時間内に初期スキャンが収まらず、計測ウィンドウ
+自体を逃している可能性がある**（mac向けに調整された sleep 値が Windows では
+足りない、という仮説）。未検証・未着手。
+
+**test:ui【実施済み・2026-09-13】**：単独ウィンドウの状態で `node test/ui/runUI.mjs`
+（`bun run test:ui`）を実行し、SKYNovel/BlueSNovel 両プロジェクトの計12ケースが
+全て成功（12/12）。mutex 絡みの不安定さは再現しなかった。
+
+その後、同スイートへ **D&D (VE)→(VE) の移動・コピー2ケースを追加実装**
+（[file-watch.md](file-watch.md) の「ドラッグ＆ドロップ12ケース」参照）。
+計14ケースで再計測し全て成功（安定して2回連続成功を確認）。
+
 ### ⚠️ 「エディタでしか見えないエラー」の切り分け【2026-07-28】
 
 **エディタに出て CLI に出ないものは、2種類ある。混同しないこと。**

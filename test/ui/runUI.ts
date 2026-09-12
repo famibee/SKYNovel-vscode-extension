@@ -23,12 +23,21 @@
  */
 
 import {_electron as electron} from 'playwright-core';
-import type {ElectronApplication, Frame, Page} from 'playwright-core';
-import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
+import type {ElectronApplication, Frame, Locator, Page} from 'playwright-core';
+import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {mkFixture} from '../int/mkFixture';
 import {hideSoon} from '../hideWin';
+
+// src/Trace.ts の FP_TRACE と同じ式（vscode 非依存なので値は必ず一致する）。
+// UI テストは拡張機能ホストの外で動くので、活性化中の extension には手が届かず、
+// このファイル経由で watch イベントの計数を読む
+const FP_TRACE = `${tmpdir()}/sn_ext_trace.json`;
+const readTrace = (): {[key: string]: number}=> {
+	try {return JSON.parse(readFileSync(FP_TRACE, 'utf8'))}
+	catch {return {}}
+};
 
 const A_VSC = [
 	'/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
@@ -39,7 +48,7 @@ const REPO = resolve(import.meta.dirname, '../..');
 const TMP = `${tmpdir()}/sn_ext_ui`;
 const isMac = process.platform === 'darwin';
 
-type T_ARG = {win: Page, blues: boolean};
+type T_ARG = {win: Page, blues: boolean, prj: string};
 const aCase: {nm: string, fnc: (o: T_ARG)=> Promise<void>}[] = [];
 // ⚠️ **`it` という名前にしない。** このリポジトリには `it` が
 // すでに2つある（`bun:test` の import、統合テストの Mocha グローバル）。
@@ -210,9 +219,109 @@ uiCase('設定画面：必須項目が空なら検証メッセージが出る', 
 
 
 // ⚠️ **(VE)→(VE) のドラッグ＆ドロップは自動化できる**（実証済み）。
-// ただしこのスイートへの組み込みは未完（SKYNovel のフィクスチャ上で
-// エクスプローラーの行セレクタが安定しない）。動く手順は src/docs/file-watch.md に記録。
-// 要点は `explorer.confirmDragAndDrop: false`（既定 true だと**黙って何も起きない**）
+// 要点は `explorer.confirmDragAndDrop: false`（既定 true だと**黙って何も起きない**、
+// run() 内で設定済み）。
+
+/** VSCode 標準のエクスプローラーを開く（SKYNovel の独自パネルではない）。
+ * 他のケースが【開発環境】ビューへ切り替えている場合があるので毎回明示的に戻す */
+async function openExplorer(win: Page) {
+	// アクティビティバーのアイコンのクリックは**トグル**で、既に開いていると閉じる
+	// （openSnView() と同じ注意点）。コマンドパレット経由の
+	// 「View: Show Explorer」は「表示する」だけで閉じないので、
+	// 状態を見ずに毎回呼べる
+	await win.keyboard.press(isMac ?'Meta+Shift+P' :'Control+Shift+P');
+	await win.locator('.quick-input-widget').waitFor({state: 'visible'});
+	await win.keyboard.type('View: Show Explorer');
+	await win.waitForTimeout(400);
+	await win.keyboard.press('Enter');
+	await win.waitForTimeout(400);
+
+	await win.locator('.monaco-list-row').first().waitFor({state: 'visible', timeout: 20_000});
+	return win;
+}
+
+/**
+ * ツリー行を展開する。**`doc` は `prj` が唯一の子なので1行に圧縮される**
+ * （`explorer.compactFolders` 既定 true）。旧コードの厳密一致（`/^doc$/`）は
+ * この圧縮後のラベル（例：`doc/prj`）にヒットしないため未完だった。
+ * 部分一致（`hasText`）で探せば圧縮の有無によらず取れる
+ */
+async function expandRow(win: Page, text: string | RegExp) {
+	const row = win.locator('.monaco-list-row').filter({hasText: text}).first();
+	await row.waitFor({state: 'visible', timeout: 20_000});
+	if (await row.getAttribute('aria-expanded') !== 'true') {
+		await row.click();
+		await win.waitForTimeout(400);
+	}
+	return row;
+}
+
+uiCase('D&D (VE)→(VE)：ドラッグで移動できる', async ({win})=> {
+	await openExplorer(win);
+	await expandRow(win, 'doc');			// 圧縮されていれば `doc/prj` 行にヒット
+	await expandRow(win, /^pic$/);
+
+	const src  = win.locator('.monaco-list-row').filter({hasText: 'dnd_src.png'}).first();
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await src.waitFor({state: 'visible', timeout: 20_000});
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const before = readTrace();
+	await src.dragTo(dest);
+	await win.waitForTimeout(1500);	// watchFld の 500ms デバウンス + dump() の 300ms
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	if (dCre < 1 || dDel < 1) {
+		throw new Error(`ドラッグが効いていない可能性（watch.cre:${String(dCre)} watch.del:${String(dDel)}）`);
+	}
+	if (await src.isVisible().catch(()=> false)) {
+		throw new Error('移動後もドラッグ元が pic 配下に見えたまま（移動できていない）');
+	}
+});
+
+/** 修飾キーを押したままドラッグする。`dragTo()` に modifier 指定が無いため手動で組む */
+async function dragWithModifier(win: Page, src: Locator, dest: Locator, modifier: 'Control' | 'Alt') {
+	const bs = await src.boundingBox();
+	const bd = await dest.boundingBox();
+	if (! bs || ! bd) throw new Error('ドラッグ元・先の座標が取れない');
+
+	await win.keyboard.down(modifier);
+	await win.mouse.move(bs.x + bs.width /2, bs.y + bs.height /2);
+	await win.mouse.down();
+	await win.mouse.move(bd.x + bd.width /2, bd.y + bd.height /2, {steps: 10});
+	await win.waitForTimeout(100);
+	await win.mouse.up();
+	await win.keyboard.up(modifier);
+}
+
+uiCase('D&D (VE)→(VE)：Ctrl+ドラッグでコピーできる', async ({win})=> {
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+
+	const src  = win.locator('.monaco-list-row').filter({hasText: 'dnd_src2.png'}).first();
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await src.waitFor({state: 'visible', timeout: 20_000});
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const before = readTrace();
+	// Windows/Linux の VSCode エクスプローラーは既定で Ctrl+ドラッグ＝コピー
+	await dragWithModifier(win, src, dest, 'Control');
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	console.log(`      コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	if (dCre < 1) throw new Error(`コピーが効いていない可能性（watch.cre:${String(dCre)}）`);
+	if (dDel > 0) throw new Error(`削除が発生した＝コピーでなく移動になっている（watch.del:${String(dDel)}）`);
+	if (! await src.isVisible().catch(()=> false)) {
+		throw new Error('コピー後にドラッグ元が pic 配下から消えた（移動になっている）');
+	}
+});
 
 // === 実行 ===
 
@@ -235,6 +344,12 @@ async function run(blues: boolean) {
 	const label = blues ?'BlueSNovel' :'SKYNovel';
 	console.log(`\n=== ${label} プロジェクト ===`);
 	const fx = mkFixture(blues ?'ui_blues' :'ui', blues);
+
+	// D&D テスト用のドラッグ元ファイル。名前を一意にして行セレクタの取り違えを防ぐ
+	for (const nm of ['dnd_src.png', 'dnd_src2.png']) copyFileSync(
+		resolve(import.meta.dirname, '../mat/_yesno.png'),
+		`${fx.prj}/pic/${nm}`,
+	);
 
 	// ⚠️ `explorer.confirmDragAndDrop` は既定 true で、**これが有効だと
 	// ドラッグ＆ドロップが黙って何も起きない**（Playwright の問題ではない）。
@@ -275,7 +390,7 @@ async function run(blues: boolean) {
 		}
 
 		for (const {nm, fnc} of aCase) {
-			try {await fnc({win, blues}); console.log(`  ok  ${nm}`)}
+			try {await fnc({win, blues, prj: fx.prj}); console.log(`  ok  ${nm}`)}
 			catch (e: unknown) {
 				++ng;
 				console.error(`  NG  ${nm}\n      ${e instanceof Error ? e.message : String(e)}`);
