@@ -36,7 +36,7 @@ import {hideSoon} from '../hideWin';
 // このファイル経由で watch イベントの計数を読む
 const FP_TRACE = `${tmpdir()}/sn_ext_trace.json`;
 const readTrace = (): {[key: string]: number}=> {
-	try {return JSON.parse(readFileSync(FP_TRACE, 'utf8'))}
+	try {return <{[key: string]: number}>JSON.parse(readFileSync(FP_TRACE, 'utf8'))}
 	catch {return {}}
 };
 
@@ -275,7 +275,8 @@ uiCase('D&D (VE)→(VE)：ドラッグで移動できる', async ({win})=> {
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	const dNeedGo = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dNeedGo)}`);
 	if (dCre < 1 || dDel < 1) {
 		throw new Error(`ドラッグが効いていない可能性（watch.cre:${String(dCre)} watch.del:${String(dDel)}）`);
 	}
@@ -318,7 +319,8 @@ uiCase('D&D (VE)→(VE)：Ctrl+ドラッグでコピーできる', async ({win})
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	const dNeedGo = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dNeedGo)}`);
 	if (dCre < 1) throw new Error(`コピーが効いていない可能性（watch.cre:${String(dCre)}）`);
 	if (dDel > 0) throw new Error(`削除が発生した＝コピーでなく移動になっている（watch.del:${String(dDel)}）`);
 	if (! await src.isVisible().catch(()=> false)) {
@@ -504,10 +506,11 @@ uiCase('D&D Finder→(VE)：移動できる【mac限定・実機PoC済み】', a
 	await dest.waitFor({state: 'visible', timeout: 20_000});
 
 	const srcFile = mkExtSrc('dnd_ext_move_mac.png');
-	const before = readTrace()['watch.cre'] ?? 0;
+	const before = readTrace();
 	const {srcExists} = await dragFromFinder({win, app}, dest, srcFile);
-	const dCre = await waitForTraceDelta('watch.cre', before);
-	console.log(`      Finder→(VE)移動後の差分: watch.cre +${String(dCre)} / 送り元ファイル残存:${String(srcExists)}`);
+	const dCre = await waitForTraceDelta('watch.cre', before['watch.cre'] ?? 0);
+	const dNeedGo = (readTrace()['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Finder→(VE)移動後の差分: watch.cre +${String(dCre)} / need_go.send +${String(dNeedGo)} / 送り元ファイル残存:${String(srcExists)}`);
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
@@ -520,10 +523,11 @@ uiCase('D&D Finder→(VE)：コピーできる（Option+ドラッグ）【mac限
 	await dest.waitFor({state: 'visible', timeout: 20_000});
 
 	const srcFile = mkExtSrc('dnd_ext_copy_mac.png');
-	const before = readTrace()['watch.cre'] ?? 0;
+	const before = readTrace();
 	const {srcExists} = await dragFromFinder({win, app}, dest, srcFile, {optionKey: true});
-	const dCre = await waitForTraceDelta('watch.cre', before);
-	console.log(`      Finder→(VE)コピー後の差分: watch.cre +${String(dCre)} / 送り元ファイル残存:${String(srcExists)}`);
+	const dCre = await waitForTraceDelta('watch.cre', before['watch.cre'] ?? 0);
+	const dNeedGo = (readTrace()['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Finder→(VE)コピー後の差分: watch.cre +${String(dCre)} / need_go.send +${String(dNeedGo)} / 送り元ファイル残存:${String(srcExists)}`);
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
@@ -646,12 +650,14 @@ uiCase('D&D (VE)→Finder：ドラッグアウトできる【mac限定】', asyn
 	const row = win.locator('.monaco-list-row').filter({hasText: nm}).first();
 	await row.waitFor({state: 'visible', timeout: 20_000});
 
+	const before = readTrace();
 	const {dstFile} = await dragToFinder({win, app}, row);
 	await win.waitForTimeout(2000);
+	const dNeedGo = (readTrace()['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
 	// ⚠️ win側の実測で「Explorer↔VSCode間は無修飾・Ctrl+ドラッグとも常に
 	// コピー相当（move操作の見た目でも送り元は消えない）」と判明済み。
 	// mac も同じ VSCode 本体の実装を使うため、送り元の消失は断定せず観測のみ
-	console.log(`      (VE)→Finder（無修飾）後: 送り先ファイル:${dstFile || '(できていない)'} / 送り元残存:${String(existsSync(fp))}`);
+	console.log(`      (VE)→Finder（無修飾）後: 送り先ファイル:${dstFile || '(できていない)'} / 送り元残存:${String(existsSync(fp))} / need_go.send +${String(dNeedGo)}`);
 	if (! dstFile) throw new Error('送り先フォルダにファイルができていない（ドロップが効いていない可能性）');
 });
 
