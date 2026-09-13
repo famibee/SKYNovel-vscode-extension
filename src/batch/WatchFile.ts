@@ -28,13 +28,10 @@ export class WatchFile {
 	constructor(protected readonly pc: PrjCmn) {}
 
 	//MARK: 初期化
-	initOnce(
-		updPathJson	: ()=> Promise<void>,
-		encIfNeeded	: (uri: Uri)=> Promise<void>,
-	) {
-		WatchFile.#updPathJson = updPathJson;
-		WatchFile.encIfNeeded = encIfNeeded;
-
+	// ⚠️ updPathJson / encIfNeeded は引数で受けない。`this.pc`（PrjCmn、
+	// ワークスペースフォルダ＝プロジェクトごとに1個）が既に持っているので、
+	// それを使う（src/docs/file-watch.md(A)。旧実装は static で後勝ちだった）
+	initOnce() {
 		// ファイル名変更イベントを処理
 		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
 		// 下の fwFld の2つも同じ。Project.#ds へ入れる（src/docs/multiroot.md リソースの解放4）
@@ -53,23 +50,6 @@ export class WatchFile {
 		fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
 		fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
 	}
-	// TODO: [multi-root] static が後勝ち。別プロジェクトの設定で暗号化しかねない
-	// （最重・単独の版で。src/docs/file-watch.md(A) ／ src/docs/multiroot.md 不具合1）
-	/**
-	 * ⚠️ **この2つが static なのはマルチルートで壊れる。**
-	 *
-	 * `Project` はワークスペースフォルダごとに生成され（src/WorkSpaces.ts）、
-	 * 各 Project が `#optPic.initOnce(updPathJson, encIfNeeded)`（src/Project.ts）で
-	 * **ここを上書きする**。プロジェクトを2つ開くと後から開いた方が全体に使われ、
-	 * - 片方のファイル変更が**他方の** path.json を作り直す
-	 * - `encIfNeeded` も後勝ち＝**別プロジェクトの暗号化設定で暗号化しかねない**
-	 *
-	 * package.json の keywords に `multi-root ready` と書いてあるので看板と実装が
-	 * 合っていない。直すならインスタンスフィールドにする（src/docs/file-watch.md(A)）
-	 */
-				static	#updPathJson	: ()=> Promise<void>;
-	protected	static	encIfNeeded		: (uri: Uri)=> Promise<void>;
-
 	// TODO: [multi-root] エディタ主導の変名で購読者が二重に呼ばれる。
 	// Windows の挙動を確認してから直す（src/docs/file-watch.md(D)）
 	/**
@@ -156,7 +136,7 @@ export class WatchFile {
 		}
 	}
 
-	async init2th() {await WatchFile.#updPathJson()}
+	async init2th() {await this.pc.updPathJson()}
 
 
 	//MARK: 遅延 PathJson 更新
@@ -174,7 +154,7 @@ export class WatchFile {
 		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
 		// （src/docs/multiroot.md リソースの解放5）
 		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
-		this.#tiLasyPathJson = setTimeout(()=> {void WatchFile.#updPathJson()}, 500);
+		this.#tiLasyPathJson = setTimeout(()=> {void this.pc.updPathJson()}, 500);
 	}
 	#tiLasyPathJson: NodeJS.Timeout | undefined = undefined;
 
@@ -197,7 +177,7 @@ export class WatchFile {
 		const encIfNeeded = pat.startsWith('doc/prj/*/')
 			? async (uri: Uri)=> {
 				// 最適化などで拡張子変更の場合あり、ファイル存在確認必須
-				if (existsSync(uri.path)) await WatchFile.encIfNeeded(uri)
+				if (existsSync(uri.path)) await this.pc.encIfNeeded(uri)
 			}
 			: async ()=> { /* empty */ };
 		if (init) await Promise.allSettled((await workspace.findFiles(pat))

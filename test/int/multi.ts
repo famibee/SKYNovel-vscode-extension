@@ -7,18 +7,17 @@
 ** ***** END LICENSE BLOCK ***** */
 
 /**
- * **マルチルート（プロジェクト2つ）** の統合テスト。§3.8 (A) の再現。
+ * **マルチルート（プロジェクト2つ）** の統合テスト。§3.8 (A)。
  *
- * `WatchFile.#updPathJson` と `encIfNeeded` が **static** なので、
- * `Project` が2つ作られると**後から初期化した方が全体を持っていく**。
- * その結果、**片方のファイル変更が他方の path.json を作り直す**。
- *
- * ⚠️ **これは「直す前に壊れていることを固定する」テスト**。
- * 直したら期待値を反転させること（下のコメント参照）。
+ * `WatchFile.#updPathJson` と `encIfNeeded` は **`PrjCmn`（ワークスペース
+ * フォルダ＝プロジェクトごとに1個）のインスタンスフィールド**（2026-09-13
+ * 修正・旧実装は static で後勝ちだった）。`Project` を2つ開いても、
+ * 片方のファイル変更が他方の path.json を作り直すことはない。
  *
  * 起動役は `.vscode-test.mjs` の `label: 'multi'` の設定
  */
 
+import assert from 'node:assert';
 import {copyFileSync, existsSync, readFileSync} from 'node:fs';
 import {extensions, workspace} from 'vscode';
 
@@ -49,14 +48,8 @@ it('マルチルートで2つのプロジェクトが開いている', async ()=
 	await sleep(8000);		// 2プロジェクトぶんの起動を待つ
 });
 
-// 🐛 §3.8 (A) の再現。
-// **A に画像を足したら A の path.json に載る**のが正しい挙動。
-// static の後勝ちが生きている間は、後から初期化された方（B）の
-// path.json が作り直され、**A には載らない**。
-//
-// ⚠️ 直したらこのテストは失敗する。そのとき期待値を
-// 「A に載る」へ反転させ、見出しの 🐛 を外すこと
-it('【現状の記録】片方に画像を足しても、そちらの path.json に載らないことがある', async ()=> {
+// §3.8 (A)。**A に画像を足したら A の path.json に載る**のが正しい挙動。
+it('片方に画像を足すと、そちらの path.json にだけ載る', async ()=> {
 	const src = `${extensions.getExtension(EXT_ID)?.extensionPath ?? ''}/test/mat/_yesno.png`;
 	const beforeA = readPath(A);
 	const beforeB = readPath(B);
@@ -71,16 +64,6 @@ it('【現状の記録】片方に画像を足しても、そちらの path.json
 	console.log(`      A の path.json: 変化=${String(afterA !== beforeA)} onlyA=${String(inA)}`);
 	console.log(`      B の path.json: 変化=${String(afterB !== beforeB)} onlyA=${String(inB)}`);
 
-	// 落とさない。**いまどうなっているかを記録するのが目的**（(A) は再申請後に直す）
-	if (inA && ! inB) console.log('      ⇒ 正常（A にだけ載った）。(A) は直っている？');
-	else if (! inA) console.log('      ⇒ 🐛 再現：A に足したのに A の path.json に載っていない');
-	else console.log('      ⇒ 🐛 再現：B の path.json にまで載っている');
-});
-
-it('【現状の記録】暗号化の判定も後勝ちになっていないか', ()=> {
-	// encIfNeeded も static。暗号化そのものは prj.json の設定次第なので、
-	// ここでは「どちらのプロジェクトの設定が使われるか」を記録するに留める
-	const a = workspace.workspaceFolders ?? [];
-	console.log(`      フォルダ順（後勝ちなら最後が全体を持つ）: ${
-		a.map(f=> f.name).join(' → ')}`);
+	assert.ok(inA, 'A に足したのに A の path.json に載っていない');
+	assert.ok(! inB, 'B の path.json にまで載っている（後勝ちが再発している）');
 });

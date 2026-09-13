@@ -264,10 +264,7 @@ export class Project {
 			()=> this.#isCryptoMode,
 			this.#ps,
 		);
-		this.#optPic.initOnce(
-			updPathJson,
-			uri=> this.#encIfNeeded(uri),
-		);
+		this.#optPic.initOnce();
 
 		const aTi = pti.children;
 		const aC = (<PrjTreeItem>aTi.at(-1)).children;

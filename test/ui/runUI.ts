@@ -396,6 +396,7 @@ async function dragFromFinder(
 	activate
 	set w to make new Finder window to (POSIX file "${srcDir}" as alias)
 	set bounds of w to {0, 100, 1200, 900}
+	set current view of w to icon view
 end tell`]);
 
 	// アイコン1個の絶対座標を AX ツリーから取得
@@ -572,6 +573,7 @@ async function dragToFinder(
 	activate
 	set w to make new Finder window to (POSIX file "${dstDir}" as alias)
 	set bounds of w to {1280, 100, 2480, 900}
+	set current view of w to icon view
 end tell`]);
 
 	// 送り先は空なのでアイコン探索は不要。スクロールエリア（コンテンツ領域）
