@@ -121,6 +121,22 @@ export class PrjCmn {
 	}
 	updPathJson	: ()=> Promise<void>;
 
+	//MARK: 遅延 PathJson 更新
+	/**
+	 * path.json 再生成をまとめて呼ぶ（500ms）。**プロジェクトに1個**（`PrjCmn`）
+	 * の持ち物なので、`WfbOptPic` / `WfbOptSnd` / `WfbOptFont` のどれから
+	 * 呼んでも同じタイマーを共有する。画像と音声を同時に置いても
+	 * `updPathJson()` は1回で済む（src/docs/file-watch.md(B)。旧実装は
+	 * `WatchFile` のインスタンスフィールドだったため種類ごとに別々に数えていた）
+	 */
+	lasyPathJson() {
+		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
+		// （src/docs/multiroot.md リソースの解放5）
+		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
+		this.#tiLasyPathJson = setTimeout(()=> {void this.updPathJson()}, 500);
+	}
+	#tiLasyPathJson: NodeJS.Timeout | undefined = undefined;
+
 	encIfNeeded	: (uri: Uri)=> Promise<void>;
 
 	#diff	: HDiff;

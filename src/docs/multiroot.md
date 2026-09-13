@@ -26,7 +26,7 @@
 
 | # | 何が起きるか | どこ | 重さ |
 |---|---|---|---|
-| 1 | **別プロジェクトの設定でファイルが暗号化される** | [WatchFile.ts:64](../batch/WatchFile.ts:64) | **最重**（[file-watch.md](file-watch.md)(A) と同一。あちらに詳細） |
+| 1 | ✅ **決着済み・2026-09-13**（別プロジェクトの設定でファイルが暗号化される） | [WatchFile.ts:31](../batch/WatchFile.ts:31) | **最重**（[file-watch.md](file-watch.md)(A) と同一。あちらに詳細） |
 | 2 | **フォルダを閉じても LSP が解放されない** | [LangSrv.ts:94](../../server/src/LangSrv.ts:94) | 大 |
 | 3 | **フォルダを閉じても Project が残り続ける** | [WorkSpaces.ts:467](../WorkSpaces.ts:467) | 大 |
 | 4 | **フォルダを閉じると、閉じたのと別の行がツリーから消える** | [WorkSpaces.ts:464](../WorkSpaces.ts:464) | 中・**必ず起きる** |
@@ -171,10 +171,13 @@ dispose() {for (const d of this.#ds) d.dispose()}
 #### 4. `initOnce()` が戻り値を捨てている
 
 ```ts
-workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));   // 戻り値 Disposable を捨てている
-fwFld.onDidCreate(newUri=> …);
+fwFld.onDidCreate(newUri=> …);   // 戻り値 Disposable を捨てている
 fwFld.onDidDelete(oldUri=> …);
 ```
+
+（旧 `workspace.onDidRenameFiles(...)` の購読はこの節に含まれていたが、
+[file-watch.md](file-watch.md)(D) の対応で購読自体を削除したため、
+いまはここに残る2箇所が対象）
 
 VSCode のイベント登録は **Disposable を返す**。受け取っていないので
 **拡張機能を止めるときでさえ外れない。**
@@ -184,7 +187,7 @@ VSCode のイベント登録は **Disposable を返す**。受け取っていな
 | 場所 | 待ち |
 |---|---|
 | [Project.ts:454](../Project.ts:454) `#tmNeedGo` | 300ms（LSP への再走査要求のまとめ） |
-| [WatchFile.ts:167](../batch/WatchFile.ts:167) `#tiLasyPathJson` | 500ms（path.json 更新のまとめ） |
+| [PrjCmn.ts:138](../PrjCmn.ts:138) `#tiLasyPathJson` | 500ms（path.json 更新のまとめ。2026-09-13、[file-watch.md](file-watch.md)(B) で `WatchFile` から `PrjCmn` へ移設） |
 | [WfbSettingSn.ts:125](../batch/WfbSettingSn.ts:125) `#tiDelay` | — |
 | [WPFolder.ts:143](../WPFolder.ts:143) `#tiDelay` | 500ms |
 | [PrjCmn.ts:188](../PrjCmn.ts:188) `#tiLasyQ` | 100ms |
@@ -228,7 +231,7 @@ VSCode のイベント登録は **Disposable を返す**。受け取っていな
 
 ### 直すときの順序
 
-1. **[file-watch.md](file-watch.md)(A)** … 暗号化に触るので最初。単独の版で
+1. ✅ **[file-watch.md](file-watch.md)(A)** … 暗号化に触るので最初。単独の版で。**決着済み・2026-09-13**
 2. **不具合 2・3 ＋ 解放 1〜4** … **全部「捨てる口」の話**なので一度に。
 `Project.#ds` へ寄せ、`#mPrj` / `mLspWs` から確実に消す
 3. **不具合 4・5** … ツリーとフォルダ増減。上と同じ関数群を触るのでまとめて

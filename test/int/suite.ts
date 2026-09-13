@@ -104,7 +104,11 @@ it('画像を数枚まとめて追加しても、全走査は1回にまとまる
 // 画像と音声を同時に置くと、監視インスタンスが別（WfbOptPic / WfbOptSnd）なので
 // 500ms デバウンス（#tiLasyPathJson はインスタンスフィールド）が2本走る。
 // つまり updPathJson() が2回走り、そこを #sendNeedGo() の 300ms がまとめる
-it('画像と音声を同時に追加すると updPathJson は2回・全走査は1回', async ()=> {
+// §3.8 (B)：500ms のまとめは `PrjCmn`（プロジェクトに1個）が持つので、
+// 画像用・音声用どちらの監視から呼ばれても同じタイマーを共有し、
+// updPathJson() は1回にまとまる（2026-09-13 修正。旧実装は WatchFile の
+// インスタンスフィールドだったため種類ごとに別々にカウントし、2回走っていた）
+it('画像と音声を同時に追加しても updPathJson は1回・全走査も1回', async ()=> {
 	const ws = workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (! ws) throw new Error('ワークスペースが開かれていない');
 	const ext = `${extensions.getExtension(EXT_ID)?.extensionPath ?? ''}/test/mat`;
@@ -119,7 +123,7 @@ it('画像と音声を同時に追加すると updPathJson は2回・全走査�
 
 	const h = api.getTraceCnt();
 	console.log(`  trace: ${JSON.stringify(h)}`);
-	ge(h['need_go.req'] ?? 0, 2, 'updPathJson 由来の要求回数（監視ごとに別デバウンス）');
+	eq(h['need_go.req'] ?? 0, 1, 'updPathJson 由来の要求回数（プロジェクト単位でまとまるはず）');
 	eq(nReq(h), 1, '再走査を頼んだ回数（300ms がまとめる）');
 });
 
@@ -145,10 +149,11 @@ it('【対照】1枚ずつ間隔をあけて追加すると、走査は複数回
 });
 
 
-// 変名は WatchFile #onDidRenameFiles が del + cre に分解して購読者へ流すが、
-// lasyPathJson() は「監視の CRE/DEL ハンドラ」側にある。
-// つまり変名で path.json が再生成されるのか（＝need_go が飛ぶのか）を確かめる
-it('【調査】ファイル変名で path.json 再生成と全走査は起きるか', async ()=> {
+// 変名は FS 監視の del + cre だけで購読者へ流れる（lasyPathJson() は
+// 「監視の CRE/DEL ハンドラ」側にある）。§3.8 (D)：かつて `onDidRenameFiles`
+// も購読しており、エディタ主導の変名（(2)）だけ二重に発火していたが、
+// 2026-09-13 に購読を削除。(1)(2) が同一の結果になることを確認する
+it('ファイル変名で path.json 再生成と全走査は起きる。経路が違っても結果は同一', async ()=> {
 	const ws = workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (! ws) throw new Error('ワークスペースが開かれていない');
 	const ext = `${extensions.getExtension(EXT_ID)?.extensionPath ?? ''}/test/mat`;
@@ -165,9 +170,10 @@ it('【調査】ファイル変名で path.json 再生成と全走査は起き�
 		{overwrite: true},
 	);
 	await sleep(4000);
-	console.log(`  (1) workspace.fs.rename : ${JSON.stringify(api.getTraceCnt())}`);
+	const h1 = api.getTraceCnt();
+	console.log(`  (1) workspace.fs.rename : ${JSON.stringify(h1)}`);
 
-	// (2) WorkspaceEdit.renameFile … エディタ主導（onDidRenameFiles が発火する経路）
+	// (2) WorkspaceEdit.renameFile … エディタ主導（かつて二重発火していた経路）
 	api.clearTrace();
 	const we = new WorkspaceEdit();
 	we.renameFile(
@@ -177,8 +183,14 @@ it('【調査】ファイル変名で path.json 再生成と全走査は起き�
 	);
 	await workspace.applyEdit(we);
 	await sleep(4000);
-	console.log(`  (2) WorkspaceEdit.rename: ${JSON.stringify(api.getTraceCnt())}`);
-	// 仕様確認が目的なので落とさない（結果を記録するだけ）
+	const h2 = api.getTraceCnt();
+	console.log(`  (2) WorkspaceEdit.rename: ${JSON.stringify(h2)}`);
+
+	eq(h1['watch.cre'], 1, '(1) watch.cre');
+	eq(h1['watch.del'], 1, '(1) watch.del');
+	eq(h2['watch.cre'], 1, '(2) watch.cre（二重発火なら2になる）');
+	eq(h2['watch.del'], 1, '(2) watch.del（二重発火なら2になる）');
+	eq(h2['watch.rename'] ?? 0, 0, '(2) watch.rename（onDidRenameFiles 購読は削除済み）');
 });
 
 

@@ -11,7 +11,6 @@ import type {PrjCmn} from '../PrjCmn';
 import {minimatch} from 'minimatch';
 import {trace} from '../Trace';
 
-import type {FileRenameEvent} from 'vscode';
 import {FileType, RelativePattern, Uri, workspace} from 'vscode';
 import {existsSync, remove, statSync} from 'fs-extra';
 
@@ -32,11 +31,6 @@ export class WatchFile {
 	// ワークスペースフォルダ＝プロジェクトごとに1個）が既に持っているので、
 	// それを使う（src/docs/file-watch.md(A)。旧実装は static で後勝ちだった）
 	initOnce() {
-		// ファイル名変更イベントを処理
-		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
-		// 下の fwFld の2つも同じ。Project.#ds へ入れる（src/docs/multiroot.md リソースの解放4）
-		workspace.onDidRenameFiles(e=> this.#onDidRenameFiles(e));
-
 		// フォルダ追加・削除イベント検知。
 		// ⚠️ `doc/prj/*` と、watchFld の `doc/prj/*/…` が **1階層だけ**なのは意図的。
 		// frame など多段フォルダになるものもあるが、そこまで複雑な構造を一つの開発で
@@ -47,48 +41,14 @@ export class WatchFile {
 		// TODO: [解放1] fwFld 自身を誰も dispose しない。購読を外しても OS の
 		// ファイル監視は生き続ける（src/docs/multiroot.md リソースの解放1）
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(this.pc.wsFld, ptnFld));
+		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
+		// Project.#ds へ入れる（src/docs/multiroot.md リソースの解放4）
 		fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
 		fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
 	}
-	// TODO: [multi-root] エディタ主導の変名で購読者が二重に呼ばれる。
-	// Windows の挙動を確認してから直す（src/docs/file-watch.md(D)）
-	/**
-	 * 変名は **del + cre に分解**して購読者へ流す。判定を「対（旧,新）」ではなく
-	 * **辺ごと**に独立させているので、4通り（内→内／内→外／外→内／外→外）が
-	 * 2つの if で尽きる。組み合わせが増えない
-	 *
-	 * ⚠️ **ただしエディタ主導の変名では二重に呼ばれる**（統合テストで実測）：
-	 * - `workspace.fs.rename` … `watch.rename` 0 / 監視の cre・del が各1
-	 * - `WorkspaceEdit.renameFile` … `watch.rename` 1 **かつ** 監視の cre・del も各1
-	 *
-	 * なお外部操作（fs / fs-extra）と VSCode API 操作は追加・変更・変名・削除の
-	 * どれも**同一のイベント**になる（実測表は src/docs/file-watch.md）。
-	 * **差が出るのはこの「エディタ主導の変名」だけ**
-	 *
-	 * つまり後者では、ここと FS 監視の両方が `w.crechg` / `w.del` を呼び、
-	 * **画像最適化と暗号化が2回走る**（need_go はデバウンスで1回に見えるので
-	 * 外からは気づけない）。macOS / VSCode 1.130 での実測。
-	 * FS 監視だけで足りるなら不要になるが、**Windows で同じ挙動か未確認**なので
-	 * 消す前に確認すること（src/docs/file-watch.md(D)）
-	 */
-	async #onDidRenameFiles({files}: FileRenameEvent) {
-// console.log(`fn:WatchFile.ts onDidRenameFiles files:%o`, files);
-		const PATH_WS_LEN = this.pc.PATH_WS.length;
-		for (const {oldUri, newUri} of files) {
-			trace('watch.rename');
-			const ppOld = oldUri.path.slice(PATH_WS_LEN +1);
-			const isOldRnInPrj = ppOld.startsWith('doc/');
-			const ppNew = newUri.path.slice(PATH_WS_LEN +1);
-			const isNewRnInPrj = ppNew.startsWith('doc/');
-// console.log(`  newPath:${ppNew} isOldRnInPrj:${isOldRnInPrj} isNewRnInPrj:${isNewRnInPrj}`);
-			for (const w of this.#aWatchRp2CreDelProc) {
-				const {pat} = w;
-// if (minimatch(ppOld, pattern)) console.log(`  minimatch del:${!!w.del} crechg:${!!w.crechg} -- ptn:${pattern}`);
-				if (isOldRnInPrj && w.del && minimatch(ppOld, pat)) await w.del(oldUri);
-				if (isNewRnInPrj && w.crechg && minimatch(ppNew, pat)) await w.crechg(newUri, true);
-			}
-		}
-	}
+	// 変名は VSCode API・外部操作を問わず FS 監視の del+cre だけで拾える
+	// （src/docs/file-watch.md(D)。エディタ主導の変名だけ `onDidRenameFiles` が
+	// 追加で発火し二重処理になっていたため、2026-09-13 に購読自体を削除した）
 	#aWatchRp2CreDelProc: T_WATCHRP2CREDELPROC[]	= [];
 
 	async #seqDidCreate(newUri: Uri) {
@@ -139,26 +99,6 @@ export class WatchFile {
 	async init2th() {await this.pc.updPathJson()}
 
 
-	//MARK: 遅延 PathJson 更新
-	/**
-	 * path.json 再生成をまとめて呼ぶ（500ms）。
-	 *
-	 * ⚠️ `#tiLasyPathJson` は**インスタンス**フィールドで、
-	 * WfbOptPic / WfbOptSnd / WfbOptFont は別インスタンス。つまり
-	 * **画像と音声を同時に置くと `#updPathJson()` が2回走る**（統合テストで実測）。
-	 * `updPathJson()` は `#cfg.loadEx()`（全走査＋暗号化）を含むので重い処理の二重実行。
-	 * 後段の全走査は Project の `#sendNeedGo()`（300ms）がまとめるが、
-	 * `loadEx` の二重実行は残っている（src/docs/file-watch.md(B)）
-	 */
-	protected	lasyPathJson() {
-		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
-		// （src/docs/multiroot.md リソースの解放5）
-		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
-		this.#tiLasyPathJson = setTimeout(()=> {void this.pc.updPathJson()}, 500);
-	}
-	#tiLasyPathJson: NodeJS.Timeout | undefined = undefined;
-
-
 	//MARK: フォルダ監視
 	protected async watchFld(
 		pat		: string,	// 生成物入力パス Grb パターン
@@ -204,7 +144,7 @@ export class WatchFile {
 					await crechg(uri, true);
 					await encIfNeeded(uri);
 					this.pc.ps.pnlWVFolder.updateDelay(uri);
-					if (updPathJson) this.lasyPathJson();
+					if (updPathJson) this.pc.lasyPathJson();
 					trace('watch.cre', pat);
 // console.log('fn:WatchFile.ts watchFld CRE - END');
 				}, `CRE ${pat}`);
@@ -235,7 +175,7 @@ export class WatchFile {
 					await this.pc.diff.save();
 				}
 				this.pc.ps.pnlWVFolder.updateDelay(uri);
-				if (updPathJson) this.lasyPathJson();
+				if (updPathJson) this.pc.lasyPathJson();
 				trace('watch.del', pat);
 // console.log('fn:WatchFile.ts watchFld DEL --- END');
 			}, `DEL ${pat}`);
