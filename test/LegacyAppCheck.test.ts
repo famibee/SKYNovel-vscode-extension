@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, appendPatchFooter} from '../src/LegacyAppCheck';
+import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, assertSafeAppName, UnsafeAppNameError, appendPatchFooter} from '../src/LegacyAppCheck';
 import {Encryptor} from '../src/Encryptor';
 import type {IDecryptInfo} from '../src/CmnLib';
 
@@ -170,14 +170,14 @@ it('settingSnFileName: crypto:true でも relPath が違えば別の名前にな
 
 //MARK: appendPatchFooter（パッチアプリ本体・footer.rs との往復整合性）
 
-it('appendPatchFooter: stub＋JSON＋長さ(u32 LE)＋マジックの順で連結される', ()=> {
+it('appendPatchFooter: stub＋JSON(配列)＋長さ(u32 LE)＋マジックの順で連結される', ()=> {
 	const stub = new Uint8Array([1, 2, 3]);
-	const cfg = {
+	const cfg = [{
 		appName				: 'MyGame',
 		checksumSetting		: ['abc123', 'def456'],
 		settingSnFileName	: '3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn',
 		downloadUrl			: 'https://example.com/patch',
-	};
+	}];
 	const out = appendPatchFooter(stub, cfg);
 
 	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');
@@ -188,4 +188,32 @@ it('appendPatchFooter: stub＋JSON＋長さ(u32 LE)＋マジックの順で連�
 	expect(Buffer.from(out.subarray(out.length - 4 - magic.length, out.length - magic.length)).readUInt32LE(0))
 		.toBe(jsonBytes.length);
 	expect(out.subarray(out.length - magic.length)).toEqual(new Uint8Array(magic));
+});
+
+
+it('appendPatchFooter: 複数アプリ分を1つの配列として連結できる', ()=> {
+	const stub = new Uint8Array([9, 9]);
+	const cfg = [
+		{appName: 'GameA', checksumSetting: ['a1'], settingSnFileName: 'a.sn', downloadUrl: 'https://example.com/a'},
+		{appName: 'GameB', checksumSetting: ['b1'], settingSnFileName: 'b.sn', downloadUrl: 'https://example.com/b'},
+	];
+	const out = appendPatchFooter(stub, cfg);
+	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');
+
+	expect(out.subarray(2, 2 + jsonBytes.length)).toEqual(new Uint8Array(jsonBytes));
+});
+
+
+//MARK: assertSafeAppName（appName のパス組み立て安全性）
+
+it('assertSafeAppName: 通常の名前は通す', ()=> {
+	expect(()=> assertSafeAppName('MyGame')).not.toThrow();
+	expect(()=> assertSafeAppName('大阪九龍条')).not.toThrow();
+});
+
+
+it('assertSafeAppName: "/"・"\\"・".." を含む名前は UnsafeAppNameError', ()=> {
+	expect(()=> assertSafeAppName('../etc')).toThrow(UnsafeAppNameError);
+	expect(()=> assertSafeAppName('foo/bar')).toThrow(UnsafeAppNameError);
+	expect(()=> assertSafeAppName('foo\\bar')).toThrow(UnsafeAppNameError);
 });
