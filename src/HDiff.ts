@@ -5,8 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {FULL_PATH, FULL_SCH_PATH, PROJECT_PATH} from './CmnLib';
-import {vsc2fp} from './CmnLib';
+import type {FULL_PATH, PROJECT_PATH} from './CmnLib';
+import {normFp} from './CmnLib';
 import {FLD_CRYPT_DOC, REG_FULLCRYPTO, REG_NEEDCRYPTO} from './Project';
 import {FLD_PRJ_BASE} from './PrjCmn';
 import type {Encryptor} from './Encryptor';
@@ -24,7 +24,7 @@ export type T_DIFF = {
 export type H_T_DIFF = {[pp: PROJECT_PATH]: T_DIFF};
 
 export type T_CN = {
-	pathCn	: string | undefined,
+	pathCn	: FULL_PATH | undefined,
 	diff	: T_DIFF | undefined,
 	pp		: PROJECT_PATH,
 };
@@ -34,9 +34,9 @@ export class HDiff {
 	#pp2hDiff	: H_T_DIFF	= <H_T_DIFF>Object.create(null);
 
 	constructor(
-		private readonly PATH_DIFF	: FULL_SCH_PATH,
+		private readonly PATH_DIFF	: FULL_PATH,
 				readonly FLD_SRC	: string,
-		private readonly PATH_CRYPT	: FULL_SCH_PATH,
+		private readonly PATH_CRYPT	: FULL_PATH,
 		private readonly encry		: Encryptor,
 	) {
 		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
@@ -60,13 +60,15 @@ export class HDiff {
 	get keysPP(): PROJECT_PATH[] {return Object.keys(this.#pp2hDiff)}
 
 
-	path2cn(afp: FULL_PATH): T_CN {
-		const fp = vsc2fp(Uri.file(afp).path);
+	// ⚠️ 呼び出し元は必ず正規化済み FULL_PATH を渡すこと（normFp() 経由）。
+	// 以前はここで vsc2fp(Uri.file(afp).path) の往復により未正規化の値も
+	// 救っていたが、正規化は呼び出し元の責務に統一した（src/docs/build.md §3.10）
+	path2cn(fp: FULL_PATH): T_CN {
 		const pp = this.fp2pp(fp);
 		const diff = this.get(pp);
 		return {
 			pathCn: diff
-				? fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/prj/${diff.cn}`)
+				? <FULL_PATH>fp.replace(this.#REG_path2cn, `/${FLD_CRYPT_DOC}/prj/${diff.cn}`)
 				: undefined,
 			diff,
 			pp,
@@ -104,8 +106,8 @@ export class HDiff {
 
 	//MARK: ファイルハッシュの検知と辞書更新
 	//	ファイル差異があるか返す
-	isDiff({path}: Uri): boolean {
-		const fp = vsc2fp(path);
+	isDiff(uri: Uri): boolean {
+		const fp = normFp(uri.fsPath);
 		const {pathCn, diff, pp} = this.path2cn(fp);
 // console.log(`fn:Project.ts #isDiff fp:${fp} pp:${pp} pathCn:${pathCn} A:${! existsSync(pathCn ?? '')}`);
 		if (pathCn && ! existsSync(pathCn)) return true;

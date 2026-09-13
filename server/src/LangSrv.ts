@@ -6,8 +6,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_ALL_L2S} from './LspWs';
-import {LspWs} from './LspWs';
-import {FULL_PATH, fullSchPath2fp, REQ_ID} from '../../src/CmnShare';
+import {LspWs, uri2fp} from './LspWs';
+import {FULL_PATH, REQ_ID, isUnderPath} from '../../src/CmnShare';
 
 import {
 	CodeActionKind,
@@ -21,14 +21,14 @@ import {TextDocument} from 'vscode-languageserver-textdocument';
 
 
 export type T_MES_L2S = T_ALL_L2S & {
-	pathWs	: string;
+	pathWs	: FULL_PATH;
 };
 
 function getLspWs(tdi: TextDocumentIdentifier): LspWs | undefined {
-	const fp = fullSchPath2fp(tdi.uri);		// 'file://'外し
-	// TODO: [multi-root] 区切りを見ていないので /work/novel が /work/novel2 の
-	// ファイルにも一致する。'/' を足し、最長一致を採る（src/docs/multiroot.md 不具合6）
-	const pathWs = [...mLspWs.keys()].find(wsFld=> fp.startsWith(wsFld));
+	const fp = uri2fp(tdi.uri);
+	// TODO: [multi-root] 最長一致にしていないので、入れ子のワークスペースでは
+	// 内側より先に外側が見つかりうる（src/docs/multiroot.md 不具合6）
+	const pathWs = [...mLspWs.keys()].find(wsFld=> isUnderPath(fp, wsFld));
 	if (! pathWs) return undefined;
 
 	return mLspWs.get(pathWs);
@@ -86,19 +86,20 @@ conn.onInitialize(prm=> {
 		// 起動時のワークスペースのフォルダに対し管理オブジェクトを生成
 		mLspWs.clear();
 		for (const wf of prm.workspaceFolders ?? []) mLspWs.set(
-			fullSchPath2fp(wf.uri),
+			uri2fp(wf.uri),
 			new LspWs(wf, conn, docs, hasDiagRelatedInfCap),
 		);
 
 		// aLspWs = (prm.workspaceFolders ?? []).map(wf=> new LspWs(wf, conn, docs, hasDiagRelatedInfCap));
 		// ワークスペースのフォルダ数変化
 		if (hasWsFldCap) conn.workspace.onDidChangeWorkspaceFolders(e=> {
-			// TODO: [multi-root] 鍵は fullSchPath2fp() を通した値なのに、生の uri で
-			// 消しているため**永久に一致しない**。閉じたフォルダの LspWs（全文＋
-			// パース結果）が残り続ける（src/docs/multiroot.md 不具合2）
-			for (const {uri} of e.removed) mLspWs.delete(uri);
+			for (const {uri} of e.removed) {
+				const k = uri2fp(uri);
+				mLspWs.get(k)?.destroy();
+				mLspWs.delete(k);
+			}
 			for (const wf of e.added) mLspWs.set(
-				fullSchPath2fp(wf.uri),
+				uri2fp(wf.uri),
 				new LspWs(wf, conn, docs, hasDiagRelatedInfCap),
 			);
 		});

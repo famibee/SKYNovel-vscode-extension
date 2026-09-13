@@ -17,7 +17,7 @@
  */
 
 import {copyFileSync, readFileSync, renameSync, unlinkSync, writeFileSync} from 'node:fs';
-import {extensions, Uri, workspace, WorkspaceEdit} from 'vscode';
+import {commands, extensions, Hover, MarkdownString, Position, Uri, workspace, WorkspaceEdit} from 'vscode';
 
 type T_EXT_API = {
 	getTraceCnt	: ()=> {[key: string]: number};
@@ -74,6 +74,34 @@ it('【調査】起動にかかる時間', async ()=> {
 	if ((h['起動.操作可能まで.ms'] ?? []).length === 0) {
 		throw new Error('起動の計測が記録されていない');
 	}
+});
+
+// §3.10 B-2 の検証：LSP 側の #genHover() 内 docs.get() のキー生成を
+// fp2fullSchPath(fp) から String(this.#uri4fp(fp))（vscode-uri 経由）に
+// 変更した。ここが VSCode クライアントの実際の DocumentUri 文字列と
+// 一致しないとホバーが常に空になる（Windows で起きていたバグの根）ので、
+// mac でも実際にタグへホバーして説明文が返ることを確かめる
+it('タグへのホバーで説明が返る（LSP hover.res の疎通・docs.get() キー一致の確認）', async ()=> {
+	const ws = workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (! ws) throw new Error('ワークスペースが開かれていない');
+
+	const uri = Uri.file(`${ws}/doc/prj/script/main.sn`);
+	const doc = await workspace.openTextDocument(uri);
+
+	// main.sn の2行目 "[frame id=f]" の 'frame' 部分
+	const line = doc.lineAt(1).text;
+	if (! line.includes('frame')) throw new Error(`フィクスチャが想定と違う: ${line}`);
+	const pos = new Position(1, line.indexOf('frame') + 2);
+
+	await sleep(2000);	// LSP の準備を確実に待つ
+	const aHover = await commands.executeCommand<Hover[]>('vscode.executeHoverProvider', uri, pos);
+	if (aHover.length === 0) throw new Error('ホバー結果が空（LSP からの応答が届いていない）');
+
+	const [content] = aHover[0]?.contents ?? [];
+	const txt = content instanceof MarkdownString ? content.value
+		: typeof content === 'string' ? content
+		: '';
+	if (! txt.includes('frame')) throw new Error(`ホバー内容に frame タグの説明が含まれない: ${txt}`);
 });
 
 it('画像を数枚まとめて追加しても、全走査は1回にまとまる', async ()=> {

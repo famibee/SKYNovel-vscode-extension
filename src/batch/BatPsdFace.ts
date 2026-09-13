@@ -6,6 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_BJ_Psd2Layer} from '../types';
+import type {FULL_PATH} from '../CmnLib';
 import {getFn} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
 
@@ -111,7 +112,7 @@ export class BatPsdFace {
 		}
 
 		// tmp に出力 -> キャンバス拡大してprj下へ
-		const fp_tmp = `${this.#PATH_TMP}/${fn}.png`;
+		const fp_tmp = <FULL_PATH>`${this.#PATH_TMP}/${fn}.png`;
 		const right = cvsW -left -width;
 		const bottom= cvsH -top -height;
 		if (left < 0 || right < 0 || top < 0 || bottom < 0) {

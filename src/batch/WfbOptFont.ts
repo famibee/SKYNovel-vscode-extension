@@ -8,7 +8,7 @@
 import type {T_H_ADIAG, T_H_ADIAG_L2S} from '../../server/src/LspWs';
 import {type T_H_FONTJSON, type T_H_BJ_subset_font, type T_E2V_CNVFONT, type T_E2V_NOTICE_COMPONENT, type T_BJ_subset_font, type T_INF_INTFONT, H_FONTJSON_nm_DEF_FONT} from '../types';
 import type {FULL_PATH} from '../CmnLib';
-import {foldProc, fp2osp, getFn, is_win, vsc2fp} from '../CmnLib';
+import {foldProc, getFn, is_win, normFp} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
 import {ActivityBar} from '../ActivityBar';
 import {WatchFile} from './WatchFile';
@@ -26,7 +26,7 @@ const PROC_ID = 'cnv.font.subset';
 export class WfbOptFont extends WatchFile {
 	readonly	#PATH_FONT_JSON	: FULL_PATH;
 	readonly	#A_DIR_FONT		: FULL_PATH[]	= [];
-	readonly	#A_REP_MASKP2FP	: ((path: FULL_PATH)=> string)[]	= [];
+	readonly	#A_REP_MASKP2FP	: ((path: string)=> string)[]	= [];
 	readonly	#A_REP_FP2MASKP	: ((path: string)=> string)[]	= [];
 	readonly	#PATH_BATOUT_JSON	: FULL_PATH;
 
@@ -37,19 +37,19 @@ export class WfbOptFont extends WatchFile {
 	constructor(pc: PrjCmn) {
 		super(pc);
 
-		const PATH_FONT = `${pc.PATH_WS}/${pc.FLD_SRC}/font`;
-		this.#PATH_FONT_JSON = `${PATH_FONT}/font.json`;
-		this.#PATH_BATOUT_JSON = `${PATH_FONT}/subset_font.json`;
+		const PATH_FONT = <FULL_PATH>`${pc.PATH_WS}/${pc.FLD_SRC}/font`;
+		this.#PATH_FONT_JSON = <FULL_PATH>`${PATH_FONT}/font.json`;
+		this.#PATH_BATOUT_JSON = <FULL_PATH>`${PATH_FONT}/subset_font.json`;
 
 		const {username} = userInfo();
-		const aMat: {mask_path: FULL_PATH, fp: FULL_PATH}[] = [
+		const aMat: {mask_path: string, fp: FULL_PATH}[] = [
 			{mask_path: '::PATH_PRJ_FONTS::', fp: PATH_FONT},
-			{mask_path: '::PATH_USER_FONTS::', fp: is_win
+			{mask_path: '::PATH_USER_FONTS::', fp: <FULL_PATH>(is_win
 				? `C:/Users/${username}/AppData/Local/Microsoft/Windows/Fonts`
-				: `/Users/${username}/Library/Fonts`},
-			{mask_path: '::PATH_OS_FONTS::', fp: is_win
+				: `/Users/${username}/Library/Fonts`)},
+			{mask_path: '::PATH_OS_FONTS::', fp: <FULL_PATH>(is_win
 				? 'C:/Windows/Fonts'
-				: '/Library/Fonts'},
+				: '/Library/Fonts')},
 			{mask_path: '::PATH_WS::', fp: pc.PATH_WS},
 		];
 		for (const o of aMat) {
@@ -69,8 +69,8 @@ export class WfbOptFont extends WatchFile {
 
 	//MARK: 初期化
 	async init(
-		noticeChgTxt	: (fp: string)=> Promise<void>,
-		noticeDelTxt	: (fp: string)=> Promise<boolean>,
+		noticeChgTxt	: (fp: FULL_PATH)=> Promise<void>,
+		noticeDelTxt	: (fp: FULL_PATH)=> Promise<boolean>,
 		sendNeedGo		: ()=> Promise<void>,
 	) {
 		// フォントファイルやテキスト系ファイルの監視
@@ -83,14 +83,12 @@ export class WfbOptFont extends WatchFile {
 				// 中身は空。**findFiles(pat) 全件への初回の暗号化を走らせるため**に
 				// 渡している（watchFld 内で init の有無が分岐条件になっている）
 			async (uri, cre)=> {
-				// ⚠️ uri.path を素通しにしない（WfbSettingSn.ts と同じ理由。
-				// Windows で【C:\c:\…】の二重ドライブ名になる。testing.md参照）
-				const path = vsc2fp(uri.path);
+				const path = normFp(uri.fsPath);
 				if (cre && /\.ss?n$/.test(path)) await sendNeedGo();
 				return noticeChgTxt(path);
 			},
 			async uri=> {
-				const path = vsc2fp(uri.path);
+				const path = normFp(uri.fsPath);
 				if (/\.ss?n$/.test(path)) await sendNeedGo();
 				return noticeDelTxt(path);
 			},
@@ -192,7 +190,7 @@ export class WfbOptFont extends WatchFile {
 		add(this.#InfFont.defaultFontName);	// setting.sn 以外での指定にも対応
 
 		foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-			const fp = `${this.pc.PATH_PRJ}${dir}/setting.sn`;
+			const fp = <FULL_PATH>`${this.pc.PATH_PRJ}${dir}/setting.sn`;
 			if (! existsSync(fp)) return;
 
 			// &def_fonts = 'ipamjm, "Source Han Sans CN"'	; デフォルトフォント
@@ -216,7 +214,7 @@ export class WfbOptFont extends WatchFile {
 	 * - 変換に失敗したフォントも、消すと元に戻せないので残す
 	 */
 	#delOldFont(oBJ: T_H_BJ_subset_font) {foldProc(
-		this.pc.PATH_PRJ +'script/',
+		<FULL_PATH>(this.pc.PATH_PRJ +'script/'),
 		(fp, nm)=> {
 			if (! this.#REG_EXT_FONT.test(nm)) return;
 
@@ -267,10 +265,9 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 			await outputFile(fnTmp, str, {encoding: 'utf8'});
 				// views/vue/StgPkg.vue のボタンから開けるログ
 
-			await new Promise<void>((re, rj)=> exec(`${ActivityBar.cmdPyftsubset} "${fp2osp(ssf.inp)}" --text-file="${fp2osp(fnTmp)}" --layout-features="*" --flavor=woff2 --output-file="${fp2osp(ssf.out)}" --verbose`, (e, _stdout, stderr)=> {
+			await new Promise<void>((re, rj)=> exec(`${ActivityBar.cmdPyftsubset} "${ssf.inp}" --text-file="${fnTmp}" --layout-features="*" --flavor=woff2 --output-file="${ssf.out}" --verbose`, (e, _stdout, stderr)=> {
 				// --layout-features は "*" と二重引用符で囲む。'*' だと Windows の
 				// cmd.exe は引用符を外さず、pyftsubset に 【'*'】 が渡ってエラーになる
-				// （パスも fp2osp() でドライブ名を補完してから渡す）
 				if (e) {
 					const m = `${nm} 出力エラー：`+ e.message.replace(/--text-file=[^\n]+/, '...')
 					+ (e.code === 127 || e.code === 9009
@@ -372,18 +369,18 @@ const cnv: (ssf: T_BJ_subset_font, nm: string, str: string, prg: Progress<{
 
 				aD.push({mes: err, sev: 'E'});
 			}
-			if (aD.length > 0) haDiag[fp] = aD;
+			if (aD.length > 0) haDiag[<FULL_PATH>fp] = aD;
 		}
 		return haDiag;
 	}
 		#getFontNm2path(font_nm: string): FULL_PATH {
 			for (const base of this.#A_DIR_FONT) {
 				for (const ext of ['woff2','otf','ttf','WOFF2','OTF','TTF']) {
-					const path = `${base}/${font_nm}.${ext}`;
+					const path = <FULL_PATH>`${base}/${font_nm}.${ext}`;
 					if (existsSync(path)) return path;
 				}
 			}
-			return '';
+			return <FULL_PATH>'';
 		}
 
 	async disp(oBJ?: T_H_BJ_subset_font) {

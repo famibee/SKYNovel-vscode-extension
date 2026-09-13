@@ -5,8 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import type {FULL_PATH, FULL_SCH_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, vsc2fp, cnvPM, fp2osp, REG_SCRIPT, hDiagL2s, uri2path, isBluesPrj} from './CmnLib';
+import type {FULL_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
+import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, normFp, cnvPM, REG_SCRIPT, hDiagL2s, isBluesPrj} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -57,14 +57,13 @@ export type T_reqPrj2LSP = (o: T_ALL_L2S)=> Promise<void>;
  * 【Failed to open：指定されたファイルが見つかりません。(0x2)】になる
  */
 async function revealInOS(fp: FULL_PATH) {
-	const osp = fp2osp(fp);		// Windows はドライブ名の補完が要る
-	if (! existsSync(osp)) {
-		void window.showErrorMessage('ファイルが見つかりません', {modal: true, detail: osp});
+	if (! existsSync(fp)) {
+		void window.showErrorMessage('ファイルが見つかりません', {modal: true, detail: fp});
 		return;
 	}
-	try {await commands.executeCommand('revealFileInOS', Uri.file(osp))}
+	try {await commands.executeCommand('revealFileInOS', Uri.file(fp))}
 	catch (e) {
-		void window.showErrorMessage('フォルダを開けませんでした', {modal: true, detail: `${osp}\n${String(e)}`});
+		void window.showErrorMessage('フォルダを開けませんでした', {modal: true, detail: `${fp}\n${String(e)}`});
 	}
 }
 
@@ -86,7 +85,7 @@ export type T_LocalSNVer = {
 export class Project {
 	readonly	#pc;
 
-	readonly	#PATH_CRYPT;
+	readonly	#PATH_CRYPT	: FULL_PATH;
 	#isCryptoMode	= false;
 
 	readonly	#encry;
@@ -140,13 +139,13 @@ export class Project {
 		);
 
 		// 暗号化処理
-		this.#PATH_CRYPT = `${this.#pc.PATH_WS}/${FLD_CRYPT_DOC}/prj/`;
+		this.#PATH_CRYPT = <FULL_PATH>`${this.#pc.PATH_WS}/${FLD_CRYPT_DOC}/prj/`;
 		{	// v4.25.2 暗号化フォルダ移動
 			const OLD_FLD_DOC_CRYPTO = `${this.#pc.PATH_WS}/doc/crypto_prj/`;
 			if (existsSync(OLD_FLD_DOC_CRYPTO)) {
 				moveSync(OLD_FLD_DOC_CRYPTO, this.#PATH_CRYPT);
 			}
-			const gi = `${this.#pc.PATH_WS}/.gitignore`;
+			const gi = <FULL_PATH>`${this.#pc.PATH_WS}/.gitignore`;
 			if (existsSync(gi)) replaceFile(
 				gi,
 				/\/doc\/crypto_prj\n/,
@@ -154,7 +153,7 @@ export class Project {
 				false,
 			);
 			replaceFile(
-				this.#pc.PATH_WS +'/package.json',
+				<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
 				/"doc\/crypto_prj\/",/,
 				`"${FLD_CRYPT_DOC}/prj/",`,
 				false,
@@ -212,7 +211,7 @@ export class Project {
 
 		// ファイル変更チェック・暗号化ファイル名辞書
 		this.#diff = new HDiff(
-			`${this.#pc.PATH_WS}/${this.#pc.FLD_SRC}/diff.json`,
+			<FULL_PATH>`${this.#pc.PATH_WS}/${this.#pc.FLD_SRC}/diff.json`,
 			this.#pc.FLD_SRC,
 			this.#PATH_CRYPT,
 			this.#encry,
@@ -273,14 +272,14 @@ export class Project {
 					// == 以下は 置き換えない系（せいぜい値持ち越し）
 					// package.json
 					replaceFile(	// テンプレ更新のために必ず更新
-						this.#pc.PATH_WS +'/package.json',
+						<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
 						/github.com:famibee\/SKYNovel_/,
 						'github.com:famibee/tmp_cjs_',
 						false,
 					);
 
 					replaceFile(	// テンプレ更新しなくても最低限動作するように
-						this.#pc.PATH_WS +'/package.json',
+						<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
 						/ && npm i && npm run webpack:dev/,
 						' && npm i",\n\t\t"postinstall": "npm run webpack:dev',
 						false,
@@ -591,8 +590,8 @@ export class Project {
 		}
 	}
 	//MARK: 文字コードチェック（オマケでLSPに渡すファイルデータを連想配列に）
-	#chkChrCd(fp: FULL_SCH_PATH, pp2s?: T_PP2SNSTR) {
-		const td = workspace.textDocuments.find(v=> vsc2fp(v.uri.path) === fp);
+	#chkChrCd(fp: FULL_PATH, pp2s?: T_PP2SNSTR) {
+		const td = workspace.textDocuments.find(v=> normFp(v.uri.fsPath) === fp);
 		const pp = this.#pc.fp2pp(fp);
 		const str = REG_SCRIPT.test(fp) ?td?.getText() :undefined;
 		let cc: string;
@@ -624,7 +623,7 @@ export class Project {
 	//	この後 cmd:hover -> LSP -> cmd:hover.res）
 	#hFp2AHoverProc: {[fp: FULL_PATH]: ((o: T_S2L_hover_res)=> void)[]} = {};
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
-		const fp = vsc2fp(doc.uri.path);
+		const fp = normFp(doc.uri.fsPath);
 		const {promise, resolve, reject} = Promise.withResolvers<Hover>();
 		(this.#hFp2AHoverProc[fp] ??= []).push(({value})=> {
 			const a = value.split(/(?=\n---\n)/);
@@ -644,21 +643,21 @@ export class Project {
 				async (e1: string)=> {
 const {name, val} = <{name: string, val: string}>JSON.parse(e1.slice(5, -4));
 const ppImg = this.#cfg.searchPath(val, SEARCH_PATH_ARG_EXT.SP_GSM);
-const vfpImg = `${this.#pc.URI_WS}/doc/prj/${ppImg}`;
-// console.log(`fn:Project.ts   vfpImg=${vfpImg}`);
+const uriImg = this.#pc.uri4pp(ppImg);
+// console.log(`fn:Project.ts   uriImg=${String(uriImg)}`);
 
-const srcEx = `${vfpImg}|width=${String(this.#whThumbnail)}|height=${String(this.#whThumbnail)}`;
+const srcEx = `${String(uriImg)}|width=${String(this.#whThumbnail)}|height=${String(this.#whThumbnail)}`;
 // console.log(`fn:Project.ts   srcEx =${srcEx}`);
 
-const {width, height} = await imageSizeFromFile(uri2path(vfpImg));
+const {width, height} = await imageSizeFromFile(uriImg.fsPath);
 // console.log(`fn:Project.ts   w:${String(width)} h:${String(height)}`);
 
-const exImg = encodeURIComponent(JSON.stringify([Uri.file(vfpImg)]));
+const exImg = encodeURIComponent(JSON.stringify([uriImg]));
 	// これが file で下が parse なのは動作と以下資料から
 	// visual studio code - How to open a file externally using built-in commands? - Stack Overflow https://stackoverflow.com/questions/72194573/how-to-open-a-file-externally-using-built-in-commands
 	// Opening folders in Visual Studio Code from an extension | Elio Struyf https://www.eliostruyf.com/opening-folders-visual-studio-code-extension/
 
-return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを見る](${vfpImg} "ファイルを見る") [サイドバーに表示](${
+return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを見る](${String(uriImg)} "ファイルを見る") [サイドバーに表示](${
 	String(Uri.parse(`command:revealInExplorer?${exImg}`))
 } "サイドバーに表示")
 [フォルダを開く](${
@@ -917,8 +916,8 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		// アップデート用ファイル作成
 		const oPkg = <T_PKG_JSON>await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
 
-		const pathPkg = this.#pc.PATH_WS +'/build/package';
-		const pathUpd = pathPkg +'/update';
+		const pathPkg = <FULL_PATH>(this.#pc.PATH_WS +'/build/package');
+		const pathUpd = <FULL_PATH>(pathPkg +'/update');
 		const fnUcJs = pathUpd +'/_index.json';
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		let oUc = existsSync(fnUcJs)
@@ -989,7 +988,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			`${cfg.label} パッケージを生成しました`,
 			'出力フォルダを開く',
 		);
-		if (a) await revealInOS(pathPkg +'/'+ path);
+		if (a) await revealInOS(<FULL_PATH>(pathPkg +'/'+ path));
 	} catch (e: unknown) {
 		console.error(e);
 		void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${String(e)}`);
@@ -1017,7 +1016,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 					window.showInformationMessage(
 						`ふりーむ！形式で出力（${fn_out}）しました`,
 						'出力フォルダを開く',
-					).then(a=> {if (a) void revealInOS(`${this.#pc.PATH_WS}/build/package/${fn_out}`)})
+					).then(a=> {if (a) void revealInOS(<FULL_PATH>`${this.#pc.PATH_WS}/build/package/${fn_out}`)})
 				});
 				arc.pipe(ws);
 				void arc.finalize();	// zip圧縮実行
@@ -1066,38 +1065,38 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 
 			// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 			for (const url of this.#aRepl) replaceFile(
-				this.#pc.PATH_WS +'/'+ url,
+				<FULL_PATH>(this.#pc.PATH_WS +'/'+ url),
 				/\(hPlg, {.+?}\);/,
 				'(hPlg);',
 			);
 			// ビルド関連：パッケージするフォルダ名変更
 			if (this.#pc.IS_NEW_TMP) {
 				replaceFile(
-					this.#pc.PATH_WS +'/electron.vite.config.ts',
+					<FULL_PATH>(this.#pc.PATH_WS +'/electron.vite.config.ts'),
 					new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
 					'publicDir: \'../../doc/\'',
 				);
 				replaceFile(
-					this.#pc.PATH_WS +'/vite.config.ts',
+					<FULL_PATH>(this.#pc.PATH_WS +'/vite.config.ts'),
 					new RegExp(`publicDir: '${FLD_CRYPT_DOC}'`),
 					'publicDir: \'doc\'',
 				);
 			}
 			else {
 				replaceFile(
-					this.#pc.PATH_WS +'/package.json',
+					<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
 					new RegExp(`${FLD_CRYPT_DOC}\\/`, 'g'),
 						// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 					'doc/',
 				);
 				replaceFile(
-					this.#pc.PATH_WS +'/core/wds.config.js',
+					<FULL_PATH>(this.#pc.PATH_WS +'/core/wds.config.js'),
 					new RegExp(`\\/${FLD_CRYPT_DOC}'`, 'g'),
 						// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 					'/doc\'',
 				);
 				replaceFile(
-					this.#pc.PATH_WS +'/core/webpack.config.js',
+					<FULL_PATH>(this.#pc.PATH_WS +'/core/webpack.config.js'),
 					new RegExp(`'\\/${FLD_CRYPT_DOC}`, 'g'),
 						// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 					'\'/doc',
@@ -1113,19 +1112,19 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 
 		// ビルド関連：SKYNovelが見に行くプロジェクトフォルダ名変更
 		for (const url of this.#aRepl) replaceFile(
-			this.#pc.PATH_WS +'/'+ url,
+			<FULL_PATH>(this.#pc.PATH_WS +'/'+ url),
 			/\(hPlg\);/,
 			'(hPlg, {cur: \'prj/\', crypto: true});',
 		);
 		// ビルド関連：パッケージするフォルダ名変更
 		if (this.#pc.IS_NEW_TMP) {
 			replaceFile(
-				this.#pc.PATH_WS +'/electron.vite.config.ts',
+				<FULL_PATH>(this.#pc.PATH_WS +'/electron.vite.config.ts'),
 				/publicDir: '..\/..\/doc\/'/,
 				`publicDir: '../../${FLD_CRYPT_DOC}/'`,
 			);
 			replaceFile(
-				this.#pc.PATH_WS +'/vite.config.ts',
+				<FULL_PATH>(this.#pc.PATH_WS +'/vite.config.ts'),
 				/publicDir: 'doc'/,
 				`publicDir: '${FLD_CRYPT_DOC}'`,
 			);
@@ -1136,17 +1135,17 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		}
 		else {
 			replaceFile(
-				this.#pc.PATH_WS +'/package.json',
+				<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
 				/doc\//g,
 				`${FLD_CRYPT_DOC}/`,
 			);
 			replaceFile(
-				this.#pc.PATH_WS +'/core/wds.config.js',
+				<FULL_PATH>(this.#pc.PATH_WS +'/core/wds.config.js'),
 				/\/doc'/g,
 				`/${FLD_CRYPT_DOC}'`,
 			);
 			replaceFile(
-				this.#pc.PATH_WS +'/core/webpack.config.js',
+				<FULL_PATH>(this.#pc.PATH_WS +'/core/webpack.config.js'),
 				/'\/doc/g,
 				`'/${FLD_CRYPT_DOC}`,
 			);
@@ -1171,11 +1170,11 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		}
 		// ビルド関連：プラグインソースに埋め込む
 		replaceFile(
-			this.ctx.extensionPath +'/dist/snsys_pre.js',
+			<FULL_PATH>(this.ctx.extensionPath +'/dist/snsys_pre.js'),
 			/[^\s=]+\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			true,
-			this.#pc.PATH_PLG_PRE +`index.${this.#pc.IS_NEW_TMP ?'ts' :'js'}`,
+			<FULL_PATH>(this.#pc.PATH_PLG_PRE +`index.${this.#pc.IS_NEW_TMP ?'ts' :'js'}`),
 		);
 		await this.#updPlugin();
 
@@ -1183,13 +1182,13 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		await this.#initCrypto();
 	}
 
-	async #encFile({path}: Uri) {
-		const fsp = vsc2fp(path);
+	async #encFile(uri: Uri) {
+		const fsp = normFp(uri.fsPath);
 		const pp = this.#diff.fp2pp(fsp);
 // console.log(`fn:Project.ts #encFile pp=${pp}= =${this.#diff.get(pp)!.cn}`);
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			const fsp_enc = this.#PATH_CRYPT + this.#diff.get(pp)!.cn;
+			const fsp_enc = <FULL_PATH>(this.#PATH_CRYPT + this.#diff.get(pp)!.cn);
 			if (! REG_NEEDCRYPTO.test(pp)) {
 				await copy(fsp, fsp_enc, {overwrite: true});
 				//.catch((e: any)=> console.error(`enc cp1 ${e}`));
@@ -1234,7 +1233,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			} src:${fsp}`);
 		}
 	}
-		async #encFile_pathjson(fsp: FULL_SCH_PATH, fsp_enc: FULL_SCH_PATH) {
+		async #encFile_pathjson(fsp: FULL_PATH, fsp_enc: FULL_PATH) {
 			const hPath = <T_Fn2Path>await readJson(fsp, {encoding: 'utf8'});
 			for (const hExt2N of Object.values(hPath)) {
 				for (const [ext, pp] of Object.entries(hExt2N)) {
@@ -1258,7 +1257,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 	readonly	#REG_PLGADDTAG	= /(?<=\.\s*addTag\s*\(\s*)(["'])(.+?)\1/g;
 	#hDefPlg	: T_H_PLGDEF	= {};
 	async #updPlugin(build = true) {
-		const pathPlg = `${this.#pc.PATH_WS}/${this.#pc.FLD_SRC}/plugin/`;
+		const pathPlg = <FULL_PATH>`${this.#pc.PATH_WS}/${this.#pc.FLD_SRC}/plugin/`;
 		if (! existsSync(pathPlg)) {
 			await mkdirs(pathPlg);
 			this.#build();
@@ -1315,7 +1314,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			await remove(sPlgIdx +'.js');
 
 			for (const url of this.#aRepl) replaceFile(
-				this.#pc.PATH_WS +'/'+ url,
+				<FULL_PATH>(this.#pc.PATH_WS +'/'+ url),
 				/'\.\/plugin\.js';/,
 				'\'./plugin.json\';',
 			);
@@ -1384,17 +1383,17 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		// td.uri.path	=/c:/Users/[略]/doc/prj/mat/main.sn=
 		const aFpNew: string[] = [];
 		for (const uri of aUri) {
-			const {path, scheme} = uri;
-			const ext = extname(path).slice(1);
-			const fp = vsc2fp(path);
-//console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
+			const {scheme} = uri;
+			const fp = normFp(uri.fsPath);
+			const ext = extname(fp).slice(1);
+//console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: fsPath-${uri.fsPath}-`);
 
 			let fpNew = fp;
 			const fn_ext = '/'+ basename(fp);
 			const aコピー先候補 = this.#getコピー先候補(ext);
 			switch (scheme) {
 			case 'file':
-				if (statSync(path).isDirectory()) {	// フォルダドロップ
+				if (statSync(fp).isDirectory()) {	// フォルダドロップ
 					if (! fp.startsWith(this.#pc.PATH_PRJ)) return null;	// プロジェクト外なら鼻も引っ掛けない
 
 					if (fp === this.#pc.PATH_PRJ +'prj.json') this.#ps.open()
@@ -1408,15 +1407,12 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				// ファイルコピー
 				switch (aコピー先候補.length) {
 					case 0:	{	// 候補もなし、スクリプトと同じフォルダにコピー
-						const tp = td.uri.path;
-						fpNew = vsc2fp(
-							tp.slice(0, -basename(tp).length) + basename(fp)
-						);
+						fpNew = normFp(Uri.joinPath(td.uri, '..', basename(fp)).fsPath);
 					}	break;
 
 					case 1:		// 選ぶまでもなく確定
 						// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-						fpNew = this.#pc.PATH_PRJ + aコピー先候補[0] + fn_ext;
+						fpNew = <FULL_PATH>(this.#pc.PATH_PRJ + aコピー先候補[0] + fn_ext);
 						break;
 
 					default:{
@@ -1427,7 +1423,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 						);
 						if (! ans || ans === 'キャンセル') return null;
 
-						fpNew = this.#pc.PATH_PRJ + ans + fn_ext;
+						fpNew = <FULL_PATH>(this.#pc.PATH_PRJ + ans + fn_ext);
 					}	break;
 				}
 				await copyFile(fp, fpNew);
@@ -1438,7 +1434,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				if (! ext) continue;	// 拡張子なしは無視（.gitignore 系も）
 
 				// webviewからのドラッグ
-				if (this.#ps.pnlWVFolder.isOpend(path)) break;// from WV
+				if (this.#ps.pnlWVFolder.isOpend(uri.path)) break;// from WV
 
 				const uriDL = uri.toString();
 //console.log(`fn:Project.ts urlDL=${uriDL}=`);
@@ -1459,12 +1455,12 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 						ppNew = aコピー先候補[0] + fn_ext;
 						break;
 				}
-				fpNew = this.#pc.PATH_PRJ + ppNew;
+				fpNew = <FULL_PATH>(this.#pc.PATH_PRJ + ppNew);
 				await writeFile(fpNew, new Uint8Array(await res.arrayBuffer()));
 
 				window.showInformationMessage(`素材をダウンロードしました。 path=${ppNew}`);
 				// サイドバーに表示
-				await commands.executeCommand('revealInExplorer', Uri.parse(`${this.#pc.URI_WS}/doc/prj/${ppNew}`));
+				await commands.executeCommand('revealInExplorer', this.#pc.uri4pp(ppNew));
 
 			}	break;
 

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, vsc2fp, is_win, is_mac, type HArg, REQ_ID, fullSchPath2fp, fp2osp, chkBun} from './CmnLib';
+import {docsel, normFp, isUnderPath, is_win, is_mac, type FULL_PATH, type HArg, REQ_ID, chkBun} from './CmnLib';
 import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -68,7 +68,7 @@ export function mkTagPickItems(is_blues: boolean): QuickPickItemEx[] {
 }
 
 
-export	function openURL(url: Uri, pathWs: string) {
+export	function openURL(url: Uri, pathWs: FULL_PATH) {
 	switch (url.scheme) {
 		case 'ws-file':
 			workspace.openTextDocument(pathWs + url.path)
@@ -76,8 +76,7 @@ export	function openURL(url: Uri, pathWs: string) {
 			break;
 
 		case 'ws-folder':
-			env.openExternal(Uri.file(fp2osp(pathWs + url.path)));
-				// fp2osp() は Windows でドライブ名を補完する（無いと 0x2 エラー）
+			env.openExternal(Uri.file(pathWs + url.path));
 			break;
 
 		default:	env.openExternal(url);
@@ -90,7 +89,7 @@ export const PRE_TASK_TYPE = 'SKYNovel Task';
 export class WorkSpaces implements TreeDataProvider<TreeItem>, HoverProvider, DocumentDropEditProvider {
 	readonly	#aTiRoot		: TreeItem[] = [];
 
-	readonly	#mPrj	= new Map<string, Project>;
+	readonly	#mPrj	= new Map<FULL_PATH, Project>;
 	readonly	#lsp;
 
 	//MARK: コンストラクタ
@@ -298,8 +297,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		}
 		if (aUri.length === 0) return null;
 
-		for (const [vfpWs ,prj] of this.#mPrj.entries()) {
-			if (! td.uri.path.startsWith(vfpWs +'/doc/prj/')) continue;
+		const fp = normFp(td.uri.fsPath);
+		for (const [pathWs ,prj] of this.#mPrj.entries()) {
+			if (! isUnderPath(fp, <FULL_PATH>(pathWs +'/doc/prj/'))) continue;
 
 			return await prj.drop(td, pos, aUri) ?? {insertText: ''};
 				// なにもさせない（null だと簡易な文字列が挿入される）
@@ -309,8 +309,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
-		for (const [vfpWs, prj] of this.#mPrj.entries()) {
-			if (! doc.uri.path.startsWith(vfpWs +'/doc/prj/')) continue;
+		const fp = normFp(doc.uri.fsPath);
+		for (const [pathWs, prj] of this.#mPrj.entries()) {
+			if (! isUnderPath(fp, <FULL_PATH>(pathWs +'/doc/prj/'))) continue;
 
 			return prj.provideHover(doc, pos);
 		}
@@ -324,10 +325,18 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		await this.#lsp.start();
 		this.#req2LSP = (uriWs, o)=> {
 			// console.error - 本番でも【出力】-【ログ（ウインドウ）】に出力される
-// console.log(`Seq_11 ⬆送 cmd:${o.cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${vsc2fp(uriWs.path)}=`);
+// console.log(`Seq_11 ⬆送 cmd:${o.cmd} fn:WorkSpaces.ts lsp.sendRequest pathWs=${normFp(uriWs.fsPath)}=`);
 			// sendRequest の引数は any なので、この型注入だけが型チェックになる
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-			return this.#lsp.sendRequest(REQ_ID, <T_MES_L2S>{...o, pathWs: fullSchPath2fp(uriWs.path)});
+
+			// ✅ 2026-09-13 決着：旧実装は fullSchPath2fp(uriWs.path) で、
+			// uriWs.path が 'file://' を含まないため正規表現が一致せず、
+			// Windows ではドライブ文字が残ったまま LSP へ送られていた
+			// （サーバー側 mLspWs の鍵と不一致になり ready/go.res/hover 等が
+			// 黙って捨てられるバグ）。LSP 側を vscode-uri（uri2fp = normFp(URI.parse(uri).fsPath)）
+			// に統一したことで、拡張側もここで normFp(uriWs.fsPath) を使えば
+			// 両者の表現が一致する（src/docs/build.md §3.10 Stage1 B-2）
+			const mes: T_MES_L2S = {...o, pathWs: normFp(uriWs.fsPath)};
+			return this.#lsp.sendRequest(REQ_ID, mes);
 		};
 
 		this.ctx.subscriptions.push(
@@ -338,9 +347,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			commands.registerCommand('bluesnovel.openReferencePallet', ()=> this.#openReferencePallet()),
 			window.onDidChangeActiveTextEditor(()=> void this.#updCtxBlues()),
 			commands.registerCommand('skynovel.opView', (uri: Uri)=> {
-				const {path} = uri;
-				for (const [vfpWs, prj] of this.#mPrj.entries()) {
-					if (! path.startsWith(vfpWs)) continue;
+				const fp = normFp(uri.fsPath);
+				for (const [pathWs, prj] of this.#mPrj.entries()) {
+					if (! isUnderPath(fp, pathWs)) continue;
 					prj.opView(uri);
 				}
 			}),
@@ -375,12 +384,13 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	 * 1つだけならそれを使う。複数あれば決められないので undefined
 	 */
 	#prjOfActiveEditor(): Project | undefined {
-		const vfp = window.activeTextEditor?.document.uri.path;	// /c:/
-		if (vfp) {
-			for (const [vfpWs, prj] of this.#mPrj.entries()) {
+		const uri = window.activeTextEditor?.document.uri;
+		if (uri) {
+			const fp = normFp(uri.fsPath);
+			for (const [pathWs, prj] of this.#mPrj.entries()) {
 				// TODO: [multi-root] 区切りを見ていない前方一致。LangSrv.ts と同じ
 				// 問題で、隣のプロジェクトが返りうる（src/docs/multiroot.md 不具合6）
-				if (vfp.startsWith(vfpWs)) return prj;
+				if (fp.startsWith(pathWs)) return prj;
 			}
 		}
 		return this.#mPrj.size === 1
@@ -408,7 +418,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			placeHolder			: 'どのリファレンスを開きますか?',
 			matchOnDescription	: true,
 		})
-		.then(q=> {if (q?.uri) openURL(q.uri, '');});
+		.then(q=> {if (q?.uri) openURL(q.uri, <FULL_PATH>'');});
 	}
 
 
@@ -477,7 +487,7 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			// TODO: [multi-root] dispose するだけで #mPrj から delete していない。
 			// 破棄済み Project が Map に残り、対象判定などで選ばれうる
 			// （src/docs/multiroot.md 不具合3。LangSrv.ts の mLspWs と対で直す）
-			this.#mPrj.get(removed.uri.path)?.dispose();
+			this.#mPrj.get(normFp(removed.uri.fsPath))?.dispose();
 		}
 		this.#emPrjTD.fire(undefined);
 	}
@@ -487,9 +497,9 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 	onRequest(hd: T_ALL_S2L_WS) {
 // console.log(`056 fn:WorkSpaces.ts ⬇ onRequest hd.cmd:${hd.cmd} hd.pathWs=${hd.pathWs}=`);
-		// TODO: 辱コード
-		const prj = this.#mPrj.get((is_win ?'/c:' :'')+ hd.pathWs);
-//		const prj = this.#mPrj.get(hd.pathWs);
+		// ✅ 2026-09-13 決着：LSP 側が vscode-uri で FULL_PATH（normFp）に
+		// 統一されたため、拡張側との表現差を吸収する変換は不要になった
+		const prj = this.#mPrj.get(hd.pathWs);
 		if (! prj) {
 			console.error(`fn:WorkSpaces.ts onRequest 'project ${hd.pathWs} does not exist'`);	// 本番でも【出力】-【ログ（ウインドウ）】に出力される
 			return;
@@ -504,13 +514,12 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 
 
 	#makePrj(wsFld: WorkspaceFolder) {
-		const vfpWs = wsFld.uri.path;
-		const pathWs = vsc2fp(vfpWs);
-// console.log(`010 fn:WorkSpaces.ts #makePrj  vfpWs=${vfpWs}=`);
+		const pathWs = normFp(wsFld.uri.fsPath);
+// console.log(`010 fn:WorkSpaces.ts #makePrj  pathWs=${pathWs}=`);
 		if (! existsSync(pathWs +'/package.json')
 		|| ! existsSync(pathWs +'/doc/prj/prj.json')) return;
 
-		this.#mPrj.set(vfpWs, new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, (o: T_ALL_L2S)=> this.#req2LSP(wsFld.uri, o)));
+		this.#mPrj.set(pathWs, new Project(this.ctx, this.actBar, wsFld, this.#aTiRoot, this.#emPrjTD, this.#hOnEndTask, (o: T_ALL_L2S)=> this.#req2LSP(wsFld.uri, o)));
 	}
 
 	#hOnEndTask = new Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>([]);

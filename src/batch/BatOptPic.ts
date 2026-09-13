@@ -7,6 +7,7 @@
 
 import type {T_E2V_NOTICE_COMPONENT, T_BJ_OPTPIC} from '../types';
 import {creBJ_OPTPIC} from '../types';
+import type {FULL_PATH} from '../CmnLib';
 import {chkUpdate, foldProc, getFn, replaceFile} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
 import type {PrjCmn} from '../PrjCmn';
@@ -15,6 +16,12 @@ import {resolve, parse} from 'node:path';
 import {window, ProgressLocation, type Progress, type CancellationToken} from 'vscode';
 import {existsSync} from 'node:fs';
 import {mkdirsSync, move, readJson, readJsonSync, remove, writeJson} from 'fs-extra/esm';
+
+// ⚠️ resolve() は OS ネイティブの区切り文字を使うため、Windows では戻り値に
+// '\' が混ざる。foldProc/treeProc の正規化と食い違うが、このファイルは
+// パス表現の整理（src/docs/build.md §3.10）のスコープ外（要再検討）。
+// ひとまず型だけ揃えるためのラッパー
+const rsv = (...a: string[]): FULL_PATH=> <FULL_PATH>resolve(...a);
 
 
 export const PROC_ID_PIC = 'cnv.mat.pic';
@@ -128,12 +135,12 @@ export class BatOptPic {
 			case 'enable':		// 変換有効化
 				mkdirsSync(this.pc.PATH_PRJ_BASE);
 				foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					foldProc(resolve(this.pc.PATH_PRJ, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ, dir), (url, nm)=> {
 						// 退避素材フォルダに元素材を移動
 						if (REG_EXT_ORG.test(nm)) {
-							aP.push(()=> this.#cnv(url, resolve(wdBase, nm)));
+							aP.push(()=> this.#cnv(url, rsv(wdBase, nm)));
 							return;
 						}
 
@@ -160,20 +167,20 @@ export class BatOptPic {
 
 			case 'disable':		// 変換無効化
 				foldProc(this.pc.PATH_PRJ_BASE, ()=> { /* empty */ }, dir=> {
-					foldProc(resolve(this.pc.PATH_PRJ_BASE, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ_BASE, dir), (url, nm)=> {
 						if (! REG_EXT_ORG.test(nm)) return;
 
 						// 対応する素材ファイルが無い場合、削除しないように
-						const urlPrj = resolve(this.pc.PATH_PRJ, dir, nm);
+						const urlPrj = rsv(this.pc.PATH_PRJ, dir, nm);
 						aP.push(()=> move(url, urlPrj, {overwrite: true}));
 						const {name} = parse(nm);
-						const delDest = resolve(this.pc.PATH_PRJ, dir, name +'.webp');
+						const delDest = rsv(this.pc.PATH_PRJ, dir, name +'.webp');
 						aP.push(()=> remove(delDest));
 					}, ()=> { /* empty */ });
 				});
 
 				foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-					foldProc(resolve(this.pc.PATH_PRJ, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ, dir), (url, nm)=> {
 						// htm置換・(true/*WEBP*/)
 						if (REG_EXT_HTML.test(nm)) {
 							REG_REP_WEBPFLAG.lastIndex = 0;	// /gなので必要
@@ -204,8 +211,8 @@ export class BatOptPic {
 
 				for (const {ext, fld_nm} of Object.values(this.oBJ.hSize)) {
 					aP.push(()=> this.#cnv(
-						resolve(this.pc.PATH_PRJ, fld_nm + '.'+ ext),
-						resolve(this.pc.PATH_PRJ_BASE, fld_nm + '.'+ ext),
+						rsv(this.pc.PATH_PRJ, fld_nm + '.'+ ext),
+						rsv(this.pc.PATH_PRJ_BASE, fld_nm + '.'+ ext),
 						false,
 					));
 				}
@@ -216,9 +223,9 @@ export class BatOptPic {
 
 				mkdirsSync(this.pc.PATH_PRJ_BASE);
 				foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					foldProc(resolve(this.pc.PATH_PRJ, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ, dir), (url, nm)=> {
 						// 退避素材フォルダに元素材を移動
 						if (REG_EXT_ORG.test(nm)) {
 							// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
@@ -231,7 +238,7 @@ export class BatOptPic {
 							}
 
 							// 変換
-							aP.push(()=> this.#cnv(url, resolve(wdBase, nm)));
+							aP.push(()=> this.#cnv(url, rsv(wdBase, nm)));
 							return;
 						}
 
@@ -260,13 +267,13 @@ export class BatOptPic {
 				this.#log_enter(this.pc.PATH_PRJ, this.pc.PATH_PRJ_BASE);
 
 				foldProc(this.pc.PATH_PRJ_BASE, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					const wdPrj = resolve(this.pc.PATH_PRJ, dir);
+					const wdPrj = rsv(this.pc.PATH_PRJ, dir);
 					foldProc(wdBase, (url, nm)=> {
 						if (! REG_EXT_ORG.test(url)) return;
 
-						const toPath = resolve(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
+						const toPath = rsv(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
 						if (! chkUpdate(url, toPath)) return;
 
 						// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
@@ -344,7 +351,7 @@ export class BatOptPic {
 		prg.report({message: '完了'});
 	}
 	//MARK: コア変換処理
-	async #cnv(pathPrj: string, pathBase: string, do_move = true) {
+	async #cnv(pathPrj: FULL_PATH, pathBase: FULL_PATH, do_move = true) {
 		if (do_move) await move(pathPrj, pathBase, {overwrite: true});
 
 		this.oBJ.aOrder.push({
@@ -355,13 +362,13 @@ export class BatOptPic {
 
 
 	//MARK: ログ準備
-	#log_enter(curPrj: string, curPrjBase: string) {
+	#log_enter(curPrj: FULL_PATH, curPrjBase: FULL_PATH) {
 		const o = this.oBJ;
 		for (const [fn, of] of Object.entries(this.oBJ.hSize)) {
 			const {fld_nm, ext, baseSize, webpSize} = of;
 			const pp = fld_nm + '.'+ ext;
-			if (existsSync(resolve(curPrj, pp))
-			|| existsSync(resolve(curPrjBase, pp))) o.hSize[fn] = of;
+			if (existsSync(rsv(curPrj, pp))
+			|| existsSync(rsv(curPrjBase, pp))) o.hSize[fn] = of;
 			else {
 				o.sum.baseSize -= baseSize;
 				o.sum.webpSize -= webpSize;

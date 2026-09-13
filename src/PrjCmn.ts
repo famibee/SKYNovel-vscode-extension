@@ -6,14 +6,14 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, PROJECT_PATH, T_PKG_JSON, WORKSPACE_PATH} from './CmnLib';
-import {cnvPM, vsc2fp} from './CmnLib';
+import {cnvPM, normFp} from './CmnLib';
 import {PRE_TASK_TYPE} from './WorkSpaces';
 import type {HDiff} from './HDiff';
 import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, type TASK_TYPE} from './PrjTreeItem';
 
-import type {ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, Uri, WorkspaceFolder} from 'vscode';
-import {ProgressLocation, window, tasks, Task, ShellExecution} from 'vscode';
+import type {ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
+import {ProgressLocation, window, tasks, Task, ShellExecution, Uri} from 'vscode';
 import {copySync, existsSync, readJsonSync} from 'fs-extra';
 
 
@@ -54,18 +54,19 @@ type T_QSeq = {
 //MARK: プロジェクトごとの共通情報委譲クラス
 // 関数ではなく状態やプロパティが必要なメソッドごと保持
 export class PrjCmn {
-	readonly	URI_WS;
+	/** ワークスペースフォルダの Uri。相対パスから Uri を作るときは uri4pp()/uri4wp() を使い、裸で持ち出さない */
+	readonly	uriWs		: Uri;
 
-	readonly	PATH_WS;
+	readonly	PATH_WS		: FULL_PATH;
 	readonly	LEN_PATH_WS;
-	readonly	PATH_PRJ;
+	readonly	PATH_PRJ	: FULL_PATH;
 	readonly	LEN_PATH_PRJ;
 
 	readonly	IS_NEW_TMP;
 	readonly	FLD_SRC;
-	readonly	PATH_PLG_PRE;
+	readonly	PATH_PLG_PRE	: FULL_PATH;
 
-	readonly	PATH_PRJ_BASE;
+	readonly	PATH_PRJ_BASE	: FULL_PATH;
 	readonly	LEN_PATH_PRJ_BASE;
 
 	readonly	wss			: Memento;
@@ -79,25 +80,29 @@ export class PrjCmn {
 		readonly wsFld		: WorkspaceFolder,
 		readonly hOnEndTask	: Map<TASK_TYPE, (e: TaskProcessEndEvent)=> void>,
 	) {
-		this.URI_WS = wsFld.uri.toString();
+		this.uriWs = wsFld.uri;
 
-		this.PATH_WS = vsc2fp(wsFld.uri.path);
+		this.PATH_WS = normFp(wsFld.uri.fsPath);
 		this.LEN_PATH_WS = this.PATH_WS.length;
 
-		this.PATH_PRJ = `${this.PATH_WS}/doc/prj/`;
+		this.PATH_PRJ = <FULL_PATH>`${this.PATH_WS}/doc/prj/`;
 		this.LEN_PATH_PRJ = this.PATH_PRJ.length;
 
 		this.IS_NEW_TMP = existsSync(`${this.PATH_WS}/src/plugin/`);
 		this.FLD_SRC = this.IS_NEW_TMP ?'src' :'core';	// src なら 2025 新テンプレ
-		this.PATH_PLG_PRE = `${this.PATH_WS}/${this.FLD_SRC}/plugin/snsys_pre/`;
+		this.PATH_PLG_PRE = <FULL_PATH>`${this.PATH_WS}/${this.FLD_SRC}/plugin/snsys_pre/`;
 
-		this.PATH_PRJ_BASE = `${this.PATH_WS}/${this.FLD_SRC}/${FLD_PRJ_BASE}/`;
+		this.PATH_PRJ_BASE = <FULL_PATH>`${this.PATH_WS}/${this.FLD_SRC}/${FLD_PRJ_BASE}/`;
 		this.LEN_PATH_PRJ_BASE = this.PATH_PRJ_BASE.length;
 
 		this.wss = ctx.workspaceState;
 	}
 	fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.LEN_PATH_PRJ)}
 	fp2wp(fp: FULL_PATH): WORKSPACE_PATH {return fp.slice(this.LEN_PATH_WS)}
+
+	/** 基準（uriWs）から導出する。相対パスを裸で外へ出さないための唯一の口 */
+	uri4pp(pp: PROJECT_PATH): Uri {return Uri.joinPath(this.uriWs, 'doc/prj', pp)}
+	uri4wp(wp: WORKSPACE_PATH): Uri {return Uri.joinPath(this.uriWs, wp)}
 
 	src2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.LEN_PATH_PRJ_BASE)}
 

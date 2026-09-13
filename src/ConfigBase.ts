@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {int} from './CmnShare';
+import {int, type FULL_PATH} from './CmnShare';
 
 export const enum SEARCH_PATH_ARG_EXT {	// #searchPath 使用時、第二引数用
 	DEFAULT	= '',
@@ -133,7 +133,7 @@ export type T_SysRoots = {
 	hash(str: string): string;
 }
 export type T_HSysBaseArg = {
-	cur		: string;
+	cur		: FULL_PATH;
 	crypto	: boolean;
 	dip?	: string;
 }

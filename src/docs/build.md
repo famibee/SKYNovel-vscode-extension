@@ -84,136 +84,69 @@ VSCodium / Theia 等からの不具合報告を引き受けることになり、
 
 ---
 
-## 3.10. パス表現の整理【方針決定・2026-07-30。構造の作り直しの2番目】
+## 3.10. パス表現の整理【Stage 1 決着・実装済み・2026-09-13】
 
-✅ **`URI` オブジェクト化で合意済み（作者確認・2026-07-30）。**
-**§3.6 より先にやる**（あちらの一部はここで消えるため）。順序は残件一覧を参照。
+✅ **`FULL_PATH` をブランド型化し、`URI`/`vscode-uri` を境界で使う形に統一した。**
+旧4型のうち `FULL_SCH_PATH`（URI文字列）は**拡張機能側では全廃**、
+`FULL_PATH` は `string & {readonly __brand: 'FULL_PATH'}` に変更。
+手書き変換5本（`fullSchPath2fp` / `fp2fullSchPath` / `uri2path` / `vsc2fp` / `fp2osp`）は
+`uri2path` / `vsc2fp` / `fp2osp` を完全削除、`fullSchPath2fp` / `fp2fullSchPath` も
+LSP側の書き換え完了に伴い実質不要になった（`CmnShare.ts` に定義だけ残存）。
 
-### いま何が起きているか
-
-[src/CmnShare.ts:41](../CmnShare.ts:41) に**パスの型が4つ**ある。
-分けた動機は正しい（下記）。**問題は分けたことではなく、分けたつもりになっていること。**
-
+**核となる設計**（[src/CmnShare.ts](../CmnShare.ts)）：
 ```ts
-export type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
-export type PROJECT_PATH	= string;	// script/main.sn
-export type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
-export type FULL_SCH_PATH	= string;	// file://c:\[user]\.../[prj]/doc/prj/
+export type FULL_PATH = string & {readonly __brand: 'FULL_PATH'};
+
+export const normFp = is_win
+	? (fsPath: string): FULL_PATH=> fsPath.replaceAll('\\', '/') as FULL_PATH
+	: (fsPath: string): FULL_PATH=> fsPath as FULL_PATH;
+
+export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean { … }
 ```
+`FULL_PATH` の代表表現は**ドライブ付き・`/` 区切り**（win: `c:/Users/x/ws`）。
+入口は必ず `.fsPath`（`.path` ではない。`fsPath` はドライブ文字を小文字に統一するため
+大小比較の揺れが出ない）。LSP側は `vscode-uri` の `URI.parse(uri).fsPath` を
+同じ `normFp()` に通すことで、拡張機能側と完全に同じ表現になる
+（[server/src/LspWs.ts](../../server/src/LspWs.ts) の `uri2fp()`）。
 
-**4つとも `string` の別名なので、型検査は何も守ってくれない。** TypeScript の
-`type X = string` は string そのものなので、**どれをどこへ渡しても通る**。
-⇒ **§3.6 の不具合2（LSP が解放されない）はこの直接の帰結**：
+**解消した実害・不具合**：
+- ✅ **Windows で D ドライブのプロジェクトが扱えない** → 代表表現がドライブ付きになり解消
+- ✅ **フォルダ名に空白があるとサムネイルが作れない**（`%20` 未復元） →
+  `uri2path` 廃止・`Uri.fsPath` 直用で解消
+- ✅ **§3.6 不具合2（`mLspWs` の delete 漏れでLSPが解放されない）** →
+  set/delete 双方を `uri2fp()` に統一し、`destroy()` 呼び出しも追加
+- ✅ **新規発見・Windowsで `mLspWs.get()` が常に外れるバグ**
+  （`fullSchPath2fp(uriWs.path)` が `uriWs.path` に `file://` が付かないため
+  正規表現が一致せずドライブが残る一方、サーバー側キーはドライブなしで生成される
+  不一致）→ 拡張・LSP双方を `normFp` ベースに統一して解消
+- ✅ **Windowsでホバーが外れるバグ**（`docs.get()` のキーが `fp2fullSchPath` 手書き生成で
+  実際のクライアントURI文字列と不一致）→ `vscode-uri` の `URI.file().toString()` に統一
+- ✅ **`#sendDiag` がmacではスキームなしでURIを送っていた** → 同上で解消
+- ⚠️ **§3.6 不具合6（区切りを見ない前方一致）** は型統一のみ実施、
+  最長一致化は未着手（構造の作り直し #C-1 として残る。詳細は下記）
 
-```ts
-mLspWs.set(fullSchPath2fp(wf.uri), …)   // 鍵は FULL_PATH
-mLspWs.delete(uri)                       // 渡しているのは FULL_SCH_PATH
-```
+**ブランド型は前倒しで採用**（作者判断・2026-09-13）。当初 Stage 2 として
+「急がない」としていたが、生 string が紛れ込んでも型検査に掛からないという
+最大リスクをコンパイラに肩代わりさせるため、`FULL_PATH` のみ先に導入した。
+`WORKSPACE_PATH` / `PROJECT_PATH` は string のまま（Stage 2 のまま据え置き）。
 
-**書いた本人の意図としては明白な間違いなのに、コンパイラは一言も言わない。**
+### 未着手・今後の宿題
 
-### 変換が手書きで、互いに食い違っている【実測・2026-07-30】
+- **前方一致の最長一致化**（`LangSrv.ts` の `getLspWs()`、`WorkSpaces.ts` の
+  `#prjOfActiveEditor()`）。区切り判定（`isUnderPath`）までは統一済みだが、
+  入れ子ワークスペースでの誤判定は残る（§3.6 不具合6）
+- **`ws-file://` 独自スキームの完全廃止**。LSP側は通常の `file:` URI を返すよう
+  変更済みだが、拡張側 `WorkSpaces.ts` の `openURL()` の `case 'ws-file'` は
+  死コードとして残っている
+- **`Debugger.ts` の `#hcurPrj2Dbg` 鍵生成統一**（set/get/deleteで3種の鍵形式が
+  混在。パス表現の整理とは独立した話だが、同種のバグ）
 
-変換は5本ある（`fullSchPath2fp` / `fp2fullSchPath` / `uri2path` / `vsc2fp` / `fp2osp`）。
-同じ入力を通して確かめた：
+### Windows実機確認が必要な項目（mac側テストでは検証できない）
 
-| 入力（VSCode の `uri.toString()`） | `fullSchPath2fp` | `uri2path` |
-|---|---|---|
-| `file:///d%3A/work/novel/a.sn` | `/work/novel/a.sn` | `/d%3A/work/novel/a.sn` |
-| `file:///Users/ugai/my%20novel/a.sn` | `/Users/ugai/my novel/a.sn` | `/Users/ugai/my%20novel/a.sn` |
-
-- 🐛 **`uri2path` は `%20` を戻さない。** `slice(7)` で先頭7文字を落とすだけ。
-唯一の呼び出し元は [Project.ts:646](../Project.ts:646) の
-`imageSizeFromFile(uri2path(vfpImg))` ⇒ **フォルダ名に空白があるとサムネイルが作れない**
-- 🐛 **Windows のドライブ文字が消える。** `fullSchPath2fp` は `d:` ごと落とす。
-戻す `fp2fullSchPath` は **`'file://c:'` を決め打ち**なので、**D ドライブが C になる**
-- 🐛 **`file://` のスラッシュ数も食い違う。** `fp2fullSchPath` は `file://c:`、
-[LspWs.ts:849](../../server/src/LspWs.ts:849) は `file:///c:`
-- 🐛 **C ドライブ決め打ちが3箇所**（上記2つ＋[WorkSpaces.ts:491](../WorkSpaces.ts:491)）
-- ⚠️ `fp2osp` は `resolve()` ＝**カレントドライブ**で補う。CmnLib.ts にその旨コメントがある。
-⇒ **Windows では「プロジェクトが VSCode と同じドライブにある」前提**で動いている
-
-### 他はどうしているか【調査済み】
-
-**VS Code 本体・拡張機能の答えは `Uri` オブジェクト。** 文字列を切り貼りしない。
-`uri.fsPath` で OS のパスを、`uri.toString()` で URI を得る。
-ドライブ文字・パーセントエンコード・区切りの差は**全部その中に閉じている**。
-
-**LSP サーバ側の答えは [`vscode-uri`](https://github.com/microsoft/vscode-uri)。**
-Microsoft 製で「VS Code とその拡張機能が使っている URI 実装」そのもの。
-`vscode` モジュールに依存できないサーバのために独立配布されている
-（`URI.parse` / `URI.file` / `URI.toString` と、`Utils.joinPath` などのパス演算）。
-**まさに本プロジェクトの状況のために存在するパッケージ。**
-
-**相対パスの扱いの定石**：**保存せず、必要なときに基準から導出する。**
-相対パスが基準から離れて単独で持ち回られると、どの基準のものか分からなくなる。
-
-### 提案（私見。判断待ち）
-
-**「4つを減らす」のではなく、「URI だけをオブジェクトにする」。** これが一番効く。
-
-| | いま | 提案 |
-|---|---|---|
-| URI 形式 | `FULL_SCH_PATH`（string） | **`URI` オブジェクト** |
-| OS のパス | `FULL_PATH`（string） | そのまま string |
-| ワークスペース相対 | `WORKSPACE_PATH`（string） | そのまま string |
-| プロジェクト相対 | `PROJECT_PATH`（string） | そのまま string |
-
-**利点：ブランド型のような大掛かりな仕掛けが要らない。**
-オブジェクトは string に代入できないので、**上の `mLspWs.delete(uri)` は
-その場でコンパイルエラーになる。** 型の付け替えではなく、
-**表現そのものを変える**ので、うっかりが構造的に起きなくなる。
-
-同時に**手書き変換5本を捨てられる**（ドライブ決め打ちも `%20` 事故も消える）。
-LSP のプロトコル上は文字列（`DocumentUri`）なので、
-**入口で `URI.parse()`、出口で `.toString()`** ＝ 境界だけで変換する。
-
-**相対2種は残してよい。** 動機（プロジェクト素材は prj をルートに見たい）は正当で、
-[LspWs.ts](../../server/src/LspWs.ts) の `#fp2pp` / `#pp2fp` は
-**基準（`#PATH_PRJ`）を持つ側が変換する**という正しい形になっている。
-決めるべきは1つだけ：**相対パスは、基準を知っている入れ物の外へ裸で出さない。**
-出すときは URI にするか、基準と対で渡す。
-
-**残る string 同士（`FULL_PATH` / `WORKSPACE_PATH` / `PROJECT_PATH`）の取り違えは
-まだ検出できない。** 必要ならブランド型（`string & {readonly [B]: 'FULL_PATH'}`）で
-名前的に区別できる。ランタイム費用は0だが、**境界すべてにキャストが要る**ので
-別段階にする。上の変更で危険度の高い組み合わせは消えるため、**急がない。**
-
-### この整理で消えるもの／消えないもの
-
-**混同しないこと。** 「根を直せば全部消える」ではない。
-
-| §3.6 の項目 | この整理をすると |
-|---|---|
-| **不具合2**（鍵の型違いで LSP が解放されない） | ✅ **消える。** 鍵が `URI` オブジェクトになれば、生の文字列を `delete()` に渡した時点でコンパイルエラー |
-| **不具合6**（区切りを見ない前方一致） | ⚠️ **自動では消えない。** ただし**直す場所がここに定まる**。「この URI はこの URI の配下か」を判定する関数を1つ置き、[LangSrv.ts:29](../../server/src/LangSrv.ts:29) と [WorkSpaces.ts:381](../WorkSpaces.ts:381) の**両方をそれに寄せる**（いまは同じ間違いが2箇所に複製されている） |
-| **不具合3・4・5**（delete 漏れ／ツリー行／まとめて追加） | ❌ **無関係。** パスの話ではないので、そのまま残る |
-| **リソース解放5件** | ❌ **無関係** |
-
-⇒ **この整理の直接の成果は「不具合2が構造的に起きなくなる」ことと、
-下の3つの実害が消えること。** 残りは §3.6 でそのまま直す。
-
-### この整理で直る実害（利用者に見える分）
-
-1. **Windows で D ドライブのプロジェクトが扱えない**（ドライブ文字が落ち、C 決め打ちで戻る）
-2. **フォルダ名に空白があるとサムネイルが作れない**（`%20` が戻らない）
-3. **`file://` のスラッシュ数・C 決め打ちの食い違い**（3箇所）
-
-⚠️ **1 と 2 は「直った」と言う前に実機確認が要る。**
-1 は Windows で D ドライブに置く（[testing.md](testing.md) の Windows テスト）。
-2 は mac でもフォルダ名に空白を入れれば再現するので、**先に確認できる**。
-
-### 段取り
-
-- **Stage 1**：`URI` オブジェクト化と手書き変換5本の削除。`vscode-uri` を server の
-dependencies へ（Microsoft 製・`vscode` 非依存）
-- **Stage 2**：必要ならブランド型。**急がない**（危険度の高い組み合わせは Stage 1 で消える）
-
-⚠️ **規模は小さくない。** `vsc2fp` 27箇所・`fullSchPath2fp` 22箇所を含め、
-**LSP のプロトコル境界に触る**。**単独の版で。8/23 の再申請をまたがないこと**（残件一覧）。
-
-⚠️ **`vscode-uri` を足すと同梱物が増える。** §3.5 で 4割減らしたばかりなので、
-**`bun run release` の前後で vsix サイズを見ておく**（手書き変換5本が消える分は減る）。
+D ドライブでの起動・空白入りフォルダ名でのサムネイル・ホバーの `%3A` 一致・
+診断表示位置・`revealFileInOS`／`env.openExternal`・pyftsubsetへの `c:/` パス・
+タスク実行のシェル連結・マルチルートでのLspWs解放。次のWindows機会に
+[testing.md](testing.md) の手順で確認すること。
 
 
 ---

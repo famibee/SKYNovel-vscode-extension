@@ -7,7 +7,7 @@
 
 import type {T_V2E_CFG, T_E2V_CFG, T_E2V, T_V2E, T_E2V_INIT, T_E2V_NOTICE_COMPONENT, TK_WSS} from './types';
 import {DEF_WSS} from './types';
-import {chkBoolean, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {chkBoolean, replaceRegsFile, repWvUri, type FULL_PATH, type T_PKG_JSON} from './CmnLib';
 import {ActivityBar, getNonce} from './ActivityBar';
 import type {Config} from './Config';
 import {openURL} from './WorkSpaces';
@@ -33,12 +33,12 @@ export class PrjSetting implements Disposable {
 	get			oWss() {return this.#oWss}
 
 	readonly	#PATH_PRJ_JSON	: string;
-	readonly	#PATH_APP_JS	: string;
-	readonly	#PATH_PKG_JSON	: string;
+	readonly	#PATH_APP_JS	: FULL_PATH;
+	readonly	#PATH_PKG_JSON	: FULL_PATH;
 
-	readonly	#PATH_INS_NSH		: string;
+	readonly	#PATH_INS_NSH		: FULL_PATH;
 	readonly	#PATH_ICON			: string;
-	readonly	#PATH_README4FREEM	: string;
+	readonly	#PATH_README4FREEM	: FULL_PATH;
 	readonly	#uriRes: Uri;
 
 				#htmSrc	= '';
@@ -75,14 +75,14 @@ export class PrjSetting implements Disposable {
 		this.#oWss = oWss;
 
 		this.#PATH_PRJ_JSON = this.pc.PATH_PRJ +'prj.json';
-		this.#PATH_APP_JS = this.pc.PATH_WS +'/doc/app.js';
-		this.#PATH_PKG_JSON = this.pc.PATH_WS +'/package.json';
+		this.#PATH_APP_JS = <FULL_PATH>(this.pc.PATH_WS +'/doc/app.js');
+		this.#PATH_PKG_JSON = <FULL_PATH>(this.pc.PATH_WS +'/package.json');
 
 		this.#pnlWVFolder = new WPFolder(this.pc);
 		this.#stgSn = new WfbSettingSn(this.pc, reqPrj2LSP, cfg);
 
-		this.#PATH_README4FREEM = this.pc.PATH_WS +'/build/include/readme.txt';
-		this.#PATH_INS_NSH = this.pc.PATH_WS +'/build/installer.nsh';
+		this.#PATH_README4FREEM = <FULL_PATH>(this.pc.PATH_WS +'/build/include/readme.txt');
+		this.#PATH_INS_NSH = <FULL_PATH>(this.pc.PATH_WS +'/build/installer.nsh');
 		this.#PATH_ICON = this.pc.PATH_WS +'/build/icon.png';
 
 		// setEscape();	// 非同期禁止
@@ -310,7 +310,7 @@ export class PrjSetting implements Disposable {
 			await writeFile(this.#PATH_PKG_JSON, JSON.stringify(p, null, '\t'));
 
 			// src/main/main.ts, doc/app.js
-			if (this.pc.IS_NEW_TMP) replaceRegsFile(this.pc.PATH_WS +'/src/main/main.ts', [
+			if (this.pc.IS_NEW_TMP) replaceRegsFile(<FULL_PATH>(this.pc.PATH_WS +'/src/main/main.ts'), [
 			[	// ついでに発表年を
 				/(pkg.appCopyright \+' )\d+/,
 				`$1${String(CopyrightYear)}`

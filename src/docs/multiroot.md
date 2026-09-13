@@ -27,25 +27,19 @@
 | # | 何が起きるか | どこ | 重さ |
 |---|---|---|---|
 | 1 | ✅ **決着済み・2026-09-13**（別プロジェクトの設定でファイルが暗号化される） | [WatchFile.ts:31](../batch/WatchFile.ts:31) | **最重**（[file-watch.md](file-watch.md)(A) と同一。あちらに詳細） |
-| 2 | **フォルダを閉じても LSP が解放されない** | [LangSrv.ts:94](../../server/src/LangSrv.ts:94) | 大 |
+| 2 | ✅ **決着済み・2026-09-13**（フォルダを閉じても LSP が解放されない） | [LangSrv.ts](../../server/src/LangSrv.ts) | 大（[build.md](build.md) §3.10 と同一。あちらに詳細） |
 | 3 | **フォルダを閉じても Project が残り続ける** | [WorkSpaces.ts:467](../WorkSpaces.ts:467) | 大 |
 | 4 | **フォルダを閉じると、閉じたのと別の行がツリーから消える** | [WorkSpaces.ts:464](../WorkSpaces.ts:464) | 中・**必ず起きる** |
 | 5 | **フォルダを2つ以上まとめて追加すると1つしか認識しない** | [WorkSpaces.ts:458](../WorkSpaces.ts:458) | 中 |
-| 6 | **名前が前方一致するプロジェクトへ誤配される** | [LangSrv.ts:29](../../server/src/LangSrv.ts:29) / [WorkSpaces.ts:381](../WorkSpaces.ts:381) | 中・条件付き |
+| 6 | ⚠️ **一部進捗・2026-09-13**（名前が前方一致するプロジェクトへ誤配される） | [LangSrv.ts:31](../../server/src/LangSrv.ts:31) / [WorkSpaces.ts:389](../WorkSpaces.ts:389) | 中・条件付き |
 
 ### 個別
 
-#### 🐛 2. フォルダを閉じても LSP が解放されない【キーの型違い】
+#### ✅ 2. フォルダを閉じても LSP が解放されない【決着・実装済み・2026-09-13】
 
-```ts
-mLspWs.set(fullSchPath2fp(wf.uri), …)   // 鍵は file:// を外したパス
-mLspWs.delete(uri)                       // 消すときは file:// 付きのまま
-```
-
-**鍵の作り方が set と delete で違う**ので、`delete` は**永久に一致しない**。
-⇒ 閉じたフォルダの `LspWs` が残る。持っているのは**全スクリプト本文＋パース結果**
-（実プロジェクトで約177KB／§3.7 の測定）なので、開き直すたびに積み上がる。
-さらに 6 の前方一致と重なると、**閉じたはずのプロジェクトへ問い合わせが流れうる。**
+旧実装は鍵の作り方が set と delete で違い（`fullSchPath2fp(wf.uri)` vs 生の
+`uri`）、`delete` が永久に一致しなかった。`build.md` §3.10 の vscode-uri 移行で
+両者を `uri2fp()` に統一し、`destroy()` 呼び出しも追加して解消（詳細は build.md）。
 
 #### 🐛 3. フォルダを閉じても Project が残り続ける【dispose だけで delete していない】
 
@@ -94,21 +88,25 @@ if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);   // 「最後の�
 
 ⇒ `e.added` / `e.removed` を**素直に全部回す**のが正しい。
 
-#### ⚠️ 6. 名前が前方一致するプロジェクトへ誤配される【区切りを見ていない】
+#### ⚠️ 6. 名前が前方一致するプロジェクトへ誤配される【一部進捗・2026-09-13】
 
 ```ts
-[...mLspWs.keys()].find(wsFld=> fp.startsWith(wsFld))   // LangSrv.ts
-if (vfp.startsWith(vfpWs)) return prj;                  // WorkSpaces.ts
+[...mLspWs.keys()].find(wsFld=> isUnderPath(fp, wsFld))   // LangSrv.ts（区切りは見るようになった）
+if (fp.startsWith(pathWs)) return prj;                    // WorkSpaces.ts #prjOfActiveEditor() のみ未導入
 ```
 
-区切り記号を見ていないので、**`/work/novel` は `/work/novel2` のファイルにも一致する。**
-先に見つかった方が勝つので、**ホバー・補完・診断が隣のプロジェクトの内容で出る。**
+build.md §3.10 のパス表現整理で `isUnderPath()`（区切りを見る判定）を導入した。
+`LangSrv.ts` の `getLspWs()` と、`WorkSpaces.ts` の `provideDocumentDropEdits()` /
+`provideHover()` / `skynovel.opView` コマンドはこれに寄せた。**`#prjOfActiveEditor()`
+だけ旧来の `startsWith()` のまま**残っている（TODOコメントも残置）。
+また、**どちらも「最長一致」は未実装**（`find()` は最初に一致したものを返すので、
+入れ子ワークスペースでは外側が先に当たると内側の結果を返せない）。
 
 - 発生条件は「**片方の絶対パスがもう片方の先頭と一致する**」こと。
-`novel` と `novel2`、`main` と `main_old` のような**ありふれた名前で踏む**
-- **入れ子**（`/work` と `/work/sub` の両方を開く）でも同じ
-- 直すなら `fp.startsWith(wsFld + '/')`。あわせて**最長一致を採る**
-（入れ子では内側が正しい）
+**入れ子**（`/work` と `/work/sub` の両方を開く）で特に踏みやすい
+（`novel`/`novel2` のような名前一致は `isUnderPath` 導入箇所では解消済み）
+- 残作業：`#prjOfActiveEditor()` も `isUnderPath` に寄せる／全箇所で**最長一致**を採る
+（構造の作り直し #C-1 として TODO.md に計上予定）
 
 ### リソースの解放【調査済み・2026-07-29】
 
@@ -120,7 +118,7 @@ if (vfp.startsWith(vfpWs)) return prj;                  // WorkSpaces.ts
 | 1 | **ファイル監視オブジェクトが1つも捨てられていない**（プロジェクトあたり9本） | [WatchFile.ts:199](../batch/WatchFile.ts:199) ほか |
 | 2 | **プロジェクト単位の登録が「拡張機能の寿命」の側に積まれている** | `ctx.subscriptions` を使う7箇所 |
 | 3 | **`PrjSetting.dispose()` が空回り**。設定画面とフォルダ画面が閉じない | [PrjSetting.ts:150](../PrjSetting.ts:150) |
-| 4 | **`initOnce()` が登録の戻り値を捨てている** | [WatchFile.ts:39](../batch/WatchFile.ts:39) |
+| 4 | **`initOnce()` が登録の戻り値を捨てている** | [WatchFile.ts:47](../batch/WatchFile.ts:47) |
 | 5 | **破棄時にタイマーを止めていない** | 下記5箇所 |
 
 #### 1. 監視オブジェクトが捨てられていない

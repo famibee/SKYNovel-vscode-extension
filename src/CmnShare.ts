@@ -41,20 +41,39 @@ export const REQ_ID = ':SKYNovel:';	// これは server/src/LangSrv.ts に置く
 // =============== パス
 export type WORKSPACE_PATH	= string;	// doc/prj/script/main.sn
 export type PROJECT_PATH	= string;	// script/main.sn
-export type FULL_PATH		= string;	// /[user]/.../[prj]/doc/prj/script/main.sn
+// win: c:/[user]/.../[prj]/doc/prj/script/main.sn （ドライブ付き・'/'区切りが正）
+// mac: /[user]/.../[prj]/doc/prj/script/main.sn
+// ⚠️ 生の string を渡すと型エラーになる。必ず normFp() を通すこと
+export type FULL_PATH		= string & {readonly __brand: 'FULL_PATH'};
+
+/**
+ * `Uri.fsPath` / `URI.fsPath`（vscode-uri）から FULL_PATH を作る、唯一の入口。
+ * Windows の `fsPath` はバックスラッシュ区切り（例 `c:\Users\x\ws`）なので
+ * `/` 区切りに正規化する。**`.path` ではなく `.fsPath` を渡すこと**
+ * （`.fsPath` はドライブ文字が小文字に統一されるが `.path` は揺れる）
+ */
+export const normFp = is_win
+	? (fsPath: string): FULL_PATH=> <FULL_PATH>fsPath.replaceAll('\\', '/')
+	: (fsPath: string): FULL_PATH=> <FULL_PATH>fsPath;
+
+/** fp が dir 配下か（区切りを見た判定。前方一致だけの判定はしないこと） */
+export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean {
+	const d = <FULL_PATH>(dir.endsWith('/') ? dir : dir +'/');
+	return fp === d.slice(0, -1) || fp.startsWith(d);
+}
+
+// ⚠️ 以下3つは server/src がまだ使用中（vscode-uri 移行は§3.10 Stage1 B-2）。
+// 拡張機能側（src/）はこの3つを使わず normFp() に統一済み
 export type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/
 
 export function fullSchPath2fp(fsp: FULL_SCH_PATH): FULL_PATH {
-	return decodeURIComponent(fsp.replace(/file:\/\/(\/\w%3A)?/, ''));
+	return <FULL_PATH>decodeURIComponent(fsp.replace(/file:\/\/(\/\w%3A)?/, ''));
 }	// 似たような名前のメソッドになるので目立たせる
 	// 逆方向は難しそう、変換前の値は保存必要か
 
 export const fp2fullSchPath: (fp: FULL_PATH)=> FULL_SCH_PATH = is_win
 	? fp=> 'file://c:'+ encodeURI(fp)
 	: fp=> 'file://'+ encodeURI(fp);
-
-export function uri2path(p: string): string {return p.slice(7)}
-	// 'file://' を取る
 
 /**
  * 拡張子を除いたファイル名。`basename(path, extname(path))` と同じ結果を返すが、

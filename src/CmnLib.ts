@@ -9,7 +9,7 @@
 // 入出力を持たない共有部分は CmnShare.ts に。本体側の import を従来どおりに
 // 保つため、ここから再 export する（LSP は CmnShare.ts を直接 import すること）
 export * from './CmnShare';
-import type {FULL_PATH, FULL_SCH_PATH, WORKSPACE_PATH} from './CmnShare';
+import type {FULL_PATH, WORKSPACE_PATH} from './CmnShare';
 
 
 // =============== Global
@@ -113,32 +113,6 @@ export function repWvUri(inp: string, wv: Webview, uriDoc: Uri): string {
 
 // =============== Project
 
-
-
-
-export type VSC_FULL_PATH	= string;	// c:\[user]\...\[prj]\doc\prj\script\main.sn
-										// scheme つき
-
-export function vsc2fp(p: VSC_FULL_PATH): FULL_PATH {return p.replace(/(?:\/\w:)?/, '');}
-	// FULL_SCH_PATH は uri.path など
-	// 4win 先頭の【'/'+ ドライブ名（小文字）】を取って扱う用
-
-
-/**
- * OS（エクスプローラーや Finder）にパスを渡す直前に通す。
- * vsc2fp() が Windows でドライブ名を落としているため、そのまま Uri.file() すると
- * 【指定されたファイルが見つかりません。(0x2)】になったり、無反応になったりする。
- * Node.js の fs はカレントドライブで解決していて動くので、それに揃える
- * （macOS では絶対パスをそのまま返す）
- */
-export function fp2osp(fp: FULL_PATH): string {return resolve(fp)}
-
-//	docs.get(fsp) などにはこれが必要
-//NOTE: 雑コード
-
-
-
-
 /*
 // console.log(`fn:Project.ts drop scheme:${scheme} fp:${fp}: uri:${uri.toString()}: path=${path}= fsPath-${uri.fsPath}-`);
 
@@ -177,35 +151,39 @@ export const hDiagL2s	:{[code_name: string]: T_H_ADIAG} = {
 
 // 階層フォルダ逐次処理
 import {exec} from 'node:child_process';
-import {resolve} from 'node:path';
 import {readdirSync, existsSync, readFileSync, ensureFileSync, statSync, writeFileSync} from 'fs-extra';
 
 const REG_SYS_FN = /^(_notes|Icon\r|\.[^/]+|[^/]+\.(db|ini|git))$/;
 	// 6 matches (144 steps, 0.1ms)【\n 入注意】 https://regex101.com/r/uFkUrb/1
 
-export function treeProc(wd: FULL_SCH_PATH, fnc: (fp: FULL_PATH)=> void) {
+// ⚠️ resolve() ではなく wd への単純連結にすること。resolve() は OS ネイティブの
+// 区切り文字を使うため、Windows では wd が '/' 区切りでも結果に '\' が混ざる
+// （呼び出し元の正規表現が '/' 前提のため、混ざると壊れる）
+export function treeProc(wd: FULL_PATH, fnc: (fp: FULL_PATH)=> void) {
+	const base = <FULL_PATH>(wd.endsWith('/') ? wd : wd +'/');
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = d.name.normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
-		const fp = resolve(wd, nm);
+		const fp = <FULL_PATH>(base + nm);
 		if (d.isDirectory()) {treeProc(fp, fnc); continue;}
 
 		fnc(fp);
 	}
 }
 
-export function foldProc(wd: FULL_SCH_PATH, fnc: (fp: FULL_PATH, nm: string)=> void, fncFld: (nm: string)=> void) {
+export function foldProc(wd: FULL_PATH, fnc: (fp: FULL_PATH, nm: string)=> void, fncFld: (nm: string)=> void) {
+	const base = <FULL_PATH>(wd.endsWith('/') ? wd : wd +'/');
 	for (const d of readdirSync(wd, {withFileTypes: true})) {
 		const nm = d.name.normalize('NFC');
 		if (REG_SYS_FN.test(nm)) continue;
 		if (d.isDirectory()) {fncFld(nm); continue;}
 
-		const fp = resolve(wd, nm);
+		const fp = <FULL_PATH>(base + nm);
 		fnc(fp, nm);
 	}
 }
 
-export function replaceFile(src: FULL_SCH_PATH, r: RegExp, rep: string, verbose = true, dest = src): boolean {
+export function replaceFile(src: FULL_PATH, r: RegExp, rep: string, verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);
@@ -225,7 +203,7 @@ export function replaceFile(src: FULL_SCH_PATH, r: RegExp, rep: string, verbose 
 	return false;
 }
 
-export function replaceRegsFile(src: FULL_SCH_PATH, a: [r: RegExp, rep: string][], verbose = true, dest = src): boolean {
+export function replaceRegsFile(src: FULL_PATH, a: [r: RegExp, rep: string][], verbose = true, dest = src): boolean {
 	try {
 		if (! existsSync(src)) {
 			console.error(`No change, No replace src:${src}`);

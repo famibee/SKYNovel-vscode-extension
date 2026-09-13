@@ -6,7 +6,8 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_BJ_cut_round, T_V2E_CHG_RANGE_WEBP_Q, T_V2E_CHG_RANGE_WEBP_Q_DEF, T_V2E_selectFile} from '../types';
-import {getFn, vsc2fp, WORKSPACE_PATH} from '../CmnLib';
+import type {FULL_PATH} from '../CmnLib';
+import {getFn, normFp, WORKSPACE_PATH} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
 import {BatOptPic, PROC_ID_PIC} from './BatOptPic';
@@ -71,7 +72,7 @@ export class WfbOptPic extends WatchFile {
 		if (! this.pc.ps.oWss[PROC_ID_PIC]) return;
 
 		// 素材ファイルを追加・更新時、退避に上書き移動して最適化
-		const path = vsc2fp(uri.path);
+		const path = normFp(uri.fsPath);
 		const isBase = this.pc.isBaseUrl(path);
 		await this.#bat.go(isBase ?'base_scan' :'prj_scan');
 
@@ -91,7 +92,7 @@ export class WfbOptPic extends WatchFile {
 // console.log(`fn:WfbOptPic.ts onDelInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
 		if (! this.pc.ps.oWss[PROC_ID_PIC]) return true;
 
-		const path = vsc2fp(uri.path);
+		const path = normFp(uri.fsPath);
 		const isBase = this.pc.isBaseUrl(path);
 		if (! isBase) {
 			// 変換後ファイルを消したら退避ファイルも削除
@@ -164,8 +165,9 @@ export class WfbOptPic extends WatchFile {
 			canSelectFiles	: false,
 			canSelectFolders: false,
 		});
-		const src = fileUri?.[0]?.fsPath;
-		if (! src) return;	// キャンセル
+		const fsPath = fileUri?.[0]?.fsPath;
+		if (! fsPath) return;	// キャンセル
+		const src = normFp(fsPath);
 
 		const cmd2Vue = (err_mes: string)=> {void this.pc.ps.cmd2Vue({
 			cmd		: 'updpic',
@@ -195,10 +197,10 @@ export class WfbOptPic extends WatchFile {
 
 	//MARK: PSD から立ち絵素材生成・素材最適化・暗号化
 	async #onInitFacePsd(uri: Uri) {
-		const {fsPath} = uri;
+		const fsPath = normFp(uri.fsPath);
 // console.log(`fn:WfbOptPic.ts onInitFacePsd fsPath:${fsPath}`);
 		const hn = getFn(fsPath);
-		if (this.chkUpdateByDiff(fsPath, `${this.pc.PATH_PRJ}face/face${hn}.sn`)) await this.#onCreChgFacePsd(uri, false);
+		if (this.chkUpdateByDiff(fsPath, <FULL_PATH>`${this.pc.PATH_PRJ}face/face${hn}.sn`)) await this.#onCreChgFacePsd(uri, false);
 	}
 	//MARK: PSD 変更
 	async #onCreChgFacePsd(uri: Uri, _cre=false) {

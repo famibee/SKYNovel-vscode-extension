@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {vsc2fp} from '../CmnLib';
+import {normFp} from '../CmnLib';
 import {FLD_PRJ_BASE} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
 import {BatOptSnd, PROC_ID_SND} from './BatOptSnd';
@@ -52,7 +52,7 @@ export class WfbOptSnd extends WatchFile {
 		if (! this.pc.ps.oWss[PROC_ID_SND]) return;
 
 		// 素材ファイルを追加・更新時、退避に上書き移動して最適化
-		const path = vsc2fp(uri.path);
+		const path = normFp(uri.fsPath);
 		const isBase = this.pc.isBaseUrl(path);
 		await this.#bat.go(isBase ?'base_scan' :'prj_scan');
 
@@ -79,7 +79,7 @@ export class WfbOptSnd extends WatchFile {
 // console.log(`fn:OptSnd.ts onDelInp sw:${! WatchFile2Batch.ps.oWss[PROC_ID]} uri:${uri.path}`);
 		if (! this.pc.ps.oWss[PROC_ID_SND]) return true;
 
-		const path = vsc2fp(uri.path);
+		const path = normFp(uri.fsPath);
 		const isBase = this.pc.isBaseUrl(path);
 		if (! isBase) {
 			// 変換後ファイルを消したら退避ファイルも削除

@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, repWvUri, vsc2fp} from './CmnLib';
+import {foldProc, repWvUri, normFp, isUnderPath} from './CmnLib';
 import {getNonce} from './ActivityBar';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {PrjCmn} from './PrjCmn';
@@ -77,8 +77,7 @@ export class WPFolder {
 	}
 	//MARK: ビュー更新
 	#update(uri: Uri) {
-		const vfp = uri.path;
-		const fp = vsc2fp(vfp);
+		const fp = normFp(uri.fsPath);
 		const pp = this.pc.diff.fp2pp(fp);
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.#wp!.title = pp +' フォルダ';
@@ -89,7 +88,9 @@ export class WPFolder {
 		this.#uriWvPrj = wv.asWebviewUri(Uri.file(this.pc.PATH_PRJ));
 		const pathWp = String(this.#uriWvPrj);	// 必ず String() で
 		foldProc(fp, (vfp2, nm)=> {
-			const fp2 = vsc2fp(Uri.file(vfp2).path);
+			// foldProc() は既に正規化済み（'/' 区切り）の fp を返すので、
+			// Uri.file() 往復での再正規化は不要（src/docs/build.md §3.10）
+			const fp2 = vfp2;
 			const pp2 = this.pc.diff.fp2pp(fp2);
 			if (this.#REG_MOV.test(fp2)) {	// GrpよりMovを先に
 				htm +=
@@ -134,12 +135,12 @@ export class WPFolder {
 		readonly #REG_SND = new RegExp(`\\.${SEARCH_PATH_ARG_EXT.SOUND}$`);
 
 	//MARK: ビュー遅延更新
-	updateDelay({path}: Uri) {
+	updateDelay(uriChg: Uri) {
 		const uri = this.#uriOpen;
 		if (! this.#wp || ! uri) return;
-		const fp = vsc2fp(path);			// /c:/
-		const fpOF = vsc2fp(uri.path);	// /C:/
-		if (! fp.startsWith(fpOF)) return;
+		const fp = normFp(uriChg.fsPath);
+		const fpOF = normFp(uri.fsPath);
+		if (! isUnderPath(fp, fpOF)) return;
 
 		// TODO: [解放5] 破棄時に止めていない（src/docs/multiroot.md リソースの解放5）
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延

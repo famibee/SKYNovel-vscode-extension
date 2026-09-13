@@ -8,9 +8,17 @@
 
 import type {T_H_FONT2STR, T_INF_INTFONT} from '../../src/types';
 import {H_FONTJSON_nm_DEF_FONT} from '../../src/types';
-import type {FULL_PATH, PROJECT_PATH, WORKSPACE_PATH} from '../../src/CmnShare';
-import {fp2fullSchPath, fullSchPath2fp, getFn, int, is_win, REG_SCRIPT, REQ_ID} from '../../src/CmnShare';
+import type {FULL_PATH, PROJECT_PATH} from '../../src/CmnShare';
+import {getFn, int, normFp, REG_SCRIPT, REQ_ID} from '../../src/CmnShare';
 	// ⚠️ CmnLib.ts を import してはいけない（fs-extra 一式が LSP に混入する）
+import {URI} from 'vscode-uri';
+	// vscode 本体から切り出された同一実装。DocumentUri（file:///c%3A/... の
+	// ように : が %3A エンコードされる）と toString() の形式が一致するのが
+	// 必須要件で、Node 標準の pathToFileURL では一致しない（file:///c:/...
+	// になる）ため代替できない（src/docs/build.md §3.10）
+
+/** LSP の DocumentUri（文字列）から FULL_PATH を作る、唯一の入口 */
+export const uri2fp = (uri: string): FULL_PATH=> normFp(URI.parse(uri).fsPath);
 import {Grammar, type Script} from './Grammar';
 import type {HPRM, PRM_RANGE} from '../../src/AnalyzeTagArg';
 import {AnalyzeTagArg, idx2LnCol} from '../../src/AnalyzeTagArg';
@@ -47,7 +55,7 @@ import type {T_Exts, T_Fn2Path, T_CFG} from '../../src/ConfigBase';
 import {creCFG, SEARCH_PATH_ARG_EXT} from '../../src/ConfigBase';
 
 import {CodeAction, CodeActionKind, CompletionItemKind, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, InlayHint, InlayHintKind, InsertTextFormat, Location, Position, Range, SignatureInformation, SymbolKind, TextDocumentEdit, TextEdit} from 'vscode-languageserver/node';
-import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, PublishDiagnosticsParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
+import type {CodeActionParams, CompletionItem, Connection, Definition, DefinitionLink, DefinitionParams,DocumentLink, DocumentLinkParams, DocumentSymbolParams, InlayHintParams, MarkupContent, ParameterInformation, PrepareRenameParams, ReferenceParams, RenameParams, SignatureHelp, SignatureHelpParams, SymbolInformation, TextDocumentChangeEvent, TextDocumentPositionParams, TextDocuments, WorkspaceEdit, WorkspaceFolder} from 'vscode-languageserver/node';
 import type {DocumentUri, TextDocument} from 'vscode-languageserver-textdocument';
 
 
@@ -103,7 +111,7 @@ export type T_L2S_upd_path = {
 		mes: string,
 		sev: 'E'|'W'|'I'|'H',
 	};
-	export type T_H_ADIAG_L2S = {[FULL_PATH: string]: T_H_ADIAG[]};
+	export type T_H_ADIAG_L2S = {[fp: FULL_PATH]: T_H_ADIAG[]};
 
 export type T_L2S_def_plg_upd = {
 	cmd		: 'def_plg.upd';
@@ -155,7 +163,7 @@ type T_S2L_ERR = {
 };
 
 type T_S2L_WS = {
-	pathWs	: string;
+	pathWs	: FULL_PATH;
 };
 type T_S2L_go = T_S2L_WS & {
 	cmd		: 'go';
@@ -647,37 +655,33 @@ sys:TextLayer.Back.Alpha`.split('\n');
 	static		#hSnippet	: {[tag_nm: string]: string}	= {};
 	static	readonly	#aCITag	: CompletionItem[]			= [];
 
-	readonly	#PATH_WS		: WORKSPACE_PATH;
+	readonly	#PATH_WS		: FULL_PATH;
 	// 以下3つは 'ready' で確定する。既定は SKYNovel（従来の挙動）
 	/** このワークスペースのタグ辞書。BlueSNovel ならリンク先を差し替えたもの */
 	#hMd			= hMd;
 	/** タグリファレンスの基底 URL（末尾は #）。エンジンごとに別サイト */
 	#urlTagDoc		= `https://${URL_SKY_DOC}tag.html#`;
 	#is_blues		= false;
-	readonly	#LEN_PATH_WS;
-	readonly	#PATH_PRJ		: string;	// 'file://'付き
+	readonly	#PATH_PRJ		: FULL_PATH;
 	readonly	#LEN_PATH_PRJ	: number;
 
 	readonly	#grm	= new Grammar;
 
 
-	#fp2wp(fp: FULL_PATH): WORKSPACE_PATH {return fp.slice(this.#LEN_PATH_WS)}
-///	#wp2fp(wp: WORKSPACE_PATH): FULL_PATH {return this.#PATH_WS + wp}
-///	#wp2pp(wp: )	WORKSPACE_PATH.slice(9) === PROJECT_PATH
-
-//	#wp2pp(wp: WORKSPACE_PATH): PROJECT_PATH {return wp.slice(this.#LEN_PATH_PRJ)}
 	#fp2pp(fp: FULL_PATH): PROJECT_PATH {return fp.slice(this.#LEN_PATH_PRJ)}
-	#pp2fp(pp: PROJECT_PATH): FULL_PATH {return this.#PATH_PRJ + pp}
+	#pp2fp(pp: PROJECT_PATH): FULL_PATH {return <FULL_PATH>(this.#PATH_PRJ + pp)}
+
+	/** URI を導出する唯一の口。ドライブ・%3A 等は vscode-uri が面倒を見る */
+	#uri4fp(fp: FULL_PATH): URI {return URI.file(fp)}
 
 
 	//MARK: コンストラクタ
 	constructor(readonly wf: WorkspaceFolder, private readonly conn: Connection, private readonly docs:TextDocuments<TextDocument>, readonly hasDiagRelatedInfCap: boolean) {
 			// wf.uri=file:///c%3A/Users/[略]/win=
 			// wf.uri=file:///Users/[略]/mac=
-		this.#PATH_WS = this.#fp2wp( fullSchPath2fp(wf.uri) );
-		this.#LEN_PATH_WS = this.#PATH_WS.length;
+		this.#PATH_WS = uri2fp(wf.uri);
 // console.log(`005 fn:LspWs.ts constructor      u2p=${this.#PATH_WS}=  wf.uri=${wf.uri}=`);
-		this.#PATH_PRJ = this.#PATH_WS +'/doc/prj/';
+		this.#PATH_PRJ = <FULL_PATH>(this.#PATH_WS +'/doc/prj/');
 		this.#LEN_PATH_PRJ = this.#PATH_PRJ.length;
 
 		LspWs.#init();
@@ -826,7 +830,7 @@ ${sum}`,
 	 * （Project.ts #sendNeedGo）。ここで「応答待ちなら送らない」と状態を持つと、
 	 * go.res が返らなかったときに再走査が二度と起きなくなる
 	 */
-	#noticeGo() {this.#sendRequest({cmd: 'go', pathWs: ''})}
+	#noticeGo() {this.#sendRequest({cmd: 'go', pathWs: <FULL_PATH>''})}	// #sendRequest が送信直前に上書きする
 
 
 	// === ファイル開きイベント ===
@@ -834,7 +838,7 @@ ${sum}`,
 		const {uri} = document;		// 'file://'付き
 		if (! REG_SCRIPT.test(uri)) return;
 
-		const fp = fullSchPath2fp(uri);
+		const fp = uri2fp(uri);
 		const pp = this.#fp2pp(fp);
 		this.#scanNFD(pp, document.getText());
 
@@ -855,11 +859,10 @@ ${sum}`,
 		}
 
 		const aNew = this.#fp2Diag[fp];
-		if (aNew) void this.#sendDiag({uri: fp, diagnostics: aNew});
+		if (aNew) void this.#sendDiag(fp, aNew);
 	}
-		async #sendDiag(p: PublishDiagnosticsParams) {
-			p.uri = (is_win ?'file:///c:' :'') + p.uri;
-			await this.conn.sendDiagnostics(p);
+		async #sendDiag(fp: FULL_PATH, diagnostics: Diagnostic[]) {
+			await this.conn.sendDiagnostics({uri: String(this.#uri4fp(fp)), diagnostics});
 		}
 
 
@@ -869,7 +872,7 @@ ${sum}`,
 // console.log(`fn:LspWs.ts onDidChangeContent uri=${uri}=`);
 		if (! REG_SCRIPT.test(uri)) return;
 
-		const fp = fullSchPath2fp(uri);
+		const fp = uri2fp(uri);
 		const pp = this.#fp2pp(fp);
 // console.log(`fn:LspWs.ts onDidChangeContent pp:${pp} ver:${document.version}`);
 
@@ -901,7 +904,7 @@ ${sum}`,
 		this.#sFpNeedScan = new Set(
 			Object.values(this.#hT2DefKw2ALoc)
 			.flatMap(m=> [...m.values()]
-			.flatMap(a=> a.map(l=> l.uri)))
+			.flatMap(a=> a.map(l=> <FULL_PATH>l.uri)))
 		);
 		for (const [pp, s] of Object.entries(pp2s)) {
 			if (! REG_SCRIPT.test(pp)) continue;
@@ -926,7 +929,7 @@ ${sum}`,
 				// このファイルで定義されたマクロ、を使用している別ファイル
 				for (const locUse of this.#hMacro2aLocUse[nm] ?? []) {
 					//if (locUse.uri !== uri) // 略、.delete(uri)するので
-					this.#sFpNeedScan.add(fullSchPath2fp(locUse.uri));	// 'file://'付き
+					this.#sFpNeedScan.add(uri2fp(locUse.uri));	// 'file://'付き
 				}
 			}
 
@@ -973,7 +976,7 @@ ${sum}`,
 
 // /*
 // 		for (const {type, uri} of changes) {
-// 			const pp = this.#fp2pp(this.#fullSchPath2fp(uri));
+// 			const pp = this.#fp2pp(this.#uri2fp(uri));
 // 			if (pp === 'path.json'
 // 			&& (type === FileChangeType.Created ||
 // 				type === FileChangeType.Changed)) {this.#fullScan(); continue;}
@@ -990,8 +993,7 @@ ${sum}`,
 		const u = aUse.find(u=> this.#contains(u.rng, p));
 		if (! u) return undefined;
 
-		const fsp = fp2fullSchPath(fp);
-		const d = this.docs.get(fsp);
+		const d = this.docs.get(String(this.#uri4fp(fp)));
 		if (! d) return undefined;
 
 		const token = d.getText(u.rng);
@@ -1110,7 +1112,7 @@ ${
 		const trgChr = d.getText({start: {line: l, character: c -1}, end: p});
 		if (trgChr === '[') return this.#aCITagMacro;	// タグやマクロ候補を表示
 
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp];
 		if (! aUse) return undefined;
 		const u = aUse.find(o=> this.#contains(o.rng, p));
@@ -1291,7 +1293,7 @@ ${
 	static	readonly	#hTagArgDesc	: ArgDesc	= {};
 	onSignatureHelp(prm: SignatureHelpParams): SignatureHelp | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp];
 		if (! aUse) return undefined;
 
@@ -1343,7 +1345,7 @@ ${
 	// === 定義へ移動、定義をここに表示 ===
 	onDefinition(prm: DefinitionParams): Definition | DefinitionLink[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		const p = prm.position;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
@@ -1377,7 +1379,7 @@ ${
 	// === 参照へ移動、参照をここに表示 ===
 	onReferences(prm: ReferenceParams): Location[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		const p = prm.position;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
@@ -1407,7 +1409,7 @@ ${
 	// === ドキュメントアウトライン ===
 	onDocumentSymbol(prm: DocumentSymbolParams): SymbolInformation[] | DocumentSymbol[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 // console.log(`fn:LspWs.ts onDocumentSymbol pp=${pp} A:${String(pp in this.#hSn2aDsOutline)} B:${JSON.stringify(this.#hSn2aDsOutline[pp])}`);
 		return this.#hSn2aDsOutline[pp];
 	}
@@ -1446,7 +1448,7 @@ ${
 	// === リンク ===
 	onDocumentLinks(prm: DocumentLinkParams): DocumentLink[] | DocumentSymbol[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const fp = fullSchPath2fp(uri);
+		const fp = uri2fp(uri);
 // console.log(`fn:LspWs.ts onDocumentLinks fp:${fp} = ${JSON.stringify(this.#Uri2Links[fp])}`);
 		return this.#Uri2Links[fp];
 	}
@@ -1461,7 +1463,7 @@ ${
 	// === シンボルの名前変更・準備 ===
 	onPrepareRename(prm: PrepareRenameParams): Range | {range: Range; placeholder: string;} | undefined {
 		const {uri} = prm.textDocument;
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		const aUse = this.#hDoc2TagMacUse[pp] ??= [];
 		const p = prm.position;
 		const u = aUse.find(u=> this.#contains(u.rng, p));
@@ -1551,7 +1553,7 @@ WorkspaceEdit
 	// === コード内に挿入して表示するインレイヒント ===
 	onInlayHint(prm: InlayHintParams): InlayHint[] | undefined {
 		const {uri} = prm.textDocument;		// 'file://'付き
-		const pp = this.#fp2pp(fullSchPath2fp(uri));
+		const pp = this.#fp2pp(uri2fp(uri));
 		return [
 			this.#hDoc2InlayHint[pp],
 			this.#pp2AQuoteInlayHint[pp],
@@ -1694,14 +1696,14 @@ WorkspaceEdit
 
 	//MARK: ファイル走査系情報追加
 	#addDiag(haDiag	: T_H_ADIAG_L2S) {
-		for (const [fp, aD] of Object.entries(haDiag)) {
+		for (const [fp, aD] of <[FULL_PATH, T_H_ADIAG[]][]>Object.entries(haDiag)) {
 			// クライアントからの情報を追加
 			(this.#fp2Diag[fp] ??= []).push(...aD.map(d=> Diagnostic.create(
 				Range.create(0,0,0,0), d.mes, this.#cnvDiagCh2DS(d.sev),
 			)));
 
 			// 重複削除
-			for (const [fp, aD] of Object.entries(this.#fp2Diag)) {
+			for (const [fp, aD] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
 				this.#fp2Diag[fp] = [...new Map(aD.map(
 					d=> [`r:${JSON.stringify(d.range)} m:${
 						typeof d.message === 'string' ?d.message :d.message.value
@@ -1714,15 +1716,15 @@ WorkspaceEdit
 	//MARK: ファイル走査系情報表示
 	#updDiag() {
 		for (const [fp, aD] of Object.entries(this.#fp2Diag)) {
-			void this.#sendDiag({uri: fp, diagnostics: aD});
+			void this.#sendDiag(<FULL_PATH>fp, aD);
 		}
 		// スクリプト削除時にエラーや警告を消す
 		for (const fp of this.#aOldFp2Diag) {
 			if (fp in this.#fp2Diag) continue;
-			void this.#sendDiag({uri: fp, diagnostics: []});
+			void this.#sendDiag(fp, []);
 		}
 
-		this.#aOldFp2Diag = Object.keys(this.#fp2Diag);
+		this.#aOldFp2Diag = <FULL_PATH[]>Object.keys(this.#fp2Diag);
 	}
 	#aOldFp2Diag: FULL_PATH[]	= [];	// スクリプト削除時にエラーや警告を消す用
 
@@ -1804,7 +1806,7 @@ WorkspaceEdit
 			// loc.uri is fp
 				// loc.uri=/Users/[略]/win/doc/prj/script/main.sn:
 				// loc.uri=/Users/[略]/mac/doc/prj/script/main.sn:
-			(this.#fp2Diag[loc.uri] ??= []).push(Diagnostic.create(
+			(this.#fp2Diag[<FULL_PATH>loc.uri] ??= []).push(Diagnostic.create(
 				loc.range, mes.replace('$', nm), sev
 			));
 		}
@@ -1854,11 +1856,11 @@ WorkspaceEdit
 
 			const mes = d未定義.mes.replace('$', nm);
 			// 同じ警告は一度全て削除
-			for (const [fp, aD] of Object.entries(this.#fp2Diag)) {
+			for (const [fp, aD] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
 				this.#fp2Diag[fp] = aD.flatMap(d=> d.message === mes ?[] :d);
 			}
 
-			for (const {uri, range} of aUse) (this.#fp2Diag[uri] ??= [])
+			for (const {uri, range} of aUse) (this.#fp2Diag[<FULL_PATH>uri] ??= [])
 			.push(Diagnostic.create(range, mes, d未定義.sev));
 		}
 		this.#updDiag();
@@ -1886,7 +1888,7 @@ WorkspaceEdit
 
 		// == 結果を通知系
 		this.#sendRequest({
-			cmd: 'analyze_inf', pathWs: '',
+			cmd: 'analyze_inf', pathWs: <FULL_PATH>'',	// #sendRequest が送信直前に上書きする
 
 			// `end` は #scanEnd 全体から `job`（遅延検証）を引いた残り。
 			// そうしないと二重に数えて合計が全走査を超える
@@ -1902,7 +1904,7 @@ WorkspaceEdit
 				description	: `（マクロ）${sum?.split(' ')[0] ?? ''}`,
 				//detail,	// 別の行になる
 			//	uri	: `ws-file://${this.#fp2wp(uri)}#L${range.start.line}`,	// 効かない
-				uri	: `ws-file://${this.#fp2wp(uri)}`,
+				uri	: String(this.#uri4fp(<FULL_PATH>uri)),
 			})),
 
 			aQuickPickPlg	: Object.entries(this.#hDefPlugin)
@@ -1910,7 +1912,7 @@ WorkspaceEdit
 				label		: nm,
 				description	: '（プラグインによる定義）',
 				//detail,	// 別の行になる
-				uri	: `ws-file://${this.#fp2wp(uri)}`,
+				uri	: String(this.#uri4fp(<FULL_PATH>uri)),
 			})),
 
 			aExt2Snip: aaExt2Snip.map(([spae, snip], i)=> [
@@ -1969,7 +1971,7 @@ WorkspaceEdit
 	#hDoc2InlayHint	: {[pp: PROJECT_PATH]: InlayHint[]}	= {};
 
 	#fp2Diag	: {[fp: FULL_PATH]: Diagnostic[]}	= {};
-	#Uri2Links	: {[fp: string]: DocumentLink[]}	= {};
+	#Uri2Links	: {[fp: FULL_PATH]: DocumentLink[]}	= {};
 
 	#pp2AQuoteLine	: {[pp: PROJECT_PATH]: number[]}			= {};
 	#pp2SetQuotePp	: {[pp: PROJECT_PATH]: Set<PROJECT_PATH>}	= {};
@@ -2017,7 +2019,7 @@ WorkspaceEdit
 		hSn2Font2Str	: {},
 		hFp2FontErr		: {},
 	};
-	#getFonts2ANm(fonts: string, fp: string, rng: Range): string {
+	#getFonts2ANm(fonts: string, fp: FULL_PATH, rng: Range): string {
 		const aNm = fonts.split(',')
 		.map(nm=> /^["'\s]*(?<text>[^,;"']+)/.exec(nm)?.groups?.text ?? '');
 			// https://regex101.com/r/TA5y7N/1
@@ -2265,13 +2267,13 @@ WorkspaceEdit
 		}
 
 		if (this.#hPp2JoinLabel[pp] !== sJoinLabel) {
-			if (sJumpFn.has(fn)) this.#sFpNeedScan.add(this.#PATH_PRJ + fn);
+			if (sJumpFn.has(fn)) this.#sFpNeedScan.add(<FULL_PATH>(this.#PATH_PRJ + fn));
 			this.#hPp2JoinLabel[pp] = sJoinLabel;
 		}
 
 //		if (isUpdScore && path.endsWith('.ssn')) this.#cteScore.updScore(path, this.curPrj, a);		// NOTE: Score
 	}
-		#chkTagMacArg(fp: string, aDi: Diagnostic[], setUri2Links: Set<string>, use_nm: string, sJumpFn: Set<string>, hArg: HPRM, hRng: {[key: string]: PRM_RANGE;}) {
+		#chkTagMacArg(fp: FULL_PATH, aDi: Diagnostic[], setUri2Links: Set<string>, use_nm: string, sJumpFn: Set<string>, hArg: HPRM, hRng: {[key: string]: PRM_RANGE;}) {
 			const param = this.#hDefMacro[use_nm]?.param ?? this.#hMd[use_nm]?.param;
 			if (! param) return;
 
@@ -2730,7 +2732,7 @@ WorkspaceEdit
 			?.groups?.fonts ?? '';	// https://regex101.com/r/b93jbp/1
 			if (! fonts || fonts.startsWith('#{')) {this.#nowFontNm = H_FONTJSON_nm_DEF_FONT; return;}
 
-			const s = this.#getFonts2ANm(fonts, uri, rng);
+			const s = this.#getFonts2ANm(fonts, <FULL_PATH>uri, rng);
 			if (s) this.#nowFontNm = s;
 		},
 		lay: arg=> {
@@ -2773,19 +2775,19 @@ WorkspaceEdit
 
 			// 同じ警告は一度全て削除
 			const mes = diag.replace('$', kw);
-			for (const [fp, a] of Object.entries(this.#fp2Diag)) {
+			for (const [fp, a] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
 				this.#fp2Diag[fp] = a.flatMap(d=> d.message === mes ?[] :d);
 			}
 
 			const [loc] = aLoc;
 			if (this.hasDiagRelatedInfCap && loc) {
 				const {uri, range} = loc;
-				(this.#fp2Diag[uri] ??= []).push(Diagnostic.create(
+				(this.#fp2Diag[<FULL_PATH>uri] ??= []).push(Diagnostic.create(
 					range, mes, undefined, undefined, undefined,
 					aLoc.map(location=> ({location, message: 'その他の箇所'}))
 				));
 			}
-			else for (const {uri, range} of aLoc) (this.#fp2Diag[uri] ??= []).push(Diagnostic.create(range, mes, DiagnosticSeverity.Error));
+			else for (const {uri, range} of aLoc) (this.#fp2Diag[<FULL_PATH>uri] ??= []).push(Diagnostic.create(range, mes, DiagnosticSeverity.Error));
 		}
 	}
 	#delDefKw(m: MAP_KW2ALOC, uri: string) {

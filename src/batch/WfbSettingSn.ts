@@ -7,7 +7,8 @@
 
 import type {T_TEMP, T_V2E_aTemp} from '../types';
 import {REG_SN2TEMP} from '../types';
-import {replaceRegsFile, vsc2fp} from '../CmnLib';
+import type {FULL_PATH} from '../CmnLib';
+import {replaceRegsFile, normFp} from '../CmnLib';
 import type {T_reqPrj2LSP} from '../Project';
 import type {PrjCmn} from '../PrjCmn';
 import {WatchFile} from './WatchFile';
@@ -32,12 +33,7 @@ export class WfbSettingSn extends WatchFile {
 		await this.watchFld(
 			'doc/prj/*/setting.sn', '',
 			async uri=> {
-				// ⚠️ uri.path をそのまま使わない。Windows では先頭に
-				// 【'/'+ ドライブ名（小文字）】が付き（例：/c:/Users/…）、
-				// これをそのまま fs へ渡すと Node の path 解決で
-				// 【C:\c:\Users\…】とドライブ名が二重になり ENOENT になる
-				// （2026-09-13 発見。src/docs/testing.md 参照）
-				const path = vsc2fp(uri.path);
+				const path = normFp(uri.fsPath);
 				this.#fnSetting = path;	// 存在しない場合も
 				this.chkMultiMatch = ()=> this.#chkMultiMatch_proc();
 				this.chkMultiMatch();
@@ -119,7 +115,7 @@ export class WfbSettingSn extends WatchFile {
 			aTemp,
 		});
 	}
-		#fnSetting	= '';
+		#fnSetting	= <FULL_PATH>'';
 
 	//MARK: 更新
 	update = (_e: T_V2E_aTemp)=> { /* empty */ };
@@ -144,7 +140,7 @@ export class WfbSettingSn extends WatchFile {
 					case 'const.体験版':
 						this.#is体験版 = val === 'true';
 						replaceRegsFile(
-							this.pc.PATH_WS +'/package.json',
+							<FULL_PATH>(this.pc.PATH_WS +'/package.json'),
 							[[
 								/("productName": ").*"/,	// 最初のだけ
 	// 二つ目（build内）のはインストール exe 名になり、

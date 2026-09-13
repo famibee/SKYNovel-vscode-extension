@@ -6,6 +6,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
+import type {FULL_PATH} from './CmnLib';
 import {foldProc, hDiagL2s, uint} from './CmnLib';
 import {ConfigBase, creCFG} from './ConfigBase';
 import type {T_HSysBaseArg, T_Fn2Path, T_SysRoots, T_CFG_RAW} from './ConfigBase';
@@ -74,7 +75,7 @@ export class Config extends ConfigBase {
 	readonly	#REG_NEEDHASH	= /\.(js|css)$/;	// 改竄チェック処理対象
 		// js,css：暗号化HTMLから読み込む非暗号化ファイルにつき
 	readonly #REG_SPRSHEETIMG	= /^(.+)\.(\d+)x(\d+)\.(png|jpe?g)$/;
-	async #get_hPathFn2Exts($cur: string, haDiagFn: T_H_ADIAG_L2S): Promise<T_Fn2Path> {
+	async #get_hPathFn2Exts($cur: FULL_PATH, haDiagFn: T_H_ADIAG_L2S): Promise<T_Fn2Path> {
 		const hFn2Path: T_Fn2Path = {};
 		const aDo: Promise<void>[] = [];
 
@@ -88,7 +89,7 @@ export class Config extends ConfigBase {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const {mes, sev} = hDiagL2s.ファイル名合成文字!;
 		foldProc($cur, ()=> { /* empty */ }, dir=> {
-			const wd = resolve($cur, dir);
+			const wd = <FULL_PATH>resolve($cur, dir);
 			foldProc(wd, (fp, nm)=> {
 				const aD: T_H_ADIAG[] = [];
 				this.#addPath(hFn2Path, dir, nm, aD);

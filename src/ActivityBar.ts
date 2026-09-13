@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {T_TMPWIZ} from './types';
-import {chkBun, is_win, replaceRegsFile, repWvUri, type T_PKG_JSON} from './CmnLib';
+import {chkBun, is_win, replaceRegsFile, repWvUri, type FULL_PATH, type T_PKG_JSON} from './CmnLib';
 import {T_BOOT, traceMs} from './Trace';
 import type {WorkSpaces} from './WorkSpaces';
 import type {T_LocalSNVer} from './Project';
@@ -660,7 +660,7 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 				await outputJson(fnPrjJs, oPrj, {spaces: '\t'});
 
 				// package.json の置換
-				const fnPkgJs = pathUnZip +'package.json';
+				const fnPkgJs = <FULL_PATH>(pathUnZip +'package.json');
 				replaceRegsFile(fnPkgJs, [
 					[
 						/("name"\s*:\s*").*(")/,

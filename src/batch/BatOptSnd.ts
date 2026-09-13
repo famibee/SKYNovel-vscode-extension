@@ -7,6 +7,7 @@
 
 import type {T_E2V_NOTICE_COMPONENT, T_OPTSND, T_OPTSND_FILE} from '../types';
 import {creOPTSND} from '../types';
+import type {FULL_PATH} from '../CmnLib';
 import {chkUpdate, foldProc, getFn} from '../CmnLib';
 import {type PrjCmn, FLD_PRJ_BASE} from '../PrjCmn';
 
@@ -16,6 +17,9 @@ import {resolve, parse, basename} from 'node:path';
 import {existsSync, statSync} from 'node:fs';
 import {mkdirsSync, move, moveSync, readJson, remove, writeJson} from 'fs-extra/esm';
 import {window, ProgressLocation, type Progress, type CancellationToken} from 'vscode';
+
+// ⚠️ BatOptPic.ts と同じ理由の暫定ラッパー（src/docs/build.md §3.10 スコープ外）
+const rsv = (...a: string[]): FULL_PATH=> <FULL_PATH>resolve(...a);
 
 
 export const PROC_ID_SND = 'cnv.mat.snd';
@@ -119,24 +123,24 @@ export class BatOptSnd {
 			case 'enable':		// 変換有効化
 				mkdirsSync(this.pc.PATH_PRJ_BASE);
 				foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					foldProc(resolve(this.pc.PATH_PRJ, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ, dir), (url, nm)=> {
 						// 退避素材フォルダに元素材を移動
 						if (! REG_EXT_ORG.test(nm)) return;
 
-						aP.push(()=> this.#cnv(extCnv, extOut, url, resolve(wdBase, nm)));
+						aP.push(()=> this.#cnv(extCnv, extOut, url, rsv(wdBase, nm)));
 					}, ()=> { /* empty */ });
 				});
 				break;
 
 			case 'disable':		// 変換無効化
 				foldProc(this.pc.PATH_PRJ_BASE, ()=> { /* empty */ }, dir=> {
-					foldProc(resolve(this.pc.PATH_PRJ_BASE, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ_BASE, dir), (url, nm)=> {
 						if (! REG_EXT_ORG.test(nm)) return;
 
 						// 対応する素材ファイルが無い場合、削除しないように
-						const urlPrj = resolve(this.pc.PATH_PRJ, dir, nm);
+						const urlPrj = rsv(this.pc.PATH_PRJ, dir, nm);
 						aP.push(async ()=> move(url, urlPrj, {overwrite: true}));
 						const delDest = urlPrj.slice(0, -3);
 						for (const ext of ['m4a','aac','ogg']) aP.push(()=> remove(delDest + ext));
@@ -153,8 +157,8 @@ export class BatOptSnd {
 				for (const {ext, fld_nm} of Object.values(this.#oBJ.hSize)) {
 					aP.push(()=> this.#cnv(
 				 		extCnv, extOut,
-						resolve(this.pc.PATH_PRJ, fld_nm + '.'+ ext),
-						resolve(this.pc.PATH_PRJ_BASE, fld_nm + '.'+ ext),
+						rsv(this.pc.PATH_PRJ, fld_nm + '.'+ ext),
+						rsv(this.pc.PATH_PRJ_BASE, fld_nm + '.'+ ext),
 						false,
 					));
 				}
@@ -165,9 +169,9 @@ export class BatOptSnd {
 
 				mkdirsSync(this.pc.PATH_PRJ_BASE);
 				foldProc(this.pc.PATH_PRJ, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					foldProc(resolve(this.pc.PATH_PRJ, dir), (url, nm)=> {
+					foldProc(rsv(this.pc.PATH_PRJ, dir), (url, nm)=> {
 						// 退避素材フォルダに元素材を移動
 						if (REG_EXT_ORG.test(nm)) {
 							// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
@@ -180,7 +184,7 @@ export class BatOptSnd {
 							}
 
 							// 変換
-							aP.push(()=> this.#cnv(extCnv, extOut, url, resolve(wdBase, nm)));
+							aP.push(()=> this.#cnv(extCnv, extOut, url, rsv(wdBase, nm)));
 						}
 					}, ()=> { /* empty */ });
 				});
@@ -190,13 +194,13 @@ export class BatOptSnd {
 				this.#log_enter(this.pc.PATH_PRJ, this.pc.PATH_PRJ_BASE);
 
 				foldProc(this.pc.PATH_PRJ_BASE, ()=> { /* empty */ }, dir=> {
-					const wdBase = resolve(this.pc.PATH_PRJ_BASE, dir);
+					const wdBase = rsv(this.pc.PATH_PRJ_BASE, dir);
 					mkdirsSync(wdBase);
-					const wdPrj = resolve(this.pc.PATH_PRJ, dir);
+					const wdPrj = rsv(this.pc.PATH_PRJ, dir);
 					foldProc(wdBase, (url, nm)=> {
 						if (! REG_EXT_ORG.test(url)) return;
 
-						const toPath = resolve(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
+						const toPath = rsv(wdPrj, nm.replace(REG_EXT_ORG, '.webp'));
 						if (! chkUpdate(url, toPath)) return;
 
 						// ログにあるならいったん合計値から過去サイズを差し引く（log_enter() とセット）
@@ -262,8 +266,8 @@ export class BatOptSnd {
 		for (const [fn, of] of Object.entries(this.#oBJ.hSize)) {
 			const {fld_nm, ext, baseSize, optSize} = of;
 			const pp = fld_nm + '.'+ ext;
-			if (existsSync(resolve(curPrj, pp))
-			|| existsSync(resolve(curPrjBase, pp))) o.hSize[fn] = of;
+			if (existsSync(rsv(curPrj, pp))
+			|| existsSync(rsv(curPrjBase, pp))) o.hSize[fn] = of;
 			else {
 				o.sum.baseSize -= baseSize;
 				o.sum.optSize -= optSize;

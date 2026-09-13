@@ -5,7 +5,8 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {chkUpdate, getFn} from '../CmnLib';
+import type {FULL_PATH} from '../CmnLib';
+import {chkUpdate, getFn, normFp} from '../CmnLib';
 import type {PrjCmn} from '../PrjCmn';
 
 import {minimatch} from 'minimatch';
@@ -168,7 +169,7 @@ export class WatchFile {
 // console.log('fn:WatchFile.ts watchFld DEL --- START');
 				await this.#delDest(pathDest, uri);
 				if (await del(uri)) {
-					const {pathCn, pp} = this.pc.diff.path2cn(uri.path);
+					const {pathCn, pp} = this.pc.diff.path2cn(normFp(uri.fsPath));
 					if (pathCn) await remove(pathCn);
 
 					this.pc.diff.del(pp);
@@ -183,7 +184,7 @@ export class WatchFile {
 	}
 
 	//MARK: 暗号化対応ファイル新旧チェック
-	protected chkUpdateByDiff(pathSrc: string, pathDest: string) {
+	protected chkUpdateByDiff(pathSrc: FULL_PATH, pathDest: FULL_PATH) {
 		if (this.pc.isCryptoMode()) {
 			const {pathCn} = this.pc.diff.path2cn(pathDest);
 			if (! pathCn) return true;
@@ -194,17 +195,17 @@ export class WatchFile {
 	}
 
 	//MARK: パターンマッチファイル削除・暗号化ファイルも削除
-	async #delDest(ptDest: string, {path}: Uri) {
+	async #delDest(ptDest: string, uri: Uri) {
 		if (ptDest === '') return;
 
-		const hn = getFn(path);
+		const hn = getFn(uri.path);
 		const aUri = await workspace.findFiles(ptDest.replaceAll('[FN]', hn));
-		await Promise.allSettled(aUri.map(async ({path})=> {
+		await Promise.allSettled(aUri.map(async uri2=> {
 			// パターンにマッチするファイルを削除
-			await remove(path);
+			await remove(uri2.path);
 
 			// 暗号化ファイルも削除
-			const {pathCn, pp} = this.pc.diff.path2cn(path);
+			const {pathCn, pp} = this.pc.diff.path2cn(normFp(uri2.fsPath));
 			if (pathCn) await remove(pathCn);
 			this.pc.diff.del(pp);
 		}));
