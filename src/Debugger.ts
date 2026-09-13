@@ -12,13 +12,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {uint} from './CmnLib';
+import {uint, normFp, type FULL_PATH} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 
 import {WebSocketServer, type WebSocket, type RawData} from 'ws';
 import {imageSizeFromFile} from 'image-size/fromFile';
 
-import type {DebugConfiguration, TextDocumentChangeEvent, WorkspaceFolder} from 'vscode';
+import type {DebugConfiguration, WorkspaceFolder} from 'vscode';
 import {debug, Position, Range, Uri, workspace, window, WorkspaceEdit, RelativePattern} from 'vscode';
 import type {DebugProtocol} from '@vscode/debugprotocol';
 import {basename, dirname} from 'node:path';
@@ -37,19 +37,20 @@ export type InfoBreakpoint = {
 
 
 export class Debugger extends EventEmitter {
-	#pathWs	= '';
+	#pathWs: FULL_PATH	= normFp('');
 	constructor(private readonly wsFld: WorkspaceFolder, private readonly hookTag: (o: any)=> void) {	// インスタンスはひとつのみ、別セッションでも再利用
 		super();
-		this.#pathWs = wsFld.uri.path;
-		Debugger.#hcurPrj2Dbg[this.#pathWs +'/doc/prj/'] = this;
+		this.#pathWs = normFp(wsFld.uri.fsPath);
+		Debugger.#hcurPrj2Dbg[Debugger.#key(this.#pathWs)] = this;
 	}
+	static	#key(pathWs: FULL_PATH) {return pathWs +'/doc/prj/'}
 	static	#hcurPrj2Dbg: {[curPrj: string]: Debugger}	= {};
 	static	send2SN(type: string, o: object = {}) {
 		const pathWs = debug.activeDebugSession?.workspaceFolder?.uri.fsPath;
 		if (! pathWs) return;
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const dbg = Debugger.#hcurPrj2Dbg[pathWs +'/doc/prj/']!;
+		const dbg = Debugger.#hcurPrj2Dbg[Debugger.#key(normFp(pathWs))]!;
 		dbg.send2SN(type, o);
 	}
 
@@ -109,7 +110,7 @@ export class Debugger extends EventEmitter {
 
 	end() {
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-		delete Debugger.#hcurPrj2Dbg[this.#pathWs];
+		delete Debugger.#hcurPrj2Dbg[Debugger.#key(this.#pathWs)];
 		this.hookTag({タグ名: ':disconnect'});
 	}
 
@@ -248,29 +249,6 @@ export class Debugger extends EventEmitter {
 		':idx_tkn'	: number,
 		':token'	: string,
 	}}	= {};
-
-	static	noticeChgDoc(curPrj: string, e: TextDocumentChangeEvent) {
-		const dbg = Debugger.#hcurPrj2Dbg[curPrj];
-		if (! dbg) return;
-
-		const hRepTkn: {[id_tag: string]: any} = {};
-		for (const c of e.contentChanges) {
-			const sa = c.text.length -c.rangeLength;
-			for (const [id_tag, di] of Object.entries(dbg.#hDCId2DI)) {
-				if (! di.rng.contains(c.range)) continue;
-
-				di[':col_e'] += sa;
-				di.rng = di.rng.with(di.rng.start, di.rng.end.translate(0, sa))
-				const n = e.document.getText(di.rng);
-				di[':token'] = n;
-
-				if (n.at(0) !== '[' || n.at(-1) !== ']') continue;
-				hRepTkn[id_tag] = {...di, ':id_tag': id_tag,};
-			}
-		}
-		for (const v of Object.values(hRepTkn)) dbg.send2SN('_replaceToken', v);
-	}
-
 
 	restart = (ri: number)=> new Promise<void>(res=> {
 		this.send2SN('restart', {ri});					// request

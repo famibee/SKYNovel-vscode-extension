@@ -124,6 +124,12 @@ export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean { … }
 - ✅ **`#sendDiag` がmacではスキームなしでURIを送っていた** → 同上で解消
 - ✅ **§3.6 不具合6（区切りを見ない前方一致）** → `longestUnderPath()`
   導入で最長一致化まで込みで決着（2026-09-13。詳細は multiroot.md）
+- ✅ **新規発見・`Debugger.ts` の `#hcurPrj2Dbg` 鍵生成不一致**（set は
+  `uri.path`、get（`send2SN`）は `uri.fsPath` で、Windowsでは書式が食い違い
+  `send2SN` が常に外れる恐れ。delete は `'/doc/prj/'` サフィックス漏れで
+  `end()` を呼んでもエントリが消えず、切断済みインスタンスが残っていた）→
+  set/get/delete を `#key(normFp(...))` の一本の経路に統一して解消
+  （2026-09-13）。合わせて呼び出し元のない死コード `noticeChgDoc()` を削除
 
 **ブランド型は前倒しで採用**（作者判断・2026-09-13）。当初 Stage 2 として
 「急がない」としていたが、生 string が紛れ込んでも型検査に掛からないという
@@ -135,8 +141,6 @@ export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean { … }
 - **`ws-file://` 独自スキームの完全廃止**。LSP側は通常の `file:` URI を返すよう
   変更済みだが、拡張側 `WorkSpaces.ts` の `openURL()` の `case 'ws-file'` は
   死コードとして残っている
-- **`Debugger.ts` の `#hcurPrj2Dbg` 鍵生成統一**（set/get/deleteで3種の鍵形式が
-  混在。パス表現の整理とは独立した話だが、同種のバグ）
 
 ### Windows実機確認が必要な項目（mac側テストでは検証できない）
 
