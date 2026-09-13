@@ -41,7 +41,7 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 //     --setting <setting.snの平文パス>  ※複数指定可（過去出荷ビルド分だけ繰り返す。最低1つ）
 
 function parseArgs(argv: string[]) {
-	const h: Record<string, string> = {};
+	const h: {[key: string]: string} = {};
 	const settings: string[] = [];
 
 	for (let i = 0; i < argv.length; i += 2) {
@@ -114,5 +114,5 @@ writeFileSync(pathOut, patched);
 console.log(`✓ 生成完了: ${pathOut}`);
 console.log(`  appName: ${cfg.appName}`);
 console.log(`  settingSnFileName: ${cfg.settingSnFileName}`);
-console.log(`  checksumSetting: ${cfg.checksumSetting.length}件（過去出荷ビルド分）`);
+console.log(`  checksumSetting: ${String(cfg.checksumSetting.length)}件（過去出荷ビルド分）`);
 console.log(`  downloadUrl: ${cfg.downloadUrl}`);

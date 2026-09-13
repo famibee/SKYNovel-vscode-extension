@@ -86,6 +86,11 @@ it('フォルダを1つ閉じても、閉じたフォルダだけがツリーか
 	console.log(`      3フォルダ時: ${JSON.stringify(before)}`);
 	assert.strictEqual(before.length, 3, `3フォルダ開いたはずが${String(before.length)}件`);
 
+	// Windows は Uri.fsPath でドライブ文字が小文字化されるため、期待値も
+	// mkFixture() の生パスではなく実測（before）から取る（A・Bは
+	// workspace.workspaceFolders 由来なので元から実測値）
+	const nC = before[2] ?? '';
+
 	// 先頭（A）を閉じる。旧実装だと末尾（C）が誤って消える
 	const okDel = workspace.updateWorkspaceFolders(0, 1);
 	if (! okDel) throw new Error('フォルダの削除に失敗');
@@ -94,7 +99,7 @@ it('フォルダを1つ閉じても、閉じたフォルダだけがツリーか
 	const after = exp.getWsRootPathWs?.() ?? [];
 	console.log(`      A を閉じた後: ${JSON.stringify(after)}`);
 
-	const nA = normFp(A), nB = normFp(B), nC = normFp(c.ws);
+	const nA = normFp(A), nB = normFp(B);
 	assert.strictEqual(after.length, 2, `A を閉じたのに${String(after.length)}件残っている`);
 	assert.ok(! after.includes(nA), 'A を閉じたのにまだツリーに残っている');
 	assert.ok(after.includes(nB), 'B が消えている（無関係な行が消された）');
