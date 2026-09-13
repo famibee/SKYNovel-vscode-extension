@@ -124,35 +124,37 @@ pub fn extract_by_basename(archive_path: &Path, basename: &str) -> Result<Vec<u8
 	extract_from_reader(&mut file, basename)
 }
 
+// テスト用：本物と同じバイナリレイアウトの asar を組み立てる（フィクスチャ）。
+// 実機の asar（electron-builder製）で実バイト列を確認して判明した二重入れ子の
+// Pickle構造を再現する（2026-09-13・実地検証。parse_header() のコメント参照）。
+// main.rs の process_app() テストからも使うため pub(crate)（2026-09-14）
+#[cfg(test)]
+pub(crate) fn build_fake_asar(header_json: &str, file_bodies: &[u8]) -> Vec<u8> {
+	let json_bytes = header_json.as_bytes();
+
+	// もっとも内側：[4B: str_len][json]（+4バイト境界パディング）
+	let mut str_pickle = Vec::new();
+	str_pickle.extend_from_slice(&(json_bytes.len() as u32).to_le_bytes());
+	str_pickle.extend_from_slice(json_bytes);
+	while str_pickle.len() % 4 != 0 { str_pickle.push(0); }
+
+	// その1段外：[4B: payload_size][str_pickle]
+	let mut inner = Vec::new();
+	inner.extend_from_slice(&(str_pickle.len() as u32).to_le_bytes());
+	inner.extend_from_slice(&str_pickle);
+
+	let mut out = Vec::new();
+	out.extend_from_slice(&4u32.to_le_bytes());	// 最外殻ピックルのpayload_size（常に4）
+	out.extend_from_slice(&(inner.len() as u32).to_le_bytes());	// header_size
+	out.extend_from_slice(&inner);
+	out.extend_from_slice(file_bodies);
+	out
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use std::io::Cursor;
-
-	// テスト用：本物と同じバイナリレイアウトの asar を組み立てる（フィクスチャ）。
-	// 実機の asar（electron-builder製）で実バイト列を確認して判明した二重入れ子の
-	// Pickle構造を再現する（2026-09-13・実地検証。parse_header() のコメント参照）
-	fn build_fake_asar(header_json: &str, file_bodies: &[u8]) -> Vec<u8> {
-		let json_bytes = header_json.as_bytes();
-
-		// もっとも内側：[4B: str_len][json]（+4バイト境界パディング）
-		let mut str_pickle = Vec::new();
-		str_pickle.extend_from_slice(&(json_bytes.len() as u32).to_le_bytes());
-		str_pickle.extend_from_slice(json_bytes);
-		while str_pickle.len() % 4 != 0 { str_pickle.push(0); }
-
-		// その1段外：[4B: payload_size][str_pickle]
-		let mut inner = Vec::new();
-		inner.extend_from_slice(&(str_pickle.len() as u32).to_le_bytes());
-		inner.extend_from_slice(&str_pickle);
-
-		let mut out = Vec::new();
-		out.extend_from_slice(&4u32.to_le_bytes());	// 最外殻ピックルのpayload_size（常に4）
-		out.extend_from_slice(&(inner.len() as u32).to_le_bytes());	// header_size
-		out.extend_from_slice(&inner);
-		out.extend_from_slice(file_bodies);
-		out
-	}
 
 	#[test]
 	fn extract_finds_file_regardless_of_folder_nesting() {

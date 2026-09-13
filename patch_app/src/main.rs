@@ -134,3 +134,135 @@ fn main() -> ExitCode {
 
 	if successes.is_empty() { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::fs;
+	use std::path::PathBuf;
+
+	fn app_cfg(app_name: &str, checksum_setting: Vec<&str>, setting_sn_file_name: &str, download_url: &str) -> footer::AppConfig {
+		footer::AppConfig {
+			app_name			: app_name.to_string(),
+			checksum_setting	: checksum_setting.into_iter().map(String::from).collect(),
+			setting_sn_file_name: setting_sn_file_name.to_string(),
+			download_url		: download_url.to_string(),
+		}
+	}
+
+	//MARK: build_summary（GUIダイアログに表示するメッセージの組み立て。純粋関数）
+
+	#[test]
+	fn build_summary_all_success_has_no_skip_section() {
+		let successes = vec![("GameA".to_string(), "更新ファイルを取得しました：/tmp/a.dmg".to_string())];
+		let message = build_summary(&successes, &[]);
+		assert!(message.contains("【取得完了：1件】"));
+		assert!(message.contains("GameA"));
+		assert!(!message.contains("スキップ"));
+	}
+
+	#[test]
+	fn build_summary_all_failure_has_no_complete_section() {
+		let failures = vec![("GameA".to_string(), "旧版が見つからない".to_string())];
+		let message = build_summary(&[], &failures);
+		assert!(message.contains("【スキップ：1件】"));
+		assert!(message.contains("GameA: 旧版が見つからない"));
+		assert!(!message.contains("取得完了"));
+	}
+
+	#[test]
+	fn build_summary_mixed_lists_both_sections_with_counts() {
+		let successes = vec![
+			("GameA".to_string(), "ok-a".to_string()),
+			("GameB".to_string(), "ok-b".to_string()),
+		];
+		let failures = vec![("GameC".to_string(), "ng-c".to_string())];
+		let message = build_summary(&successes, &failures);
+
+		assert!(message.contains("【取得完了：2件】"));
+		assert!(message.contains("【スキップ：1件】"));
+		// 完了セクションがスキップより前に出る（成功を先に見せる並び）
+		assert!(message.find("取得完了").unwrap() < message.find("スキップ").unwrap());
+	}
+
+	//MARK: process_app（1アプリ分の判定ロジック。asarはbasename探索方式のフィクスチャで再現）
+
+	fn setup_installed_app(root: &std::path::Path, app_name: &str, asar_bytes: &[u8]) -> PathBuf {
+		let resources = root.join(format!("{app_name}.app")).join("Contents/Resources");
+		fs::create_dir_all(&resources).unwrap();
+		let asar_path = resources.join("app.asar");
+		fs::write(&asar_path, asar_bytes).unwrap();
+		asar_path
+	}
+
+	#[test]
+	fn process_app_fails_when_not_installed() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_notfound_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let cfg = app_cfg("NoSuchGame", vec!["abc"], "setting.sn", "https://example.com/x");
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+
+		assert_eq!(result, Err("旧版が見つからない。購入者チェックに失敗した".to_string()));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn process_app_fails_when_setting_sn_missing_in_asar() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_missing_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let header = r#"{"files":{"other.sn":{"size":0,"offset":"0"}}}"#;
+		let asar = asar::build_fake_asar(header, b"");
+		setup_installed_app(&dir, "MyGame", &asar);
+
+		let cfg = app_cfg("MyGame", vec!["abc"], "setting.sn", "https://example.com/x");
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+
+		assert!(matches!(result, Err(ref msg) if msg.contains("設定ファイル抽出に失敗した")));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn process_app_fails_when_checksum_does_not_match_known_values() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_mismatch_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let content = b"&const.experiment = true";	// 体験版扱いの中身
+		let header = format!(r#"{{"files":{{"setting.sn":{{"size":{},"offset":"0"}}}}}}"#, content.len());
+		let asar = asar::build_fake_asar(&header, content);
+		setup_installed_app(&dir, "MyGame", &asar);
+
+		// 既知チェックサムは製品版の中身から計算した別の値（今回の content とは一致しない）
+		let known = checksum::checksum_hex(b"&const.experiment = false");
+		let cfg = app_cfg("MyGame", vec![&known], "setting.sn", "https://example.com/x");
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+
+		assert_eq!(result, Err("体験版、または未対応バージョンと判定された（購入者チェックに失敗）".to_string()));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn process_app_passes_checksum_check_when_content_matches_any_known_version() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_matches_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let content = b"&const.experiment = false";	// 製品版v2の中身、という想定
+		let header = format!(r#"{{"files":{{"setting.sn":{{"size":{},"offset":"0"}}}}}}"#, content.len());
+		let asar = asar::build_fake_asar(&header, content);
+		setup_installed_app(&dir, "MyGame", &asar);
+
+		// 過去複数バージョン分の既知チェックサム配列のうち、2番目が一致するケース
+		let known_v1 = checksum::checksum_hex(b"&const.experiment = true");
+		let known_v2 = checksum::checksum_hex(content);
+		// 存在しないスキームを使い、curl が DNS 解決を試みる前に即失敗するようにする
+		// （テストとして外部ネットワークへ実際に触りに行かないようにするため）
+		let cfg = app_cfg("MyGame", vec![&known_v1, &known_v2], "setting.sn", "unsupported-scheme://x");
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+
+		// チェックサム一致までは通過し、その先（download::download）で
+		// download_url が実URLでないため失敗する（＝購入者チェック自体は通過した証拠）
+		assert!(matches!(result, Err(ref msg) if msg.contains("更新ファイルの取得に失敗した")));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+}
