@@ -51,11 +51,13 @@ export class WfbSettingSn extends WatchFile {
 			}), async ()=> Promise.resolve(true),
 		);
 
-		// TODO: [解放2] ctx.subscriptions は拡張機能の寿命。プロジェクト単位の
-		// 購読は Project.#ds へ（src/docs/multiroot.md リソースの解放2）
-		workspace.onDidSaveTextDocument(e=> {
-			if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
-		}, null, this.pc.ctx.subscriptions);
+		this.pc.push(
+			workspace.onDidSaveTextDocument(e=> {
+				if (e.fileName.endsWith('/setting.sn')) this.chkMultiMatch();
+			}),
+			// 破棄時にタイマーを止める（src/docs/multiroot.md リソースの解放5）
+			{dispose: ()=> {if (this.#tiDelay) clearTimeout(this.#tiDelay)}},
+		);
 	}
 
 	#is体験版 = false;
@@ -125,7 +127,6 @@ export class WfbSettingSn extends WatchFile {
 			return;
 		}
 
-		// TODO: [解放5] 破棄時に止めていない（src/docs/multiroot.md リソースの解放5）
 		if (this.#tiDelay) clearTimeout(this.#tiDelay);	// 遅延
 		this.#tiDelay = setTimeout(()=> {
 			const a: [r: RegExp, rep: string][] = [];

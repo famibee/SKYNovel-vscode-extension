@@ -39,13 +39,12 @@ export class WatchFile {
 		// という判断。その他のフォルダはエンジン自身の素材変更なので鋭敏に反応させる。
 		// 「入れ子が拾えていない＝バグ」と誤認して直さないこと
 		const ptnFld = 'doc/prj/*';
-		// TODO: [解放1] fwFld 自身を誰も dispose しない。購読を外しても OS の
-		// ファイル監視は生き続ける（src/docs/multiroot.md リソースの解放1）
 		const fwFld = workspace.createFileSystemWatcher(new RelativePattern(this.pc.wsFld, ptnFld));
-		// TODO: [解放4] 登録の戻り値（Disposable）を捨てているので永久に外れない。
-		// Project.#ds へ入れる（src/docs/multiroot.md リソースの解放4）
-		fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`));
-		fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`));
+		this.pc.push(
+			fwFld,
+			fwFld.onDidCreate(newUri=> this.pc.addSeq(()=> this.#seqDidCreate(newUri), `CRE ${ptnFld}`)),
+			fwFld.onDidDelete(oldUri=> this.pc.addSeq(()=> this.#seqDidDelete(oldUri), `DEL ${ptnFld}`)),
+		);
 	}
 	// 変名は VSCode API・外部操作を問わず FS 監視の del+cre だけで拾える
 	// （src/docs/file-watch.md(D)。エディタ主導の変名だけ `onDidRenameFiles` が
@@ -127,17 +126,14 @@ export class WatchFile {
 				return encIfNeeded(uri);
 			})
 		);
-		// TODO: [解放1] fw 自身を dispose していない（プロジェクトあたり9本）
-		// TODO: [解放2] 以下 push 先の ctx.subscriptions は「拡張機能の寿命」。
-		// プロジェクト単位のものは Project.#ds へ。いまはフォルダを開き直すと
-		// 購読が二重になり、古い方も発火する（src/docs/multiroot.md リソースの解放1・2）
 		const fw = workspace.createFileSystemWatcher(
 			new RelativePattern(this.pc.wsFld, pat),
 			! crechg,	// ignore なので無効にするときに true
 			! crechg,
 			! del,
 		);
-		if (crechg) this.pc.ctx.subscriptions.push(
+		this.pc.push(fw);
+		if (crechg) this.pc.push(
 			fw.onDidCreate(uri=> {
 // console.log(`fn:WatchFile.ts watchFld CRE pat【${pat}】 uri:${uri.path}`);
 				this.pc.addSeq(async ()=> {
@@ -163,7 +159,7 @@ export class WatchFile {
 				}, `CHG ${pat}`);
 			}),
 		);
-		if (del) this.pc.ctx.subscriptions.push(fw.onDidDelete(uri=> {
+		if (del) this.pc.push(fw.onDidDelete(uri=> {
 // console.log(`fn:WatchFile.ts watchFld DEL pat【${pat}】 uri:${uri.path}`);
 			this.pc.addSeq(async ()=> {
 // console.log('fn:WatchFile.ts watchFld DEL --- START');

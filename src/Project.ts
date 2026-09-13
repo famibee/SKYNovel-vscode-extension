@@ -353,27 +353,32 @@ export class Project {
 
 			()=> this.#diff.init(),
 
-			()=> Promise.try(()=> this.#ds.push(
-				// prj.json 変更時に暗号化処理起動
-				workspace.createFileSystemWatcher(
+			()=> Promise.try(()=> {
+				// prj.json 変更時に暗号化処理起動。fw 自身も dispose 対象に持つ
+				// （src/docs/multiroot.md リソースの解放1）
+				const fw = workspace.createFileSystemWatcher(
 					new RelativePattern(wsFld, 'doc/prj/prj.json')
-				).onDidChange(uri=> this.#encIfNeeded(uri)),
+				);
+				this.#ds.push(
+					fw,
+					fw.onDidChange(uri=> this.#encIfNeeded(uri)),
 
-				debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS()),
-				debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds)),
+					debug.onDidTerminateDebugSession(_=> this.#onDidTermDbgSS()),
+					debug.onDidStartDebugSession(ds=> this.#aDbgSS.push(ds)),
 
-				// デバッグ中のみ有効なホバー
-				languages.registerEvaluatableExpressionProvider(docsel, {provideEvaluatableExpression(doc, pos): ProviderResult<EvaluatableExpression> {
-					const r = doc.getWordRangeAtPosition(pos, /;.+|[[*]?[\d\w.]+=?/);	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
-					if (! r) throw new Error('No word here.');
+					// デバッグ中のみ有効なホバー
+					languages.registerEvaluatableExpressionProvider(docsel, {provideEvaluatableExpression(doc, pos): ProviderResult<EvaluatableExpression> {
+						const r = doc.getWordRangeAtPosition(pos, /;.+|[[*]?[\d\w.]+=?/);	// https://regex101.com/r/G77XB6/3 20 match, 188 step(~1ms)
+						if (! r) throw new Error('No word here.');
 
-					const txt = doc.getText(r);
-					const hc = txt.at(0);
-					if (hc === '[' || hc === '*' || hc === ';'
-					|| txt.endsWith('=')) throw new Error('No word here.');
-					return new EvaluatableExpression(r, txt);
-				}}),
-			)),
+						const txt = doc.getText(r);
+						const hc = txt.at(0);
+						if (hc === '[' || hc === '*' || hc === ';'
+						|| txt.endsWith('=')) throw new Error('No word here.');
+						return new EvaluatableExpression(r, txt);
+					}}),
+				);
+			}),
 		].map(p=> p()))).then(async ()=> {
 			await this.#optPic.init2th();
 
@@ -389,13 +394,13 @@ export class Project {
 	//MARK: デストラクタ
 	// DisposableStack is not implemented
 //	[Symbol.dispose]() {this.#ds.dispose()}
-	// TODO: [解放5] #tmNeedGo（300ms）を clearTimeout していない。閉じる直前に
-	// ファイルを触ると破棄済みの自分に対して発火する（src/docs/multiroot.md リソースの解放5）
 	dispose() {
+		clearTimeout(this.#tmNeedGo);
 		for (const d of this.#ds) d.dispose();
 		void this.#termDbgSS();
 		this.#pc.hTaskExe.forEach(v=> v.terminate());
 		this.#pc.hTaskExe.clear();
+		this.#pc.dispose();
 	}
 
 

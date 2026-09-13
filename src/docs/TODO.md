@@ -39,16 +39,18 @@
 
 | # | 内容 | なぜこの位置か | 節 |
 |---|---|---|---|
-| 1 | **リソース解放5件** | **済んだら `keywords` に `multi-root ready` を戻す**（2026-07-29 に外した） | [multiroot.md](multiroot.md) |
-| 2 | **`Debugger.ts` の鍵生成統一**（`#hcurPrj2Dbg` が set/get/delete で3種の鍵形式が混在） | 独立・小規模。パス表現整理で見つかった同種のバグ | [build.md](build.md) §3.10 |
-| 3 | **再検証するファイルを絞る**（73.6ms・75%。天井は 1/8〜1/10） | 独立。絞り込みを誤ると**誤診断が残る／消えない**ので、落ち着いてから | [lsp-design.md](lsp-design.md) 宿題3 |
+| 1 | **`Debugger.ts` の鍵生成統一**（`#hcurPrj2Dbg` が set/get/delete で3種の鍵形式が混在） | 独立・小規模。パス表現整理で見つかった同種のバグ | [build.md](build.md) §3.10 |
+| 2 | **再検証するファイルを絞る**（73.6ms・75%。天井は 1/8〜1/10） | 独立。絞り込みを誤ると**誤診断が残る／消えない**ので、落ち着いてから | [lsp-design.md](lsp-design.md) 宿題3 |
 
 ✅ **file-watch.md の (A)〜(D)、build.md §3.10（パス表現の整理）は
 全て 2026-09-13 に決着済み**。全体順序を待たず先に着手した。
 パス表現の整理で multiroot.md 不具合2・6 も同時に解消済み（不具合6 は
 `longestUnderPath()` 導入で最長一致化まで込みで決着）。
-不具合3・4・5（`WorkSpaces.ts` `#refresh()` の増減処理）も同日にまとめて決着。
-**multiroot.md の不具合6件は全件決着済み。** 上記1の残りはリソース解放1〜5のみ。
+不具合3・4・5（`WorkSpaces.ts` `#refresh()` の増減処理）、リソース解放1〜5
+（`PrjCmn` に project-scoped の破棄口を新設）も同日にまとめて決着。
+**multiroot.md の不具合6件・リソース解放5件は全件コード側の修正が完了。**
+残るは自動テストの追加と実機確認、それを済ませてからの
+`keywords` への `multi-root ready` 復帰（詳細は multiroot.md）。
 
 ### いつでも安全に着手できる
 

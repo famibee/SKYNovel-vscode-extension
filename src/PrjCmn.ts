@@ -12,7 +12,7 @@ import type {HDiff} from './HDiff';
 import type {PrjSetting} from './PrjSetting';
 import {PrjBtnName, statBreak, type TASK_TYPE} from './PrjTreeItem';
 
-import type {ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
+import type {Disposable, ExtensionContext, Memento, TaskExecution, TaskProcessEndEvent, WorkspaceFolder} from 'vscode';
 import {ProgressLocation, window, tasks, Task, ShellExecution, Uri} from 'vscode';
 import {copySync, existsSync, readJsonSync} from 'fs-extra';
 
@@ -72,6 +72,15 @@ export class PrjCmn {
 	readonly	wss			: Memento;
 
 	readonly	hTaskExe	= new Map<PrjBtnName, TaskExecution>;
+
+	/**
+	 * プロジェクト単位の破棄口。ワークスペースフォルダを閉じるまで生きる
+	 * ファイル監視・購読はここへ集約する（`ctx.subscriptions` は拡張機能の
+	 * 寿命なので、プロジェクト単位のものを入れてはいけない。
+	 * src/docs/multiroot.md リソースの解放1・2・4）
+	 */
+	readonly	#ds			: Disposable[]	= [];
+	push(...ds: Disposable[]) {this.#ds.push(...ds)}
 
 
 	//MARK: コンストラクタ
@@ -135,8 +144,6 @@ export class PrjCmn {
 	 * `WatchFile` のインスタンスフィールドだったため種類ごとに別々に数えていた）
 	 */
 	lasyPathJson() {
-		// TODO: [解放5] 破棄時に止めていないので、閉じた直後に発火しうる
-		// （src/docs/multiroot.md リソースの解放5）
 		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
 		this.#tiLasyPathJson = setTimeout(()=> {void this.updPathJson()}, 500);
 	}
@@ -205,7 +212,6 @@ export class PrjCmn {
 			// const isEmpty = this.#aQ.length === 0;
 			// this.#aQSeq.push(fnc);	// 末尾に追加 - push
 			// if (! isEmpty) return;
-		// TODO: [解放5] 破棄時に止めていない（src/docs/multiroot.md リソースの解放5）
 		if (this.#tiLasyQ) clearTimeout(this.#tiLasyQ);	// 遅延
 		this.#tiLasyQ = setTimeout(()=> {void this.doSeq()}, 100);
 			// 実行する段でキューが空でも構わない
@@ -229,6 +235,14 @@ export class PrjCmn {
 		}
 
 		this.watchFile = true;
+	}
+
+
+	//MARK: デストラクタ
+	dispose() {
+		for (const d of this.#ds) d.dispose();
+		if (this.#tiLasyPathJson) clearTimeout(this.#tiLasyPathJson);
+		if (this.#tiLasyQ) clearTimeout(this.#tiLasyQ);
 	}
 
 }

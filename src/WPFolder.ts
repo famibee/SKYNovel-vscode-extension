@@ -36,6 +36,10 @@ export class WPFolder {
 			.replaceAll('${nonce}', getNonce())
 			.replace('.ts"></script>', '.js"></script>')
 		});
+
+		// プロジェクトが閉じるときにビューとタイマーも片付ける
+		// （src/docs/multiroot.md リソースの解放2・5）
+		this.pc.push({dispose: ()=> this.close()});
 	}
 
 
@@ -56,15 +60,13 @@ export class WPFolder {
 				],
 			});
 			const wv = wp.webview;
-			// TODO: [解放2] ctx.subscriptions は拡張機能の寿命。プロジェクト単位の
-			// 購読は Project.#ds へ（src/docs/multiroot.md リソースの解放2）
-			this.pc.ctx.subscriptions.push(
-				wp.onDidDispose(()=> {this.#wp = undefined}, undefined, this.pc.ctx.subscriptions),	// 閉じられたとき
+			this.pc.push(
+				wp.onDidDispose(()=> {this.#wp = undefined}),	// 閉じられたとき
 
 				wv.onDidReceiveMessage(({cmd, text}: {cmd: string, text: string})=> {switch (cmd) {
 					case 'info': window.showInformationMessage(text); break;
 					case 'warn': window.showWarningMessage(text); break;
-				}}, false),
+				}}),
 			);
 
 			wv.html = repWvUri(this.#htmSrc, wv, this.#uriRes)

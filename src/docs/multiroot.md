@@ -17,7 +17,10 @@
 **結論：名乗るには足りない。** 確認できた不具合が **6件**、
 加えて**リソースが解放されない箇所が5件**（下記）。
 
-✅ **不具合6件は 2026-09-13 に全件決着済み。** 残るは**リソース解放5件**のみ。
+✅ **不具合6件・リソース解放5件、全11件が 2026-09-13 に決着済み。**
+コード側の修正は完了。ただし**実機での多重フォルダ動作確認・自動テストの
+追加はまだ**（下記「テストは既にある」参照）。`keywords` を戻すかどうかは
+そちらを済ませてから判断すること。
 
 ⚠️ **keywords から `multi-root ready` を外した（2026-07-29）。**
 **下の全件を直してから戻すこと。** 表示と実装の食い違いは、
@@ -81,91 +84,27 @@
 発生条件は「**片方の絶対パスがもう片方の先頭と一致する**」こと。
 **入れ子**（`/work` と `/work/sub` の両方を開く）で特に踏みやすい。
 
-### リソースの解放【調査済み・2026-07-29】
+### ✅ リソースの解放【決着・実装済み・2026-09-13】
 
 上の 2・3 と**同じ根**（作る口はあるのに、捨てる口が無い／届いていない）。
 **フォルダを閉じて開き直すたびに積み増える**ので、症状はマルチルートで出る。
 
-| # | 何が残るか | どこ |
+`PrjCmn` に project-scoped の破棄口 `#ds`（`push()` / `dispose()`）を新設し、
+`ctx.subscriptions`（拡張機能の寿命）へ誤って積んでいたものを全てここへ
+寄せ替えた。`Project.dispose()` から `PrjCmn.dispose()` を呼ぶことで、
+フォルダを閉じたときに一括で片付く。
+
+| # | 何が残っていたか | 対応 |
 |---|---|---|
-| 1 | **ファイル監視オブジェクトが1つも捨てられていない**（プロジェクトあたり9本） | [WatchFile.ts:199](../batch/WatchFile.ts:199) ほか |
-| 2 | **プロジェクト単位の登録が「拡張機能の寿命」の側に積まれている** | `ctx.subscriptions` を使う7箇所 |
-| 3 | **`PrjSetting.dispose()` が空回り**。設定画面とフォルダ画面が閉じない | [PrjSetting.ts:150](../PrjSetting.ts:150) |
-| 4 | **`initOnce()` が登録の戻り値を捨てている** | [WatchFile.ts:47](../batch/WatchFile.ts:47) |
-| 5 | **破棄時にタイマーを止めていない** | 下記5箇所 |
+| 1 | ファイル監視オブジェクトが1つも捨てられていない（プロジェクトあたり9本） | `WatchFile.initOnce()` / `watchFld()`、`Project.ts` の prj.json 監視で `fw` 自身も `pc.push()` |
+| 2 | プロジェクト単位の登録が「拡張機能の寿命」の側に積まれていた | `ctx.subscriptions.push()` 7箇所を `pc.push()` または `PrjSetting.#ds` へ変更 |
+| 3 | `PrjSetting.dispose()` が空回り | `p.onDidDispose()` / `wv.onDidReceiveMessage()` を `#ds` へ push、`#wp?.dispose()` も追加 |
+| 4 | `initOnce()` が登録の戻り値を捨てていた | `fwFld.onDidCreate()` / `onDidDelete()` の戻り値を `pc.push()` へ |
+| 5 | 破棄時にタイマーを止めていなかった | `PrjCmn.dispose()` で自身の2本を、`WfbSettingSn` / `WPFolder` は `pc.push({dispose: ...})` で登録して解消 |
 
-#### 1. 監視オブジェクトが捨てられていない
-
-```ts
-const fw = workspace.createFileSystemWatcher(…);
-if (crechg) this.pc.ctx.subscriptions.push(fw.onDidCreate(…), fw.onDidChange(…));
-if (del)    this.pc.ctx.subscriptions.push(fw.onDidDelete(…));
-```
-
-**片付けているのは「イベントの購読」だけで、`fw` 自身はどこにも渡していない。**
-`FileSystemWatcher` は OS のファイル監視を握っているので、購読を外しても
-**監視そのものは動き続ける**。数はプロジェクトあたり **9本**
-（`watchFld()` の7回＋フォルダ監視＋`prj.json` 監視）。
-
-#### 2. 片付けリストの取り違え
-
-`ctx.subscriptions` は **VSCode が拡張機能を止めるときに一括で片付ける**ための箱。
-**プロジェクト単位のものをここへ入れると、フォルダを閉じても外れない。**
-入れてはいけないものが入っているのは7箇所
-（[WatchFile.ts:205](../batch/WatchFile.ts:205)・[:231](../batch/WatchFile.ts:231)、
-[WfbSettingSn.ts:54](../batch/WfbSettingSn.ts:54)、
-[PrjSetting.ts:227](../PrjSetting.ts:227)・[:232](../PrjSetting.ts:232)、
-[WPFolder.ts:59](../WPFolder.ts:59)・[:60](../WPFolder.ts:60)）。
-
-⇒ **開き直すと購読が二重になり、古い方も発火する。**
-`WatchFile` の受け口は static（上の 1）なので、
-**古いプロジェクトの監視が発火して、いまのプロジェクトの設定で暗号化・最適化が走る。**
-単なるメモリの話ではなく**処理が余分に走る**。
-
-行き先は `Project.#ds`（プロジェクトの寿命）が正しい。**箱は既にある。**
-
-#### 3. `PrjSetting.dispose()` が空回り
-
-```ts
-readonly #ds: Disposable[] = [];
-dispose() {for (const d of this.#ds) d.dispose()}
-```
-
-**`#ds` に push している箇所が1つも無い。** 宣言と破棄だけがあって中身が空。
-`Project` は `#ds.push(this.#ps = new PrjSetting(…))` で確かに呼ぶが、
-**呼んだ先が何もしない**ので、**設定画面（webview）とフォルダ画面が
-プロジェクトを閉じても開いたまま残る**。
-
-💡 **「dispose を呼んでいる」だけでは確認にならない**、の実例。
-呼ばれた側が空でも、呼び出し側のコードは正しく見える。
-
-#### 4. `initOnce()` が戻り値を捨てている
-
-```ts
-fwFld.onDidCreate(newUri=> …);   // 戻り値 Disposable を捨てている
-fwFld.onDidDelete(oldUri=> …);
-```
-
-（旧 `workspace.onDidRenameFiles(...)` の購読はこの節に含まれていたが、
-[file-watch.md](file-watch.md)(D) の対応で購読自体を削除したため、
-いまはここに残る2箇所が対象）
-
-VSCode のイベント登録は **Disposable を返す**。受け取っていないので
-**拡張機能を止めるときでさえ外れない。**
-
-#### 5. 破棄時にタイマーが止まらない
-
-| 場所 | 待ち |
-|---|---|
-| [Project.ts:454](../Project.ts:454) `#tmNeedGo` | 300ms（LSP への再走査要求のまとめ） |
-| [PrjCmn.ts:138](../PrjCmn.ts:138) `#tiLasyPathJson` | 500ms（path.json 更新のまとめ。2026-09-13、[file-watch.md](file-watch.md)(B) で `WatchFile` から `PrjCmn` へ移設） |
-| [WfbSettingSn.ts:125](../batch/WfbSettingSn.ts:125) `#tiDelay` | — |
-| [WPFolder.ts:143](../WPFolder.ts:143) `#tiDelay` | 500ms |
-| [PrjCmn.ts:188](../PrjCmn.ts:188) `#tiLasyQ` | 100ms |
-
-いずれも**張り直すときには `clearTimeout` している**ので、まとめ処理としては正しい。
-**足りないのは破棄時だけ。** ⇒ 閉じる直前にファイルを触ると、
-**破棄済みのプロジェクトに対してコールバックが動く。**
+`WPFolder` は `close()`（タイマー停止＋webview破棄）を `pc.push({dispose: ()=> this.close()})`
+として登録し、プロジェクト破棄時にも同じ経路で片付くようにした
+（`close()` は多重呼び出しでも安全）。
 
 #### ⚠️ 影響の範囲を正しく見ておく
 
@@ -206,15 +145,17 @@ VSCode のイベント登録は **Disposable を返す**。受け取っていな
 2. ✅ **不具合 2・3・4・5** … **決着済み・2026-09-13**。2 は LSP 側（LangSrv.ts）、
 3〜5 は拡張側 `WorkSpaces.ts` `#refresh()` の増減処理を一括修正
 3. ✅ **不具合 6** … **決着済み・2026-09-13**（`longestUnderPath()` に統一）
-4. **解放 1〜5** … 残作業。**全部「捨てる口」の話**なので一度に。
-`Project.#ds` へ寄せ、破棄時の `clearTimeout` も含めてまとめて直す
-5. **全部済んだら `keywords` に `multi-root ready` を戻す**
+4. ✅ **解放 1〜5** … **決着済み・2026-09-13**。`PrjCmn` に project-scoped の
+破棄口を新設し `Project.dispose()` から一括で片付くよう統一
+5. **残作業：自動テストの追加 → `keywords` に `multi-root ready` を戻す**
 
 ⚠️ **キーワードを戻すのを忘れないこと。** 外した理由が「直すまで」なので、
 直したのに戻さないと**今度は実装が表示より良い**という別の食い違いになる。
+ただし**コードの修正だけでは戻さない**（下記参照）。
 
 ⚠️ **テストは既にある。** `test/int/multi.ts`（`.code-workspace` で2プロジェクトを開く）
-が土台になる。**いまは (A) の再現しか見ていない**ので、不具合 2〜6 の自動テストは
-未着手のまま（コード側の修正は済み）。**4 と 6 は自動テストで判定しやすい**
-（行数と、どのプロジェクトが返るか）。
+が土台になる。**いまは (A) の再現しか見ていない**ので、不具合 2〜6・リソース
+解放の自動テストは未着手のまま（コード側の修正は済み）。**4 と 6 は自動テストで
+判定しやすい**（行数と、どのプロジェクトが返るか）。`keywords` を戻すのは、
+これらのテストが揃って実機でも確認してから。
 
