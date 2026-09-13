@@ -24,7 +24,8 @@
 		"skynovel",
 		"vscode-extension",
 		"game engine",
-		"typescript"
+		"typescript",
+		"multi-root ready"
 	],
 	"activationEvents": [
 		"workspaceContains:doc/prj/prj.json"
