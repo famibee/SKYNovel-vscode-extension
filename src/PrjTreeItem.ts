@@ -143,7 +143,7 @@ export class PrjTreeItem extends TreeItem {
 
 
 	#children	: TreeItem[]	= [];
-	private	constructor(readonly ctx: ExtensionContext, private	readonly pathWs: string, readonly cfg: TREEITEM_CFG) {
+	private	constructor(readonly ctx: ExtensionContext, readonly pathWs: string, readonly cfg: TREEITEM_CFG) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';

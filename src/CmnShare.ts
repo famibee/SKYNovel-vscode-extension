@@ -62,6 +62,21 @@ export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean {
 	return fp === d.slice(0, -1) || fp.startsWith(d);
 }
 
+/**
+ * fp 配下とみなせる候補（entries の key）のうち、最も深い（文字列長が最長の）
+ * ものを1つ返す。入れ子のワークスペース（`/work` と `/work/sub` の両方を開く）
+ * では複数の key が isUnderPath を満たすため、`find()` の早い者勝ちだと
+ * 外側が先に当たって内側の結果を返せない（src/docs/multiroot.md 不具合6）
+ */
+export function longestUnderPath<T>(fp: FULL_PATH, entries: Iterable<readonly [FULL_PATH, T]>): T | undefined {
+	let best: readonly [FULL_PATH, T] | undefined;
+	for (const e of entries) {
+		if (! isUnderPath(fp, e[0])) continue;
+		if (! best || e[0].length > best[0].length) best = e;
+	}
+	return best?.[1];
+}
+
 // ⚠️ 以下3つは server/src がまだ使用中（vscode-uri 移行は§3.10 Stage1 B-2）。
 // 拡張機能側（src/）はこの3つを使わず normFp() に統一済み
 export type FULL_SCH_PATH	= string;	// file://c:\[user]\...\[prj]/doc/prj/

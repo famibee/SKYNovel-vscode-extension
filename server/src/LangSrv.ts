@@ -7,7 +7,7 @@
 
 import type {T_ALL_L2S} from './LspWs';
 import {LspWs, uri2fp} from './LspWs';
-import {FULL_PATH, REQ_ID, isUnderPath} from '../../src/CmnShare';
+import {FULL_PATH, REQ_ID, longestUnderPath} from '../../src/CmnShare';
 
 import {
 	CodeActionKind,
@@ -25,13 +25,7 @@ export type T_MES_L2S = T_ALL_L2S & {
 };
 
 function getLspWs(tdi: TextDocumentIdentifier): LspWs | undefined {
-	const fp = uri2fp(tdi.uri);
-	// TODO: [multi-root] 最長一致にしていないので、入れ子のワークスペースでは
-	// 内側より先に外側が見つかりうる（src/docs/multiroot.md 不具合6）
-	const pathWs = [...mLspWs.keys()].find(wsFld=> isUnderPath(fp, wsFld));
-	if (! pathWs) return undefined;
-
-	return mLspWs.get(pathWs);
+	return longestUnderPath(uri2fp(tdi.uri), mLspWs.entries());
 }
 
 

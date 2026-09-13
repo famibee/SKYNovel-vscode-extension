@@ -122,8 +122,8 @@ export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean { … }
 - ✅ **Windowsでホバーが外れるバグ**（`docs.get()` のキーが `fp2fullSchPath` 手書き生成で
   実際のクライアントURI文字列と不一致）→ `vscode-uri` の `URI.file().toString()` に統一
 - ✅ **`#sendDiag` がmacではスキームなしでURIを送っていた** → 同上で解消
-- ⚠️ **§3.6 不具合6（区切りを見ない前方一致）** は型統一のみ実施、
-  最長一致化は未着手（構造の作り直し #C-1 として残る。詳細は下記）
+- ✅ **§3.6 不具合6（区切りを見ない前方一致）** → `longestUnderPath()`
+  導入で最長一致化まで込みで決着（2026-09-13。詳細は multiroot.md）
 
 **ブランド型は前倒しで採用**（作者判断・2026-09-13）。当初 Stage 2 として
 「急がない」としていたが、生 string が紛れ込んでも型検査に掛からないという
@@ -132,9 +132,6 @@ export function isUnderPath(fp: FULL_PATH, dir: FULL_PATH): boolean { … }
 
 ### 未着手・今後の宿題
 
-- **前方一致の最長一致化**（`LangSrv.ts` の `getLspWs()`、`WorkSpaces.ts` の
-  `#prjOfActiveEditor()`）。区切り判定（`isUnderPath`）までは統一済みだが、
-  入れ子ワークスペースでの誤判定は残る（§3.6 不具合6）
 - **`ws-file://` 独自スキームの完全廃止**。LSP側は通常の `file:` URI を返すよう
   変更済みだが、拡張側 `WorkSpaces.ts` の `openURL()` の `case 'ws-file'` は
   死コードとして残っている

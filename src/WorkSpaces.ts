@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {docsel, normFp, isUnderPath, is_win, is_mac, type FULL_PATH, type HArg, REQ_ID, chkBun} from './CmnLib';
+import {docsel, normFp, longestUnderPath, is_win, is_mac, type FULL_PATH, type HArg, REQ_ID, chkBun} from './CmnLib';
 import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
@@ -298,24 +298,23 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 		if (aUri.length === 0) return null;
 
 		const fp = normFp(td.uri.fsPath);
-		for (const [pathWs ,prj] of this.#mPrj.entries()) {
-			if (! isUnderPath(fp, <FULL_PATH>(pathWs +'/doc/prj/'))) continue;
+		const prj = longestUnderPath(fp, this.#aPrjDocEntries());
+		if (! prj) return null;
 
-			return await prj.drop(td, pos, aUri) ?? {insertText: ''};
-				// なにもさせない（null だと簡易な文字列が挿入される）
-		}
-		return null;
+		return await prj.drop(td, pos, aUri) ?? {insertText: ''};
+			// なにもさせない（null だと簡易な文字列が挿入される）
 	}
 
 
 	provideHover(doc: TextDocument, pos: Position): ProviderResult<Hover> {
 		const fp = normFp(doc.uri.fsPath);
-		for (const [pathWs, prj] of this.#mPrj.entries()) {
-			if (! isUnderPath(fp, <FULL_PATH>(pathWs +'/doc/prj/'))) continue;
+		return longestUnderPath(fp, this.#aPrjDocEntries())?.provideHover(doc, pos) ?? null;
+	}
 
-			return prj.provideHover(doc, pos);
-		}
-		return null;
+	/** #mPrj のキー（ワークスペースフォルダのパス）を `doc/prj/` 配下として比較するための entries */
+	#aPrjDocEntries(): [FULL_PATH, Project][] {
+		return [...this.#mPrj.entries()].map(([pathWs, prj])=>
+			[<FULL_PATH>(pathWs +'/doc/prj/'), prj]);
 	}
 
 
@@ -348,10 +347,7 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 			window.onDidChangeActiveTextEditor(()=> void this.#updCtxBlues()),
 			commands.registerCommand('skynovel.opView', (uri: Uri)=> {
 				const fp = normFp(uri.fsPath);
-				for (const [pathWs, prj] of this.#mPrj.entries()) {
-					if (! isUnderPath(fp, pathWs)) continue;
-					prj.opView(uri);
-				}
+				longestUnderPath(fp, this.#mPrj.entries())?.opView(uri);
 			}),
 		);
 
@@ -386,12 +382,8 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	#prjOfActiveEditor(): Project | undefined {
 		const uri = window.activeTextEditor?.document.uri;
 		if (uri) {
-			const fp = normFp(uri.fsPath);
-			for (const [pathWs, prj] of this.#mPrj.entries()) {
-				// TODO: [multi-root] 区切りを見ていない前方一致。LangSrv.ts と同じ
-				// 問題で、隣のプロジェクトが返りうる（src/docs/multiroot.md 不具合6）
-				if (fp.startsWith(pathWs)) return prj;
-			}
+			const prj = longestUnderPath(normFp(uri.fsPath), this.#mPrj.entries());
+			if (prj) return prj;
 		}
 		return this.#mPrj.size === 1
 			? this.#mPrj.values().next().value
@@ -465,29 +457,23 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 			return;
 		}
 
-		// フォルダ増減時
-		// TODO: [multi-root] e.added / e.removed を素直に全部回すこと。いまは
-		// ①追加は「最後の1つ」決め打ち（updateWorkspaceFolders は挿入位置を
-		// 指定できるので末尾とは限らない）②複数追加で1つしか作られない
-		// ③else なので追加と削除が同時だと削除が無視される（src/docs/multiroot.md 不具合5）
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);
-			// 最後の一つと思われる
-		else {
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			const removed = e.removed[0]!;
-			const nm = removed.name;	// 一つだけ対応
-			// TODO: [multi-root] ルート行の label は空文字でフォルダ名は description。
-			// よって findIndex は必ず -1 を返し、splice(-1,1) が**末尾を消す**。
-			// ⇒ どのフォルダを閉じても最後のプロジェクトの行が消える。
-			// findIndex の -1 を splice にそのまま渡さないこと（src/docs/multiroot.md 不具合4）
-			const del = this.#aTiRoot.findIndex(v=> v.label === nm);
-			this.#aTiRoot.splice(del, 1);
+		// フォルダ増減時。追加・削除は同じイベントで同時に起こりうる（並べ替え等）ので
+		// どちらも e.added / e.removed を全件回す（src/docs/multiroot.md 不具合5）
+		for (const wsFld of e.added) this.#makePrj(wsFld);
 
-			// TODO: [multi-root] dispose するだけで #mPrj から delete していない。
-			// 破棄済み Project が Map に残り、対象判定などで選ばれうる
-			// （src/docs/multiroot.md 不具合3。LangSrv.ts の mLspWs と対で直す）
-			this.#mPrj.get(normFp(removed.uri.fsPath))?.dispose();
+		for (const removed of e.removed) {
+			const pathWs = normFp(removed.uri.fsPath);
+
+			// ルート行の label は常に空文字（PrjTreeItem.create() 参照）で
+			// フォルダ名では引けないため、生成時に持たせた pathWs で照合する
+			// （src/docs/multiroot.md 不具合4）
+			const del = this.#aTiRoot.findIndex(v=> (<PrjTreeItem>v).pathWs === pathWs);
+			if (del !== -1) this.#aTiRoot.splice(del, 1);
+
+			// dispose するだけでなく Map からも消す。残したままだと破棄済みの
+			// Project が対象判定などで選ばれうる（src/docs/multiroot.md 不具合3）
+			this.#mPrj.get(pathWs)?.dispose();
+			this.#mPrj.delete(pathWs);
 		}
 		this.#emPrjTD.fire(undefined);
 	}

@@ -17,6 +17,8 @@
 **結論：名乗るには足りない。** 確認できた不具合が **6件**、
 加えて**リソースが解放されない箇所が5件**（下記）。
 
+✅ **不具合6件は 2026-09-13 に全件決着済み。** 残るは**リソース解放5件**のみ。
+
 ⚠️ **keywords から `multi-root ready` を外した（2026-07-29）。**
 **下の全件を直してから戻すこと。** 表示と実装の食い違いは、
 再申請を控えた拡張機能では特に持ちたくない。
@@ -28,10 +30,10 @@
 |---|---|---|---|
 | 1 | ✅ **決着済み・2026-09-13**（別プロジェクトの設定でファイルが暗号化される） | [WatchFile.ts:31](../batch/WatchFile.ts:31) | **最重**（[file-watch.md](file-watch.md)(A) と同一。あちらに詳細） |
 | 2 | ✅ **決着済み・2026-09-13**（フォルダを閉じても LSP が解放されない） | [LangSrv.ts](../../server/src/LangSrv.ts) | 大（[build.md](build.md) §3.10 と同一。あちらに詳細） |
-| 3 | **フォルダを閉じても Project が残り続ける** | [WorkSpaces.ts:467](../WorkSpaces.ts:467) | 大 |
-| 4 | **フォルダを閉じると、閉じたのと別の行がツリーから消える** | [WorkSpaces.ts:464](../WorkSpaces.ts:464) | 中・**必ず起きる** |
-| 5 | **フォルダを2つ以上まとめて追加すると1つしか認識しない** | [WorkSpaces.ts:458](../WorkSpaces.ts:458) | 中 |
-| 6 | ⚠️ **一部進捗・2026-09-13**（名前が前方一致するプロジェクトへ誤配される） | [LangSrv.ts:31](../../server/src/LangSrv.ts:31) / [WorkSpaces.ts:389](../WorkSpaces.ts:389) | 中・条件付き |
+| 3 | ✅ **決着済み・2026-09-13**（フォルダを閉じても Project が残り続ける） | [WorkSpaces.ts](../WorkSpaces.ts) `#refresh()` | 大 |
+| 4 | ✅ **決着済み・2026-09-13**（フォルダを閉じると、閉じたのと別の行がツリーから消える） | [WorkSpaces.ts](../WorkSpaces.ts) `#refresh()` | 中・**必ず起きる** |
+| 5 | ✅ **決着済み・2026-09-13**（フォルダを2つ以上まとめて追加すると1つしか認識しない） | [WorkSpaces.ts](../WorkSpaces.ts) `#refresh()` | 中 |
+| 6 | ✅ **決着済み・2026-09-13**（名前が前方一致するプロジェクトへ誤配される） | [LangSrv.ts:27](../../server/src/LangSrv.ts:27) / [WorkSpaces.ts](../WorkSpaces.ts) | 中・条件付き |
 
 ### 個別
 
@@ -41,72 +43,43 @@
 `uri`）、`delete` が永久に一致しなかった。`build.md` §3.10 の vscode-uri 移行で
 両者を `uri2fp()` に統一し、`destroy()` 呼び出しも追加して解消（詳細は build.md）。
 
-#### 🐛 3. フォルダを閉じても Project が残り続ける【dispose だけで delete していない】
+#### ✅ 3・4・5. `#refresh()` のフォルダ増減処理【決着・実装済み・2026-09-13】
 
-```ts
-this.#mPrj.get(removed.uri.path)?.dispose();   // ← Map から消していない
-```
+3つとも同じ `#refresh()` 内の増減処理が原因で、直すときに触る場所が
+完全に重なるため一括で直した。
 
-`dispose()` は呼ぶが `#mPrj.delete()` が無い。⇒ **破棄済みの Project が Map に居座る。**
-`#mPrj` を回すのは「対象プロジェクトの判定」「ボタンの有効化」「LSP からの応答の
-振り分け」なので、**閉じたプロジェクトが選ばれうる。**
-
-⚠️ **2 と 3 は同じ形の間違い**（生成の口はあるが撤去の口が塞がっている）。
-片方だけ直しても、もう片方で同じ症状が出る。**対で直すこと。**
-
-#### 🐛 4. 閉じたのと別の行がツリーから消える【一致しない検索の戻り値 -1】
-
-```ts
-const del = this.#aTiRoot.findIndex(v=> v.label === nm);   // nm はフォルダ名
-this.#aTiRoot.splice(del, 1);
-```
-
-ところが**ルート行の `label` は空文字**で、フォルダ名は `description` に入っている
-（[PrjTreeItem.ts:88](../PrjTreeItem.ts:88) の `label: ''` / `desc: wsFld.name`、
-[PrjTreeItem.ts:147](../PrjTreeItem.ts:147) の `super(cfg.label)`）。
-⇒ **`findIndex` は必ず -1 を返す。** そして `splice(-1, 1)` は
-**末尾の1件を消す**（負数は末尾からの位置と解釈される）。
-
-⇒ **どのフォルダを閉じても、ツリーからは「最後のプロジェクト」の行が消える。**
-条件付きではなく、閉じれば必ずこうなる。
+- **不具合3**（Project が残り続ける）：`dispose()` は呼ぶが `#mPrj.delete()` が
+無く、破棄済みの Project が Map に居座っていた。⇒ `dispose()` の直後に
+`#mPrj.delete(pathWs)` を追加
+- **不具合4**（別の行がツリーから消える）：`this.#aTiRoot.findIndex(v=> v.label === nm)`
+は**ルート行の `label` が常に空文字**（フォルダ名は `description` 側）なので必ず
+-1 を返し、`splice(-1, 1)` が**末尾の1件を消す**事故になっていた。⇒ 照合を
+`label` ではなく `PrjTreeItem` 生成時に持たせた `pathWs`（`PrjTreeItem.ts` の
+コンストラクタ引数を public 化）で行うよう変更
+- **不具合5**（まとめて追加すると1つしか認識しない）：`e.added` は最後の1件、
+`e.removed` も先頭の1件だけを見ており、`else` で追加と削除の同時発生（並べ替え）
+だと削除が丸ごと無視されていた。⇒ `e.added` / `e.removed` を両方とも
+`for...of` で全件回すよう変更
 
 💡 **`findIndex` の -1 を `splice` にそのまま渡さない**、が一般則。
 「見つからなかった」が「末尾を消す」に化ける。
 
-#### 🐛 5. まとめて追加すると1つしか認識しない【最後の1つと決め打ち】
+#### ✅ 6. 名前が前方一致するプロジェクトへ誤配される【決着・実装済み・2026-09-13】
 
-```ts
-if (e.added.length > 0) this.#makePrj(aWsFld.slice(-1)[0]!);   // 「最後の一つと思われる」
-```
+`CmnShare.ts` に `longestUnderPath()` を追加（fp が isUnderPath を満たす
+候補のうち、key が最長のものを1つ返す）。以下の全箇所をこれに統一：
 
-- **複数を一度に追加**できる（ドラッグで2つ落とす、`.code-workspace` の編集）。
-1件しか作られず、残りは**ツリーにも出ず LSP も動かない**
-- **末尾に足されるとは限らない。** `workspace.updateWorkspaceFolders()` は
-**挿入位置を指定できる**。先頭に挿すと、**追加されていない別のフォルダ**を作りに行く
-- 削除側も `e.removed[0]` の**1件だけ**。しかも `else` なので、
-**追加と削除が同じイベントで起きると削除が丸ごと無視される**（並べ替えがこの形）
+- `LangSrv.ts` の `getLspWs()`
+- `WorkSpaces.ts` の `provideDocumentDropEdits()` / `provideHover()` /
+`skynovel.opView` コマンド／`#prjOfActiveEditor()`（旧来の `startsWith()` を撤去）
 
-⇒ `e.added` / `e.removed` を**素直に全部回す**のが正しい。
+`#prjOfActiveEditor()` は `isUnderPath` 未導入（生の `startsWith`）に加えて
+最長一致も無かったが、両方まとめて解消。`opView` コマンドは元々「一致した
+プロジェクト全部」に配っていた（入れ子だと親子両方に配ってしまう）ので、
+最長一致1件だけに配るよう挙動も修正。
 
-#### ⚠️ 6. 名前が前方一致するプロジェクトへ誤配される【一部進捗・2026-09-13】
-
-```ts
-[...mLspWs.keys()].find(wsFld=> isUnderPath(fp, wsFld))   // LangSrv.ts（区切りは見るようになった）
-if (fp.startsWith(pathWs)) return prj;                    // WorkSpaces.ts #prjOfActiveEditor() のみ未導入
-```
-
-build.md §3.10 のパス表現整理で `isUnderPath()`（区切りを見る判定）を導入した。
-`LangSrv.ts` の `getLspWs()` と、`WorkSpaces.ts` の `provideDocumentDropEdits()` /
-`provideHover()` / `skynovel.opView` コマンドはこれに寄せた。**`#prjOfActiveEditor()`
-だけ旧来の `startsWith()` のまま**残っている（TODOコメントも残置）。
-また、**どちらも「最長一致」は未実装**（`find()` は最初に一致したものを返すので、
-入れ子ワークスペースでは外側が先に当たると内側の結果を返せない）。
-
-- 発生条件は「**片方の絶対パスがもう片方の先頭と一致する**」こと。
-**入れ子**（`/work` と `/work/sub` の両方を開く）で特に踏みやすい
-（`novel`/`novel2` のような名前一致は `isUnderPath` 導入箇所では解消済み）
-- 残作業：`#prjOfActiveEditor()` も `isUnderPath` に寄せる／全箇所で**最長一致**を採る
-（構造の作り直し #C-1 として TODO.md に計上予定）
+発生条件は「**片方の絶対パスがもう片方の先頭と一致する**」こと。
+**入れ子**（`/work` と `/work/sub` の両方を開く）で特に踏みやすい。
 
 ### リソースの解放【調査済み・2026-07-29】
 
@@ -230,16 +203,18 @@ VSCode のイベント登録は **Disposable を返す**。受け取っていな
 ### 直すときの順序
 
 1. ✅ **[file-watch.md](file-watch.md)(A)** … 暗号化に触るので最初。単独の版で。**決着済み・2026-09-13**
-2. **不具合 2・3 ＋ 解放 1〜4** … **全部「捨てる口」の話**なので一度に。
-`Project.#ds` へ寄せ、`#mPrj` / `mLspWs` から確実に消す
-3. **不具合 4・5** … ツリーとフォルダ増減。上と同じ関数群を触るのでまとめて
-4. **不具合 6 ＋ 解放 5** … 独立。区切りの追加と最長一致／破棄時の `clearTimeout`
-5. ✅ **全部済んだら `keywords` に `multi-root ready` を戻す**
+2. ✅ **不具合 2・3・4・5** … **決着済み・2026-09-13**。2 は LSP 側（LangSrv.ts）、
+3〜5 は拡張側 `WorkSpaces.ts` `#refresh()` の増減処理を一括修正
+3. ✅ **不具合 6** … **決着済み・2026-09-13**（`longestUnderPath()` に統一）
+4. **解放 1〜5** … 残作業。**全部「捨てる口」の話**なので一度に。
+`Project.#ds` へ寄せ、破棄時の `clearTimeout` も含めてまとめて直す
+5. **全部済んだら `keywords` に `multi-root ready` を戻す**
 
 ⚠️ **キーワードを戻すのを忘れないこと。** 外した理由が「直すまで」なので、
 直したのに戻さないと**今度は実装が表示より良い**という別の食い違いになる。
 
 ⚠️ **テストは既にある。** `test/int/multi.ts`（`.code-workspace` で2プロジェクトを開く）
-が土台になる。**いまは (A) の再現しか見ていない**ので、上の 2〜6 のケースを足す。
-**4 と 6 は自動テストで判定しやすい**（行数と、どのプロジェクトが返るか）。
+が土台になる。**いまは (A) の再現しか見ていない**ので、不具合 2〜6 の自動テストは
+未着手のまま（コード側の修正は済み）。**4 と 6 は自動テストで判定しやすい**
+（行数と、どのプロジェクトが返るか）。
 
