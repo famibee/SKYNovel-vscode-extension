@@ -513,6 +513,15 @@ console.error(`fn:WorkSpaces.ts scanScr_trgParamHints `);
 	getTreeItem = (t: TreeItem)=> t;
 	getChildren = (t?: TreeItem)=> t ?(<PrjTreeItem>t).children :this.#aTiRoot;
 
+	/**
+	 * 統合テストから観測するための入口（src/extension.ts の activate() 戻り値経由）。
+	 * ツリーのルート行＝開いているワークスペースフォルダの pathWs 一覧
+	 * （src/docs/multiroot.md 不具合4 の回帰確認用）
+	 */
+	getRootPathWs(): FULL_PATH[] {
+		return this.#aTiRoot.map(v=> (<PrjTreeItem>v).pathWs);
+	}
+
 	dispose() {
 		for (const prj of this.#mPrj.values()) prj.dispose();
 		this.#mPrj.clear();

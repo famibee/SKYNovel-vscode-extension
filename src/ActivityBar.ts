@@ -135,6 +135,13 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 	static #hEnv: T_H_ENV;
 	static getReady(nm: keyof T_H_ENV): boolean {return this.#hEnv[nm].ready}
 
+	/** 統合テストから観測するための入口。WorkSpaces がまだ無ければ undefined */
+	static getWsRootPathWs(): string[] | undefined {
+		const ab = this.#actBar;
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- start() 前は未初期化
+		return ab ?ab.#workSps.getRootPathWs() :undefined;
+	}
+
 
 	//MARK: コンストラクタ
 	private constructor(private readonly ctx: ExtensionContext) {

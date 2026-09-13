@@ -34,7 +34,7 @@ export function activate(ctx: ExtensionContext) {
 
 	// 統合テスト（test/int/）から観測するための入口。
 	// extensions.getExtension(id).exports で受け取れる
-	return {getTraceCnt, getTraceMs, clearTrace};
+	return {getTraceCnt, getTraceMs, clearTrace, getWsRootPathWs: ()=> ActivityBar.getWsRootPathWs()};
 }
 
 // 拡張機能が非アクティブ化されたときに、実行

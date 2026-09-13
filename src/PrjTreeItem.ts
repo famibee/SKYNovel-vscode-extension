@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {is_win} from './CmnLib';
+import {is_win, normFp, type FULL_PATH} from './CmnLib';
 import {oIcon} from './ActivityBar';
 
 import type {ExtensionContext, WorkspaceFolder} from 'vscode';
@@ -129,7 +129,7 @@ export class PrjTreeItem extends TreeItem {
 			ePack.children = ePack.children!.map(e=> ({...e, npm: e.npm?.replace('webpack:pro', 'app_bld')}));
 		}
 
-		const pathWs = wsFld.uri.fsPath;
+		const pathWs = normFp(wsFld.uri.fsPath);
 		const pti = new PrjTreeItem(ctx, pathWs, cfg);
 		pti.collapsibleState = TreeItemCollapsibleState.Collapsed;
 
@@ -143,7 +143,7 @@ export class PrjTreeItem extends TreeItem {
 
 
 	#children	: TreeItem[]	= [];
-	private	constructor(readonly ctx: ExtensionContext, readonly pathWs: string, readonly cfg: TREEITEM_CFG) {
+	private	constructor(readonly ctx: ExtensionContext, readonly pathWs: FULL_PATH, readonly cfg: TREEITEM_CFG) {
 		super(is_win && cfg.forMac ?'' :cfg.label);
 
 		if (is_win && cfg.forMac) this.description = '（Windowsでは使えません）';

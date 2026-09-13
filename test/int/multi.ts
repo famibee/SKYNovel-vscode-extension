@@ -19,7 +19,9 @@
 
 import assert from 'node:assert';
 import {copyFileSync, existsSync, readFileSync} from 'node:fs';
-import {extensions, workspace} from 'vscode';
+import {extensions, workspace, Uri} from 'vscode';
+import {mkFixture} from './mkFixture';
+import {normFp} from '../../src/CmnShare';
 
 const EXT_ID = 'famibee2.bluesnovel';
 const sleep = (ms: number)=> new Promise(re=> setTimeout(re, ms));
@@ -66,4 +68,35 @@ it('片方に画像を足すと、そちらの path.json にだけ載る', async
 
 	assert.ok(inA, 'A に足したのに A の path.json に載っていない');
 	assert.ok(! inB, 'B の path.json にまで載っている（後勝ちが再発している）');
+});
+
+// src/docs/multiroot.md 不具合4。ルート行の label は常に空文字のため、
+// 旧実装は findIndex(label 照合) が必ず -1 を返し、splice(-1, 1) で
+// 末尾の1件を誤って消していた（閉じたのと別の行が消える）
+it('フォルダを1つ閉じても、閉じたフォルダだけがツリーから消える（不具合4）', async ()=> {
+	const exp = <{getWsRootPathWs?: ()=> string[] | undefined}>
+		(extensions.getExtension(EXT_ID)?.exports ?? {});
+
+	const c = mkFixture('multi/C');
+	const okAdd = workspace.updateWorkspaceFolders(2, 0, {uri: Uri.file(c.ws)});
+	if (! okAdd) throw new Error('フォルダの追加に失敗');
+	await sleep(4000);
+
+	const before = exp.getWsRootPathWs?.() ?? [];
+	console.log(`      3フォルダ時: ${JSON.stringify(before)}`);
+	assert.strictEqual(before.length, 3, `3フォルダ開いたはずが${String(before.length)}件`);
+
+	// 先頭（A）を閉じる。旧実装だと末尾（C）が誤って消える
+	const okDel = workspace.updateWorkspaceFolders(0, 1);
+	if (! okDel) throw new Error('フォルダの削除に失敗');
+	await sleep(4000);
+
+	const after = exp.getWsRootPathWs?.() ?? [];
+	console.log(`      A を閉じた後: ${JSON.stringify(after)}`);
+
+	const nA = normFp(A), nB = normFp(B), nC = normFp(c.ws);
+	assert.strictEqual(after.length, 2, `A を閉じたのに${String(after.length)}件残っている`);
+	assert.ok(! after.includes(nA), 'A を閉じたのにまだツリーに残っている');
+	assert.ok(after.includes(nB), 'B が消えている（無関係な行が消された）');
+	assert.ok(after.includes(nC), 'C が消えている（末尾が誤って消された＝不具合4の再発）');
 });
