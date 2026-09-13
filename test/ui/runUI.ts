@@ -24,7 +24,7 @@
 
 import {_electron as electron} from 'playwright-core';
 import type {ElectronApplication, Frame, Locator, Page} from 'playwright-core';
-import {copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
@@ -49,6 +49,7 @@ const A_VSC = [
 const REPO = resolve(import.meta.dirname, '../..');
 const TMP = `${tmpdir()}/sn_ext_ui`;
 const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
 
 type T_ARG = {win: Page, blues: boolean, prj: string, app: ElectronApplication};
 const aCase: {nm: string, fnc: (o: T_ARG)=> Promise<void>}[] = [];
@@ -328,7 +329,7 @@ uiCase('D&D (VE)→(VE)：Ctrl+ドラッグでコピーできる', async ({win})
 	}
 });
 
-/** Finder→(VE) のテスト用に、プロジェクト外（OS上の適当な場所）へ
+/** Finder/Explorer→(VE) のテスト用に、プロジェクト外（OS上の適当な場所）へ
  * ソースファイルを1つ用意する。プロジェクト内に置くと「そもそも外部由来
  * ではない」ことになり検証の意味が薄れるため、必ず `%TEMP%` 配下に置く */
 function mkExtSrc(nm: string) {
@@ -337,11 +338,69 @@ function mkExtSrc(nm: string) {
 	// Finder の AX ツリーで「フォルダ内の1番目のアイコン」を無条件に掴むため、
 	// 同じフォルダに前回以前の実行分が溜まっていると、ソート順次第で
 	// 別ファイル（最悪、旧い無印の名前）を誤って掴んでしまう。実機で発生済み）
-	const dir = `${tmpdir()}/sn_ext_dnd_ext_mac/${String(Date.now())}`;
+	const dir = `${tmpdir()}/sn_ext_dnd_ext/${String(Date.now())}`;
 	mkdirSync(dir, {recursive: true});
 	const fp = `${dir}/${nm}`;
 	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), fp);
 	return fp;
+}
+
+// ⚠️ **Explorer→(VE) は Windows 限定**（src/docs/file-watch.md の
+// 「Explorer↔VSCode 自動化の可能性」節で実機PoC済み）。
+// Explorer 自身は別プロセスの OS ウィンドウなので Playwright からは触れず、
+// `ctypes.SendInput` ベースの `win_explorer_drag.py` へ実際のドラッグ操作を委譲する。
+// VSCode 側はドロップ先行の座標（boundingBox + window.screenX/Y）を求めるだけでよい。
+//
+// PoC で踏んだ地雷：`window.screenX/screenY` と `boundingBox()` は論理(DIP)ピクセル、
+// `SendInput` は物理ピクセル基準。`window.devicePixelRatio` を掛けて変換しないと
+// DPIスケーリング環境（150%等）でドロップ座標が大きくズレて不成立になる。
+
+/**
+ * Explorer(実OSのウィンドウ)から VSCode へファイルをドラッグする。
+ * 実際のマウス操作は Python(`win_explorer_drag.py`)の SendInput 実装に委譲し、
+ * ここでは「VSCode 側のドロップ座標を求める」「VSCode ウィンドウを既知の位置に
+ * 置く（Explorer 側と重ならないように）」だけを担当する。
+ *
+ * @returns ドラッグ後も送り元ファイルが実在するか（move/copy の実態確認用）
+ */
+async function dragFromExplorer(
+	o: {win: Page, app: ElectronApplication},
+	destRow: Locator,
+	srcFile: string,
+	opt: {ctrl?: boolean} = {},
+): Promise<{srcExists: boolean}> {
+	const {win, app} = o;
+
+	// VSCode ウィンドウをプライマリモニタの右半分へ（Explorer 側は
+	// win_explorer_drag.py が左半分に置く。座標計算後に動かすと
+	// screenX/Y が古くなるので、計算の**前に**確定させる）
+	type T_BW = {setBounds: (b: {x: number, y: number, width: number, height: number})=> void};
+	const {workAreaSize} = await app.evaluate(({screen})=> screen.getPrimaryDisplay());
+	const bw = await app.browserWindow(win);
+	await bw.evaluate((w: T_BW, size: {width: number, height: number})=> {
+		w.setBounds({
+			x: Math.floor(size.width /2), y: 0,
+			width: Math.floor(size.width /2), height: size.height,
+		});
+	}, workAreaSize);
+	await win.waitForTimeout(500);
+
+	const box = await destRow.boundingBox();
+	if (! box) throw new Error('ドロップ先(destRow)のboundingBoxが取得できません');
+	const [winX, winY, dpr] = await win.evaluate(()=>
+		[window.screenX, window.screenY, window.devicePixelRatio]);
+	// DIP → 物理ピクセル変換（PoCで踏んだ地雷。上のコメント参照）
+	const dropX = Math.round((winX + box.x + box.width /2) * dpr);
+	const dropY = Math.round((winY + box.y + box.height /2) * dpr);
+
+	const py = resolve(import.meta.dirname, 'win_explorer_drag.py');
+	const args = [py, srcFile, String(dropX), String(dropY)];
+	if (opt.ctrl) args.push('ctrl');
+	const out = execFileSync('python', args, {encoding: 'utf8'});
+	console.log(`      [win_explorer_drag.py]\n${out.split('\n').map(l=> `        ${l}`).join('\n')}`);
+	const m = /RESULT:(\{.*\})/.exec(out);
+	if (! m?.[1]) throw new Error(`win_explorer_drag.py の出力から結果を読めない: ${out}`);
+	return <{srcExists: boolean}>JSON.parse(m[1]);
 }
 
 /**
@@ -515,6 +574,27 @@ uiCase('D&D Finder→(VE)：移動できる【mac限定・実機PoC済み】', a
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
+uiCase('D&D Explorer→(VE)：移動できる【win限定・実機PoC済み】', async ({win, app})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const srcFile = mkExtSrc('dnd_ext_move.png');
+	const before = readTrace();
+	const {srcExists} = await dragFromExplorer({win, app}, dest, srcFile);
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Explorer→(VE)移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)} / 送り元ファイル残存:${String(srcExists)}`);
+	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
+});
+
 uiCase('D&D Finder→(VE)：コピーできる（Option+ドラッグ）【mac限定・実機PoC済み】', async ({win, app})=> {
 	if (! isMac) {console.log('      (mac 専用ケースのためスキップ)'); return}
 	await openExplorer(win);
@@ -529,6 +609,27 @@ uiCase('D&D Finder→(VE)：コピーできる（Option+ドラッグ）【mac限
 	const dCre = await waitForTraceDelta('watch.cre', before['watch.cre'] ?? 0);
 	const dNeedGo = (readTrace()['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
 	console.log(`      Finder→(VE)コピー後の差分: watch.cre +${String(dCre)} / need_go.send +${String(dNeedGo)} / 送り元ファイル残存:${String(srcExists)}`);
+	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
+});
+
+uiCase('D&D Explorer→(VE)：コピーできる（Ctrl+ドラッグ）【win限定・実機PoC済み】', async ({win, app})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+	const dest = win.locator('.monaco-list-row').filter({hasText: /^sound$/}).first();
+	await dest.waitFor({state: 'visible', timeout: 20_000});
+
+	const srcFile = mkExtSrc('dnd_ext_copy.png');
+	const before = readTrace();
+	const {srcExists} = await dragFromExplorer({win, app}, dest, srcFile, {ctrl: true});
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Explorer→(VE)コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)} / 送り元ファイル残存:${String(srcExists)}`);
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
@@ -661,6 +762,113 @@ uiCase('D&D (VE)→Finder：ドラッグアウトできる【mac限定】', asyn
 	// mac も同じ VSCode 本体の実装を使うため、送り元の消失は断定せず観測のみ
 	console.log(`      (VE)→Finder（無修飾）後: 送り先ファイル:${dstFile || '(できていない)'} / 送り元残存:${String(existsSync(fp))} / need_go.send +${String(dNeedGo)}`);
 	if (! dstFile) throw new Error('送り先フォルダにファイルができていない（ドロップが効いていない可能性）');
+});
+
+// ⚠️ (VE)→Explorer は逆方向。VSCode自身が既に「ファイルをOSへドラッグアウトする」
+// 機能を持っている（`webContents.startDrag()`はVSCode本体のメインプロセスが呼ぶ。
+// 拡張機能からそのAPIを叩く必要はない）。こちらが用意するのは
+// 「本物のOS入力でVSCode側の行からドラッグを開始させる」ことだけで、
+// Explorer→(VE)側と対称な`SendInput`実装がそのまま使える
+// （src/docs/file-watch.mdの「(VE)→Explorer方向のPoC結果」参照）。
+
+/**
+ * VSCode(Explorerツリー行)から実Explorerウィンドウへファイルをドラッグする。
+ * 送り先のExplorerウィンドウを開く・SendInputでドラッグする実処理は
+ * Python(`win_explorer_drop.py`)に委譲し、ここではVSCode側の
+ * ドラッグ元座標を求める（dragFromExplorer()と対称）。
+ *
+ * @returns 送り先フォルダーにファイルが実際に現れたか
+ */
+async function dragToExplorer(
+	o: {win: Page, app: ElectronApplication},
+	srcRow: Locator,
+	destDir: string,
+	filename: string,
+	opt: {ctrl?: boolean} = {},
+): Promise<{dropped: boolean}> {
+	const {win, app} = o;
+
+	type T_BW = {setBounds: (b: {x: number, y: number, width: number, height: number})=> void};
+	const {workAreaSize} = await app.evaluate(({screen})=> screen.getPrimaryDisplay());
+	const bw = await app.browserWindow(win);
+	await bw.evaluate((w: T_BW, size: {width: number, height: number})=> {
+		w.setBounds({x: 0, y: 0, width: Math.floor(size.width /2), height: size.height});
+	}, workAreaSize);
+	await win.waitForTimeout(500);
+
+	const box = await srcRow.boundingBox();
+	if (! box) throw new Error('ドラッグ元(srcRow)のboundingBoxが取得できません');
+	const [winX, winY, dpr] = await win.evaluate(()=>
+		[window.screenX, window.screenY, window.devicePixelRatio]);
+	const startX = Math.round((winX + box.x + box.width /2) * dpr);
+	const startY = Math.round((winY + box.y + box.height /2) * dpr);
+
+	const py = resolve(import.meta.dirname, 'win_explorer_drop.py');
+	const args = [py, String(startX), String(startY), destDir, filename];
+	if (opt.ctrl) args.push('ctrl');
+	const out = execFileSync('python', args, {encoding: 'utf8'});
+	console.log(`      [win_explorer_drop.py]\n${out.split('\n').map(l=> `        ${l}`).join('\n')}`);
+	const m = /RESULT:(\{.*\})/.exec(out);
+	if (! m?.[1]) throw new Error(`win_explorer_drop.py の出力から結果を読めない: ${out}`);
+	return <{dropped: boolean}>JSON.parse(m[1]);
+}
+
+uiCase('D&D (VE)→Explorer：ドラッグできる【win限定・実機PoC済み】', async ({win, app, prj})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+
+	const nm = 'dnd_out_move.png';
+	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), `${prj}/pic/${nm}`);
+	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
+	await srcRow.waitFor({state: 'visible', timeout: 20_000});
+
+	// ⚠️ SKYNovel/BlueSNovelの2プロジェクトが同じdestDirを使い回すため、
+	// 前回の残留ファイルがあると「同名ファイルが存在します」という
+	// Explorerの本物のOS確認ダイアログが出て**SendInputのドラッグが
+	// 応答不能のまま止まる**(実機で発生済み)。毎回空にしてから使う
+	const destDir = `${tmpdir()}/sn_ext_dnd_out_move`;
+	rmSync(destDir, {recursive: true, force: true});
+	mkdirSync(destDir, {recursive: true});
+
+	const before = readTrace();
+	const {dropped} = await dragToExplorer({win, app}, srcRow, destDir, nm);
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      (VE)→Explorer後の差分: watch.del +${String(dDel)} / need_go.send +${String(dSend)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
+});
+
+uiCase('D&D (VE)→Explorer：Ctrl+ドラッグでもドラッグできる【win限定・実機PoC済み】', async ({win, app, prj})=> {
+	if (! isWin) {console.log('      (Windows 専用ケースのためスキップ)'); return}
+	await openExplorer(win);
+	await expandRow(win, 'doc');
+	await expandRow(win, /^pic$/);
+
+	const nm = 'dnd_out_copy.png';
+	copyFileSync(resolve(import.meta.dirname, '../mat/_yesno.png'), `${prj}/pic/${nm}`);
+	const srcRow = win.locator('.monaco-list-row').filter({hasText: nm}).first();
+	await srcRow.waitFor({state: 'visible', timeout: 20_000});
+
+	// ⚠️ 上のケースと同じ理由(SKYNovel/BlueSNovelでdestDirを使い回すため)で
+	// 毎回空にしてから使う
+	const destDir = `${tmpdir()}/sn_ext_dnd_out_copy`;
+	rmSync(destDir, {recursive: true, force: true});
+	mkdirSync(destDir, {recursive: true});
+
+	const before = readTrace();
+	const {dropped} = await dragToExplorer({win, app}, srcRow, destDir, nm, {ctrl: true});
+	await win.waitForTimeout(1500);
+	const after = readTrace();
+
+	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      (VE)→Explorer(Ctrl)後の差分: watch.del +${String(dDel)} / need_go.send +${String(dSend)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
 });
 
 // === 実行 ===
