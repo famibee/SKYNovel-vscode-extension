@@ -275,7 +275,8 @@ uiCase('D&D (VE)→(VE)：ドラッグで移動できる', async ({win})=> {
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)}`);
 	if (dCre < 1 || dDel < 1) {
 		throw new Error(`ドラッグが効いていない可能性（watch.cre:${String(dCre)} watch.del:${String(dDel)}）`);
 	}
@@ -317,7 +318,8 @@ uiCase('D&D (VE)→(VE)：Ctrl+ドラッグでコピーできる', async ({win})
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)}`);
 	if (dCre < 1) throw new Error(`コピーが効いていない可能性（watch.cre:${String(dCre)}）`);
 	if (dDel > 0) throw new Error(`削除が発生した＝コピーでなく移動になっている（watch.del:${String(dDel)}）`);
 	if (! await src.isVisible().catch(()=> false)) {
@@ -409,7 +411,8 @@ uiCase('D&D Explorer→(VE)：移動できる【win限定・実機PoC済み】',
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      Explorer→(VE)移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / 送り元ファイル残存:${String(srcExists)}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Explorer→(VE)移動後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)} / 送り元ファイル残存:${String(srcExists)}`);
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
@@ -429,7 +432,8 @@ uiCase('D&D Explorer→(VE)：コピーできる（Ctrl+ドラッグ）【win限
 
 	const dCre = (after['watch.cre'] ?? 0) - (before['watch.cre'] ?? 0);
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      Explorer→(VE)コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / 送り元ファイル残存:${String(srcExists)}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      Explorer→(VE)コピー後の差分: watch.cre +${String(dCre)} / watch.del +${String(dDel)} / need_go.send +${String(dSend)} / 送り元ファイル残存:${String(srcExists)}`);
 	if (dCre < 1) throw new Error(`ドロップが効いていない可能性（watch.cre:${String(dCre)}）`);
 });
 
@@ -506,7 +510,8 @@ uiCase('D&D (VE)→Explorer：ドラッグできる【win限定・実機PoC済�
 	const after = readTrace();
 
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      (VE)→Explorer後の差分: watch.del +${String(dDel)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      (VE)→Explorer後の差分: watch.del +${String(dDel)} / need_go.send +${String(dSend)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
 	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
 });
 
@@ -533,7 +538,8 @@ uiCase('D&D (VE)→Explorer：Ctrl+ドラッグでもドラッグできる【win
 	const after = readTrace();
 
 	const dDel = (after['watch.del'] ?? 0) - (before['watch.del'] ?? 0);
-	console.log(`      (VE)→Explorer(Ctrl)後の差分: watch.del +${String(dDel)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
+	const dSend = (after['need_go.send'] ?? 0) - (before['need_go.send'] ?? 0);
+	console.log(`      (VE)→Explorer(Ctrl)後の差分: watch.del +${String(dDel)} / need_go.send +${String(dSend)} / ドロップ成立:${String(dropped)} / 元行残存:${String(await srcRow.isVisible().catch(()=> false))}`);
 	if (! dropped) throw new Error('送り先フォルダーにファイルが現れなかった（ドロップ不成立）');
 });
 
