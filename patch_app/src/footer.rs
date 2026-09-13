@@ -10,8 +10,11 @@ use serde::Deserialize;
 
 const MAGIC: &[u8; 8] = b"SNLPATCH";
 
+// 1アプリ分の設定。配布物には複数個（Config = Vec<AppConfig>）を埋め込める
+// （2026-09-14: 複数ver・複数アプリを1本の実行ファイルで扱えるようにする対応。
+// 生成側 genLegacyPatch.ts も同時期にJSON配列を書き出す方式へ変更済み）
 #[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct Config {
+pub struct AppConfig {
 	#[serde(rename = "appName")]
 	pub app_name: String,
 	// 単一値ではなく配列（legacy-app-patch.md「詰められていない仕様」#1・2026-09-13決定：
@@ -24,6 +27,9 @@ pub struct Config {
 	#[serde(rename = "downloadUrl")]
 	pub download_url: String,
 }
+
+// 埋め込みJSONのトップレベルはアプリごとの設定の配列
+pub type Config = Vec<AppConfig>;
 
 // stub（汎用バイナリ本体）の末尾に JSON を連結する。順序：json ++ len(u32 LE) ++ magic
 pub fn append_footer(stub: &[u8], json: &str) -> Vec<u8> {
@@ -62,7 +68,7 @@ mod tests {
 	use super::*;
 
 	fn sample_json() -> String {
-		r#"{"appName":"MyGame","checksumSetting":["abc123","def456"],"settingSnFileName":"3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn","downloadUrl":"https://example.com/patch"}"#.to_string()
+		r#"[{"appName":"MyGame","checksumSetting":["abc123","def456"],"settingSnFileName":"3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn","downloadUrl":"https://example.com/patch"}]"#.to_string()
 	}
 
 	#[test]
@@ -94,11 +100,23 @@ mod tests {
 	#[test]
 	fn parse_config_reads_camelcase_json() {
 		let cfg = parse_config(&sample_json()).unwrap();
-		assert_eq!(cfg, Config {
+		assert_eq!(cfg, vec![AppConfig {
 			app_name: "MyGame".to_string(),
 			checksum_setting: vec!["abc123".to_string(), "def456".to_string()],
 			setting_sn_file_name: "3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn".to_string(),
 			download_url: "https://example.com/patch".to_string(),
-		});
+		}]);
+	}
+
+	#[test]
+	fn parse_config_reads_multiple_apps() {
+		let json = r#"[
+			{"appName":"GameA","checksumSetting":["a1"],"settingSnFileName":"a.sn","downloadUrl":"https://example.com/a"},
+			{"appName":"GameB","checksumSetting":["b1"],"settingSnFileName":"b.sn","downloadUrl":"https://example.com/b"}
+		]"#;
+		let cfg = parse_config(json).unwrap();
+		assert_eq!(cfg.len(), 2);
+		assert_eq!(cfg[0].app_name, "GameA");
+		assert_eq!(cfg[1].app_name, "GameB");
 	}
 }

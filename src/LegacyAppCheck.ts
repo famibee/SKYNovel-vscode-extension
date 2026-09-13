@@ -96,6 +96,26 @@ export function assertHasExperienceConst(plaintext: string): void {
 }
 
 
+//MARK: パッチ生成時のみのガード（appName のパス組み立て安全性）
+
+// appName はパッチアプリ本体（Rust側 detect::candidate_install_paths）で
+// インストール先パス組み立てにそのまま使われる（例：`/Applications/${appName}.app`）。
+// `/`・`\`・`..` を許すと、`/Applications` 外の任意ディレクトリを指すパストラバーサルに
+// なりうる（2026-09-14・セキュリティ確認で指摘）。パッチアプリ本体側には検証を持たせず、
+// 平文にアクセスできる生成時（ここ）だけで弾く
+const REG_UNSAFE_APP_NAME = /[/\\]|\.\./;
+
+export class UnsafeAppNameError extends Error {
+	constructor(appName: string) {
+		super(`appName に "/"・"\\"・".." を含めることはできない（インストール先パスの組み立てにそのまま使われるため）: ${appName}`);
+	}
+}
+
+export function assertSafeAppName(appName: string): void {
+	if (REG_UNSAFE_APP_NAME.test(appName)) throw new UnsafeAppNameError(appName);
+}
+
+
 //MARK: 案A：インストール済みアプリの検出
 
 export type T_APP_DETECT_ENV = {
@@ -141,15 +161,22 @@ export function detectInstalledApp(appName: string, env: Partial<T_APP_DETECT_EN
 // [汎用バイナリ本体(stub)][JSON][JSONバイト長(u32 LE)][8バイトのマジック文字列]
 const FOOTER_MAGIC = 'SNLPATCH';
 
-export type T_LEGACY_PATCH_CONFIG = {
+// 1アプリ分の設定。埋め込みJSONのトップレベルはこれの配列（T_LEGACY_PATCH_CONFIG）
+// （2026-09-14: 複数ver・複数アプリを1本の実行ファイルで扱えるようにする対応。
+// Rust側 footer::AppConfig / Config = Vec<AppConfig> と対応させること）
+export type T_LEGACY_PATCH_APP_CONFIG = {
 	appName				: string;
 	checksumSetting		: string[];		// 複数の既知チェックサム（過去出荷ビルド分）
 	settingSnFileName	: string;		// asar 内で探す basename（フォルダ位置は問わない）
 	downloadUrl			: string;
 }
 
-// stub（汎用バイナリ本体）の末尾に Config の JSON を連結する。パッチアプリ本体の
-// footer::extract_trailing_json() が読み取れる形式にする（順序：json ++ len(u32 LE) ++ magic）
+// 埋め込みJSONのトップレベルはアプリごとの設定の配列（Rust側 Config = Vec<AppConfig> と対応）
+export type T_LEGACY_PATCH_CONFIG = T_LEGACY_PATCH_APP_CONFIG[];
+
+// stub（汎用バイナリ本体）の末尾に Config（アプリごとの設定の配列）の JSON を連結する。
+// パッチアプリ本体の footer::extract_trailing_json() が読み取れる形式にする
+// （順序：json ++ len(u32 LE) ++ magic）
 export function appendPatchFooter(stub: Uint8Array, cfg: T_LEGACY_PATCH_CONFIG): Uint8Array {
 	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');
 	const lenBuf = Buffer.alloc(4);
