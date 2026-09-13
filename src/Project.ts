@@ -218,47 +218,8 @@ export class Project {
 			this.#encry,
 		);
 
-		/**
-		 * ⚠️ **3つの仕事を兼ねている**（path.json 更新＋暗号化／ドロップ先候補の
-		 * 再計算／LSP の全再走査）。画像を1枚追加するだけで前2つは必ず走る
-		 * （src/docs/file-watch.md(C)）。
-		 *
-		 * ただし3つめ（全再走査）は **path.json が実際に変わったときだけ**にした。
-		 * LSP が全走査を要るのは「ファイル名キーワードが変わったから」なので、
-		 * path.json が同一内容なら全再パースは無駄（同 (F)）。
-		 * スクリプトの追加削除は WfbOptFont が別途 `sendNeedGo()` を直接呼ぶので、
-		 * ここを抑えても取りこぼさない
-		 */
-		const fpPathJson = `${this.#pc.PATH_WS}/doc/prj/path.json`;
-		const readPathJson = ()=> {
-			try {return existsSync(fpPathJson) ?readFileSync(fpPathJson, 'utf8') :''}
-			catch {return ''}	// 読めないなら「変わった」扱いにして従来どおり走らせる
-		};
-		// 実証済み：追加してすぐ削除すると path.json.同一 1 / 全走査 0（統合テスト）
-		const updPathJson = async ()=> {
-			// path.json 更新（暗号化もここ「のみ」で）
-// console.log(`fn:Project.ts #basePathJson`);
-			const before = readPathJson();
-			this.#haDiagFn = {};
-			await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
-
-			// ドロップ時コピー先候補
-			for (const [spae, aFld] of mExt2aFld) this.#mExt2ToPath.set(
-				spae,
-				aFld.filter(fld_nm=> existsSync(this.#pc.PATH_WS +`/doc/prj/${fld_nm}/`)),
-			);
-
-			// スクリプト判定起動。中身が同じなら LSP に全再パースさせない
-			const after = readPathJson();
-			if (after !== '' && after === before) {trace('path.json.同一'); return}
-
-			trace('path.json.変化');
-			// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7 の宿題「upd_path」）。
-			// `after` は上で読んだものをそのまま渡す＝追加の I/O は無い
-			this.#sendNeedGo(after);
-		};
 		this.#pc.init(
-			updPathJson,
+			()=> this.#updPathJson(),
 			uri=> this.#encIfNeeded(uri),
 			this.#diff,
 			()=> this.#isCryptoMode,
@@ -451,14 +412,62 @@ export class Project {
 	}
 
 
+	//MARK: path.json 更新
+	#readPathJson() {
+		const fp = `${this.#pc.PATH_WS}/doc/prj/path.json`;
+		try {return existsSync(fp) ?readFileSync(fp, 'utf8') :''}
+		catch {return ''}	// 読めないなら「変わった」扱いにして従来どおり走らせる
+	}
+
+	// path.json 本体の更新＋暗号化は**ここ「のみ」**で行う
+	async #updPathJsonCore() {
+		this.#haDiagFn = {};
+		await this.#cfg.loadEx(uri=> this.#encFile(uri), this.#haDiagFn);
+	}
+
+	// ドロップ時コピー先候補の再計算
+	#updDropCandidates() {
+		for (const [spae, aFld] of mExt2aFld) this.#mExt2ToPath.set(
+			spae,
+			aFld.filter(fld_nm=> existsSync(this.#pc.PATH_WS +`/doc/prj/${fld_nm}/`)),
+		);
+	}
+
+	/**
+	 * §3.8 (C)：上3つのオーケストレーター（path.json 更新＋暗号化／
+	 * ドロップ先候補の再計算／LSP の全再走査要求）。画像を1枚追加するだけで
+	 * 前2つは必ず走る。
+	 *
+	 * 3つめ（全再走査）は **path.json が実際に変わったときだけ**にした。
+	 * LSP が全走査を要るのは「ファイル名キーワードが変わったから」なので、
+	 * path.json が同一内容なら全再パースは無駄（同 (F)）。
+	 * スクリプトの追加削除は WfbOptFont が別途 `sendNeedGo()` を直接呼ぶので、
+	 * ここを抑えても取りこぼさない
+	 *
+	 * 実証済み：追加してすぐ削除すると path.json.同一 1 / 全走査 0（統合テスト）
+	 */
+	async #updPathJson() {
+		const before = this.#readPathJson();
+		await this.#updPathJsonCore();
+		this.#updDropCandidates();
+
+		// スクリプト判定起動。中身が同じなら LSP に全再パースさせない
+		const after = this.#readPathJson();
+		if (after !== '' && after === before) {trace('path.json.同一'); return}
+
+		trace('path.json.変化');
+		// 変わったのは path.json だけ。本文（約177KB）は送らずに済む（§3.7 の宿題「upd_path」）。
+		// `after` は上で読んだものをそのまま渡す＝追加の I/O は無い
+		this.#sendNeedGo(after);
+	}
+
+
 	#tmNeedGo	: ReturnType<typeof setTimeout> | undefined;
 	/**
 	 * 全走査を要求する。1周が重い（全ファイル読み直し＋全文送信＋全再パース）ので、
 	 * 短時間に連続した要求はまとめて1回にする。
 	 *
 	 * まとめる価値がある理由（統合テストで実測）：
-	 * - 画像＋音声を同時に置くと、監視インスタンスが別で 500ms デバウンスが
-	 *   2本走るため `updPathJson()` が2回 → ここで1回にまとまる
 	 * - `.sn` の追加は経路が2つある（WfbOptFont の crechg が直接呼ぶ／
 	 *   同じ監視が updPathJson=true なので path.json 経由でも来る）
 	 */
