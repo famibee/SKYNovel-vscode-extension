@@ -6,7 +6,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH, IDecryptInfo, T_PKG_JSON} from './CmnLib';
-import {treeProc, foldProc, replaceFile, is_win, docsel, getFn, normFp, cnvPM, REG_SCRIPT, hDiagL2s, isBluesPrj} from './CmnLib';
+import {treeProc, foldProc, replaceFile, replaceRegsFile, is_win, docsel, getFn, normFp, cnvPM, REG_SCRIPT, hDiagL2s, isBluesPrj} from './CmnLib';
 import {PrjSetting} from './PrjSetting';
 import {Encryptor, ab2hexStr, encStrBase64} from './Encryptor';
 import {ActivityBar} from './ActivityBar';
@@ -285,6 +285,19 @@ export class Project {
 						false,
 					);
 				}
+
+				// rimraf依存除去。旧テンプレ: webpack:pro / rebuild、新テンプレ: rebuild
+				// （該当しない方の正規表現は単に不一致になるだけ）
+				replaceRegsFile(
+					<FULL_PATH>(this.#pc.PATH_WS +'/package.json'),
+					[
+						[/rimraf doc\/web\.\*\.js && /, ''],
+						[/rimraf package-lock\.json && rimraf node_modules && /, ''],
+						[/rimraf dist && rimraf out && /, ''],
+					],
+					false,
+				);
+
 				// v4.21.4 バッチファイル位置移動
 				for await (const fn of glob(this.#pc.PATH_WS +'/build/{cnv_*,cut_round,subset_font}.{js,json}')) {
 					const dest = fn.replace('/build/', `/${this.#pc.FLD_SRC}/batch/`);
@@ -781,19 +794,6 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			// バンドルせず、ユーザーに見えるタスクターミナルで npx 実行する
 			cmd += `npx --yes npm-check-updates@22 -u --target minor ${statBreak} `;
 		}
-		if (! existsSync(this.#pc.PATH_WS +'/node_modules')) {
-			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
-			await remove(this.#pc.PATH_WS +'/package-lock.json');
-		}
-		if (existsSync(this.#pc.PATH_WS +'/node_modules/electron')) {
-			// Electron本体（100MB超）のダウンロードがpostinstallで完了しないまま
-			// node_modules/electron 自体は生成されている場合、以降の npm i / bun i は
-			// 「変更なし」と判定して再実行しない（electron-vite はそれを検知できず
-			// 起動時に「Electron uninstall」で失敗する）。install.js は導入済みなら
-			// 即終了する軽量処理なので毎回実行して自己修復する
-			cmd += `node node_modules/electron/install.js ${statBreak} `;
-		}
-
 		// メイン処理
 		if (cfg.npm) cmd += cfg.npm;
 		switch (btn_nm) {	// タスク前処理
@@ -1343,6 +1343,15 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		if (! existsSync(this.#pc.PATH_WS +'/node_modules')) {
 			cmd += ` ${statBreak} npm i`;		// 自動で「npm i」
 			removeSync(this.#pc.PATH_WS +'/package-lock.json');
+		}
+		if (existsSync(this.#pc.PATH_WS +'/node_modules/electron')) {
+			// Electron本体（100MB超）のダウンロードがpostinstallで完了しないまま
+			// node_modules/electron 自体は生成されている場合、以降の npm i / bun i は
+			// 「変更なし」と判定して再実行しない（electron-vite はそれを検知できず
+			// 起動時に「Electron uninstall」で失敗する）。install.js は導入済みなら
+			// 即終了する軽量処理なので、プロジェクトオープン時のこの一本化された
+			// 遅延処理でだけ毎回実行して自己修復する
+			cmd += ` ${statBreak} node node_modules/electron/install.js`;
 		}
 		const type = PRE_TASK_TYPE +'Sys';
 		const name = '自動ビルド';

@@ -62,6 +62,7 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 |---|---|---|---|
 | 1 | tmpwiz を `contributes.walkthroughs` に載せる | **v5.0.0 の移行案内と一緒に出す話**（walkthrough はインストール時に自動で開くので、alpha 中に出すと落ち着いていない画面を全員に見せる） | [features.md](features.md) |
 | 2 | 過去アプリ向けパッチ配布の**拡張機能への統合**（内蔵GUI提供・購入者チェック機構の本結線） | **Marketplace 再申請の返信待ち中**につき新機能追加は着手しない（§1）。**パッチ生成ツール試作単体アプリ自体はこの制約を受けず着手可能**（「いつでも安全に着手できる」参照）。設計メモは [legacy-app-patch.md](legacy-app-patch.md) | [features.md](features.md) |
+| 3 | テンプレ本体（tmp_cjs_hatsune 等、外部リポジトリ）の package.json 手改修。rimraf依存の除去は拡張機能側の自動パッチ（package.json改変）で機能的には対応済み（2026-09-14）。テンプレ側は devDependencies の `rimraf` 記載と旧スクリプト文言が残るだけの見た目上の負債 | Marketplace 再申請後の作業 | - |
 
 ### ❓ 判断待ち（こちらから確認したいこと）
 
