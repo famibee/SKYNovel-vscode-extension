@@ -294,8 +294,6 @@ export class Project {
 						[/rimraf doc\/web\.\*\.js && /, ''],
 						[/rimraf package-lock\.json && rimraf node_modules && /, ''],
 						[/rimraf dist && rimraf out && /, ''],
-						// 新テンプレでの設定ファイル名変更 vite.electron.config.ts -> electron.vite.config.ts
-						[/vite\.electron\.config\.ts/g, 'electron.vite.config.ts'],
 					],
 					false,
 				);
@@ -927,11 +925,12 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				if (this.#ps.is体験版) {done(); break}
 
 				this.hOnEndTask.set(task_type, ()=> void (async ()=> {
+	const pathPkg = <FULL_PATH>(this.#pc.PATH_WS +'/build/package');
+	let path: string | undefined;
 	try {
 		// アップデート用ファイル作成
 		const oPkg = <T_PKG_JSON>await readJson(this.#pc.PATH_WS +'/package.json', {encoding: 'utf8'});
 
-		const pathPkg = <FULL_PATH>(this.#pc.PATH_WS +'/build/package');
 		const pathUpd = <FULL_PATH>(pathPkg +'/update');
 		const fnUcJs = pathUpd +'/_index.json';
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -965,7 +964,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		const mp = /path: (.+)/.exec(sYml);
 		if (! mp) throw '[Pack...] .yml に path が見つかりません';
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const path = mp[1]!;
+		path = mp[1]!;
 
 		const ms = /size: (.+)/.exec(sYml);
 		if (! ms) throw '[Pack...] .yml に size が見つかりません';
@@ -998,17 +997,20 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			// ランダムなファイル名にしたいがkeyは人に分かるようにして欲しい、
 			// という相反する要望を充たすような
 			// 既存ファイル削除にも便利
-
-		const a = await window.showInformationMessage(
-			`${cfg.label} パッケージを生成しました`,
-			'出力フォルダを開く',
-		);
-		if (a) await revealInOS(<FULL_PATH>(pathPkg +'/'+ path));
 	} catch (e: unknown) {
 		console.error(e);
 		void window.showErrorMessage(`${cfg.label} パッケージ生成に失敗しました…${String(e)}`);
+		done();
+		return;
 	}
 	done();
+
+	// 通知の応答待ちで done() が遅延しないよう、アイコンを戻した後に非同期で表示する
+	const pathBld = path;
+	void window.showInformationMessage(
+		`${cfg.label} パッケージを生成しました`,
+		'出力フォルダを開く',
+	).then(async a=> {if (a) await revealInOS(<FULL_PATH>(pathPkg +'/'+ pathBld))});
 				})());
 				break;
 
