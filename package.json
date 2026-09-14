@@ -9,8 +9,8 @@
 	"homepage": "http://famibee.blog38.fc2.com/",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.134.0",
-		"node": ">=24.19"
+		"vscode": "^1.137.0",
+		"node": ">=24.21"
 	},
 	"categories": [
 		"Programming Languages",
@@ -771,7 +771,7 @@
 		"@types/vscode": "^1.137.0",
 		"@types/vscode-webview": "^1.57.5",
 		"@types/ws": "^8.18.1",
-		"@vitejs/plugin-vue": "^6.0.8",
+		"@vitejs/plugin-vue": "^6.0.9",
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"electron": "^44.3.0",
@@ -799,12 +799,11 @@
 		"update": "bun update --latest && bun run build && bun ncu_lsp && sudo bun update -g --latest",
 		"ncu_lsp": "cd server && bun update --latest && bun outdated && cd ..",
 		"postinstall": "cd server && bun i && cd ..",
-		"rebuild": "rimraf package-lock.json && rimraf node_modules && bun pm cache rm && bun i",
 		"version:patch": "npm -no-git-tag-version version patch",
 		"version:minor": "npm -no-git-tag-version version minor",
 		"version:major": "npm -no-git-tag-version version major",
 		"release": "bun tools/release_chk.ts",
-		"pack_only": "vsce package --no-dependencies",
+		"pack_only": "bunx @vscode/vsce package --no-dependencies",
 		"vscode:prepublish": "rimraf dist && bun vue_bld && bun md2json && bun run chk:types && bun run lint && bun tools/build.ts",
 		"chk:types": "tsc -p tsconfig.chk.json --noEmit",
 		"lint": "eslint src server/src test views tools .vscode-test.mjs",

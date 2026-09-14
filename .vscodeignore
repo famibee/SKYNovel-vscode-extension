@@ -6,6 +6,13 @@ server/*.json
 test/
 views/test/
 
+patch_app/
+patch_gen_gui/
+	# どちらも拡張機能には組み込まない独立ツール（開発者が手元で実行する。
+	# src/docs/legacy-app-patch.md参照）。Rustのビルド成果物（target/。
+	# patch_gen_guiはcargo tauri devのdebugビルドで6GB規模）を含め
+	# VSIXに混入させないこと
+
 **/*.cs
 **/*.d.ts
 **/*.map
