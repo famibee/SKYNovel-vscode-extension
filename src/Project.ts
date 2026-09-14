@@ -294,6 +294,8 @@ export class Project {
 						[/rimraf doc\/web\.\*\.js && /, ''],
 						[/rimraf package-lock\.json && rimraf node_modules && /, ''],
 						[/rimraf dist && rimraf out && /, ''],
+						// 新テンプレでの設定ファイル名変更 vite.electron.config.ts -> electron.vite.config.ts
+						[/vite\.electron\.config\.ts/g, 'electron.vite.config.ts'],
 					],
 					false,
 				);
