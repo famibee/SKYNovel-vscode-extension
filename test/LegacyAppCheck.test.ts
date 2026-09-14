@@ -5,12 +5,13 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, assertSafeAppName, UnsafeAppNameError, appendPatchFooter} from '../src/LegacyAppCheck';
+import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, assertSafeAppName, UnsafeAppNameError, appendPatchFooter, extractByBasename, asarPathForInstall, checksumFromInstalledApp} from '../src/LegacyAppCheck';
 import {Encryptor} from '../src/Encryptor';
 import type {IDecryptInfo} from '../src/CmnLib';
 
+import {createPackage} from '@electron/asar';
 import {expect, beforeEach, it} from 'bun:test';
-import {mkdtempSync, mkdirsSync, removeSync} from 'fs-extra';
+import {mkdtempSync, mkdirsSync, removeSync, writeFileSync} from 'fs-extra';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
@@ -165,6 +166,92 @@ it('settingSnFileName: crypto:true でも relPath が違えば別の名前にな
 	const a = settingSnFileName(encry, 'theme/setting.sn', true);
 	const b = settingSnFileName(encry, 'other/setting.sn', true);
 	expect(a).not.toBe(b);
+});
+
+
+//MARK: asar からの1ファイル抽出（生成時・TS側。詰められていない仕様#1）
+
+it('extractByBasename: フォルダ位置に関わらずbasenameで見つけて抽出できる', async ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_asar_'));
+	try {
+		const dSrc = join(dTmp, 'src');
+		mkdirsSync(join(dSrc, 'out', 'renderer', 'prj', 'theme'));
+		writeFileSync(join(dSrc, 'out', 'renderer', 'prj', 'theme', 'target.sn'), 'hello asar');
+		writeFileSync(join(dSrc, 'other.txt'), 'dummy');
+
+		const pathAsar = join(dTmp, 'app.asar');
+		await createPackage(dSrc, pathAsar);
+
+		const buf = extractByBasename(pathAsar, 'target.sn');
+		expect(buf.toString('utf8')).toBe('hello asar');
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('extractByBasename: 見つからなければ例外', async ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_asar_'));
+	try {
+		const dSrc = join(dTmp, 'src');
+		mkdirsSync(dSrc);
+		writeFileSync(join(dSrc, 'a.txt'), 'a');
+
+		const pathAsar = join(dTmp, 'app.asar');
+		await createPackage(dSrc, pathAsar);
+
+		expect(()=> extractByBasename(pathAsar, 'no-such-file.sn')).toThrow();
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('asarPathForInstall: mac は Contents/Resources/app.asar', ()=> {
+	expect(asarPathForInstall('/Applications/MyGame.app', 'darwin'))
+		.toBe(join('/Applications/MyGame.app', 'Contents', 'Resources', 'app.asar'));
+});
+
+
+it('asarPathForInstall: win は resources/app.asar（electron-builder既定）', ()=> {
+	expect(asarPathForInstall(join('C:', 'Program Files', 'MyGame'), 'win32'))
+		.toBe(join('C:', 'Program Files', 'MyGame', 'resources', 'app.asar'));
+});
+
+
+it('asarPathForInstall: 対象外プラットフォームは例外', ()=> {
+	expect(()=> asarPathForInstall('/opt/MyGame', 'linux')).toThrow();
+});
+
+
+it('checksumFromInstalledApp: 実機相当のインストール済みアプリからチェックサムを直接収集できる', async ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_scan_'));
+	try {
+		// mac相当：<macApplicationsDir>/MyGame.app/Contents/Resources/app.asar
+		const dApp = join(dTmp, 'MyGame.app');
+		const dSrc = join(dTmp, 'src');
+		mkdirsSync(join(dSrc, 'theme'));
+		writeFileSync(join(dSrc, 'theme', 'setting.sn'), '&const.体験版 = false');
+		mkdirsSync(join(dApp, 'Contents', 'Resources'));
+		await createPackage(dSrc, join(dApp, 'Contents', 'Resources', 'app.asar'));
+
+		const env = {platform: <const>'darwin', macApplicationsDir: dTmp};
+		const hex = checksumFromInstalledApp('MyGame', 'setting.sn', env);
+		expect(hex).toBe(checksumHex('&const.体験版 = false'));
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('checksumFromInstalledApp: インストールされていなければ undefined', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_scan_'));
+	try {
+		const env = {platform: <const>'darwin', macApplicationsDir: dTmp};
+		expect(checksumFromInstalledApp('NoSuchGame', 'setting.sn', env)).toBeUndefined();
+	} finally {
+		removeSync(dTmp);
+	}
 });
 
 

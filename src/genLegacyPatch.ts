@@ -7,7 +7,8 @@
 
 import type {IDecryptInfo} from './CmnLib';
 import {Encryptor} from './Encryptor';
-import {assertHasExperienceConst, assertSafeAppName, encryptedChecksum, settingSnFileName, appendPatchFooter, type T_LEGACY_PATCH_APP_CONFIG} from './LegacyAppCheck';
+import {extractSettingSnFromInstaller} from './InstallerExtract';
+import {assertHasExperienceConst, assertSafeAppName, checksumHex, settingSnFileName, appendPatchFooter, type T_LEGACY_PATCH_APP_CONFIG} from './LegacyAppCheck';
 
 import {webcrypto} from 'node:crypto';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
@@ -20,35 +21,49 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 //
 // 2026-09-14: 複数ver・複数アプリを1本の実行ファイルにまとめられるよう、
 // フラットなCLI引数方式からJSON設定ファイル方式に変更（--app-name/--setting等の
-// 引数だけでは複数アプリ×複数verの組み合わせが煩雑になるため）。1アプリ分の処理内容
-// （assertHasExperienceConst → encryptedChecksum → settingSnFileName）自体は変わっていない。
+// 引数だけでは複数アプリ×複数verの組み合わせが煩雑になるため）。
+//
+// 2026-09-14: `settings`（過去出荷ビルド分の平文 setting.sn のローカルパス）を
+// `legacyInstallers`（過去出荷ビルド分のインストーラーファイルそのもの。.dmg/.exe）に
+// 全面変更。理由：
+// - 開発者は非プログラマ想定（GUI操作ぐらいはできる前提）で、平文 setting.sn を
+//   手元に集めておく運用は非現実的。インストーラーファイル（開発者が当然保持している
+//   はずの配布実績）をそのまま渡す方が明快（TODO.md §0・legacy-app-patch.md参照）
+// - crypto:true のプロジェクトでは、暗号化済み setting.sn の現物さえあればチェックサム
+//   計算に鍵は不要（詰められていない仕様#1）。インストーラーから直接抽出すれば
+//   平文を経由する必要が無く、鍵（pass.json）は settingSnFileName の算出にのみ使う
 //
 // やること（アプリごとに）：
-// - 各 --config の app エントリについて、settings（過去出荷ビルドごとの setting.sn 平文）を
-//   assertHasExperienceConst() で確認し、encryptedChecksum() でチェックサムを計算 → 配列にする
-//   （詰められていない仕様#1：複数の過去出荷ビルド対応）
+// - relPath と crypto から settingSnFileName（asar 内で探す basename）を算出
+// - 各 --config の app エントリについて、legacyInstallers（過去出荷ビルドのインストーラー
+//   ファイル）から extractSettingSnFromInstaller() で暗号化済み setting.sn を直接抽出し、
+//   checksumHex() でチェックサムを計算 → 配列にする（詰められていない仕様#1）
+// - crypto:false の場合のみ、抽出した中身は平文なので assertHasExperienceConst() で
+//   検証できる。crypto:true では平文にアクセスできず自動検証はできないため、
+//   体験版インストーラーを誤って混ぜないよう警告を表示する（詰められていない仕様#1）
 // - appName はパス組み立てに使われるため assertSafeAppName() で検証する
 //   （2026-09-14・セキュリティ確認で追加："/"・".." を含むとパストラバーサルになりうる）
-// - relPath と crypto から settingSnFileName（asar 内で探す basename）を算出
 // - 全アプリ分の Config をまとめて JSON 配列化し、--stub（汎用バイナリ本体）の末尾に連結して
 //   --out に書き出す（appendPatchFooter()。パッチアプリ本体・patch_app/src/footer.rs が
 //   読み取れる形式。Config = Vec<AppConfig>）
 //
 // ⚠️ ここでやらないこと（未実装・別途対応）：
 // - downloadUrl が直リンクであることの検証（詰められていない仕様#2。検証粒度は未定）
-// - 「インストール済みの過去バージョンアプリから自動でチェックサムを収集する」スキャン機能
-//   （詰められていない仕様#1の収集方法。asar抽出が必要でこのCLIの範囲外）
+// - 過去出荷ビルドのインストーラー自体に体験版チェック機構（setting.sn）が実装されて
+//   いない場合がある（テンプレート更新前の古いバージョン。2026-09-14実機検証で判明。
+//   legacy-app-patch.md 詰められていない仕様参照）。この場合 extractSettingSnFromInstaller
+//   が例外を投げるので、そのバージョンは legacyInstallers から外すよう案内するのみ
 //
 // 設定ファイル（--config）の形式：
 // {
 //   "apps": [
 //     {
-//       "appName"     : "MyGame",
-//       "pass"        : "pass.jsonのパス",
-//       "relPath"     : "theme/setting.sn",
-//       "crypto"      : true,
-//       "downloadUrl" : "https://example.com/mygame-patch",
-//       "settings"    : ["setting.snの平文パス", ...]   ※最低1つ（過去出荷ビルド分だけ並べる）
+//       "appName"         : "MyGame",
+//       "pass"            : "pass.jsonのパス",
+//       "relPath"         : "theme/setting.sn",
+//       "crypto"          : true,
+//       "downloadUrl"     : "https://example.com/mygame-patch",
+//       "legacyInstallers": ["旧v1.0のインストーラーパス(.dmg/.exe)", ...]   ※最低1つ
 //     },
 //     ...   ← 複数アプリをまとめる場合はここに並べるだけ
 //   ]
@@ -59,12 +74,12 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 
 
 type T_APP_ENTRY = {
-	appName		: string;
-	pass		: string;
-	relPath		: string;
-	crypto		: boolean;
-	downloadUrl	: string;
-	settings	: string[];
+	appName				: string;
+	pass				: string;
+	relPath				: string;
+	crypto				: boolean;
+	downloadUrl			: string;
+	legacyInstallers	: string[];
 }
 
 function usageAndExit(message: string): never {
@@ -104,7 +119,7 @@ if (! Array.isArray(configRaw.apps) || configRaw.apps.length === 0) {
 const cfgs: T_LEGACY_PATCH_APP_CONFIG[] = [];
 
 for (const entry of configRaw.apps) {
-	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, settings} = entry;
+	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, legacyInstallers} = entry;
 
 	if (! appName || ! pathPass || ! relPath || typeof isCryptoMode !== 'boolean' || ! downloadUrl) {
 		usageAndExit(`設定エントリの必須項目が不足している: ${JSON.stringify(entry)}`);
@@ -116,8 +131,8 @@ for (const entry of configRaw.apps) {
 		usageAndExit((<Error>e).message);
 	}
 	if (! /^https?:\/\//.test(downloadUrl)) usageAndExit(`downloadUrl は http(s):// で始まる必要がある（${appName}）: ${downloadUrl}`);
-	if (! Array.isArray(settings) || settings.length === 0) usageAndExit(`settings を最低1つ指定すること（${appName}）`);
-	for (const p of [pathPass, ...settings]) {
+	if (! Array.isArray(legacyInstallers) || legacyInstallers.length === 0) usageAndExit(`legacyInstallers を最低1つ指定すること（${appName}）`);
+	for (const p of [pathPass, ...legacyInstallers]) {
 		if (! existsSync(p)) usageAndExit(`ファイルが見つからない（${appName}）: ${p}`);
 	}
 
@@ -125,22 +140,41 @@ for (const entry of configRaw.apps) {
 	const encry = new Encryptor(hPass, webcrypto.subtle);
 	await encry.init();
 
+	const fnSettingSn = settingSnFileName(encry, relPath, isCryptoMode);
+
 	const checksumSetting: string[] = [];
-	for (const pathSetting of settings) {
-		const plaintext = readFileSync(pathSetting, {encoding: 'utf8'});
+	for (const pathInstaller of legacyInstallers) {
+		let buf: Buffer;
 		try {
-			assertHasExperienceConst(plaintext);
+			buf = extractSettingSnFromInstaller(pathInstaller, fnSettingSn);
 		}
 		catch (e) {
-			usageAndExit(`${appName} / ${pathSetting}: ${(<Error>e).message}`);
+			usageAndExit(`${appName} / ${pathInstaller}: setting.sn の抽出に失敗（${(<Error>e).message}）。このバージョンには体験版チェック機構（テンプレート標準の setting.sn）がまだ実装されていない古いビルドの可能性がある。legacyInstallers から外すこと`);
 		}
-		checksumSetting.push(await encryptedChecksum(encry, plaintext));
+
+		if (! isCryptoMode) {
+			// crypto:false のみ、抽出した中身が平文のまま残っているので自動チェックできる
+			try {
+				assertHasExperienceConst(buf.toString('utf8'));
+			}
+			catch (e) {
+				usageAndExit(`${appName} / ${pathInstaller}: ${(<Error>e).message}`);
+			}
+		}
+		checksumSetting.push(checksumHex(buf));
+	}
+
+	if (isCryptoMode) {
+		console.warn(`⚠️  ${appName}: crypto:true のため、legacyInstallers に体験版のインストーラーが`
+			+' 混ざっていないか自動検証できません（詰められていない仕様#1参照）。'
+			+`指定した ${String(legacyInstallers.length)} 件が全て製品版であることを確認してください：`);
+		for (const p of legacyInstallers) console.warn(`  - ${p}`);
 	}
 
 	cfgs.push({
 		appName,
 		checksumSetting,
-		settingSnFileName	: settingSnFileName(encry, relPath, isCryptoMode),
+		settingSnFileName	: fnSettingSn,
 		downloadUrl,
 	});
 }

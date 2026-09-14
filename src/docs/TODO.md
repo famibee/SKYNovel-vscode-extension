@@ -49,7 +49,8 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 
 | # | 内容 | 節 |
 |---|---|---|
-| 1 | 拡張機能、VueをReactへ載せ替え（段階的に。次に触る画面から） | 本ファイル ✅決着した判断 |
+| 1 | パッチ生成ツール（試作単体アプリ）。拡張機能とは独立しており Marketplace 再申請の返信待ちとは無関係 | [legacy-app-patch.md](legacy-app-patch.md) |
+| 2 | 拡張機能、VueをReactへ載せ替え（段階的に。次に触る画面から） | 本ファイル ✅決着した判断 |
 
 ### 手を動かす必要がある／別環境が要る
 
@@ -60,7 +61,7 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 | # | 内容 | 何を待っているか | 節 |
 |---|---|---|---|
 | 1 | tmpwiz を `contributes.walkthroughs` に載せる | **v5.0.0 の移行案内と一緒に出す話**（walkthrough はインストール時に自動で開くので、alpha 中に出すと落ち着いていない画面を全員に見せる） | [features.md](features.md) |
-| 2 | 過去アプリ向けパッチ配布（購入者チェック付きのパッチアプリを生成する新機能） | **Marketplace 再申請の返信待ち中**につき新機能追加は着手しない（§1）。加えて購入者チェック方式・パッチアプリの実装基盤が未確定（設計メモは [legacy-app-patch.md](legacy-app-patch.md)） | [features.md](features.md) |
+| 2 | 過去アプリ向けパッチ配布の**拡張機能への統合**（内蔵GUI提供・購入者チェック機構の本結線） | **Marketplace 再申請の返信待ち中**につき新機能追加は着手しない（§1）。**パッチ生成ツール試作単体アプリ自体はこの制約を受けず着手可能**（「いつでも安全に着手できる」参照）。設計メモは [legacy-app-patch.md](legacy-app-patch.md) | [features.md](features.md) |
 
 ### ❓ 判断待ち（こちらから確認したいこと）
 

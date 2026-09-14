@@ -750,6 +750,8 @@
 		"yup": "^1.7.1"
 	},
 	"devDependencies": {
+		"7zip-bin": "^5.2.0",
+		"@electron/asar": "^4.3.0",
 		"@eslint/js": "10.0.1",
 		"@nut-tree-fork/nut-js": "^4.2.6",
 		"@types/adm-zip": "^0.5.8",

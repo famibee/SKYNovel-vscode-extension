@@ -7,6 +7,7 @@
 
 import type {Encryptor} from './Encryptor';
 
+import {extractFile, listPackage} from '@electron/asar';
 import {createHash} from 'node:crypto';
 import {existsSync} from 'node:fs';
 import {basename, extname, join} from 'node:path';
@@ -152,6 +153,49 @@ export function candidateInstallPaths(appName: string, env: Partial<T_APP_DETECT
 
 export function detectInstalledApp(appName: string, env: Partial<T_APP_DETECT_ENV> = {}): boolean {
 	return candidateInstallPaths(appName, env).some(existsSync);
+}
+
+
+//MARK: asar からの1ファイル抽出（生成時・TS側。詰められていない仕様#1）
+
+// asar 内をbasenameで検索して1ファイル抽出する（フォルダ位置は問わない。
+// patch_app/src/asar.rs と同じ探索方式のTS版）。
+// ⚠️ Rust側（パッチアプリ本体・配布物）は配布サイズ・依存管理の制約から自前実装だが、
+// ここ（生成時・開発者マシン上でのみ動く sn_extension 側）にその制約は無いため、
+// 既存パッケージ @electron/asar をそのまま使う（車輪の再発明を避ける）。
+// 2026-09-14: 実機の app.asar（127MB規模）で動作確認済み（listPackage 約10ms・
+// extractFile 1ms未満。legacy-app-patch.md の Rust側実測と同水準）
+export function extractByBasename(archivePath: string, target: string): Buffer {
+	const list = listPackage(archivePath, {isPack: false});
+	const found = list.find(p=> basename(p) === target);
+	if (! found) throw new Error(`asar内に "${target}" が見つからない: ${archivePath}`);
+	// @electron/asar の内部パスは "/" 始まりだが extractFile には先頭 "/" 無しで渡す
+	return extractFile(archivePath, found.startsWith('/') ? found.slice(1) : found);
+}
+
+// インストール済みアプリのパスから app.asar のパスを推測する（electron-builder既定レイアウト。
+// patch_app/src/detect.rs の asar_path_for_install() と同じ規約）。
+// ⚠️ win側は electron-builder既定値からの推測のみで未検証（Windows実機が無い。詰められていない仕様#5）
+export function asarPathForInstall(installPath: string, platform: NodeJS.Platform): string {
+	if (platform === 'darwin') return join(installPath, 'Contents', 'Resources', 'app.asar');
+	if (platform === 'win32') return join(installPath, 'resources', 'app.asar');
+	throw new Error(`対象外プラットフォーム: ${platform}`);
+}
+
+// 実機にインストール済みの過去バージョンアプリから、暗号化済み setting.sn のチェックサムを
+// 直接収集する（詰められていない仕様#1「収集方法の方針決定」の実装）。鍵は一切使わない
+// （抽出した暗号文をそのまま checksumHex() に渡すだけ）。同一OSの実機にインストール済みの
+// アプリしか見つけられない（candidateInstallPaths と同じ制約。OSをまたぐ場合は
+// パッチ生成ツールの「インストーラー直接渡し」方式を使う。legacy-app-patch.md参照）
+export function checksumFromInstalledApp(appName: string, settingSnFileName: string, env: Partial<T_APP_DETECT_ENV> = {}): string | undefined {
+	const e = {...defaultDetectEnv(), ...env};
+	for (const installPath of candidateInstallPaths(appName, env)) {
+		if (! existsSync(installPath)) continue;
+		const asarPath = asarPathForInstall(installPath, e.platform);
+		if (! existsSync(asarPath)) continue;
+		return checksumHex(extractByBasename(asarPath, settingSnFileName));
+	}
+	return undefined;
 }
 
 
