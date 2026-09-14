@@ -6,9 +6,10 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {IDecryptInfo} from './CmnLib';
+import {checkDownloadUrl} from './DownloadUrlCheck';
 import {Encryptor} from './Encryptor';
 import {extractSettingSnFromInstaller} from './InstallerExtract';
-import {assertHasExperienceConst, assertSafeAppName, checksumHex, settingSnFileName, appendPatchFooter, type T_LEGACY_PATCH_APP_CONFIG} from './LegacyAppCheck';
+import {assertHasExperienceConst, assertSafeAppName, checksumFromInstalledApp, checksumHex, settingSnFileName, appendPatchFooter, type T_LEGACY_PATCH_APP_CONFIG} from './LegacyAppCheck';
 
 import {webcrypto} from 'node:crypto';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
@@ -47,8 +48,12 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 //   --out に書き出す（appendPatchFooter()。パッチアプリ本体・patch_app/src/footer.rs が
 //   読み取れる形式。Config = Vec<AppConfig>）
 //
+// 2026-09-14: downloadUrl の直リンク検証（checkDownloadUrl()）と、実機スキャン
+// （checksumFromInstalledApp()。同一OSにインストール済みの旧バージョンから自動収集）
+// を結線。どちらも失敗時は警告を出すのみで生成は止めない（downloadUrlは一時的な
+// ネットワーク障害の可能性があり、実機スキャンは legacyInstallers で代替できるため）。
+//
 // ⚠️ ここでやらないこと（未実装・別途対応）：
-// - downloadUrl が直リンクであることの検証（詰められていない仕様#2。検証粒度は未定）
 // - 過去出荷ビルドのインストーラー自体に体験版チェック機構（setting.sn）が実装されて
 //   いない場合がある（テンプレート更新前の古いバージョン。2026-09-14実機検証で判明。
 //   legacy-app-patch.md 詰められていない仕様参照）。この場合 extractSettingSnFromInstaller
@@ -63,7 +68,10 @@ import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 //       "relPath"         : "theme/setting.sn",
 //       "crypto"          : true,
 //       "downloadUrl"     : "https://example.com/mygame-patch",
-//       "legacyInstallers": ["旧v1.0のインストーラーパス(.dmg/.exe)", ...]   ※最低1つ
+//       "legacyInstallers": ["旧v1.0のインストーラーパス(.dmg/.exe)", ...],  ※最低1つ
+//       "scanInstalled"   : false   ※省略可（既定false）。trueなら同一OSに
+//                                     インストール済みの旧バージョンも自動でスキャンし、
+//                                     見つかればチェックサムに追加する（見つからなくてもOK）
 //     },
 //     ...   ← 複数アプリをまとめる場合はここに並べるだけ
 //   ]
@@ -80,6 +88,7 @@ type T_APP_ENTRY = {
 	crypto				: boolean;
 	downloadUrl			: string;
 	legacyInstallers	: string[];
+	scanInstalled?		: boolean;
 }
 
 function usageAndExit(message: string): never {
@@ -119,7 +128,7 @@ if (! Array.isArray(configRaw.apps) || configRaw.apps.length === 0) {
 const cfgs: T_LEGACY_PATCH_APP_CONFIG[] = [];
 
 for (const entry of configRaw.apps) {
-	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, legacyInstallers} = entry;
+	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, legacyInstallers, scanInstalled} = entry;
 
 	if (! appName || ! pathPass || ! relPath || typeof isCryptoMode !== 'boolean' || ! downloadUrl) {
 		usageAndExit(`設定エントリの必須項目が不足している: ${JSON.stringify(entry)}`);
@@ -130,10 +139,20 @@ for (const entry of configRaw.apps) {
 	catch (e) {
 		usageAndExit((<Error>e).message);
 	}
-	if (! /^https?:\/\//.test(downloadUrl)) usageAndExit(`downloadUrl は http(s):// で始まる必要がある（${appName}）: ${downloadUrl}`);
-	if (! Array.isArray(legacyInstallers) || legacyInstallers.length === 0) usageAndExit(`legacyInstallers を最低1つ指定すること（${appName}）`);
+	// legacyInstallers・scanInstalled のどちらか（または両方）で最低1件のチェックサムが
+	// 確保できればよい。両方無い設定は許可しない
+	if (! Array.isArray(legacyInstallers)) usageAndExit(`legacyInstallers が配列でない（${appName}）`);
+	if (legacyInstallers.length === 0 && ! scanInstalled) usageAndExit(`legacyInstallers を最低1つ指定するか、scanInstalled:true を指定すること（${appName}）`);
 	for (const p of [pathPass, ...legacyInstallers]) {
 		if (! existsSync(p)) usageAndExit(`ファイルが見つからない（${appName}）: ${p}`);
+	}
+
+	// downloadUrl が実際にインストーラーの直リンクを指しているか検証する（詰められていない
+	// 仕様#2）。一時的なネットワーク障害等もあり得るため、失敗時は警告のみで生成は続ける
+	const urlCheck = await checkDownloadUrl(downloadUrl);
+	if (! urlCheck.ok) {
+		console.warn(`⚠️  ${appName}: downloadUrl の検証に失敗しました（${urlCheck.reason ?? '不明なエラー'}）。`
+			+'配布前に手動でURLが直リンクであることを確認してください：'+ downloadUrl);
 	}
 
 	const hPass = <IDecryptInfo>JSON.parse(readFileSync(pathPass, {encoding: 'utf8'}));
@@ -164,7 +183,22 @@ for (const entry of configRaw.apps) {
 		checksumSetting.push(checksumHex(buf));
 	}
 
-	if (isCryptoMode) {
+	// scanInstalled:true なら、同一OSにインストール済みの旧バージョンも自動でスキャンする
+	// （案A拡張。legacyInstallers と違いOSをまたげないが、手元にインストール済みなら
+	// インストーラーファイルを探さずに済む）。見つからなくてもエラーにはしない
+	if (scanInstalled) {
+		const hex = checksumFromInstalledApp(appName, fnSettingSn);
+		if (hex) {
+			checksumSetting.push(hex);
+			console.log(`  ℹ️ ${appName}: 実機にインストール済みの旧バージョンを検出し、チェックサムに追加しました`);
+		}
+	}
+
+	if (checksumSetting.length === 0) {
+		usageAndExit(`${appName}: チェックサムを1件も確保できなかった（legacyInstallers・scanInstalledのどちらも空振り）。scanInstalled は実機に対象アプリがインストールされていない場合ヒットしない`);
+	}
+
+	if (isCryptoMode && legacyInstallers.length > 0) {
 		console.warn(`⚠️  ${appName}: crypto:true のため、legacyInstallers に体験版のインストーラーが`
 			+' 混ざっていないか自動検証できません（詰められていない仕様#1参照）。'
 			+`指定した ${String(legacyInstallers.length)} 件が全て製品版であることを確認してください：`);

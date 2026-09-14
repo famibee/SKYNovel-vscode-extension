@@ -18,6 +18,10 @@ dist/*.tsbuildinfo
 # Cargo.lock はバイナリ crate なのでコミットする（再現ビルドのため。ライブラリとは逆の慣習）
 /patch_app/target/
 
+# パッチ生成ツール（試作単体アプリ。Tauri）
+/patch_gen_gui/src-tauri/target/
+/patch_gen_gui/src-tauri/gen/schemas/
+
 *.LICENSE.txt
 tools/skynovel-Mac2Win
 
