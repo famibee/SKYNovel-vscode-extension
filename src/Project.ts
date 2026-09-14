@@ -298,6 +298,36 @@ export class Project {
 					false,
 				);
 
+				// v4.33.x electron-vite → vite-plugin-electron 移行に伴う main.ts の定型的な
+				// 書き換え。移行済み・該当しないプロジェクトでは単に不一致になるだけ
+				if (is_new_tmp) replaceRegsFile(
+					<FULL_PATH>(this.#pc.PATH_WS +`/${this.#pc.FLD_SRC}/main/main.ts`),
+					[
+						[
+							/import \{resolve\} from 'node:path';\nimport \{electronApp, optimizer, is, platform\} from '@electron-toolkit\/utils';\nconst \{default: openAboutWindow\} = require\('about-window'\);/,
+							`import {resolve, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+import {electronApp, optimizer, is, platform} from '@electron-toolkit/utils';
+
+// vite-plugin-electron は main を ESM(.js) で出力するため、
+// electron-vite が自動注入していた __dirname / require を自前で用意する
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const {default: openAboutWindow} = require('about-window');`,
+						],
+						[
+							/\/\/ @ts-ignore\nimport icon_path from '\.\.\/\.\.\/doc\/icon\.png\?url&asset';\n\t\/\/ VSCode エラーが出るが、パッケージ版でも正しくアイコンが表示される\n\/\/ @ts-ignore\nimport css_path from '\.\.\/\.\.\/src\/main\/about-window\.css\?url&asset';\n\t\/\/ VSCode エラーが出るが、パッケージ版でも正しくcssが適用される/,
+							`// electron-vite 固有の \`?url&asset\` クエリを廃止し、Node の実パスで解決する
+const icon_path = resolve(__dirname, '../../doc/icon.png');
+const css_path = resolve(__dirname, '../../src/main/about-window.css');`,
+						],
+						[/\/\/ HMR for renderer base on electron-vite cli\./, '// HMR for renderer base on vite-plugin-electron.'],
+						[/process\.env\['ELECTRON_RENDERER_URL'\]/, 'process.env[\'VITE_DEV_SERVER_URL\']'],
+					],
+					false,
+				);
+
 				// v4.21.4 バッチファイル位置移動
 				for await (const fn of glob(this.#pc.PATH_WS +'/build/{cnv_*,cut_round,subset_font}.{js,json}')) {
 					const dest = fn.replace('/build/', `/${this.#pc.FLD_SRC}/batch/`);
@@ -1089,7 +1119,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			// ビルド関連：パッケージするフォルダ名変更
 			if (this.#pc.IS_NEW_TMP) {
 				replaceFile(
-					<FULL_PATH>(this.#pc.PATH_WS +'/electron.vite.config.ts'),
+					<FULL_PATH>(this.#pc.PATH_WS +'/vite.electron.config.ts'),
 					new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
 					'publicDir: \'../../doc/\'',
 				);
@@ -1136,7 +1166,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		// ビルド関連：パッケージするフォルダ名変更
 		if (this.#pc.IS_NEW_TMP) {
 			replaceFile(
-				<FULL_PATH>(this.#pc.PATH_WS +'/electron.vite.config.ts'),
+				<FULL_PATH>(this.#pc.PATH_WS +'/vite.electron.config.ts'),
 				/publicDir: '..\/..\/doc\/'/,
 				`publicDir: '../../${FLD_CRYPT_DOC}/'`,
 			);

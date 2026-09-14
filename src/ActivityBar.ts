@@ -761,6 +761,10 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 					copy(`${fld_src}/wds.config.js`),
 					// src/web4webpack.js	やや難
 					copy(`${fld_src}/webpack.config.js`),
+					// vite-plugin-electron移行（新テンプレのみ）のビルド設定。
+					// package.json の scripts はここで参照するファイル名に更新されるが、
+					// このファイル自体は別途コピーしないと存在しないままになる
+					...is_new_tmp ?[copy('vite.electron.config.ts')] :[],
 
 					// doc/prj/		// しばしノータッチ
 

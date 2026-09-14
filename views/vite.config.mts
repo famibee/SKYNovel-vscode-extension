@@ -16,7 +16,7 @@ export default defineConfig({
 		outDir: '../dist',
 		rollupOptions: {
 			input: {
-				setting: resolve(__dirname, 'setting.html'),
+				setting: resolve(import.meta.dirname, 'setting.html'),
 			},
 			output: {
 				entryFileNames: 'assets/setting.js',
