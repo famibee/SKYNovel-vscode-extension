@@ -831,6 +831,9 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				try {
 					await this.#termDbgSS();
 					await this.actBar.updPrjFromTmp(this.#pc.PATH_WS);
+					// updPrjFromTmp が vite.electron.config.ts をテンプレ版（非暗号化）で
+					// 上書きするため、暗号化モード中のプロジェクトはここで再パッチする
+					if (this.#isCryptoMode && this.#pc.IS_NEW_TMP) this.#patchViteElectronPublicDir(true);
 					// package.json の更新（ncu 相当）は SnUpd_waited のタスク内で行う
 					await this.#onBtn_sub(ti, 'SnUpd_waited', cfg, done);
 				} catch (e) {
@@ -1101,6 +1104,19 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 
 
 	readonly	#aRepl;
+	// vite.electron.config.ts の publicDir を doc ⇔ doc_crypto に切り替える。
+	// updPrjFromTmp（ベース更新）がこのファイルをテンプレ版（doc）で
+	// 上書きしてしまうため、暗号化モード中のプロジェクトでは更新後に
+	// 再適用する必要がある（#tglCryptoMode と同じ処理を共通化）
+	#patchViteElectronPublicDir(toCrypto: boolean) {
+		return replaceFile(
+			<FULL_PATH>(this.#pc.PATH_WS +'/vite.electron.config.ts'),
+			toCrypto
+				? /publicDir: '\.\.\/\.\.\/doc'/
+				: new RegExp(`publicDir: '\\.\\.\\/\\.\\.\\/${FLD_CRYPT_DOC}'`),
+			toCrypto ?`publicDir: '../../${FLD_CRYPT_DOC}'` :'publicDir: \'../../doc\'',
+		);
+	}
 	async #tglCryptoMode() {
 		this.#isCryptoMode = ! this.#isCryptoMode;
 		this.#cfg.setCryptoMode(this.#isCryptoMode);
@@ -1118,11 +1134,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			);
 			// ビルド関連：パッケージするフォルダ名変更
 			if (this.#pc.IS_NEW_TMP) {
-				replaceFile(
-					<FULL_PATH>(this.#pc.PATH_WS +'/vite.electron.config.ts'),
-					new RegExp(`publicDir: '../../${FLD_CRYPT_DOC}/'`),
-					'publicDir: \'../../doc/\'',
-				);
+				this.#patchViteElectronPublicDir(false);
 				replaceFile(
 					<FULL_PATH>(this.#pc.PATH_WS +'/vite.config.ts'),
 					new RegExp(`publicDir: '${FLD_CRYPT_DOC}'`),
@@ -1165,11 +1177,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		);
 		// ビルド関連：パッケージするフォルダ名変更
 		if (this.#pc.IS_NEW_TMP) {
-			replaceFile(
-				<FULL_PATH>(this.#pc.PATH_WS +'/vite.electron.config.ts'),
-				/publicDir: '..\/..\/doc\/'/,
-				`publicDir: '../../${FLD_CRYPT_DOC}/'`,
-			);
+			this.#patchViteElectronPublicDir(true);
 			replaceFile(
 				<FULL_PATH>(this.#pc.PATH_WS +'/vite.config.ts'),
 				/publicDir: 'doc'/,
