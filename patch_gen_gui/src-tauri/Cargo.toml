@@ -24,3 +24,8 @@ log = "0.4"
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2.7.3"
+# ホスティング管理タブ（R2アップロード）用。SigV4署名の実装自体はこのSDKに任せる
+# （自前実装は署名バグのリスクが高いため避ける）。aws-config（環境変数等からの
+# 自動解決レイヤー）は使わず、Config::builder で直接エンドポイント・認証情報を
+# 組み立てる（単一の固定認証情報しか扱わないため、自動探索機構は不要）
+aws-sdk-s3 = "1"

@@ -36,6 +36,33 @@ header h1 { margin: 0 0 4px; font-size: 1.3em; }
 header .sub { margin: 0; color: var(--muted); font-size: 0.85em; }
 header code { background: var(--card-bg); padding: 1px 4px; border-radius: 3px; }
 
+.tabs {
+	display: flex;
+	gap: 4px;
+	padding: 0 20px;
+	border-bottom: 1px solid var(--border);
+}
+.tab {
+	border: none;
+	border-radius: 6px 6px 0 0;
+	background: transparent;
+	padding: 8px 16px;
+	font-size: 0.9em;
+	color: var(--muted);
+}
+.tab:hover { border-color: transparent; color: var(--fg); }
+.tab.active {
+	background: var(--card-bg);
+	color: var(--fg);
+	font-weight: 600;
+	border: 1px solid var(--border);
+	border-bottom-color: var(--card-bg);
+	margin-bottom: -1px;
+}
+
+.panel { display: none; }
+.panel.active { display: block; }
+
 main {
 	padding: 8px 20px 40px;
 	max-width: 900px;
@@ -120,13 +147,25 @@ button:hover { border-color: var(--accent); }
 	font-size: 0.8em;
 	color: var(--muted);
 	margin-bottom: 6px;
+	cursor: pointer;
 	transition: border-color 0.15s, background 0.15s;
 }
+.dropzone:hover { border-color: var(--muted); }
 .dropzone.dragover {
 	border-color: var(--accent);
 	background: color-mix(in srgb, var(--accent) 10%, transparent);
 	color: var(--accent);
 }
+.dropzone .dz-sub {
+	margin-top: 4px;
+	font-weight: 600;
+	color: var(--fg);
+	overflow-wrap: anywhere;
+}
+.latest-dropzone { padding: 20px 10px; }
+.latest-upload-row { display: flex; align-items: center; gap: 4px; }
+
+.tab-badge { font-size: 0.85em; }
 
 .installer-list {
 	list-style: none;
@@ -181,4 +220,38 @@ button:hover { border-color: var(--accent); }
 	word-break: break-all;
 	max-height: 300px;
 	overflow-y: auto;
+}
+
+.global-config h2 { font-size: 1em; margin: 0 0 10px; }
+.global-config .sub { margin: -4px 0 12px; color: var(--muted); font-size: 0.8em; }
+.hosting-status, .latest-upload-status, .project-scan-status { margin-left: 10px; font-size: 0.85em; color: var(--muted); }
+.hosting-log {
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 10px;
+	font-size: 0.8em;
+	white-space: pre-wrap;
+	word-break: break-all;
+	margin-top: 10px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.hosting-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 10px;
+	font-size: 0.85em;
+}
+.hosting-table th, .hosting-table td {
+	text-align: left;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--border);
+}
+.hosting-table td:nth-child(1) { word-break: break-all; }
+.hosting-table td:nth-child(4) button {
+	padding: 1px 7px;
+	color: var(--danger);
+	border-color: var(--danger);
 }

@@ -8,10 +8,13 @@
 // （本家か分家の開発環境はあるはず。TODO.md §0参照）なので、Rust側で
 // 同じロジックを再実装しない。
 
+use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
+use aws_sdk_s3::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 
@@ -107,6 +110,83 @@ async fn select_output_path(app: tauri::AppHandle, default_name: String) -> Opti
 }
 
 
+//MARK: プロジェクトフォルダからの自動入力
+//
+// 拡張機能本体（sn_extension/src/Project.ts）のプロジェクト読み込みロジックと
+// 同じ判定基準を、ファイル存在チェックだけで簡易再現する。
+// - appName: package.json の productName（無ければ build.productName、name の順で
+//   フォールバック）。Project.ts の T_PKG_JSON と同じフィールド名。
+//   `name`（npmパッケージ名）ではなく `productName`（electron-builderが実際に
+//   `/Applications/<productName>.app` としてインストールする名前）を優先するのは、
+//   patch_app 側の appName がインストール先パス組み立てにそのまま使われるため
+//   （LegacyAppCheck.ts の candidateInstallPaths() 参照）
+// - pass.json: プロジェクト直下（Project.ts と同じ）
+// - crypto: `doc_crypto/prj/`（v4.25.2以降の配置）または旧 `doc/crypto_prj/`
+//   （拡張機能で開くと自動移行されるが、開かれていない場合は旧配置のまま
+//   なので両方見る。Project.ts #isCryptoMode と同じ判定）
+// - relPath: `doc/prj/theme/setting.sn` の実在チェックのみ（テンプレ標準の
+//   既定値が本当にそこにあるかの確認）。path.json 自体はエンコード済み・
+//   177KB規模の拡張機能内部フォーマット（Config.loadEx()）で、この単純な
+//   ファイル存在確認より複雑になるため、ここでは踏み込まない
+
+#[derive(Serialize)]
+struct ProjectScanResult {
+	#[serde(rename = "appName")]
+	app_name: String,
+	pass: String,
+	#[serde(rename = "relPath")]
+	rel_path: String,
+	crypto: bool,
+	warnings: Vec<String>,
+}
+
+#[tauri::command]
+fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
+	let root = PathBuf::from(&path);
+	let mut warnings = Vec::new();
+
+	let pkg_path = root.join("package.json");
+	let app_name = if pkg_path.exists() {
+		let data = fs::read_to_string(&pkg_path).map_err(|e| format!("package.jsonの読み込みに失敗: {e}"))?;
+		let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| format!("package.jsonの解析に失敗: {e}"))?;
+		json.get("productName").and_then(|v| v.as_str())
+			.or_else(|| json.get("build").and_then(|b| b.get("productName")).and_then(|v| v.as_str()))
+			.or_else(|| json.get("name").and_then(|v| v.as_str()))
+			.unwrap_or_default()
+			.to_string()
+	}
+	else {
+		warnings.push("package.jsonが見つからない".to_string());
+		String::new()
+	};
+	if app_name.is_empty() {
+		warnings.push("appNameを特定できなかった（package.jsonのproductName/name欄を確認）".to_string());
+	}
+
+	let pass_path = root.join("pass.json");
+	let pass = if pass_path.exists() {
+		pass_path.to_string_lossy().to_string()
+	}
+	else {
+		warnings.push("pass.jsonが見つからない".to_string());
+		String::new()
+	};
+
+	let crypto = root.join("doc_crypto").join("prj").exists()
+		|| root.join("doc").join("crypto_prj").exists();
+
+	let rel_path = if root.join("doc").join("prj").join("theme").join("setting.sn").exists() {
+		"theme/setting.sn".to_string()
+	}
+	else {
+		warnings.push("doc/prj/theme/setting.snが見当たらない。relPathは手動で確認すること".to_string());
+		String::new()
+	};
+
+	Ok(ProjectScanResult {app_name, pass, rel_path, crypto, warnings})
+}
+
+
 //MARK: 生成本体（genLegacyPatch.ts への委譲）
 
 #[tauri::command]
@@ -152,6 +232,141 @@ fn run_gen_legacy_patch(apps: Vec<AppEntry>, stub_path: String, out_path: String
 	else {
 		Err(combined)
 	}
+}
+
+
+//MARK: ホスティング管理（Cloudflare R2）
+//
+// 個人利用の技術検証プロトタイプという前提のため、認証情報はこの端末の
+// アプリ設定フォルダに平文で保存する（拡張機能に将来統合する場合は
+// VS Code の SecretStorage API に置き換える想定。src/docs/legacy-app-patch.md
+// 「スコープの観察」参照）。
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct R2Config {
+	#[serde(rename = "accountId", default)]
+	account_id: String,
+	#[serde(default)]
+	bucket: String,
+	#[serde(rename = "accessKeyId", default)]
+	access_key_id: String,
+	#[serde(rename = "secretAccessKey", default)]
+	secret_access_key: String,
+	#[serde(rename = "publicBaseUrl", default)]
+	public_base_url: String,
+}
+
+#[derive(Serialize)]
+struct R2Object {
+	key: String,
+	size: i64,
+	#[serde(rename = "lastModified")]
+	last_modified: String,
+}
+
+fn r2_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+	let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+	Ok(dir.join("r2_config.json"))
+}
+
+fn r2_endpoint(account_id: &str) -> String {
+	format!("https://{account_id}.r2.cloudflarestorage.com")
+}
+
+fn r2_client(config: &R2Config) -> Client {
+	let creds = Credentials::new(
+		&config.access_key_id,
+		&config.secret_access_key,
+		None,
+		None,
+		"patch_gen_gui",
+	);
+	let conf = aws_sdk_s3::Config::builder()
+		.behavior_version(BehaviorVersion::latest())
+		.region(Region::new("auto"))
+		.endpoint_url(r2_endpoint(&config.account_id))
+		.credentials_provider(creds)
+		.force_path_style(true)
+		.build();
+	Client::from_conf(conf)
+}
+
+#[tauri::command]
+fn r2_load_config(app: tauri::AppHandle) -> Option<R2Config> {
+	let path = r2_config_path(&app).ok()?;
+	let data = fs::read_to_string(path).ok()?;
+	serde_json::from_str(&data).ok()
+}
+
+#[tauri::command]
+fn r2_save_config(app: tauri::AppHandle, config: R2Config) -> Result<(), String> {
+	let path = r2_config_path(&app)?;
+	if let Some(dir) = path.parent() {
+		fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+	}
+	let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+	fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn r2_list_objects(config: R2Config) -> Result<Vec<R2Object>, String> {
+	let client = r2_client(&config);
+	let resp = client
+		.list_objects_v2()
+		.bucket(&config.bucket)
+		.send()
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(resp
+		.contents()
+		.iter()
+		.map(|o| R2Object {
+			key: o.key().unwrap_or_default().to_string(),
+			size: o.size().unwrap_or_default(),
+			last_modified: o.last_modified().map(|d| format!("{d:?}")).unwrap_or_default(),
+		})
+		.collect())
+}
+
+// アップロード後の公開URL（表示用。downloadUrl欄へのコピペを想定）を返す
+#[tauri::command]
+async fn r2_upload_file(config: R2Config, local_path: String, key: String) -> Result<String, String> {
+	if key.is_empty() {
+		return Err("保存先キー名を入力すること".to_string());
+	}
+	let client = r2_client(&config);
+	let body = aws_sdk_s3::primitives::ByteStream::from_path(&local_path)
+		.await
+		.map_err(|e| format!("ファイル読み込みに失敗: {e}"))?;
+	client
+		.put_object()
+		.bucket(&config.bucket)
+		.key(&key)
+		.body(body)
+		.send()
+		.await
+		.map_err(|e| e.to_string())?;
+
+	let base = if config.public_base_url.is_empty() {
+		r2_endpoint(&config.account_id)
+	}
+	else {
+		config.public_base_url.trim_end_matches('/').to_string()
+	};
+	Ok(format!("{base}/{key}"))
+}
+
+#[tauri::command]
+async fn r2_delete_object(config: R2Config, key: String) -> Result<(), String> {
+	let client = r2_client(&config);
+	client
+		.delete_object()
+		.bucket(&config.bucket)
+		.key(&key)
+		.send()
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(())
 }
 
 
@@ -227,10 +442,16 @@ pub fn run() {
 		})
 		.invoke_handler(tauri::generate_handler![
 			select_folder,
+			scan_project_folder,
 			select_installer_files,
 			select_single_file,
 			select_output_path,
 			run_gen_legacy_patch,
+			r2_load_config,
+			r2_save_config,
+			r2_list_objects,
+			r2_upload_file,
+			r2_delete_object,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");

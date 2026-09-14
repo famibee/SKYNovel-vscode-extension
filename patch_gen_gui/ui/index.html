@@ -12,35 +12,99 @@
 		<code>src/docs/legacy-app-patch.md</code> 参照。</p>
 </header>
 
+<div class="tabs" id="tabs">
+	<button class="tab active" data-tool="patch">パッチ生成</button>
+	<button class="tab" data-tool="hosting">ホスティング管理 <span id="r2ConfiguredBadge" class="tab-badge"></span></button>
+</div>
+
 <main>
-	<section class="global-config">
-		<div class="field">
-			<label>stub（汎用バイナリ本体）</label>
-			<div class="path-picker">
-				<input type="text" id="stubPath" readonly placeholder="patch_app のビルド済みバイナリを選択">
-				<button type="button" id="btnPickStub">選択…</button>
+	<section id="panel-patch" class="panel active">
+		<section class="global-config">
+			<div class="field">
+				<label>stub（汎用バイナリ本体）</label>
+				<div class="path-picker">
+					<input type="text" id="stubPath" readonly placeholder="patch_app のビルド済みバイナリを選択">
+					<button type="button" id="btnPickStub">選択…</button>
+				</div>
 			</div>
-		</div>
-		<div class="field">
-			<label>出力先</label>
-			<div class="path-picker">
-				<input type="text" id="outPath" readonly placeholder="配布パッチアプリの出力先を選択">
-				<button type="button" id="btnPickOut">選択…</button>
+			<div class="field">
+				<label>出力先</label>
+				<div class="path-picker">
+					<input type="text" id="outPath" readonly placeholder="配布パッチアプリの出力先を選択">
+					<button type="button" id="btnPickOut">選択…</button>
+				</div>
 			</div>
-		</div>
+		</section>
+
+		<section id="apps"></section>
+
+		<button type="button" id="btnAddApp" class="btn-add-app">＋ アプリを追加</button>
+
+		<section class="run">
+			<button type="button" id="btnRun" class="btn-run">配布パッチアプリを生成</button>
+		</section>
+
+		<section class="result">
+			<h2>実行ログ</h2>
+			<pre id="resultLog">（未実行）</pre>
+		</section>
 	</section>
 
-	<section id="apps"></section>
+	<section id="panel-hosting" class="panel">
+		<section class="global-config">
+			<h2>認証（Cloudflare R2）</h2>
+			<p class="sub">個人利用のプロトタイプのため、入力値はこの端末のアプリ設定フォルダに
+				平文で保存されます（リポジトリには含まれません）。</p>
+			<div class="field-row">
+				<div class="field">
+					<label>Account ID</label>
+					<input type="text" id="r2AccountId" placeholder="Cloudflareダッシュボードで確認">
+				</div>
+				<div class="field">
+					<label>Bucket名</label>
+					<input type="text" id="r2Bucket" placeholder="例: sn-legacy-dist">
+				</div>
+			</div>
+			<div class="field-row">
+				<div class="field">
+					<label>Access Key ID</label>
+					<input type="text" id="r2AccessKeyId">
+				</div>
+				<div class="field">
+					<label>Secret Access Key</label>
+					<input type="password" id="r2SecretAccessKey">
+				</div>
+			</div>
+			<div class="field">
+				<label>公開ベースURL（任意。r2.dev または独自ドメイン）</label>
+				<input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxxxx.r2.dev">
+			</div>
+			<button type="button" id="btnR2Save">保存</button>
+			<span id="r2SaveStatus" class="hosting-status"></span>
+		</section>
 
-	<button type="button" id="btnAddApp" class="btn-add-app">＋ アプリを追加</button>
+		<section class="global-config">
+			<h2>アップロード</h2>
+			<div class="path-picker">
+				<input type="text" id="r2UploadPath" readonly placeholder="アップロードするファイルを選択">
+				<button type="button" id="btnR2PickUpload">選択…</button>
+			</div>
+			<div class="field">
+				<label>保存先キー名</label>
+				<input type="text" id="r2UploadKey" placeholder="例: patch/MyGamePatch.exe">
+			</div>
+			<button type="button" id="btnR2Upload" class="btn-run">アップロード</button>
+			<pre id="r2UploadLog" class="hosting-log">（未実行）</pre>
+		</section>
 
-	<section class="run">
-		<button type="button" id="btnRun" class="btn-run">配布パッチアプリを生成</button>
-	</section>
-
-	<section class="result">
-		<h2>実行ログ</h2>
-		<pre id="resultLog">（未実行）</pre>
+		<section class="global-config">
+			<h2>アップロード済み一覧</h2>
+			<button type="button" id="btnR2Refresh">更新</button>
+			<table id="r2List" class="hosting-table">
+				<thead><tr><th>キー</th><th>サイズ</th><th>更新日時</th><th></th></tr></thead>
+				<tbody></tbody>
+			</table>
+		</section>
 	</section>
 </main>
 
@@ -49,6 +113,15 @@
 		<div class="app-card-header">
 			<input type="text" class="appName" placeholder="appName（例: MyGame）">
 			<button type="button" class="btn-remove-app" title="このアプリを削除">✕</button>
+		</div>
+
+		<div class="field">
+			<label>プロジェクトフォルダ（任意：選択すると下の項目を自動入力）</label>
+			<div class="dropzone project-dropzone" data-target="project">
+				<div class="dz-text">クリックしてプロジェクトフォルダを選択（フォルダのドラッグ&ドロップは環境により効かないことがあります）</div>
+				<div class="dz-sub">未選択</div>
+			</div>
+			<span class="project-scan-status"></span>
 		</div>
 
 		<div class="field">
@@ -77,17 +150,31 @@
 			<input type="text" class="downloadUrl" placeholder="https://example.com/mygame-patch">
 		</div>
 
+		<div class="field">
+			<label>最新版インストーラー（任意：R2にアップロードしてdownloadUrlへ自動入力）</label>
+			<div class="dropzone latest-dropzone" data-target="latest">
+				<div class="dz-text">ここにドラッグ＆ドロップ、またはクリックして選択</div>
+				<div class="dz-sub">未選択</div>
+			</div>
+			<div class="latest-upload-row">
+				<button type="button" class="btnUploadLatest">アップロード</button>
+				<span class="latest-upload-status"></span>
+			</div>
+		</div>
+
 		<div class="installer-groups">
 			<div class="installer-group" data-os="mac">
-				<h3>過去インストーラー（mac / .dmg）</h3>
-				<div class="dropzone" data-target="mac">ここに .dmg をドラッグ＆ドロップ、またはボタンで選択</div>
-				<button type="button" class="btn-pick-installer" data-os="mac">ファイルを選択…</button>
+				<h3>過去版インストーラー（mac / .dmg）</h3>
+				<div class="dropzone" data-target="mac">
+					<div class="dz-text">ここに .dmg をドラッグ＆ドロップ、またはクリックして選択</div>
+				</div>
 				<ul class="installer-list" data-os="mac"></ul>
 			</div>
 			<div class="installer-group" data-os="win">
-				<h3>過去インストーラー（win / .exe）</h3>
-				<div class="dropzone" data-target="win">ここに .exe をドラッグ＆ドロップ、またはボタンで選択</div>
-				<button type="button" class="btn-pick-installer" data-os="win">ファイルを選択…</button>
+				<h3>過去版インストーラー（win / .exe）</h3>
+				<div class="dropzone" data-target="win">
+					<div class="dz-text">ここに .exe をドラッグ＆ドロップ、またはクリックして選択</div>
+				</div>
 				<ul class="installer-list" data-os="win"></ul>
 			</div>
 		</div>

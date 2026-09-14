@@ -785,6 +785,14 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			cmd += `npm i ${statBreak} `;	// 自動で「npm i」
 			await remove(this.#pc.PATH_WS +'/package-lock.json');
 		}
+		if (existsSync(this.#pc.PATH_WS +'/node_modules/electron')) {
+			// Electron本体（100MB超）のダウンロードがpostinstallで完了しないまま
+			// node_modules/electron 自体は生成されている場合、以降の npm i / bun i は
+			// 「変更なし」と判定して再実行しない（electron-vite はそれを検知できず
+			// 起動時に「Electron uninstall」で失敗する）。install.js は導入済みなら
+			// 即終了する軽量処理なので毎回実行して自己修復する
+			cmd += `node node_modules/electron/install.js ${statBreak} `;
+		}
 
 		// メイン処理
 		if (cfg.npm) cmd += cfg.npm;
