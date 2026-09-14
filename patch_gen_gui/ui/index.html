@@ -20,18 +20,41 @@
 <main>
 	<section id="panel-patch" class="panel active">
 		<section class="global-config">
-			<div class="field">
-				<label>stub（汎用バイナリ本体）</label>
-				<div class="path-picker">
-					<input type="text" id="stubPath" readonly placeholder="patch_app のビルド済みバイナリを選択">
-					<button type="button" id="btnPickStub">選択…</button>
+			<p class="sub">stub（patch_app のビルド済みバイナリ）はwin/macそれぞれ別バイナリで、
+				生成される配布物1本にdownloadUrlも1つしか持てないため、生成はwin向け・mac向けで
+				内部的に2回実行される（下の「配布パッチアプリを生成」ボタンは1つで両方進む）。
+				<strong>片方だけ入力してもよい</strong>（win環境の開発者はmac版のゲームビルド自体が
+				できずmac版インストーラーを持っていない場合があるため。入力した方だけが生成される）。</p>
+			<div class="field-row">
+				<div class="field">
+					<label>stub（win）</label>
+					<div class="path-picker">
+						<input type="text" id="stubPathWin" readonly placeholder="patch_app のビルド済みバイナリ(.exe)を選択">
+						<button type="button" id="btnPickStubWin">選択…</button>
+					</div>
+				</div>
+				<div class="field">
+					<label>出力先（win）</label>
+					<div class="path-picker">
+						<input type="text" id="outPathWin" readonly placeholder="配布パッチアプリの出力先(.exe)を選択">
+						<button type="button" id="btnPickOutWin">選択…</button>
+					</div>
 				</div>
 			</div>
-			<div class="field">
-				<label>出力先</label>
-				<div class="path-picker">
-					<input type="text" id="outPath" readonly placeholder="配布パッチアプリの出力先を選択">
-					<button type="button" id="btnPickOut">選択…</button>
+			<div class="field-row">
+				<div class="field">
+					<label>stub（mac）</label>
+					<div class="path-picker">
+						<input type="text" id="stubPathMac" readonly placeholder="patch_app のビルド済みバイナリを選択">
+						<button type="button" id="btnPickStubMac">選択…</button>
+					</div>
+				</div>
+				<div class="field">
+					<label>出力先（mac）</label>
+					<div class="path-picker">
+						<input type="text" id="outPathMac" readonly placeholder="配布パッチアプリの出力先を選択">
+						<button type="button" id="btnPickOutMac">選択…</button>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -111,71 +134,80 @@
 <template id="tmplApp">
 	<div class="app-card">
 		<div class="app-card-header">
-			<input type="text" class="appName" placeholder="appName（例: MyGame）">
-			<button type="button" class="btn-remove-app" title="このアプリを削除">✕</button>
+			<div class="value-display appName" data-value="" hidden></div>
+			<button type="button" class="btn-remove-app" title="このアプリを削除" hidden>✕</button>
 		</div>
 
-		<div class="field">
-			<label>プロジェクトフォルダ（任意：選択すると下の項目を自動入力）</label>
+		<div class="field project-picker-field">
+			<label>プロジェクトフォルダ</label>
 			<div class="dropzone project-dropzone" data-target="project">
-				<div class="dz-text">クリックしてプロジェクトフォルダを選択（フォルダのドラッグ&ドロップは環境により効かないことがあります）</div>
+				<div class="dz-text">クリックして選択（フォルダのドラッグ&ドロップは環境により効かないことがあります）</div>
 				<div class="dz-sub">未選択</div>
 			</div>
 			<span class="project-scan-status"></span>
 		</div>
 
-		<div class="field">
-			<label>pass.json</label>
-			<div class="path-picker">
-				<input type="text" class="passPath" readonly placeholder="プロジェクトの pass.json を選択">
-				<button type="button" class="btnPickPass">選択…</button>
-			</div>
-		</div>
-
-		<div class="field-row">
-			<div class="field">
-				<label>relPath</label>
-				<input type="text" class="relPath" value="theme/setting.sn">
-			</div>
+		<div class="app-card-details" hidden>
 			<div class="field field-checkbox">
-				<label><input type="checkbox" class="crypto" checked> crypto:true（暗号化プロジェクト）</label>
+				<label><input type="checkbox" class="scanInstalled"> このアプリ起動した実機にインストール済みの旧バージョンも自動スキャン</label>
 			</div>
-			<div class="field field-checkbox">
-				<label><input type="checkbox" class="scanInstalled"> 実機にインストール済みの旧バージョンも自動スキャン</label>
-			</div>
-		</div>
 
-		<div class="field">
-			<label>downloadUrl</label>
-			<input type="text" class="downloadUrl" placeholder="https://example.com/mygame-patch">
-		</div>
+			<div class="os-panes">
+				<div class="os-pane" data-os="win">
+					<h3>win</h3>
 
-		<div class="field">
-			<label>最新版インストーラー（任意：R2にアップロードしてdownloadUrlへ自動入力）</label>
-			<div class="dropzone latest-dropzone" data-target="latest">
-				<div class="dz-text">ここにドラッグ＆ドロップ、またはクリックして選択</div>
-				<div class="dz-sub">未選択</div>
-			</div>
-			<div class="latest-upload-row">
-				<button type="button" class="btnUploadLatest">アップロード</button>
-				<span class="latest-upload-status"></span>
-			</div>
-		</div>
+					<div class="field">
+						<label>最新版インストーラー（.exe。R2にアップロード）</label>
+						<div class="dropzone latest-dropzone" data-target="latest-win">
+							<div class="dz-text">ここにドラッグ＆ドロップ、またはクリックして選択</div>
+							<div class="dz-sub">未選択</div>
+						</div>
+						<div class="latest-upload-row">
+							<button type="button" class="btnUploadLatest" data-os="win">アップロード</button>
+							<span class="latest-upload-status" data-os="win"></span>
+						</div>
+						<div class="latest-url-row" hidden>
+							<span class="latest-url-label">DL URL</span>
+							<span class="value-display downloadUrl" data-os="win" data-value=""></span>
+						</div>
+					</div>
 
-		<div class="installer-groups">
-			<div class="installer-group" data-os="mac">
-				<h3>過去版インストーラー（mac / .dmg）</h3>
-				<div class="dropzone" data-target="mac">
-					<div class="dz-text">ここに .dmg をドラッグ＆ドロップ、またはクリックして選択</div>
+					<div class="field">
+						<label>過去版インストーラー（.exe）</label>
+						<div class="dropzone" data-target="win">
+							<div class="dz-text">ここに .exe をドラッグ＆ドロップ、またはクリックして選択</div>
+						</div>
+						<ul class="installer-list" data-os="win"></ul>
+					</div>
 				</div>
-				<ul class="installer-list" data-os="mac"></ul>
-			</div>
-			<div class="installer-group" data-os="win">
-				<h3>過去版インストーラー（win / .exe）</h3>
-				<div class="dropzone" data-target="win">
-					<div class="dz-text">ここに .exe をドラッグ＆ドロップ、またはクリックして選択</div>
+
+				<div class="os-pane" data-os="mac">
+					<h3>mac</h3>
+
+					<div class="field">
+						<label>最新版インストーラー（.dmg。R2にアップロード）</label>
+						<div class="dropzone latest-dropzone" data-target="latest-mac">
+							<div class="dz-text">ここにドラッグ＆ドロップ、またはクリックして選択</div>
+							<div class="dz-sub">未選択</div>
+						</div>
+						<div class="latest-upload-row">
+							<button type="button" class="btnUploadLatest" data-os="mac">アップロード</button>
+							<span class="latest-upload-status" data-os="mac"></span>
+						</div>
+						<div class="latest-url-row" hidden>
+							<span class="latest-url-label">DL URL</span>
+							<span class="value-display downloadUrl" data-os="mac" data-value=""></span>
+						</div>
+					</div>
+
+					<div class="field">
+						<label>過去版インストーラー（.dmg）</label>
+						<div class="dropzone" data-target="mac">
+							<div class="dz-text">ここに .dmg をドラッグ＆ドロップ、またはクリックして選択</div>
+						</div>
+						<ul class="installer-list" data-os="mac"></ul>
+					</div>
 				</div>
-				<ul class="installer-list" data-os="win"></ul>
 			</div>
 		</div>
 	</div>

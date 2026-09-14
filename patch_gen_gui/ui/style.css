@@ -21,6 +21,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
 	margin: 0;
@@ -92,6 +93,16 @@ input[type="text"] {
 .path-picker { display: flex; gap: 6px; }
 .path-picker input { flex: 1; }
 
+.value-display {
+	padding: 6px 8px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	color: var(--fg);
+	font-size: 0.9em;
+	overflow-wrap: anywhere;
+}
+
 button {
 	padding: 6px 12px;
 	border: 1px solid var(--border);
@@ -123,21 +134,34 @@ button:hover { border-color: var(--accent); }
 	gap: 8px;
 	margin-bottom: 12px;
 }
-.app-card-header .appName { font-size: 1.05em; font-weight: 600; }
+.app-card-header .appName { font-size: 1.05em; font-weight: 600; flex: 1; }
 .btn-remove-app {
 	color: var(--danger);
 	border-color: var(--danger);
 	flex-shrink: 0;
 }
 
-.installer-groups {
+.os-panes {
 	display: flex;
 	gap: 16px;
 	flex-wrap: wrap;
-	margin-top: 12px;
+	margin-top: 4px;
 }
-.installer-group { flex: 1; min-width: 260px; }
-.installer-group h3 { font-size: 0.85em; margin: 0 0 6px; color: var(--muted); font-weight: 500; }
+.os-pane {
+	flex: 1;
+	min-width: 260px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 12px;
+}
+.os-pane h3 {
+	margin: 0 0 10px;
+	font-size: 0.8em;
+	color: var(--muted);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
 
 .dropzone {
 	border: 2px dashed var(--border);
@@ -164,6 +188,9 @@ button:hover { border-color: var(--accent); }
 }
 .latest-dropzone { padding: 20px 10px; }
 .latest-upload-row { display: flex; align-items: center; gap: 4px; }
+.latest-url-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.latest-url-label { font-size: 0.75em; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+.latest-url-row .value-display { flex: 1; font-size: 0.8em; padding: 4px 6px; }
 
 .tab-badge { font-size: 0.85em; }
 

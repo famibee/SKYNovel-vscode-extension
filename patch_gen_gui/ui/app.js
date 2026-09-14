@@ -30,13 +30,8 @@ function wireCard(card) {
 		card.remove();
 	});
 
-	card.querySelector('.btnPickPass').addEventListener('click', async ()=> {
-		const path = await invoke('select_single_file');
-		if (path) card.querySelector('.passPath').value = path;
-	});
-
-	// このカード内の全ドロップゾーン（プロジェクトフォルダ・過去版インストーラー mac/win・
-	// 最新版インストーラー）はクリックでもOSファイル選択ダイアログを開く
+	// このカード内の全ドロップゾーン（プロジェクトフォルダ・最新版インストーラー win/mac・
+	// 過去版インストーラー win/mac）はクリックでもOSファイル選択ダイアログを開く
 	// （ドラッグ&ドロップは別途ウィンドウ全体で処理）
 	for (const dz of card.querySelectorAll('.dropzone')) {
 		dz.addEventListener('click', async ()=> {
@@ -45,9 +40,11 @@ function wireCard(card) {
 				if (path) void applyProjectFolder(card, path);
 				return;
 			}
-			if (dz.dataset.target === 'latest') {
-				const path = await invoke('select_single_file');
-				if (path) setLatestInstallerPath(card, path);
+			if (dz.dataset.target === 'latest-win' || dz.dataset.target === 'latest-mac') {
+				// win欄は.exeのみ、mac欄は.dmgのみを選ばせる（2026-09-15・ユーザー指摘）
+				const osKind = dz.dataset.target === 'latest-win' ? 'win' : 'mac';
+				const path = await invoke('select_single_file_with_ext', {ext: osKind === 'win' ? 'exe' : 'dmg'});
+				if (path) setLatestInstallerPath(card, osKind, path);
 				return;
 			}
 			const paths = await invoke('select_installer_files');
@@ -55,38 +52,97 @@ function wireCard(card) {
 		});
 	}
 
-	card.querySelector('.btnUploadLatest').addEventListener('click', async ()=> {
-		const elStatus = card.querySelector('.latest-upload-status');
-		const localPath = card.querySelector('.latest-dropzone').dataset.path ?? '';
-		if (! localPath) { flashStatus(elStatus, '✗ ファイルを選択してください'); return; }
+	// win/macそれぞれの「アップロード」ボタン。同じslug配下でもOS別のプレフィックスに
+	// アップロードするため、win版のアップロードでmac版のファイルが誤って削除されない
+	// （2026-09-15・ユーザー指摘：最新版インストーラーはwin/mac両方必要）
+	for (const btn of card.querySelectorAll('.btnUploadLatest')) {
+		const osKind = btn.dataset.os;
+		btn.addEventListener('click', async ()=> {
+			const elStatus = card.querySelector(`.latest-upload-status[data-os="${osKind}"]`);
+			const localPath = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`).dataset.path ?? '';
+			if (! localPath) { flashStatus(elStatus, '✗ ファイルを選択してください'); return; }
 
-		const appName = card.querySelector('.appName').value.trim() || 'app';
-		const basename = localPath.split(/[\\/]/).pop();
-		const key = `${appName}/${basename}`;
+			// R2のURLパスに使う識別子はASCII安全な文字に限定する（2026-09-15・実機確認）。
+			// appNameは日本語のproductNameになりうり、配布パッチアプリ本体（patch_app）が
+			// curlサブプロセスの引数としてdownloadUrlをそのまま渡すため、Windows環境の
+			// curl.exeで文字コード起因の失敗リスクがある。package.jsonのnameはエンジン側の
+			// セーブデータ識別等にも使う必須フィールドで、正常なプロジェクトなら必ず存在する
+			// （手入力の代用フォールバックは無し。2026-09-15・ユーザー指摘）
+			const slug = card.dataset.uploadSlug ?? '';
+			if (! slug) {
+				flashStatus(elStatus, '✗ アップロード先IDが未取得です（プロジェクトフォルダを選択してください）', 0);
+				return;
+			}
 
-		elStatus.textContent = 'アップロード中…';
-		try {
-			const url = await invoke('r2_upload_file', {config: r2CollectConfig(), localPath, key});
-			card.querySelector('.downloadUrl').value = url;
-			flashStatus(elStatus, '✓ アップロード完了・downloadUrlへ反映しました');
-		}
-		catch (e) {
-			flashStatus(elStatus, `✗ アップロードに失敗: ${String(e)}`, 5000);
-		}
-	});
+			const basename = localPath.split(/[\\/]/).pop();
+			// アプリ名だけだと公開URLから他バージョン・他アプリのパスを推測されうるため、
+			// ランダムIDのフォルダを挟む（2026-09-15・ユーザー指摘）。osKindも挟むのは、
+			// 旧版自動削除（下記）がwin/mac互いのファイルを消さないようにするため
+			const randomId = crypto.randomUUID();
+			const prefix = `patch/${slug}/${osKind}/`;
+			const key = `${prefix}${randomId}/${basename}`;
+
+			elStatus.textContent = 'アップロード中…';
+			try {
+				const config = r2CollectConfig();
+				const url = await invoke('r2_upload_file', {config, localPath, key});
+				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url);
+				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
+
+				// 同じOS・同じslug配下に残っている旧バージョンのランダムIDフォルダを掃除する
+				// （アップロード成功「後」に消す。先に消すとアップロード失敗時にファイルが
+				// 消えてしまうため。2026-09-15・ユーザー要望）
+				let deletedNote = '';
+				try {
+					const deleted = await invoke('r2_delete_others_with_prefix', {config, prefix, keepKey: key});
+					if (deleted > 0) deletedNote = `（旧版${deleted}件を削除）`;
+				}
+				catch (e) {
+					deletedNote = `（旧版の削除に失敗: ${String(e)}）`;
+				}
+
+				flashStatus(elStatus, `✓ アップロード完了・downloadUrlへ反映しました${deletedNote}`, 0);
+			}
+			catch (e) {
+				flashStatus(elStatus, `✗ アップロードに失敗: ${String(e)}`, 0);
+			}
+		});
+	}
 }
 
-// 選択済みになったら✅付きでファイル名を表示する（フルパスは dataset.path に保持）
-function setLatestInstallerPath(card, path) {
-	const dz = card.querySelector('.latest-dropzone');
+// downloadUrlは自動入力のみで手入力させない（2026-09-15・ユーザー指摘：手で入れると
+// 間違えるので入力欄自体を用意しない）ため、表示専用の要素（.value-display）を使う。
+// 表示テキストとバリデーション用の値（dataset.value）を分けて持つ。selectorは
+// querySelectorにそのまま渡せる文字列（例: '.downloadUrl[data-os="win"]'）
+function setValueDisplay(card, selector, value, displayText = value) {
+	const el = card.querySelector(selector);
+	el.textContent = displayText;
+	el.dataset.value = value;
+}
+
+// 選択済みになったら✅付きでファイル名を表示する（フルパスは dataset.path に保持）。
+// 別のファイルに選び直した場合、前回アップロード分のdownloadUrl表示は当てはまらなく
+// なるためクリアする（2026-09-15・ユーザー指摘：再アップロードするまで古いURLを
+// 見せない）
+function setLatestInstallerPath(card, osKind, path) {
+	const dz = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`);
 	dz.dataset.path = path;
 	const elSub = dz.querySelector('.dz-sub');
 	elSub.textContent = `✅ ${path.split(/[\\/]/).pop()}`;
 	elSub.title = path;
+
+	const urlEl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`);
+	urlEl.textContent = '';
+	urlEl.dataset.value = '';
+	urlEl.closest('.latest-url-row').hidden = true;
 }
 
-// プロジェクトフォルダを読み、appName・pass.json・relPath・crypto を自動入力する
-// （src-tauri/src/lib.rs の scan_project_folder が Project.ts の判定基準を簡易再現）
+// プロジェクトフォルダを読み、appName・pass.json・relPath・crypto・アップロード先IDを
+// 自動取得する（src-tauri/src/lib.rs の scan_project_folder が Project.ts の判定基準を
+// 簡易再現）。これらは開発者が見る／編集する必要がない内部値のため画面には出さず、
+// card.dataset に保持するだけにする（2026-09-15・ユーザー指摘）。
+// pass.json以降の詳細欄はプロジェクトフォルダを選ぶまで非表示にしておく
+// （2026-09-15・ユーザー指摘：手動入力は間違えるので導線自体を用意しない）
 async function applyProjectFolder(card, folderPath) {
 	const dz = card.querySelector('.project-dropzone');
 	const elStatus = card.querySelector('.project-scan-status');
@@ -96,16 +152,28 @@ async function applyProjectFolder(card, folderPath) {
 
 	try {
 		const result = await invoke('scan_project_folder', {path: folderPath});
-		if (result.appName) card.querySelector('.appName').value = result.appName;
-		if (result.pass) card.querySelector('.passPath').value = result.pass;
-		if (result.relPath) card.querySelector('.relPath').value = result.relPath;
-		card.querySelector('.crypto').checked = result.crypto;
+		card.querySelector('.app-card-details').hidden = false;
+		card.querySelector('.btn-remove-app').hidden = false;
+		if (result.appName) {
+			const elAppName = card.querySelector('.appName');
+			elAppName.hidden = false;
+			setValueDisplay(card, '.appName', result.appName);
+		}
+		card.dataset.uploadSlug = result.appSlug ?? '';
+		card.dataset.pass = result.pass ?? '';
+		card.dataset.relPath = result.relPath ?? '';
+		card.dataset.crypto = String(result.crypto);
 
-		flashStatus(
-			elStatus,
-			result.warnings.length === 0 ? '✓ 自動入力しました' : `⚠️ ${result.warnings.join(' / ')}`,
-			result.warnings.length === 0 ? 2500 : 6000,
-		);
+		// 選択後はプロジェクトフォルダ欄自体の役目が終わるので消す。選び直す場合は
+		// カードを✕で削除して追加し直す運用に一本化する（2026-09-15・ユーザー指摘）。
+		// 警告があっても各値が未取得のまま app-card-details 側に反映されており、
+		// 生成時のバリデーションで気づける
+		if (result.warnings.length === 0) {
+			card.querySelector('.project-picker-field').hidden = true;
+			return;
+		}
+
+		flashStatus(elStatus, `⚠️ ${result.warnings.join(' / ')}`, 6000);
 	}
 	catch (e) {
 		flashStatus(elStatus, `✗ 読み込みに失敗: ${String(e)}`, 5000);
@@ -133,6 +201,9 @@ function addInstallerPaths(card, osKind, paths) {
 	}
 }
 
+// 過去版インストーラーはwin/mac問わず1つの配列としてgenLegacyPatch.tsに渡す
+// （チェックサム抽出はOS非依存で、同一ビルドのwin/macから同一チェックサムが得られる
+// ことを実機確認済み。legacy-app-patch.md「詰められていない仕様#1」参照）
 function installerPathsOf(card) {
 	return [...card.querySelectorAll('.installer-list li')].map(li=> li.dataset.path);
 }
@@ -187,9 +258,16 @@ void listen('tauri://drag-drop', (e)=> {
 		return;
 	}
 
-	if (target === 'latest') {
+	if (target === 'latest-win' || target === 'latest-mac') {
+		// win欄は.exeのみ、mac欄は.dmgのみを許可する（2026-09-15・ユーザー指摘）
+		const osKind = target === 'latest-win' ? 'win' : 'mac';
+		const ext = osKind === 'win' ? '.exe' : '.dmg';
 		const [path] = e.payload.paths || [];
-		if (path) setLatestInstallerPath(card, path);
+		if (! path || ! path.toLowerCase().endsWith(ext)) {
+			alert(`${ext} ファイルをドロップしてください`);
+			return;
+		}
+		setLatestInstallerPath(card, osKind, path);
 		return;
 	}
 
@@ -206,35 +284,45 @@ void listen('tauri://drag-drop', (e)=> {
 });
 
 
-//MARK: グローバル設定（stub・出力先）
+//MARK: グローバル設定（stub・出力先。win/mac別。patch_appはOS別バイナリで
+// 配布物1本につきdownloadUrlも1つしか持てないため）
 
-document.getElementById('btnPickStub').addEventListener('click', async ()=> {
+document.getElementById('btnPickStubWin').addEventListener('click', async ()=> {
 	const path = await invoke('select_single_file');
-	if (path) document.getElementById('stubPath').value = path;
+	if (path) document.getElementById('stubPathWin').value = path;
 });
-
-document.getElementById('btnPickOut').addEventListener('click', async ()=> {
+document.getElementById('btnPickOutWin').addEventListener('click', async ()=> {
+	const path = await invoke('select_output_path', {defaultName: 'patch.exe'});
+	if (path) document.getElementById('outPathWin').value = path;
+});
+document.getElementById('btnPickStubMac').addEventListener('click', async ()=> {
+	const path = await invoke('select_single_file');
+	if (path) document.getElementById('stubPathMac').value = path;
+});
+document.getElementById('btnPickOutMac').addEventListener('click', async ()=> {
 	const path = await invoke('select_output_path', {defaultName: 'patch'});
-	if (path) document.getElementById('outPath').value = path;
+	if (path) document.getElementById('outPathMac').value = path;
 });
 
 
 //MARK: 生成実行
 
-function collectConfig() {
+// osKind: 'win' | 'mac'。downloadUrlだけOS別で、他（pass・relPath・crypto・
+// legacyInstallers・scanInstalled）はアプリ単位の共通値
+function collectConfig(osKind) {
 	const apps = [];
 	for (const card of elApps.querySelectorAll('.app-card')) {
-		const appName = card.querySelector('.appName').value.trim();
-		const pass = card.querySelector('.passPath').value.trim();
-		const relPath = card.querySelector('.relPath').value.trim();
-		const crypto = card.querySelector('.crypto').checked;
+		const appName = card.querySelector('.appName').dataset.value ?? '';
+		const pass = card.dataset.pass ?? '';
+		const relPath = card.dataset.relPath ?? '';
+		const cryptoEnabled = card.dataset.crypto === 'true';
 		const scanInstalled = card.querySelector('.scanInstalled').checked;
-		const downloadUrl = card.querySelector('.downloadUrl').value.trim();
+		const downloadUrl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`).dataset.value ?? '';
 		const legacyInstallers = installerPathsOf(card);
 
-		if (! appName) throw new Error('appName が未入力のアプリがあります');
-		if (! pass) throw new Error(`${appName}: pass.json が未選択です`);
-		if (! downloadUrl) throw new Error(`${appName}: downloadUrl が未入力です`);
+		if (! appName) throw new Error('appName が未取得のアプリがあります（プロジェクトフォルダを選択してください）');
+		if (! pass) throw new Error(`${appName}: pass.json が未取得です（プロジェクトフォルダを選択してください）`);
+		if (! downloadUrl) throw new Error(`${appName}: downloadUrl（${osKind}）が未設定です（最新版インストーラーをアップロードしてください）`);
 		if (legacyInstallers.length === 0 && ! scanInstalled) {
 			throw new Error(`${appName}: 過去版インストーラーを1つ以上追加するか、実機スキャンを有効にしてください`);
 		}
@@ -243,7 +331,7 @@ function collectConfig() {
 			appName,
 			pass,
 			relPath: relPath || 'theme/setting.sn',
-			crypto,
+			crypto: cryptoEnabled,
 			downloadUrl,
 			legacyInstallers,
 			scanInstalled,
@@ -253,30 +341,65 @@ function collectConfig() {
 	return apps;
 }
 
+// 「配布パッチアプリを生成」ボタンは1つだが、内部的にはwin向け・mac向けで
+// genLegacyPatch.tsを2回呼ぶ（patch_appがOS別バイナリのため。2026-09-15・ユーザー確認：
+// GUI側で2回実行する方式を採用）。
+// ⚠️ win/mac両方必須にはしない（2026-09-15・ユーザー指摘）：electron-builderの制約で
+// win環境の開発者はそもそもmac版のゲームビルド自体ができず、mac版インストーラーを
+// 持っていない場合がある（legacy-app-patch.md 詰められていない仕様#7）。stub・出力先が
+// 入力された方だけを生成対象とし、片方が空でもエラーにしない
 document.getElementById('btnRun').addEventListener('click', async ()=> {
 	const elLog = document.getElementById('resultLog');
-	const stubPath = document.getElementById('stubPath').value.trim();
-	const outPath = document.getElementById('outPath').value.trim();
+	const stubWin = document.getElementById('stubPathWin').value.trim();
+	const outWin = document.getElementById('outPathWin').value.trim();
+	const stubMac = document.getElementById('stubPathMac').value.trim();
+	const outMac = document.getElementById('outPathMac').value.trim();
 
-	let apps;
+	const doWin = !! (stubWin || outWin);
+	const doMac = !! (stubMac || outMac);
+
+	let appsWin, appsMac;
 	try {
-		if (! stubPath) throw new Error('stub を選択してください');
-		if (! outPath) throw new Error('出力先を選択してください');
-		apps = collectConfig();
+		if (doWin && (! stubWin || ! outWin)) throw new Error('win向けを生成するには stub・出力先の両方が必要です');
+		if (doMac && (! stubMac || ! outMac)) throw new Error('mac向けを生成するには stub・出力先の両方が必要です');
+		if (! doWin && ! doMac) throw new Error('win・macのどちらか一方は stub・出力先を入力してください');
+		if (doWin) appsWin = collectConfig('win');
+		if (doMac) appsMac = collectConfig('mac');
 	}
 	catch (e) {
 		elLog.textContent = `✗ ${e.message}`;
 		return;
 	}
 
-	elLog.textContent = '生成中…';
-	try {
-		const log = await invoke('run_gen_legacy_patch', {apps, stubPath, outPath});
-		elLog.textContent = log;
+	const logs = [];
+
+	if (doWin) {
+		elLog.textContent = [...logs, '生成中…（win）'].join('\n\n');
+		try {
+			const logWin = await invoke('run_gen_legacy_patch', {apps: appsWin, stubPath: stubWin, outPath: outWin});
+			logs.push(`[win]\n${logWin}`);
+		}
+		catch (e) {
+			logs.push(`✗ win向け生成に失敗しました：\n${String(e)}`);
+			elLog.textContent = logs.join('\n\n');
+			return;
+		}
 	}
-	catch (e) {
-		elLog.textContent = `✗ 生成に失敗しました：\n${String(e)}`;
+
+	if (doMac) {
+		elLog.textContent = [...logs, '生成中…（mac）'].join('\n\n');
+		try {
+			const logMac = await invoke('run_gen_legacy_patch', {apps: appsMac, stubPath: stubMac, outPath: outMac});
+			logs.push(`[mac]\n${logMac}`);
+		}
+		catch (e) {
+			logs.push(`✗ mac向け生成に失敗しました：\n${String(e)}`);
+			elLog.textContent = logs.join('\n\n');
+			return;
+		}
 	}
+
+	elLog.textContent = logs.join('\n\n');
 });
 
 
@@ -331,13 +454,16 @@ void invoke('r2_load_config').then((config)=> {
 	updateR2ConfiguredBadge();
 });
 
-// 同じ文言のまま連打されても「消えて出る」を繰り返させ、反応を分かりやすくする
+// 同じ文言のまま連打されても「消えて出る」を繰り返させ、反応を分かりやすくする。
+// ms に 0 を渡すと消さない（アップロードのように結果を見逃すと困る処理向け。
+// 2026-09-15・実機確認：231MBのアップロード中に目を離すと2.5秒で消える完了表示を
+// 見逃す、というフィードバックを受けて追加）
 function flashStatus(el, text, ms = 2500) {
 	el.textContent = '';
 	// 直前と同文言でも再度アニメーションさせるため、次フレームで設定する
 	requestAnimationFrame(()=> { el.textContent = text; });
 	clearTimeout(el._flashTimer);
-	el._flashTimer = setTimeout(()=> { el.textContent = ''; }, ms);
+	if (ms > 0) el._flashTimer = setTimeout(()=> { el.textContent = ''; }, ms);
 }
 
 document.getElementById('btnR2Save').addEventListener('click', async ()=> {
@@ -357,7 +483,9 @@ document.getElementById('btnR2PickUpload').addEventListener('click', async ()=> 
 	if (! path) return;
 	document.getElementById('r2UploadPath').value = path;
 	const elKey = document.getElementById('r2UploadKey');
-	if (! elKey.value.trim()) elKey.value = path.split(/[\\/]/).pop();
+	// 「アップロード済み一覧」は patch/ 配下のみ表示するため、ここでアップロードした
+	// ものも見失わないようデフォルトで patch/ 配下に置く（手動で変更すれば別の場所にも置ける）
+	if (! elKey.value.trim()) elKey.value = `patch/${path.split(/[\\/]/).pop()}`;
 });
 
 document.getElementById('btnR2Upload').addEventListener('click', async ()=> {

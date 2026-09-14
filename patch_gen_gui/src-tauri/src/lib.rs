@@ -97,6 +97,20 @@ async fn select_single_file(app: tauri::AppHandle) -> Option<String> {
 	rx.recv().ok().flatten()
 }
 
+// 最新版インストーラー選択用：拡張子を1つに固定した単一ファイル選択
+// （win欄は.exeのみ、mac欄は.dmgのみ選ばせる。2026-09-15・ユーザー指摘）
+#[tauri::command]
+async fn select_single_file_with_ext(app: tauri::AppHandle, ext: String) -> Option<String> {
+	let (tx, rx) = std::sync::mpsc::channel();
+	app.dialog()
+		.file()
+		.add_filter("インストーラー", &[ext.as_str()])
+		.pick_file(move |file| {
+			let _ = tx.send(file.map(|f| f.to_string()));
+		});
+	rx.recv().ok().flatten()
+}
+
 #[tauri::command]
 async fn select_output_path(app: tauri::AppHandle, default_name: String) -> Option<String> {
 	let (tx, rx) = std::sync::mpsc::channel();
@@ -133,6 +147,11 @@ async fn select_output_path(app: tauri::AppHandle, default_name: String) -> Opti
 struct ProjectScanResult {
 	#[serde(rename = "appName")]
 	app_name: String,
+	// package.json の name（npmパッケージ名）。electron-builder の慣例上ASCII前提の
+	// 識別子であり、R2アップロード先パス（URLに載る）に使う想定。appNameは日本語の
+	// productNameになりうるため別枠で持たせる（2026-09-15・実機確認で判明）
+	#[serde(rename = "appSlug")]
+	app_slug: String,
 	pass: String,
 	#[serde(rename = "relPath")]
 	rel_path: String,
@@ -146,18 +165,20 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 	let mut warnings = Vec::new();
 
 	let pkg_path = root.join("package.json");
-	let app_name = if pkg_path.exists() {
+	let (app_name, app_slug) = if pkg_path.exists() {
 		let data = fs::read_to_string(&pkg_path).map_err(|e| format!("package.jsonの読み込みに失敗: {e}"))?;
 		let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| format!("package.jsonの解析に失敗: {e}"))?;
-		json.get("productName").and_then(|v| v.as_str())
+		let name = json.get("productName").and_then(|v| v.as_str())
 			.or_else(|| json.get("build").and_then(|b| b.get("productName")).and_then(|v| v.as_str()))
 			.or_else(|| json.get("name").and_then(|v| v.as_str()))
 			.unwrap_or_default()
-			.to_string()
+			.to_string();
+		let slug = json.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+		(name, slug)
 	}
 	else {
 		warnings.push("package.jsonが見つからない".to_string());
-		String::new()
+		(String::new(), String::new())
 	};
 	if app_name.is_empty() {
 		warnings.push("appNameを特定できなかった（package.jsonのproductName/name欄を確認）".to_string());
@@ -183,7 +204,7 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 		String::new()
 	};
 
-	Ok(ProjectScanResult {app_name, pass, rel_path, crypto, warnings})
+	Ok(ProjectScanResult {app_name, app_slug, pass, rel_path, crypto, warnings})
 }
 
 
@@ -308,24 +329,63 @@ fn r2_save_config(app: tauri::AppHandle, config: R2Config) -> Result<(), String>
 	fs::write(&path, json).map_err(|e| e.to_string())
 }
 
+// このGUIが作る配布物は必ず patch/ 配下に置く（キー生成は app.js 参照）。
+// バケットを他用途と共用していても、一覧はこのツールが管理する範囲だけに絞る。
+// prefix省略時は "patch/"（一覧タブ用）、指定時はそのprefix配下だけを見る
+// （アプリごとの旧バージョン検索用。r2_replace_prefix参照）
 #[tauri::command]
-async fn r2_list_objects(config: R2Config) -> Result<Vec<R2Object>, String> {
+async fn r2_list_objects(config: R2Config, prefix: Option<String>) -> Result<Vec<R2Object>, String> {
 	let client = r2_client(&config);
 	let resp = client
 		.list_objects_v2()
 		.bucket(&config.bucket)
+		.prefix(prefix.unwrap_or_else(|| "patch/".to_string()))
 		.send()
 		.await
 		.map_err(|e| e.to_string())?;
 	Ok(resp
 		.contents()
 		.iter()
+		// キーが "/" で終わる0バイトオブジェクトは実データではなく、R2のコンソール等が
+		// フォルダ表示用に作るプレースホルダー。一覧に出すと誤削除の危険があるだけで
+		// 意味が無いため除外する（2026-09-15・ユーザー指摘：削除ボタンのミス押しが怖い）
+		.filter(|o| ! o.key().unwrap_or_default().ends_with('/'))
 		.map(|o| R2Object {
 			key: o.key().unwrap_or_default().to_string(),
 			size: o.size().unwrap_or_default(),
 			last_modified: o.last_modified().map(|d| format!("{d:?}")).unwrap_or_default(),
 		})
 		.collect())
+}
+
+// 指定prefix配下から keep_key 以外を削除する（旧版の自動掃除用）。
+// 削除件数を返す。アップロード成功「後」に呼ぶ前提（先に消すと失敗時にファイルが
+// 消失するため。2026-09-15・ユーザー要望：ランダムIDフォルダが溜まり続けるのを防ぐ）
+#[tauri::command]
+async fn r2_delete_others_with_prefix(config: R2Config, prefix: String, keep_key: String) -> Result<u32, String> {
+	let client = r2_client(&config);
+	let resp = client
+		.list_objects_v2()
+		.bucket(&config.bucket)
+		.prefix(&prefix)
+		.send()
+		.await
+		.map_err(|e| e.to_string())?;
+
+	let mut deleted = 0u32;
+	for obj in resp.contents() {
+		let Some(key) = obj.key() else { continue };
+		if key == keep_key { continue; }
+		client
+			.delete_object()
+			.bucket(&config.bucket)
+			.key(key)
+			.send()
+			.await
+			.map_err(|e| format!("{key} の削除に失敗: {e}"))?;
+		deleted += 1;
+	}
+	Ok(deleted)
 }
 
 // アップロード後の公開URL（表示用。downloadUrl欄へのコピペを想定）を返す
@@ -445,6 +505,7 @@ pub fn run() {
 			scan_project_folder,
 			select_installer_files,
 			select_single_file,
+			select_single_file_with_ext,
 			select_output_path,
 			run_gen_legacy_patch,
 			r2_load_config,
@@ -452,6 +513,7 @@ pub fn run() {
 			r2_list_objects,
 			r2_upload_file,
 			r2_delete_object,
+			r2_delete_others_with_prefix,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
