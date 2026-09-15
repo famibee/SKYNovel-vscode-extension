@@ -7,7 +7,7 @@
 
 import {Encryptor, encAbBase64, decBase64Ab, encStrBase64, decBase64Str, ab2hexStr, hexStr2ab} from '../src/Encryptor';
 import {EncryptorTransform} from '../src/EncryptorTransform';
-import type {IPluginInitArg, PLUGIN_DECAB_RET} from '../src/CmnLib';
+import type {IPluginInitArg, IPluginInitArgBlues, PLUGIN_DECAB_RET} from '../src/CmnLib';
 
 import {expect, beforeEach, it} from 'bun:test';
 import {readFile, createReadStream, ensureFileSync, createWriteStream, statSync} from 'fs-extra';
@@ -25,7 +25,9 @@ const infDecrypt = {
 
 let fncDec: (ext: string, tx: string)=> Promise<string> = ()=> Promise.resolve('');
 let fncDecAB: (ab: ArrayBuffer)=> Promise<PLUGIN_DECAB_RET>;
+let fncDecABBlues: (ab: ArrayBuffer)=> Promise<ArrayBuffer>;
 let hSN: IPluginInitArg;
+let hSNBlues: IPluginInitArgBlues;
 
 beforeEach(async ()=> {
 	encry = new Encryptor(infDecrypt, subtle);
@@ -33,12 +35,20 @@ beforeEach(async ()=> {
 
 	fncDec = ()=> Promise.resolve('');
 	fncDecAB = ()=> Promise.resolve({ext_num: 0, ab: new ArrayBuffer(0)});
+	fncDecABBlues = ()=> Promise.resolve(new ArrayBuffer(0));
 	hSN = {
 		setDec	: fnc=> {fncDec = fnc},
 		setDecAB: fnc=> {fncDecAB = fnc},
 		setEnc	: ()=> { /* empty */ },
 		getStK	: ()=> { /* empty */ },
 		getHash	: ()=> { /* empty */ },	// infDecrypt.stk,
+		tstDecryptInfo	: ()=> infDecrypt,
+	};
+	hSNBlues = {
+		setDec	: fnc=> {fncDec = fnc},
+		setDecAB: fnc=> {fncDecABBlues = fnc},
+		setEnc	: ()=> { /* empty */ },
+		getHash	: ()=> { /* empty */ },
 		tstDecryptInfo	: ()=> infDecrypt,
 	};
 });
@@ -173,6 +183,21 @@ it('prj_json_simple by Plugin', async ()=> {
 });
 
 
+it('prj_json_simple by Plugin(BlueSNovel)', async ()=> {
+	// getStKを持たないIPluginInitArgBluesでもエラーにならず動作すること
+	const path_src = 'test/mat/prj.json';
+	const src = await readFile(path_src, {encoding: 'utf8'});
+	const enc = await encry.enc(src);
+
+	const {init} = await import('../src/snsys_pre_blues');
+		// jestがESM対応できてないので
+	await init(hSNBlues);
+
+	const ret = await fncDec('json', enc);
+	expect(ret).toBe(src);
+});
+
+
 it('prj_json_simple by Plugin unknown ext', async ()=> {
 	// 暗号化
 	const path_src = 'test/mat/prj.json';
@@ -239,6 +264,16 @@ it('wood04_mp3_stream_transform', async ()=> {return new Promise<void>(done=> {
 		expect(srcH).toBe(decH);
 		expect(decH.slice(0, 32)).toBe('49443303000000000061434f4d4d0000');
 		expect(decH.slice(-32)).toBe('62697320492032303034303632000094');
+
+		// 復号化（BlueSNovel版：setDecABはArrayBuffer単体を返すこと。
+		//	decodeAudioDataにそのまま渡せる形でないとTypeErrorになる不具合があった）
+		const {init: initBlues} = await import('../src/snsys_pre_blues');
+		await initBlues(hSNBlues);
+
+		const abBlues = await fncDecABBlues(encAB);
+		expect(abBlues).toBeInstanceOf(ArrayBuffer);
+		expect(abBlues.byteLength).toBe(stt.size);
+		expect(ab2hexStr(abBlues)).toBe(decH);
 
 		done();
 	})()})

@@ -38,6 +38,7 @@ export class HDiff {
 				readonly FLD_SRC	: string,
 		private readonly PATH_CRYPT	: FULL_PATH,
 		private readonly encry		: Encryptor,
+		private readonly isBlues	: boolean,
 	) {
 		const REG_path2 = `\\/(doc\\/prj|${FLD_SRC}\\/${FLD_PRJ_BASE})\\/`;	// (new RegExp('\')) の場合は、バックスラッシュは２つ必要
 		this.#REG_path2cn = new RegExp(REG_path2 +'.+$');
@@ -128,14 +129,15 @@ export class HDiff {
 // console.log(`fn:Project.ts      B:${diff?.hash !== hash} b0:${diff?.hash} b1:${hash}`);
 		if (diff?.hash === hash) return false;
 
-		this.#pp2hDiff[pp] = {
-			hash,
-			cn	: REG_NEEDCRYPTO.test(pp)
-				? pp
-				.replace(this.#REG_SPATH2HFN, `$1/${this.encry.uuidv5(pp)}$2`)
-				.replace(this.#REG_REPPATHJSON, '.bin')
-				: pp,
-		};
+		let cn = pp;
+		if (REG_NEEDCRYPTO.test(pp)) {
+			cn = pp.replace(this.#REG_SPATH2HFN, `$1/${this.encry.uuidv5(pp)}$2`);
+			// BlueSNovelはファイル名（拡張子含む）を秘匿対象にしていないため.bin化しない
+			//	（decryptPicUrlがURLの拡張子からMIMEを判定するため、.bin化すると
+			//	画像・動画が復号されず真っ暗になる。bluesnovel/src/ts/Crypto.ts参照）
+			if (! this.isBlues) cn = cn.replace(this.#REG_REPPATHJSON, '.bin');
+		}
+		this.#pp2hDiff[pp] = {hash, cn};
 		return true;
 	}
 		readonly	#LEN_CHKDIFF	= 1024 *20;	// o

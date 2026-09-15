@@ -80,7 +80,7 @@ const oBuild: BuildOptions = {
 {	// === snsys_pre ===
 	const ctx = await context({
 		...oBuild,
-		entryPoints	: ['./src/snsys_pre'],
+		entryPoints	: ['./src/snsys_pre', './src/snsys_pre_blues'],
 		format		: 'esm',
 	});
 	if (watch) await ctx.watch(); else {

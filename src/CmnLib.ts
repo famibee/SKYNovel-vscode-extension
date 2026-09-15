@@ -287,6 +287,14 @@ export type IPluginInitArg = {
 	tstDecryptInfo(): IDecryptInfo,		// 拡張機能のみに存在するテスト用
 }
 
+// BlueSNovel版：本家との相違点は bluesnovel/src/sn/CmnInterface.ts のコメント参照
+//	- getStK: Electron専用でセーブ暗号化をenc()一本化したBlueSNovelには消費先が無いため対象外
+//	- setDecAB: ファイル名（path.jsonの論理名）を秘匿対象にしていないため、
+//		{ext_num, ab}ではなく複号したArrayBuffer単体を返せばよい
+export type IPluginInitArgBlues = Omit<IPluginInitArg, 'getStK' | 'setDecAB'> & {
+	setDecAB(fnc: (ab: ArrayBuffer)=> Promise<ArrayBuffer>): void;
+};
+
 export type IDecryptInfo = {
 	pass	: string;
 	salt	: string;

@@ -215,6 +215,7 @@ export class Project {
 			this.#pc.FLD_SRC,
 			this.#PATH_CRYPT,
 			this.#encry,
+			this.is_blues,
 		);
 
 		this.#pc.init(
@@ -1173,7 +1174,7 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 		for (const url of this.#aRepl) replaceFile(
 			<FULL_PATH>(this.#pc.PATH_WS +'/'+ url),
 			/\(hPlg\);/,
-			'(hPlg, {cur: \'prj/\', crypto: true});',
+			'(hPlg, {cur: \'prj/\', crypto: true, dip: \'\'});',
 		);
 		// ビルド関連：パッケージするフォルダ名変更
 		if (this.#pc.IS_NEW_TMP) {
@@ -1224,8 +1225,9 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 			]);
 		}
 		// ビルド関連：プラグインソースに埋め込む
+		//	BlueSNovelはgetStKの消費先が無いため専用テンプレを使う（CmnLib.ts IPluginInitArgBlues参照）
 		replaceFile(
-			<FULL_PATH>(this.ctx.extensionPath +'/dist/snsys_pre.js'),
+			<FULL_PATH>(this.ctx.extensionPath +`/dist/snsys_pre${this.is_blues ?'_blues' :''}.js`),
 			/[^\s=]+\.tstDecryptInfo\(\)/,
 			this.#encry.strHPass,
 			true,
@@ -1271,7 +1273,8 @@ return `- ${name} = ${val} (${String(width)}x${String(height)}) [ファイルを
 				return;
 			}
 
-			const u2 = fsp_enc.replace(/\.[^.]+$/, '.bin');
+			// BlueSNovelは拡張子を秘匿しないため.bin化しない（HDiff.ts参照）
+			const u2 = this.is_blues ?fsp_enc :fsp_enc.replace(/\.[^.]+$/, '.bin');
 			await ensureFile(u2);	// touch
 			const ws = createWriteStream(u2)
 			.on('error', e=> {ws.destroy(); console.error('enc ws=%o', e);});
