@@ -634,7 +634,7 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 		await remove(pathZip);
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
-		tknCancel.onCancellationRequested(()=> {fncAbort(); return void remove(td)});
+		tknCancel.onCancellationRequested(()=> fncAbort());
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
@@ -695,7 +695,17 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 					re();
 				}, 4000);
 			})
-			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${String(e)}`));
+			.catch(async (e: unknown)=> {
+				// td配下の後始末は、書き込み中の処理が完全に終わってから一箇所でだけ行う
+				// （キャンセル直後に割り込ませると、書き込み・展開中のtdと競合してADM-ZIPが
+				// 破損zip扱いで Invalid filename を出す）
+				await remove(td);
+				if (tknCancel.isCancellationRequested) {
+					window.showInformationMessage('キャンセルしました');
+					return;
+				}
+				window.showErrorMessage(`エラーです:${String(e)}`);
+			});
 		});
 	});
 	#save_ns	= '';
@@ -722,7 +732,7 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 		const pathZip = td +`${nm}.zip`;
 		const ac = new AbortController;
 		let fncAbort = ()=> ac.abort();
-		tknCancel.onCancellationRequested(()=> {fncAbort(); return remove(td)});
+		tknCancel.onCancellationRequested(()=> fncAbort());
 
 		return new Promise<void>((re, rj)=> {
 			// == zipダウンロード＆解凍
@@ -775,8 +785,9 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 				const oNewPkgJS = <T_PKG_JSON>await readJson(pathUnZip +'package.json', {encoding: 'utf8'});
 				const lib_name = `@famibee/skynovel${is_new_tmp ?'_esm': ''}`
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-				const v = <string>oOldPkgJS.dependencies[lib_name];
-				if (v.startsWith('ile:') || v.startsWith('./')) {
+				const v = <string | undefined>oOldPkgJS.dependencies[lib_name];
+					// 旧package.jsonに同名の依存が無い場合がある（cjs→esm移行等でキー名が変わる）ため未定義を許容
+				if (v?.startsWith('ile:') || v?.startsWith('./')) {
 					oNewPkgJS.dependencies[lib_name] = v;
 				}
 				await outputJson(fnTo +'/package.json', {
@@ -790,7 +801,17 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 				prg.report({increment: 30, message: 'ファイル準備完了',});
 				setTimeout(re, 4000);
 			})
-			.catch((e: unknown)=> window.showErrorMessage(`エラーです:${String(e)}`));
+			.catch(async (e: unknown)=> {
+				// td配下の後始末は、書き込み中の処理が完全に終わってから一箇所でだけ行う
+				// （キャンセル直後に割り込ませると、書き込み・展開中のtdと競合してADM-ZIPが
+				// 破損zip扱いで Invalid filename を出す）
+				await remove(td);
+				if (tknCancel.isCancellationRequested) {
+					window.showInformationMessage('キャンセルしました');
+					return;
+				}
+				window.showErrorMessage(`エラーです:${String(e)}`);
+			});
 		});
 	});
 
