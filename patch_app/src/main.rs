@@ -62,7 +62,9 @@ fn process_app(
 	download::open_downloaded_file(&downloaded)
 		.map_err(|e| format!("取得したファイルを開けなかった: {e}\n手動で開いてください：{}", downloaded.display()))?;
 
-	Ok(format!("更新ファイルを取得しました：{}", downloaded.display()))
+	// 内部の一時保存先パスは非技術者の利用者には無意味な情報なので出さない
+	// （自動で開かれてインストール画面が案内される。2026-09-17・ユーザー指摘）
+	Ok("更新ファイルを取得しました".to_string())
 }
 
 fn build_summary(successes: &[(String, String)], failures: &[(String, String)]) -> String {

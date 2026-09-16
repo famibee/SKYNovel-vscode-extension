@@ -12,7 +12,7 @@ import {extractSettingSnFromInstaller} from './InstallerExtract';
 import {assertHasExperienceConst, assertSafeAppName, checksumFromInstalledApp, checksumHex, settingSnFileName, appendPatchFooter, type T_LEGACY_PATCH_APP_CONFIG} from './LegacyAppCheck';
 
 import {webcrypto} from 'node:crypto';
-import {existsSync, readFileSync, writeFileSync} from 'node:fs';
+import {chmodSync, existsSync, readFileSync, writeFileSync} from 'node:fs';
 
 
 // 過去アプリ向けパッチ配布（購入者チェック付き）の配布物を生成する CLI
@@ -216,6 +216,10 @@ for (const entry of configRaw.apps) {
 const stub = readFileSync(pathStub);
 const patched = appendPatchFooter(stub, cfgs);
 writeFileSync(pathOut, patched);
+// writeFileSyncは実行権限を引き継がない（新規ファイルは既定モード）ため、mac/linux配布物
+// はこのままではダブルクリックで実行できない。winのexeには影響しない（chmodはwindowsでは
+// 読み取り専用フラグしか扱わないため無害）ので、OS判定せず常に付与する
+chmodSync(pathOut, 0o755);
 
 console.log(`✓ 生成完了: ${pathOut}（${String(cfgs.length)}アプリ分）`);
 for (const cfg of cfgs) {

@@ -11,7 +11,9 @@
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region};
 use aws_sdk_s3::Client;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 use tauri::Manager;
@@ -71,13 +73,14 @@ async fn select_folder(app: tauri::AppHandle) -> Option<String> {
 	rx.recv().ok().flatten()
 }
 
-// フィルタ名・拡張子リストを受け取り、複数ファイル選択させる（過去/最新インストーラー追加のD&D代替）
+// 過去版インストーラーの複数ファイル選択。win欄なら.exeのみ、mac欄なら.dmgのみに
+// 絞る（2026-09-17・ユーザー指摘：最新版インストーラーと同じ絞り込みが効いていなかった）
 #[tauri::command]
-async fn select_installer_files(app: tauri::AppHandle) -> Vec<String> {
+async fn select_installer_files(app: tauri::AppHandle, ext: String) -> Vec<String> {
 	let (tx, rx) = std::sync::mpsc::channel();
 	app.dialog()
 		.file()
-		.add_filter("インストーラー", &["dmg", "exe"])
+		.add_filter("インストーラー", &[ext.as_str()])
 		.pick_files(move |files| {
 			let paths = files
 				.map(|fs| fs.into_iter().map(|f| f.to_string()).collect())
@@ -111,16 +114,98 @@ async fn select_single_file_with_ext(app: tauri::AppHandle, ext: String) -> Opti
 	rx.recv().ok().flatten()
 }
 
+// stub（patch_app のビルド済みバイナリ）は sn_extension リポジトリ内の決まった場所に
+// ビルドされるため、開発者に選ばせる意味が無い。GUIが自身で探す
+// （2026-09-17・ユーザー指摘：「パッチ生成ツールが知ってるのだから指定させないで」）。
+// windows向けはクロスコンパイルのターゲットが複数あり得るため候補を順に見る
+// （patch_app/README.md・legacy-app-patch.md「Rust 開発環境の準備状況」参照）
+#[derive(Serialize)]
+struct StubPaths {
+	win: Option<String>,
+	mac: Option<String>,
+	#[serde(rename = "winBuildError")]
+	win_build_error: Option<String>,
+	#[serde(rename = "macBuildError")]
+	mac_build_error: Option<String>,
+}
+
+fn find_stub_paths(target_dir: &std::path::Path) -> (Option<String>, Option<String>) {
+	let find = |candidates: &[PathBuf]| -> Option<String> {
+		candidates.iter().find(|p| p.exists()).map(|p| p.to_string_lossy().to_string())
+	};
+	let mac = find(&[target_dir.join("release").join("sn_legacy_patch")]);
+	let win = find(&[
+		target_dir.join("x86_64-pc-windows-gnu").join("release").join("sn_legacy_patch.exe"),
+		target_dir.join("x86_64-pc-windows-msvc").join("release").join("sn_legacy_patch.exe"),
+		target_dir.join("release").join("sn_legacy_patch.exe"),
+	]);
+	(win, mac)
+}
+
+// rustupが`~/.cargo/bin/cargo`に入っていても、Homebrew版cargoが$PATH上で先に来ている
+// 環境がある（legacy-app-patch.md「Rust 開発環境の準備状況」参照。このマシンで実際に
+// 発生した）。Homebrew版はクロスターゲットを認識しないため、存在すれば明示的に
+// rustup管理下のcargoを使う
+fn cargo_bin() -> PathBuf {
+	if let Some(home) = std::env::var_os("HOME") {
+		let candidate = PathBuf::from(home).join(".cargo/bin/cargo");
+		if candidate.exists() { return candidate; }
+	}
+	PathBuf::from("cargo")
+}
+
+fn run_cargo_build(patch_app_dir: &std::path::Path, target: Option<&str>) -> Result<(), String> {
+	let mut cmd = Command::new(cargo_bin());
+	cmd.arg("build").arg("--release");
+	if let Some(t) = target {
+		cmd.arg("--target").arg(t);
+	}
+	cmd.current_dir(patch_app_dir);
+	let output = cmd.output().map_err(|e| format!("cargo の起動に失敗（rustupが入っていない可能性）: {e}"))?;
+	if output.status.success() {
+		Ok(())
+	}
+	else {
+		Err(String::from_utf8_lossy(&output.stderr).to_string())
+	}
+}
+
+// 生成のたびにstubを再ビルドしてから使う。patch_app（Rust側の判定ロジック）を
+// 直しても stub の再ビルドを忘れると、配布物に埋め込むJSONのスキーマが
+// stub内蔵の古いパーサーとずれて解析エラーになる不具合が実際に起きたため、
+// 「うっかり忘れる」余地自体を無くす（都度ビルドし、常に最新のソースを使う。
+// 2026-09-17・ユーザー指摘：「更新忘れが起こりえないように仕組みで排除」）。
+// windows向けは一度もビルドしたことが無い（トリプルが分からない）場合はビルドを
+// 試みず、これまで通り「未検出」として扱う
 #[tauri::command]
-async fn select_output_path(app: tauri::AppHandle, default_name: String) -> Option<String> {
-	let (tx, rx) = std::sync::mpsc::channel();
-	app.dialog()
-		.file()
-		.set_file_name(&default_name)
-		.save_file(move |file| {
-			let _ = tx.send(file.map(|f| f.to_string()));
-		});
-	rx.recv().ok().flatten()
+fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
+	let patch_app_dir = sn_extension_root()?.join("patch_app");
+	if ! patch_app_dir.exists() {
+		return Err(format!("patch_app が見つからない: {}", patch_app_dir.display()));
+	}
+	let target_dir = patch_app_dir.join("target");
+
+	let win_triple = ["x86_64-pc-windows-gnu", "x86_64-pc-windows-msvc"]
+		.into_iter()
+		.find(|t| target_dir.join(t).join("release").join("sn_legacy_patch.exe").exists());
+
+	let mac_build_error = run_cargo_build(&patch_app_dir, None).err();
+	let win_build_error = match win_triple {
+		Some(t) => run_cargo_build(&patch_app_dir, Some(t)).err(),
+		None => None,
+	};
+
+	let (win, mac) = find_stub_paths(&target_dir);
+	Ok(StubPaths {win, mac, win_build_error, mac_build_error})
+}
+
+// 出力先はダウンロードフォルダに固定する（2026-09-17・ユーザー指摘：
+// 「出力先はdownloads固定で良い」。ファイル名の組み立てはフロント側で行う）
+#[tauri::command]
+fn downloads_dir(app: tauri::AppHandle) -> Result<String, String> {
+	app.path().download_dir()
+		.map(|p| p.to_string_lossy().to_string())
+		.map_err(|e| e.to_string())
 }
 
 
@@ -256,6 +341,76 @@ fn run_gen_legacy_patch(apps: Vec<AppEntry>, stub_path: String, out_path: String
 }
 
 
+//MARK: 画面入力の永続化（プロジェクトフォルダ・インストーラー一覧等）
+//
+// R2認証情報と同じく、個人利用の技術検証プロトタイプという前提で平文保存する。
+// プロジェクトフォルダのパスだけを保持し、pass.json の中身（鍵）自体は保存しない
+// （起動のたびに scan_project_folder で読み直す）。中身のスキーマはフロント側
+// （app.js）が決め、Rust側は不透明なJSONとして読み書きするだけ
+// （2026-09-17・ユーザー指摘：テストのたびに毎回入力させられる）。
+
+fn patch_state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+	let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+	Ok(dir.join("patch_state.json"))
+}
+
+#[tauri::command]
+fn load_patch_state(app: tauri::AppHandle) -> Option<serde_json::Value> {
+	let path = patch_state_path(&app).ok()?;
+	let data = fs::read_to_string(path).ok()?;
+	serde_json::from_str(&data).ok()
+}
+
+#[tauri::command]
+fn save_patch_state(app: tauri::AppHandle, state: serde_json::Value) -> Result<(), String> {
+	let path = patch_state_path(&app)?;
+	if let Some(dir) = path.parent() {
+		fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+	}
+	let json = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
+	fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+
+//MARK: 最新版インストーラーのアップロードキー用チェックサム
+//
+// ⚠️ これは購入者チェック（LegacyAppCheck.ts）のチェックサム比較とは無関係の
+// 別用途。アップロード先R2キーに乱数UUIDを使っていたため、同じファイルを
+// 再アップロードするたびdownloadUrlが変わり、テストのたびに再アップロードが
+// 要る状態だった。内容ベースのキーにして「同じ内容なら同じURL」にする
+// （2026-09-17・ユーザー指摘）。
+
+#[tauri::command]
+fn file_checksum(path: String) -> Result<String, String> {
+	let mut file = fs::File::open(&path).map_err(|e| format!("ファイルを開けない: {e}"))?;
+	let mut hasher = Sha256::new();
+	let mut buf = [0u8; 1024 * 1024];
+	loop {
+		let n = file.read(&mut buf).map_err(|e| e.to_string())?;
+		if n == 0 { break; }
+		hasher.update(&buf[..n]);
+	}
+	let hex = format!("{:x}", hasher.finalize());
+	// 個人利用規模のアップロード先パス識別子として使うだけなので、フルの64文字は要らない
+	Ok(hex[..16].to_string())
+}
+
+// 指定キーが既に存在するかどうか（内容ベースのキーなら「既にアップロード済みか」の
+// 判定に使える。一致すればアップロード自体をスキップできる）
+#[tauri::command]
+async fn r2_object_exists(config: R2Config, key: String) -> Result<bool, String> {
+	let client = r2_client(&config);
+	let resp = client
+		.list_objects_v2()
+		.bucket(&config.bucket)
+		.prefix(&key)
+		.send()
+		.await
+		.map_err(|e| e.to_string())?;
+	Ok(resp.contents().iter().any(|o| o.key() == Some(key.as_str())))
+}
+
+
 //MARK: ホスティング管理（Cloudflare R2）
 //
 // 個人利用の技術検証プロトタイプという前提のため、認証情報はこの端末の
@@ -388,6 +543,23 @@ async fn r2_delete_others_with_prefix(config: R2Config, prefix: String, keep_key
 	Ok(deleted)
 }
 
+fn r2_public_url_for(config: &R2Config, key: &str) -> String {
+	let base = if config.public_base_url.is_empty() {
+		r2_endpoint(&config.account_id)
+	}
+	else {
+		config.public_base_url.trim_end_matches('/').to_string()
+	};
+	format!("{base}/{key}")
+}
+
+// r2_object_existsでアップロード済みと判定した場合にJS側からも同じ組み立てを
+// 使えるようにする（r2_upload_fileの中身と重複させないため。2026-09-17）
+#[tauri::command]
+fn r2_public_url(config: R2Config, key: String) -> String {
+	r2_public_url_for(&config, &key)
+}
+
 // アップロード後の公開URL（表示用。downloadUrl欄へのコピペを想定）を返す
 #[tauri::command]
 async fn r2_upload_file(config: R2Config, local_path: String, key: String) -> Result<String, String> {
@@ -407,13 +579,7 @@ async fn r2_upload_file(config: R2Config, local_path: String, key: String) -> Re
 		.await
 		.map_err(|e| e.to_string())?;
 
-	let base = if config.public_base_url.is_empty() {
-		r2_endpoint(&config.account_id)
-	}
-	else {
-		config.public_base_url.trim_end_matches('/').to_string()
-	};
-	Ok(format!("{base}/{key}"))
+	Ok(r2_public_url_for(&config, &key))
 }
 
 #[tauri::command]
@@ -506,11 +672,17 @@ pub fn run() {
 			select_installer_files,
 			select_single_file,
 			select_single_file_with_ext,
-			select_output_path,
+			rebuild_and_resolve_stubs,
+			downloads_dir,
 			run_gen_legacy_patch,
+			load_patch_state,
+			save_patch_state,
+			file_checksum,
+			r2_object_exists,
 			r2_load_config,
 			r2_save_config,
 			r2_list_objects,
+			r2_public_url,
 			r2_upload_file,
 			r2_delete_object,
 			r2_delete_others_with_prefix,

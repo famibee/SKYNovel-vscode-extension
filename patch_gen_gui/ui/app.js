@@ -28,7 +28,9 @@ function addAppCard() {
 function wireCard(card) {
 	card.querySelector('.btn-remove-app').addEventListener('click', ()=> {
 		card.remove();
+		scheduleSaveState();
 	});
+	card.querySelector('.scanInstalled').addEventListener('change', scheduleSaveState);
 
 	// このカード内の全ドロップゾーン（プロジェクトフォルダ・最新版インストーラー win/mac・
 	// 過去版インストーラー win/mac）はクリックでもOSファイル選択ダイアログを開く
@@ -47,7 +49,9 @@ function wireCard(card) {
 				if (path) setLatestInstallerPath(card, osKind, path);
 				return;
 			}
-			const paths = await invoke('select_installer_files');
+			// 過去版インストーラーもwin欄は.exeのみ、mac欄は.dmgのみに絞る
+			// （最新版インストーラーと同じ絞り込みが効いていなかった。2026-09-17・ユーザー指摘）
+			const paths = await invoke('select_installer_files', {ext: dz.dataset.target === 'mac' ? 'dmg' : 'exe'});
 			addInstallerPaths(card, dz.dataset.target, paths);
 		});
 	}
@@ -75,23 +79,44 @@ function wireCard(card) {
 			}
 
 			const basename = localPath.split(/[\\/]/).pop();
-			// アプリ名だけだと公開URLから他バージョン・他アプリのパスを推測されうるため、
-			// ランダムIDのフォルダを挟む（2026-09-15・ユーザー指摘）。osKindも挟むのは、
-			// 旧版自動削除（下記）がwin/mac互いのファイルを消さないようにするため
-			const randomId = crypto.randomUUID();
-			const prefix = `patch/${slug}/${osKind}/`;
-			const key = `${prefix}${randomId}/${basename}`;
-
-			elStatus.textContent = 'アップロード中…';
+			elStatus.textContent = 'チェックサム計算中…';
+			const config = r2CollectConfig();
+			// アップロード先フォルダ名は内容ベースのチェックサムにする（2026-09-17・
+			// ユーザー指摘：乱数UUIDだと同じファイルを再アップロードするたびdownloadUrlが
+			// 変わり、テストのたびに再アップロードが要る状態だった）。同じ内容なら同じ
+			// キー＝同じURLになるため、ファイルが変わっていなければアップロード自体を
+			// スキップできる。osKindを挟むのは、旧版自動削除（下記）がwin/mac互いの
+			// ファイルを消さないようにするため
+			let checksum;
 			try {
-				const config = r2CollectConfig();
+				checksum = await invoke('file_checksum', {path: localPath});
+			}
+			catch (e) {
+				flashStatus(elStatus, `✗ チェックサム計算に失敗: ${String(e)}`, 0);
+				return;
+			}
+			const prefix = `patch/${slug}/${osKind}/`;
+			const key = `${prefix}${checksum}/${basename}`;
+
+			try {
+				const alreadyUploaded = await invoke('r2_object_exists', {config, key});
+				if (alreadyUploaded) {
+					const url = await invoke('r2_public_url', {config, key});
+					setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url);
+					card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
+					flashStatus(elStatus, '✓ スキップ（内容不変）・DL URLへ反映しました', 0);
+					scheduleSaveState();
+					return;
+				}
+
+				elStatus.textContent = 'アップロード中…';
 				const url = await invoke('r2_upload_file', {config, localPath, key});
 				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url);
 				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
 
-				// 同じOS・同じslug配下に残っている旧バージョンのランダムIDフォルダを掃除する
-				// （アップロード成功「後」に消す。先に消すとアップロード失敗時にファイルが
-				// 消えてしまうため。2026-09-15・ユーザー要望）
+				// 同じOS・同じslug配下に残っている旧バージョン（チェックサムが異なるフォルダ）を
+				// 掃除する（アップロード成功「後」に消す。先に消すとアップロード失敗時に
+				// ファイルが消えてしまうため。2026-09-15・ユーザー要望）
 				let deletedNote = '';
 				try {
 					const deleted = await invoke('r2_delete_others_with_prefix', {config, prefix, keepKey: key});
@@ -101,7 +126,8 @@ function wireCard(card) {
 					deletedNote = `（旧版の削除に失敗: ${String(e)}）`;
 				}
 
-				flashStatus(elStatus, `✓ アップロード完了・downloadUrlへ反映しました${deletedNote}`, 0);
+				flashStatus(elStatus, `✓ 完了・DL URLへ反映しました${deletedNote}`, 0);
+				scheduleSaveState();
 			}
 			catch (e) {
 				flashStatus(elStatus, `✗ アップロードに失敗: ${String(e)}`, 0);
@@ -135,6 +161,7 @@ function setLatestInstallerPath(card, osKind, path) {
 	urlEl.textContent = '';
 	urlEl.dataset.value = '';
 	urlEl.closest('.latest-url-row').hidden = true;
+	scheduleSaveState();
 }
 
 // プロジェクトフォルダを読み、appName・pass.json・relPath・crypto・アップロード先IDを
@@ -149,6 +176,9 @@ async function applyProjectFolder(card, folderPath) {
 	dz.dataset.path = folderPath;
 	dz.querySelector('.dz-sub').textContent = `✅ ${folderPath.split(/[\\/]/).pop()}`;
 	dz.querySelector('.dz-sub').title = folderPath;
+	// appName・pass等はscan_project_folderで再取得できる値なので保存対象は
+	// フォルダパスのみでよい（再起動時はこのパスから再スキャンして復元する）
+	scheduleSaveState();
 
 	try {
 		const result = await invoke('scan_project_folder', {path: folderPath});
@@ -190,22 +220,99 @@ function addInstallerPaths(card, osKind, paths) {
 		li.dataset.path = p;
 		const spanPath = document.createElement('span');
 		spanPath.className = 'path';
-		spanPath.textContent = p;
+		// フルパスだと長い場合に末尾（ファイル名）がellipsisで隠れるため、
+		// 他の選択済み表示（最新版インストーラー等）と同様にbasenameだけ表示する
+		// （フルパスはtitleでhoverすれば見える。2026-09-17・ユーザー指摘）
+		spanPath.textContent = p.split(/[\\/]/).pop();
 		spanPath.title = p;
 		const btnDel = document.createElement('button');
 		btnDel.type = 'button';
 		btnDel.textContent = '削除';
-		btnDel.addEventListener('click', ()=> li.remove());
+		btnDel.addEventListener('click', ()=> { li.remove(); scheduleSaveState(); });
 		li.append(spanPath, btnDel);
 		ul.appendChild(li);
 	}
+	scheduleSaveState();
+}
+
+function installerPathsOfOs(card, osKind) {
+	return [...card.querySelectorAll(`.installer-list[data-os="${osKind}"] li`)].map(li=> li.dataset.path);
 }
 
 // 過去版インストーラーはwin/mac問わず1つの配列としてgenLegacyPatch.tsに渡す
 // （チェックサム抽出はOS非依存で、同一ビルドのwin/macから同一チェックサムが得られる
 // ことを実機確認済み。legacy-app-patch.md「詰められていない仕様#1」参照）
 function installerPathsOf(card) {
-	return [...card.querySelectorAll('.installer-list li')].map(li=> li.dataset.path);
+	return [...installerPathsOfOs(card, 'win'), ...installerPathsOfOs(card, 'mac')];
+}
+
+
+//MARK: 画面入力の永続化（テストのたびに毎回入力させられるのを防ぐ。2026-09-17・ユーザー指摘）
+//
+// pass.json の中身（鍵）は保存しない。プロジェクトフォルダのパスだけを保存し、
+// 起動時に scan_project_folder で読み直すことでappName等を復元する。
+
+function collectPersistState() {
+	const apps = [];
+	for (const card of elApps.querySelectorAll('.app-card')) {
+		const projectFolderPath = card.querySelector('.project-dropzone').dataset.path || null;
+		const scanInstalled = card.querySelector('.scanInstalled').checked;
+		const installers = {
+			win: installerPathsOfOs(card, 'win'),
+			mac: installerPathsOfOs(card, 'mac'),
+		};
+		const latest = {};
+		for (const osKind of ['win', 'mac']) {
+			const dz = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`);
+			const urlEl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`);
+			latest[osKind] = {path: dz.dataset.path || null, downloadUrl: urlEl.dataset.value || null};
+		}
+		apps.push({projectFolderPath, scanInstalled, installers, latest});
+	}
+	return {apps};
+}
+
+let saveStateTimer;
+function scheduleSaveState() {
+	clearTimeout(saveStateTimer);
+	saveStateTimer = setTimeout(()=> {
+		void invoke('save_patch_state', {state: collectPersistState()}).catch(()=> {});
+	}, 300);
+}
+
+async function restoreAppCard(saved) {
+	addAppCard();
+	const card = elApps.lastElementChild;
+	if (saved.projectFolderPath) await applyProjectFolder(card, saved.projectFolderPath);
+	card.querySelector('.scanInstalled').checked = !! saved.scanInstalled;
+	if (saved.installers) {
+		addInstallerPaths(card, 'win', saved.installers.win || []);
+		addInstallerPaths(card, 'mac', saved.installers.mac || []);
+	}
+	if (saved.latest) {
+		for (const osKind of ['win', 'mac']) {
+			const l = saved.latest[osKind];
+			if (! l || ! l.path) continue;
+			setLatestInstallerPath(card, osKind, l.path);
+			if (l.downloadUrl) {
+				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, l.downloadUrl);
+				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
+			}
+		}
+	}
+}
+
+async function initApps() {
+	let saved;
+	try { saved = await invoke('load_patch_state'); }
+	catch { saved = null; }
+
+	if (saved && Array.isArray(saved.apps) && saved.apps.length > 0) {
+		for (const appState of saved.apps) await restoreAppCard(appState);
+	}
+	else {
+		addAppCard();
+	}
 }
 
 document.getElementById('btnAddApp').addEventListener('click', addAppCard);
@@ -286,23 +393,44 @@ void listen('tauri://drag-drop', (e)=> {
 
 //MARK: グローバル設定（stub・出力先。win/mac別。patch_appはOS別バイナリで
 // 配布物1本につきdownloadUrlも1つしか持てないため）
+//
+// stubはpatch_appのビルド済みバイナリを指すだけの値で開発者が選ぶ意味が無く、
+// 出力先も配布物を都度置く場所を選ばせるほどの用途が無いため、どちらも
+// GUI側で自動的に決める（2026-09-17・ユーザー指摘：「パッチ生成ツールが
+// 知ってるのだから指定させないで」「出力先はdownloads固定で良い」）。
 
-document.getElementById('btnPickStubWin').addEventListener('click', async ()=> {
-	const path = await invoke('select_single_file');
-	if (path) document.getElementById('stubPathWin').value = path;
-});
-document.getElementById('btnPickOutWin').addEventListener('click', async ()=> {
-	const path = await invoke('select_output_path', {defaultName: 'patch.exe'});
-	if (path) document.getElementById('outPathWin').value = path;
-});
-document.getElementById('btnPickStubMac').addEventListener('click', async ()=> {
-	const path = await invoke('select_single_file');
-	if (path) document.getElementById('stubPathMac').value = path;
-});
-document.getElementById('btnPickOutMac').addEventListener('click', async ()=> {
-	const path = await invoke('select_output_path', {defaultName: 'patch'});
-	if (path) document.getElementById('outPathMac').value = path;
-});
+let stubPaths = {win: null, mac: null};
+let downloadsDir = null;
+
+// stubはGUIを開くたび・生成するたびに毎回 cargo build --release し直してから
+// パスを確定する（patch_appのソースを直してもstubの再ビルドを忘れると、配布物に
+// 埋め込むJSON設定のスキーマがstub内蔵の古いパーサーとずれて解析エラーになる不具合が
+// 実際に起きたため。「うっかり忘れる」余地自体を仕組みで無くす。
+// 2026-09-17・ユーザー指摘：「更新忘れが起こりえないように仕組みで排除」）
+async function resolveGlobalPaths() {
+	document.getElementById('stubStatusWin').textContent = 'ビルド中…';
+	document.getElementById('stubStatusMac').textContent = 'ビルド中…';
+	try {
+		[stubPaths, downloadsDir] = await Promise.all([
+			invoke('rebuild_and_resolve_stubs'),
+			invoke('downloads_dir'),
+		]);
+	}
+	catch (e) {
+		document.getElementById('stubStatusWin').textContent = `✗ 検出に失敗: ${String(e)}`;
+		document.getElementById('stubStatusMac').textContent = `✗ 検出に失敗: ${String(e)}`;
+		return;
+	}
+	document.getElementById('stubStatusWin').textContent = stubPaths.win
+		? `✅ ${stubPaths.win}`
+		: stubPaths.winBuildError
+			? `✗ ビルドに失敗: ${stubPaths.winBuildError}`
+			: '未検出（patch_app のwin向けビルドが無い。README参照）';
+	document.getElementById('stubStatusMac').textContent = stubPaths.mac
+		? `✅ ${stubPaths.mac}`
+		: `✗ ビルドに失敗: ${stubPaths.macBuildError ?? '不明なエラー'}`;
+}
+void resolveGlobalPaths();
 
 
 //MARK: 生成実行
@@ -348,23 +476,38 @@ function collectConfig(osKind) {
 // win環境の開発者はそもそもmac版のゲームビルド自体ができず、mac版インストーラーを
 // 持っていない場合がある（legacy-app-patch.md 詰められていない仕様#7）。stub・出力先が
 // 入力された方だけを生成対象とし、片方が空でもエラーにしない
+// 出力ファイル名は各アプリの「アップロード先ID」（ASCII安全なslug）から組み立てる。
+// 同じ組み合わせで再生成すると同名で上書きされる（都度名前を変えたい場合は
+// Downloadsフォルダ側でリネームする運用。2026-09-17・ユーザー指摘に伴う変更）
+function buildOutPath(osKind) {
+	const slugs = [...elApps.querySelectorAll('.app-card')]
+		.map(card=> card.dataset.uploadSlug)
+		.filter(Boolean);
+	const base = slugs.length > 0 ? slugs.join('_') : 'patch';
+	const fileName = osKind === 'win' ? `${base}_patch.exe` : `${base}_patch`;
+	return `${downloadsDir}/${fileName}`;
+}
+
 document.getElementById('btnRun').addEventListener('click', async ()=> {
 	const elLog = document.getElementById('resultLog');
-	const stubWin = document.getElementById('stubPathWin').value.trim();
-	const outWin = document.getElementById('outPathWin').value.trim();
-	const stubMac = document.getElementById('stubPathMac').value.trim();
-	const outMac = document.getElementById('outPathMac').value.trim();
 
-	const doWin = !! (stubWin || outWin);
-	const doMac = !! (stubMac || outMac);
+	// GUIを開いてからpatch_appのソースを直した場合でも必ず最新のstubを使うよう、
+	// 生成の直前に毎回ビルドし直す（起動時のビルドだけでは間に合わないケースがある）
+	elLog.textContent = 'stubをビルド中…';
+	await resolveGlobalPaths();
 
-	let appsWin, appsMac;
+	const stubWin = stubPaths.win;
+	const stubMac = stubPaths.mac;
+
+	const doWin = !! stubWin;
+	const doMac = !! stubMac;
+
+	let appsWin, appsMac, outWin, outMac;
 	try {
-		if (doWin && (! stubWin || ! outWin)) throw new Error('win向けを生成するには stub・出力先の両方が必要です');
-		if (doMac && (! stubMac || ! outMac)) throw new Error('mac向けを生成するには stub・出力先の両方が必要です');
-		if (! doWin && ! doMac) throw new Error('win・macのどちらか一方は stub・出力先を入力してください');
-		if (doWin) appsWin = collectConfig('win');
-		if (doMac) appsMac = collectConfig('mac');
+		if (! doWin && ! doMac) throw new Error('win・macどちらのstubも検出できませんでした（patch_app をビルドすること）');
+		if (! downloadsDir) throw new Error('ダウンロードフォルダを取得できませんでした');
+		if (doWin) { appsWin = collectConfig('win'); outWin = buildOutPath('win'); }
+		if (doMac) { appsMac = collectConfig('mac'); outMac = buildOutPath('mac'); }
 	}
 	catch (e) {
 		elLog.textContent = `✗ ${e.message}`;
@@ -377,7 +520,7 @@ document.getElementById('btnRun').addEventListener('click', async ()=> {
 		elLog.textContent = [...logs, '生成中…（win）'].join('\n\n');
 		try {
 			const logWin = await invoke('run_gen_legacy_patch', {apps: appsWin, stubPath: stubWin, outPath: outWin});
-			logs.push(`[win]\n${logWin}`);
+			logs.push(`[win] → ${outWin}\n${logWin}`);
 		}
 		catch (e) {
 			logs.push(`✗ win向け生成に失敗しました：\n${String(e)}`);
@@ -390,7 +533,7 @@ document.getElementById('btnRun').addEventListener('click', async ()=> {
 		elLog.textContent = [...logs, '生成中…（mac）'].join('\n\n');
 		try {
 			const logMac = await invoke('run_gen_legacy_patch', {apps: appsMac, stubPath: stubMac, outPath: outMac});
-			logs.push(`[mac]\n${logMac}`);
+			logs.push(`[mac] → ${outMac}\n${logMac}`);
 		}
 		catch (e) {
 			logs.push(`✗ mac向け生成に失敗しました：\n${String(e)}`);
@@ -403,8 +546,8 @@ document.getElementById('btnRun').addEventListener('click', async ()=> {
 });
 
 
-// 最低1枚は最初から出しておく
-addAppCard();
+// 前回保存分があれば復元し、無ければ最低1枚は最初から出しておく
+void initApps();
 
 
 //MARK: タブ切替
