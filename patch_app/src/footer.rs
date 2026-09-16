@@ -21,6 +21,17 @@ pub struct AppConfig {
 	// 過去複数回リリースされた setting.sn のどれとでも一致してよい）
 	#[serde(rename = "checksumSetting")]
 	pub checksum_setting: Vec<String>,
+	// setting.snが見つからなかったlegacyInstaller向けの、インストーラー本体そのものの
+	// チェックサム（常時埋め込まれるフォールバック。2026-09-17・詰められていない仕様#8）。
+	// ①setting.sn抽出に失敗したときだけ②こちらで購入者に当時のインストーラー本体を
+	// 選ばせて比較する
+	#[serde(rename = "checksumInstaller", default)]
+	pub checksum_installer: Vec<String>,
+	// 配布予定の最新版のチェックサム（①setting.sn方式・②インストーラー本体方式のどちらかで
+	// 計算されたもの。空文字列＝未提供）。インストール済みバージョンがこれと一致するなら
+	// 既に最新版なのでダウンロードをスキップする（2026-09-17・ユーザー指摘）
+	#[serde(rename = "checksumLatest", default)]
+	pub checksum_latest: String,
 	// asar 内での basename のみ（フォルダ位置は問わない。同ドキュメント2026-09-13決定）
 	#[serde(rename = "settingSnFileName")]
 	pub setting_sn_file_name: String,
@@ -68,7 +79,7 @@ mod tests {
 	use super::*;
 
 	fn sample_json() -> String {
-		r#"[{"appName":"MyGame","checksumSetting":["abc123","def456"],"settingSnFileName":"3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn","downloadUrl":"https://example.com/patch"}]"#.to_string()
+		r#"[{"appName":"MyGame","checksumSetting":["abc123","def456"],"checksumInstaller":[],"settingSnFileName":"3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn","downloadUrl":"https://example.com/patch"}]"#.to_string()
 	}
 
 	#[test]
@@ -103,6 +114,8 @@ mod tests {
 		assert_eq!(cfg, vec![AppConfig {
 			app_name: "MyGame".to_string(),
 			checksum_setting: vec!["abc123".to_string(), "def456".to_string()],
+			checksum_installer: vec![],
+			checksum_latest: String::new(),
 			setting_sn_file_name: "3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn".to_string(),
 			download_url: "https://example.com/patch".to_string(),
 		}]);

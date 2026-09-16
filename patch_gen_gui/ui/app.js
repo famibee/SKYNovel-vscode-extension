@@ -25,12 +25,74 @@ function addAppCard() {
 	elApps.appendChild(frag);
 }
 
+//MARK: 購入者チェック方式（信号機UI。2026-09-17・ユーザー指摘）
+//
+// ①setting.sn（既定）／②代替ファイル（asar内の別ファイルで代替）はどちらも
+// 購入者側が完全自動な方式で、開発者がrelPathをどう決めているかの表示。
+// ③インストーラー本体チェック（購入者に当時のインストーラーを選ばせる。一手間
+// かかる）は開発者が選ぶものではなく、生成時にsetting.snが見つからなかった
+// 過去版へ自動的に効くフォールバックとして常に埋め込まれる（常時ON。
+// 「聞かなくていい」というユーザー指摘）。①②のみを画面上で切り替え、
+// ③は常時有効なことをヒント文で説明するだけに留める
+
+function updateModeBadges(card) {
+	const mode = card.dataset.checksumMode || '1';
+	for (const badge of card.querySelectorAll('.mode-badge')) {
+		const active = badge.dataset.mode === mode;
+		badge.classList.toggle('active', active);
+		badge.classList.toggle('mode-blue', active);
+	}
+}
+
+// mode: '1'（既定・setting.sn） | '2'（代替ファイル）
+function setChecksumMode(card, mode) {
+	card.dataset.checksumMode = mode;
+	if (mode !== '2') delete card.dataset.altRelPath;
+	card.querySelector('.alt-relpath-status').textContent = mode === '2' ? `(2) 代替ファイル: ${card.dataset.altRelPath}` : '';
+	updateModeBadges(card);
+	// relPathが変わったので、各過去版インストーラー行の「①で通るか」も判定し直す
+	// （既に①で通る行には②ボタンを出さない。2026-09-17・ユーザー指摘）
+	reprobeAllInstallers(card);
+	scheduleSaveState();
+}
+
+// 生成に実際に渡すrelPath（②のときだけ代替ファイルのパスを使う）
+function effectiveRelPath(card) {
+	if (card.dataset.checksumMode === '2' && card.dataset.altRelPath) return card.dataset.altRelPath;
+	return card.dataset.relPath || 'theme/setting.sn';
+}
+
+// 過去版インストーラー1件が①setting.snで通るかを判定し、通らない場合だけ
+// 「asar内の代替ファイルを指定…」ボタンを表示する（2026-09-17・ユーザー指摘：
+// 「1番でいけるか2・3番タイプか検知し、前者のときはボタンを出さないように」）
+async function probeAndToggleAltButton(card, btnAlt, installerPath) {
+	const pass = card.dataset.pass;
+	if (! pass) { btnAlt.hidden = true; return; }
+	const crypto = card.dataset.crypto === 'true';
+	const relPath = effectiveRelPath(card);
+	btnAlt.hidden = true;
+	try {
+		const ok = await invoke('probe_installer_setting_sn', {pass, relPath, crypto, installerPath});
+		btnAlt.hidden = ok;
+	}
+	catch {
+		// 判定自体に失敗した場合は、念のため代替手段を選べるようにしておく
+		btnAlt.hidden = false;
+	}
+}
+
+function reprobeAllInstallers(card) {
+	for (const li of card.querySelectorAll('.installer-list li')) {
+		const btnAlt = li.querySelector('.btn-alt-installer');
+		if (btnAlt) void probeAndToggleAltButton(card, btnAlt, li.dataset.path);
+	}
+}
+
 function wireCard(card) {
 	card.querySelector('.btn-remove-app').addEventListener('click', ()=> {
 		card.remove();
 		scheduleSaveState();
 	});
-	card.querySelector('.scanInstalled').addEventListener('change', scheduleSaveState);
 
 	// このカード内の全ドロップゾーン（プロジェクトフォルダ・最新版インストーラー win/mac・
 	// 過去版インストーラー win/mac）はクリックでもOSファイル選択ダイアログを開く
@@ -193,6 +255,7 @@ async function applyProjectFolder(card, folderPath) {
 		card.dataset.pass = result.pass ?? '';
 		card.dataset.relPath = result.relPath ?? '';
 		card.dataset.crypto = String(result.crypto);
+		updateModeBadges(card);
 
 		// 選択後はプロジェクトフォルダ欄自体の役目が終わるので消す。選び直す場合は
 		// カードを✕で削除して追加し直す運用に一本化する（2026-09-15・ユーザー指摘）。
@@ -225,12 +288,32 @@ function addInstallerPaths(card, osKind, paths) {
 		// （フルパスはtitleでhoverすれば見える。2026-09-17・ユーザー指摘）
 		spanPath.textContent = p.split(/[\\/]/).pop();
 		spanPath.title = p;
+		// setting.snが見つからない過去版が出たときの逃げ道（②代替ファイル）を、
+		// 該当行から直接たどれるようにする（2026-09-17・ユーザー指摘：行ごとに
+		// ボタンが現れるべき）。効果自体はアプリ単位（card.dataset.altRelPath）
+		const btnAlt = document.createElement('button');
+		btnAlt.type = 'button';
+		btnAlt.className = 'btn-alt-installer';
+		btnAlt.textContent = '代替を選択';
+		// ①setting.snで通るかの判定が終わるまでは隠しておく（判定後、通らない場合だけ
+		// 表示する。2026-09-17・ユーザー指摘）
+		btnAlt.hidden = true;
+		btnAlt.addEventListener('click', async ()=> {
+			const projectFolder = card.querySelector('.project-dropzone').dataset.path;
+			if (! projectFolder) return;
+			const rel = await invoke('pick_rel_path_file', {projectFolder});
+			if (! rel) return;
+			card.dataset.altRelPath = rel;
+			setChecksumMode(card, '2');
+		});
 		const btnDel = document.createElement('button');
 		btnDel.type = 'button';
+		btnDel.className = 'btn-delete-installer';
 		btnDel.textContent = '削除';
 		btnDel.addEventListener('click', ()=> { li.remove(); scheduleSaveState(); });
-		li.append(spanPath, btnDel);
+		li.append(spanPath, btnAlt, btnDel);
 		ul.appendChild(li);
+		void probeAndToggleAltButton(card, btnAlt, p);
 	}
 	scheduleSaveState();
 }
@@ -256,7 +339,8 @@ function collectPersistState() {
 	const apps = [];
 	for (const card of elApps.querySelectorAll('.app-card')) {
 		const projectFolderPath = card.querySelector('.project-dropzone').dataset.path || null;
-		const scanInstalled = card.querySelector('.scanInstalled').checked;
+		const checksumMode = card.dataset.checksumMode || '1';
+		const altRelPath = card.dataset.altRelPath || null;
 		const installers = {
 			win: installerPathsOfOs(card, 'win'),
 			mac: installerPathsOfOs(card, 'mac'),
@@ -267,7 +351,7 @@ function collectPersistState() {
 			const urlEl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`);
 			latest[osKind] = {path: dz.dataset.path || null, downloadUrl: urlEl.dataset.value || null};
 		}
-		apps.push({projectFolderPath, scanInstalled, installers, latest});
+		apps.push({projectFolderPath, checksumMode, altRelPath, installers, latest});
 	}
 	return {apps};
 }
@@ -284,7 +368,8 @@ async function restoreAppCard(saved) {
 	addAppCard();
 	const card = elApps.lastElementChild;
 	if (saved.projectFolderPath) await applyProjectFolder(card, saved.projectFolderPath);
-	card.querySelector('.scanInstalled').checked = !! saved.scanInstalled;
+	if (saved.checksumMode === '2' && saved.altRelPath) card.dataset.altRelPath = saved.altRelPath;
+	setChecksumMode(card, saved.checksumMode || '1');
 	if (saved.installers) {
 		addInstallerPaths(card, 'win', saved.installers.win || []);
 		addInstallerPaths(card, 'mac', saved.installers.mac || []);
@@ -421,13 +506,19 @@ async function resolveGlobalPaths() {
 		document.getElementById('stubStatusMac').textContent = `✗ 検出に失敗: ${String(e)}`;
 		return;
 	}
-	document.getElementById('stubStatusWin').textContent = stubPaths.win
-		? `✅ ${stubPaths.win}`
+	// 検出できた場合、開発者には無意味な内部パスは出さない（title属性でhoverすれば見える。
+	// 2026-09-17・ユーザー指摘）
+	const elStubWin = document.getElementById('stubStatusWin');
+	elStubWin.textContent = stubPaths.win
+		? '✅ 検出済み'
 		: stubPaths.winBuildError
 			? `✗ ビルドに失敗: ${stubPaths.winBuildError}`
 			: '未検出（patch_app のwin向けビルドが無い。README参照）';
-	document.getElementById('stubStatusMac').textContent = stubPaths.mac
-		? `✅ ${stubPaths.mac}`
+	elStubWin.title = stubPaths.win ?? '';
+	const elStubMac = document.getElementById('stubStatusMac');
+	elStubMac.title = stubPaths.mac ?? '';
+	elStubMac.textContent = stubPaths.mac
+		? '✅ 検出済み'
 		: `✗ ビルドに失敗: ${stubPaths.macBuildError ?? '不明なエラー'}`;
 }
 void resolveGlobalPaths();
@@ -436,33 +527,34 @@ void resolveGlobalPaths();
 //MARK: 生成実行
 
 // osKind: 'win' | 'mac'。downloadUrlだけOS別で、他（pass・relPath・crypto・
-// legacyInstallers・scanInstalled）はアプリ単位の共通値
+// legacyInstallers）はアプリ単位の共通値
 function collectConfig(osKind) {
 	const apps = [];
 	for (const card of elApps.querySelectorAll('.app-card')) {
 		const appName = card.querySelector('.appName').dataset.value ?? '';
 		const pass = card.dataset.pass ?? '';
-		const relPath = card.dataset.relPath ?? '';
+		const relPath = effectiveRelPath(card);
 		const cryptoEnabled = card.dataset.crypto === 'true';
-		const scanInstalled = card.querySelector('.scanInstalled').checked;
 		const downloadUrl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`).dataset.value ?? '';
 		const legacyInstallers = installerPathsOf(card);
+		// downloadUrlの元になった最新版インストーラー（GUIの「最新版インストーラー」欄で
+		// 選んだファイル）をそのまま渡す。インストール済みが既にこれと同じなら
+		// ダウンロードをスキップする判定に使われる（2026-09-17・ユーザー指摘）
+		const latestInstaller = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`).dataset.path ?? '';
 
 		if (! appName) throw new Error('appName が未取得のアプリがあります（プロジェクトフォルダを選択してください）');
 		if (! pass) throw new Error(`${appName}: pass.json が未取得です（プロジェクトフォルダを選択してください）`);
 		if (! downloadUrl) throw new Error(`${appName}: downloadUrl（${osKind}）が未設定です（最新版インストーラーをアップロードしてください）`);
-		if (legacyInstallers.length === 0 && ! scanInstalled) {
-			throw new Error(`${appName}: 過去版インストーラーを1つ以上追加するか、実機スキャンを有効にしてください`);
-		}
+		if (legacyInstallers.length === 0) throw new Error(`${appName}: 過去版インストーラーを1つ以上追加してください`);
 
 		apps.push({
 			appName,
 			pass,
-			relPath: relPath || 'theme/setting.sn',
+			relPath,
 			crypto: cryptoEnabled,
 			downloadUrl,
 			legacyInstallers,
-			scanInstalled,
+			latestInstaller,
 		});
 	}
 	if (apps.length === 0) throw new Error('アプリを1つ以上追加してください');
@@ -484,7 +576,10 @@ function buildOutPath(osKind) {
 		.map(card=> card.dataset.uploadSlug)
 		.filter(Boolean);
 	const base = slugs.length > 0 ? slugs.join('_') : 'patch';
-	const fileName = osKind === 'win' ? `${base}_patch.exe` : `${base}_patch`;
+	// mac向けは.dmgとして出力する（genLegacyPatch.ts が --out の拡張子で判定し、
+	// 内部で.appバンドルを作ってhdiutilで.dmgに包む。開発者自身のゲーム配布物と
+	// 同じ見慣れた形式で購入者に渡せる。2026-09-17・ユーザー指摘：「dmg生成を」）
+	const fileName = osKind === 'win' ? `${base}_patch.exe` : `${base}_patch.dmg`;
 	return `${downloadsDir}/${fileName}`;
 }
 

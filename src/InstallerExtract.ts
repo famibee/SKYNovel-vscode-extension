@@ -29,15 +29,15 @@ import {join} from 'node:path';
 // ことが分かった。Windows実機は不要（当初の想定より対応範囲が広い）。
 
 
-export function extractSettingSnFromDmg(dmgPath: string, settingSnFileName: string): Buffer {
+// dmg をマウントし、中の app.asar のローカルパスを渡して fn を呼ぶ（後始末はここで行う）
+function withAsarFromDmg<T>(dmgPath: string, fn: (asarPath: string)=> T): T {
 	const dMount = mkdtempSync(join(tmpdir(), 'snlegacy-dmg-'));
 	try {
 		execFileSync('/usr/bin/hdiutil', ['attach', dmgPath, '-mountpoint', dMount, '-nobrowse', '-quiet'], {stdio: 'pipe'});
 		try {
 			const appDir = readdirSync(dMount).find(f=> f.endsWith('.app'));
 			if (! appDir) throw new Error(`マウントした dmg 内に .app が見つからない: ${dmgPath}`);
-			const pathAsar = join(dMount, appDir, 'Contents', 'Resources', 'app.asar');
-			return extractByBasename(pathAsar, settingSnFileName);
+			return fn(join(dMount, appDir, 'Contents', 'Resources', 'app.asar'));
 		}
 		finally {
 			execFileSync('/usr/bin/hdiutil', ['detach', dMount, '-quiet'], {stdio: 'pipe'});
@@ -51,16 +51,23 @@ export function extractSettingSnFromDmg(dmgPath: string, settingSnFileName: stri
 // NSIS インストーラー(.exe)は中身が7z形式のアーカイブなので、7za でピンポイント抽出できる
 // （electron-builder既定レイアウトの resources/app.asar のみを取り出す。展開先が
 // Windowsの正式なインストール先パスと違っても中身の抽出自体には影響しない）
-export function extractSettingSnFromExe(exePath: string, settingSnFileName: string): Buffer {
+function withAsarFromExe<T>(exePath: string, fn: (asarPath: string)=> T): T {
 	const dOut = mkdtempSync(join(tmpdir(), 'snlegacy-exe-'));
 	try {
 		execFileSync(path7za, ['x', exePath, 'resources/app.asar', `-o${dOut}`, '-y'], {stdio: 'pipe'});
-		const pathAsar = join(dOut, 'resources', 'app.asar');
-		return extractByBasename(pathAsar, settingSnFileName);
+		return fn(join(dOut, 'resources', 'app.asar'));
 	}
 	finally {
 		rmSync(dOut, {recursive: true, force: true});
 	}
+}
+
+export function extractSettingSnFromDmg(dmgPath: string, settingSnFileName: string): Buffer {
+	return withAsarFromDmg(dmgPath, asarPath=> extractByBasename(asarPath, settingSnFileName));
+}
+
+export function extractSettingSnFromExe(exePath: string, settingSnFileName: string): Buffer {
+	return withAsarFromExe(exePath, asarPath=> extractByBasename(asarPath, settingSnFileName));
 }
 
 export function extractSettingSnFromInstaller(installerPath: string, settingSnFileName: string): Buffer {

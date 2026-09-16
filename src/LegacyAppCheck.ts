@@ -9,8 +9,8 @@ import type {Encryptor} from './Encryptor';
 
 import {extractFile, listPackage} from '@electron/asar';
 import {createHash} from 'node:crypto';
-import {existsSync} from 'node:fs';
-import {basename, extname, join} from 'node:path';
+import {openSync, closeSync, fstatSync, readSync} from 'node:fs';
+import {basename, extname} from 'node:path';
 
 
 // 過去アプリ向けパッチ配布（購入者チェック付き）の下ごしらえ。
@@ -56,6 +56,57 @@ export function matchesAnyKnownChecksum(data: string | Uint8Array, expectedHexes
 // 埋め込むために使う。encry は呼び出し側で init() 済みのものを渡す。
 export async function encryptedChecksum(encry: Encryptor, plaintext: string): Promise<string> {
 	return checksumHex(await encry.enc(plaintext));
+}
+
+
+//MARK: インストーラー本体のサンプリングチェックサム（体験版チェック機構が無いビルド向け）
+
+// asar 内に setting.sn 相当のファイルが無い古いビルドでは、購入者チェックの
+// 対象を「インストーラー本体（.exe/.dmg。数百MB規模になりうる）」に切り替える
+// （legacy-app-patch.md 詰められていない仕様#8）。展開は不要（ファイルそのものを
+// ハッシュするだけ）だが、全バイトを読むと大きいファイルでは重いため、
+// サイズ＋均等間隔の64KBブロック16箇所だけをハッシュする。
+//
+// ⚠️ patch_app（Rust・checksum.rs の sampled_file_checksum()）と寸分違わず
+// 同じロジックであること。整数演算のみを使い（浮動小数点誤差を避ける）、
+// TS/Rustのどちらで計算しても同じ結果になるようにしている。片方だけ直すと
+// 全購入者が弾かれる致命的な不具合になるため、変更する場合は必ず両方を直し、
+// 同じファイルで一致することを確認すること
+const SAMPLE_CHUNK_SIZE = 65536;	// 64KB
+const SAMPLE_COUNT = 16;
+
+export function sampledFileChecksum(path: string): string {
+	const fd = openSync(path, 'r');
+	try {
+		const size = fstatSync(fd).size;
+		const hasher = createHash('sha256');
+
+		// ファイルサイズも取り込む（内容が偶然サンプル箇所だけ一致するケースを弾くため）
+		const sizeBuf = Buffer.alloc(8);
+		sizeBuf.writeBigUInt64LE(BigInt(size), 0);
+		hasher.update(sizeBuf);
+
+		if (size <= SAMPLE_CHUNK_SIZE) {
+			const buf = Buffer.alloc(size);
+			readSync(fd, buf, 0, size, 0);
+			hasher.update(buf);
+			return hasher.digest('hex');
+		}
+
+		for (let i = 0; i < SAMPLE_COUNT; i++) {
+			// 0 〜 (size - SAMPLE_CHUNK_SIZE) の範囲に均等間隔でi=0が先頭・
+			// i=SAMPLE_COUNT-1が末尾ちょうどに来るようオフセットを決める
+			const offset = Math.floor((size - SAMPLE_CHUNK_SIZE) * i / (SAMPLE_COUNT - 1));
+			const readLen = Math.min(SAMPLE_CHUNK_SIZE, size - offset);
+			const buf = Buffer.alloc(readLen);
+			readSync(fd, buf, 0, readLen, offset);
+			hasher.update(buf);
+		}
+		return hasher.digest('hex');
+	}
+	finally {
+		closeSync(fd);
+	}
 }
 
 
@@ -117,45 +168,6 @@ export function assertSafeAppName(appName: string): void {
 }
 
 
-//MARK: 案A：インストール済みアプリの検出
-
-export type T_APP_DETECT_ENV = {
-	platform			: NodeJS.Platform;
-	macApplicationsDir	: string;
-	winInstallBaseDirs	: string[];	// Program Files 等。存在しない環境変数は呼び出し側で除いておく
-}
-
-function defaultDetectEnv(): T_APP_DETECT_ENV {
-	// eslint-disable-next-line no-process-env
-	const {ProgramFiles, 'ProgramFiles(x86)': progFilesX86, LOCALAPPDATA} = process.env;
-	return {
-		platform			: process.platform,
-		macApplicationsDir	: '/Applications',
-		winInstallBaseDirs	: [
-			ProgramFiles,
-			progFilesX86,
-			LOCALAPPDATA && join(LOCALAPPDATA, 'Programs'),
-		].filter((v): v is string=> !! v),
-	};
-}
-
-// 実在確認だけを行う（レジストリは見ない）。候補パスは呼び出し側でも参照できるよう分離。
-// パス結合は実行ホストの path モジュールに委ねる（本番では platform と実行ホストが一致するため。
-// platform を差し替えるのはテスト用の分岐選択のみが目的で、セパレータ変換までは意図していない）
-export function candidateInstallPaths(appName: string, env: Partial<T_APP_DETECT_ENV> = {}): string[] {
-	const e = {...defaultDetectEnv(), ...env};
-
-	if (e.platform === 'darwin') return [join(e.macApplicationsDir, `${appName}.app`)];
-	if (e.platform === 'win32') return e.winInstallBaseDirs.map(base=> join(base, appName));
-
-	return [];	// 対象外プラットフォーム（Linux 等は配布対象外）
-}
-
-export function detectInstalledApp(appName: string, env: Partial<T_APP_DETECT_ENV> = {}): boolean {
-	return candidateInstallPaths(appName, env).some(existsSync);
-}
-
-
 //MARK: asar からの1ファイル抽出（生成時・TS側。詰められていない仕様#1）
 
 // asar 内をbasenameで検索して1ファイル抽出する（フォルダ位置は問わない。
@@ -173,32 +185,6 @@ export function extractByBasename(archivePath: string, target: string): Buffer {
 	return extractFile(archivePath, found.startsWith('/') ? found.slice(1) : found);
 }
 
-// インストール済みアプリのパスから app.asar のパスを推測する（electron-builder既定レイアウト。
-// patch_app/src/detect.rs の asar_path_for_install() と同じ規約）。
-// ⚠️ win側は electron-builder既定値からの推測のみで未検証（Windows実機が無い。詰められていない仕様#5）
-export function asarPathForInstall(installPath: string, platform: NodeJS.Platform): string {
-	if (platform === 'darwin') return join(installPath, 'Contents', 'Resources', 'app.asar');
-	if (platform === 'win32') return join(installPath, 'resources', 'app.asar');
-	throw new Error(`対象外プラットフォーム: ${platform}`);
-}
-
-// 実機にインストール済みの過去バージョンアプリから、暗号化済み setting.sn のチェックサムを
-// 直接収集する（詰められていない仕様#1「収集方法の方針決定」の実装）。鍵は一切使わない
-// （抽出した暗号文をそのまま checksumHex() に渡すだけ）。同一OSの実機にインストール済みの
-// アプリしか見つけられない（candidateInstallPaths と同じ制約。OSをまたぐ場合は
-// パッチ生成ツールの「インストーラー直接渡し」方式を使う。legacy-app-patch.md参照）
-export function checksumFromInstalledApp(appName: string, settingSnFileName: string, env: Partial<T_APP_DETECT_ENV> = {}): string | undefined {
-	const e = {...defaultDetectEnv(), ...env};
-	for (const installPath of candidateInstallPaths(appName, env)) {
-		if (! existsSync(installPath)) continue;
-		const asarPath = asarPathForInstall(installPath, e.platform);
-		if (! existsSync(asarPath)) continue;
-		return checksumHex(extractByBasename(asarPath, settingSnFileName));
-	}
-	return undefined;
-}
-
-
 //MARK: 自己参照データの連結（footer）
 
 // パッチアプリ本体（Rust・patch_app/src/footer.rs）の MAGIC・レイアウトと必ず一致させること：
@@ -211,6 +197,19 @@ const FOOTER_MAGIC = 'SNLPATCH';
 export type T_LEGACY_PATCH_APP_CONFIG = {
 	appName				: string;
 	checksumSetting		: string[];		// 複数の既知チェックサム（過去出荷ビルド分）
+	// setting.sn自体が見つからなかった（体験版チェック機構が無い古いビルドの可能性が
+	// ある）legacyInstaller向けの、インストーラー本体（.exe/.dmg）そのもののチェックサム。
+	// 常に計算・埋め込まれる（常時ONのフォールバック。ユーザー指摘：発生確率を
+	// 事前に聞いて切り替えさせるのではなく常に両方用意しておく）。patch_app側は
+	// ①setting.sn抽出を試み、失敗したときだけ②購入者に当時のインストーラー本体を
+	// 選ばせてこの配列と比較する（legacy-app-patch.md 詰められていない仕様#8）
+	checksumInstaller	: string[];
+	// 配布予定の最新版のチェックサム（①setting.sn方式・②インストーラー本体方式の
+	// どちらかで計算されたもの。空文字列＝未提供）。patch_app側は、購入者チェックを
+	// 通過したインストール済みバージョンのハッシュがこれと一致するなら、既に最新版が
+	// インストール済みと判断してダウンロードをスキップする（2026-09-17・ユーザー指摘：
+	// 「インストールアプリが最新ならDLもしないように」）
+	checksumLatest		: string;
 	settingSnFileName	: string;		// asar 内で探す basename（フォルダ位置は問わない）
 	downloadUrl			: string;
 }

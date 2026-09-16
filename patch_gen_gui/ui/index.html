@@ -128,10 +128,6 @@
 		</div>
 
 		<div class="app-card-details" hidden>
-			<div class="field field-checkbox">
-				<label><input type="checkbox" class="scanInstalled"> このアプリ起動した実機にインストール済みの旧バージョンも自動スキャン</label>
-			</div>
-
 			<div class="os-panes">
 				<div class="os-pane" data-os="win">
 					<h3>win</h3>
@@ -189,6 +185,23 @@
 					</div>
 				</div>
 			</div>
+		</div>
+
+		<div class="field checksum-mode-field">
+			<label>購入者チェック方式（上の過去版インストーラーに対する検証方法）</label>
+			<div class="mode-badges">
+				<span class="mode-badge" data-mode="1">(1) setting.sn</span>
+				<span class="mode-badge" data-mode="2">(2) 代替ファイル</span>
+			</div>
+			<div class="field-hint">通常は(1)のままでよい（購入者側は完全自動）。生成時、setting.snが
+				見つからない過去版があれば(3)インストーラー本体チェック（購入者に当時のインストーラー
+				本体を選んでもらう一手間がかかる）へ自動的にフォールバックする
+				（発生するかどうかを事前に判定する必要はない）。上の各インストーラー行の
+				「代替を選択」で切り替えられれば(2)として購入者側は完全自動。
+				<strong>ただし(2)に選ぶファイルは、当時の体験版と製品版とで
+				中身が異なるものを選ぶこと</strong>（体験版と製品版で同じ内容のファイルだと、
+				体験版でもチェックを通ってしまう。中身が異なるかは自動検証できない）</div>
+			<div class="alt-relpath-status"></div>
 		</div>
 	</div>
 </template>

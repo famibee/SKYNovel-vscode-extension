@@ -32,8 +32,11 @@ struct AppEntry {
 	download_url: String,
 	#[serde(rename = "legacyInstallers")]
 	legacy_installers: Vec<String>,
-	#[serde(rename = "scanInstalled")]
-	scan_installed: bool,
+	// 「既にインストール済みが最新版ならDLをスキップ」判定用。GUIの最新版インストーラー欄で
+	// 選んだファイル（downloadUrlの元になったのと同じもの）をそのまま渡す
+	// （2026-09-17・ユーザー指摘）
+	#[serde(rename = "latestInstaller", default)]
+	latest_installer: String,
 }
 
 // sn_extension リポジトリのルート（genLegacyPatch.ts の在り処）を推測する。
@@ -98,6 +101,23 @@ async fn select_single_file(app: tauri::AppHandle) -> Option<String> {
 		let _ = tx.send(file.map(|f| f.to_string()));
 	});
 	rx.recv().ok().flatten()
+}
+
+// 「①setting.sn」が使えない古いビルド向けの「②代替ファイル選択」用：
+// doc/prj 配下から任意のファイルを選ばせ、relPath（doc/prjからの相対パス）を返す
+// （2026-09-17・ユーザー指摘：③インストーラー本体チェック（購入者に一手間）より、
+// asar内に実在する別ファイルで代替できるならそちらの方が購入者側は楽なので、
+// GUIから選べるようにする）
+#[tauri::command]
+async fn pick_rel_path_file(app: tauri::AppHandle, project_folder: String) -> Option<String> {
+	let base = PathBuf::from(&project_folder).join("doc").join("prj");
+	let (tx, rx) = std::sync::mpsc::channel();
+	app.dialog().file().set_directory(&base).pick_file(move |file| {
+		let _ = tx.send(file.map(|f| f.to_string()));
+	});
+	let picked = rx.recv().ok().flatten()?;
+	let rel = PathBuf::from(&picked).strip_prefix(&base).ok()?.to_string_lossy().replace('\\', "/");
+	Some(rel)
 }
 
 // 最新版インストーラー選択用：拡張子を1つに固定した単一ファイル選択
@@ -290,6 +310,36 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 	};
 
 	Ok(ProjectScanResult {app_name, app_slug, pass, rel_path, crypto, warnings})
+}
+
+
+//MARK: ①setting.snで通るかどうかの軽量プローブ（過去版インストーラー追加時）
+//
+// 過去版インストーラーを追加した瞬間に①setting.snで抽出できるかを判定し、GUI側で
+// 「asar内の代替ファイルを指定…」ボタンを表示すべきか（＝①がダメな行だけ）を
+// 決めるために使う（2026-09-17・ユーザー指摘：「1番でいけるか2・3番タイプか検知し、
+// 前者のときはボタンを出さないように」）。チェックサム計算や設定JSON生成はしない
+// 単発の判定用CLI（src/probeInstaller.ts）をbunサブプロセスとして呼ぶだけ
+
+#[tauri::command]
+fn probe_installer_setting_sn(pass: String, rel_path: String, crypto: bool, installer_path: String) -> Result<bool, String> {
+	let root = sn_extension_root()?;
+	let script = root.join("src").join("probeInstaller.ts");
+	if ! script.exists() {
+		return Err(format!("probeInstaller.ts が見つからない: {}", script.display()));
+	}
+
+	let output = Command::new("bun")
+		.arg(&script)
+		.arg("--pass").arg(&pass)
+		.arg("--relPath").arg(&rel_path)
+		.arg("--crypto").arg(if crypto { "true" } else { "false" })
+		.arg("--installer").arg(&installer_path)
+		.current_dir(&root)
+		.output()
+		.map_err(|e| format!("bun の起動に失敗（bunがPATHに無い可能性）: {e}"))?;
+
+	Ok(output.status.success())
 }
 
 
@@ -633,7 +683,7 @@ mod tests {
 			crypto: true,
 			download_url: "https://example.com/patch".to_string(),
 			legacy_installers: vec![installer_dmg.to_string(), installer_exe.to_string()],
-			scan_installed: false,
+			latest_installer: String::new(),
 		}];
 
 		let result = run_gen_legacy_patch(
@@ -672,6 +722,8 @@ pub fn run() {
 			select_installer_files,
 			select_single_file,
 			select_single_file_with_ext,
+			pick_rel_path_file,
+			probe_installer_setting_sn,
 			rebuild_and_resolve_stubs,
 			downloads_dir,
 			run_gen_legacy_patch,

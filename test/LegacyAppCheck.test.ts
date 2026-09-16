@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, candidateInstallPaths, detectInstalledApp, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, assertSafeAppName, UnsafeAppNameError, appendPatchFooter, extractByBasename, asarPathForInstall, checksumFromInstalledApp} from '../src/LegacyAppCheck';
+import {checksumHex, matchesKnownChecksum, matchesAnyKnownChecksum, encryptedChecksum, settingSnFileName, hasExperienceConst, assertHasExperienceConst, MissingExperienceConstError, assertSafeAppName, UnsafeAppNameError, appendPatchFooter, extractByBasename, sampledFileChecksum} from '../src/LegacyAppCheck';
 import {Encryptor} from '../src/Encryptor';
 import type {IDecryptInfo} from '../src/CmnLib';
 
@@ -97,56 +97,6 @@ it('assertHasExperienceConst: 存在すれば何もしない、無ければ Miss
 });
 
 
-//MARK: 案A：インストール済みアプリの検出
-
-it('candidateInstallPaths: mac は /Applications/<name>.app の1本', ()=> {
-	const paths = candidateInstallPaths('MyGame', {platform: 'darwin', macApplicationsDir: '/Applications'});
-	expect(paths).toEqual(['/Applications/MyGame.app']);
-});
-
-
-it('candidateInstallPaths: win は指定した候補ディレクトリの数だけ返す', ()=> {
-	// セパレータの整形は実行ホストの path モジュールに委ねているので、期待値も
-	// join() で組み立てる（このテストが検証するのは「各ベースディレクトリ配下に
-	// appName を1つずつ結合する」という組み立てロジックそのもの）
-	const bases = [join('C:', 'Program Files'), join('C:', 'Users', 'u', 'AppData', 'Local', 'Programs')];
-	const paths = candidateInstallPaths('MyGame', {platform: 'win32', winInstallBaseDirs: bases});
-	expect(paths).toEqual(bases.map(b=> join(b, 'MyGame')));
-});
-
-
-it('candidateInstallPaths: 対象外プラットフォームは空配列', ()=> {
-	expect(candidateInstallPaths('MyGame', {platform: 'linux'})).toEqual([]);
-});
-
-
-it('detectInstalledApp: mac相当・実在するフォルダは検出できる', ()=> {
-	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_'));
-	try {
-		mkdirsSync(join(dTmp, 'MyGame.app'));
-		expect(detectInstalledApp('MyGame', {platform: 'darwin', macApplicationsDir: dTmp})).toBe(true);
-		expect(detectInstalledApp('NoSuchGame', {platform: 'darwin', macApplicationsDir: dTmp})).toBe(false);
-	} finally {
-		removeSync(dTmp);
-	}
-});
-
-
-it('detectInstalledApp: win相当・複数候補のどれかにあれば検出できる', ()=> {
-	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_'));
-	const dProgFiles = join(dTmp, 'Program Files');
-	const dLocalPrograms = join(dTmp, 'Local', 'Programs');
-	try {
-		mkdirsSync(join(dLocalPrograms, 'MyGame'));	// Program Files 側には置かない
-		const env = {platform: <const>'win32', winInstallBaseDirs: [dProgFiles, dLocalPrograms]};
-		expect(detectInstalledApp('MyGame', env)).toBe(true);
-		expect(detectInstalledApp('NoSuchGame', env)).toBe(false);
-	} finally {
-		removeSync(dTmp);
-	}
-});
-
-
 //MARK: settingSnFileName（asar 内で探す basename の算出）
 
 it('settingSnFileName: crypto:true なら uuidv5(relPath) ＋元の拡張子', ()=> {
@@ -207,48 +157,62 @@ it('extractByBasename: 見つからなければ例外', async ()=> {
 });
 
 
-it('asarPathForInstall: mac は Contents/Resources/app.asar', ()=> {
-	expect(asarPathForInstall('/Applications/MyGame.app', 'darwin'))
-		.toBe(join('/Applications/MyGame.app', 'Contents', 'Resources', 'app.asar'));
-});
+//MARK: sampledFileChecksum（体験版チェック機構が無いビルド向けフォールバック。
+// patch_app（Rust）の sampled_file_checksum() と寸分違わず一致する必要がある）
 
-
-it('asarPathForInstall: win は resources/app.asar（electron-builder既定）', ()=> {
-	expect(asarPathForInstall(join('C:', 'Program Files', 'MyGame'), 'win32'))
-		.toBe(join('C:', 'Program Files', 'MyGame', 'resources', 'app.asar'));
-});
-
-
-it('asarPathForInstall: 対象外プラットフォームは例外', ()=> {
-	expect(()=> asarPathForInstall('/opt/MyGame', 'linux')).toThrow();
-});
-
-
-it('checksumFromInstalledApp: 実機相当のインストール済みアプリからチェックサムを直接収集できる', async ()=> {
-	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_scan_'));
+it('sampledFileChecksum: 同じファイルなら常に同じ値', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_sample_'));
 	try {
-		// mac相当：<macApplicationsDir>/MyGame.app/Contents/Resources/app.asar
-		const dApp = join(dTmp, 'MyGame.app');
-		const dSrc = join(dTmp, 'src');
-		mkdirsSync(join(dSrc, 'theme'));
-		writeFileSync(join(dSrc, 'theme', 'setting.sn'), '&const.体験版 = false');
-		mkdirsSync(join(dApp, 'Contents', 'Resources'));
-		await createPackage(dSrc, join(dApp, 'Contents', 'Resources', 'app.asar'));
-
-		const env = {platform: <const>'darwin', macApplicationsDir: dTmp};
-		const hex = checksumFromInstalledApp('MyGame', 'setting.sn', env);
-		expect(hex).toBe(checksumHex('&const.体験版 = false'));
+		const p = join(dTmp, 'a.bin');
+		writeFileSync(p, 'hello world');
+		expect(sampledFileChecksum(p)).toBe(sampledFileChecksum(p));
 	} finally {
 		removeSync(dTmp);
 	}
 });
 
 
-it('checksumFromInstalledApp: インストールされていなければ undefined', ()=> {
-	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_scan_'));
+it('sampledFileChecksum: 小さいファイルは内容が変われば値も変わる', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_sample_'));
 	try {
-		const env = {platform: <const>'darwin', macApplicationsDir: dTmp};
-		expect(checksumFromInstalledApp('NoSuchGame', 'setting.sn', env)).toBeUndefined();
+		const pA = join(dTmp, 'a.bin');
+		const pB = join(dTmp, 'b.bin');
+		writeFileSync(pA, 'hello world');
+		writeFileSync(pB, 'hello WORLD');
+		expect(sampledFileChecksum(pA)).not.toBe(sampledFileChecksum(pB));
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('sampledFileChecksum: サイズが同じでも中間バイトが違えば検出できる（先頭・末尾だけのサンプリングではない）', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_sample_'));
+	try {
+		const size = 65536 * 16;	// SAMPLE_CHUNK_SIZE * SAMPLE_COUNT
+		const bufA = Buffer.alloc(size, 0);
+		const bufB = Buffer.from(bufA);
+		bufB[Math.floor(size / 2)] = 0xff;
+
+		const pA = join(dTmp, 'a.bin');
+		const pB = join(dTmp, 'b.bin');
+		writeFileSync(pA, bufA);
+		writeFileSync(pB, bufB);
+		expect(sampledFileChecksum(pA)).not.toBe(sampledFileChecksum(pB));
+	} finally {
+		removeSync(dTmp);
+	}
+});
+
+
+it('sampledFileChecksum: サイズが違えば内容の先頭が同じでも値が変わる', ()=> {
+	const dTmp = mkdtempSync(join(tmpdir(), 'legacy_app_chk_sample_'));
+	try {
+		const pA = join(dTmp, 'a.bin');
+		const pB = join(dTmp, 'b.bin');
+		writeFileSync(pA, 'same-prefix');
+		writeFileSync(pB, 'same-prefix-but-longer');
+		expect(sampledFileChecksum(pA)).not.toBe(sampledFileChecksum(pB));
 	} finally {
 		removeSync(dTmp);
 	}
@@ -262,6 +226,8 @@ it('appendPatchFooter: stub＋JSON(配列)＋長さ(u32 LE)＋マジックの順
 	const cfg = [{
 		appName				: 'MyGame',
 		checksumSetting		: ['abc123', 'def456'],
+		checksumInstaller	: [],
+		checksumLatest		: '',
 		settingSnFileName	: '3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn',
 		downloadUrl			: 'https://example.com/patch',
 	}];
@@ -281,8 +247,8 @@ it('appendPatchFooter: stub＋JSON(配列)＋長さ(u32 LE)＋マジックの順
 it('appendPatchFooter: 複数アプリ分を1つの配列として連結できる', ()=> {
 	const stub = new Uint8Array([9, 9]);
 	const cfg = [
-		{appName: 'GameA', checksumSetting: ['a1'], settingSnFileName: 'a.sn', downloadUrl: 'https://example.com/a'},
-		{appName: 'GameB', checksumSetting: ['b1'], settingSnFileName: 'b.sn', downloadUrl: 'https://example.com/b'},
+		{appName: 'GameA', checksumSetting: ['a1'], checksumInstaller: [], checksumLatest: '', settingSnFileName: 'a.sn', downloadUrl: 'https://example.com/a'},
+		{appName: 'GameB', checksumSetting: ['b1'], checksumInstaller: [], checksumLatest: '', settingSnFileName: 'b.sn', downloadUrl: 'https://example.com/b'},
 	];
 	const out = appendPatchFooter(stub, cfg);
 	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');

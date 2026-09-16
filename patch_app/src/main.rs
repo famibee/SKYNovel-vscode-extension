@@ -38,19 +38,54 @@ fn process_app(
 	mac_apps_dir: &std::path::Path,
 	win_dirs: &[std::path::PathBuf],
 ) -> Result<String, String> {
-	let install_path = detect::find_installed_app(&cfg.app_name, platform, mac_apps_dir, win_dirs)
-		.ok_or_else(|| "旧版が見つからない。購入者チェックに失敗した".to_string())?;
+	// ①まず自動検出＋setting.sn抽出を試みる。これが何らかの理由で失敗したときだけ
+	// ②購入者に当時のインストーラー本体を選ばせるフォールバックに切り替える
+	// （常時ON。legacy-app-patch.md 詰められていない仕様#8。2026-09-17・ユーザー指摘：
+	// 「聞かなくていい、常にON」——事前に developer に選ばせず、生成時に両方の
+	// チェックサムを常に埋め込んでおき、実行時に自動で切り替える設計にした）
+	let method1: Result<String, String> = (|| {
+		let install_path = detect::find_installed_app(&cfg.app_name, platform, mac_apps_dir, win_dirs)
+			.ok_or_else(|| "旧版が見つからない".to_string())?;
+		let asar_path = detect::asar_path_for_install(&install_path, platform)
+			.ok_or_else(|| "この環境向けの asar パスが分からない（対象外プラットフォーム）".to_string())?;
+		// 体験版誤認の回避：basename 探索方式（フォルダ配置は問わない。legacy-app-patch.md
+		// 2026-09-13決定）で setting.sn を抽出し、既知チェックサムのいずれかと一致するか確認する
+		let setting_sn = asar::extract_by_basename(&asar_path, &cfg.setting_sn_file_name)
+			.map_err(|e| format!("旧アプリ内の設定ファイル抽出に失敗した: {e}"))?;
+		if !checksum::matches_any_known_checksum(&setting_sn, &cfg.checksum_setting) {
+			return Err("体験版、または未対応バージョンと判定された".to_string());
+		}
+		Ok(checksum::checksum_hex(&setting_sn))
+	})();
 
-	let asar_path = detect::asar_path_for_install(&install_path, platform)
-		.ok_or_else(|| "この環境向けの asar パスが分からない（対象外プラットフォーム）".to_string())?;
+	// インストール済みバージョンのハッシュ（購入者チェックを通過した①または②の
+	// どちらか一方で得られる）。この先の「既に最新版か」の判定に使う
+	let installed_hash = match method1 {
+		Ok(hash) => hash,
+		Err(reason1) => {
+			if cfg.checksum_installer.is_empty() {
+				return Err(format!("{reason1}（購入者チェックに失敗）"));
+			}
 
-	// 体験版誤認の回避：basename 探索方式（フォルダ配置は問わない。legacy-app-patch.md
-	// 2026-09-13決定）で setting.sn を抽出し、既知チェックサムのいずれかと一致するか確認する
-	let setting_sn = asar::extract_by_basename(&asar_path, &cfg.setting_sn_file_name)
-		.map_err(|e| format!("旧アプリ内の設定ファイル抽出に失敗した: {e}"))?;
+			let installer_path = dialog::pick_installer_file(&cfg.app_name)
+				.map_err(|e| format!("インストーラー選択ダイアログの表示に失敗した: {e}"))?
+				.ok_or_else(|| "インストーラーファイルが選択されなかった（購入者チェックに失敗）".to_string())?;
 
-	if !checksum::matches_any_known_checksum(&setting_sn, &cfg.checksum_setting) {
-		return Err("体験版、または未対応バージョンと判定された（購入者チェックに失敗）".to_string());
+			let hash = checksum::sampled_file_checksum(&installer_path)
+				.map_err(|e| format!("選択したファイルの読み込みに失敗した: {e}"))?;
+
+			if !cfg.checksum_installer.iter().any(|known| known.to_lowercase() == hash) {
+				return Err("選択したインストーラーが正規の旧版と一致しない（購入者チェックに失敗）".to_string());
+			}
+			hash
+		}
+	};
+
+	// 購入者チェックを通過したインストール済みバージョンが、配布予定の最新版と
+	// 同じ（＝既に最新版がインストール済み）ならダウンロードは不要
+	// （2026-09-17・ユーザー指摘：「生成アプリ、インストールアプリが最新ならDLもしないように」）
+	if !cfg.checksum_latest.is_empty() && cfg.checksum_latest.to_lowercase() == installed_hash {
+		return Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string());
 	}
 
 	// download_url は画面に一切出さない（download.rs 冒頭コメント参照：ブラウザに渡すと
@@ -147,6 +182,8 @@ mod tests {
 		footer::AppConfig {
 			app_name			: app_name.to_string(),
 			checksum_setting	: checksum_setting.into_iter().map(String::from).collect(),
+			checksum_installer	: Vec::new(),
+			checksum_latest		: String::new(),
 			setting_sn_file_name: setting_sn_file_name.to_string(),
 			download_url		: download_url.to_string(),
 		}
@@ -205,7 +242,7 @@ mod tests {
 		let cfg = app_cfg("NoSuchGame", vec!["abc"], "setting.sn", "https://example.com/x");
 		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
 
-		assert_eq!(result, Err("旧版が見つからない。購入者チェックに失敗した".to_string()));
+		assert_eq!(result, Err("旧版が見つからない（購入者チェックに失敗）".to_string()));
 		fs::remove_dir_all(&dir).unwrap();
 	}
 
@@ -265,6 +302,28 @@ mod tests {
 		// チェックサム一致までは通過し、その先（download::download）で
 		// download_url が実URLでないため失敗する（＝購入者チェック自体は通過した証拠）
 		assert!(matches!(result, Err(ref msg) if msg.contains("更新ファイルの取得に失敗した")));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn process_app_skips_download_when_installed_version_is_already_latest() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_alreadylatest_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let content = b"&const.experiment = false";
+		let header = format!(r#"{{"files":{{"setting.sn":{{"size":{},"offset":"0"}}}}}}"#, content.len());
+		let asar = asar::build_fake_asar(&header, content);
+		setup_installed_app(&dir, "MyGame", &asar);
+
+		let known = checksum::checksum_hex(content);
+		// download_url は実URLでない（unsupported-scheme）ため、ダウンロードに進んだ場合は
+		// 失敗するはず。checksum_latest と一致していればダウンロード自体に進まず成功するので、
+		// 「スキップできた」ことをこの失敗しないURLの選び方自体で検証する
+		let mut cfg = app_cfg("MyGame", vec![&known], "setting.sn", "unsupported-scheme://x");
+		cfg.checksum_latest = known;
+
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+		assert_eq!(result, Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string()));
 		fs::remove_dir_all(&dir).unwrap();
 	}
 }

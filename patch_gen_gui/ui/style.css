@@ -7,6 +7,7 @@
 	--accent: #2563eb;
 	--danger: #dc2626;
 	--muted: #666;
+	--dropzone-bg: #f1f2f4;
 }
 @media (prefers-color-scheme: dark) {
 	:root {
@@ -17,6 +18,7 @@
 		--accent: #60a5fa;
 		--danger: #f87171;
 		--muted: #999;
+		--dropzone-bg: #303030;
 	}
 }
 
@@ -32,6 +34,8 @@ body {
 
 header {
 	padding: 16px 20px 8px;
+	max-width: 1400px;
+	margin: 0 auto;
 }
 header h1 { margin: 0 0 4px; font-size: 1.3em; }
 header .sub { margin: 0; color: var(--muted); font-size: 0.85em; }
@@ -41,6 +45,8 @@ header code { background: var(--card-bg); padding: 1px 4px; border-radius: 3px; 
 	display: flex;
 	gap: 4px;
 	padding: 0 20px;
+	max-width: 1400px;
+	margin: 0 auto;
 	border-bottom: 1px solid var(--border);
 }
 .tab {
@@ -66,7 +72,9 @@ header code { background: var(--card-bg); padding: 1px 4px; border-radius: 3px; 
 
 main {
 	padding: 8px 20px 40px;
-	max-width: 900px;
+	width: 100%;
+	max-width: 1400px;
+	margin: 0 auto;
 }
 
 .field { margin-bottom: 10px; }
@@ -79,6 +87,20 @@ main {
 }
 .field-row .field { flex: 1; min-width: 160px; }
 .field-checkbox label { display: flex; align-items: center; gap: 6px; font-size: 0.9em; color: var(--fg); }
+.field-hint { margin: 2px 0 0 22px; color: var(--muted); font-size: 0.78em; }
+
+.mode-badges { display: flex; gap: 6px; }
+.mode-badge {
+	padding: 3px 9px;
+	border-radius: 999px;
+	border: 1px solid var(--border);
+	font-size: 0.78em;
+	color: var(--muted);
+	background: var(--bg);
+}
+.mode-badge.active.mode-blue { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+
+.alt-relpath-status { margin: 4px 0 0 0; font-size: 0.8em; color: var(--muted); }
 
 input[type="text"] {
 	width: 100%;
@@ -172,6 +194,7 @@ button:hover { border-color: var(--accent); }
 	color: var(--muted);
 	margin-bottom: 6px;
 	cursor: pointer;
+	background: var(--dropzone-bg);
 	transition: border-color 0.15s, background 0.15s;
 }
 .dropzone:hover { border-color: var(--muted); }
@@ -216,8 +239,19 @@ button:hover { border-color: var(--accent); }
 }
 .installer-list li button {
 	padding: 1px 7px;
+	flex-shrink: 0;
+}
+.installer-list li .btn-delete-installer {
 	color: var(--danger);
 	border-color: var(--danger);
+}
+.installer-list li .btn-alt-installer {
+	color: var(--accent);
+	border: 2px solid var(--accent);
+	font-weight: 600;
+}
+.installer-list li .btn-alt-installer:hover {
+	background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .btn-add-app {
