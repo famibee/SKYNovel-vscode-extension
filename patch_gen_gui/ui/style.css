@@ -253,6 +253,20 @@ button:hover { border-color: var(--accent); }
 .installer-list li .btn-alt-installer:hover {
 	background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
+.installer-list li .btn-alt-installer:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+	background: none;
+}
+.installer-no-trial {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+	color: var(--muted);
+	font-size: 0.95em;
+	white-space: nowrap;
+}
 
 .btn-add-app {
 	width: 100%;

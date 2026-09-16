@@ -107,6 +107,11 @@ type T_APP_ENTRY = {
 	// 「インストール済みが既に最新版ならダウンロードをスキップする」判定に使う
 	// （2026-09-17・ユーザー指摘）
 	latestInstaller?	: string;
+	// 開発者が「体験版ではないと確認済み」と手動でチェックしたlegacyInstallersの
+	// パス一覧（GUIの各行の「体験版なし」チェック）。これに含まれるものは、
+	// 体験版混入を自動検証できない旨の警告の対象から除外される（省略可・既定は空配列。
+	// 2026-09-17・ユーザー指摘：「ONで①番動作に」＝①の自動判定と同じ「確認済み」扱いにする）
+	confirmedNoTrialInstallers?	: string[];
 }
 
 // mac向け.appバンドルの最小限のInfo.plist。CFBundleExecutableのみが実質必須
@@ -190,7 +195,8 @@ if (! Array.isArray(configRaw.apps) || configRaw.apps.length === 0) {
 const cfgs: T_LEGACY_PATCH_APP_CONFIG[] = [];
 
 for (const entry of configRaw.apps) {
-	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, legacyInstallers, latestInstaller} = entry;
+	const {appName, pass: pathPass, relPath, crypto: isCryptoMode, downloadUrl, legacyInstallers, latestInstaller, confirmedNoTrialInstallers} = entry;
+	const noTrialSet = new Set(confirmedNoTrialInstallers ?? []);
 
 	if (! appName || ! pathPass || ! relPath || typeof isCryptoMode !== 'boolean' || ! downloadUrl) {
 		usageAndExit(`設定エントリの必須項目が不足している: ${JSON.stringify(entry)}`);
@@ -277,25 +283,30 @@ for (const entry of configRaw.apps) {
 		}
 	}
 
-	if (fallenBackFor.length > 0) {
-		console.warn(`ℹ️  ${appName}: ${String(fallenBackFor.length)}件でsetting.snが見つからなかったため、`
+	// 「体験版なし」チェック済みのインストーラーは、以降の「自動検証できないので確認して」
+	// 系の警告から除外する（開発者が個別に確認済み＝①の自動判定と同じ信頼度として扱う。
+	// 2026-09-17・ユーザー指摘：「ONで①番動作に」）
+	const fallenBackForUnconfirmed = fallenBackFor.filter(p=> ! noTrialSet.has(p));
+	if (fallenBackForUnconfirmed.length > 0) {
+		console.warn(`ℹ️  ${appName}: ${String(fallenBackForUnconfirmed.length)}件でsetting.snが見つからなかったため、`
 			+'インストーラー本体チェックへの自動フォールバックを埋め込みます（購入者に当時のインストーラー本体を'
 			+'選んでもらう一手間がかかります。体験版誤混入も自動検証できません。全て製品版であることを確認してください）：');
-		for (const p of fallenBackFor) console.warn(`  - ${p}`);
+		for (const p of fallenBackForUnconfirmed) console.warn(`  - ${p}`);
 	}
 	// crypto:true、または②代替ファイル使用時は、抽出できた分についても体験版混入の
 	// 自動検証ができない（代替ファイルは体験版/製品版で内容が異なる保証が無い。
 	// ユーザー指摘：代替ファイルに求められるのは「過去版では体験版かどうかでこの
 	// ファイルの中身が違う」という性質だが、それを機械的に検証する手段は無い）
-	if ((isCryptoMode || relPath !== DEFAULT_REL_PATH) && legacyInstallers.length > fallenBackFor.length) {
+	const unconfirmedForTrialCheck = legacyInstallers.filter(p=> ! fallenBackFor.includes(p) && ! noTrialSet.has(p));
+	if ((isCryptoMode || relPath !== DEFAULT_REL_PATH) && unconfirmedForTrialCheck.length > 0) {
 		const reason = relPath !== DEFAULT_REL_PATH
 			? '代替ファイル（②）を使っているため'
 			: 'crypto:true のため';
 		console.warn(`⚠️  ${appName}: ${reason}、legacyInstallers に体験版のインストーラーが`
 			+' 混ざっていないか自動検証できません（詰められていない仕様#1参照）。'
-			+`指定した ${String(legacyInstallers.length)} 件が全て製品版であることを確認してください`
+			+`指定した ${String(unconfirmedForTrialCheck.length)} 件が全て製品版であることを確認してください`
 			+(relPath !== DEFAULT_REL_PATH ? '（代替ファイルは体験版と製品版で中身が異なるものを選ぶこと）：' : '：'));
-		for (const p of legacyInstallers) console.warn(`  - ${p}`);
+		for (const p of unconfirmedForTrialCheck) console.warn(`  - ${p}`);
 	}
 
 	cfgs.push({

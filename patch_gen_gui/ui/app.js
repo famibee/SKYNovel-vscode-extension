@@ -65,26 +65,32 @@ function effectiveRelPath(card) {
 // 過去版インストーラー1件が①setting.snで通るかを判定し、通らない場合だけ
 // 「asar内の代替ファイルを指定…」ボタンを表示する（2026-09-17・ユーザー指摘：
 // 「1番でいけるか2・3番タイプか検知し、前者のときはボタンを出さないように」）
-async function probeAndToggleAltButton(card, btnAlt, installerPath) {
+// ①setting.snで通る行では「代替を選択」ボタンも「体験版なし」チェックも不要
+// （①が通る限り体験版混入も自動検証できているため）。2つセットで表示/非表示にする
+// （2026-09-17・ユーザー指摘：「代替ボタンがないときは体験版チェックも非表示」）
+async function probeAndToggleAltButton(card, li, installerPath) {
+	const btnAlt = li.querySelector('.btn-alt-installer');
+	const labelNoTrial = li.querySelector('.installer-no-trial');
+	const setHidden = (hidden)=> { btnAlt.hidden = hidden; labelNoTrial.hidden = hidden; };
+
 	const pass = card.dataset.pass;
-	if (! pass) { btnAlt.hidden = true; return; }
+	if (! pass) { setHidden(true); return; }
 	const crypto = card.dataset.crypto === 'true';
 	const relPath = effectiveRelPath(card);
-	btnAlt.hidden = true;
+	setHidden(true);
 	try {
 		const ok = await invoke('probe_installer_setting_sn', {pass, relPath, crypto, installerPath});
-		btnAlt.hidden = ok;
+		setHidden(ok);
 	}
 	catch {
 		// 判定自体に失敗した場合は、念のため代替手段を選べるようにしておく
-		btnAlt.hidden = false;
+		setHidden(false);
 	}
 }
 
 function reprobeAllInstallers(card) {
 	for (const li of card.querySelectorAll('.installer-list li')) {
-		const btnAlt = li.querySelector('.btn-alt-installer');
-		if (btnAlt) void probeAndToggleAltButton(card, btnAlt, li.dataset.path);
+		if (li.querySelector('.btn-alt-installer')) void probeAndToggleAltButton(card, li, li.dataset.path);
 	}
 }
 
@@ -306,14 +312,31 @@ function addInstallerPaths(card, osKind, paths) {
 			card.dataset.altRelPath = rel;
 			setChecksumMode(card, '2');
 		});
+
+		// 「体験版が混ざっていないか自動検証できない」旨の警告を出さないよう、
+		// 開発者がこの1件について手動で保証するチェック（2026-09-17・ユーザー指摘：
+		// 「ONで①番動作に」＝①setting.snの自動判定と同じ「確認済み」扱いにする）
+		const labelNoTrial = document.createElement('label');
+		labelNoTrial.className = 'installer-no-trial';
+		// ①setting.snで通るかの判定が終わるまでは隠しておく（代替ボタンと同じ扱い）
+		labelNoTrial.hidden = true;
+		const chkNoTrial = document.createElement('input');
+		chkNoTrial.type = 'checkbox';
+		chkNoTrial.addEventListener('change', ()=> {
+			// 体験版なしを確認済みなら、②へ切り替える代替ボタンは無用（クリックミス防止に
+			// 無効化するが、選び直したい場合に備えて表示自体は残す。2026-09-17・ユーザー指摘）
+			btnAlt.disabled = chkNoTrial.checked;
+			scheduleSaveState();
+		});
+		labelNoTrial.append(chkNoTrial, document.createTextNode('体験版なし'));
 		const btnDel = document.createElement('button');
 		btnDel.type = 'button';
 		btnDel.className = 'btn-delete-installer';
 		btnDel.textContent = '削除';
 		btnDel.addEventListener('click', ()=> { li.remove(); scheduleSaveState(); });
-		li.append(spanPath, btnAlt, btnDel);
+		li.append(spanPath, btnAlt, labelNoTrial, btnDel);
 		ul.appendChild(li);
-		void probeAndToggleAltButton(card, btnAlt, p);
+		void probeAndToggleAltButton(card, li, p);
 	}
 	scheduleSaveState();
 }
@@ -327,6 +350,15 @@ function installerPathsOfOs(card, osKind) {
 // ことを実機確認済み。legacy-app-patch.md「詰められていない仕様#1」参照）
 function installerPathsOf(card) {
 	return [...installerPathsOfOs(card, 'win'), ...installerPathsOfOs(card, 'mac')];
+}
+
+// 「体験版なし」チェックが付いた過去版インストーラーのパス一覧（win/mac込み）。
+// これに含まれるものは、体験版混入の自動検証ができない旨の警告から除外される
+// （2026-09-17・ユーザー指摘）
+function noTrialInstallerPathsOf(card) {
+	return [...card.querySelectorAll('.installer-list li')]
+		.filter(li=> li.querySelector('.installer-no-trial input').checked)
+		.map(li=> li.dataset.path);
 }
 
 
@@ -345,13 +377,14 @@ function collectPersistState() {
 			win: installerPathsOfOs(card, 'win'),
 			mac: installerPathsOfOs(card, 'mac'),
 		};
+		const noTrialInstallers = noTrialInstallerPathsOf(card);
 		const latest = {};
 		for (const osKind of ['win', 'mac']) {
 			const dz = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`);
 			const urlEl = card.querySelector(`.downloadUrl[data-os="${osKind}"]`);
 			latest[osKind] = {path: dz.dataset.path || null, downloadUrl: urlEl.dataset.value || null};
 		}
-		apps.push({projectFolderPath, checksumMode, altRelPath, installers, latest});
+		apps.push({projectFolderPath, checksumMode, altRelPath, installers, noTrialInstallers, latest});
 	}
 	return {apps};
 }
@@ -373,6 +406,16 @@ async function restoreAppCard(saved) {
 	if (saved.installers) {
 		addInstallerPaths(card, 'win', saved.installers.win || []);
 		addInstallerPaths(card, 'mac', saved.installers.mac || []);
+	}
+	if (saved.noTrialInstallers) {
+		const noTrialSet = new Set(saved.noTrialInstallers);
+		for (const li of card.querySelectorAll('.installer-list li')) {
+			if (! noTrialSet.has(li.dataset.path)) continue;
+			li.querySelector('.installer-no-trial input').checked = true;
+			// .checked を直接いじってもchangeイベントは発火しないため、代替ボタンの
+			// 無効化も手動で同期する
+			li.querySelector('.btn-alt-installer').disabled = true;
+		}
 	}
 	if (saved.latest) {
 		for (const osKind of ['win', 'mac']) {
@@ -541,6 +584,7 @@ function collectConfig(osKind) {
 		// 選んだファイル）をそのまま渡す。インストール済みが既にこれと同じなら
 		// ダウンロードをスキップする判定に使われる（2026-09-17・ユーザー指摘）
 		const latestInstaller = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`).dataset.path ?? '';
+		const confirmedNoTrialInstallers = noTrialInstallerPathsOf(card);
 
 		if (! appName) throw new Error('appName が未取得のアプリがあります（プロジェクトフォルダを選択してください）');
 		if (! pass) throw new Error(`${appName}: pass.json が未取得です（プロジェクトフォルダを選択してください）`);
@@ -555,6 +599,7 @@ function collectConfig(osKind) {
 			downloadUrl,
 			legacyInstallers,
 			latestInstaller,
+			confirmedNoTrialInstallers,
 		});
 	}
 	if (apps.length === 0) throw new Error('アプリを1つ以上追加してください');

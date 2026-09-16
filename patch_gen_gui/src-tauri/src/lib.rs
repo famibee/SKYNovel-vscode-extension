@@ -37,6 +37,11 @@ struct AppEntry {
 	// （2026-09-17・ユーザー指摘）
 	#[serde(rename = "latestInstaller", default)]
 	latest_installer: String,
+	// 開発者が「体験版ではないと確認済み」とチェックしたlegacyInstallersのパス一覧。
+	// これに含まれるものは、体験版混入を自動検証できない旨の警告から除外される
+	// （2026-09-17・ユーザー指摘：「ONで①番動作に」）
+	#[serde(rename = "confirmedNoTrialInstallers", default)]
+	confirmed_no_trial_installers: Vec<String>,
 }
 
 // sn_extension リポジトリのルート（genLegacyPatch.ts の在り処）を推測する。
@@ -684,6 +689,7 @@ mod tests {
 			download_url: "https://example.com/patch".to_string(),
 			legacy_installers: vec![installer_dmg.to_string(), installer_exe.to_string()],
 			latest_installer: String::new(),
+			confirmed_no_trial_installers: Vec::new(),
 		}];
 
 		let result = run_gen_legacy_patch(
