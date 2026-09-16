@@ -258,6 +258,7 @@ async function applyProjectFolder(card, folderPath) {
 			setValueDisplay(card, '.appName', result.appName);
 		}
 		card.dataset.uploadSlug = result.appSlug ?? '';
+		card.dataset.publisher = result.publisher ?? '';
 		card.dataset.pass = result.pass ?? '';
 		card.dataset.relPath = result.relPath ?? '';
 		card.dataset.crypto = String(result.crypto);
@@ -617,10 +618,15 @@ function collectConfig(osKind) {
 // 同じ組み合わせで再生成すると同名で上書きされる（都度名前を変えたい場合は
 // Downloadsフォルダ側でリネームする運用。2026-09-17・ユーザー指摘に伴う変更）
 function buildOutPath(osKind) {
-	const slugs = [...elApps.querySelectorAll('.app-card')]
-		.map(card=> card.dataset.uploadSlug)
-		.filter(Boolean);
-	const base = slugs.length > 0 ? slugs.join('_') : 'patch';
+	const cards = [...elApps.querySelectorAll('.app-card')];
+	// ファイル名にはメーカー名（package.jsonのpublisher）を使う。複数アプリを1本に
+	// まとめたとき、アプリ名の連結だと長くなりすぎる・特定の1アプリ名だけだと
+	// 他のアプリも入っていることに気づかれない、という問題があったため
+	// （2026-09-17・ユーザー指摘）。publisherが無いプロジェクトのための保険として
+	// アプリ名連結にフォールバックする
+	const publisher = cards.map(card=> card.dataset.publisher).find(Boolean);
+	const slugs = cards.map(card=> card.dataset.uploadSlug).filter(Boolean);
+	const base = publisher || (slugs.length > 0 ? slugs.join('_') : 'patch');
 	// mac向けは.dmgとして出力する（genLegacyPatch.ts が --out の拡張子で判定し、
 	// 内部で.appバンドルを作ってhdiutilで.dmgに包む。開発者自身のゲーム配布物と
 	// 同じ見慣れた形式で購入者に渡せる。2026-09-17・ユーザー指摘：「dmg生成を」）

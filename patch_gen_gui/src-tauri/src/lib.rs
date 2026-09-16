@@ -262,6 +262,10 @@ struct ProjectScanResult {
 	// productNameになりうるため別枠で持たせる（2026-09-15・実機確認で判明）
 	#[serde(rename = "appSlug")]
 	app_slug: String,
+	// 配布パッチアプリのファイル名に使う（2026-09-17・ユーザー指摘：複数アプリを
+	// まとめたときにアプリ名の連結だと長くなりすぎる／特定の1アプリ名だけだと
+	// 誤解を招く。メーカー名（package.jsonのpublisher）を使うようにした）
+	publisher: String,
 	pass: String,
 	#[serde(rename = "relPath")]
 	rel_path: String,
@@ -275,7 +279,7 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 	let mut warnings = Vec::new();
 
 	let pkg_path = root.join("package.json");
-	let (app_name, app_slug) = if pkg_path.exists() {
+	let (app_name, app_slug, publisher) = if pkg_path.exists() {
 		let data = fs::read_to_string(&pkg_path).map_err(|e| format!("package.jsonの読み込みに失敗: {e}"))?;
 		let json: serde_json::Value = serde_json::from_str(&data).map_err(|e| format!("package.jsonの解析に失敗: {e}"))?;
 		let name = json.get("productName").and_then(|v| v.as_str())
@@ -284,11 +288,12 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 			.unwrap_or_default()
 			.to_string();
 		let slug = json.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-		(name, slug)
+		let publisher = json.get("publisher").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+		(name, slug, publisher)
 	}
 	else {
 		warnings.push("package.jsonが見つからない".to_string());
-		(String::new(), String::new())
+		(String::new(), String::new(), String::new())
 	};
 	if app_name.is_empty() {
 		warnings.push("appNameを特定できなかった（package.jsonのproductName/name欄を確認）".to_string());
@@ -314,7 +319,7 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 		String::new()
 	};
 
-	Ok(ProjectScanResult {app_name, app_slug, pass, rel_path, crypto, warnings})
+	Ok(ProjectScanResult {app_name, app_slug, publisher, pass, rel_path, crypto, warnings})
 }
 
 
