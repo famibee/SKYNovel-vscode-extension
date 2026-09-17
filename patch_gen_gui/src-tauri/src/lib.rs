@@ -399,6 +399,132 @@ fn scan_project_folder(path: String) -> Result<ProjectScanResult, String> {
 }
 
 
+//MARK: build配下の自動走査（最新版・過去版インストーラーの自動セット）
+//
+// 元の発想（2026-09-17・ユーザー発案）：electron-builderの既定artifactName
+// （"${name}-${version}-${arch}.${ext}"。体験版は"_ex"サフィックス）で
+// build配下に溜まった過去のビルド成果物一式を、win/mac（拡張子）ごとに
+// バージョン降順ソートし、最大値を最新版、それ以外を過去版として自動セットする。
+// 体験版も過去版側に混ざって拾われるが、「1つずつ手で登録するより全走査してから
+// 要らないものを消す方が楽。どのみち代替ボタン・体験版チェックで人の目の確認が
+// 要る」というユーザーの割り切りに基づく（archの区別はしない。win側はia32を
+// 対象外と決定済みで実質x64のみ、mac側は複数arch混在時もバージョン最大の1件を
+// 選ぶだけの単純な仕様に留める）。
+//
+// ⚠️ 走査パスは当初 build/include 直下のフラット構造を想定していたが、実プロジェクト
+// （sn_osk_gitayu）で実機確認したところ、実際の成果物は build/package/<開発者が
+// 手動で付けたラベル>/ という1階層下のサブフォルダに置かれていた（ラベルは
+// "v1.1.0" のようなバージョン名とは限らず、"v1.1.1(2026)4tst" のような検証用の
+// 注記が付くこともある。ラベル自体はファイル名から得るバージョンとは無関係に
+// 扱ってよい）。build/include は readme.txt 等のテンプレファイル置き場で
+// インストーラーは実際には置かれないが、実害が無いため走査対象に残す
+
+// ファイル名から (name, version, arch, is_trial) を抜き出す。electron-builderの
+// artifactName規約に合わない・拡張子がexe/dmgでないファイルはNoneで無視する。
+// 正規表現クレートは使わず、ハイフン区切りの末尾2要素だけを見る単純な実装
+fn parse_artifact_filename(filename: &str) -> Option<(String, String)> {
+	let (stem, ext) = filename.rsplit_once('.')?;
+	if ext != "exe" && ext != "dmg" { return None; }
+
+	let parts: Vec<&str> = stem.split('-').collect();
+	if parts.len() < 3 { return None; }
+
+	let arch_part = parts[parts.len() - 1];
+	let arch = arch_part.strip_suffix("_ex").unwrap_or(arch_part);
+	if ! ["x64", "ia32", "arm64", "universal"].contains(&arch) { return None; }
+
+	let version = parts[parts.len() - 2];
+	if ! is_semver(version) { return None; }
+
+	Some((version.to_string(), ext.to_string()))
+}
+
+fn is_semver(s: &str) -> bool {
+	let parts: Vec<&str> = s.split('.').collect();
+	parts.len() == 3 && parts.iter().all(|p| ! p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+}
+
+fn parse_version_tuple(s: &str) -> Option<(u64, u64, u64)> {
+	let parts: Vec<&str> = s.split('.').collect();
+	if parts.len() != 3 { return None; }
+	Some((parts[0].parse().ok()?, parts[1].parse().ok()?, parts[2].parse().ok()?))
+}
+
+#[derive(Serialize, Default)]
+struct OsScanResult {
+	// 体験版でない最大バージョンのフルパス（無ければNone）
+	latest: Option<String>,
+	// それ以外全部（体験版・過去バージョン問わず）のフルパス一覧
+	past: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct BuildScanResult {
+	win: OsScanResult,
+	mac: OsScanResult,
+}
+
+fn build_os_scan_result(mut files: Vec<((u64, u64, u64), bool, String)>) -> OsScanResult {
+	// バージョン降順（同バージョンなら製品版を体験版より先に）
+	files.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+	let latest_idx = files.iter().position(|(_, is_trial, _)| ! is_trial);
+	let latest = latest_idx.map(|i| files[i].2.clone());
+	let past = files.iter().enumerate()
+		.filter(|(i, _)| Some(*i) != latest_idx)
+		.map(|(_, (_, _, path))| path.clone())
+		.collect();
+	OsScanResult {latest, past}
+}
+
+// 指定ディレクトリ直下のファイル一覧（存在しなければ空）
+fn list_files(dir: &std::path::Path) -> Vec<PathBuf> {
+	fs::read_dir(dir)
+		.map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_file()).collect())
+		.unwrap_or_default()
+}
+
+// 走査候補ファイルを集める。build/include直下（当初想定。実害が無いため残す）と、
+// build/package/<開発者が付けた任意ラベル>/ 直下（実プロジェクトで確認した実際の
+// 配置）の両方を見る
+fn collect_candidate_files(project_folder: &std::path::Path) -> Vec<PathBuf> {
+	let build_dir = project_folder.join("build");
+	let mut files = list_files(&build_dir.join("include"));
+
+	if let Ok(rd) = fs::read_dir(build_dir.join("package")) {
+		for sub in rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_dir()) {
+			files.extend(list_files(&sub));
+		}
+	}
+	files
+}
+
+#[tauri::command]
+fn scan_build_installers(project_folder: String) -> BuildScanResult {
+	let entries = collect_candidate_files(&PathBuf::from(&project_folder));
+
+	let mut win_files = Vec::new();
+	let mut mac_files = Vec::new();
+
+	for path in entries {
+		let Some(filename) = path.file_name().and_then(|f| f.to_str()) else { continue };
+		let Some((version, ext)) = parse_artifact_filename(filename) else { continue };
+		let Some(v) = parse_version_tuple(&version) else { continue };
+		let is_trial = filename.rsplit_once('.').map(|(stem, _)| stem.ends_with("_ex")).unwrap_or(false);
+		let entry = (v, is_trial, path.to_string_lossy().to_string());
+		match ext.as_str() {
+			"exe" => win_files.push(entry),
+			"dmg" => mac_files.push(entry),
+			_ => {}
+		}
+	}
+
+	BuildScanResult {
+		win: build_os_scan_result(win_files),
+		mac: build_os_scan_result(mac_files),
+	}
+}
+
+
 //MARK: ①setting.snで通るかどうかの軽量プローブ（過去版インストーラー追加時）
 //
 // 過去版インストーラーを追加した瞬間に①setting.snで抽出できるかを判定し、GUI側で
@@ -786,6 +912,79 @@ mod tests {
 		assert!(out_path.exists(), "出力ファイルが作られているはず");
 		let _ = std::fs::remove_dir_all(&d_tmp);
 	}
+
+	//MARK: scan_build_installers（build配下の自動走査）
+
+	#[test]
+	fn parse_artifact_filename_parses_electron_builder_naming() {
+		assert_eq!(parse_artifact_filename("aaa-1.0.0-x64.dmg"), Some(("1.0.0".to_string(), "dmg".to_string())));
+		assert_eq!(parse_artifact_filename("aaa-1.1.0-x64_ex.exe"), Some(("1.1.0".to_string(), "exe".to_string())));
+		// nameにハイフンを含む場合も末尾2要素だけで判定できる
+		assert_eq!(parse_artifact_filename("sn-osk-gitayu-2.3.10-arm64.dmg"), Some(("2.3.10".to_string(), "dmg".to_string())));
+	}
+
+	#[test]
+	fn parse_artifact_filename_rejects_non_matching_names() {
+		assert_eq!(parse_artifact_filename("readme.txt"), None);
+		assert_eq!(parse_artifact_filename("aaa-1.0.0.dmg"), None);			// archが無い
+		assert_eq!(parse_artifact_filename("aaa-1.0-x64.dmg"), None);			// semverでない
+		assert_eq!(parse_artifact_filename("aaa-1.0.0-riscv.dmg"), None);		// 未知のarch
+	}
+
+	#[test]
+	fn scan_build_installers_picks_max_version_as_latest_and_rest_as_past() {
+		// 実プロジェクト（sn_osk_gitayu）で実機確認した実際の配置：
+		// build/package/<開発者が付けた任意ラベル>/ 直下にバージョンごとの
+		// フォルダが分かれている（build/include直下のフラット構造ではなかった）
+		let dir = std::env::temp_dir().join(format!("patch_gen_gui_test_scanbuild_{}", std::process::id()));
+		let v100 = dir.join("build").join("package").join("v1.0.0");
+		let v110 = dir.join("build").join("package").join("v1.1.0");
+		fs::create_dir_all(&v100).unwrap();
+		fs::create_dir_all(&v110).unwrap();
+		for f in ["aaa-1.0.0-x64.dmg", "aaa-1.0.0-x64.exe"] {
+			fs::write(v100.join(f), b"dummy").unwrap();
+		}
+		for f in ["aaa-1.1.0-x64_ex.dmg", "aaa-1.1.0-x64_ex.exe", "aaa-1.1.0-x64.dmg", "aaa-1.1.0-x64.exe"] {
+			fs::write(v110.join(f), b"dummy").unwrap();
+		}
+		fs::write(v110.join("builder-debug.yml"), b"not an installer").unwrap();
+
+		let result = scan_build_installers(dir.to_string_lossy().to_string());
+
+		assert_eq!(result.win.latest, Some(v110.join("aaa-1.1.0-x64.exe").to_string_lossy().to_string()));
+		assert_eq!(result.mac.latest, Some(v110.join("aaa-1.1.0-x64.dmg").to_string_lossy().to_string()));
+		// 過去版側には体験版・旧バージョンが両方含まれる（builder-debug.ymlは含まれない）
+		assert_eq!(result.win.past.len(), 2);
+		assert_eq!(result.mac.past.len(), 2);
+		assert!(result.win.past.iter().any(|p| p.ends_with("aaa-1.0.0-x64.exe")));
+		assert!(result.win.past.iter().any(|p| p.ends_with("aaa-1.1.0-x64_ex.exe")));
+
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn scan_build_installers_also_looks_at_build_include_directly() {
+		// build/include直下（当初想定した配置）も実害なく併用できることの確認
+		let dir = std::env::temp_dir().join(format!("patch_gen_gui_test_scanbuild_include_{}", std::process::id()));
+		let include_dir = dir.join("build").join("include");
+		fs::create_dir_all(&include_dir).unwrap();
+		fs::write(include_dir.join("aaa-1.0.0-x64.dmg"), b"dummy").unwrap();
+
+		let result = scan_build_installers(dir.to_string_lossy().to_string());
+		assert_eq!(result.mac.latest, Some(include_dir.join("aaa-1.0.0-x64.dmg").to_string_lossy().to_string()));
+
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn scan_build_installers_returns_empty_when_dir_missing() {
+		let dir = std::env::temp_dir().join(format!("patch_gen_gui_test_scanbuild_missing_{}", std::process::id()));
+		let result = scan_build_installers(dir.to_string_lossy().to_string());
+		assert_eq!(result.win.latest, None);
+		assert!(result.win.past.is_empty());
+		assert_eq!(result.mac.latest, None);
+		assert!(result.mac.past.is_empty());
+	}
 }
 
 
@@ -806,6 +1005,7 @@ pub fn run() {
 		.invoke_handler(tauri::generate_handler![
 			select_folder,
 			scan_project_folder,
+			scan_build_installers,
 			select_installer_files,
 			select_single_file,
 			select_single_file_with_ext,

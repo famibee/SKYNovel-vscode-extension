@@ -235,13 +235,43 @@ function setLatestInstallerPath(card, osKind, path) {
 	scheduleSaveState();
 }
 
+// build配下（build/package/<開発者が付けた任意ラベル>/、および当初想定していた
+// build/include直下の両方）を自動走査し、win/macそれぞれの最新版・過去版
+// インストーラーを自動セットする（2026-09-17・ユーザー発案：「最大値のversionを
+// 最新版、以外を過去版として自動セットしたい」。1つずつ手で登録するより全走査
+// してから要らないものを消す方が楽、という割り切り）。走査対象パスはRust側
+// （scan_build_installers、実プロジェクトsn_osk_gitayuで実機確認済み）参照。
+// 新規にプロジェクトフォルダを選んだときだけ呼ぶ（保存状態からの復元時に
+// 上書きしないよう、呼び出し元で制御する）
+async function autoFillInstallersFromBuild(card, folderPath) {
+	const elStatus = card.querySelector('.project-scan-status');
+	let scanned;
+	try {
+		scanned = await invoke('scan_build_installers', {projectFolder: folderPath});
+	}
+	catch {
+		return;	// build配下が無い等はエラー扱いにしない（手動追加に任せる）
+	}
+
+	let filled = 0;
+	for (const osKind of ['win', 'mac']) {
+		const r = scanned[osKind];
+		if (! r) continue;
+		if (r.latest) { setLatestInstallerPath(card, osKind, r.latest); filled++; }
+		if (r.past && r.past.length > 0) { addInstallerPaths(card, osKind, r.past); filled += r.past.length; }
+	}
+	if (filled > 0) flashStatus(elStatus, `✓ build配下から過去版・最新版を${String(filled)}件自動セットしました（内容を確認してください）`, 6000);
+}
+
 // プロジェクトフォルダを読み、appName・pass.json・relPath・crypto・アップロード先IDを
 // 自動取得する（src-tauri/src/lib.rs の scan_project_folder が Project.ts の判定基準を
 // 簡易再現）。これらは開発者が見る／編集する必要がない内部値のため画面には出さず、
 // card.dataset に保持するだけにする（2026-09-15・ユーザー指摘）。
 // pass.json以降の詳細欄はプロジェクトフォルダを選ぶまで非表示にしておく
-// （2026-09-15・ユーザー指摘：手動入力は間違えるので導線自体を用意しない）
-async function applyProjectFolder(card, folderPath) {
+// （2026-09-15・ユーザー指摘：手動入力は間違えるので導線自体を用意しない）。
+// autoScanInstallers: build配下の自動走査を行うか（新規追加時のみtrue。
+// 保存状態からの復元時はfalseを渡し、保存済みの選択内容を上書きしない）
+async function applyProjectFolder(card, folderPath, autoScanInstallers = true) {
 	const dz = card.querySelector('.project-dropzone');
 	const elStatus = card.querySelector('.project-scan-status');
 	dz.dataset.path = folderPath;
@@ -265,6 +295,8 @@ async function applyProjectFolder(card, folderPath) {
 		card.dataset.relPath = result.relPath ?? '';
 		card.dataset.crypto = String(result.crypto);
 		updateModeBadges(card);
+
+		if (autoScanInstallers) await autoFillInstallersFromBuild(card, folderPath);
 
 		// 選択後はプロジェクトフォルダ欄自体の役目が終わるので消す。選び直す場合は
 		// カードを✕で削除して追加し直す運用に一本化する（2026-09-15・ユーザー指摘）。
@@ -403,7 +435,9 @@ function scheduleSaveState() {
 async function restoreAppCard(saved) {
 	addAppCard();
 	const card = elApps.lastElementChild;
-	if (saved.projectFolderPath) await applyProjectFolder(card, saved.projectFolderPath);
+	// 復元時はbuild配下の自動走査を行わない（保存済みの選択内容をそのまま尊重する。
+	// autoFillInstallersFromBuildは新規追加時のみ）
+	if (saved.projectFolderPath) await applyProjectFolder(card, saved.projectFolderPath, false);
 	if (saved.checksumMode === '2' && saved.altRelPath) card.dataset.altRelPath = saved.altRelPath;
 	setChecksumMode(card, saved.checksumMode || '1');
 	if (saved.installers) {
