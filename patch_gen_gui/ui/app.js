@@ -245,11 +245,16 @@ function setLatestInstallerPath(card, osKind, path) {
 // 上書きしないよう、呼び出し元で制御する）
 async function autoFillInstallersFromBuild(card, folderPath) {
 	const elStatus = card.querySelector('.project-scan-status');
+	// 走査中であることを明示する（2026-09-17・ユーザー指摘：処理中に画面が
+	// 止まっているように見えて分かりにくい。処理自体はUIをブロックしないが、
+	// 進行が見えないと不安なので状態表示を出す）
+	elStatus.textContent = 'build配下を走査中…';
 	let scanned;
 	try {
 		scanned = await invoke('scan_build_installers', {projectFolder: folderPath});
 	}
 	catch {
+		elStatus.textContent = '';
 		return;	// build配下が無い等はエラー扱いにしない（手動追加に任せる）
 	}
 
@@ -261,6 +266,7 @@ async function autoFillInstallersFromBuild(card, folderPath) {
 		if (r.past && r.past.length > 0) { addInstallerPaths(card, osKind, r.past); filled += r.past.length; }
 	}
 	if (filled > 0) flashStatus(elStatus, `✓ build配下から過去版・最新版を${String(filled)}件自動セットしました（内容を確認してください）`, 6000);
+	else elStatus.textContent = '';
 }
 
 // プロジェクトフォルダを読み、appName・pass.json・relPath・crypto・アップロード先IDを
@@ -280,6 +286,10 @@ async function applyProjectFolder(card, folderPath, autoScanInstallers = true) {
 	// appName・pass等はscan_project_folderで再取得できる値なので保存対象は
 	// フォルダパスのみでよい（再起動時はこのパスから再スキャンして復元する）
 	scheduleSaveState();
+
+	// 走査中であることを明示する（2026-09-17・ユーザー指摘：処理中に画面が
+	// 止まっているように見えて分かりにくい）
+	elStatus.textContent = '読み込み中…';
 
 	try {
 		const result = await invoke('scan_project_folder', {path: folderPath});
@@ -670,61 +680,75 @@ function buildOutPath(osKind) {
 	return `${downloadsDir}/${fileName}`;
 }
 
+// ボタンを無効化して多重クリックを防ぐ（2026-09-17・ユーザー指摘：stubビルド中も
+// ボタンが有効なままで連打すると、cargo buildが複数同時に走ってtargetディレクトリの
+// 競合を起こしうる。実際にこのセッション中に類似の二重起動が発生した経験を踏まえる）
 document.getElementById('btnRun').addEventListener('click', async ()=> {
 	const elLog = document.getElementById('resultLog');
+	const btnRun = document.getElementById('btnRun');
+	if (btnRun.disabled) return;
+	const originalLabel = btnRun.textContent;
+	btnRun.disabled = true;
+	btnRun.textContent = '生成中…';
 
-	// GUIを開いてからpatch_appのソースを直した場合でも必ず最新のstubを使うよう、
-	// 生成の直前に毎回ビルドし直す（起動時のビルドだけでは間に合わないケースがある）
-	elLog.textContent = 'stubをビルド中…';
-	await resolveGlobalPaths();
-
-	const stubWin = stubPaths.win;
-	const stubMac = stubPaths.mac;
-
-	const doWin = !! stubWin;
-	const doMac = !! stubMac;
-
-	let appsWin, appsMac, outWin, outMac;
 	try {
-		if (! doWin && ! doMac) throw new Error('win・macどちらのstubも検出できませんでした（patch_app をビルドすること）');
-		if (! downloadsDir) throw new Error('ダウンロードフォルダを取得できませんでした');
-		if (doWin) { appsWin = collectConfig('win'); outWin = buildOutPath('win'); }
-		if (doMac) { appsMac = collectConfig('mac'); outMac = buildOutPath('mac'); }
-	}
-	catch (e) {
-		elLog.textContent = `✗ ${e.message}`;
-		return;
-	}
+		// GUIを開いてからpatch_appのソースを直した場合でも必ず最新のstubを使うよう、
+		// 生成の直前に毎回ビルドし直す（起動時のビルドだけでは間に合わないケースがある）
+		elLog.textContent = 'stubをビルド中…';
+		await resolveGlobalPaths();
 
-	const logs = [];
+		const stubWin = stubPaths.win;
+		const stubMac = stubPaths.mac;
 
-	if (doWin) {
-		elLog.textContent = [...logs, '生成中…（win）'].join('\n\n');
+		const doWin = !! stubWin;
+		const doMac = !! stubMac;
+
+		let appsWin, appsMac, outWin, outMac;
 		try {
-			const logWin = await invoke('run_gen_legacy_patch', {apps: appsWin, stubPath: stubWin, outPath: outWin});
-			logs.push(`[win] → ${outWin}\n${logWin}`);
+			if (! doWin && ! doMac) throw new Error('win・macどちらのstubも検出できませんでした（patch_app をビルドすること）');
+			if (! downloadsDir) throw new Error('ダウンロードフォルダを取得できませんでした');
+			if (doWin) { appsWin = collectConfig('win'); outWin = buildOutPath('win'); }
+			if (doMac) { appsMac = collectConfig('mac'); outMac = buildOutPath('mac'); }
 		}
 		catch (e) {
-			logs.push(`✗ win向け生成に失敗しました：\n${String(e)}`);
-			elLog.textContent = logs.join('\n\n');
+			elLog.textContent = `✗ ${e.message}`;
 			return;
 		}
-	}
 
-	if (doMac) {
-		elLog.textContent = [...logs, '生成中…（mac）'].join('\n\n');
-		try {
-			const logMac = await invoke('run_gen_legacy_patch', {apps: appsMac, stubPath: stubMac, outPath: outMac});
-			logs.push(`[mac] → ${outMac}\n${logMac}`);
-		}
-		catch (e) {
-			logs.push(`✗ mac向け生成に失敗しました：\n${String(e)}`);
-			elLog.textContent = logs.join('\n\n');
-			return;
-		}
-	}
+		const logs = [];
 
-	elLog.textContent = logs.join('\n\n');
+		if (doWin) {
+			elLog.textContent = [...logs, '生成中…（win）'].join('\n\n');
+			try {
+				const logWin = await invoke('run_gen_legacy_patch', {apps: appsWin, stubPath: stubWin, outPath: outWin});
+				logs.push(`[win] → ${outWin}\n${logWin}`);
+			}
+			catch (e) {
+				logs.push(`✗ win向け生成に失敗しました：\n${String(e)}`);
+				elLog.textContent = logs.join('\n\n');
+				return;
+			}
+		}
+
+		if (doMac) {
+			elLog.textContent = [...logs, '生成中…（mac）'].join('\n\n');
+			try {
+				const logMac = await invoke('run_gen_legacy_patch', {apps: appsMac, stubPath: stubMac, outPath: outMac});
+				logs.push(`[mac] → ${outMac}\n${logMac}`);
+			}
+			catch (e) {
+				logs.push(`✗ mac向け生成に失敗しました：\n${String(e)}`);
+				elLog.textContent = logs.join('\n\n');
+				return;
+			}
+		}
+
+		elLog.textContent = logs.join('\n\n');
+	}
+	finally {
+		btnRun.disabled = false;
+		btnRun.textContent = originalLabel;
+	}
 });
 
 

@@ -8,8 +8,8 @@
 <body>
 <header>
 	<h1>パッチ生成ツール（試作）</h1>
-	<p class="sub">過去アプリ向けパッチ配布物（購入者チェック付き）を生成します。詳細は
-		<code>src/docs/legacy-app-patch.md</code> 参照。</p>
+	<p class="sub">過去に配布したゲームの購入者に、新しいバージョンのインストーラーを
+		届けるための配布物を作ります。</p>
 </header>
 
 <div class="tabs" id="tabs">
@@ -19,26 +19,6 @@
 
 <main>
 	<section id="panel-patch" class="panel active">
-		<section class="global-config">
-			<p class="sub">stub（patch_app のビルド済みバイナリ）はGUIが自動検出します。
-				出力先はダウンロードフォルダ固定です。win/macは別バイナリで、生成される配布物
-				1本にdownloadUrlも1つしか持てないため、生成はwin向け・mac向けで内部的に2回
-				実行されます（下の「配布パッチアプリを生成」ボタンは1つで両方進む）。
-				<strong>片方のstubが無くてもよい</strong>（win環境の開発者はmac版のゲームビルド
-				自体ができずmac版インストーラーを持っていない場合があるため。検出できた方だけが
-				生成される）。</p>
-			<div class="field-row">
-				<div class="field">
-					<label>stub（win）</label>
-					<div class="value-display" id="stubStatusWin">検出中…</div>
-				</div>
-				<div class="field">
-					<label>stub（mac）</label>
-					<div class="value-display" id="stubStatusMac">検出中…</div>
-				</div>
-			</div>
-		</section>
-
 		<section id="apps"></section>
 
 		<button type="button" id="btnAddApp" class="btn-add-app">＋ アプリを追加</button>
@@ -51,6 +31,27 @@
 			<h2>実行ログ</h2>
 			<pre id="resultLog">（未実行）</pre>
 		</section>
+
+		<details class="global-config">
+			<summary>詳細設定・動作状況</summary>
+			<p class="sub">stub（patch_app のビルド済みバイナリ）はGUIが自動検出します。
+				出力先はダウンロードフォルダ固定です。win/macは別バイナリで、生成される配布物
+				1本にdownloadUrlも1つしか持てないため、生成はwin向け・mac向けで内部的に2回
+				実行されます（上の「配布パッチアプリを生成」ボタンは1つで両方進む）。
+				<strong>片方のstubが無くてもよい</strong>（win環境の開発者はmac版のゲームビルド
+				自体ができずmac版インストーラーを持っていない場合があるため。検出できた方だけが
+				生成される）。詳細は<code>src/docs/legacy-app-patch.md</code>参照。</p>
+			<div class="field-row">
+				<div class="field">
+					<label>stub（win）</label>
+					<div class="value-display" id="stubStatusWin">検出中…</div>
+				</div>
+				<div class="field">
+					<label>stub（mac）</label>
+					<div class="value-display" id="stubStatusMac">検出中…</div>
+				</div>
+			</div>
+		</details>
 	</section>
 
 	<section id="panel-hosting" class="panel">

@@ -143,6 +143,12 @@ button:hover { border-color: var(--accent); }
 	padding: 14px;
 	margin-bottom: 16px;
 }
+details.global-config summary {
+	cursor: pointer;
+	font-size: 0.9em;
+	color: var(--muted);
+}
+details.global-config[open] summary { margin-bottom: 10px; }
 
 .app-card {
 	background: var(--card-bg);
