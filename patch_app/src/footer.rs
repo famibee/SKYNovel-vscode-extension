@@ -32,6 +32,14 @@ pub struct AppConfig {
 	// 既に最新版なのでダウンロードをスキップする（2026-09-17・ユーザー指摘）
 	#[serde(rename = "checksumLatest", default)]
 	pub checksum_latest: String,
+	// 配布予定の最新版のarch（"x64"|"ia32"|"arm64"|"universal"）。genLegacyPatch.tsが
+	// electron-builderのartifactName規約からlatestInstallerのファイル名を見て抽出する。
+	// 空文字列＝未提供（archチェックを行わない・従来通りの動作）。
+	// macOS 27 "Golden Gate"を最後にRosetta 2の一般アプリ向けサポートが終わる見込みとなり、
+	// 「setting.snのチェックサムは同じだがarchだけ新しくなった」ケースを検知するために追加した
+	// （2026-09-17・legacy-app-patch.md 詰められていない仕様#9）
+	#[serde(rename = "latestArch", default)]
+	pub latest_arch: String,
 	// asar 内での basename のみ（フォルダ位置は問わない。同ドキュメント2026-09-13決定）
 	#[serde(rename = "settingSnFileName")]
 	pub setting_sn_file_name: String,
@@ -116,6 +124,7 @@ mod tests {
 			checksum_setting: vec!["abc123".to_string(), "def456".to_string()],
 			checksum_installer: vec![],
 			checksum_latest: String::new(),
+			latest_arch: String::new(),
 			setting_sn_file_name: "3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn".to_string(),
 			download_url: "https://example.com/patch".to_string(),
 		}]);

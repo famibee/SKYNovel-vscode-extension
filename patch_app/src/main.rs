@@ -42,9 +42,15 @@ fn process_app(
 	// （常時ON。legacy-app-patch.md 詰められていない仕様#8。2026-09-17・ユーザー指摘：
 	// 「聞かなくていい、常にON」——事前に developer に選ばせず、生成時に両方の
 	// チェックサムを常に埋め込んでおき、実行時に自動で切り替える設計にした）
+	// archチェック（下記）は自動検出できた場合（method1相当）にしか行えない。
+	// フォールバック（②購入者にインストーラー本体を選ばせる方式）では「インストール済み
+	// アプリ本体」のパス自体が手に入らないため
+	let mut installed_app_path: Option<std::path::PathBuf> = None;
+
 	let method1: Result<String, String> = (|| {
 		let install_path = detect::find_installed_app(&cfg.app_name, platform, mac_apps_dir, win_dirs)
 			.ok_or_else(|| "旧版が見つからない".to_string())?;
+		installed_app_path = Some(install_path.clone());
 		let asar_path = detect::asar_path_for_install(&install_path, platform)
 			.ok_or_else(|| "この環境向けの asar パスが分からない（対象外プラットフォーム）".to_string())?;
 		// 体験版誤認の回避：basename 探索方式（フォルダ配置は問わない。legacy-app-patch.md
@@ -82,9 +88,23 @@ fn process_app(
 
 	// 購入者チェックを通過したインストール済みバージョンが、配布予定の最新版と
 	// 同じ（＝既に最新版がインストール済み）ならダウンロードは不要
-	// （2026-09-17・ユーザー指摘：「生成アプリ、インストールアプリが最新ならDLもしないように」）
+	// （2026-09-17・ユーザー指摘：「生成アプリ、インストールアプリが最新ならDLもしないように」）。
+	// ただし setting.sn のチェックサムが同じでも、archだけ新しくなった配布物という
+	// ケースがある（macOS 27 "Golden Gate"を最後にRosetta 2の一般アプリ向けサポートが
+	// 終わる見込みとなり、旧x64ビルド購入者へバージョン据え置きのままarm64/universal版を
+	// 届ける必要が生じたため。legacy-app-patch.md 詰められていない仕様#9）。
+	// archが判定できた場合に限り、噛み合わないなら「最新済み」扱いにしない
 	if !cfg.checksum_latest.is_empty() && cfg.checksum_latest.to_lowercase() == installed_hash {
-		return Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string());
+		let arch_ok = match &installed_app_path {
+			Some(path) => match detect::detect_installed_arch(path, platform, &cfg.app_name) {
+				Some(installed) => detect::arch_matches(&cfg.latest_arch, installed),
+				None => true,	// 判定できない場合は従来通りスキップを許可（保守的）
+			},
+			None => true,	// ②フォールバック時はarch判定不能。従来通り
+		};
+		if arch_ok {
+			return Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string());
+		}
 	}
 
 	// download_url は画面に一切出さない（download.rs 冒頭コメント参照：ブラウザに渡すと
@@ -183,6 +203,7 @@ mod tests {
 			checksum_setting	: checksum_setting.into_iter().map(String::from).collect(),
 			checksum_installer	: Vec::new(),
 			checksum_latest		: String::new(),
+			latest_arch			: String::new(),
 			setting_sn_file_name: setting_sn_file_name.to_string(),
 			download_url		: download_url.to_string(),
 		}
@@ -320,6 +341,66 @@ mod tests {
 		// 「スキップできた」ことをこの失敗しないURLの選び方自体で検証する
 		let mut cfg = app_cfg("MyGame", vec![&known], "setting.sn", "unsupported-scheme://x");
 		cfg.checksum_latest = known;
+
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+		assert_eq!(result, Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string()));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	// Mach-O単体バイナリのフェイクバイト列（detect::arch_from_machoが読む部分だけ）
+	fn write_fake_macho(root: &std::path::Path, app_name: &str, cputype: i32) {
+		let macos_dir = root.join(format!("{app_name}.app")).join("Contents/MacOS");
+		fs::create_dir_all(&macos_dir).unwrap();
+		let mut bin = Vec::new();
+		bin.extend_from_slice(&0xfeedfacfu32.to_le_bytes());	// MH_MAGIC_64
+		bin.extend_from_slice(&cputype.to_le_bytes());
+		fs::write(macos_dir.join(app_name), bin).unwrap();
+	}
+
+	const CPU_TYPE_X86_64: i32 = 0x0100_0007;
+	const CPU_TYPE_ARM64: i32 = 0x0100_000c;
+
+	#[test]
+	fn process_app_does_not_skip_when_arch_differs_even_if_checksum_matches() {
+		// macOS 27 "Golden Gate"を最後にRosettaの一般アプリ向けサポートが終わる見込みと
+		// なったことを受けた回帰テスト（legacy-app-patch.md 詰められていない仕様#9）：
+		// setting.snのチェックサムが一致していても、archが噛み合わなければ「既に最新」と
+		// 誤判定してはならない
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_archdiff_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let content = b"&const.experiment = false";
+		let header = format!(r#"{{"files":{{"setting.sn":{{"size":{},"offset":"0"}}}}}}"#, content.len());
+		let asar = asar::build_fake_asar(&header, content);
+		setup_installed_app(&dir, "MyGame", &asar);
+		write_fake_macho(&dir, "MyGame", CPU_TYPE_X86_64);	// インストール済みはx64
+
+		let known = checksum::checksum_hex(content);
+		let mut cfg = app_cfg("MyGame", vec![&known], "setting.sn", "unsupported-scheme://x");
+		cfg.checksum_latest = known;
+		cfg.latest_arch = "arm64".to_string();	// 配布予定はarm64（インストール済みと噛み合わない）
+
+		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
+		// 「既に最新」としてスキップされず、ダウンロードに進んで（実URLでないため）失敗する
+		assert!(matches!(result, Err(ref msg) if msg.contains("更新ファイルの取得に失敗した")));
+		fs::remove_dir_all(&dir).unwrap();
+	}
+
+	#[test]
+	fn process_app_skips_download_when_arch_also_matches() {
+		let dir = std::env::temp_dir().join(format!("sn_legacy_patch_test_main_archsame_{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+
+		let content = b"&const.experiment = false";
+		let header = format!(r#"{{"files":{{"setting.sn":{{"size":{},"offset":"0"}}}}}}"#, content.len());
+		let asar = asar::build_fake_asar(&header, content);
+		setup_installed_app(&dir, "MyGame", &asar);
+		write_fake_macho(&dir, "MyGame", CPU_TYPE_ARM64);	// インストール済みもarm64
+
+		let known = checksum::checksum_hex(content);
+		let mut cfg = app_cfg("MyGame", vec![&known], "setting.sn", "unsupported-scheme://x");
+		cfg.checksum_latest = known;
+		cfg.latest_arch = "arm64".to_string();	// 配布予定もarm64（噛み合う）
 
 		let result = process_app(&cfg, detect::Platform::Mac, &dir, &[]);
 		assert_eq!(result, Ok("既にお使いのバージョンは最新です（更新は不要です）".to_string()));

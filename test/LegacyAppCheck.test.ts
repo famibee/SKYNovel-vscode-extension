@@ -228,6 +228,7 @@ it('appendPatchFooter: stub＋JSON(配列)＋長さ(u32 LE)＋マジックの順
 		checksumSetting		: ['abc123', 'def456'],
 		checksumInstaller	: [],
 		checksumLatest		: '',
+		latestArch			: '',
 		settingSnFileName	: '3b0bb3e8-deff-5722-94d5-885d9cb5fd0e.sn',
 		downloadUrl			: 'https://example.com/patch',
 	}];
@@ -247,8 +248,8 @@ it('appendPatchFooter: stub＋JSON(配列)＋長さ(u32 LE)＋マジックの順
 it('appendPatchFooter: 複数アプリ分を1つの配列として連結できる', ()=> {
 	const stub = new Uint8Array([9, 9]);
 	const cfg = [
-		{appName: 'GameA', checksumSetting: ['a1'], checksumInstaller: [], checksumLatest: '', settingSnFileName: 'a.sn', downloadUrl: 'https://example.com/a'},
-		{appName: 'GameB', checksumSetting: ['b1'], checksumInstaller: [], checksumLatest: '', settingSnFileName: 'b.sn', downloadUrl: 'https://example.com/b'},
+		{appName: 'GameA', checksumSetting: ['a1'], checksumInstaller: [], checksumLatest: '', latestArch: '', settingSnFileName: 'a.sn', downloadUrl: 'https://example.com/a'},
+		{appName: 'GameB', checksumSetting: ['b1'], checksumInstaller: [], checksumLatest: '', latestArch: '', settingSnFileName: 'b.sn', downloadUrl: 'https://example.com/b'},
 	];
 	const out = appendPatchFooter(stub, cfg);
 	const jsonBytes = Buffer.from(JSON.stringify(cfg), 'utf8');

@@ -210,6 +210,12 @@ export type T_LEGACY_PATCH_APP_CONFIG = {
 	// インストール済みと判断してダウンロードをスキップする（2026-09-17・ユーザー指摘：
 	// 「インストールアプリが最新ならDLもしないように」）
 	checksumLatest		: string;
+	// 配布予定の最新版のarch（"x64"|"ia32"|"arm64"|"universal"）。空文字列＝未提供
+	// （archチェックを行わない・従来通りの動作）。macOS 27 "Golden Gate"を最後に
+	// Rosetta 2の一般アプリ向けサポートが終わる見込みとなり、「setting.snのチェックサムは
+	// 同じだがarchだけ新しくなった」ケース（旧x64購入者へのarm64/universal版案内）を
+	// 検知するために追加した（2026-09-17・legacy-app-patch.md 詰められていない仕様#9）
+	latestArch			: string;
 	settingSnFileName	: string;		// asar 内で探す basename（フォルダ位置は問わない）
 	downloadUrl			: string;
 }

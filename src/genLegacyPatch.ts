@@ -94,6 +94,20 @@ import {basename, join} from 'node:path';
 // GUIの既定値・②代替ファイル未使用の判定基準（settingSnFileName算出時の relPath 既定値）
 const DEFAULT_REL_PATH = 'theme/setting.sn';
 
+// electron-builderの既定artifactName規約 "${name}-${version}-${arch}.${ext}"
+// （体験版は"_ex"サフィックスが付く。例："aaa-1.1.0-arm64_ex.dmg"）から、
+// ファイル名末尾のarchだけを抜き出す。抽出できなければ空文字列（＝patch_app側で
+// archチェックを行わない・従来通りの動作にフォールバックする）。
+// macOS 27 "Golden Gate"を最後にRosetta 2の一般アプリ向けサポートが終わる見込みと
+// なったことを受け、「setting.snのチェックサムは同じだがarchだけ新しくなった」
+// 配布物を旧購入者に正しく案内するために追加した（2026-09-17・legacy-app-patch.md
+// 詰められていない仕様#9）
+function extractArchFromArtifactName(filePath: string): string {
+	const base = basename(filePath).replace(/\.[^.]+$/, '');
+	const m = /-(x64|ia32|arm64|universal)(?:_ex)?$/.exec(base);
+	return m?.[1] ?? '';
+}
+
 type T_APP_ENTRY = {
 	appName				: string;
 	pass				: string;
@@ -271,6 +285,9 @@ for (const entry of configRaw.apps) {
 	// 抽出できればそちらへ、できなければ②インストーラー本体側へ。実行時に「インストール
 	// 済みが既に最新版か」の判定に使う。2026-09-17・ユーザー指摘）
 	let checksumLatest = '';
+	// 配布予定の最新版のarch（ファイル名から抽出。抽出できなければ空文字列＝
+	// patch_app側でarchチェックを行わない）
+	const latestArch = latestInstaller ? extractArchFromArtifactName(latestInstaller) : '';
 	if (latestInstaller) {
 		try {
 			const buf = extractSettingSnFromInstaller(latestInstaller, fnSettingSn);
@@ -314,6 +331,7 @@ for (const entry of configRaw.apps) {
 		checksumSetting,
 		checksumInstaller,
 		checksumLatest,
+		latestArch,
 		settingSnFileName	: fnSettingSn,
 		downloadUrl,
 	});
@@ -360,5 +378,6 @@ else {
 console.log(`✓ 生成完了: ${pathOut}（${String(cfgs.length)}アプリ分）`);
 for (const cfg of cfgs) {
 	console.log(`  - ${cfg.appName}: checksumSetting ${String(cfg.checksumSetting.length)}件（過去出荷ビルド分）, settingSnFileName=${cfg.settingSnFileName}`
-		+(cfg.checksumLatest ? '、最新版判定あり（既に最新ならDLをスキップ）' : ''));
+		+(cfg.checksumLatest ? '、最新版判定あり（既に最新ならDLをスキップ）' : '')
+		+(cfg.latestArch ? `、最新版arch=${cfg.latestArch}（旧版と噛み合わない場合はスキップしない）` : ''));
 }

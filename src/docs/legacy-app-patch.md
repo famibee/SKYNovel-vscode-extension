@@ -10,6 +10,7 @@
 | 1 | Marketplace 再申請の決着待ち（**配布パッチアプリの拡張機能統合**の前提条件。パッチ生成ツール試作単体アプリは対象外・着手可能） | — | [背景](#背景) |
 | 2 | electron-builder の制約で win環境の開発者は mac版パッチを作れない場合がある（対処法は無い構造的制約と判明済み。利用者への説明文言の用意が残作業） | 中 | [詰められていない仕様#7](#詰められていない仕様棚卸し2026-09-12) |
 | 3 | GUIのクリック操作自体の自動E2Eが未実施（優先度低。**`sn_kowloon`での人手によるフル実地検証は完了**——GUI操作→生成→実行→旧版検出→R2からの実ダウンロードまで通し確認済み。2026-09-17） | 低 | [GUI設計案](#gui設計案2026-09-14実装動作確認済み) |
+| 4 | **archの副次論点が未着手**（win側は最大4種のビルド成果物がありうるがGUIの「最新版インストーラー」欄にarch軸が無い。mac側をuniversal2ビルドに寄せる再発防止策も未着手） | 中 | [詰められていない仕様#9](#詰められていない仕様棚卸し2026-09-12) |
 
 ✅ **Windows 実機一式（stubビルド・asarパス・asar抽出・exe自動起動）**は2026-09-17に
 本機で全て実地検証を終えた（クロスコンパイル環境も不要と判明）ため、残件一覧からは外した。
@@ -19,6 +20,12 @@
 `sn_kowloon`（2つ目の実プロジェクト）でも検出・警告が正しく機能することを再確認した
 ため、残件一覧からは外した（恒久的な制約として運用継続。詳細は
 [詰められていない仕様#8](#詰められていない仕様棚卸し2026-09-12)）。
+
+✅ **archを見ていないため誤ってDLスキップされる問題**（x64専用の過去購入者に
+arm64／universal版を届けられなかった致命的な誤判定）は2026-09-17に対応実装済み
+（`patch_app`側のarch判定＋スキップ判定改修）のため、残件一覧からは外した。
+副次論点（win側arch・universal化）のみ上記#4に残る。詳細は
+[詰められていない仕様#9](#詰められていない仕様棚卸し2026-09-12)参照。
 
 ---
 
@@ -533,6 +540,19 @@ publish」機能（`accessKeyId`/`secretAccessKey`/`endpoint`指定）が近い�
 R2経由）を使った生成→実行が最後まで成功し、旧版検出→チェックサム一致→実際に
 213MBのdmgをR2から取得完了、という一連の流れを実地確認できた。
 
+#### GUI改善（続き）【2026-09-17】
+
+- ✅ **アプリカードの削除ボタンを、プロジェクトフォルダ選択前から表示するよう変更。**
+  従来はプロジェクトフォルダ選択後（`scan_project_folder`成功後）にしか✕ボタンが
+  出ず、フォルダを選ぶ前に追加したカードを消せなかった
+- ✅ **最新版インストーラーの「DL URL」生表示をやめ、「✓ R2にアップロード済み」表示に変更。**
+  開発者には無意味なURL文字列を画面に出す必要が無いという指摘。実URLは
+  `title`属性でhoverすれば見られる程度に留めた（`downloadUrl`としての値自体は
+  従来通り`dataset.value`に保持し、生成時に使う）
+- ✅ **「購入者チェック方式」欄を、プロジェクトフォルダ指定までは他の詳細欄と
+  一緒に隠すよう構造変更。** 従来は`.app-card-details`の外側にあり、フォルダ未選択の
+  段階からも表示されていた
+
 ### 旧アプリ内の暗号化済み `setting.sn` の実際のパス特定【mac で調査・実証済み・2026-09-12】
 
 **mac 実機（`/Applications/大阪九龍条.app`。本家エンジン・electron-builder 製）で調査完了。**
@@ -772,6 +792,79 @@ sn_extension 側の残作業：
    - **運用上の帰結：体験版チェック機構が実装される前の非常に古いバージョンの購入者は、
      このパッチシステムでは救えない**（`setting.sn`自体が存在しないため）。これはどの
      実装方式を採っても同じ制約になる見込み（対処法は無い、事実として記録するのみ）
+9. ✅ **archを一切見ていない → macOS 27 Golden Gate（Rosetta終了予定）を受けて
+   「バージョン更新」とは別の「arch移行」を届ける必要が生じた → 対応実装済み
+   （2026-09-17判明・同日実装）**
+
+   **発端**：macOS 27 "Golden Gate"が2026-09-14にリリース済み。Apple Silicon専用の
+   初バージョンで、Intel Macはこれ以上OSアップデートできない。Rosetta 2
+   （Intelアプリをarm64上で動かす変換層）はmacOS 27までが一般アプリ向けの
+   フルサポートで、**macOS 28（来年想定）で一般用途のRosettaは終了**し、以降は
+   「古い保守されていないゲームタイトル」向けの限定サポートのみが残る見込み
+   （SKYNovel製アプリがその対象に入るかは不明・Appleの基準が示されていない）。
+   （[MacRumors](https://www.macrumors.com/2026/06/10/macos-golden-gate-last-to-support-intel-apps/)、
+   [OSXDaily](https://osxdaily.com/2026/08/11/psa-macos-27-golden-gate-is-last-to-support-rosetta-intel-apps/)）
+
+   **このツールへの影響**：過去にmac版をx64専用でビルド・配布していたメーカーの
+   購入者が、Apple Silicon機でRosetta終了後のOSにアップデートすると、そのx64版が
+   **起動できなくなる**。つまり本ツールには「新バージョンを配る」だけでなく
+   「同じバージョンのままarm64／universalビルドに乗り換えさせる」という新しい
+   役割が生まれた。
+
+   **しかし現状の実装は、まさにこのケースで壊れる**：「既に最新版がインストール
+   済みならDLをスキップする」判定（[patch_app/src/main.rs:86](../../patch_app/src/main.rs#L86)、
+   `checksum_latest == installed_hash`）は、`setting.sn`の中身（または
+   インストーラー本体のサンプル）から作るチェックサムの一致だけを見ており、
+   **archの情報を一切見ていない**。開発者がバージョン番号を変えずにx64ビルドから
+   arm64／universalビルドへ差し替えて再配布すると、`setting.sn`の中身は
+   ビルドarchと無関係なので変わらず、`checksumLatest`は旧x64版と完全に一致する。
+   結果、旧x64版の購入者に対して**「既にお使いのバージョンは最新です」と誤判定され、
+   永遠にDLがスキップされ続ける**（arm64／universal版へ案内する道が無い）。
+
+   [patch_app/src/detect.rs](../../patch_app/src/detect.rs)（インストール済みアプリ検出）も
+   OS判定のみでarchを一切見ていない（macは`/Applications/{appName}.app`固定1パス、
+   winは`ProgramFiles`系3ディレクトリを見るだけ）。
+
+   **実装した対応（2026-09-17）**：
+   - `patch_app`側に「インストール済みバイナリのarch判定」を追加
+     （[detect.rs](../../patch_app/src/detect.rs)の`detect_installed_arch()`。
+     Windows: PEヘッダのMachineフィールド、mac: Mach-Oヘッダのcputype／
+     fat headerでuniversal判定。レジストリ等には依存せずファイルのバイト列のみで
+     完結させる、このモジュール全体の方針を踏襲）
+   - 設定JSONに`latestArch`（配布予定の最新版のarch。空文字列＝未提供）を追加
+     （[footer.rs](../../patch_app/src/footer.rs)の`AppConfig::latest_arch`、
+     TS側は[LegacyAppCheck.ts](../LegacyAppCheck.ts)の
+     `T_LEGACY_PATCH_APP_CONFIG::latestArch`）。値は
+     [genLegacyPatch.ts](../genLegacyPatch.ts)の`extractArchFromArtifactName()`が
+     `latestInstaller`のファイル名（electron-builderの既定artifactName規約
+     `${name}-${version}-${arch}.${ext}`）から抽出する。抽出できなければ空文字列のまま
+     ＝archチェックを行わない従来動作にフォールバックする
+   - スキップ判定を「`checksumLatest`が一致し、**かつ**archも一致する場合のみ
+     スキップ」に変更（[main.rs](../../patch_app/src/main.rs)の`process_app()`）。
+     ただしarch判定は自動検出（①setting.sn抽出）が成功した場合にしか行えない
+     （②購入者にインストーラー本体を選ばせるフォールバック時は、インストール済み
+     アプリ本体のパス自体が手に入らないため）。archが判定できない場合は
+     従来通りスキップを許可する保守的な設計にした（後方互換：`latestArch`を
+     渡さなければ挙動は変わらない）
+   - Rust側3件・TS側1件のユニットテストを追加、`cargo test`（43件）・
+     `bun test test/LegacyAppCheck.test.ts`（20件）・`bun run chk:types`で確認済み
+
+   **再発防止策（別軸・検討のみ）**：mac側配布物（ゲーム本体・stub自体）を
+   universal2ビルド（x86_64+arm64を1バイナリに）に寄せれば、今後は
+   「archで悩まなくて済む」形にできる。ただしこれは**今後の**再発防止であり、
+   **今まさに存在するx64専用の既存購入者を検知して案内する**という一回限りの
+   移行問題そのものは、上記のスキップ判定改修が無いと解決しない。
+
+   **副次論点（win側のarchも未整理）**：electron-builderの既定は
+   `artifactName: '${name}-${version}-${arch}.${ext}'`（[PrjSetting.ts:307](../PrjSetting.ts#L307)）
+   で、win-x64／win-ia32／mac-x64／mac-arm64の最大4種のビルド成果物が
+   生まれ得る一方、GUI（`patch_gen_gui`）の「最新版インストーラー」欄は
+   win/macの2つしか無くarch軸が無い。archの実行可否には非対称性がある
+   （win: ia32バイナリはWOW64で64bit機でも動くが、x64はia32専用機で動かない。
+   mac: x64バイナリはRosetta前提でarm64機でも当面動くが、arm64バイナリは
+   Intel機で動かない）ため、「安全な代替arch」を選ぶならwinはia32側、macは
+   x64側（Rosetta終了までの期間限定）が候補になる。ただし上記の通りmac側は
+   Rosetta終了が迫っているため、恒久策としては勧められない。
 
 ### スコープの観察（2026-09-14・議論のみ）
 

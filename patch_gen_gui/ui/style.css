@@ -161,6 +161,7 @@ button:hover { border-color: var(--accent); }
 	color: var(--danger);
 	border-color: var(--danger);
 	flex-shrink: 0;
+	margin-left: auto;
 }
 
 .os-panes {

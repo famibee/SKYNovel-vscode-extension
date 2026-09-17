@@ -170,16 +170,16 @@ function wireCard(card) {
 				const alreadyUploaded = await invoke('r2_object_exists', {config, key});
 				if (alreadyUploaded) {
 					const url = await invoke('r2_public_url', {config, key});
-					setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url);
+					setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url, '✓ R2にアップロード済み');
 					card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
-					flashStatus(elStatus, '✓ スキップ（内容不変）・DL URLへ反映しました', 0);
+					flashStatus(elStatus, '✓ スキップ（内容不変）・アップロード済みとして反映しました', 0);
 					scheduleSaveState();
 					return;
 				}
 
 				elStatus.textContent = 'アップロード中…';
 				const url = await invoke('r2_upload_file', {config, localPath, key});
-				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url);
+				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url, '✓ R2にアップロード済み');
 				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
 
 				// 同じOS・同じslug配下に残っている旧バージョン（チェックサムが異なるフォルダ）を
@@ -194,7 +194,7 @@ function wireCard(card) {
 					deletedNote = `（旧版の削除に失敗: ${String(e)}）`;
 				}
 
-				flashStatus(elStatus, `✓ 完了・DL URLへ反映しました${deletedNote}`, 0);
+				flashStatus(elStatus, `✓ 完了・アップロード済みとして反映しました${deletedNote}`, 0);
 				scheduleSaveState();
 			}
 			catch (e) {
@@ -207,11 +207,14 @@ function wireCard(card) {
 // downloadUrlは自動入力のみで手入力させない（2026-09-15・ユーザー指摘：手で入れると
 // 間違えるので入力欄自体を用意しない）ため、表示専用の要素（.value-display）を使う。
 // 表示テキストとバリデーション用の値（dataset.value）を分けて持つ。selectorは
-// querySelectorにそのまま渡せる文字列（例: '.downloadUrl[data-os="win"]'）
-function setValueDisplay(card, selector, value, displayText = value) {
+// querySelectorにそのまま渡せる文字列（例: '.downloadUrl[data-os="win"]'）。
+// 生URLは開発者には無意味な情報のため画面には出さず、title属性でhoverすれば
+// 見られる程度に留める（2026-09-17・ユーザー指摘：「DL URLは表示不要」）
+function setValueDisplay(card, selector, value, displayText = value, titleText = value) {
 	const el = card.querySelector(selector);
 	el.textContent = displayText;
 	el.dataset.value = value;
+	el.title = titleText;
 }
 
 // 選択済みになったら✅付きでファイル名を表示する（フルパスは dataset.path に保持）。
@@ -251,7 +254,6 @@ async function applyProjectFolder(card, folderPath) {
 	try {
 		const result = await invoke('scan_project_folder', {path: folderPath});
 		card.querySelector('.app-card-details').hidden = false;
-		card.querySelector('.btn-remove-app').hidden = false;
 		if (result.appName) {
 			const elAppName = card.querySelector('.appName');
 			elAppName.hidden = false;
@@ -424,7 +426,7 @@ async function restoreAppCard(saved) {
 			if (! l || ! l.path) continue;
 			setLatestInstallerPath(card, osKind, l.path);
 			if (l.downloadUrl) {
-				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, l.downloadUrl);
+				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, l.downloadUrl, '✓ R2にアップロード済み');
 				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
 			}
 		}
