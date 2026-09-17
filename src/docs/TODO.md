@@ -84,6 +84,11 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 	ただしwin環境ではアイコン作成機能などでPythonを使用しているので、Python依存を排除できないと実行は出来ないと思われる。
 	この辺を検討したい、というTODO。
 
+- Win側からの報告 (2026-09-17)
+	legacy-app-patch.md の Windows実機検証（stubビルド・asarパス・asar抽出・exe自動起動）が完了。クロスコンパイル環境（mingw-w64/cargo-xwin）は不要と判明(本機にネイティブのrustupツールチェーンあり)。詳細と残件表の更新は blues-sync の `sn-extension-win-legacypatch-verify` ブランチへ、ビルド済みstub本体(x86_64-pc-windows-msvc)は `sn-extension-win-stub-sn_legacy_patch` ブランチへ、それぞれpush済み。（mac側で受領・legacy-app-patch.mdへ統合済み）
+
+	一方、build.md「Windows実機確認が必要な項目」の以下7件はまだ未着手（次のWin側作業機会に着手予定）：Dドライブでの起動／空白入りフォルダ名でのサムネイル・ホバーの`%3A`一致／診断表示位置／`revealFileInOS`・`env.openExternal`／pyftsubsetへの`c:/`パス／タスク実行のシェル連結／マルチルートでのLspWs解放。
+
 ### ✅ 決着した判断（経緯だけ残す）
 
 #### ✅ 拡張機能、VueをReactへ載せ替え【方針決定・未着手・2026-09-14】

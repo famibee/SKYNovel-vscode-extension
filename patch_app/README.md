@@ -26,9 +26,10 @@ cd patch_app
 
 成果物：
 - mac: `target/release/sn_legacy_patch`
-- windows: `target/release/sn_legacy_patch.exe`（クロスコンパイルの場合は
-  `--target x86_64-pc-windows-gnu` 等が要る。Rust開発環境の準備状況は
-  legacy-app-patch.md 参照）
+- windows: **Windows実機上で**同じコマンドを実行する（`x86_64-pc-windows-msvc`。
+  mac からのクロスコンパイル環境は結局不要と判明した。2026-09-17。詳細は
+  legacy-app-patch.md「Rust 開発環境の準備状況」参照）。成果物 `sn_legacy_patch.exe`
+  は `prebuilt/x86_64-pc-windows-msvc/` に置く（patch_gen_gui が自動探索する場所）
 
 `cargo test` で単体テスト（ロジック部分・案内ダイアログのメッセージ組み立て
 部分など）が一通り走る。

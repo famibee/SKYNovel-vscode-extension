@@ -154,12 +154,17 @@ struct StubPaths {
 	mac_build_error: Option<String>,
 }
 
-fn find_stub_paths(target_dir: &std::path::Path) -> (Option<String>, Option<String>) {
+fn find_stub_paths(target_dir: &std::path::Path, prebuilt_dir: &std::path::Path) -> (Option<String>, Option<String>) {
 	let find = |candidates: &[PathBuf]| -> Option<String> {
 		candidates.iter().find(|p| p.exists()).map(|p| p.to_string_lossy().to_string())
 	};
 	let mac = find(&[target_dir.join("release").join("sn_legacy_patch")]);
 	let win = find(&[
+		// win向けは結局クロスコンパイル不要と判明（2026-09-17）。Windows実機で
+		// ネイティブビルドしたものをblues-sync経由で受け取り、prebuilt/配下に置く運用
+		// （legacy-app-patch.md「Rust 開発環境の準備状況」参照）
+		prebuilt_dir.join("x86_64-pc-windows-msvc").join("sn_legacy_patch.exe"),
+		prebuilt_dir.join("x86_64-pc-windows-gnu").join("sn_legacy_patch.exe"),
 		target_dir.join("x86_64-pc-windows-gnu").join("release").join("sn_legacy_patch.exe"),
 		target_dir.join("x86_64-pc-windows-msvc").join("release").join("sn_legacy_patch.exe"),
 		target_dir.join("release").join("sn_legacy_patch.exe"),
@@ -200,8 +205,12 @@ fn run_cargo_build(patch_app_dir: &std::path::Path, target: Option<&str>) -> Res
 // stub内蔵の古いパーサーとずれて解析エラーになる不具合が実際に起きたため、
 // 「うっかり忘れる」余地自体を無くす（都度ビルドし、常に最新のソースを使う。
 // 2026-09-17・ユーザー指摘：「更新忘れが起こりえないように仕組みで排除」）。
-// windows向けは一度もビルドしたことが無い（トリプルが分からない）場合はビルドを
-// 試みず、これまで通り「未検出」として扱う
+// windows向けは結局クロスコンパイル不要と判明（2026-09-17）。mac上でのクロス
+// ビルド環境は用意しない方針になったため、mac側の target/ 以下にwinトリプルの
+// ビルド済みが偶然あればそれを再ビルドするが、通常は prebuilt/ 配下（Windows実機で
+// ネイティブビルドし blues-sync 経由で受け取ったもの）を使う。prebuilt/ の鮮度は
+// mac側の「都度ビルドし直す」仕組みの対象外なので、patch_app（Rust側）を更新した
+// 際は Windows実機での再ビルド・再共有を忘れないこと
 #[tauri::command]
 fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
 	let patch_app_dir = sn_extension_root()?.join("patch_app");
@@ -209,6 +218,7 @@ fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
 		return Err(format!("patch_app が見つからない: {}", patch_app_dir.display()));
 	}
 	let target_dir = patch_app_dir.join("target");
+	let prebuilt_dir = patch_app_dir.join("prebuilt");
 
 	let win_triple = ["x86_64-pc-windows-gnu", "x86_64-pc-windows-msvc"]
 		.into_iter()
@@ -220,7 +230,7 @@ fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
 		None => None,
 	};
 
-	let (win, mac) = find_stub_paths(&target_dir);
+	let (win, mac) = find_stub_paths(&target_dir, &prebuilt_dir);
 	Ok(StubPaths {win, mac, win_build_error, mac_build_error})
 }
 

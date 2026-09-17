@@ -62,8 +62,8 @@ pub fn find_installed_app(
 }
 
 // electron-builder の既定レイアウトから app.asar のパスを推測する。
-// mac は実機調査済み（legacy-app-patch.md「旧アプリ内の暗号化済み setting.sn の実際のパス特定」参照）。
-// ⚠️ windows は既定値からの推測のみで未検証（同ドキュメント残件参照）
+// mac・windows とも実機調査済み（legacy-app-patch.md「旧アプリ内の暗号化済み setting.sn の
+// 実際のパス特定」「Windows実機でのビルド・asar抽出」参照。windowsは2026-09-17に確認）。
 pub fn asar_path_for_install(install_path: &Path, platform: Platform) -> Option<PathBuf> {
 	match platform {
 		Platform::Mac => Some(install_path.join("Contents/Resources/app.asar")),

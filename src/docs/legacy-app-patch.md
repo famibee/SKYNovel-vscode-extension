@@ -8,9 +8,12 @@
 | # | 内容 | 優先度 | 節 |
 |---|---|---|---|
 | 1 | Marketplace 再申請の決着待ち（**配布パッチアプリの拡張機能統合**の前提条件。パッチ生成ツール試作単体アプリは対象外・着手可能） | — | [背景](#背景) |
-| 2 | **唯一の未着手項目**：Windows 実機一式が未検証（`explorer`/exe 起動・mingw-w64 or cargo-xwin 導入・stubのwin向けビルド。**asarパスは実機データで検証済み・解消**） | — | [Rust 開発環境の準備状況](#rust-開発環境の準備状況調査済み2026-09-12) |
-| 3 | electron-builder の制約で win環境の開発者は mac版パッチを作れない場合がある（対処法は無い構造的制約と判明済み。利用者への説明文言の用意が残作業） | 中 | [詰められていない仕様#7](#詰められていない仕様棚卸し2026-09-12) |
-| 4 | GUIのクリック操作自体の自動E2Eが未実施（優先度低。**`sn_kowloon`での人手によるフル実地検証は完了**——GUI操作→生成→実行→旧版検出→R2からの実ダウンロードまで通し確認済み。2026-09-17） | 低 | [GUI設計案](#gui設計案2026-09-14実装動作確認済み) |
+| 2 | electron-builder の制約で win環境の開発者は mac版パッチを作れない場合がある（対処法は無い構造的制約と判明済み。利用者への説明文言の用意が残作業） | 中 | [詰められていない仕様#7](#詰められていない仕様棚卸し2026-09-12) |
+| 3 | GUIのクリック操作自体の自動E2Eが未実施（優先度低。**`sn_kowloon`での人手によるフル実地検証は完了**——GUI操作→生成→実行→旧版検出→R2からの実ダウンロードまで通し確認済み。2026-09-17） | 低 | [GUI設計案](#gui設計案2026-09-14実装動作確認済み) |
+
+✅ **Windows 実機一式（stubビルド・asarパス・asar抽出・exe自動起動）**は2026-09-17に
+本機で全て実地検証を終えた（クロスコンパイル環境も不要と判明）ため、残件一覧からは外した。
+詳細は[Windows実機でのビルド・asar抽出](#windows実機でのビルドasar抽出実機検証済み2026-09-17)参照。
 
 ✅ **過去出荷ビルドに体験版チェック機構自体が無い場合がある**件は、2026-09-17に
 `sn_kowloon`（2つ目の実プロジェクト）でも検出・警告が正しく機能することを再確認した
@@ -222,17 +225,38 @@ Rust バイナリ自体を **①拡張機能に同梱するか、②必要なと
   - **mac arm64**：`rustup target add aarch64-apple-darwin` だけで足りる見込み
     （Xcode Command Line Tools 導入済み・`xcode-select -p` で確認済みなので、
     Apple 純正のクロスリンクは環境に含まれている）
-  - **windows x64**：**未整備。** クロスコンパイルの土台（mingw-w64 や `cargo-xwin`）が
-    どちらも入っていない。2つの経路がある：
-    1. `x86_64-pc-windows-gnu` ＋ `brew install mingw-w64`（OSS のみで完結、実績が多い）
-    2. `x86_64-pc-windows-msvc` ＋ `cargo install cargo-xwin`（初回に Microsoft から
-       Windows SDK の一部を取得。エコシステムとの互換性は msvc の方が高いことが多い）
-  - どちらも**着手時に選定・導入すればよい**（今回はどちらも未導入という事実だけ確認）
+  - **windows x64**：✅ **解消（2026-09-17・Win実機で確認）。** mac側からのクロス
+    コンパイル環境（mingw-w64 / `cargo-xwin`）は結局不要と判明した。Windows実機上で
+    `target: x86_64-pc-windows-msvc` を**本機ネイティブビルド**すれば足り、
+    stub（`sn_legacy_patch.exe`、289792 bytes、sha256:
+    `727d00aa1e722a6205071b127558c2a48348ed17028f62a5a378022b9f7ed28c`）を
+    blues-sync経由で受領・sha256検証済み
 - 💡 **`cargo-tauri`（v2.11.4）はグローバルに入っているが、このパッチアプリでは使わない。**
   Tauri は webview（GUI）を持つ前提のフレームワークで、[実装基盤の設計](#実装基盤論点2方針決定rust-自己参照データの末尾連結)
   で決めた「GUI フレームワーク不要（OS 標準ダイアログで足りる）」という方針と噛み合わない。
   **素の `cargo build --release --target …`（プレーンな Rust バイナリクレート）で足りる**
   はずで、TsTools の Tauri 経験は「Rust に土地勘がある」という意味でのみ参考になる
+
+#### Windows実機でのビルド・asar抽出【実機検証済み・2026-09-17】
+
+Win実機（本機）で確認したところ、**クロスコンパイル環境（mingw-w64／cargo-xwin）は不要**
+だった。rustup管理下に `stable-x86_64-pc-windows-msvc` がホストのデフォルトターゲットとして
+最初から入っており、`cargo build --release` は素のネイティブビルドで足りる
+（mac側で懸念していたクロスコンパイル問題は、Win機上で作業する限り発生しない）。
+
+- ✅ `cargo build --release` / `cargo test --release` とも成功（単体テスト35件全通過）
+- ✅ **実機の app.asar（`sn_kowloon`、133MB規模）から `asar::extract_by_basename()` で
+  `path.json` を抽出し、`@electron/asar extract-file` の抽出結果とバイト単位で完全一致を確認**
+  （sha256一致。抽出用の一時テストコードはコミットせず確認後に削除）。これにより
+  win の `resources/app.asar` という asar パス自体は既に電子的にも実在確認済み
+  （`C:\Users\<user>\AppData\Local\Programs\sn_kowloon\resources\app.asar` が実在）
+- ✅ **`download::open_downloaded_file()`（`Command::new(path).spawn()`）も実機検証済み
+  （2026-09-17）**：`notepad.exe` を対象に実行し、`tasklist` で実プロセスが起動している
+  ことを確認した（確認後 `taskkill` で終了）。win 側のコード注記にあった
+  「⚠️ 未検証（Windows 実機が無い）」はここで解消
+
+これで legacy-app-patch.md 側が把握していた Windows 未検証事項（クロスコンパイル環境・
+stubビルド・asarパス・asar抽出・自動起動）は本機ですべて実地確認できた。
 
 ### ダウンロードは既定ブラウザに委ねない【方針転換・2026-09-12】
 
@@ -337,9 +361,13 @@ publish」機能（`accessKeyId`/`secretAccessKey`/`endpoint`指定）が近い�
 - リリースビルドで **約331KB**（`otool -L` でリンク先は `libSystem` のみ。GUI 系フレームワークは
   リンクされていない）。当初懸念していた「ダイアログのために巨大ライブラリが要るのでは」は
   実測で否定された。実際に curl でファイル取得できることも動作確認済み
-- ⬜ **未実装・未検証**：Windows クロスコンパイル環境（mingw-w64 / `cargo-xwin` が未導入。
-  **Windows での動作・asarパスとも未検証**）、「インストール済みの過去バージョンアプリから
-  自動でチェックサムを収集するスキャン機能」（拡張機能TS側・GUI化は構想のみ。メモ参照）
+- ✅ **Windows実機でのビルド・動作とも実機検証済み（2026-09-17）。** クロスコンパイル
+  （mingw-w64 / `cargo-xwin`）は不要と判明、Windows実機上で`cargo build`するだけで
+  足りた。asarパスの実地抽出（既存ツールとバイト一致）・exe自動起動
+  （`Command::new(path).spawn()`）も本機で確認済み。詳細は
+  [Windows実機でのビルド・asar抽出](#windows実機でのビルドasar抽出実機検証済み2026-09-17)参照。
+  ⬜ **残る未実装**：「インストール済みの過去バージョンアプリから自動で
+  チェックサムを収集するスキャン機能」（拡張機能TS側・GUI化は構想のみ。メモ参照）
 
 ### パッチ生成ツール（試作単体アプリ）【2026-09-14。TODO.md §0 より移動】
 
@@ -571,15 +599,14 @@ crates.io の `asar`（Absolucy/asar-rs、2年以上更新なし）は使わず�
   フィクスチャも同じ誤りを踏襲していたため、単体テストだけでは検出できなかった）。
   実機データで初めて発覚・修正し、単体テストのフィクスチャも実際のレイアウトに合わせて
   修正済み（4件・全パス）
-- Windows 版の asar パス（`asar_path_for_install()`。electron-builder の既定は
-  `resources/app.asar`）は **実装はしたが未検証**（Windows 実機が無い）
+- ✅ **Windows 版の asar パス（`asar_path_for_install()`。electron-builder の既定は
+  `resources/app.asar`）も実機検証済み（2026-09-17）。** `sn_kowloon`（133MB規模）の
+  `resources/app.asar` から `extract_by_basename()` で抽出し、`@electron/asar extract-file`
+  の結果とバイト単位で一致（sha256一致）することを確認した。mac と同じ asar 構成で
+  問題ないと判明したため、Windows のビルド成果物構成に関する懸念は解消
 - `unpacked: true`（asar外に展開されたファイル）は**未対応**（`AsarError::Unpacked`を返す
   だけ）。`setting.sn` は小さいファイルで通常 unpack 対象にならない前提だが、万一の場合は
   未対応のまま失敗する
-
-⚠️ **Windows 版のビルド成果物が同じ構成か（asar か、`asar: false` で展開済みか等）は
-別途 Windows 実機で確認が要る。** mac の調査結果をそのまま Windows に当てはめてよいとは
-限らない。
 
 sn_extension 側の残作業：
 1. ~~Rust 側：判定ロジック（`LegacyAppCheck.ts` の移植）＋ 自己参照データ読み取り~~ → 雛形実装済み（上記）

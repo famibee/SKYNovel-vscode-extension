@@ -2,9 +2,8 @@
 // 設計は sn_extension の src/docs/legacy-app-patch.md 参照。
 // GUI フレームワークは使わない方針（終了時の案内は OS 標準ダイアログで足りる）。
 //
-// ⚠️ 既知の未検証事項：Windows 版の asar パス（detect::asar_path_for_install）は
-// electron-builder の既定レイアウトからの推測のみで、実機検証していない
-// （legacy-app-patch.md「asar 内の1ファイル抽出」参照）。
+// Windows 版の asar パス（detect::asar_path_for_install）・ビルド・自動起動は
+// 2026-09-17 に実機検証済み（legacy-app-patch.md「Windows実機でのビルド・asar抽出」参照）。
 //
 // 2026-09-14: 複数ver・複数アプリを1本の実行ファイルで扱えるよう、埋め込み設定を
 // 単一Configから配列（Vec<AppConfig>）に変更。1アプリで購入者チェックに失敗しても

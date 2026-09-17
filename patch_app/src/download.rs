@@ -59,7 +59,8 @@ pub fn open_downloaded_file(path: &Path) -> io::Result<()> {
 
 #[cfg(target_os = "windows")]
 pub fn open_downloaded_file(path: &Path) -> io::Result<()> {
-	// ⚠️ 未検証（Windows 実機が無い）。exe をそのまま起動し、インストーラのウィザードに委ねる
+	// Windows実機で検証済み（2026-09-17。legacy-app-patch.md参照）。exeをそのまま起動し、
+	// インストーラのウィザードに委ねる
 	Command::new(path).spawn()?;
 	Ok(())
 }

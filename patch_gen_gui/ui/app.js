@@ -557,7 +557,7 @@ async function resolveGlobalPaths() {
 		? '✅ 検出済み'
 		: stubPaths.winBuildError
 			? `✗ ビルドに失敗: ${stubPaths.winBuildError}`
-			: '未検出（patch_app のwin向けビルドが無い。README参照）';
+			: '未検出（patch_app/prebuilt/ 配下にWindows実機ビルド済みstubが無い。README参照）';
 	elStubWin.title = stubPaths.win ?? '';
 	const elStubMac = document.getElementById('stubStatusMac');
 	elStubMac.title = stubPaths.mac ?? '';
