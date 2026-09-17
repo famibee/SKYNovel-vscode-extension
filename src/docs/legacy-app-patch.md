@@ -10,7 +10,7 @@
 | 1 | Marketplace 再申請の決着待ち（**配布パッチアプリの拡張機能統合**の前提条件。パッチ生成ツール試作単体アプリは対象外・着手可能） | — | [背景](#背景) |
 | 2 | electron-builder の制約で win環境の開発者は mac版パッチを作れない場合がある（対処法は無い構造的制約と判明済み。利用者への説明文言の用意が残作業） | 中 | [詰められていない仕様#7](#詰められていない仕様棚卸し2026-09-12) |
 | 3 | GUIのクリック操作自体の自動E2Eが未実施（優先度低。**`sn_kowloon`での人手によるフル実地検証は完了**——GUI操作→生成→実行→旧版検出→R2からの実ダウンロードまで通し確認済み。2026-09-17） | 低 | [GUI設計案](#gui設計案2026-09-14実装動作確認済み) |
-| 4 | **archの副次論点が未着手**（win側は最大4種のビルド成果物がありうるがGUIの「最新版インストーラー」欄にarch軸が無い。mac側をuniversal2ビルドに寄せる再発防止策も未着手） | 中 | [詰められていない仕様#9](#詰められていない仕様棚卸し2026-09-12) |
+| 4 | **win側のarch副次論点が未着手**（最大4種のビルド成果物がありうるがGUIの「最新版インストーラー」欄にarch軸が無い。mac側は#9でuniversal2化済みなのでこの論点から外れた） | 中 | [詰められていない仕様#9](#詰められていない仕様棚卸し2026-09-12) |
 
 ✅ **Windows 実機一式（stubビルド・asarパス・asar抽出・exe自動起動）**は2026-09-17に
 本機で全て実地検証を終えた（クロスコンパイル環境も不要と判明）ため、残件一覧からは外した。
@@ -238,6 +238,16 @@ Rust バイナリ自体を **①拡張機能に同梱するか、②必要なと
     stub（`sn_legacy_patch.exe`、289792 bytes、sha256:
     `727d00aa1e722a6205071b127558c2a48348ed17028f62a5a378022b9f7ed28c`）を
     blues-sync経由で受領・sha256検証済み
+- 🔴 **cargoバイナリだけをrustup版に切り替えても不十分だった（2026-09-17・mac
+  universal2ビルド追加時に実機で発覚）。** `~/.cargo/bin/cargo`（rustup版）を明示的に
+  呼んでも、cargoが内部で呼ぶ`rustc`は`$PATH`解決に依存するため、Homebrew版rustc
+  （`/usr/local/bin/rustc`）が先に来ていると結局そちらが使われる。Homebrew版rustcの
+  sysrootには`x86_64-apple-darwin`向けのstd/coreしか無く、
+  `aarch64-apple-darwin`向けビルドが「can't find crate for `std`」で失敗する。
+  **`RUSTC`環境変数で`~/.cargo/bin/rustc`を明示指定する必要がある**
+  （[patch_gen_gui/src-tauri/src/lib.rs](../../patch_gen_gui/src-tauri/src/lib.rs)の
+  `rustc_bin()`で対応済み。手動ビルド時も同様に`RUSTC=~/.cargo/bin/rustc`を
+  付けること）
 - 💡 **`cargo-tauri`（v2.11.4）はグローバルに入っているが、このパッチアプリでは使わない。**
   Tauri は webview（GUI）を持つ前提のフレームワークで、[実装基盤の設計](#実装基盤論点2方針決定rust-自己参照データの末尾連結)
   で決めた「GUI フレームワーク不要（OS 標準ダイアログで足りる）」という方針と噛み合わない。
@@ -849,22 +859,37 @@ sn_extension 側の残作業：
    - Rust側3件・TS側1件のユニットテストを追加、`cargo test`（43件）・
      `bun test test/LegacyAppCheck.test.ts`（20件）・`bun run chk:types`で確認済み
 
-   **再発防止策（別軸・検討のみ）**：mac側配布物（ゲーム本体・stub自体）を
-   universal2ビルド（x86_64+arm64を1バイナリに）に寄せれば、今後は
-   「archで悩まなくて済む」形にできる。ただしこれは**今後の**再発防止であり、
-   **今まさに存在するx64専用の既存購入者を検知して案内する**という一回限りの
-   移行問題そのものは、上記のスキップ判定改修が無いと解決しない。
+   **再発防止策：stub自体のuniversal2化を実装済み（2026-09-17）**。
+   `patch_gen_gui`（GUI）が生成のたびに呼ぶ`rebuild_and_resolve_stubs`
+   （[lib.rs](../../patch_gen_gui/src-tauri/src/lib.rs)の`build_mac_universal_stub()`）を、
+   mac向けは`x86_64-apple-darwin`・`aarch64-apple-darwin`の両方をビルドして
+   `lipo -create`で1バイナリに結合する方式に変更した。stub自体はこれでIntel Mac・
+   Apple Siliconどちらでも同じ1本で動くため、「stubがどのarchで動くか」を
+   今後気にする必要が無くなった（実機で`lipo -info`により`x86_64 arm64`の
+   2アーキテクチャを含むことを確認済み）。
 
-   **副次論点（win側のarchも未整理）**：electron-builderの既定は
+   ⚠️ **副産物として判明した罠**：cargoバイナリだけをrustup版
+   （`~/.cargo/bin/cargo`）に切り替えても不十分だった。cargoが内部で呼ぶ
+   `rustc`は`$PATH`解決に依存するため、Homebrew版rustcが先に来ていると
+   結局そちらが使われ、sysrootに`aarch64-apple-darwin`向けのstd/coreが無く
+   ビルドが失敗する。`RUSTC`環境変数で`~/.cargo/bin/rustc`を明示する必要が
+   あった（詳細は[Rust 開発環境の準備状況](#rust-開発環境の準備状況調査済み2026-09-12)
+   に追記済み。`lib.rs`の`rustc_bin()`で対応）。
+
+   ⚠️ **ゲーム本体（開発者が配布する.dmg/.exe自体）のuniversal化は別リポジトリ
+   （テンプレート）側の話で、sn_extensionからは直接手を出せない。** こちらは
+   引き続き開発者側の判断・作業が必要（electron-builderの`mac.target`に
+   `universal`を指定する等）。stub側のuniversal化とは独立した課題として残る。
+
+   **副次論点（win側のarchは未着手）**：electron-builderの既定は
    `artifactName: '${name}-${version}-${arch}.${ext}'`（[PrjSetting.ts:307](../PrjSetting.ts#L307)）
-   で、win-x64／win-ia32／mac-x64／mac-arm64の最大4種のビルド成果物が
-   生まれ得る一方、GUI（`patch_gen_gui`）の「最新版インストーラー」欄は
-   win/macの2つしか無くarch軸が無い。archの実行可否には非対称性がある
-   （win: ia32バイナリはWOW64で64bit機でも動くが、x64はia32専用機で動かない。
-   mac: x64バイナリはRosetta前提でarm64機でも当面動くが、arm64バイナリは
-   Intel機で動かない）ため、「安全な代替arch」を選ぶならwinはia32側、macは
-   x64側（Rosetta終了までの期間限定）が候補になる。ただし上記の通りmac側は
-   Rosetta終了が迫っているため、恒久策としては勧められない。
+   で、win-x64／win-ia32の2種（mac側は上記でuniversal2化されたためこの論点から
+   外れた）のビルド成果物が生まれ得る一方、GUI（`patch_gen_gui`）の
+   「最新版インストーラー」欄はwin/macの2つしか無くarch軸が無い。
+   ia32バイナリはWOW64で64bit機でも動くがx64はia32専用機で動かないという
+   非対称性があるため、「安全な代替」を選ぶならia32側が候補になる。ただし
+   32bit専用のWindows実機は現在ほぼ流通しておらず、ia32サポート自体の要否から
+   検討する余地がある（Linuxサポートを明示的に外した判断と同様の整理がありうる）。
 
 ### スコープの観察（2026-09-14・議論のみ）
 

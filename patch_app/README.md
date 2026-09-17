@@ -19,17 +19,38 @@ sn_extension（VSCode拡張機能）には組み込まない独立ツール。
 全プロジェクト共通。プロジェクトごとの再ビルドは不要（GUI側が設定情報と
 バイト列を連結するだけなので、stub自体は使い回せる）。
 
+**patch_gen_gui（GUI）は生成のたびにこの手順を自動実行する**ため、通常は
+手動でビルドする必要はない。以下は手動確認用。
+
+mac向けは**universal2**（x86_64+arm64を`lipo`で1バイナリに結合）でビルドする
+（2026-09-17〜。macOS 27 "Golden Gate"を最後にRosetta 2の一般アプリ向けサポートが
+終わる見込みとなったため、Intel Mac・Apple Siliconどちらでもそのまま動くように
+した。legacy-app-patch.md 詰められていない仕様#9・残件#4参照）：
+
 ```sh
 cd patch_app
-~/.cargo/bin/cargo build --release
+rustup target add x86_64-apple-darwin aarch64-apple-darwin   # 初回のみ
+
+# Homebrew版rustcが$PATH上で先に来ているとaarch64ビルドが失敗するため、
+# RUSTCでrustup版を明示する（legacy-app-patch.md「Rust 開発環境の準備状況」参照）
+RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo build --release --target x86_64-apple-darwin
+RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo build --release --target aarch64-apple-darwin
+
+mkdir -p target/universal2-apple-darwin/release
+lipo -create \
+  -output target/universal2-apple-darwin/release/sn_legacy_patch \
+  target/x86_64-apple-darwin/release/sn_legacy_patch \
+  target/aarch64-apple-darwin/release/sn_legacy_patch
 ```
 
 成果物：
-- mac: `target/release/sn_legacy_patch`
+- mac: `target/universal2-apple-darwin/release/sn_legacy_patch`
 - windows: **Windows実機上で**同じコマンドを実行する（`x86_64-pc-windows-msvc`。
   mac からのクロスコンパイル環境は結局不要と判明した。2026-09-17。詳細は
   legacy-app-patch.md「Rust 開発環境の準備状況」参照）。成果物 `sn_legacy_patch.exe`
-  は `prebuilt/x86_64-pc-windows-msvc/` に置く（patch_gen_gui が自動探索する場所）
+  は `prebuilt/x86_64-pc-windows-msvc/` に置く（patch_gen_gui が自動探索する場所）。
+  win側は現状x64のみで、ia32/arm64向けの対応は未着手
+  （legacy-app-patch.md 残件#4参照）
 
 `cargo test` で単体テスト（ロジック部分・案内ダイアログのメッセージ組み立て
 部分など）が一通り走る。

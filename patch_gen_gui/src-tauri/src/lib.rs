@@ -158,7 +158,13 @@ fn find_stub_paths(target_dir: &std::path::Path, prebuilt_dir: &std::path::Path)
 	let find = |candidates: &[PathBuf]| -> Option<String> {
 		candidates.iter().find(|p| p.exists()).map(|p| p.to_string_lossy().to_string())
 	};
-	let mac = find(&[target_dir.join("release").join("sn_legacy_patch")]);
+	// universal2（x86_64+arm64のlipo結合）を優先する。Rosetta終了に備えた再発防止策
+	// （legacy-app-patch.md 詰められていない仕様#9・残件#4）：stub自体をuniversal化
+	// すれば、Intel Mac・Apple Siliconどちらの利用者機で実行してもそのまま動く
+	let mac = find(&[
+		target_dir.join("universal2-apple-darwin").join("release").join("sn_legacy_patch"),
+		target_dir.join("release").join("sn_legacy_patch"),
+	]);
 	let win = find(&[
 		// win向けは結局クロスコンパイル不要と判明（2026-09-17）。Windows実機で
 		// ネイティブビルドしたものをblues-sync経由で受け取り、prebuilt/配下に置く運用
@@ -184,14 +190,72 @@ fn cargo_bin() -> PathBuf {
 	PathBuf::from("cargo")
 }
 
+// cargoバイナリをrustup版に切り替えても、cargoが内部で呼ぶrustcはPATH解決に
+// 依存するため、Homebrew版rustcが$PATH上で先に来ていると結局そちらが使われてしまう
+// （2026-09-17・mac universal2ビルド追加時に実機で発覚：Homebrew版rustcのsysrootには
+// x86_64-apple-darwin向けのstd/coreしか無く、aarch64-apple-darwinビルドが
+// 「can't find crate for `std`」で失敗した）。`RUSTC`環境変数で明示的に
+// rustup管理下のrustcを指定することで、cargo自身の切り替えと同じ効果を得る
+fn rustc_bin() -> PathBuf {
+	if let Some(home) = std::env::var_os("HOME") {
+		let candidate = PathBuf::from(home).join(".cargo/bin/rustc");
+		if candidate.exists() { return candidate; }
+	}
+	PathBuf::from("rustc")
+}
+
 fn run_cargo_build(patch_app_dir: &std::path::Path, target: Option<&str>) -> Result<(), String> {
 	let mut cmd = Command::new(cargo_bin());
 	cmd.arg("build").arg("--release");
 	if let Some(t) = target {
 		cmd.arg("--target").arg(t);
 	}
+	cmd.env("RUSTC", rustc_bin());
 	cmd.current_dir(patch_app_dir);
 	let output = cmd.output().map_err(|e| format!("cargo の起動に失敗（rustupが入っていない可能性）: {e}"))?;
+	if output.status.success() {
+		Ok(())
+	}
+	else {
+		Err(String::from_utf8_lossy(&output.stderr).to_string())
+	}
+}
+
+// mac向けstubをuniversal2（x86_64+arm64を1バイナリにlipo結合）でビルドする。
+// macOS 27 "Golden Gate"を最後にRosetta 2の一般アプリ向けサポートが終わる見込みと
+// なったことを受けた再発防止策（legacy-app-patch.md 詰められていない仕様#9・残件#4）：
+// stub自体をIntel/Apple Silicon両対応にしておけば、以後は「利用者機のarchに
+// stubが対応しているか」を気にする必要が無くなる。
+// x86_64-apple-darwin・aarch64-apple-darwin の両ターゲットが `rustup target add` 済み
+// である前提（README参照）
+fn build_mac_universal_stub(patch_app_dir: &std::path::Path) -> Result<(), String> {
+	const X64_TRIPLE: &str = "x86_64-apple-darwin";
+	const ARM64_TRIPLE: &str = "aarch64-apple-darwin";
+
+	run_cargo_build(patch_app_dir, Some(X64_TRIPLE))?;
+	run_cargo_build(patch_app_dir, Some(ARM64_TRIPLE))?;
+
+	let target_dir = patch_app_dir.join("target");
+	let x64_bin = target_dir.join(X64_TRIPLE).join("release").join("sn_legacy_patch");
+	let arm64_bin = target_dir.join(ARM64_TRIPLE).join("release").join("sn_legacy_patch");
+	if ! x64_bin.exists() || ! arm64_bin.exists() {
+		return Err(format!(
+			"universal2結合用の中間バイナリが見つからない（x64: {}, arm64: {}）",
+			x64_bin.display(), arm64_bin.display(),
+		));
+	}
+
+	let universal_dir = target_dir.join("universal2-apple-darwin").join("release");
+	fs::create_dir_all(&universal_dir).map_err(|e| e.to_string())?;
+	let universal_bin = universal_dir.join("sn_legacy_patch");
+
+	let output = Command::new("/usr/bin/lipo")
+		.arg("-create")
+		.arg("-output").arg(&universal_bin)
+		.arg(&x64_bin)
+		.arg(&arm64_bin)
+		.output()
+		.map_err(|e| format!("lipo の起動に失敗（Xcode Command Line Toolsが入っていない可能性）: {e}"))?;
 	if output.status.success() {
 		Ok(())
 	}
@@ -210,7 +274,9 @@ fn run_cargo_build(patch_app_dir: &std::path::Path, target: Option<&str>) -> Res
 // ビルド済みが偶然あればそれを再ビルドするが、通常は prebuilt/ 配下（Windows実機で
 // ネイティブビルドし blues-sync 経由で受け取ったもの）を使う。prebuilt/ の鮮度は
 // mac側の「都度ビルドし直す」仕組みの対象外なので、patch_app（Rust側）を更新した
-// 際は Windows実機での再ビルド・再共有を忘れないこと
+// 際は Windows実機での再ビルド・再共有を忘れないこと。
+// mac向けは2026-09-17からuniversal2ビルド（x86_64+arm64をlipo結合）に変更した
+// （legacy-app-patch.md 詰められていない仕様#9・残件#4。Rosetta終了への再発防止策）
 #[tauri::command]
 fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
 	let patch_app_dir = sn_extension_root()?.join("patch_app");
@@ -224,7 +290,7 @@ fn rebuild_and_resolve_stubs() -> Result<StubPaths, String> {
 		.into_iter()
 		.find(|t| target_dir.join(t).join("release").join("sn_legacy_patch.exe").exists());
 
-	let mac_build_error = run_cargo_build(&patch_app_dir, None).err();
+	let mac_build_error = build_mac_universal_stub(&patch_app_dir).err();
 	let win_build_error = match win_triple {
 		Some(t) => run_cargo_build(&patch_app_dir, Some(t)).err(),
 		None => None,
