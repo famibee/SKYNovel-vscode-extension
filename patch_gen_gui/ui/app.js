@@ -126,81 +126,98 @@ function wireCard(card) {
 
 	// win/macそれぞれの「アップロード」ボタン。同じslug配下でもOS別のプレフィックスに
 	// アップロードするため、win版のアップロードでmac版のファイルが誤って削除されない
-	// （2026-09-15・ユーザー指摘：最新版インストーラーはwin/mac両方必要）
+	// （2026-09-15・ユーザー指摘：最新版インストーラーはwin/mac両方必要）。
+	// クリックハンドラ自体は即座に「予約済み」表示だけして終わり、実際の重い処理
+	// （チェックサム計算・アップロード等）はマイクロタスクに委譲する（2026-09-17・
+	// ユーザー指摘：「押したら直ぐに予約・処理中表示だけして終わり」）
 	for (const btn of card.querySelectorAll('.btnUploadLatest')) {
 		const osKind = btn.dataset.os;
-		btn.addEventListener('click', async ()=> {
+		btn.addEventListener('click', ()=> {
+			if (btn.disabled) return;
 			const elStatus = card.querySelector(`.latest-upload-status[data-os="${osKind}"]`);
 			const localPath = card.querySelector(`.latest-dropzone[data-target="latest-${osKind}"]`).dataset.path ?? '';
 			if (! localPath) { flashStatus(elStatus, '✗ ファイルを選択してください'); return; }
 
-			// R2のURLパスに使う識別子はASCII安全な文字に限定する（2026-09-15・実機確認）。
-			// appNameは日本語のproductNameになりうり、配布パッチアプリ本体（patch_app）が
-			// curlサブプロセスの引数としてdownloadUrlをそのまま渡すため、Windows環境の
-			// curl.exeで文字コード起因の失敗リスクがある。package.jsonのnameはエンジン側の
-			// セーブデータ識別等にも使う必須フィールドで、正常なプロジェクトなら必ず存在する
-			// （手入力の代用フォールバックは無し。2026-09-15・ユーザー指摘）
-			const slug = card.dataset.uploadSlug ?? '';
-			if (! slug) {
-				flashStatus(elStatus, '✗ アップロード先IDが未取得です（プロジェクトフォルダを選択してください）', 0);
-				return;
-			}
+			btn.disabled = true;
+			elStatus.textContent = '予約済み・処理中…';
+			void Promise.resolve().then(()=> uploadLatestInstaller(card, osKind, btn, elStatus, localPath));
+		});
+	}
+}
 
-			const basename = localPath.split(/[\\/]/).pop();
-			elStatus.textContent = 'チェックサム計算中…';
-			const config = r2CollectConfig();
-			// アップロード先フォルダ名は内容ベースのチェックサムにする（2026-09-17・
-			// ユーザー指摘：乱数UUIDだと同じファイルを再アップロードするたびdownloadUrlが
-			// 変わり、テストのたびに再アップロードが要る状態だった）。同じ内容なら同じ
-			// キー＝同じURLになるため、ファイルが変わっていなければアップロード自体を
-			// スキップできる。osKindを挟むのは、旧版自動削除（下記）がwin/mac互いの
-			// ファイルを消さないようにするため
-			let checksum;
-			try {
-				checksum = await invoke('file_checksum', {path: localPath});
-			}
-			catch (e) {
-				flashStatus(elStatus, `✗ チェックサム計算に失敗: ${String(e)}`, 0);
-				return;
-			}
-			const prefix = `patch/${slug}/${osKind}/`;
-			const key = `${prefix}${checksum}/${basename}`;
+// .btnUploadLatest のクリックハンドラから切り出した実処理本体（wireCard()参照）。
+// マイクロタスクとして呼ばれるため、クリックイベント自体はブロックしない
+async function uploadLatestInstaller(card, osKind, btn, elStatus, localPath) {
+	try {
+		// R2のURLパスに使う識別子はASCII安全な文字に限定する（2026-09-15・実機確認）。
+		// appNameは日本語のproductNameになりうり、配布パッチアプリ本体（patch_app）が
+		// curlサブプロセスの引数としてdownloadUrlをそのまま渡すため、Windows環境の
+		// curl.exeで文字コード起因の失敗リスクがある。package.jsonのnameはエンジン側の
+		// セーブデータ識別等にも使う必須フィールドで、正常なプロジェクトなら必ず存在する
+		// （手入力の代用フォールバックは無し。2026-09-15・ユーザー指摘）
+		const slug = card.dataset.uploadSlug ?? '';
+		if (! slug) {
+			flashStatus(elStatus, '✗ アップロード先IDが未取得です（プロジェクトフォルダを選択してください）', 0);
+			return;
+		}
 
-			try {
-				const alreadyUploaded = await invoke('r2_object_exists', {config, key});
-				if (alreadyUploaded) {
-					const url = await invoke('r2_public_url', {config, key});
-					setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url, '✓ R2にアップロード済み');
-					card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
-					flashStatus(elStatus, '✓ スキップ（内容不変）・アップロード済みとして反映しました', 0);
-					scheduleSaveState();
-					return;
-				}
+		const basename = localPath.split(/[\\/]/).pop();
+		elStatus.textContent = 'チェックサム計算中…';
+		const config = r2CollectConfig();
+		// アップロード先フォルダ名は内容ベースのチェックサムにする（2026-09-17・
+		// ユーザー指摘：乱数UUIDだと同じファイルを再アップロードするたびdownloadUrlが
+		// 変わり、テストのたびに再アップロードが要る状態だった）。同じ内容なら同じ
+		// キー＝同じURLになるため、ファイルが変わっていなければアップロード自体を
+		// スキップできる。osKindを挟むのは、旧版自動削除（下記）がwin/mac互いの
+		// ファイルを消さないようにするため
+		let checksum;
+		try {
+			checksum = await invoke('file_checksum', {path: localPath});
+		}
+		catch (e) {
+			flashStatus(elStatus, `✗ チェックサム計算に失敗: ${String(e)}`, 0);
+			return;
+		}
+		const prefix = `patch/${slug}/${osKind}/`;
+		const key = `${prefix}${checksum}/${basename}`;
 
-				elStatus.textContent = 'アップロード中…';
-				const url = await invoke('r2_upload_file', {config, localPath, key});
+		try {
+			const alreadyUploaded = await invoke('r2_object_exists', {config, key});
+			if (alreadyUploaded) {
+				const url = await invoke('r2_public_url', {config, key});
 				setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url, '✓ R2にアップロード済み');
 				card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
-
-				// 同じOS・同じslug配下に残っている旧バージョン（チェックサムが異なるフォルダ）を
-				// 掃除する（アップロード成功「後」に消す。先に消すとアップロード失敗時に
-				// ファイルが消えてしまうため。2026-09-15・ユーザー要望）
-				let deletedNote = '';
-				try {
-					const deleted = await invoke('r2_delete_others_with_prefix', {config, prefix, keepKey: key});
-					if (deleted > 0) deletedNote = `（旧版${deleted}件を削除）`;
-				}
-				catch (e) {
-					deletedNote = `（旧版の削除に失敗: ${String(e)}）`;
-				}
-
-				flashStatus(elStatus, `✓ 完了・アップロード済みとして反映しました${deletedNote}`, 0);
+				flashStatus(elStatus, '✓ スキップ（内容不変）・アップロード済みとして反映しました', 0);
 				scheduleSaveState();
+				return;
+			}
+
+			elStatus.textContent = 'アップロード中…';
+			const url = await invoke('r2_upload_file', {config, localPath, key});
+			setValueDisplay(card, `.downloadUrl[data-os="${osKind}"]`, url, '✓ R2にアップロード済み');
+			card.querySelector(`.downloadUrl[data-os="${osKind}"]`).closest('.latest-url-row').hidden = false;
+
+			// 同じOS・同じslug配下に残っている旧バージョン（チェックサムが異なるフォルダ）を
+			// 掃除する（アップロード成功「後」に消す。先に消すとアップロード失敗時に
+			// ファイルが消えてしまうため。2026-09-15・ユーザー要望）
+			let deletedNote = '';
+			try {
+				const deleted = await invoke('r2_delete_others_with_prefix', {config, prefix, keepKey: key});
+				if (deleted > 0) deletedNote = `（旧版${deleted}件を削除）`;
 			}
 			catch (e) {
-				flashStatus(elStatus, `✗ アップロードに失敗: ${String(e)}`, 0);
+				deletedNote = `（旧版の削除に失敗: ${String(e)}）`;
 			}
-		});
+
+			flashStatus(elStatus, `✓ 完了・アップロード済みとして反映しました${deletedNote}`, 0);
+			scheduleSaveState();
+		}
+		catch (e) {
+			flashStatus(elStatus, `✗ アップロードに失敗: ${String(e)}`, 0);
+		}
+	}
+	finally {
+		btn.disabled = false;
 	}
 }
 
@@ -694,7 +711,7 @@ document.getElementById('btnRun').addEventListener('click', async ()=> {
 	try {
 		// GUIを開いてからpatch_appのソースを直した場合でも必ず最新のstubを使うよう、
 		// 生成の直前に毎回ビルドし直す（起動時のビルドだけでは間に合わないケースがある）
-		elLog.textContent = 'stubをビルド中…';
+		renderLogBlocks(elLog, ['stubをビルド中…']);
 		await resolveGlobalPaths();
 
 		const stubWin = stubPaths.win;
@@ -711,39 +728,39 @@ document.getElementById('btnRun').addEventListener('click', async ()=> {
 			if (doMac) { appsMac = collectConfig('mac'); outMac = buildOutPath('mac'); }
 		}
 		catch (e) {
-			elLog.textContent = `✗ ${e.message}`;
+			renderLogBlocks(elLog, [`✗ ${e.message}`]);
 			return;
 		}
 
 		const logs = [];
 
 		if (doWin) {
-			elLog.textContent = [...logs, '生成中…（win）'].join('\n\n');
+			renderLogBlocks(elLog, [...logs, '生成中…（win）']);
 			try {
 				const logWin = await invoke('run_gen_legacy_patch', {apps: appsWin, stubPath: stubWin, outPath: outWin});
 				logs.push(`[win] → ${outWin}\n${logWin}`);
 			}
 			catch (e) {
 				logs.push(`✗ win向け生成に失敗しました：\n${String(e)}`);
-				elLog.textContent = logs.join('\n\n');
+				renderLogBlocks(elLog, logs);
 				return;
 			}
 		}
 
 		if (doMac) {
-			elLog.textContent = [...logs, '生成中…（mac）'].join('\n\n');
+			renderLogBlocks(elLog, [...logs, '生成中…（mac）']);
 			try {
 				const logMac = await invoke('run_gen_legacy_patch', {apps: appsMac, stubPath: stubMac, outPath: outMac});
 				logs.push(`[mac] → ${outMac}\n${logMac}`);
 			}
 			catch (e) {
 				logs.push(`✗ mac向け生成に失敗しました：\n${String(e)}`);
-				elLog.textContent = logs.join('\n\n');
+				renderLogBlocks(elLog, logs);
 				return;
 			}
 		}
 
-		elLog.textContent = logs.join('\n\n');
+		renderLogBlocks(elLog, logs);
 	}
 	finally {
 		btnRun.disabled = false;
@@ -803,16 +820,43 @@ void invoke('r2_load_config').then((config)=> {
 	updateR2ConfiguredBadge();
 });
 
+// 実行ログ・ステータス表示の色分け（2026-09-17・ユーザー指摘：「エラー系なら
+// 赤文字、正常なら✅付き白文字で」）。✗を含む＝エラー、末尾が「…」＝進行中
+// （まだ結果が出ていないのでmuted）、それ以外＝正常、という単純な文言ベースの判定
+function classifyLogText(text) {
+	if (text.includes('✗')) return 'log-error';
+	if (/…$/.test(text.trim())) return 'log-progress';
+	return 'log-ok';
+}
+
 // 同じ文言のまま連打されても「消えて出る」を繰り返させ、反応を分かりやすくする。
 // ms に 0 を渡すと消さない（アップロードのように結果を見逃すと困る処理向け。
 // 2026-09-15・実機確認：231MBのアップロード中に目を離すと2.5秒で消える完了表示を
 // 見逃す、というフィードバックを受けて追加）
 function flashStatus(el, text, ms = 2500) {
 	el.textContent = '';
+	el.classList.remove('log-error', 'log-progress', 'log-ok');
 	// 直前と同文言でも再度アニメーションさせるため、次フレームで設定する
-	requestAnimationFrame(()=> { el.textContent = text; });
+	requestAnimationFrame(()=> {
+		el.textContent = text;
+		el.classList.add(classifyLogText(text));
+	});
 	clearTimeout(el._flashTimer);
-	if (ms > 0) el._flashTimer = setTimeout(()=> { el.textContent = ''; }, ms);
+	if (ms > 0) el._flashTimer = setTimeout(()=> { el.textContent = ''; el.classList.remove('log-error', 'log-progress', 'log-ok'); }, ms);
+}
+
+// 複数行にまたがる実行ログ（resultLog等）をブロック単位（\n\nで結ぶ想定）で
+// 色分け表示する。正常なブロックには✅が無ければ付与する
+function renderLogBlocks(elLog, blocks) {
+	elLog.innerHTML = '';
+	blocks.forEach((block, i)=> {
+		if (i > 0) elLog.appendChild(document.createTextNode('\n\n'));
+		const span = document.createElement('span');
+		const cls = classifyLogText(block);
+		span.className = cls;
+		span.textContent = cls === 'log-ok' && ! /^[✅✓]/.test(block) ? `✅ ${block}` : block;
+		elLog.appendChild(span);
+	});
 }
 
 document.getElementById('btnR2Save').addEventListener('click', async ()=> {
@@ -837,23 +881,35 @@ document.getElementById('btnR2PickUpload').addEventListener('click', async ()=> 
 	if (! elKey.value.trim()) elKey.value = `patch/${path.split(/[\\/]/).pop()}`;
 });
 
-document.getElementById('btnR2Upload').addEventListener('click', async ()=> {
+// クリックハンドラ自体は即座に「予約済み」表示だけして終わり、実際のアップロードは
+// マイクロタスクに委譲する（2026-09-17・ユーザー指摘。.btnUploadLatestと同じ方針）
+document.getElementById('btnR2Upload').addEventListener('click', ()=> {
+	const btn = document.getElementById('btnR2Upload');
+	if (btn.disabled) return;
 	const elLog = document.getElementById('r2UploadLog');
 	const localPath = document.getElementById('r2UploadPath').value.trim();
 	const key = document.getElementById('r2UploadKey').value.trim();
-	if (! localPath) { elLog.textContent = '✗ アップロードするファイルを選択してください'; return; }
-	if (! key) { elLog.textContent = '✗ 保存先キー名を入力してください'; return; }
+	if (! localPath) { renderLogBlocks(elLog, ['✗ アップロードするファイルを選択してください']); return; }
+	if (! key) { renderLogBlocks(elLog, ['✗ 保存先キー名を入力してください']); return; }
 
-	elLog.textContent = 'アップロード中…';
+	btn.disabled = true;
+	renderLogBlocks(elLog, ['予約済み・処理中…']);
+	void Promise.resolve().then(()=> uploadToR2(btn, elLog, localPath, key));
+});
+
+async function uploadToR2(btn, elLog, localPath, key) {
 	try {
 		const url = await invoke('r2_upload_file', {config: r2CollectConfig(), localPath, key});
-		elLog.textContent = `✓ アップロード完了\n${url}`;
+		renderLogBlocks(elLog, [`アップロード完了\n${url}`]);
 		void r2Refresh();
 	}
 	catch (e) {
-		elLog.textContent = `✗ アップロードに失敗しました：\n${String(e)}`;
+		renderLogBlocks(elLog, [`✗ アップロードに失敗しました：\n${String(e)}`]);
 	}
-});
+	finally {
+		btn.disabled = false;
+	}
+}
 
 async function r2Refresh() {
 	const tbody = document.querySelector('#r2List tbody');

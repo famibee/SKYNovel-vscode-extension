@@ -307,6 +307,11 @@ details.global-config[open] summary { margin-bottom: 10px; }
 .global-config h2 { font-size: 1em; margin: 0 0 10px; }
 .global-config .sub { margin: -4px 0 12px; color: var(--muted); font-size: 0.8em; }
 .hosting-status, .latest-upload-status, .project-scan-status { margin-left: 10px; font-size: 0.85em; color: var(--muted); }
+/* 実行ログ・ステータス表示の色分け（2026-09-17・ユーザー指摘：エラー系は赤文字、
+   正常なら✅付き白文字で。app.jsのclassifyLogText()が付与するクラス） */
+.log-error { color: var(--danger); }
+.log-ok { color: var(--fg); }
+.log-progress { color: var(--muted); }
 .hosting-log {
 	background: var(--bg);
 	border: 1px solid var(--border);
