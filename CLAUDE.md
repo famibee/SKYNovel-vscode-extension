@@ -5,7 +5,7 @@
 
 ## TODO・開発者ドキュメントの置き場
 
-- **[src/docs/TODO.md](src/docs/TODO.md)** … 行動項目だけを持つ TODO。まずここを見る
+- **[src/docs/TODO.md](src/docs/TODO.md)** … 行動項目だけを持つ TODO。今後の予定・優先度を相談するときはまずここを見る
 - **src/docs/** … 設計判断の経緯・調査結果・実測値・宿題の詳細（[索引](src/docs/README.md)）
 - **src/docs/TODO.private.md**（git 管理外） … 非公開にすべき交渉経緯・個人情報を含む記録
 
@@ -48,10 +48,13 @@ SKYNovel の全タグ（114件）の仕様。**タグの引数・既定値・値
 | | |
 |---|---|
 | `bun run build` | md.json 生成 → Vue ビルド → esbuild |
-| `bun run chk:types` | 型検査のみ（`tsc --noEmit`） |
+| `bun run chk:types` | 型検査のみ（`tsc -p tsconfig.chk.json --noEmit`） |
 | `bun run test:int` | 統合テスト。VSCode を起動して `vscode` API を叩く |
 | `bun run test:ui` | UI テスト。Playwright で画面を操作する |
 | `bun run release` | 公開前チェック。vsix を作り SHA256 まで出す（**公開はしない**） |
 
 `test:ui` が `bun` ではなく `node test/ui/runUI.mjs` なのは、Playwright を bun で
 動かすとタイムアウトするため。
+
+作業完了と報告する前に、TS を変更したら `bun run chk:types`、`server/` を変更したら
+`bun run test:int` も通す。
