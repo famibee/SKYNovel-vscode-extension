@@ -30,7 +30,7 @@
 
 | # | 内容 | 時期 | 節 |
 |---|---|---|---|
-| 1 | **Marketplace 再申請**（新 ID `famibee2.bluesnovel`） | **是正版 v4.33.2 を公開済み・是正報告メール送信済み（2026-08-26）。Microsoft からの次の返信待ち** | §1 |
+| 1 | **publisher `famibee2` ブロック解除済み（2026-10-09）。新版 `famibee2.bluesnovel` の公開が、削除済み旧版の内部レコード残存によりブロックされている。Microsoft へクリーンアップ依頼中** | **先方の返信待ち** | §1 |
 | 2 | **v5.0.0 正式版**＋**移行案内の公開**（README / ブログ / テンプレ README の3本） | **8/23 以降・再申請と同時** | [release.md](release.md) |
 
 ### 構造の作り直し【この順で。2026-07-30 に順序を決定】
@@ -137,10 +137,12 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 
 現在分かっている範囲の要約：
 
-- コード側の是正（依存の整理・pip install の同意化）は完了済み（CHANGELOG 参照）
+- コード側の是正（依存の整理・pip install の同意化、metadata の BlueSNovel 化）は完了済み（CHANGELOG 参照）
 - 削除された旧拡張機能の ID は復活しないため、**新しい extension name
 `famibee2.bluesnovel` で公開し直している**（[features.md](features.md)）
-- 是正版 **v4.33.2** を GitHub Releases に公開済み：
-https://github.com/famibee/SKYNovel-vscode-extension/releases/tag/v4.33.2
-- Microsoft への是正報告メール（4通目への返信）は**送信済み（2026-08-26）**
-- 現状は先方からの次の返信待ち
+- **2026-10-09、publisher `famibee2` のブロックが解除された。**
+  現在、新旧どちらの拡張機能も Marketplace 上には存在しない（全削除状態）
+- 旧版 `famibee2.skynovel2` の**再登録は技術的に不可能と確認済み**（削除済み拡張機能の
+  名前・repository URL の内部レコードが残存し、新旧どちらの名前でも阻まれる）
+- 新版 `famibee2.bluesnovel` の公開も、この残存レコードが使う repository URL と衝突して
+  ブロックされている。Microsoft へクリーンアップを依頼する返信を送付中
