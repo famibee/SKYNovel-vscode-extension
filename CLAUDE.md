@@ -43,6 +43,20 @@ SKYNovel の全タグ（114件）の仕様。**タグの引数・既定値・値
 拡張機能が生成・更新する（`src/Project.ts` の `updPathJson()`）。
 
 
+## 規約
+
+- コミットメッセージは **`type(scope): 日本語の説明`**（Conventional Commits 風）。
+  `type` は `feat`/`fix`/`perf`/`docs`/`chore`/`refactor`/`test` 等、`scope` は
+  触った領域（`lsp`/`release`/`readme`/`repository` 等）。例：
+  `fix(repository): Marketplace指摘を受けGitHubリポジトリ名をbluesnovel-vsceに変更`
+  - ⚠️ **release-please・semantic-release の類は未導入。** CHANGELOG.md は
+  [release.md](src/docs/release.md) の手順通り**手動で先に書く**運用で、
+  コミットメッセージから自動生成されるわけではない。それでも揃えるのは
+  単純に可読性のため（隣接プロジェクト `bluesnovel` は release-please を使っており
+  そちらは本当にコミットメッセージからリリースノートを自動生成するが、
+  別リポジトリの話で本リポジトリには適用されない）
+  - git add / git commit はユーザーが行う。作業完了時は最後にコミットメッセージ案を提示するだけ
+
 ## コマンド
 
 | | |

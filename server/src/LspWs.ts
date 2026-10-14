@@ -724,6 +724,9 @@ sys:TextLayer.Back.Alpha`.split('\n');
 		this.#hT2DefKw2ALoc = <{[key in T_CHK重複_KEY]: MAP_KW2ALOC}>Object
 		.fromEntries( CHK重複_KEY.map(v=> [v, new Map]) );
 
+		this.#hKwFix2Val2aFp = <{[key in T_KW_FIX]: Map<string, Set<FULL_PATH>>}>Object
+		.fromEntries( KW_FIX.map(v=> [v, new Map]) );
+
 		const aKw = [...KW_FIX, ...KW_VAR];
 		this.#hKey2KW = <{[key in T_KW]: Set<string>}>Object
 		.fromEntries( aKw.map(kw=> [kw, new Set]) );
@@ -1618,18 +1621,16 @@ WorkspaceEdit
 
 	/**
 	 * path.json だけが変わったときの再走査。**本文を受け取らない**。
+	 * 保持済みの `#hPp2Scr` をそのまま使う。
 	 *
-	 * `#scanAll()` との違いは **`#grm.resolveScript()` を呼ばない**ことだけ。
-	 * 保持済みの `#hPp2Scr` をそのまま使う（`#scanInitAll()` は `#hPp2Scr` を
-	 * 消さないので安全。確認済み）。
-	 *
-	 * 検証（`#scanScript`）はやり直す。path.json のファイル名キーワードに
-	 * 依存しているので飛ばせない
+	 * **全ファイルは検証し直さない。** `KW_FIX`（実存ファイル組）の値のうち
+	 * 追加・削除されたものだけを求め、`#hKwFix2Val2aFp`（値→参照fpの逆引き。
+	 * 有効・無効を問わず `#chkKW()` 実行時に記録）でその値を参照している fp
+	 * だけに絞って `#scanScript` を呼ぶ（lsp-design.md 宿題3）。
+	 * `#scanInitAll()` は呼ばない：マクロ・ラベル等は path.json と無関係に
+	 * 不変なので壊してはいけない。`#hKey2KW` の `KW_FIX` 分だけ手動でクリアする
+	 * （`#updPath()` は追加するだけで既存はクリアしないため）。
 	 */
-	// TODO: [perf] path.json が変わると全ファイルを検証し直している。
-	// その素材名を参照するファイルだけに絞れれば 96ms → 9〜12ms（実測の天井）。
-	// ⚠️ 難しさは速度でなく正しさ。診断は「消えた素材を参照している」も含むので
-	// 参照の向きが両方向。絞り込みを誤ると誤診断が残る／消える（src/docs/lsp-design.md 宿題3）
 	#reScanPath({sPathJson, hDefPlg, haDiag}: T_L2S_upd_path) {
 		this.#hDefPlugin = hDefPlg;
 
@@ -1638,13 +1639,36 @@ WorkspaceEdit
 		let t = now();
 
 		this.#scanBegin();
-		this.#scanInitAll();
-		this.#updPath(sPathJson);		// 必ず #scanInitAll() 後
+
+		// 削除された値を見つけるには新旧比較が要る（逆引きは新しい値では
+		// 引けない）ので、クリア・#updPath() の前に退避する
+		const hOldVal = <{[key in T_KW_FIX]: Set<string>}>Object
+		.fromEntries( KW_FIX.map(k=> [k, new Set(this.#hKey2KW[k])]) );
+
+		for (const k of KW_FIX) this.#hKey2KW[k].clear();
+		this.#updPath(sPathJson);
 		ms.init = now() - t;
 
-		for (const [pp, {s}] of Object.entries(this.#hPp2Scr)) {
+		// 追加・削除された値を求め、参照fpだけ再検証対象にする
+		this.#sFpNeedScan = new Set;
+		for (const k of KW_FIX) {
+			const hOld = hOldVal[k];
+			const hNew = this.#hKey2KW[k];
+			const m = this.#hKwFix2Val2aFp[k];
+			for (const val of new Set([...hOld, ...hNew])) {
+				if (hOld.has(val) === hNew.has(val)) continue;	// 変化なし
+
+				for (const fp of m.get(val) ?? []) this.#sFpNeedScan.add(fp);
+			}
+		}
+
+		for (const fp of this.#sFpNeedScan) {
+			const pp = this.#fp2pp(fp);
+			const s = this.#hPp2Scr[pp]?.s;
+			if (s === undefined) continue;	// 既に削除されたファイル
+
 			t = now();
-			this.#scanScript(this.#pp2fp(pp));
+			this.#scanScript(fp);
 			ms.scan += now() - t;
 
 			t = now();
@@ -1803,11 +1827,18 @@ WorkspaceEdit
 			if (nm in this.#hMacro2aLocUse) continue;
 			if (hPrm?.nowarn_unused?.val) continue;
 
+			const m = mes.replace('$', nm);
+			// 同じ警告は一度全て削除。#reScanPath の絞り込み再走査では
+			// 未変更ファイルの #fp2Diag をクリアしないため、ここで毎回重複排除する
+			for (const [fp2, aD] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
+				this.#fp2Diag[fp2] = aD.flatMap(d=> d.message === m ?[] :d);
+			}
+
 			// loc.uri is fp
 				// loc.uri=/Users/[略]/win/doc/prj/script/main.sn:
 				// loc.uri=/Users/[略]/mac/doc/prj/script/main.sn:
 			(this.#fp2Diag[<FULL_PATH>loc.uri] ??= []).push(Diagnostic.create(
-				loc.range, mes.replace('$', nm), sev
+				loc.range, m, sev
 			));
 		}
 
@@ -1986,6 +2017,10 @@ WorkspaceEdit
 	// キーワード重複チェック用
 	readonly	#hT2DefKw2ALoc	: {[key in T_CHK重複_KEY]: MAP_KW2ALOC};
 
+	// KW_FIX（実存ファイル組）の値→参照fp 逆引き。path.json 変更時、
+	// 再検証が必要な fp を絞り込むのに使う（lsp-design.md 宿題3）
+	readonly	#hKwFix2Val2aFp	: {[key in T_KW_FIX]: Map<string, Set<FULL_PATH>>};
+
 
 	#scanInitAll() {
 		this.#hDefMacro = {};
@@ -2049,6 +2084,9 @@ WorkspaceEdit
 	#nowModeVal2fontNm	= H_FONTJSON_nm_DEF_FONT;
 	#scanScript(fp: FULL_PATH) {
 		const pp = this.#fp2pp(fp);
+		for (const m of Object.values(this.#hKwFix2Val2aFp)) {
+			for (const sFp of m.values()) sFp.delete(fp);
+		}
 		for (const m of Object.values(this.#hT2DefKw2ALoc)) {
 			this.#delDefKw(m, fp);
 			for (const [nm, aLoc] of m.entries()) {
@@ -2338,20 +2376,20 @@ WorkspaceEdit
 					const [, one_rt = ''] = a;
 					for (const v of val.split(',')) {
 						rng.v_len = v.length;
-						this.#chkRangeType(aDi, use_nm, hArg, one_rt, v, name, rng);	// Position から作り直さないと反映されない
+						this.#chkRangeType(aDi, fp, use_nm, hArg, one_rt, v, name, rng);	// Position から作り直さないと反映されない
 						rng.k_ch = rng.v_ch += rng.v_len +1;
 						this.#fp2Diag[fp] = aDi;
 					}
 					continue;
 				}
 				rng.v_len = val.length;
-				this.#chkRangeType(aDi, use_nm, hArg, rt, val, name, rng);
+				this.#chkRangeType(aDi, fp, use_nm, hArg, rt, val, name, rng);
 				this.#fp2Diag[fp] = aDi;
 			}
 		}
 			readonly #REG_複数指定 = /(\S+)（カンマ区切りで複数可）/;
 
-		#chkRangeType(aDi: Diagnostic[], use_nm: string, hArg: HPRM, rangetype: string, val: string, name: string, prm: PRM_RANGE) {
+		#chkRangeType(aDi: Diagnostic[], fp: FULL_PATH, use_nm: string, hArg: HPRM, rangetype: string, val: string, name: string, prm: PRM_RANGE) {
 			let is属性値正常 = true;
 			switch (rangetype) {
 				// メソッド系
@@ -2369,12 +2407,12 @@ WorkspaceEdit
 						if ('fn' in hArg) break;
 
 						// nameがfnになるので、画像ファイル名としてチェック
-						this.#chkKW(aDi, name, '画像ファイル名', val, prm);
+						this.#chkKW(aDi, fp, name, '画像ファイル名', val, prm);
 						return;
 					}
 
 					// KW差分名称 は KW画像ファイル名も含んでいる
-					this.#chkKW(aDi, name, rangetype, val, prm);
+					this.#chkKW(aDi, fp, name, rangetype, val, prm);
 					return;
 
 				case 'レイヤ名':
@@ -2389,7 +2427,7 @@ WorkspaceEdit
 				case '文字出現演出名':
 				case '文字消去演出名':
 			//	case 'サウンドバッファ名':	// 観察者効果により存在チェック不可
-					this.#chkKW(aDi, name, rangetype, val, prm);
+					this.#chkKW(aDi, fp, name, rangetype, val, prm);
 					return;
 				// フォントファイルは #getFonts2ANm()→ローカルにて。システムフォントを調べる必要がある
 
@@ -2458,7 +2496,17 @@ WorkspaceEdit
 		}
 		#hChkDup	: {[name: string]: Map<string, Diagnostic>}		= {};
 
-		#chkKW(aDi: Diagnostic[], name: string, rangetype: T_KW, val: string, prm: PRM_RANGE): void {
+		#chkKW(aDi: Diagnostic[], fp: FULL_PATH, name: string, rangetype: T_KW, val: string, prm: PRM_RANGE): void {
+			// path.json 変更時の再検証対象絞り込み用（lsp-design.md 宿題3）。
+			// 有効・無効を問わず「参照している」事実を記録する（無効→有効に変わった
+			// 参照を後から見つけ直す必要があるため）
+			if ((<readonly string[]>KW_FIX).includes(rangetype)) {
+				const m = this.#hKwFix2Val2aFp[<T_KW_FIX>rangetype];
+				const sFp = m.get(val) ?? new Set<FULL_PATH>();
+				sFp.add(fp);
+				m.set(val, sFp);
+			}
+
 			if (! (rangetype in this.#hKey2KW)) return;
 			if (this.#hKey2KW[rangetype].has(val)) return;
 
