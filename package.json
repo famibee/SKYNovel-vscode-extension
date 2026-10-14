@@ -6,7 +6,7 @@
 	"description": "Supports BlueSNovel / SKYNovel game development. It runs npm/bun build tasks in the terminal, and — only with your consent — installs the Python packages fonttools/brotli via pip when you turn on font optimization. VSCodeでBlueSNovel / SKYNovelの開発をサポートする拡張機能。npm/bun のビルドタスクをターミナルで実行し、フォント最適化を有効にする時のみ、同意を得た上で pip で fonttools/brotli を導入します",
 	"author": "miyazawa famibee",
 	"icon": "res/img/icon_bluesnovel.png",
-	"homepage": "http://famibee.blog38.fc2.com/",
+	"homepage": "https://famibee.blog.fc2.com/",
 	"license": "MIT",
 	"engines": {
 		"vscode": "^1.140.0",

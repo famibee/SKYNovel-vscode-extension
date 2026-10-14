@@ -1,4 +1,5 @@
 # BlueSNovel / SKYNovel Extension for VSCode
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/famibee2.bluesnovel?style=for-the-badge&color=blue)](https://marketplace.visualstudio.com/items?itemName=famibee2.bluesnovel)
 [![MIT](https://img.shields.io/badge/MIT-green?style=for-the-badge)](https://github.com/famibee/skynovel_esm/blob/master/LICENSE)
 ![VSCode](https://img.shields.io/badge/VSCode-0078D4?style=for-the-badge&logo=visual%20studio%20code&logoColor=white)
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
@@ -13,21 +14,6 @@ A VSCode extension for developing visual novel games with the **BlueSNovel** / *
 BlueSNovel / SKYNovel（ノベルゲームエンジン）向けの VSCode 拡張機能です。`.sn` / `.ssn` スクリプトのシンタックスハイライト・診断・コーディング補助・ステップデバッガーを提供します。
 
 [CHANGELOG.md](CHANGELOG.md)
-
----
-## ⚠️ Important Notice / 重要なお知らせ (2026/07)
-
-**This extension is currently unavailable on the Visual Studio Marketplace.** The Marketplace listing was taken down in late July 2026. Already-installed copies generally keep working, but new installs and auto-updates are not possible for now.
-
-We are fixing the issues that led to the takedown, and a corrected build will be distributed via **[GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases)**. Development continues.
-
-- Details: [Announcement (Japanese)](https://famibee.blog.fc2.com/blog-entry-980.html)
-
-**現在、この拡張機能は Visual Studio Marketplace から入手できません。** 2026年7月下旬に配布が停止されました。すでにインストール済みのものは基本的にそのまま使えますが、新規インストールと自動更新はできない状態です。
-
-指摘された箇所を修正中で、修正版は **[GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases)** から配布します。開発は継続します。
-
-- 詳しい経緯：[お知らせ記事](https://famibee.blog.fc2.com/blog-entry-980.html)
 
 ---
 ## What this extension runs on your machine / この拡張機能がユーザー環境で実行するもの

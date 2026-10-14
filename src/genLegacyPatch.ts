@@ -222,7 +222,7 @@ for (const entry of configRaw.apps) {
 		usageAndExit((<Error>e).message);
 	}
 	if (! Array.isArray(legacyInstallers) || legacyInstallers.length === 0) usageAndExit(`legacyInstallers を最低1つ指定すること（${appName}）`);
-	for (const p of [pathPass, ...legacyInstallers, ...(latestInstaller ? [latestInstaller] : [])]) {
+	for (const p of [pathPass, ...legacyInstallers, ...latestInstaller ? [latestInstaller] : []]) {
 		if (! existsSync(p)) usageAndExit(`ファイルが見つからない（${appName}）: ${p}`);
 	}
 
