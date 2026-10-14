@@ -26,7 +26,7 @@ const nNodeReqVer = 24_019_000;
 const URL_TMP_ZIP = (nm: string)=> `https://github.com/famibee/${nm}/archive/main.zip`;
 
 // 拡張機能自身の更新確認。【通知のみ】で、取得もインストールもしない
-const REPO_EXT = 'famibee/SKYNovel-vscode-extension';
+const REPO_EXT = 'famibee/bluesnovel-vsce';
 const URL_EXT_LATEST = `https://api.github.com/repos/${REPO_EXT}/releases/latest`;
 	// master の package.json ではなく Releases を見る。リリース手順では
 	// 版を上げてコミットした後に Releases を作るので、master を見ると

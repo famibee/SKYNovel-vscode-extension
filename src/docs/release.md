@@ -235,6 +235,6 @@ Your projects are not affected. Nothing under `doc/prj/` is touched by this.
 
 拡張機能は **`famibee2.bluesnovel`（BlueSNovel / SKYNovel）** に名前が変わりました。
 **旧版（SKYNovel / `famibee2.skynovel2`）は先にアンインストールしてください。**
-→ [詳細](https://github.com/famibee/SKYNovel-vscode-extension#readme)
+→ [詳細](https://github.com/famibee/bluesnovel-vsce#readme)
 ```
 

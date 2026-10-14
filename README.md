@@ -3,8 +3,8 @@
 ![VSCode](https://img.shields.io/badge/VSCode-0078D4?style=for-the-badge&logo=visual%20studio%20code&logoColor=white)
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
-![GitHub package.json version](https://img.shields.io/github/package-json/v/famibee/SKYNovel-vscode-extension?color=brightgreen)
-![GitHub last commit](https://img.shields.io/github/last-commit/famibee/SKYNovel-vscode-extension)
+![GitHub package.json version](https://img.shields.io/github/package-json/v/famibee/bluesnovel-vsce?color=brightgreen)
+![GitHub last commit](https://img.shields.io/github/last-commit/famibee/bluesnovel-vsce)
 
 <img src="res/img/icon.png" width="100" loading="lazy">
 
@@ -19,13 +19,13 @@ BlueSNovel / SKYNovel（ノベルゲームエンジン）向けの VSCode 拡張
 
 **This extension is currently unavailable on the Visual Studio Marketplace.** The Marketplace listing was taken down in late July 2026. Already-installed copies generally keep working, but new installs and auto-updates are not possible for now.
 
-We are fixing the issues that led to the takedown, and a corrected build will be distributed via **[GitHub Releases](https://github.com/famibee/SKYNovel-vscode-extension/releases)**. Development continues.
+We are fixing the issues that led to the takedown, and a corrected build will be distributed via **[GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases)**. Development continues.
 
 - Details: [Announcement (Japanese)](https://famibee.blog.fc2.com/blog-entry-980.html)
 
 **現在、この拡張機能は Visual Studio Marketplace から入手できません。** 2026年7月下旬に配布が停止されました。すでにインストール済みのものは基本的にそのまま使えますが、新規インストールと自動更新はできない状態です。
 
-指摘された箇所を修正中で、修正版は **[GitHub Releases](https://github.com/famibee/SKYNovel-vscode-extension/releases)** から配布します。開発は継続します。
+指摘された箇所を修正中で、修正版は **[GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases)** から配布します。開発は継続します。
 
 - 詳しい経緯：[お知らせ記事](https://famibee.blog.fc2.com/blog-entry-980.html)
 
