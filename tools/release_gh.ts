@@ -58,15 +58,19 @@ if (ahead !== '0') {
 	process.exit(1);
 }
 
-// CHANGELOG.md から該当バージョンのセクション（次の `## ` 見出し手前まで）を抽出
+// CHANGELOG.md から該当バージョンのセクション（次の `## ` 見出し手前まで）を抽出。
+// ⚠️ 正規表現の `(?=\n## |$)` は使わない。`m` フラグの `$` は「各行末」にマッチするため、
+// 見出し直後の空行で非貪欲マッチが早期に止まり、本文が空になる不具合を一度踏んだ
 const changelog = readFileSync('CHANGELOG.md', {encoding: 'utf8'});
-const regSection = new RegExp(`^## v${version.replace(/\./g, '\\.')}(?:（[^）]*）)?[ \\t]*\\n([\\s\\S]*?)(?=\\n## |$)`, 'm');
-const m = regSection.exec(changelog);
-if (! m) {
+const regHeading = new RegExp(`^## v${version.replace(/\./g, '\\.')}(?:（[^）]*）)?[ \\t]*$`, 'm');
+const mHeading = regHeading.exec(changelog);
+if (! mHeading) {
 	console.error(`✗ CHANGELOG.md に "## v${version}" の見出しが見つかりません。先頭に追記してから実行すること`);
 	process.exit(1);
 }
-const body = (m[1] ?? '').trim();
+const afterHeading = changelog.slice(mHeading.index + mHeading[0].length);
+const idxNext = afterHeading.indexOf('\n## ');
+const body = (idxNext === -1 ? afterHeading : afterHeading.slice(0, idxNext)).trim();
 
 // タイトルはセクション内の最初の説明文（箇条書きの前にある概要の段落）。
 // 無ければタグ名のみにする（release.md「リリースタイトルは要約文を付けること」の落とし穴対策）
