@@ -1,3 +1,9 @@
+## v4.35.6
+
+CodeQL再スキャンで30件→5件まで減少したことを確認。残り1件への対応。
+
+- fix(download): **`DownloadUrlCheck.ts` のHTTPS判定を `URL.protocol` 判定に変更**。文字列の `startsWith('https://')` では CodeQL のデータフロー解析が「以降 url は https 確定」と追跡できていなかった
+
 ## v4.35.5
 
 CodeQL（Code scanning）対応の続き。残っていた診断メッセージの不完全な置換と、インストーラーダウンロードのHTTP許可を修正。

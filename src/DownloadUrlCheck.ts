@@ -47,8 +47,16 @@ function guessExtKind(url: string): 'zip' | 'exe' | 'dmg' | undefined {
 export async function checkDownloadUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<T_DOWNLOAD_URL_CHECK_RESULT> {
 	// http:// は許可しない。インストーラという機密性の高いダウンロード対象を
 	// 平文経路に流すと、中間者攻撃で差し替えられても検知できない（CodeQL js/insecure-download 対応）。
-	// 失敗時は呼び出し元で警告のみ・生成は続行する設計なので、ここで弾いても安全側に倒すだけで済む
-	if (! url.startsWith('https://')) return {ok: false, reason: 'https:// で始まらない（httpは安全でないため許可しない）'};
+	// 失敗時は呼び出し元で警告のみ・生成は続行する設計なので、ここで弾いても安全側に倒すだけで済む。
+	// startsWith('https://') の文字列チェックだと CodeQL のデータフロー解析が
+	// 「以降 url は https 確定」と追跡できなかったため、URL.protocol 判定にしている
+	let urlObj: URL;
+	try {
+		urlObj = new URL(url);
+	} catch {
+		return {ok: false, reason: 'URL として解釈できない'};
+	}
+	if (urlObj.protocol !== 'https:') return {ok: false, reason: 'https:// で始まらない（httpは安全でないため許可しない）'};
 
 	let res: Response;
 	try {
