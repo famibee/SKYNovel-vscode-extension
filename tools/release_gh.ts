@@ -74,7 +74,10 @@ try {
 // ⚠️ 正規表現の `(?=\n## |$)` は使わない。`m` フラグの `$` は「各行末」にマッチするため、
 // 見出し直後の空行で非貪欲マッチが早期に止まり、本文が空になる不具合を一度踏んだ
 const changelog = readFileSync('CHANGELOG.md', {encoding: 'utf8'});
-const regHeading = new RegExp(`^## v${version.replace(/\./g, '\\.')}(?:（[^）]*）)?[ \\t]*$`, 'm');
+// version（package.json 由来、本来 semver の数字と `.` のみ）を正規表現に埋め込むので、
+// ドットだけでなく正規表現の特殊文字全般（バックスラッシュ含む）をエスケープする
+const escRegExp = (s: string)=> s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const regHeading = new RegExp(`^## v${escRegExp(version)}(?:（[^）]*）)?[ \\t]*$`, 'm');
 const mHeading = regHeading.exec(changelog);
 if (! mHeading) {
 	console.error(`✗ CHANGELOG.md に "## v${version}" の見出しが見つかりません。先頭に追記してから実行すること`);

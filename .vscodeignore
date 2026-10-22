@@ -19,6 +19,10 @@ patch_gen_gui/
 **/*.ts
 **/*.vue
 
+views/score.*
+	# CteScore（SKYNovel.score）凍結中（2026-10-22）。score.ts/score.htm は
+	# 配線を外したので到達不能。score.ts.frozen は **/*.ts に一致しないため明示
+
 .claude/
 CLAUDE.md
 .eslintrc.json

@@ -10,7 +10,6 @@ import {type ActivityBar, oIcon} from './ActivityBar';
 import {Project} from './Project';
 import {initDebug} from './DebugAdapter';
 import {Debugger} from './Debugger';
-import {CteScore} from './CteScore';
 import {type PrjTreeItem, TASK_TYPE, updStatBreak} from './PrjTreeItem';
 import type {T_MES_L2S} from '../server/src/LangSrv';
 import type {T_ALL_L2S, T_ALL_S2L, T_ALL_S2L_WS} from '../server/src/LspWs';
@@ -257,7 +256,9 @@ $(info)	$(warning)	$(symbol-event) $(globe)	https://microsoft.github.io/vscode-c
 
 		ctx.subscriptions.push(languages.registerDocumentDropEditProvider(docsel, this));
 
-		CteScore.init(ctx);
+		// CteScore（スコアエディタ、SKYNovel.score）は未使用のまま凍結中（2026-10-22）。
+		// 配線・package.json の customEditors ごと外した。再開時は src/docs/TODO.md 参照
+		// CteScore.init(ctx);
 
 		this.#removeStatusItem('init');
 

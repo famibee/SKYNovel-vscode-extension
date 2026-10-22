@@ -110,6 +110,17 @@ export function repWvUri(inp: string, wv: Webview, uriDoc: Uri): string {
 	.replaceAll(/(href|src)="\.\//g, `$1="${String(wv.asWebviewUri(uriDoc))}/`);	// 必ず String() で
 }
 
+/**
+ * HTML のテキストノード・属性値の両方に安全な最小限のエスケープ。
+ * `.sn`/`.ssn` の本文・タグ引数など、**利用者が書いた文字列**を webview へ
+ * テンプレートリテラルで埋め込む前に必ず通すこと（CodeQL js/xss 対応）
+ */
+export function escHtml(s: string): string {
+	return s.replace(/[&<>"']/g, c=> (<{[c: string]: string}>{
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;',
+	})[c] ?? c);
+}
+
 
 // =============== Project
 

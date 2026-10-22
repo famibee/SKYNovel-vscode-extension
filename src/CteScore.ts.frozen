@@ -886,7 +886,15 @@ v.type === 'bool' ?' pt-2' :''
 		'SE'	: 7,
 		'詳細'	: 8,
 	};
+	/**
+	 * `btn_face`・`tooltip` はタグハンドラ（`#hTag2Tds`）側でユーザーの
+	 * タグ引数（`hPrm.*.val`）を直接埋め込んでいるため、ここで一括エスケープする。
+	 * `detail`・`aft` は意図的に HTML 構造を持つ文字列（各ハンドラ側で埋め込み値を
+	 * 個別にエスケープ済み）なのでそのまま通す
+	 */
 	#make_tds(col: number, line: number, btn_style: string, icon: string, btn_face: string, tooltip = '', aft = '', td_style = '', detail = ''): string {
+		btn_face = escHtml(btn_face);
+		tooltip = escHtml(tooltip);
 		return '<td></td>'.repeat(col) +`
 	<td class="p-0 ${td_style}">
 		<button type="button" class="btn btn-block btn-sm ${btn_style}" data-faceicon="${icon}" data-ripple-color="dark" id="${String(line)}btn" draggable="true"${

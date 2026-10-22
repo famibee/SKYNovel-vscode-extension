@@ -122,8 +122,9 @@ const A_REJECT_OWN = [
 const A_NEED_FILE = [
 	'package.json', 'README.md', 'CHANGELOG.md', 'LICENSE',
 	'dist/extension.js', 'dist/LangSrv.js', 'dist/md.json', 'dist/setting.html',
-	// views/*.ts から生成する webview スクリプト（ビルド忘れの検出）
-	'views/folder.js', 'views/tmpwiz.js', 'views/toolbox.js', 'views/score.js',
+	// views/*.ts から生成する webview スクリプト（ビルド忘れの検出）。
+	// score.js は CteScore（SKYNovel.score）凍結中のため対象外（2026-10-22）
+	'views/folder.js', 'views/tmpwiz.js', 'views/toolbox.js',
 ];
 const aFpVsix = execFileSync('vsce', ['ls', '--no-dependencies'], {encoding: 'utf8'})
 	.split('\n').map(v=> v.trim()).filter(v=> v !== '');

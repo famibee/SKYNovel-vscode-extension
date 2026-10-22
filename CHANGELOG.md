@@ -1,3 +1,14 @@
+## v4.35.4
+
+CodeQL（Code scanning）導入に伴う対応。未使用のスコアエディタ（`CteScore`/`SKYNovel.score`）を凍結し、拡張機能自身のリリーススクリプトのXSS類似指摘を修正。
+
+- chore: **未使用の `CteScore`（スコアエディタ、`SKYNovel.score`）を凍結**
+	- `src/WorkSpaces.ts` から配線（`CteScore.init(ctx)`）を外し、`package.json` の `customEditors` 定義も削除
+	- `src/CteScore.ts` → `src/CteScore.ts.frozen`、`views/score.ts` → `views/score.ts.frozen` に拡張子変更（型検査・lint・CodeQL の対象外に）。`.vscodeignore` でvsixからも除外
+	- 機能自体は使われておらず実害はなかったが、CodeQLが `js/xss` 等を検出したため、作り込みを再開するまで切り離した
+- fix(cmnlib): **`escHtml()` を追加**（HTMLエスケープの共通関数）
+- fix(release): `tools/release_gh.ts` の CodeQL 指摘（不完全なサニタイズ）に対応
+
 ## v4.35.3
 
 リリーススクリプト（`tools/release_gh.ts`）の信頼性向上。実運用でテストする中で見つかった不具合をまとめて修正。

@@ -101,7 +101,7 @@ const oBuild: BuildOptions = {
 			'./views/folder.ts',
 			'./views/tmpwiz.ts',
 			'./views/toolbox.ts',
-			'./views/score.ts',
+			// './views/score.ts' は CteScore（SKYNovel.score）凍結中のため対になるこちらも除外（2026-10-22）
 		],
 		outdir		: 'views',
 		platform	: 'browser',
