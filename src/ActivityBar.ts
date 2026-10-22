@@ -32,6 +32,7 @@ const URL_EXT_LATEST = `https://api.github.com/repos/${REPO_EXT}/releases/latest
 	// 版を上げてコミットした後に Releases を作るので、master を見ると
 	// 「まだダウンロードできない版」を告知してしまう
 const URL_EXT_RELEASES = `https://github.com/${REPO_EXT}/releases`;
+const URL_EXT_REPO = `https://github.com/${REPO_EXT}`;
 const KEY_SKIP_EXT_VER = 'skynovel.notifiedExtVer';	// 同じ版で繰り返し通知しない
 const CFG_CHK_EXT_VER = 'skynovel.chkExtUpdate';
 
@@ -163,6 +164,7 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
 				commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
 				commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+				commands.registerCommand('skynovel.openExtRepo', ()=> env.openExternal(Uri.parse(URL_EXT_REPO))),
 				commands.registerCommand('skynovel.dlExtVsix', ()=> {
 					if (ActivityBar.#urlExtVsixNew) void env.openExternal(Uri.parse(ActivityBar.#urlExtVsixNew));
 				}),

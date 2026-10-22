@@ -160,6 +160,14 @@
 				}
 			},
 			{
+				"command": "skynovel.openExtRepo",
+				"title": "Open releases page",
+				"icon": {
+					"light": "res/light/browser.svg",
+					"dark": "res/dark/browser.svg"
+				}
+			},
+			{
 				"command": "skynovel.dlExtVsix",
 				"title": "Download vsix",
 				"icon": {
@@ -493,7 +501,12 @@
 					"when": "view == skynovel-dev && viewItem == 'Node.js'"
 				},
 				{
-					"group": "inline",
+					"group": "inline@1",
+					"command": "skynovel.openExtRepo",
+					"when": "view == skynovel-dev && (viewItem == '拡張機能本体' || viewItem == 'extNewVer')"
+				},
+				{
+					"group": "inline@2",
 					"command": "skynovel.dlExtVsix",
 					"when": "view == skynovel-dev && viewItem == 'extNewVer'"
 				},
