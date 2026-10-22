@@ -7,7 +7,7 @@
 ** ***** END LICENSE BLOCK ***** */
 
 import type {FULL_PATH} from './CmnLib';
-import {foldProc, hDiagL2s, uint} from './CmnLib';
+import {fmtDiagMes, foldProc, hDiagL2s, uint} from './CmnLib';
 import {ConfigBase, creCFG} from './ConfigBase';
 import type {T_HSysBaseArg, T_Fn2Path, T_SysRoots, T_CFG_RAW} from './ConfigBase';
 import type {Encryptor} from './Encryptor';
@@ -179,7 +179,7 @@ export class Config extends ConfigBase {
 		else if (ext2 in hExts) {
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const {mes, sev} = hDiagL2s.ファイル重複!;
-			aD.push({mes: mes.replace('$', base), sev});
+			aD.push({mes: fmtDiagMes(mes, base), sev});
 			return;
 		}
 

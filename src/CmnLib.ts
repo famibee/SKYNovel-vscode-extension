@@ -121,6 +121,18 @@ export function escHtml(s: string): string {
 	})[c] ?? c);
 }
 
+/**
+ * 診断メッセージテンプレート（`hDiagL2s` 等）の `$` を、渡した値で先頭から順に埋める。
+ * `String.replace('$', v)` を1回だけ呼ぶ旧実装は、テンプレートに `$` が複数あると
+ * 2個目以降が置換されずに残る（CodeQL js/incomplete-sanitization 対応）。
+ * `server/src/LspWs.ts` にも同名の関数が独立して存在する（vscode 型への依存を
+ * 増やさないよう、あえて共有していない）
+ */
+export function fmtDiagMes(tmpl: string, ...vals: string[]): string {
+	let i = 0;
+	return tmpl.replace(/\$/g, ()=> vals[i++] ?? '$');
+}
+
 
 // =============== Project
 

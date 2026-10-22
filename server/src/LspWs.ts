@@ -410,6 +410,20 @@ const H_DIAG_MES = {
 type T_DIAG_KEY = keyof typeof H_DIAG_MES;
 
 /**
+ * 診断メッセージテンプレート（`H_DIAG_MES` / `hDiagL2s`）の `$` を、渡した値で
+ * 先頭から順に埋める。`属性値異常`・`キーワード不明` のようにテンプレートに
+ * `$` が複数あるものは、呼び出し側で値を複数渡すこと。
+ * `String.replace('$', v)` を複数回つなげる旧実装は、置換のたびに文字列を
+ * 再スキャンして「最初の `$`」を探すため1回ごとは正しく動くが、
+ * 呼び出し回数とテンプレート内の `$` の数が一致しているかはコードの目視でしか
+ * 保証できなかった（CodeQL js/incomplete-sanitization 対応でここへ集約した）
+ */
+function fmtDiagMes(tmpl: string, ...vals: string[]): string {
+	let i = 0;
+	return tmpl.replace(/\$/g, ()=> vals[i++] ?? '$');
+}
+
+/**
  * ⚠️ **fs を持たせない方針を維持すること。** `server/src/*.ts` の fs 呼び出しは
  * 0件が前提（web worker 拡張ホストでは fs / path / process が使えないため。
  * vscode.dev 対応は要求仕様ではないが、緩い縛りとして維持している）。
@@ -957,7 +971,7 @@ ${sum}`,
 					const {ln, ch} = idx2LnCol(s, m.index);
 					(this.#fp2Diag[fp] ??= []).push(Diagnostic.create(
 						Range.create(ln, ch +1, ln, ch +1 +m.length),
-						mes.replace('$', m[0]), sev, ACT_NFD_CODE
+						fmtDiagMes(mes, m[0]), sev, ACT_NFD_CODE
 					));
 				}
 			});
@@ -1212,7 +1226,10 @@ ${
 		for (const [key, set] of Object.entries(this.#hKey2KW)) {
 			const str = `|${
 				[...set.values()].sort().join('\n')
-				.replaceAll(/([|,])/g, '\\$1')	// スニペット構文のエスケープ
+				// スニペット構文のエスケープ。set はファイル名・識別子等、プロジェクト内を
+				// スキャンして集めた値（#scanEnd()）なので、利用者が決めた文字列が含まれ得る。
+				// \ もエスケープしないと、値に \ を含むものがあったとき構文が壊れる
+				.replaceAll(/[\\|,]/g, '\\$&')
 				.replaceAll('\n', ',')
 			}|`;
 			if (this.#hK2Snp[key] !== str) {
@@ -1827,7 +1844,7 @@ WorkspaceEdit
 			if (nm in this.#hMacro2aLocUse) continue;
 			if (hPrm?.nowarn_unused?.val) continue;
 
-			const m = mes.replace('$', nm);
+			const m = fmtDiagMes(mes, nm);
 			// 同じ警告は一度全て削除。#reScanPath の絞り込み再走査では
 			// 未変更ファイルの #fp2Diag をクリアしないため、ここで毎回重複排除する
 			for (const [fp2, aD] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
@@ -1885,7 +1902,7 @@ WorkspaceEdit
 			if (nm in this.#hDefMacro) continue;
 			if (nm in this.#hDefPlugin) continue;
 
-			const mes = d未定義.mes.replace('$', nm);
+			const mes = fmtDiagMes(d未定義.mes, nm);
 			// 同じ警告は一度全て削除
 			for (const [fp, aD] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
 				this.#fp2Diag[fp] = aD.flatMap(d=> d.message === mes ?[] :d);
@@ -2062,7 +2079,7 @@ WorkspaceEdit
 
 		for (const nm of aNm) {
 			(this.#InfFont.hFp2FontErr[fp] ??= []).push({
-				err	: this.#hDiagMes.フォントファイル不明.mes.replace('$', nm),
+				err	: fmtDiagMes(this.#hDiagMes.フォントファイル不明.mes, nm),
 				nm,
 				sl	: rng.start.line,
 				sc	: rng.start.character,
@@ -2237,7 +2254,7 @@ WorkspaceEdit
 			const use_nm = a_tag?.groups?.name;
 			if (! use_nm) {	// []、[ ]など
 				const {mes, sev} = this.#hDiagMes.タグ記述異常;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', token), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, token), sev));
 				return;
 			}
 
@@ -2333,7 +2350,7 @@ WorkspaceEdit
 								const {mes, sev} = this.#hDiagMes.ラベル不明;
 								aDi.push(Diagnostic.create(
 									this.#genPrm2Rng(prm),
-									mes.replace('$', argLbl),
+									fmtDiagMes(mes, argLbl),
 									sev
 								));
 							}
@@ -2461,8 +2478,7 @@ WorkspaceEdit
 			const {mes, sev} = this.#hDiagMes.属性値異常;
 			aDi.push(Diagnostic.create(
 				this.#genPrm2Rng(prm),
-				mes.replace('$', `${name} (${rangetype})`)
-				.replace('$', val),
+				fmtDiagMes(mes, `${name} (${rangetype})`, val),
 				sev
 			));
 		}
@@ -2475,14 +2491,14 @@ WorkspaceEdit
 		#chkDupDiag(aDi: Diagnostic[], key: T_DIAG_KEY, name: string, uri: string, rng: Range) {
 			const {mes, sev} = this.#hDiagMes[key];
 			if (! this.hasDiagRelatedInfCap) {
-				aDi.push(Diagnostic.create(rng, mes.replace('$', name), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, name), sev));
 				return;
 			}
 
 			const m = this.#hChkDup[key] ??= new Map;
 			const d = m.get(name);
 			if (! d) {
-				m.set(name, Diagnostic.create(rng, mes.replace('$', name), sev));
+				m.set(name, Diagnostic.create(rng, fmtDiagMes(mes, name), sev));
 				return;
 			}
 			if (! d.relatedInformation) {
@@ -2513,8 +2529,7 @@ WorkspaceEdit
 			const {mes, sev} = this.#hDiagMes.キーワード不明;
 			aDi.push(Diagnostic.create(
 				this.#genPrm2Rng(prm),
-				mes.replace('$', `${name} (${rangetype.slice(0, -1)})`)
-				.replace('$', val),
+				fmtDiagMes(mes, `${name} (${rangetype.slice(0, -1)})`, val),
 				sev
 			));
 		}
@@ -2646,7 +2661,7 @@ WorkspaceEdit
 			const use_nm = hArg.name?.val ?? '';
 			if (! char || ! use_nm) {	// [macro name=]など
 				const {mes, sev} = this.#hDiagMes.一文字マクロ定義_属性異常;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', use_nm), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, use_nm), sev));
 				return;
 			}
 			this.#recDefKw('一文字マクロ定義', 'char', arg);
@@ -2670,12 +2685,12 @@ WorkspaceEdit
 
 			if (nm in LspWs.#hTag) {
 				const {mes, sev} = this.#hDiagMes.マクロ定義_同名タグ;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, nm), sev));
 				return;
 			}
 			if (nm in this.#hDefPlugin) {
 				const {mes, sev} = this.#hDiagMes.マクロ定義_同名プラグイン;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, nm), sev));
 				return;
 			}
 
@@ -2686,7 +2701,7 @@ WorkspaceEdit
 			const m = token.match(LspWs.#regValName);
 			if (! m) {	// 失敗ケースが思い当たらない
 				const {mes, sev} = this.#hDiagMes.マクロ定義異常;
-				aDi.push(Diagnostic.create(rng, mes.replace('$', nm), sev));
+				aDi.push(Diagnostic.create(rng, fmtDiagMes(mes, nm), sev));
 				return;
 			}
 
@@ -2731,7 +2746,7 @@ WorkspaceEdit
 					aDi.push(Diagnostic.create(Range.create(
 						k_ln, k_ch,
 						v_ln, v_ch +v_len,
-					), mes.replace('$', nm), sev));
+					), fmtDiagMes(mes, nm), sev));
 				}
 			}
 
@@ -2822,7 +2837,7 @@ WorkspaceEdit
 			if (aLoc.length < 2) continue;
 
 			// 同じ警告は一度全て削除
-			const mes = diag.replace('$', kw);
+			const mes = fmtDiagMes(diag, kw);
 			for (const [fp, a] of <[FULL_PATH, Diagnostic[]][]>Object.entries(this.#fp2Diag)) {
 				this.#fp2Diag[fp] = a.flatMap(d=> d.message === mes ?[] :d);
 			}
