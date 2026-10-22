@@ -487,7 +487,7 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 			const a = await window.showInformationMessage(
 				`SKYNovel 拡張機能の新版 v${verNew} があります（お使いのものは v${verNow}）。`
 				+ 'Marketplace が利用できないため、自動では更新されません。',
-				...(urlVsix ? [DL, OPEN, STOP] : [OPEN, STOP]),
+				...urlVsix ? [DL, OPEN, STOP] : [OPEN, STOP],
 			);
 			// ボタンを押さずに閉じた場合は記録しない。見逃した人に次回も知らせる
 			// （これが唯一の告知手段なので）。うるさい場合は STOP で止められる
