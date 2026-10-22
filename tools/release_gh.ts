@@ -106,10 +106,15 @@ const isPrerelease = process.argv.includes('--prerelease');
 const fpNotes = join(tmpdir(), `release-notes-${tag}.md`);
 writeFileSync(fpNotes, notes, {encoding: 'utf8'});
 
+// draft・prerelease は "Latest" に設定できない（GitHub REST API の制約）ので、
+// 正式版のときだけ --latest を明示する。gh の既定（日付・semver からの自動判定、
+// REST 側で言う make_latest=legacy 相当）は、タグの削除・再作成を挟むとズレることが
+// 実際にあったため、既定任せにしない
 const args = ['release', 'create', tag, fnVsix, '--repo', repoSlug, '--title', title, '--notes-file', fpNotes];
 if (isPrerelease) args.push('--prerelease');
+else args.push('--latest');
 
-console.log(`gh ${args.slice(0, 6).join(' ')} ...${isPrerelease ? ' --prerelease' : ''}`);
+console.log(`gh ${args.slice(0, 6).join(' ')} ...${isPrerelease ? ' --prerelease' : ' --latest'}`);
 try {
 	execFileSync('gh', args, {stdio: 'inherit'});
 } catch {
@@ -120,6 +125,31 @@ try {
 	process.exit(1);
 } finally {
 	rmSync(fpNotes, {force: true});
+}
+
+// --latest を渡しても GitHub 側の isLatest 判定がそのとおりになるとは限らない
+// （softprops/action-gh-release 2.5.1 等、ツール側・プラットフォーム側双方で
+// 「意図と異なる latest」の報告例がある）。渡しっぱなしにせず、実際の結果を
+// GraphQL で検証し、ズレていれば edit --latest で直して再検証する
+if (! isPrerelease) {
+	const [repoOwner = '', repoName = ''] = repoSlug.split('/');
+	type T_RelNode = {tagName: string, isLatest: boolean};
+	const chkLatest = ()=> <{data: {repository: {releases: {nodes: T_RelNode[]}}}}>JSON.parse(execFileSync('gh', [
+		'api', 'graphql', '-f', `query=query{repository(owner:"${repoOwner}",name:"${repoName}"){releases(first:1,orderBy:{field:CREATED_AT,direction:DESC}){nodes{tagName isLatest}}}}`,
+	], {encoding: 'utf8'}));
+
+	const node0 = chkLatest().data.repository.releases.nodes[0];
+	if (node0?.tagName !== tag || ! node0.isLatest) {
+		console.log(`  isLatest がずれています（最新作成の release は ${node0?.tagName ?? '不明'}、isLatest=${String(node0?.isLatest)}）。--latest で明示的に付け直します`);
+		execFileSync('gh', ['release', 'edit', tag, '--repo', repoSlug, '--latest'], {stdio: 'inherit'});
+
+		const node1 = chkLatest().data.repository.releases.nodes[0];
+		if (node1?.tagName !== tag || ! node1.isLatest) {
+			console.error(`✗ --latest を付け直しても ${tag} が isLatest になりません。GitHub 側で手動確認すること： https://github.com/${repoSlug}/releases`);
+			process.exit(1);
+		}
+	}
+	console.log('  ✓ isLatest 確認済み');
 }
 
 // アップロードされた digest とローカル SHA256 の突き合わせ（release.md §SHA256 の確認手順）
