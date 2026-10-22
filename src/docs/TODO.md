@@ -75,6 +75,26 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 	ただしwin環境ではアイコン作成機能などでPythonを使用しているので、Python依存を排除できないと実行は出来ないと思われる。
 	この辺を検討したい、というTODO。
 
+- パッチGUIアプリ化 (2026-10-22)
+	artcraft-launcher (https://github.com/storytold/craft-launcher) のような、カード表示の
+	「アプリ一覧」ランチャーUIにしたい、という要望。
+	- カード表示で検知した「アプリ一覧」を表示する。アイコンとタイトル。
+	- 起動時にwebへアップデート調査。更新あればDLボタンが押せるように。
+		- dmg,exeを開くところまでは出来る？
+		- インストール終了検知で表示を更新できる？
+	- インストールされてないものは表示されない。
+	- ゲームアプリはだいたい有料なので、artcraft-launcher の【install】ボタンはなし。
+
+	対象は[legacy-app-patch.md](legacy-app-patch.md)の「配布パッチアプリ」（プレイヤー向け。
+	`patch_app`、Rust製）**本人に確認済み（2026-10-22）**。将来的には開発者向けにも
+	GUIで提供したい（＝拡張機能への内蔵GUI統合。`patch_gen_gui`とは別の既存論点で、
+	TODO.md §1「前提が揃うまで着手できない」#2と同じ Marketplace 再申請決着待ちの対象）。
+
+	⚠️ **現状の設計との差分（要検討）**：現状は**GUIフレームワーク無しの単一実行ファイル・
+	1アプリのみ検査**という設計（OS標準ダイアログのみで足りる、という方針で決定済み）。
+	カード表示・複数アプリ一覧・起動時Web問い合わせ（現状は購入者チェック通過後にcurlで
+	DLするだけで、起動時の調査は無い）は前提が変わるため、着手前に方針の再検討が必要。
+
 - Win側からの報告 (2026-09-17)
 	legacy-app-patch.md の Windows実機検証（stubビルド・asarパス・asar抽出・exe自動起動）が完了。クロスコンパイル環境（mingw-w64/cargo-xwin）は不要と判明(本機にネイティブのrustupツールチェーンあり)。詳細と残件表の更新は blues-sync の `sn-extension-win-legacypatch-verify` ブランチへ、ビルド済みstub本体(x86_64-pc-windows-msvc)は `sn-extension-win-stub-sn_legacy_patch` ブランチへ、それぞれpush済み。（mac側で受領・legacy-app-patch.mdへ統合済み）
 
