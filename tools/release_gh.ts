@@ -82,9 +82,11 @@ const bin = readFileSync(fnVsix);
 const hash = createHash('sha256').update(bin).digest('hex');
 const notes = `${body}\n\n**SHA256**: \`${hash}\``;
 
-// 公式の慣習：奇数マイナー＝先行版（alpha/beta）／偶数マイナー＝正式版
-const [, minorStr] = version.split('.');
-const isPrerelease = Number(minorStr) % 2 === 1;
+// 「奇数マイナー＝先行版」は release.md にある公式の慣習だが、実際には v4.33系・
+// v4.35系とも正式版として運用されており、バージョン番号だけでは機械的に判定できない
+// （v4.33.2 は元 alpha から方針転換で正式版扱いに切り替わった経緯がある）。
+// 既定は正式版、先行版にしたいときだけ明示する： `bun run release -- --prerelease`
+const isPrerelease = process.argv.includes('--prerelease');
 
 // notes を --notes に直接渡すと、本文が `-` で始まる箇条書きの場合（CHANGELOG の
 // 書式そのもの）、gh のフラグパーサーが次のオプションと誤認識して本文が消える。
