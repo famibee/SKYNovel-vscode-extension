@@ -1,7 +1,15 @@
 'use strict';
 
-// カードUI雛形（ダミーデータ）。実データ配線（inspect_app等のinvoke呼び出し）は次段階で行う。
+// カードUI本体。実データ配線（実装順序3〜6）。
 // 状態遷移の表は src/docs/legacy-app-patch.md 「カードの状態遷移」参照。
+
+const {invoke} = window.__TAURI__.core;
+const {listen} = window.__TAURI__.event;
+
+// 本来は埋め込み設定（footer.rs の AppConfig）の manifestUrl フィールドから取得する想定だが、
+// そのフィールド自体の追加（footer.rs・genLegacyPatch.ts側の変更）は実装順序7（未着手）で行う。
+// それまでの準備として、ここでは仮のURLを置く（R2側の実体はまだ無い。見た目通りプレースホルダ）
+const MANIFEST_URL = 'https://pub-placeholder.r2.dev/patch/manifest.json';
 
 const STATUS_LABEL = {
 	checking: '確認中…',
@@ -19,58 +27,97 @@ const ACTION_LABEL = {
 	manifestError: '再試行',
 };
 
-const DUMMY_APPS = [
-	{name: 'MyGameA', version: '1.2.0', state: 'checking'},
-	{name: 'MyGameB', version: '1.0.3', state: 'upToDate'},
-	{name: 'MyGameC', version: '1.0.0', state: 'updateAvailable'},
-	{name: 'MyGameD', version: '1.1.0', state: 'archMigration'},
-	{name: 'MyGameE', version: '?', state: 'needsConfirm'},
-	{name: 'MyGameF', version: '0.9.5', state: 'manifestError'},
-];
+const cardNodes = new Map();	// appName -> カードのDOMノード
 
-function renderCard(app) {
-	const tmpl = document.getElementById('tmplCard');
-	const node = tmpl.content.firstElementChild.cloneNode(true);
+function applyState(node, dto) {
+	node.dataset.state = dto.state;
+	node.querySelector('.app-card-name').textContent = dto.appName;
+	node.querySelector('.app-card-version').textContent = dto.latestVersion ? `最新: ${dto.latestVersion}` : '';
 
-	node.dataset.state = app.state;
-	node.querySelector('.app-card-name').textContent = app.name;
-	node.querySelector('.app-card-version').textContent = `現在: ${app.version}`;
-
-	const spinner = node.querySelector('.spinner');
+	node.querySelector('.spinner').hidden = true;
 	const badge = node.querySelector('.statusBadge');
-	spinner.hidden = app.state !== 'checking';
-	badge.hidden = app.state === 'checking';
-	badge.textContent = STATUS_LABEL[app.state] ?? '';
-	badge.classList.toggle('badge-ok', app.state === 'upToDate');
-	badge.classList.toggle('badge-warn', app.state === 'updateAvailable' || app.state === 'archMigration');
-	badge.classList.toggle('badge-error', app.state === 'manifestError' || app.state === 'needsConfirm');
+	badge.hidden = false;
+	badge.textContent = STATUS_LABEL[dto.state] ?? '';
+	badge.classList.toggle('badge-ok', dto.state === 'upToDate');
+	badge.classList.toggle('badge-warn', dto.state === 'updateAvailable' || dto.state === 'archMigration');
+	badge.classList.toggle('badge-error', dto.state === 'manifestError' || dto.state === 'needsConfirm');
 
 	const btn = node.querySelector('.btnAction');
-	const label = ACTION_LABEL[app.state];
+	const label = ACTION_LABEL[dto.state];
+	btn.hidden = !label;
 	if (label) {
-		btn.hidden = false;
 		btn.textContent = label;
-		btn.addEventListener('click', () => {
-			// ダミーデータのためクリックしても何も起きない（次段階でinvokeに接続）
-		});
+		btn.disabled = false;
 	}
+}
+
+async function onActionClick(dto, btn) {
+	btn.disabled = true;
+	const originalLabel = btn.textContent;
+	btn.textContent = '処理中…';
+	try {
+		await invoke('trigger_update', {appName: dto.appName, manifestUrl: MANIFEST_URL});
+		// ダウンロード取得・自動オープンが完了した。インストール終了（＝再検査で「最新です」に
+		// なるまで）をバックグラウンドで見張り、変化のたびにapp-status-changedイベントで
+		// このカードが更新される
+		invoke('watch_install', {appName: dto.appName, manifestUrl: MANIFEST_URL});
+	}
+	catch (e) {
+		// シンプルな通知に留める（カード内にエラー表示欄を設けるのは次段階の課題）
+		alert(`処理に失敗しました：${e}`);
+		btn.disabled = false;
+		btn.textContent = originalLabel;
+	}
+}
+
+function renderCard(dto) {
+	const tmpl = document.getElementById('tmplCard');
+	const node = tmpl.content.firstElementChild.cloneNode(true);
+	applyState(node, dto);
+
+	const btn = node.querySelector('.btnAction');
+	btn.addEventListener('click', () => onActionClick(dto, btn));
 
 	return node;
 }
 
-function render() {
+async function loadApps() {
 	const container = document.getElementById('cards');
 	const emptyNotice = document.getElementById('emptyNotice');
 
 	container.textContent = '';
-	if (DUMMY_APPS.length === 0) {
+	cardNodes.clear();
+
+	let apps;
+	try {
+		apps = await invoke('list_apps', {manifestUrl: MANIFEST_URL});
+	}
+	catch (e) {
 		emptyNotice.hidden = false;
+		emptyNotice.textContent = `確認に失敗しました：${e}`;
 		return;
 	}
+
+	if (apps.length === 0) {
+		emptyNotice.hidden = false;
+		emptyNotice.textContent = 'インストール済みのアプリが見つかりませんでした。';
+		return;
+	}
+
 	emptyNotice.hidden = true;
-	for (const app of DUMMY_APPS) {
-		container.appendChild(renderCard(app));
+	for (const dto of apps) {
+		const node = renderCard(dto);
+		cardNodes.set(dto.appName, node);
+		container.appendChild(node);
 	}
 }
 
-render();
+listen('app-status-changed', (event) => {
+	const dto = event.payload;
+	const node = cardNodes.get(dto.appName);
+	if (node) {
+		applyState(node, dto);
+	}
+});
+
+loadApps();

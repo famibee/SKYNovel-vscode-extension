@@ -77,7 +77,9 @@ multiroot.md 不具合6件・リソース解放5件、`keywords` の `multi-root
 
 - パッチGUIアプリ化 (2026-10-22) 【作業中・次セッション引き継ぎ】
 	配布パッチアプリ（プレイヤー向け。`patch_app`）をartcraft-launcher風のカード表示
-	ランチャーUIにする件。**設計は決定済み・実装は着手済み（未完了）**。
+	ランチャーUIにする件。**実装順序1〜6（カードUI・バックエンドコマンド・マニフェスト取得・
+	状態判定・DL・インストール検知）は机上実装・テスト済み。実装順序7
+	（`genLegacyPatch.ts`・`patch_gen_gui`側の変更）が次の着手点**。
 
 	**次に着手するときは必ず
 	[legacy-app-patch.md「引き継ぎ：ランチャーUI化（Tauri）進行中」](legacy-app-patch.md#引き継ぎランチャーui化tauri進行中2026-10-22開始未完了)

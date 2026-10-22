@@ -54,9 +54,15 @@ arm64／universal版を届けられなかった致命的な誤判定）は2026-0
 - GUI基盤は **Tauri v2**（後述の経緯でeguiから乗り換え済み）
 - **最大の技術リスク（Tauriバイナリへの既存の自己参照フッタ追記方式が使えるか）は実機検証済みで
   問題なし**（下記「技術的な裏取り」参照）
-- `patch_app/src/`（判定ロジック、lib）は**無改修で47件のテストが通る**。触っていいのはこの先
-- 残っている実装は「設計のまとめ」節の実装順序4以降（カードUI・マニフェスト・DL・
-  インストール検知・生成パイプライン変更）。**まだ何も実装されていない**
+- `patch_app/src/`（判定ロジック、lib）は**無改修で47件のテストが通る**。引き続き触っていない
+- **実装順序1〜6（カードUI・バックエンドコマンド・マニフェスト・DL・インストール検知）は
+  机上実装済み**（2026-10-22 続き。計62件のテスト全てパス）。ただし**実機（実際にインストール
+  済みのゲーム・本物のR2マニフェスト・Windows）での動作確認はまだ一度もしていない**——
+  この場にそれらが無いため。`list_apps`はRustユニットテストで「インストール済みのアプリが
+  無ければ空配列を返す」ところまでは実機（この開発機のTauri dev build）で確認したが、
+  それ以上の実データでの確認は次の実機検証を待つ
+- 残っているのは**実装順序7以降**（`genLegacyPatch.ts`・`patch_gen_gui`側の変更・アイコン・
+  Windows実機検証）。詳細は「設計のまとめ」節参照
 
 ### GUI基盤の経緯：egui→Tauriへ乗り換え（再検討不要・決定済み）
 
@@ -117,17 +123,37 @@ arm64／universal版を届けられなかった致命的な誤判定）は2026-0
 `patch_app/src-tauri/`の中身（`patch_gen_gui/`と同じ構成）：
 - `Cargo.toml`：`sn_legacy_patch_core`を`path = ".."`で依存。`tauri`・`tauri-plugin-log`のみ
   （`tauri-plugin-dialog`は**意図的に追加していない**。②フォールバックのファイル選択は
-  既存の`dialog.rs`（osascript/vbs方式・実機検証済み）をそのまま使う方針のため）
+  既存の`dialog.rs`（osascript/vbs方式・実機検証済み）をそのまま使う方針のため）。
+  新規HTTPクライアントクレートも追加していない（マニフェスト取得は`manifest.rs`が
+  `download.rs`と同じくcurlサブプロセス方式で行う）
 - `tauri.conf.json`：`identifier`は`com.fc2.blog.famibee.skynovel.legacypatchlauncher`
   （`patch_gen_gui`の`...patchgengui`とは別）。ウィンドウ760×560
 - `icons/`：**`patch_gen_gui`のアイコンを暫定流用中**。専用アイコンへの差し替えは未着手
   （優先度低。動作確認が最優先だったため）
-- `src/lib.rs`：`self_check`コマンドのみ実装済み（スパイク検証用）。カードUI・マニフェスト・
-  DL等のコマンドは**まだ無い**
+- `src/manifest.rs`（新規）：遠隔マニフェストの取得・パース（curlサブプロセス＋JSON parse）。
+  スキーマは下記「遠隔マニフェスト」の通り。3件のテスト（`file://`ローカルファイルで取得・
+  異常系2件）
+- `src/card_status.rs`（新規）：`LocalState`（既存lib・無改修）＋マニフェストのプラットフォーム別
+  エントリから`CardStatus`（upToDate/updateAvailable/archMigration/needsConfirm/manifestError。
+  フロント側`STATUS_LABEL`/`ACTION_LABEL`のキーと一字一句揃えてある）を決める純粋関数。8件のテスト
+- `src/lib.rs`：`self_check`（従来通り診断用に残置）に加え、`list_apps`・`trigger_update`・
+  `watch_install`の3コマンドを追加。`trigger_update`は埋め込み設定（`footer::AppConfig`。
+  旧スキーマの`downloadUrl`等はここでは未参照）をマニフェストの値で上書きしたコピーを作り、
+  **既存の`process_app()`（無改修）にそのまま渡す**設計（①自動検出②インストーラー選択
+  フォールバック③既に最新ならスキップ、を全てprocess_app側に任せられるため、
+  「更新をダウンロード」「当時のインストーラーを選ぶ」「再試行」の3ボタンを1コマンドで賄える）。
+  `watch_install`はOSスレッドで5秒間隔・最大10分ポーリングし`app-status-changed`イベントで通知
+  （`tauri::async_runtime`ではなく素の`std::thread`を使っている。他の処理がどれもブロッキングな
+  curl呼び出し中心でasyncにする意味が薄いため）。4件の結合テスト（`build_card()`を一時ディレクトリで）
 - `src/main.rs`：`patch_gen_gui`と同じ定型（`windows_subsystem`指定＋`app_lib::run()`）
 
-`patch_app/ui/`の中身：`index.html`/`app.js`/`style.css`。現状は`self_check`の結果を
-`<pre>`に出すだけの最小限（スパイク確認用）。カードUIは未着手。
+`patch_app/ui/`の中身：`index.html`/`app.js`/`style.css`。artcraft-launcher風のグリッドカード
+（`grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`。アイコン・名前・バージョン・
+状態バッジ・ボタンを縦積み）。`app.js`は起動時に`list_apps`を呼び、ボタン押下で`trigger_update`→
+`watch_install`を呼ぶ。アイコン画像（`iconPngBase64`）は未配線（実装順序7待ち。現状は灰色の
+プレースホルダ）。`MANIFEST_URL`は**仮のプレースホルダURL**（R2の実体が無いため。本来は
+埋め込み設定の`manifestUrl`フィールドから取るべきだが、そのフィールド自体の追加
+〈`footer.rs`・`genLegacyPatch.ts`〉は実装順序7で行う）
 
 ### 再開のための具体的コマンド（既知の罠を含む）
 
@@ -135,8 +161,13 @@ arm64／universal版を届けられなかった致命的な誤判定）は2026-0
 # lib側のテスト（47件。RUSTC・RUSTDOCの両方を明示しないとdoctestがHomebrew版コンパイラで失敗する）
 cd patch_app && RUSTC=~/.cargo/bin/rustc RUSTDOC=~/.cargo/bin/rustdoc ~/.cargo/bin/cargo test
 
+# src-tauri側のテスト（15件。manifest.rs・card_status.rs・lib.rsのbuild_card結合テスト）
+cd patch_app/src-tauri && RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo test --lib
+
 # Tauriアプリの開発起動（patch-gen-gui-dev スキルと同じ注意点：ELECTRON_RUN_AS_NODEを外す、
-# run_in_background二重化に注意）
+# run_in_background二重化に注意。src-tauri/配下のRustを編集すると自動リビルド・再起動が走る
+# ので、編集直後は「落ち着いた」ことをログで確認してから次の操作をする——patch-gen-gui-dev
+# スキル参照）
 cd patch_app/src-tauri && env -u ELECTRON_RUN_AS_NODE RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo tauri dev
 
 # mac向けビルド（universal指定なしの素のビルド。動作確認用）
@@ -236,12 +267,34 @@ Tauriの実際の出力パス（`patch_app/src-tauri/target/universal-apple-darw
 ### 実装順序（このまま進める）
 
 1. ✅ スパイク①②（Tauri起動確認・フッタ追記の安全性確認）完了
-2. カードUI雛形（ダミーデータ）をTauriで実装・表示確認 ← **次はここ**
-3. バックエンドコマンド（`inspect_app`等）を実装し実データで配線（未インストールは非表示）
-4. マニフェスト取得・状態判定
-5. 【更新】ボタン→進捗→自動で開く
-6. インストール終了検知と【再確認】
-7. `genLegacyPatch.ts`・`patch_gen_gui`側の変更
+2. ✅ カードUI雛形（ダミーデータ）をTauriで実装・表示確認 完了（2026-10-22）
+3. ✅ バックエンドコマンド（`list_apps`・`trigger_update`）を実装し実データで配線（未インストールは
+   非表示）完了（2026-10-22）。ただし**実際にインストール済みのアプリでの動作確認はまだ**
+   （この場に検証対象が無いため。Rustユニットテスト・結合テストでのみ確認済み）
+4. ✅ マニフェスト取得（`manifest.rs`）・状態判定（`card_status.rs`）完了（2026-10-22）。
+   **実在のR2マニフェストでの取得確認はまだ**（`file://`ローカルファイルでのみ確認済み）
+5. ✅ 【更新】ボタン→自動で開く、配線済み（2026-10-22。`trigger_update`が内部で
+   `process_app()`に委譲）。**進捗（%表示）は無い**——`curl`のブロッキング呼び出しをそのまま
+   使っているため、ボタンが「処理中…」になるだけ（進捗バーが要るなら`curl -w`の定期パースなど
+   別実装が要る。優先度低として保留）
+6. ✅ インストール終了検知（`watch_install`。5秒間隔・最大10分ポーリング、
+   `app-status-changed`イベント）配線済み（2026-10-22）。**実機でのインストール完了検知の
+   動作確認はまだ**
+7. ❌ `genLegacyPatch.ts`・`patch_gen_gui`側の変更　**未着手（次はここ）**。
+   `patch_gen_gui`は配布はしていないが作者が現に使っている開発者向けツールのため、見落とすと実害が出る。具体的には：
+   - `footer.rs`の`AppConfig`に`manifestUrl`・`iconPngBase64`フィールドを追加
+     （`downloadUrl`・`checksumLatest`・`latestArch`は埋め込みから外し、マニフェスト側のみにする
+     かは要検討——現状`trigger_update`は埋め込み側の値を上書きして使っているだけなので、
+     空文字列のままでも動作に支障は無い。外すなら`footer.rs`・`lib.rs`のテストも直す必要がある）
+   - `ui/app.js`の`MANIFEST_URL`プレースホルダを、埋め込み設定の`manifestUrl`から読む形に変更
+   - `genLegacyPatch.ts`：mac側を「stubの`.app`を丸ごとコピー→`Info.plist`から
+     `CFBundleExecutable`を読む→実行ファイルに`appendPatchFooter()`→`hdiutil`で`.dmg`化」に
+     組み替え（[genLegacyPatch.ts:340-376](../genLegacyPatch.ts#L340)）。
+     `buildMacAppBundle()`/`macInfoPlist()`（[LegacyAppCheck.ts:133-173](../LegacyAppCheck.ts#L133)）
+     は不要になり削除できる
+   - `patch_gen_gui`：`build_mac_universal_stub()`の手動`lipo`を`cargo tauri build
+     --target universal-apple-darwin`に置き換え、`find_stub_paths()`の探索先をTauriの実際の
+     出力パスに変更。「マニフェストをアップロード」ボタンも追加（R2固定キー）
 8. ドキュメント更新（非公開メモ含む）・アイコン差し替え
 9. Windows実機検証を blues-sync 経由で依頼
 

@@ -147,7 +147,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sn_legacy_patch"
+name = "sn_legacy_patch_core"
 version = "0.1.0"
 dependencies = [
  "serde",
