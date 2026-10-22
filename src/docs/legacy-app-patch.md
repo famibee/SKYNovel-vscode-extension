@@ -7,6 +7,7 @@
 
 | # | 内容 | 優先度 | 節 |
 |---|---|---|---|
+| 0 | **【作業中・引き継ぎ】配布パッチアプリをTauriランチャーUIに作り替え中**（2026-10-22開始・未完了。次に着手するときはまずここを読む） | 高 | [引き継ぎ：ランチャーUI化（Tauri）進行中](#引き継ぎランチャーui化tauri進行中2026-10-22開始未完了) |
 | 1 | Marketplace 再申請の決着待ち（**配布パッチアプリの拡張機能統合**の前提条件。パッチ生成ツール試作単体アプリは対象外・着手可能） | — | [背景](#背景) |
 | 2 | electron-builder の制約で win環境の開発者は mac版パッチを作れない場合がある（対処法は無い構造的制約と判明済み。利用者への説明文言の用意が残作業） | 中 | [詰められていない仕様#7](#詰められていない仕様棚卸し2026-09-12) |
 | 3 | GUIのクリック操作自体の自動E2Eが未実施（優先度低。**`sn_kowloon`での人手によるフル実地検証は完了**——GUI操作→生成→実行→旧版検出→R2からの実ダウンロードまで通し確認済み。2026-09-17） | 低 | [GUI設計案](#gui設計案2026-09-14実装2026-09-17実地検証済み) |
@@ -37,6 +38,212 @@ arm64／universal版を届けられなかった致命的な誤判定）は2026-0
 （`patch_app`側のarch判定＋スキップ判定改修）のため、残件一覧からは外した。
 副次論点（win側arch・mac universal化）も上記の通りいずれも決着済み。詳細は
 [詰められていない仕様#9](#詰められていない仕様棚卸し2026-09-12)参照。
+
+---
+
+## 引き継ぎ：ランチャーUI化（Tauri）進行中【2026-10-22開始・未完了】
+
+**次のセッションがゼロから再開するための節。** 作者からの要望は「プレイヤー向けの配布パッチアプリ
+（本節が指す`patch_app/`）を、artcraft-launcher（craft-launcher。https://github.com/storytold/craft-launcher）
+風の**カード表示ランチャーUI**にしたい」というもの（2026-10-22）。カード表示でインストール済み
+アプリ一覧を出し、起動時にwebへ更新確認、更新があればDLボタン、インストール終了検知で表示更新、
+という内容。開発者向け（`patch_gen_gui`への統合）は別論点で**今回の対象外**。
+
+### 今すぐ分かること（結論だけ先に）
+
+- GUI基盤は **Tauri v2**（後述の経緯でeguiから乗り換え済み）
+- **最大の技術リスク（Tauriバイナリへの既存の自己参照フッタ追記方式が使えるか）は実機検証済みで
+  問題なし**（下記「技術的な裏取り」参照）
+- `patch_app/src/`（判定ロジック、lib）は**無改修で47件のテストが通る**。触っていいのはこの先
+- 残っている実装は「設計のまとめ」節の実装順序4以降（カードUI・マニフェスト・DL・
+  インストール検知・生成パイプライン変更）。**まだ何も実装されていない**
+
+### GUI基盤の経緯：egui→Tauriへ乗り換え（再検討不要・決定済み）
+
+最初の着手では **egui（eframe）** を選んだ（理由：WebView非依存。対象ユーザーが古い出荷ビルドの
+利用者＝環境が古い可能性があるため）。lib/bin分割・カードUI雛形（ダミーデータ・実データ配線の
+途中）まで実装・実機検証したが、**「サイズ差（4.5MB対Tauriの約25MB）の割に実装工数が大きすぎる」
+という指摘を受け、作者の判断でTauriへ乗り換えた**（2026-10-22）。
+
+- egui版で実際に踏んだコスト：`App`トレイトに`update()`が無く`ui()`/`logic()`に分割されていた
+  （巷のサンプル・LLMの知識とズレる）・日本語フォントが`default_fonts`には無くeframeを
+  0.36.2→0.37.0に上げる必要が生じた・カード描画やスレッド処理（mpsc+repaint）を全部手組み、等
+- **Tauriは Electron ではない**。システムのWebView（Win: WebView2、mac: WKWebView）を使うだけで
+  レンダラを同梱しないため、当初「Electronは重すぎる」として退けた選択肢とは別物
+- `patch_gen_gui`（開発者向けGUI）が既にTauri v2で実装・実地検証済みの資産を持っており、
+  カードUIのテンプレートパターン（`<template>`+`cloneNode`）・invoke呼び出し・永続化・
+  ダイアログ連携を参考・一部流用できる
+- **この乗り換えで失うもの**：WebView非依存という当初の利点。対象ユーザーの環境が古い場合、
+  WebView2が入っていない可能性はゼロではない（Win10 1803以降は標準搭載）。**作者はこれを
+  承知の上でTauriを選んだ**。この議論は決着済みなので再度egui/Tauriを検討し直す必要はない
+
+### 技術的な裏取り（2026-10-22・着手前に確認・実機検証済み）
+
+- **Tauriの`frontendDist`はビルド時にバイナリへ埋め込まれる**（loose fileではない。
+  [Tauri公式Docs](https://v2.tauri.app/develop/resources/)で確認）→ 末尾に設定JSONを連結する
+  現行の自己参照方式がそのまま使える
+- **`cargo tauri build --target universal-apple-darwin`がx64/arm64のuniversal結合を内蔵**
+  （[Tauri CLIリファレンス](https://v2.tauri.app/reference/cli/)で確認。両ターゲットの
+  `rustup target add`が前提）。`patch_gen_gui`の`build_mac_universal_stub()`の手動`lipo`は
+  **不要になり簡素化できる**（§「patch_gen_gui側の変更」参照）
+- **実機スパイクで確認済み（2026-10-22）**：Tauriでビルドした`.app`の
+  `Contents/MacOS/<実行ファイル名>`の末尾に、既存の`appendPatchFooter()`と同じ形式
+  （`[stub][JSON][u32 LE長][SNLPATCH]`）でバイト列を追記（+198バイト）しても、
+  **WebViewの表示は一切崩れず**、自前のコマンド（`self_check`）で**追記したJSONを
+  一字一句正しく復元できた**。この方式がTauriバイナリでも成立することが実証済み
+
+### 現在のファイル状態（2026-10-22時点・未コミット）
+
+過去に一度 `c2f29a6a feat(patch-app): 配布パッチアプリをeguiランチャーUIへ作り替え着手` という
+コミットが入っているが、**このコミットのUI部分（eframe）は今回の乗り換えで置き換え済み**。
+以下は現在の作業ツリーの状態（コミットはされていない。コミットはユーザー指示があるまで行わない）：
+
+- **削除済み**（`git rm`）：`patch_app/src/main.rs`（eframe版エントリポイント）・
+  `patch_app/src/ui/`（card.rs・icon.rs・mod.rs、eframe版カードUI）・
+  `patch_app/assets/dummy_icon.png`
+- **変更済み**：`patch_app/Cargo.toml`（パッケージ名を`sn_legacy_patch`→`sn_legacy_patch_core`に
+  変更。`[[bin]]`・eframe/image依存を削除しlib専用クレートに。`[profile.release]`は
+  `opt-level="z"`・`panic="abort"`に復元）・`patch_app/src/asar.rs`（`build_fake_asar`を
+  `pub(crate)`→`pub`化、egui版のdevフィクスチャから呼ぶため追加した変更だが、Tauri版でも
+  同じ用途で使えるためそのまま残している）・`patch_app/src/footer.rs`（`AppConfig`に`Clone`
+  derive追加）・`patch_app/src/lib.rs`（`pub mod inspect;`追加）
+- **新規（未コミット・まだgit addもしていない）**：`patch_app/src/inspect.rs`
+  （ローカル検査の純粋ロジック。4件のテスト付き。**GUI非依存なのでTauri版でもそのまま使う**）・
+  `patch_app/src-tauri/`（Tauriプロジェクト一式。下記参照）・`patch_app/ui/`
+  （フロントエンド。現状はスパイク確認用の最小限の中身のみ）
+- **`.gitignore`に追加済み**：`/patch_app/src-tauri/target/`・`/patch_app/src-tauri/gen/schemas/`
+  （追加し忘れると巨大なビルド成果物をコミットしてしまうところだった）
+
+`patch_app/src-tauri/`の中身（`patch_gen_gui/`と同じ構成）：
+- `Cargo.toml`：`sn_legacy_patch_core`を`path = ".."`で依存。`tauri`・`tauri-plugin-log`のみ
+  （`tauri-plugin-dialog`は**意図的に追加していない**。②フォールバックのファイル選択は
+  既存の`dialog.rs`（osascript/vbs方式・実機検証済み）をそのまま使う方針のため）
+- `tauri.conf.json`：`identifier`は`com.fc2.blog.famibee.skynovel.legacypatchlauncher`
+  （`patch_gen_gui`の`...patchgengui`とは別）。ウィンドウ760×560
+- `icons/`：**`patch_gen_gui`のアイコンを暫定流用中**。専用アイコンへの差し替えは未着手
+  （優先度低。動作確認が最優先だったため）
+- `src/lib.rs`：`self_check`コマンドのみ実装済み（スパイク検証用）。カードUI・マニフェスト・
+  DL等のコマンドは**まだ無い**
+- `src/main.rs`：`patch_gen_gui`と同じ定型（`windows_subsystem`指定＋`app_lib::run()`）
+
+`patch_app/ui/`の中身：`index.html`/`app.js`/`style.css`。現状は`self_check`の結果を
+`<pre>`に出すだけの最小限（スパイク確認用）。カードUIは未着手。
+
+### 再開のための具体的コマンド（既知の罠を含む）
+
+```sh
+# lib側のテスト（47件。RUSTC・RUSTDOCの両方を明示しないとdoctestがHomebrew版コンパイラで失敗する）
+cd patch_app && RUSTC=~/.cargo/bin/rustc RUSTDOC=~/.cargo/bin/rustdoc ~/.cargo/bin/cargo test
+
+# Tauriアプリの開発起動（patch-gen-gui-dev スキルと同じ注意点：ELECTRON_RUN_AS_NODEを外す、
+# run_in_background二重化に注意）
+cd patch_app/src-tauri && env -u ELECTRON_RUN_AS_NODE RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo tauri dev
+
+# mac向けビルド（universal指定なしの素のビルド。動作確認用）
+cd patch_app/src-tauri && RUSTC=~/.cargo/bin/rustc ~/.cargo/bin/cargo tauri build --bundles app
+# 成果物：patch_app/src-tauri/target/release/bundle/macos/sn_legacy_patch.app
+```
+
+- ⚠️ **パッケージ名の罠**：`patch_app/Cargo.toml`と`patch_app/src-tauri/Cargo.toml`の
+  `[package] name`を同じにすると、cargoが`path = ".."`依存を解決できず
+  `error: no matching package named ...`で失敗する（実際に踏んだ）。現状は
+  `sn_legacy_patch_core`（lib）／`sn_legacy_patch`（Tauriアプリ本体）で分離済み
+- `cargo tauri build`初回は関連クレート一式のコンパイルで2〜3分かかる
+
+### 設計のまとめ（実装順序4以降でやること）
+
+以下は確定済みの設計。詳細はこの引き継ぎ節より前のユーザーとの会話ログ（Claude Codeの
+会話履歴側にのみ残っている。このdocには設計の結論だけを転記する）にあったが、
+**次に着手するときはこの表だけ見れば設計し直す必要はない**。
+
+**作者が決めた方針**：
+
+| 論点 | 決定 |
+|---|---|
+| 現行の単発バッチ版 | ランチャーUIで置き換える（CLI版は残さない） |
+| 更新確認 | 遠隔マニフェストを新設。購入者チェック用チェックサム群は埋め込みのまま、最新版情報は遠隔へ |
+| マニフェスト粒度 | 配布物1本に1つ（win/macを1ファイルに含める） |
+| アイコン | 生成時に埋め込む（`build/icon.png`。実行時のicns/PEリソース解析はしない） |
+| 更新不要のアプリ | カードに出す（「✓ 最新です」バッジ） |
+| 取得完了後 | 自動で開く（mac `open`、winはexe起動） |
+| 自動検出に失敗したアプリ | カードに確認ボタンを出す（起動時にファイル選択ダイアログを出さない） |
+
+**カードの状態遷移**（`inspect::LocalState` × 埋め込み/遠隔設定 → 表示。この仕様はeguiの
+`decide_status()`で一度実装・テスト済み。JS側に同じルールで移植する）：
+
+| 状態 | 条件 | 表示 |
+|---|---|---|
+| （非表示） | インストール検出なし | カードを出さない |
+| 確認中… | ローカル検査の結果待ち | スピナー |
+| ✓ 最新です | `checksumLatest`一致・arch一致 | バッジのみ、ボタンなし |
+| 更新あり | 不一致 | 【更新をダウンロード】 |
+| arch移行 | チェックサム一致・arch不一致 | 【更新をダウンロード】 |
+| 確認が必要 | 自動検出失敗（`setting.sn`抽出不可） | 【当時のインストーラーを選ぶ】 |
+| 確認できません | マニフェスト取得失敗 | 【再試行】 |
+
+**遠隔マニフェスト**（R2固定キー`patch/<slug>/manifest.json`。curlサブプロセスで取得、
+`reqwest`は入れない）：
+
+```json
+{
+  "schema": 1,
+  "apps": {
+    "<appName>": {
+      "version": "1.3.0",
+      "win": {"downloadUrl": "https://…", "checksumLatest": "…", "latestArch": "x64"},
+      "mac": {"downloadUrl": "https://…", "checksumLatest": "…", "latestArch": "universal"}
+    }
+  }
+}
+```
+
+埋め込み（配り直さない）：`appName`・`iconPngBase64`・`checksumSetting[]`・
+`checksumInstaller[]`・`settingSnFileName`・`manifestUrl`。
+遠隔（毎リリース更新）：`version`・`downloadUrl`・`checksumLatest`・`latestArch`。
+
+**インストール終了検知**：取得完了→自動で開く→ポーリングで再検査
+（`find_installed_app`の存在・`detect_installed_arch`のarch・asarの`setting.sn`チェックサム）。
+`checksumLatest`一致（かつarch一致）で「最新です」へ。最大10分で自動停止し【再確認】に落とす。
+ポーリングはRust側（`tauri::async_runtime::spawn`）で行い`app.emit()`で通知、JS側はタイマーを
+持たない。mac の `open <dmg>` は mount するだけで完了を意味しない点に注意。
+
+**`genLegacyPatch.ts`の変更が必要**（[genLegacyPatch.ts:340-376](../genLegacyPatch.ts#L340)）：
+win は無改修（stubは単一`.exe`のまま）。mac は「stubの`.app`を丸ごとコピー→
+`Contents/Info.plist`から`CFBundleExecutable`を読む→`Contents/MacOS/<実行ファイル名>`を
+`readFileSync`→`appendPatchFooter()`（**この関数自体は無改修**）→書き戻す→`hdiutil`で`.dmg`化」
+という流れに組み替える。現行の`buildMacAppBundle()`/`macInfoPlist()`
+（[LegacyAppCheck.ts:133-173](../LegacyAppCheck.ts#L133)、手組みのInfo.plist生成）は不要になり削除できる。
+
+**`patch_gen_gui`側の変更も必要**（既存の動くツールへの影響。見落とし厳禁）：
+`build_mac_universal_stub()`（[patch_gen_gui/src-tauri/src/lib.rs:231-265](../../patch_gen_gui/src-tauri/src/lib.rs#L231)）の
+手動`lipo`呼び出しを`cargo tauri build --target universal-apple-darwin`の1回呼び出しに置き換え。
+`find_stub_paths()`（[同:157-173](../../patch_gen_gui/src-tauri/src/lib.rs#L157)）の探索先を
+Tauriの実際の出力パス（`patch_app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app`。
+着手時に1回ビルドして確定）に変更。「マニフェストをアップロード」ボタンも追加（R2固定キー。
+既存の`r2_delete_others_with_prefix`が`manifest.json`を誤って消さないよう除外対象に加える）。
+
+### まだ手を付けていない非公開メモ
+
+作者判断（2026-10-22）：「DL URLの秘匿は原理的に限界がある」という分析は**自分の配布物の
+脆弱性なので公開しない**。手順（**この順序を守ること**。Publicリポジトリのため）：
+1. 先に`.gitignore`へ`/src/docs/*.private.md`を追加（既存36行目の`TODO.private.md`個別指定とは別）
+2. `src/docs/legacy-app-patch.private.md`を新設して本文を書く（`TODO.private.md`は
+   Marketplace交渉ログなので同居させない）
+3. `git status`で追跡対象に出ていないことを確認
+
+公開側（本ファイル）には「秘匿の限界は`legacy-app-patch.private.md`参照」のポインタ1行のみ置く。
+
+### 実装順序（このまま進める）
+
+1. ✅ スパイク①②（Tauri起動確認・フッタ追記の安全性確認）完了
+2. カードUI雛形（ダミーデータ）をTauriで実装・表示確認 ← **次はここ**
+3. バックエンドコマンド（`inspect_app`等）を実装し実データで配線（未インストールは非表示）
+4. マニフェスト取得・状態判定
+5. 【更新】ボタン→進捗→自動で開く
+6. インストール終了検知と【再確認】
+7. `genLegacyPatch.ts`・`patch_gen_gui`側の変更
+8. ドキュメント更新（非公開メモ含む）・アイコン差し替え
+9. Windows実機検証を blues-sync 経由で依頼
 
 ---
 

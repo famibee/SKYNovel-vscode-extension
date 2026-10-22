@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>アップデートのご案内</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<header>
+		<h1>アップデートのご案内</h1>
+		<p class="sub">インストール済みのアプリを確認しています。</p>
+	</header>
+
+	<main>
+		<section id="cards"></section>
+		<p id="emptyNotice" class="empty-notice" hidden>インストール済みのアプリが見つかりませんでした。</p>
+	</main>
+
+	<template id="tmplCard">
+		<div class="app-card" data-state="">
+			<div class="app-card-icon">
+				<img class="appIcon" src="" alt="" hidden />
+			</div>
+			<div class="app-card-name"></div>
+			<div class="app-card-version"></div>
+			<div class="app-card-status">
+				<span class="spinner" hidden></span>
+				<span class="statusBadge"></span>
+			</div>
+			<button type="button" class="btnAction" hidden></button>
+		</div>
+	</template>
+
+	<script src="app.js"></script>
+</body>
+</html>

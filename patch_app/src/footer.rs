@@ -13,7 +13,7 @@ const MAGIC: &[u8; 8] = b"SNLPATCH";
 // 1アプリ分の設定。配布物には複数個（Config = Vec<AppConfig>）を埋め込める
 // （2026-09-14: 複数ver・複数アプリを1本の実行ファイルで扱えるようにする対応。
 // 生成側 genLegacyPatch.ts も同時期にJSON配列を書き出す方式へ変更済み）
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
 	#[serde(rename = "appName")]
 	pub app_name: String,

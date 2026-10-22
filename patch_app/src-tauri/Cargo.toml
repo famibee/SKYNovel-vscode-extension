@@ -1,0 +1,36 @@
+[package]
+name = "sn_legacy_patch"
+version = "0.1.0"
+description = "過去アプリ向けパッチ配布（購入者チェック付き）のランチャーUI本体"
+authors = ["Famibee"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+# sn_legacy_patch_core（判定ロジック。asar/checksum/detect/dialog/download/footer/inspect）を
+# path依存で参照する。tauri-plugin-dialogは意図的に追加しない（§2「バックエンド」参照：
+# プレイヤー向け配布物として依存・権限を絞り、②フォールバックのファイル選択は
+# 既存のdialog.rs（osascript/vbs方式・実機検証済み）をそのまま使う）
+sn_legacy_patch_core = { path = ".." }
+
+[profile.release]
+opt-level = "s"	# 常駐UIの体感速度を優先（egui版での実測知見を踏襲。legacy-app-patch.md参照）
+lto = true
+codegen-units = 1
+strip = true
+# ワーカースレッドのpanicでプロセス全体が落ちるのを避ける（egui版での判断を踏襲）
+panic = "unwind"

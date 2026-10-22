@@ -1,0 +1,142 @@
+:root {
+	--fg: #1a1a1a;
+	--bg: #f2f2f2;
+	--card-bg: #ffffff;
+	--card-border: #ddd;
+	--badge-ok: #2e7d32;
+	--badge-warn: #b26a00;
+	--badge-error: #c62828;
+	--accent: #1565c0;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--fg: #e8e8e8;
+		--bg: #1e1e1e;
+		--card-bg: #2a2a2a;
+		--card-border: #444;
+		--badge-ok: #66bb6a;
+		--badge-warn: #ffb74d;
+		--badge-error: #ef5350;
+		--accent: #64b5f6;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	padding: 20px;
+	font-family: -apple-system, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+	color: var(--fg);
+	background: var(--bg);
+}
+
+header h1 {
+	margin: 0 0 4px;
+	font-size: 18px;
+}
+header .sub {
+	margin: 0 0 16px;
+	font-size: 13px;
+	opacity: 0.7;
+}
+
+#cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 16px;
+}
+
+.app-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: 6px;
+	padding: 16px 12px;
+	border: 1px solid var(--card-border);
+	border-radius: 12px;
+	background: var(--card-bg);
+}
+
+.app-card-icon {
+	width: 72px;
+	height: 72px;
+	border-radius: 14px;
+	background: rgba(128, 128, 128, 0.15);
+}
+.app-card-icon img {
+	width: 100%;
+	height: 100%;
+	border-radius: 14px;
+}
+
+.app-card-name {
+	font-weight: 600;
+	font-size: 14px;
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.app-card-version {
+	font-size: 11px;
+	opacity: 0.6;
+}
+.app-card-status {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	font-size: 12px;
+	min-height: 16px;
+}
+
+.statusBadge.badge-ok {
+	color: var(--badge-ok);
+}
+.statusBadge.badge-warn {
+	color: var(--badge-warn);
+}
+.statusBadge.badge-error {
+	color: var(--badge-error);
+}
+
+.spinner {
+	width: 12px;
+	height: 12px;
+	border: 2px solid rgba(128, 128, 128, 0.3);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	display: inline-block;
+	animation: spin 0.8s linear infinite;
+}
+.spinner[hidden] {
+	display: none;
+}
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+.btnAction {
+	margin-top: 4px;
+	width: 100%;
+	font-size: 12px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	border: 1px solid var(--accent);
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+}
+.btnAction:hover {
+	background: var(--accent);
+	color: #fff;
+}
+
+.empty-notice {
+	font-size: 13px;
+	opacity: 0.7;
+}

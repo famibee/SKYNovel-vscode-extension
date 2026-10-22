@@ -127,9 +127,12 @@ pub fn extract_by_basename(archive_path: &Path, basename: &str) -> Result<Vec<u8
 // テスト用：本物と同じバイナリレイアウトの asar を組み立てる（フィクスチャ）。
 // 実機の asar（electron-builder製）で実バイト列を確認して判明した二重入れ子の
 // Pickle構造を再現する（2026-09-13・実地検証。parse_header() のコメント参照）。
-// main.rs の process_app() テストからも使うため pub(crate)（2026-09-14）
-#[cfg(test)]
-pub(crate) fn build_fake_asar(header_json: &str, file_bodies: &[u8]) -> Vec<u8> {
+// 元はテスト専用（pub(crate)）だったが、ランチャーUIの開発用フィクスチャ
+// （src/ui/mod.rs の dev_fixture()。SN_LAUNCHER_DEV_FIXTURE=1時のみ使用）からも
+// 呼ぶためpub化し、debug_assertions時も使えるようにした（2026-10-22）。
+// release（debug_assertions無効）では引き続きコンパイル対象外
+#[cfg(any(test, debug_assertions))]
+pub fn build_fake_asar(header_json: &str, file_bodies: &[u8]) -> Vec<u8> {
 	let json_bytes = header_json.as_bytes();
 
 	// もっとも内側：[4B: str_len][json]（+4バイト境界パディング）

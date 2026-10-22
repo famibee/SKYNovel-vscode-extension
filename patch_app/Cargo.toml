@@ -1,45 +1,28 @@
 [package]
-name = "sn_legacy_patch"
+name = "sn_legacy_patch_core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "過去アプリ向けパッチ配布（購入者チェック付き）の判定ロジック。詳細は sn_extension の src/docs/legacy-app-patch.md 参照"
 publish = false
 
+# 2026-10-22：GUIはTauri v2に決定（src-tauri/・ui/）。このCargo.tomlはUI非依存の判定ロジック
+# （sn_legacy_patch_core）のみを持つlibクレートで、src-tauri側からpath依存で参照される。
+# 経緯：最初egui（eframe）で着手したが、WebView非依存のメリットに対して実装工数が見合わない
+# という指摘を受けTauriへ乗り換えた（legacy-app-patch.md参照）。[[bin]]・eframe/image依存は
+# このため削除済み
 [lib]
 name = "sn_legacy_patch_core"
 path = "src/lib.rs"
-
-[[bin]]
-name = "sn_legacy_patch"
-path = "src/main.rs"
 
 [dependencies]
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# ランチャーUI（2026-10-22〜。artcraft-launcher風のカード表示化。legacy-app-patch.md参照）。
-# WebView依存（Tauri等）を避け、egui（eframe）をネイティブGUIとして採用。
-# default-featuresは落とし、サイズ優先で glow バックエンドのみ・アクセシビリティ等は積まない
-# （wgpuが既定featureに入っており、サイズ優先のこのプロジェクトの方針と合わないため）
-# system_fonts（OSの日本語フォントを自動検出して使う egui_system_font_provider 経由の
-# 仕組み）は0.37.0で新規追加・0.36系には無いことを確認済み（2026-10-22、crates.io調査）。
-# 自前でOSのフォントパス・.ttcインデックスを解析するより保守コストが低いため0.37.0を採用
-# （公開1週間と日は浅いが、実機で豆腐文字を確認した上での判断）
-eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "system_fonts"] }
-# カードのアイコン（PNG）デコード用。eframe自体がimage(features=["png"])を無条件で
-# 既に引いているため（crates.io依存一覧で確認・2026-10-22）、別にpng crateを足すと
-# デコーダが二重に入る。eframeと同じバージョン・featureで揃えて追加コストを0にする
-image = { version = "0.25.6", default-features = false, features = ["png"] }
-
 [profile.release]
-opt-level = "s"	# "z"から変更（2026-10-22）。常駐UIのテッセレーション・ラスタライズの
-			# 体感速度を優先。実測して"z"/2との差を再検討する
+opt-level = "z"	# サイズ優先（同梱前提のため）
 lto = true
 codegen-units = 1
 strip = true
-# panic="abort"から変更（2026-10-22）。ワーカースレッドのpanicでプロセス全体が
-# 落ちるのを避ける（例：壊れたアイコンPNG1枚でランチャー全体が終了するのは
-# 許容できない）。unwindなら1アプリ分の失敗にcatch_unwindで閉じ込められる
-panic = "unwind"
+panic = "abort"

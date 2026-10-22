@@ -15,6 +15,7 @@ pub mod detect;
 pub mod dialog;
 pub mod download;
 pub mod footer;
+pub mod inspect;
 
 use std::env;
 

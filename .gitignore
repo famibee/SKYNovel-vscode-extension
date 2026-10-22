@@ -14,9 +14,12 @@ dist/*.tsbuildinfo
 
 /server/node_modules/
 
-# Rust（過去アプリ向けパッチ配布アプリの雛形。src/docs/legacy-app-patch.md 参照）
+# Rust（過去アプリ向けパッチ配布アプリ。src/docs/legacy-app-patch.md 参照）
 # Cargo.lock はバイナリ crate なのでコミットする（再現ビルドのため。ライブラリとは逆の慣習）
 /patch_app/target/
+# 2026-10-22〜：配布物本体はTauri v2（src-tauri/）。GUIをegui→Tauriへ乗り換えた経緯も同docs参照
+/patch_app/src-tauri/target/
+/patch_app/src-tauri/gen/schemas/
 
 # パッチ生成ツール（試作単体アプリ。Tauri）
 /patch_gen_gui/src-tauri/target/
