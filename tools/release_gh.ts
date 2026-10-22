@@ -18,11 +18,22 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 
-const oPkg = <{version: string, name: string}>
+const oPkg = <{version: string, name: string, repository: {url: string}}>
 	JSON.parse(readFileSync('package.json', {encoding: 'utf8'}));
 const {version, name} = oPkg;
 const tag = `v${version}`;
 const fnVsix = `${name}-${version}.vsix`;
+
+// このリポジトリには sync（blues-sync、Win↔mac用）など origin 以外の remote も
+// 登録されているため、gh が「どれが対象か」を自分で決められない
+// （"No default remote repository has been set"）。package.json の repository.url
+// を正とし、毎回 --repo で明示する
+const mRepo = /github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/.exec(oPkg.repository.url);
+if (! mRepo) {
+	console.error(`✗ package.json の repository.url から GitHub リポジトリ名を取り出せません： ${oPkg.repository.url}`);
+	process.exit(1);
+}
+const repoSlug = mRepo[1] ?? '';
 
 // 作業ツリーが汚れていないか（vsix は作業ツリーから作られるため、
 // 未コミットの変更が残っていると、コミットに入っていない中身を公開してしまう）
@@ -69,15 +80,15 @@ const notes = `${body}\n\n**SHA256**: \`${hash}\``;
 const [, minorStr] = version.split('.');
 const isPrerelease = Number(minorStr) % 2 === 1;
 
-const args = ['release', 'create', tag, fnVsix, '--title', title, '--notes', notes];
+const args = ['release', 'create', tag, fnVsix, '--repo', repoSlug, '--title', title, '--notes', notes];
 if (isPrerelease) args.push('--prerelease');
 
-console.log(`gh ${args.slice(0, 4).join(' ')} ...${isPrerelease ? ' --prerelease' : ''}`);
+console.log(`gh ${args.slice(0, 6).join(' ')} ...${isPrerelease ? ' --prerelease' : ''}`);
 execFileSync('gh', args, {stdio: 'inherit'});
 
 // アップロードされた digest とローカル SHA256 の突き合わせ（release.md §SHA256 の確認手順）
 const uploaded = <{assets?: {name: string, digest?: string}[]}>JSON.parse(
-	execFileSync('gh', ['api', `repos/${execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], {encoding: 'utf8'}).trim()}/releases/tags/${tag}`], {encoding: 'utf8'}),
+	execFileSync('gh', ['api', `repos/${repoSlug}/releases/tags/${tag}`], {encoding: 'utf8'}),
 );
 const asset = uploaded.assets?.find(a=> a.name === fnVsix);
 if (asset?.digest !== `sha256:${hash}`) {
