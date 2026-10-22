@@ -82,6 +82,7 @@ type T_ENV = {
 	icon	: string;	// 確認中の表示に戻す時に使う
 }
 type T_H_ENV = {
+	EXT_VER			: T_ENV;
 	NODE			: T_ENV;
 	NPM				: T_ENV;
 	BUN				: T_ENV;
@@ -100,6 +101,8 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 
 		ActivityBar.#hEnv = <T_H_ENV>Object.fromEntries(
 			(<T_ENV_SRC[]>[
+				{nm: 'EXT_VER',
+					icon: 'plugin',			label: '拡張機能本体'},
 				{nm: 'NODE',
 					icon: 'node-js-brands',	label: 'Node.js'},
 				{nm: 'NPM',
@@ -160,6 +163,9 @@ export class ActivityBar implements TreeDataProvider<TreeItem> {
 				commands.registerCommand('skynovel.TempWizard', ()=> this.#openTempWizard()),
 				commands.registerCommand('skynovel.refreshEnv', ()=> this.#refreshEnv()),	// refreshボタン
 				commands.registerCommand('skynovel.dlNode', ()=> this.#openEnvInfo()),
+				commands.registerCommand('skynovel.dlExtVsix', ()=> {
+					if (ActivityBar.#urlExtVsixNew) void env.openExternal(Uri.parse(ActivityBar.#urlExtVsixNew));
+				}),
 			);
 			// ここまでで利用者はツリーもコマンドも使える（§4.5 起動時間の実測）
 			traceMs('起動.操作可能まで.ms', performance.now() - T_BOOT);
@@ -418,46 +424,86 @@ ${is_win ?'\n実行後、pyftsubset を見つけられるよう VSCode ターミ
 	//MARK: 拡張機能自身の更新確認
 	/**
 	 * 拡張機能の新版が出ていたら通知する。**通知のみで、取得もインストールもしない**
-	 * （README・TODO §5 の方針）。
+	 * （README・TODO §5 の方針）。vsix の直接 DL リンクをボタンに出すが、
+	 * 開くのはブラウザでのダウンロードで、拡張機能自身がファイルを取得するわけではない。
 	 * Marketplace 配布が止まっている間、vsix で入れた拡張機能は VSCode が
-	 * 自動更新しないため、これが唯一の告知手段になる
+	 * 自動更新しないため、これが唯一の告知手段になる。
+	 *
+	 * 同じ結果を【開発環境】ツリーの先頭（`EXT_VER`）にも出す。通知は見逃せば
+	 * 消えるが、ツリーは次に開いた時も見える
 	 */
+	static #urlExtVsixNew: string | undefined;
 	async #chkLastExtVer() {
-		if (! workspace.getConfiguration().get<boolean>(CFG_CHK_EXT_VER, true)) return;
-
+		const tiExt = ActivityBar.#hEnv.EXT_VER.ti;
 		const verNow = (<T_PKG_JSON>this.ctx.extension.packageJSON).version;
+		tiExt.description = `-- v${verNow} 確認中…`;
+		this.#onDidChangeTreeData.fire(tiExt);
+
+		if (! workspace.getConfiguration().get<boolean>(CFG_CHK_EXT_VER, true)) {
+			tiExt.description = `-- v${verNow}（更新確認オフ）`;
+			this.#onDidChangeTreeData.fire(tiExt);
+			return;
+		}
+
 		try {
 			const res = await fetch(URL_EXT_LATEST, {
 				headers: {accept: 'application/vnd.github+json'},
 			});
-			if (! res.ok) return;	// レート制限（未認証は60回/時）等。黙って諦める
+			if (! res.ok) {	// レート制限（未認証は60回/時）等。黙って諦める
+				tiExt.description = `-- v${verNow}（確認失敗）`;
+				this.#onDidChangeTreeData.fire(tiExt);
+				return;
+			}
 
-			const {tag_name} = <{tag_name?: string}>await res.json();
-			if (! tag_name) return;
+			const {tag_name, assets} = <{tag_name?: string; assets?: {name: string; browser_download_url: string}[]}>await res.json();
+			if (! tag_name) {
+				tiExt.description = `-- v${verNow}（確認失敗）`;
+				this.#onDidChangeTreeData.fire(tiExt);
+				return;
+			}
 
 			const verNew = tag_name.replace(/^v/, '');
-			if (verNum(verNew) <= verNum(verNow)) return;
+			if (verNum(verNew) <= verNum(verNow)) {
+				tiExt.description = `-- v${verNow}（最新）`;
+				this.#onDidChangeTreeData.fire(tiExt);
+				return;
+			}
+
+			// GitHub Releases の Assets から vsix 本体の直接 URL を探す。
+			// リリースページ経由（スクロールして Assets を探してクリック）より1手少ない
+			const urlVsix = assets?.find(({name})=> name.endsWith('.vsix'))?.browser_download_url;
+			ActivityBar.#urlExtVsixNew = urlVsix;
+
+			tiExt.description = `-- v${verNow} → v${verNew} あり`;
+			if (urlVsix) tiExt.contextValue = 'extNewVer';	// view/item/context の inline ボタン表示に使う
+			this.#onDidChangeTreeData.fire(tiExt);
 
 			// 一度応答した版は繰り返し知らせない
 			if (this.ctx.globalState.get<string>(KEY_SKIP_EXT_VER) === verNew) return;
 
-			const OPEN = 'リリースページを開く';
+			const DL = 'vsixをダウンロード';
+			const OPEN = 'リリースノートを見る';
 			const STOP = '今後知らせない';
 			const a = await window.showInformationMessage(
 				`SKYNovel 拡張機能の新版 v${verNew} があります（お使いのものは v${verNow}）。`
 				+ 'Marketplace が利用できないため、自動では更新されません。',
-				OPEN, STOP,
+				...(urlVsix ? [DL, OPEN, STOP] : [OPEN, STOP]),
 			);
 			// ボタンを押さずに閉じた場合は記録しない。見逃した人に次回も知らせる
 			// （これが唯一の告知手段なので）。うるさい場合は STOP で止められる
 			if (! a) return;
 			await this.ctx.globalState.update(KEY_SKIP_EXT_VER, verNew);
 
-			if (a === OPEN) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
+			if (a === DL && urlVsix) await env.openExternal(Uri.parse(urlVsix));
+			else if (a === OPEN) await env.openExternal(Uri.parse(URL_EXT_RELEASES));
 			else await workspace.getConfiguration()
 				.update(CFG_CHK_EXT_VER, false, ConfigurationTarget.Global);
 		}
-		catch (e: unknown) {console.error('fn:ActivityBar.ts #chkLastExtVer %o', e)}
+		catch (e: unknown) {
+			console.error('fn:ActivityBar.ts #chkLastExtVer %o', e);
+			tiExt.description = `-- v${verNow}（確認失敗）`;
+			this.#onDidChangeTreeData.fire(tiExt);
+		}
 	}
 
 	//MARK: ネットの更新確認

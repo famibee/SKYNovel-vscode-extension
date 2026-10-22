@@ -16,6 +16,17 @@ BlueSNovel / SKYNovel（ノベルゲームエンジン）向けの VSCode 拡張
 [CHANGELOG.md](CHANGELOG.md)
 
 ---
+## Install / インストール
+
+**Marketplace is currently unavailable.** Download the latest `.vsix` from [GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases), then in VSCode: Extensions view → `...` menu → **Install from VSIX...** → select the downloaded file.
+
+⚠️ Extensions installed this way are **not auto-updated** by VSCode. This extension checks GitHub Releases on startup and, when a new version is available, shows a notification with a **"Download vsix"** button (opens the file in your browser — it never downloads or installs anything by itself). Click through the notification, or revisit the Releases page yourself from time to time.
+
+**Marketplace は現在利用できません。** [GitHub Releases](https://github.com/famibee/bluesnovel-vsce/releases) から最新の `.vsix` をダウンロードし、VSCode の拡張機能ビュー → `...` メニュー → **「VSIX からのインストール...」** でそのファイルを選んでください。
+
+⚠️ この方法で入れた拡張機能は、VSCode による**自動更新の対象外**になります。この拡張機能は起動時に GitHub Releases を確認し、新版があれば**「vsixをダウンロード」ボタン付きの通知**を出します（ブラウザでダウンロードが開くだけで、**取得もインストールも自動では行いません**）。通知をクリックするか、ご自身でときどき Releases ページを見に行ってください。
+
+---
 ## What this extension runs on your machine / この拡張機能がユーザー環境で実行するもの
 
 This extension drives your project's toolchain. Everything below runs as a **visible VSCode task or terminal**, and nothing is installed silently.

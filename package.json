@@ -160,6 +160,14 @@
 				}
 			},
 			{
+				"command": "skynovel.dlExtVsix",
+				"title": "Download vsix",
+				"icon": {
+					"light": "res/light/download.svg",
+					"dark": "res/dark/download.svg"
+				}
+			},
+			{
 				"command": "skynovel.openReferencePallet",
 				"title": "%skynovel.openReferencePallet.title%",
 				"category": "SKYNovel"
@@ -483,6 +491,11 @@
 					"group": "inline",
 					"command": "skynovel.dlNode",
 					"when": "view == skynovel-dev && viewItem == 'Node.js'"
+				},
+				{
+					"group": "inline",
+					"command": "skynovel.dlExtVsix",
+					"when": "view == skynovel-dev && viewItem == 'extNewVer'"
 				},
 				{
 					"group": "inline",
