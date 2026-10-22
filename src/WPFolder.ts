@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-import {foldProc, repWvUri, normFp, isUnderPath} from './CmnLib';
+import {escHtml, foldProc, repWvUri, normFp, isUnderPath} from './CmnLib';
 import {getNonce} from './ActivityBar';
 import {SEARCH_PATH_ARG_EXT} from './ConfigBase';
 import type {PrjCmn} from './PrjCmn';
@@ -94,13 +94,19 @@ export class WPFolder {
 			// Uri.file() 往復での再正規化は不要（src/docs/build.md §3.10）
 			const fp2 = vfp2;
 			const pp2 = this.pc.diff.fp2pp(fp2);
+			// nm（ファイル名）・pp2（相対パス）はプロジェクト内の実ファイル由来で、
+			// 利用者が決めた文字列が含まれ得る。webview へ innerHTML で渡すので
+			// エスケープ必須（CodeQL js/xss 対応）。pathWp は VSCode が生成する
+			// webview URI なので対象外
+			const nmEsc = escHtml(nm);
+			const pp2Esc = escHtml(pp2);
 			if (this.#REG_MOV.test(fp2)) {	// GrpよりMovを先に
 				htm +=
 `<div class="col pe-0">
 	<div class="card text-bg-secondary">
-		<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${pathWp}${pp2}" class="card-img-top"></video>
+		<video controls controlsList="nodownload" playsinline preload="metadata" class="w-100" src="${pathWp}${pp2Esc}" class="card-img-top"></video>
 		<div class="card-body">
-			<a href="${pathWp}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
+			<a href="${pathWp}${pp2Esc}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nmEsc}</a>
 		</div>
 	</div>
 </div>`;
@@ -110,7 +116,7 @@ export class WPFolder {
 			if (this.#REG_GRP.test(pp2)) {
 				htm +=
 `<div class="col pe-0">
-	<img loading="lazy" src="${pathWp}${pp2}" title="${nm}"/>
+	<img loading="lazy" src="${pathWp}${pp2Esc}" title="${nmEsc}"/>
 </div>`;
 				return;
 			}
@@ -119,9 +125,9 @@ export class WPFolder {
 				htm +=
 `<div class="col pe-0">
 	<div class="card text-bg-secondary">
-		<audio controls src="${pathWp}${pp2}" class="card-img-top"></audio>
+		<audio controls src="${pathWp}${pp2Esc}" class="card-img-top"></audio>
 		<div class="card-body">
-			<a href="${pathWp}${pp2}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nm}</a>
+			<a href="${pathWp}${pp2Esc}" title="エディタにドラッグできます" class="btn btn-primary" title="エディタにドラッグできます">${nmEsc}</a>
 		</div>
 	</div>
 </div>`;
