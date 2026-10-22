@@ -9,7 +9,7 @@
 //	version:patch 等で release_chk まで終え、コミット・push 済みの状態で実行する。
 //	CHANGELOG.md の該当バージョンのセクションをそのままリリースノート本文にし、
 //	vsix の SHA256 を添えて `gh release create` を呼ぶ。
-//	タグは vX.Y.Z、pre-release は公式の慣習（奇数マイナー＝先行版）で自動判定。
+//	タグは vX.Y.Z。pre-release は既定オフ、`-- --prerelease` で明示指定。
 //
 //	コミット・push を飛ばして実行すると、作業ツリーの vsix と公開タグの中身が
 //	ずれるため、未コミット・未 push なら止める
@@ -58,6 +58,18 @@ if (ahead !== '0') {
 	process.exit(1);
 }
 
+// このタグが既に公開済みか（version:patch を忘れたまま実行した等の正常にありうる
+// 操作ミス）。ここで弾かずに gh release create へ進ませると、同じ失敗が
+// 「生の Node.js 例外・スタックトレース」として出て、スクリプトのバグに見えてしまう
+try {
+	execFileSync('gh', ['release', 'view', tag, '--repo', repoSlug], {stdio: 'pipe'});
+	console.error(`✗ ${tag} は既に公開済みです： https://github.com/${repoSlug}/releases/tag/${tag}
+    バージョンを上げ忘れていないか確認すること（CHANGELOG.md に追記 → bun run version:patch）`);
+	process.exit(1);
+} catch {
+	// 0 件（exit code 非0）なら、まだ未公開ということなので続けてよい
+}
+
 // CHANGELOG.md から該当バージョンのセクション（次の `## ` 見出し手前まで）を抽出。
 // ⚠️ 正規表現の `(?=\n## |$)` は使わない。`m` フラグの `$` は「各行末」にマッチするため、
 // 見出し直後の空行で非貪欲マッチが早期に止まり、本文が空になる不具合を一度踏んだ
@@ -100,6 +112,12 @@ if (isPrerelease) args.push('--prerelease');
 console.log(`gh ${args.slice(0, 6).join(' ')} ...${isPrerelease ? ' --prerelease' : ''}`);
 try {
 	execFileSync('gh', args, {stdio: 'inherit'});
+} catch {
+	// gh 自体のエラー出力は stdio: inherit で既に画面に出ている。ここでは
+	// Node.js 側の生スタックトレースを重ねて「バグに見える」ことだけを避ける
+	rmSync(fpNotes, {force: true});
+	console.error('\n✗ gh release create に失敗しました（上の gh の出力を確認すること）');
+	process.exit(1);
 } finally {
 	rmSync(fpNotes, {force: true});
 }
