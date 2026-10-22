@@ -65,7 +65,7 @@ SKYNovel の全タグ（114件）の仕様。**タグの引数・既定値・値
 | `bun run chk:types` | 型検査のみ（`tsc -p tsconfig.chk.json --noEmit`） |
 | `bun run test:int` | 統合テスト。VSCode を起動して `vscode` API を叩く |
 | `bun run test:ui` | UI テスト。Playwright で画面を操作する |
-| `bun run release` | 公開前チェック。vsix を作り SHA256 まで出す（**公開はしない**） |
+| `bun run release_chk` | 公開前チェック。vsix を作り SHA256 まで出す（**公開はしない**） |
 
 `test:ui` が `bun` ではなく `node test/ui/runUI.mjs` なのは、Playwright を bun で
 動かすとタイムアウトするため。

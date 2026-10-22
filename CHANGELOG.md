@@ -1,3 +1,8 @@
+## v4.35.2
+
+- feat(activitybar): 拡張機能本体のツリー項目にGitHubリポジトリへの常時リンクボタンを追加
+- feat(release): リリーススクリプトを整理し、GitHub Release作成まで自動化
+
 ## v4.35.1
 
 Marketplace が利用できない間の配布導線を強化。

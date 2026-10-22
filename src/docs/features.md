@@ -84,7 +84,7 @@
 
 - ✅ **同梱物の軽量化【完了・2026-07-28〜29】vsix を約4割減らした**
 
-	削ったのは**次の3つだけ**（現在のサイズは `bun run release` が出す）：
+	削ったのは**次の3つだけ**（現在のサイズは `bun run release_chk` が出す）：
 
 	- **FontAwesome 1.17MB を削除**し、使う字形だけ SVG で持つ（[src/faIcon.ts](../faIcon.ts)、パス計約18KB）。
 	`views/lib/fontawesome/` と `views/lib/webfonts/` ごと削除

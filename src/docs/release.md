@@ -11,7 +11,7 @@
 
 ## 4. 公開前チェック【自動化済み】
 
-`bun run release`（[tools/release_chk.ts](../../tools/release_chk.ts)）で、ビルドと以下のチェックまで自動。
+`bun run release_chk`（[tools/release_chk.ts](../../tools/release_chk.ts)）で、ビルドと以下のチェックまで自動。
 **公開（vsce publish）は手動のまま**（PAT を CI に置かない方針）。
 
 1. exec/spawn 系でパッケージマネージャを叩く箇所が許可リストに無ければ落とす
@@ -59,8 +59,9 @@
 | `bun run chk:types` | 型検査のみ（`tsc -p tsconfig.chk.json --noEmit`、src + server）。リリース経路ではこれが唯一の型検査 |
 | `bun run lint` | ESLint を**全ファイルへ**（約10秒）。**ESLint 拡張機能は開いているファイルしか見ない**ので、これが無いと閉じたファイルの lint エラーに気づけなかった。`vscode:prepublish` からも呼ぶ |
 | `bun test` | テスト |
-| `bun run version:patch` | package.json のバージョンだけ上げる（`:minor` / `:major` も同様）。git タグ・コミットは作らない（`-no-git-tag-version` はダッシュ1個だが npm が解釈してくれることを実測確認済み） |
-| **`bun run release`** | **公開前チェック6項目 ＋ vsix 生成**（[tools/release_chk.ts](../../tools/release_chk.ts)）。リリース時はこれを使う |
+| `bun run version:patch` | package.json のバージョンを上げた後、続けて `release_chk` まで自動で走る（`:minor` / `:major` も同様）。git タグ・コミットは作らない（`-no-git-tag-version` はダッシュ1個だが npm が解釈してくれることを実測確認済み） |
+| `bun run release_chk` | **公開前チェック6項目 ＋ vsix 生成**（[tools/release_chk.ts](../../tools/release_chk.ts)）。`version:patch` 等から自動で呼ばれるので単独で叩く機会は少ない |
+| **`bun run release`** | **GitHub Release の作成**（[tools/release_gh.ts](../../tools/release_gh.ts)）。CHANGELOG からノート本文を生成し、vsix を添えて `gh release create` を呼ぶ。未コミット・未 push なら実行前に止まる |
 | `bun run pack_only` | チェックなしで vsix だけ作る。切り分け・急ぎのとき用 |
 | `bun run update` | 依存の一括更新（本体 + server + グローバルの ncu） |
 | `bun run rebuild` | node_modules 作り直し |
@@ -68,9 +69,10 @@
 
 ### ⚠️ 落とし穴
 
-- スクリプト名は `release`。**`publish` という名前にすると `bun publish`（bun 組み込みの npm レジストリ公開）と打ち間違えたときに事故る**ので避けている
-- `vsce publish` は使わない。PAT を置かない方針（公開は Web UI から手動）
-- `bun run release` が1件でも ✗ を出したら公開しない。✗ の内容は [tools/release_chk.ts](../../tools/release_chk.ts) の該当箇所にコメントで理由が書いてある
+- チェックのみで公開しないスクリプトは `release_chk` という名前にしている（旧名 `release` は「リリースする」と誤解されたため改名した）。**実際に GitHub Release を作る方を `release` という名前にした**ので、今度は名が体を表す
+- どちらも **`publish` という名前は避けている**。`bun publish`（bun 組み込みの npm レジストリ公開）と打ち間違えたときに事故るため
+- `vsce publish` は使わない。PAT を置かない方針（Marketplace への公開は Web UI から手動のまま。GitHub Release は `gh` のローカル認証を使うだけなので、PAT を CI に置く話とは別）
+- `bun run release_chk` が1件でも ✗ を出したら公開しない。✗ の内容は [tools/release_chk.ts](../../tools/release_chk.ts) の該当箇所にコメントで理由が書いてある
 - **ビルドは esbuild なので型を見ない。** 型検査は `vscode:prepublish` の `chk:types`（tsc）が担う。`pack_only` も prepublish 経由なので同じく通る
 - `dist/` と `views/*.js` は生成物。前者は git 管理下、後者は .gitignore 済み
 
@@ -80,25 +82,26 @@
 	`5.0.0-alpha.1` のような semver の pre-release タグは**使えない**。
 	公式の慣習に倣い **奇数マイナー＝先行版（alpha/beta）／偶数マイナー＝正式版**
 1. `CHANGELOG.md` の先頭に `## vX.Y.Z` を追記（ユーザー向けの文言で。内部的な chore も残す）
-2. `bun run version:patch`（CHANGELOG の見出しと package.json を一致させる）
-3. `bun run release` → **6項目すべて ✓** と、末尾の SHA256 を確認
-4. `git add -A && git commit -m "vX.Y.Z：..."` → `git push`
-	- **3 → 4 の順は必須。**`dist/` は git 管理下で、`bun run release`（中で
+2. `bun run version:patch` → CHANGELOG の見出しと package.json を一致させた後、
+	続けて `release_chk` まで自動で走る。**6項目すべて ✓** と、末尾の SHA256 を確認
+3. `git add -A && git commit -m "vX.Y.Z：..."` → `git push`
+	- **2 → 3 の順は必須。**`dist/` は git 管理下で、`release_chk`（中で
 	`vsce package` が走る）が dist を作り直すため、先にビルドしないとコミットに
 	正しい成果物が入らない。**vsix の方がコミットより時刻が古いのは正常**
 	- 大事なのは時刻の前後ではなく「**ビルドしてからコミットまでの間にソースを
 	触っていない**」こと。コミット後に `git status` がクリーンなら満たしている
 	（vsix は作業ツリーから作られるので、ツリー＝コミット内容なら vsix も一致する）
-5. GitHub Releases で新規リリース
+4. `bun run release`（[tools/release_gh.ts](../../tools/release_gh.ts)）→ GitHub Releases で新規リリース
+	- 未コミット・未 push なら実行前に止まる（vsix と公開タグの中身がずれるのを防ぐガード）
 	- タグ：`vX.Y.Z`（コミット後の master に付ける）
 	- 添付：`bluesnovel-X.Y.Z.vsix`（旧 `skynovel2-…`。改名済み）
-	- 本文：SHA256 を差し替える（未公開の原稿は §8.5）
-	- ⚠️ **先行版なら「Set as a pre-release」に必ずチェック。**
+	- タイトル・本文：`CHANGELOG.md` の該当セクションからそのまま生成（概要の最初の行をタイトルに）
+	- 本文末尾に SHA256 を自動で添える
+	- **先行版（奇数マイナー）は `--prerelease` を自動付与。**
 	`/releases/latest` は pre-release を除外するので、これで
-	**既存利用者に更新通知が飛ばない**（更新通知は latest しか見ない）。
-	チェックを忘れると、落ち着いていない版へ全員を誘導してしまう
-6. **アップロード後、GitHub が表示する digest と手元の SHA256 が一致するか確認**（下記）
-7. ブログで告知（[前回の記事](https://famibee.blog.fc2.com/blog-entry-980.html)の続報として）
+	**既存利用者に更新通知が飛ばない**（更新通知は latest しか見ない）
+	- アップロード後、GitHub 側の digest とローカル SHA256 を自動で突き合わせる（下記の確認を内包）
+5. ブログで告知（[前回の記事](https://famibee.blog.fc2.com/blog-entry-980.html)の続報として）
 
 ### SHA256 と GitHub の digest
 
@@ -107,7 +110,7 @@
 ブラウザから手でアップロードした場合も対象で、Releases の UI で各アセットの隣に出るほか、
 REST API（アセットの `digest` フィールド。値は `sha256:<hex>`）、GraphQL、`gh` CLI からも取れる。
 
-**それでも `bun run release` のローカル SHA256 は残す。** 用途が違うため：
+**それでも `bun run release_chk` のローカル SHA256 は残す。** 用途が違うため：
 
 - GitHub の digest は「**アップロードされた物**」のハッシュ。ローカルの値は
 「**自分がビルドした物**」のハッシュ。**両者を突き合わせて初めて**、

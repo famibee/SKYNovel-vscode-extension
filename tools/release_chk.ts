@@ -5,7 +5,7 @@
 	http://opensource.org/licenses/mit-license.php
 ** ***** END LICENSE BLOCK ***** */
 
-// 公開前チェック（bun run release）
+// 公開前チェック（bun run release_chk）
 //	1. ソース走査 …… 無断でパッケージマネージャを叩く箇所が増えていないか
 //	2. ビルド …… vsce package（prepublish で tsc の型検査 → esbuild）
 //	3. vsix 検査 …… 想定外のファイルが入っていないか・必要なファイルがあるか
