@@ -16,7 +16,9 @@
 
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 
 const oPkg = <{version: string, name: string, repository: {url: string}}>
 	JSON.parse(readFileSync('package.json', {encoding: 'utf8'}));
@@ -80,11 +82,21 @@ const notes = `${body}\n\n**SHA256**: \`${hash}\``;
 const [, minorStr] = version.split('.');
 const isPrerelease = Number(minorStr) % 2 === 1;
 
-const args = ['release', 'create', tag, fnVsix, '--repo', repoSlug, '--title', title, '--notes', notes];
+// notes を --notes に直接渡すと、本文が `-` で始まる箇条書きの場合（CHANGELOG の
+// 書式そのもの）、gh のフラグパーサーが次のオプションと誤認識して本文が消える。
+// --notes-file 経由にして回避する
+const fpNotes = join(tmpdir(), `release-notes-${tag}.md`);
+writeFileSync(fpNotes, notes, {encoding: 'utf8'});
+
+const args = ['release', 'create', tag, fnVsix, '--repo', repoSlug, '--title', title, '--notes-file', fpNotes];
 if (isPrerelease) args.push('--prerelease');
 
 console.log(`gh ${args.slice(0, 6).join(' ')} ...${isPrerelease ? ' --prerelease' : ''}`);
-execFileSync('gh', args, {stdio: 'inherit'});
+try {
+	execFileSync('gh', args, {stdio: 'inherit'});
+} finally {
+	rmSync(fpNotes, {force: true});
+}
 
 // アップロードされた digest とローカル SHA256 の突き合わせ（release.md §SHA256 の確認手順）
 const uploaded = <{assets?: {name: string, digest?: string}[]}>JSON.parse(
